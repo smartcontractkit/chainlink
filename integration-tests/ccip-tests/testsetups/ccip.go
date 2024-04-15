@@ -762,7 +762,8 @@ func CCIPDefaultTestSetUp(
 	chainByChainID := setUpArgs.CreateEnvironment(lggr, envName, reportPath)
 	// if test is run in remote runner, register a clean-up to copy the laneconfig file
 	if value, set := os.LookupEnv(config.EnvVarJobImage); set && value != "" &&
-		(setUpArgs.Env != nil && setUpArgs.Env.K8Env != nil) {
+		(setUpArgs.Env != nil && setUpArgs.Env.K8Env != nil) &&
+		pointer.GetBool(setUpArgs.Cfg.TestGroupInput.StoreLaneConfig) {
 		t.Cleanup(func() {
 			path := fmt.Sprintf("reports/%s/%s", reportPath, reportFile)
 			dir, err := os.Getwd()

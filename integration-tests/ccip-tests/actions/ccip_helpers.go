@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/AlekSi/pointer"
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -82,6 +83,7 @@ const (
 	TokenTransfer      string = "WithToken"
 
 	DataOnlyTransfer string = "WithoutToken"
+	CurrentVersion   string = "1.5.0-dev"
 )
 
 type CCIPTOMLEnv struct {
@@ -593,16 +595,19 @@ func (ccipModule *CCIPCommon) WriteLaneConfig(conf *laneconfig.LaneConfig) {
 		priceAggrs[k.Hex()] = v.ContractAddress.Hex()
 	}
 	conf.CommonContracts = laneconfig.CommonContracts{
-		FeeToken:           ccipModule.FeeToken.Address(),
-		BridgeTokens:       btAddresses,
-		BridgeTokenPools:   btpAddresses,
-		ARM:                ccipModule.ARMContract.Hex(),
-		Router:             ccipModule.Router.Address(),
-		PriceRegistry:      ccipModule.PriceRegistry.Address(),
-		PriceAggregators:   priceAggrs,
-		WrappedNative:      ccipModule.WrappedNative.Hex(),
-		Multicall:          ccipModule.MulticallContract.Hex(),
-		TokenAdminRegistry: ccipModule.TokenAdminRegistry.Address(),
+		FeeToken:         ccipModule.FeeToken.Address(),
+		BridgeTokens:     btAddresses,
+		BridgeTokenPools: btpAddresses,
+		ARM:              ccipModule.ARMContract.Hex(),
+		Router:           ccipModule.Router.Address(),
+		PriceRegistry:    ccipModule.PriceRegistry.Address(),
+		PriceAggregators: priceAggrs,
+		WrappedNative:    ccipModule.WrappedNative.Hex(),
+		Multicall:        ccipModule.MulticallContract.Hex(),
+	}
+	if ccipModule.TokenAdminRegistry != nil {
+		conf.CommonContracts.TokenAdminRegistry = ccipModule.TokenAdminRegistry.Address()
+		conf.CommonContracts.Version = CurrentVersion
 	}
 	if ccipModule.TokenTransmitter != nil {
 		conf.CommonContracts.TokenTransmitter = ccipModule.TokenTransmitter.ContractAddress.Hex()
@@ -629,6 +634,18 @@ func (ccipModule *CCIPCommon) AddPriceAggregatorToken(token common.Address, init
 		}
 	}
 	return nil
+}
+
+// NeedTokenAdminRegistry checks if token admin registry is needed for the current version of ccip
+// if the version is less than 1.5.0-dev, then token admin registry is not needed
+func (ccipModule *CCIPCommon) NeedTokenAdminRegistry(conf *laneconfig.LaneConfig) bool {
+	// if conf version is not set, then return false
+	if conf == nil || conf.Version == "" {
+		return false
+	}
+	currentSemver := semver.MustParse(CurrentVersion)
+	tokenAdminEnabledVersion := semver.MustParse("1.5.0-dev")
+	return currentSemver.Compare(tokenAdminEnabledVersion) >= 0
 }
 
 // DeployContracts deploys the contracts which are necessary in both source and dest chain
@@ -904,8 +921,9 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 	}
 
+	// if the version is after 1.4.0, we need to deploy TokenAdminRegistry
 	if ccipModule.TokenAdminRegistry == nil {
-		if ccipModule.ExistingDeployment {
+		if ccipModule.ExistingDeployment && ccipModule.NeedTokenAdminRegistry(conf) {
 			return fmt.Errorf("token admin registry contract address is not provided in lane config")
 		}
 		// deploy token admin registry

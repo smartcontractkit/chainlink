@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,8 +24,6 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -41,10 +40,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	type_and_version "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/type_and_version_interface_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -756,6 +757,31 @@ func (e *CCIPContractsDeployer) NewMockAggregator(addr common.Address) (*MockAgg
 		Instance:        ins,
 		ContractAddress: addr,
 	}, nil
+}
+
+func (e *CCIPContractsDeployer) TypeAndVersion(addr common.Address) (string, error) {
+	tv, err := type_and_version.NewTypeAndVersionInterface(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
+	if err != nil {
+		return "", err
+	}
+	tvStr, err := tv.TypeAndVersion(nil)
+	if err != nil {
+		return "", fmt.Errorf("error calling typeAndVersion on addr: %s %w", addr.Hex(), err)
+	}
+	log.Info().
+		Str("TypeAndVersion", tvStr).
+		Str("Contract Address", addr.Hex()).
+		Msg("TypeAndVersion")
+
+	_, versionStr, err := ccipconfig.ParseTypeAndVersion(tvStr)
+	if err != nil {
+		return versionStr, err
+	}
+	v, err := semver.NewVersion(versionStr)
+	if err != nil {
+		return "", fmt.Errorf("failed parsing version %s: %w", versionStr, err)
+	}
+	return v.String(), nil
 }
 
 var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
