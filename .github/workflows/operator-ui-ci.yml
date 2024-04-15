@@ -31,9 +31,10 @@ jobs:
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_CI_OPERATOR_UI_ACCESS_TOKEN_ISSUER_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
           role-duration-seconds: 3600
           role-session-name: operator-ui-ci.check-gql
-          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
 
       - name: Get Github Token
         id: get-gh-token
