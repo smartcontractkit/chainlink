@@ -28,13 +28,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -79,7 +79,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 		t.Run(tc.name, func(t *testing.T) {
 			ta, client := setupJobsControllerTests(t)
 
-			var address ethkey.EIP55Address
+			var address types.EIP55Address
 			if tc.taExists {
 				key, _ := cltest.MustInsertRandomKey(t, ta.KeyStore.Eth())
 				address = key.EIP55Address
@@ -191,7 +191,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, jb.OCROracleSpec.ContractConfigConfirmations, resource.OffChainReportingSpec.ContractConfigConfirmations)
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OCROracleSpec.ContractAddress)
+				require.Equal(t, types.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OCROracleSpec.ContractAddress)
 			},
 		},
 		{
@@ -221,13 +221,13 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
-				require.Equal(t, ethkey.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
-				require.Equal(t, ethkey.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
+				require.Equal(t, types.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
+				require.Equal(t, types.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
 				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
 
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, ethkey.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
-				require.Equal(t, ethkey.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
+				require.Equal(t, types.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
+				require.Equal(t, types.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
 			},
 		},
 		{
@@ -286,7 +286,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
+				require.Equal(t, types.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
 				require.Equal(t, jb.ExternalJobID.String(), nameAndExternalJobID)
 			},
 		},
@@ -336,7 +336,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 
 				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
 				assert.NotNil(t, jb.PipelineSpec.DotDagSource)
-				assert.Equal(t, ethkey.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
+				assert.Equal(t, types.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
 				assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
 				assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
 				assert.Equal(t, tomlutils.Float32(0.5), jb.FluxMonitorSpec.Threshold)
@@ -387,6 +387,76 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, jb.StreamID, resource.StreamID)
 			},
 		},
+		{
+			name: "workflow",
+			tomlTemplate: func(_ string) string {
+				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+				owner := "00000000000000000000000000000000000000aa"
+				workflow := `
+triggers:
+  - type: "mercury-trigger"
+    config:
+      feedIds:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000"
+        - "0x2222222222222222222200000000000000000000000000000000000000000000"
+        - "0x3333333333333333333300000000000000000000000000000000000000000000"
+
+consensus:
+  - type: "offchain_reporting"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - type: "write_polygon-testnet-mumbai"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+  - type: "write_ethereum-testnet-sepolia"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
+				return testspecs.GenerateWorkflowSpec(id, owner, workflow).Toml()
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
+				require.Equal(t, http.StatusOK, r.StatusCode)
+				resp := cltest.ParseResponseBody(t, r)
+				resource := presenters.JobResource{}
+				err := web.ParseJSONAPIResponse(resp, &resource)
+				require.NoError(t, err)
+
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.WorkflowSpec)
+
+				assert.Equal(t, jb.WorkflowSpec.Workflow, resource.WorkflowSpec.Workflow)
+				assert.Equal(t, jb.WorkflowSpec.WorkflowID, resource.WorkflowSpec.WorkflowID)
+				assert.Equal(t, jb.WorkflowSpec.WorkflowOwner, resource.WorkflowSpec.WorkflowOwner)
+			},
+		},
 	}
 	for _, tc := range tt {
 		c := tc
@@ -409,8 +479,8 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, app.Stop()) })
 
-	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient(nil)
 
@@ -549,8 +619,8 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient(nil)
 
@@ -613,8 +683,8 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(ctx))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient(nil)
 
@@ -682,8 +752,8 @@ func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job,
 }
 
 func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.QConfig) (b1, b2 string) {
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, cfg)
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, cfg)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 	return bridge.Name.String(), bridge2.Name.String()
 }
 
@@ -726,8 +796,8 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(ctx))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient(nil)
 

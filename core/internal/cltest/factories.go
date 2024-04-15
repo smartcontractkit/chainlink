@@ -23,6 +23,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -48,9 +50,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func NewEIP55Address() ethkey.EIP55Address {
+func NewEIP55Address() evmtypes.EIP55Address {
 	a := testutils.NewAddress()
-	e, err := ethkey.NewEIP55Address(a.Hex())
+	e, err := evmtypes.NewEIP55Address(a.Hex())
 	if err != nil {
 		panic(err)
 	}
@@ -97,10 +99,10 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 // MustCreateBridge creates a bridge
 // Be careful not to specify a name here unless you ABSOLUTELY need to
 // This is because name is a unique index and identical names used across transactional tests will lock/deadlock
-func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts, cfg pg.QConfig) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
+func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
 	bta, bt = NewBridgeType(t, opts)
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	err := orm.CreateBridgeType(bt)
+	orm := bridges.NewORM(db)
+	err := orm.CreateBridgeType(testutils.Context(t), bt)
 	require.NoError(t, err)
 	return bta, bt
 }
@@ -142,7 +144,7 @@ func NewEthTx(fromAddress common.Address) txmgr.Tx {
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          big.Int(assets.NewEthValue(142)),
-		FeeLimit:       uint32(1000000000),
+		FeeLimit:       uint64(1000000000),
 		State:          txmgrcommon.TxUnstarted,
 	}
 }
@@ -178,13 +180,14 @@ func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonc
 	etx.Sequence = &n
 	etx.State = txmgrcommon.TxUnconfirmed
 	etx.ChainID = chainID
-	require.NoError(t, txStore.InsertTx(&etx))
+	require.NoError(t, txStore.InsertTx(testutils.Context(t), &etx))
 	return etx
 }
 
 func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
+	ctx := testutils.Context(t)
 
 	tx := NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
@@ -192,8 +195,8 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
+	etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 	require.NoError(t, err)
 	return etx
 }
@@ -201,6 +204,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
 	timeNow := time.Now()
 	etx := NewEthTx(fromAddress)
+	ctx := testutils.Context(t)
 
 	etx.BroadcastAt = &timeNow
 	etx.InitialBroadcastAt = &timeNow
@@ -208,11 +212,11 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	etx.Sequence = &n
 	etx.State = txmgrcommon.TxConfirmed
 	etx.MinConfirmations.SetValid(6)
-	require.NoError(t, txStore.InsertTx(&etx))
+	require.NoError(t, txStore.InsertTx(ctx, &etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 	etx.TxAttempts = append(etx.TxAttempts, attempt)
 	return etx
 }
@@ -314,9 +318,9 @@ func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evmtypes.Head {
+func MustInsertHead(t *testing.T, db sqlutil.DataSource, number int64) evmtypes.Head {
 	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), 0, ubig.New(&FixtureChainID))
-	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
+	horm := headtracker.NewORM(FixtureChainID, db)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
 	require.NoError(t, err)
@@ -326,7 +330,7 @@ func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evm
 func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
-	addr, err := ethkey.NewEIP55Address(transmitterAddress.Hex())
+	addr, err := evmtypes.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
 	pipelineSpec := pipeline.Spec{}
@@ -350,7 +354,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 	return jb
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OCROracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress evmtypes.EIP55Address) job.OCROracleSpec {
 	t.Helper()
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
@@ -375,7 +379,7 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	return spec
 }
 
-func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
+func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from evmtypes.EIP55Address, contract evmtypes.EIP55Address) job.Job {
 	t.Helper()
 
 	var keeperSpec job.KeeperSpec
@@ -399,10 +403,11 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	cfg := configtest.NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, tlg, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, tlg, cfg.Database())
+	btORM := bridges.NewORM(db)
 	jrm := job.NewORM(db, prm, btORM, nil, tlg, cfg.Database())
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
+	jb.PipelineSpec.JobID = jb.ID
 	return jb
 }
 
@@ -411,22 +416,22 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
-	job := MustInsertKeeperJob(t, db, korm, from, contractAddress)
+	jb := MustInsertKeeperJob(t, db, korm, from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: blockCountPerTurn,
 		CheckGas:          150_000,
 		FromAddress:       from,
-		JobID:             job.ID,
+		JobID:             jb.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        numKeepers,
-		KeeperIndexMap: map[ethkey.EIP55Address]int32{
+		KeeperIndexMap: map[evmtypes.EIP55Address]int32{
 			from: keeperIndex,
 		},
 	}
 	err := korm.UpsertRegistry(&registry)
 	require.NoError(t, err)
-	return registry, job
+	return registry, jb
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, registry keeper.Registry) keeper.UpkeepRegistration {
@@ -448,20 +453,20 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, regi
 }
 
 func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,created_at) VALUES ($1, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
+	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
 	return run
 }
 
-func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus) (run pipeline.Run) {
+func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus, jobID int32) (run pipeline.Run) {
 	var finishedAt *time.Time
-	var outputs pipeline.JSONSerializable
+	var outputs jsonserializable.JSONSerializable
 	var allErrors pipeline.RunErrors
 	var fatalErrors pipeline.RunErrors
 	now := time.Now()
 	switch status {
 	case pipeline.RunStatusCompleted:
 		finishedAt = &now
-		outputs = pipeline.JSONSerializable{
+		outputs = jsonserializable.JSONSerializable{
 			Val:   "foo",
 			Valid: true,
 		}
@@ -474,7 +479,7 @@ func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID i
 	default:
 		t.Fatalf("unknown status: %s", status)
 	}
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING *`, status, pipelineSpecID, finishedAt, outputs, allErrors, fatalErrors))
+	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`, status, pipelineSpecID, jobID, finishedAt, outputs, allErrors, fatalErrors))
 	return run
 }
 
@@ -540,6 +545,7 @@ type ExternalInitiatorOpts struct {
 }
 
 func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts ExternalInitiatorOpts) (ei bridges.ExternalInitiator) {
+	ctx := testutils.Context(t)
 	var prefix string
 	if opts.NamePrefix != "" {
 		prefix = opts.NamePrefix
@@ -556,7 +562,7 @@ func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts Ext
 	hashedSecret, err := auth.HashedSecret(token, ei.Salt)
 	require.NoError(t, err)
 	ei.HashedSecret = hashedSecret
-	err = orm.CreateExternalInitiator(&ei)
+	err = orm.CreateExternalInitiator(ctx, &ei)
 	require.NoError(t, err)
 	return ei
 }

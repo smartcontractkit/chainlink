@@ -12,7 +12,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
+	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -46,7 +46,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				actives[id] = activeUpkeep{ID: idNum}
 			}
 
-			mht := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+			mht := htmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 
 			rg := &EvmRegistry{
 				HeadProvider: HeadProvider{
@@ -195,7 +195,7 @@ func TestPollLogs(t *testing.T) {
 
 			if test.LogsWithSigs != nil {
 				fc := test.LogsWithSigs
-				mp.On("LogsWithSigs", fc.InputStart, fc.InputEnd, upkeepStateEvents, test.Address, mock.Anything).Return(fc.OutputLogs, fc.OutputErr)
+				mp.On("LogsWithSigs", mock.Anything, fc.InputStart, fc.InputEnd, upkeepStateEvents, test.Address).Return(fc.OutputLogs, fc.OutputErr)
 			}
 
 			rg := &EvmRegistry{

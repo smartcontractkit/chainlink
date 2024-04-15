@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := chainlink
 
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
-VERSION = $(shell cat VERSION)
+VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
@@ -32,12 +32,14 @@ gomodtidy: ## Run go mod tidy on all modules.
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
 	cd ./integration-tests/load && go mod tidy
+	cd ./dashboard-lib && go mod tidy
+	cd ./charts/chainlink-cluster && go mod tidy
 
-.PHONY: godoc
-godoc: ## Install and run godoc
-	go install golang.org/x/tools/cmd/godoc@latest
-	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink/v2/
-	godoc -http=:6060
+.PHONY: docs
+docs: ## Install and run pkgsite to view Go docs
+	go install golang.org/x/pkgsite/cmd/pkgsite@latest
+	# http://localhost:8080/pkg/github.com/smartcontractkit/chainlink/v2/
+	pkgsite
 
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
@@ -54,10 +56,6 @@ chainlink-dev: ## Build a dev build of chainlink binary.
 .PHONY: chainlink-test
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
-
-.PHONY: chainlink-local-start
-chainlink-local-start:
-	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
 
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
@@ -90,6 +88,11 @@ abigen: ## Build & install abigen.
 .PHONY: generate
 generate: abigen codecgen mockery protoc ## Execute all go:generate commands.
 	go generate -x ./...
+	cd ./core/scripts && go generate -x ./...
+	cd ./integration-tests && go generate -x ./...
+	cd ./integration-tests/load && go generate -x ./...
+	cd ./dashboard-lib && go generate -x ./...
+	cd ./charts/chainlink-cluster && go generate -x ./...
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
@@ -115,6 +118,10 @@ presubmit: ## Format go files and imports.
 	goimports -w .
 	gofmt -w .
 	go mod tidy
+
+.PHONY: gomods
+gomods: ## Install gomods
+	go install github.com/jmank88/gomods@v0.1.0
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.

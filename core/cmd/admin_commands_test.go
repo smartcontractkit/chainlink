@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -32,8 +33,8 @@ func TestShell_CreateUser(t *testing.T) {
 		role  string
 		err   string
 	}{
-		{"Invalid request", "//", "", "parseResponse error"},
-		{"No params", "", "", "Invalid role"},
+		{"Invalid email", "//", "", "mail: missing '@' or angle-addr"},
+		{"No params", "", "", "Must enter an email"},
 		{"No email", "", "view", "Must enter an email"},
 		{"User exists", cltest.APIEmailAdmin, "admin", fmt.Sprintf(`user with email %s already exists`, cltest.APIEmailAdmin)},
 		{"Valid params", cltest.MustRandomUser(t).Email, "view", ""},
@@ -141,17 +142,23 @@ func TestShell_ListUsers(t *testing.T) {
 	flagSetApplyFromAction(client.ListUsers, set, "")
 	c := cli.NewContext(nil, set, nil)
 
-	buffer := bytes.NewBufferString("")
-	client.Renderer = cmd.RendererTable{Writer: buffer}
-
+	testRenderer := &testRenderer{}
+	client.Renderer = testRenderer
 	assert.NoError(t, client.ListUsers(c), user.Email)
 
-	output := buffer.String()
-	assert.Contains(t, output, user.Email)
-	assert.Contains(t, output, user.Role)
-	assert.Contains(t, output, user.TokenKey.String)
-	assert.Contains(t, output, user.CreatedAt.String())
-	assert.Contains(t, output, user.UpdatedAt.String())
+	userPresenterFound := false
+	for _, presenter := range testRenderer.presenters {
+		if presenter.Email == user.Email {
+			userPresenterFound = true
+			assert.Equal(t, presenter.Role, user.Role)
+			userHasActiveApiToken, err := strconv.ParseBool(presenter.HasActiveApiToken)
+			assert.NoError(t, err)
+			assert.Equal(t, userHasActiveApiToken, user.TokenKey.String != "")
+			assert.True(t, presenter.CreatedAt.Equal(user.CreatedAt))
+			assert.True(t, presenter.CreatedAt.Equal(user.UpdatedAt))
+		}
+	}
+	assert.Truef(t, userPresenterFound, "expected to find user %s in presenter list", user.Email)
 }
 
 func TestAdminUsersPresenter_RenderTable(t *testing.T) {
@@ -186,4 +193,14 @@ func TestAdminUsersPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, user.TokenKey.String)
 	assert.Contains(t, output, user.CreatedAt.String())
 	assert.Contains(t, output, user.UpdatedAt.String())
+}
+
+type testRenderer struct {
+	presenters []cmd.AdminUsersPresenter
+}
+
+func (t *testRenderer) Render(i interface{}, s ...string) error {
+	adminPresenters := i.(*cmd.AdminUsersPresenters)
+	t.presenters = *adminPresenters
+	return nil
 }

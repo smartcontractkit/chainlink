@@ -122,6 +122,7 @@ MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
+VerboseLogging = false
 
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '1m0s'
@@ -239,6 +240,21 @@ LatestReportDeadline = '1m42s'
 [Mercury.TLS]
 CertFile = ''
 
+[Capabilities]
+[Capabilities.Peering]
+IncomingMessageBufferSize = 13
+OutgoingMessageBufferSize = 17
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
+TraceLogging = true
+
+[Capabilities.Peering.V2]
+Enabled = false
+AnnounceAddresses = ['a', 'b', 'c']
+DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
+DeltaDial = '1m0s'
+DeltaReconcile = '2s'
+ListenAddresses = ['foo', 'bar']
+
 [[EVM]]
 ChainID = '1'
 Enabled = false
@@ -325,6 +341,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -413,6 +430,7 @@ URL = 'http://solana.bar'
 
 [[Starknet]]
 ChainID = 'foobar'
+FeederURL = 'http://feeder.url'
 Enabled = true
 OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
@@ -423,3 +441,4 @@ ConfirmationPoll = '42s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+APIKey = 'key'

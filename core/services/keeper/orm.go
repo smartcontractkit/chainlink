@@ -7,9 +7,9 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -40,7 +40,7 @@ func (korm ORM) Registries() ([]Registry, error) {
 }
 
 // RegistryByContractAddress returns a single registry based on provided address
-func (korm ORM) RegistryByContractAddress(registryAddress ethkey.EIP55Address) (Registry, error) {
+func (korm ORM) RegistryByContractAddress(registryAddress types.EIP55Address) (Registry, error) {
 	var registry Registry
 	err := korm.q.Get(&registry, `SELECT * FROM keeper_registries WHERE keeper_registries.contract_address = $1`, registryAddress)
 	return registry, errors.Wrap(err, "failed to get registry")
@@ -86,7 +86,7 @@ RETURNING *
 }
 
 // UpdateUpkeepLastKeeperIndex updates the last keeper index for an upkeep
-func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *big.Big, fromAddress ethkey.EIP55Address) error {
+func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *big.Big, fromAddress types.EIP55Address) error {
 	_, err := korm.q.Exec(`
 	UPDATE upkeep_registrations
 	SET
@@ -125,7 +125,7 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 // -- OR is it my buddy's turn AND they were the last keeper to do the perform for this upkeep
 // DEV: note we cast upkeep_id and binaryHash as 32 bits, even though both are 256 bit numbers when performing XOR. This is enough information
 // to distribute the upkeeps over the keepers so long as num keepers < 4294967296
-func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber int64, gracePeriod int64, binaryHash string) (upkeeps []UpkeepRegistration, err error) {
+func (korm ORM) EligibleUpkeepsForRegistry(registryAddress types.EIP55Address, blockNumber int64, gracePeriod int64, binaryHash string) (upkeeps []UpkeepRegistration, err error) {
 	stmt := `
 SELECT upkeep_registrations.*
 FROM upkeep_registrations
@@ -212,7 +212,7 @@ WHERE registry_id = $1
 }
 
 // SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
-func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *big.Big, height int64, fromAddress ethkey.EIP55Address, qopts ...pg.QOpt) (int64, error) {
+func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *big.Big, height int64, fromAddress types.EIP55Address, qopts ...pg.QOpt) (int64, error) {
 	res, err := korm.q.WithOpts(qopts...).Exec(`
 	UPDATE upkeep_registrations
 	SET last_run_block_height = $1,

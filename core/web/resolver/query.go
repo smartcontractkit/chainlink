@@ -31,7 +31,7 @@ func (r *Resolver) Bridge(ctx context.Context, args struct{ ID graphql.ID }) (*B
 		return nil, err
 	}
 
-	bridge, err := r.App.BridgeORM().FindBridge(name)
+	bridge, err := r.App.BridgeORM().FindBridge(ctx, name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewBridgePayload(bridge, err), nil
@@ -55,7 +55,7 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	brdgs, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
+	brdgs, count, err := r.App.BridgeORM().BridgeTypes(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -480,7 +480,7 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	}
 
 	hash := common.HexToHash(string(args.Hash))
-	etx, err := r.App.TxmStorageService().FindTxByHash(hash)
+	etx, err := r.App.TxmStorageService().FindTxByHash(ctx, hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewEthTransactionPayload(nil, err), nil
@@ -503,7 +503,7 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	txs, count, err := r.App.TxmStorageService().Transactions(offset, limit)
+	txs, count, err := r.App.TxmStorageService().Transactions(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -522,7 +522,7 @@ func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	attempts, count, err := r.App.TxmStorageService().TxAttempts(offset, limit)
+	attempts, count, err := r.App.TxmStorageService().TxAttempts(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}

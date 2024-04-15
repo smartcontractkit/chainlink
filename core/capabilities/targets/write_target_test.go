@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -17,13 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
+var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
 func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
@@ -34,12 +33,12 @@ func TestEvmWrite(t *testing.T) {
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()
-		addr, err := ethkey.NewEIP55Address(a.Hex())
+		addr, err := types.NewEIP55Address(a.Hex())
 		require.NoError(t, err)
 		c.EVM[0].ChainWriter.FromAddress = &addr
 
 		forwarderA := testutils.NewAddress()
-		forwarderAddr, err := ethkey.NewEIP55Address(forwarderA.Hex())
+		forwarderAddr, err := types.NewEIP55Address(forwarderA.Hex())
 		require.NoError(t, err)
 		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
 	})
@@ -82,6 +81,58 @@ func TestEvmWrite(t *testing.T) {
 		}, payload["data"])
 
 	})
+
+	ch := make(chan capabilities.CapabilityResponse)
+
+	err = capability.Execute(ctx, ch, req)
+	require.NoError(t, err)
+
+	response := <-ch
+	require.Nil(t, response.Err)
+}
+
+func TestEvmWrite_EmptyReport(t *testing.T) {
+	chain := evmmocks.NewChain(t)
+
+	txManager := txmmocks.NewMockEvmTxManager(t)
+	chain.On("ID").Return(big.NewInt(11155111))
+	chain.On("TxManager").Return(txManager)
+
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		a := testutils.NewAddress()
+		addr, err := types.NewEIP55Address(a.Hex())
+		require.NoError(t, err)
+		c.EVM[0].ChainWriter.FromAddress = &addr
+
+		forwarderA := testutils.NewAddress()
+		forwarderAddr, err := types.NewEIP55Address(forwarderA.Hex())
+		require.NoError(t, err)
+		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
+	})
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	chain.On("Config").Return(evmcfg)
+
+	capability := targets.NewEvmWrite(chain, logger.TestLogger(t))
+	ctx := testutils.Context(t)
+
+	config, err := values.NewMap(map[string]any{
+		"abi":    "receive(report bytes)",
+		"params": []any{"$(report)"},
+	})
+	require.NoError(t, err)
+
+	inputs, err := values.NewMap(map[string]any{
+		"report": nil,
+	})
+	require.NoError(t, err)
+
+	req := capabilities.CapabilityRequest{
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID: "hello",
+		},
+		Config: config,
+		Inputs: inputs,
+	}
 
 	ch := make(chan capabilities.CapabilityResponse)
 

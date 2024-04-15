@@ -8,7 +8,7 @@
 
 [![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/smartcontractkit/chainlink?style=flat-square)](https://hub.docker.com/r/smartcontract/chainlink/tags)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
-[![GitHub workflow changelog](https://img.shields.io/github/workflow/status/smartcontractkit/chainlink/Changelog?style=flat-square&label=github-actions)](https://github.com/smartcontractkit/chainlink/actions?query=workflow%3AChangelog)
+[![GitHub workflow changeset](https://img.shields.io/github/actions/workflow/status/smartcontractkit/chainlink/changeset.yml)](https://github.com/smartcontractkit/chainlink/actions/workflows/changeset.yml?query=workflow%3AChangeset)
 [![GitHub contributors](https://img.shields.io/github/contributors-anon/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/graphs/contributors)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/y/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/commits/master)
 [![Official documentation](https://img.shields.io/static/v1?label=docs&message=latest&color=blue)](https://docs.chain.link/)
@@ -291,6 +291,22 @@ createuser --superuser --password chainlink -h localhost
 4. When re-entering project, you can restart postgres: `cd $PGDATA; pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start`
    Now you can run tests or compile code as usual.
 5. When you're done, stop it: `cd $PGDATA; pg_ctl -o "--unix_socket_directories='$PWD'" stop`
+
+### Changesets
+
+We use [changesets](https://github.com/changesets/changesets) to manage versioning for libs and the services.
+
+Every PR that modifies any configuration or code, should most likely accompanied by a changeset file.
+
+To install `changesets`:
+  1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
+  2. Run `pnpm install`.
+
+Either after or before you create a commit, run the `pnpm changeset` command to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Tips
 

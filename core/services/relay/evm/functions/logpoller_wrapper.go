@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type logPollerWrapper struct {
@@ -142,7 +141,7 @@ func (l *logPollerWrapper) HealthReport() map[string]error {
 func (l *logPollerWrapper) Name() string { return l.lggr.Name() }
 
 // methods of LogPollerWrapper
-func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
+func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
 	l.mu.Lock()
 	coordinators := []common.Address{}
 	if l.activeCoordinator != (common.Address{}) {
@@ -151,7 +150,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	if l.proposedCoordinator != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
-	latest, err := l.logPoller.LatestBlock()
+	latest, err := l.logPoller.LatestBlock(ctx)
 	if err != nil {
 		l.mu.Unlock()
 		return nil, nil, err
@@ -173,7 +172,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 
 	for _, coordinator := range coordinators {
 		requestEndBlock := latestBlockNum - l.requestBlockOffset
-		requestLogs, err := l.logPoller.Logs(startBlockNum, requestEndBlock, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
+		requestLogs, err := l.logPoller.Logs(ctx, startBlockNum, requestEndBlock, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", requestEndBlock)
 			return nil, nil, err
@@ -181,7 +180,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.lggr.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", requestEndBlock)
 		requestLogs = l.filterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests, "requests")
 		responseEndBlock := latestBlockNum - l.responseBlockOffset
-		responseLogs, err := l.logPoller.Logs(startBlockNum, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
+		responseLogs, err := l.logPoller.Logs(ctx, startBlockNum, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", responseEndBlock)
 			return nil, nil, err
@@ -316,10 +315,10 @@ func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, 
 }
 
 // "internal" method called only by EVM relayer components
-func (l *logPollerWrapper) SubscribeToUpdates(subscriberName string, subscriber evmRelayTypes.RouteUpdateSubscriber) {
+func (l *logPollerWrapper) SubscribeToUpdates(ctx context.Context, subscriberName string, subscriber evmRelayTypes.RouteUpdateSubscriber) {
 	if l.pluginConfig.ContractVersion == 0 {
 		// in V0, immediately set contract address to Oracle contract and never update again
-		if err := subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address()); err != nil {
+		if err := subscriber.UpdateRoutes(ctx, l.routerContract.Address(), l.routerContract.Address()); err != nil {
 			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "err", err)
 		}
 	} else if l.pluginConfig.ContractVersion == 1 {
@@ -339,14 +338,16 @@ func (l *logPollerWrapper) checkForRouteUpdates() {
 
 	updateOnce := func() {
 		// NOTE: timeout == frequency here, could be changed to a separate config value
-		timeoutCtx, cancel := utils.ContextFromChanWithTimeout(l.stopCh, time.Duration(l.pluginConfig.ContractUpdateCheckFrequencySec)*time.Second)
+		timeout := time.Duration(l.pluginConfig.ContractUpdateCheckFrequencySec) * time.Second
+		ctx, cancel := l.stopCh.CtxCancel(context.WithTimeout(context.Background(), timeout))
 		defer cancel()
-		active, proposed, err := l.getCurrentCoordinators(timeoutCtx)
+		active, proposed, err := l.getCurrentCoordinators(ctx)
 		if err != nil {
 			l.lggr.Errorw("LogPollerWrapper: error calling getCurrentCoordinators", "err", err)
 			return
 		}
-		l.handleRouteUpdate(active, proposed)
+
+		l.handleRouteUpdate(ctx, active, proposed)
 	}
 
 	updateOnce() // update once right away
@@ -388,7 +389,7 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 	return activeCoordinator, proposedCoordinator, nil
 }
 
-func (l *logPollerWrapper) handleRouteUpdate(activeCoordinator common.Address, proposedCoordinator common.Address) {
+func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -401,36 +402,56 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinator common.Address, p
 		l.lggr.Debug("LogPollerWrapper: no changes to routes")
 		return
 	}
-	errActive := l.registerFilters(activeCoordinator)
-	errProposed := l.registerFilters(proposedCoordinator)
+	errActive := l.registerFilters(ctx, activeCoordinator)
+	errProposed := l.registerFilters(ctx, proposedCoordinator)
 	if errActive != nil || errProposed != nil {
 		l.lggr.Errorw("LogPollerWrapper: Failed to register filters", "errorActive", errActive, "errorProposed", errProposed)
 		return
 	}
 
 	l.lggr.Debugw("LogPollerWrapper: new routes", "activeCoordinator", activeCoordinator.Hex(), "proposedCoordinator", proposedCoordinator.Hex())
+
 	l.activeCoordinator = activeCoordinator
 	l.proposedCoordinator = proposedCoordinator
 
 	for _, subscriber := range l.subscribers {
-		err := subscriber.UpdateRoutes(activeCoordinator, proposedCoordinator)
+		err := subscriber.UpdateRoutes(ctx, activeCoordinator, proposedCoordinator)
 		if err != nil {
 			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "err", err)
 		}
 	}
+
+	filters := l.logPoller.GetFilters()
+	for _, filter := range filters {
+		if filter.Name[:len(l.filterPrefix())] != l.filterPrefix() {
+			continue
+		}
+		if filter.Name == l.filterName(l.activeCoordinator) || filter.Name == l.filterName(l.proposedCoordinator) {
+			continue
+		}
+		if err := l.logPoller.UnregisterFilter(ctx, filter.Name); err != nil {
+			l.lggr.Errorw("LogPollerWrapper: Failed to unregister filter", "filterName", filter.Name, "err", err)
+		}
+		l.lggr.Debugw("LogPollerWrapper: Successfully unregistered filter", "filterName", filter.Name)
+	}
 }
 
-func filterName(addr common.Address) string {
-	return logpoller.FilterName("FunctionsLogPollerWrapper", addr.String())
+func (l *logPollerWrapper) filterPrefix() string {
+	return "FunctionsLogPollerWrapper:" + l.pluginConfig.DONID
 }
 
-func (l *logPollerWrapper) registerFilters(coordinatorAddress common.Address) error {
+func (l *logPollerWrapper) filterName(addr common.Address) string {
+	return logpoller.FilterName(l.filterPrefix(), addr.String())
+}
+
+func (l *logPollerWrapper) registerFilters(ctx context.Context, coordinatorAddress common.Address) error {
 	if (coordinatorAddress == common.Address{}) {
 		return nil
 	}
 	return l.logPoller.RegisterFilter(
+		ctx,
 		logpoller.Filter{
-			Name: filterName(coordinatorAddress),
+			Name: l.filterName(coordinatorAddress),
 			EventSigs: []common.Hash{
 				functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(),
 				functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(),

@@ -176,6 +176,24 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 		return err
 	}
 	inputs := inputsAny.(map[string]any)
+	rep, ok := inputs["report"]
+	if !ok {
+		return errors.New("malformed data: inputs doesn't contain a report key")
+	}
+
+	if rep == nil {
+		// We received any empty report -- this means we should skip transmission.
+		cap.lggr.Debugw("Skipping empty report", "request", request)
+		go func() {
+			// TODO: cast tx.Error to Err (or Value to Value?)
+			callback <- capabilities.CapabilityResponse{
+				Value: nil,
+				Err:   nil,
+			}
+			close(callback)
+		}()
+		return nil
+	}
 
 	// evaluate any variables in reqConfig.Params
 	args, err := evaluateParams(reqConfig.Params, inputs)
@@ -212,7 +230,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 		FromAddress:    config.FromAddress().Address(),
 		ToAddress:      config.ForwarderAddress().Address(),
 		EncodedPayload: calldata,
-		FeeLimit:       uint32(defaultGasLimit),
+		FeeLimit:       uint64(defaultGasLimit),
 		Meta:           txMeta,
 		Strategy:       strategy,
 		Checker:        checker,
@@ -222,7 +240,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Transaction submitted %v", tx.ID)
+	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", tx)
 	go func() {
 		// TODO: cast tx.Error to Err (or Value to Value?)
 		callback <- capabilities.CapabilityResponse{

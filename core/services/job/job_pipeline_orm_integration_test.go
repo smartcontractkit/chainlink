@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -121,8 +122,8 @@ func TestPipelineORM_Integration(t *testing.T) {
 	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
 	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
 	expectedTasks := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	t.Run("creates task DAGs", func(t *testing.T) {
 		clearJobsDb(t, db)
@@ -152,7 +153,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		cfg := configtest.NewTestGeneralConfig(t)
 		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		btORM := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+		btORM := bridges.NewORM(db)
 		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), cfg.WebServer(), legacyChains, nil, nil, lggr, nil, nil)
@@ -165,7 +166,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		require.NoError(t, jobORM.CreateJob(dbSpec))
 
 		var pipelineSpecs []pipeline.Spec
-		sql := `SELECT * FROM pipeline_specs;`
+		sql := `SELECT pipeline_specs.*, job_pipeline_specs.job_id FROM pipeline_specs JOIN job_pipeline_specs ON (pipeline_specs.id = job_pipeline_specs.pipeline_spec_id);`
 		require.NoError(t, db.Select(&pipelineSpecs, sql))
 		require.Len(t, pipelineSpecs, 1)
 		require.Equal(t, dbSpec.PipelineSpecID, pipelineSpecs[0].ID)

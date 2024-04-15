@@ -10,10 +10,10 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -38,7 +38,7 @@ const (
 	`
 )
 
-func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress ethkey.EIP55Address, peerID p2pkey.PeerID, keyBundleID string) string {
+func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress types.EIP55Address, peerID p2pkey.PeerID, keyBundleID string) string {
 	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, peerID, transmitterAddress.Hex(), keyBundleID)
 }
 
@@ -63,7 +63,7 @@ func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.OR
 	keyStore := NewKeyStore(t, db, config.Database())
 	lggr := logger.TestLogger(t)
 	pipelineORM = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
-	bridgeORM := bridges.NewORM(db, lggr, config.Database())
+	bridgeORM := bridges.NewORM(db)
 	jobORM = job.NewORM(db, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
 	t.Cleanup(func() { jobORM.Close() })
 	return

@@ -47,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
@@ -246,7 +245,7 @@ func setupNodeOCR2(
 		c.OCR2.Enabled = ptr(true)
 
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(500 * time.Millisecond)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarders
 		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(10 * time.Second)
 	})
@@ -286,9 +285,9 @@ func setupNodeOCR2(
 		b.Commit()
 
 		// Add the forwarder to the node's forwarder manager.
-		forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
+		forwarderORM := forwarders.NewORM(app.GetDB())
 		chainID := ubig.Big(*b.Blockchain().Config().ChainID)
-		_, err = forwarderORM.CreateForwarder(faddr, chainID)
+		_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
 		require.NoError(t, err)
 		effectiveTransmitter = faddr
 	}
@@ -499,7 +498,7 @@ linkEthFeedAddress     	= "%s"
 			uni.feedAddress.String(),
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
-		ocrJob2, err2 := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec)
+		ocrJob2, err2 := validate.ValidatedOracleSpecToml(testutils.Context(t), apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec, nil)
 		require.NoError(t, err2)
 		err2 = apps[i].AddJobV2(ctx, &ocrJob2)
 		require.NoError(t, err2)

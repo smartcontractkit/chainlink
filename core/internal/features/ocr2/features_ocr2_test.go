@@ -171,9 +171,9 @@ func setupNodeOCR2(
 		b.Commit()
 
 		// add forwarder address to be tracked in db
-		forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
+		forwarderORM := forwarders.NewORM(app.GetDB())
 		chainID := ubig.Big(*b.Blockchain().Config().ChainID)
-		_, err2 = forwarderORM.CreateForwarder(faddr, chainID)
+		_, err2 = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
 		require.NoError(t, err2)
 
 		effectiveTransmitter = faddr
@@ -308,7 +308,7 @@ fromBlock = %d
 				}))
 				t.Cleanup(servers[s].Close)
 				u, _ := url.Parse(servers[i].URL)
-				require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+				require.NoError(t, apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 					URL:  models.WebURL(*u),
 				}))
@@ -437,7 +437,7 @@ typeABI = '''
 '''
 `
 				}
-				ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), fmt.Sprintf(`
+				ocrJob, err := validate.ValidatedOracleSpecToml(testutils.Context(t), apps[i].Config.OCR2(), apps[i].Config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 relay              = "evm"
 schemaVersion      = 1
@@ -487,8 +487,9 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
-juelsPerFeeCoinCacheDuration = "1m"
-`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), chainReaderSpec, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+[pluginConfig.juelsPerFeeCoinCache]
+updateInterval = "1m"
+`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), chainReaderSpec, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i), nil)
 				require.NoError(t, err)
 				err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
 				require.NoError(t, err)
@@ -591,7 +592,7 @@ juelsPerFeeCoinCacheDuration = "1m"
 				contractABI, err2 := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 				require.NoError(t, err2)
 				apps[0].GetRelayers().LegacyEVMChains().Slice()
-				ct, err2 := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, nil)
+				ct, err2 := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, nil)
 				require.NoError(t, err2)
 				configDigest, epoch, err2 := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 				require.NoError(t, err2)
@@ -788,12 +789,12 @@ chainID 			= 1337
 			servers[s].Close()
 		})
 		u, _ := url.Parse(servers[i].URL)
-		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
 		}))
 
-		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), fmt.Sprintf(`
+		ocrJob, err := validate.ValidatedOracleSpecToml(testutils.Context(t), apps[i].Config.OCR2(), apps[i].Config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 relay              = "evm"
 schemaVersion      = 1
@@ -840,8 +841,9 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
-juelsPerFeeCoinCacheDuration = "1m"
-`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+[pluginConfig.juelsPerFeeCoinCache]
+updateInterval = "1m"
+`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i), nil)
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
 		require.NoError(t, err)
@@ -902,7 +904,7 @@ juelsPerFeeCoinCacheDuration = "1m"
 	// Assert we can read the latest config digest and epoch after a report has been submitted.
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	require.NoError(t, err)
-	ct, err := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, nil)
+	ct, err := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, nil)
 	require.NoError(t, err)
 	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
