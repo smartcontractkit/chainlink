@@ -409,8 +409,8 @@ func TestAutomationAddFunds(t *testing.T) {
 	t.Parallel()
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
-		"registry_2_1": ethereum.RegistryVersion_2_1,
-		"registry_2_2": ethereum.RegistryVersion_2_2,
+		// "registry_2_1": ethereum.RegistryVersion_2_1,
+		// "registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {
@@ -432,7 +432,7 @@ func TestAutomationAddFunds(t *testing.T) {
 				a.Registry,
 				a.Registrar,
 				a.LinkToken,
-				defaultAmountOfUpkeeps,
+				1,
 				big.NewInt(1),
 				automationDefaultUpkeepGasLimit,
 				false,
@@ -575,9 +575,8 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)

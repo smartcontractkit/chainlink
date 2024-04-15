@@ -69,6 +69,7 @@ type KeeperRegistry interface {
 	SetConfigTypeSafe(ocrConfig OCRv2Config) error
 	SetRegistrar(registrarAddr string) error
 	AddUpkeepFunds(id *big.Int, amount *big.Int) error
+	AddUpkeepFundsFromKey(id *big.Int, amount *big.Int, keyNum int) error
 	GetUpkeepInfo(ctx context.Context, id *big.Int) (*UpkeepInfo, error)
 	GetKeeperInfo(ctx context.Context, keeperAddr string) (*KeeperInfo, error)
 	SetKeepers(keepers []string, payees []string, ocrConfig OCRv2Config) error
@@ -605,6 +606,11 @@ func (v *LegacyEthereumKeeperRegistry) SetRegistrar(registrarAddr string) error 
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported", v.version)
 	}
+}
+
+// AddUpkeepFunds adds link for particular upkeep id
+func (v *LegacyEthereumKeeperRegistry) AddUpkeepFundsFromKey(_ *big.Int, _ *big.Int, _ int) error {
+	panic("this method is only supported by contracts using Seth client")
 }
 
 // AddUpkeepFunds adds link for particular upkeep id

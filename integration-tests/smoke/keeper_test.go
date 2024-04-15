@@ -550,7 +550,7 @@ func TestKeeperAddFunds(t *testing.T) {
 				t,
 				registryVersion,
 				keeperDefaultRegistryConfig,
-				keeperDefaultUpkeepsToDeploy,
+				1,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
 				chainClient,

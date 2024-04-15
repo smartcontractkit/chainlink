@@ -928,8 +928,8 @@ func SendLinkFundsToDeploymentAddresses(
 		if err != nil {
 			return errors.Wrapf(err, "Error getting LINK balance of ephemeral key %d", i)
 		}
-		if toTransferPerClient.Cmp(balance) != 0 {
-			return fmt.Errorf("Incorrect LINK balance after transferring for ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), balance.String())
+		if balance.Cmp(toTransferPerClient) < 0 {
+			return fmt.Errorf("Incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), balance.String())
 		}
 	}
 

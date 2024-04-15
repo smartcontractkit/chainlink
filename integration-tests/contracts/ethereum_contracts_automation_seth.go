@@ -370,8 +370,8 @@ func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 }
 
 // AddUpkeepFunds adds link for particular upkeep id
-func (v *EthereumKeeperRegistry) AddUpkeepFunds(id *big.Int, amount *big.Int) error {
-	opts := v.client.NewTXOpts()
+func (v *EthereumKeeperRegistry) AddUpkeepFundsFromKey(id *big.Int, amount *big.Int, keyNum int) error {
+	opts := v.client.NewTXKeyOpts(keyNum)
 	var err error
 
 	switch v.version {
@@ -390,6 +390,11 @@ func (v *EthereumKeeperRegistry) AddUpkeepFunds(id *big.Int, amount *big.Int) er
 	}
 
 	return err
+}
+
+// AddUpkeepFunds adds link for particular upkeep id
+func (v *EthereumKeeperRegistry) AddUpkeepFunds(id *big.Int, amount *big.Int) error {
+	return v.AddUpkeepFundsFromKey(id, amount, 0)
 }
 
 // GetUpkeepInfo gets upkeep info
