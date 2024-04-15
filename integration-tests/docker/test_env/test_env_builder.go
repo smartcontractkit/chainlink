@@ -1,6 +1,7 @@
 package test_env
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -256,6 +257,19 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	switch b.cleanUpType {
 	case CleanUpTypeStandard:
 		b.t.Cleanup(func() {
+			// Save test coverage profile from node containers
+			coverageDir := fmt.Sprintf("/tmp/coverage/%s", b.t.Name())
+			if err := os.MkdirAll(coverageDir, 0755); err != nil {
+				b.l.Error().Err(err).Str("coverageDir", coverageDir).Msg("Failed to create test coverage directory")
+			}
+			err = b.te.ClCluster.CopyFolderFromNodes(context.Background(), "/home/root/coverage", coverageDir)
+			if err != nil {
+				b.l.Error().Err(err).Msg("Failed to copy test coverage files from nodes")
+			} else {
+				b.l.Info().Str("coverageDir", coverageDir).Msg("Node test coverage files saved")
+			}
+
+			// Cleanup test environment
 			if err := b.te.Cleanup(); err != nil {
 				b.l.Error().Err(err).Msg("Error cleaning up test environment")
 			}

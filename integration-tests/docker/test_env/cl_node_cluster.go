@@ -1,12 +1,19 @@
 package test_env
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	tc "github.com/testcontainers/testcontainers-go"
 )
 
 var (
@@ -67,4 +74,88 @@ func (c *ClCluster) NodeCSAKeys() ([]string, error) {
 		keys = append(keys, csaKeys.Data[0].ID)
 	}
 	return keys, nil
+}
+
+func (c *ClCluster) CopyFolderFromNodes(ctx context.Context, srcPath, destPath string) error {
+	var wg sync.WaitGroup
+	errors := make(chan error, len(c.Nodes))
+
+	for i, node := range c.Nodes {
+		wg.Add(1)
+		go func(n *ClNode) {
+			defer wg.Done()
+			// Create a unique subdirectory for each node based on an identifier
+			destPath := filepath.Join(destPath, fmt.Sprintf("node_%d", i)) // Use node ID or another unique identifier
+			if err := os.MkdirAll(destPath, 0755); err != nil {
+				errors <- fmt.Errorf("failed to create directory for node %d: %w", i, err)
+				return
+			}
+			err := copyFolderFromContainer(ctx, n.Container, srcPath, destPath)
+			if err != nil {
+				errors <- fmt.Errorf("failed to copy folder for node %d: %w", i, err)
+			}
+		}(node)
+	}
+
+	wg.Wait()
+	close(errors)
+
+	for err := range errors {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func copyFolderFromContainer(ctx context.Context, container tc.Container, srcPath, destPath string) error {
+	// Tar the source directory inside the container
+	tarCmd := []string{"tar", "-czf", "/tmp/archive.tar.gz", "-C", srcPath, "."}
+	_, _, err := container.Exec(ctx, tarCmd)
+	if err != nil {
+		return fmt.Errorf("failed to tar folder in container: %w", err)
+	}
+
+	reader, err := container.CopyFileFromContainer(ctx, "/tmp/archive.tar.gz")
+	if err != nil {
+		return fmt.Errorf("failed to copy from container: %w", err)
+	}
+	defer reader.Close()
+
+	// Ensure destination path exists
+	if info, err := os.Stat(destPath); err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("destination path %s is not a directory", destPath)
+		}
+	} else if os.IsNotExist(err) {
+		return fmt.Errorf("destination path %s does not exist", destPath)
+	} else {
+		return fmt.Errorf("error checking destination directory: %w", err)
+	}
+
+	if err := os.MkdirAll(destPath, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	// Create the tar file on the host
+	destTarPath := filepath.Join(destPath, "archive.tar.gz")
+	localTarFile, err := os.Create(destTarPath)
+	if err != nil {
+		return fmt.Errorf("failed to create tar file on host: %w", err)
+	}
+	defer localTarFile.Close()
+
+	// Copy tar data from the container to the host file
+	if _, err := io.Copy(localTarFile, reader); err != nil {
+		return fmt.Errorf("failed to copy tar file content: %w", err)
+	}
+
+	// Extract the tar file
+	cmd := exec.Command("tar", "-xzf", destTarPath, "-C", destPath)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to extract tar file: %w", err)
+	}
+
+	return nil
 }

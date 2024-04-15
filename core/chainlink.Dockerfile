@@ -12,12 +12,19 @@ RUN go mod download
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 
+# Build chainlink bin with cover flag
+ARG COVER_FLAG=false
+
 COPY . .
 
 RUN apt-get update && apt-get install -y jq
 
 # Build the golang binary
-RUN make install-chainlink
+RUN if [ "$COVER_FLAG" = "true" ]; then \
+        make install-chainlink-cover; \
+    else \
+        make install-chainlink; \
+    fi
 
 # Link LOOP Plugin source dirs with simple names
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs -I % ln -s % /chainlink-feeds
@@ -67,6 +74,10 @@ WORKDIR /home/${CHAINLINK_USER}
 # explicit set the cache dir. needed so both root and non-root user has an explicit location
 ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
+
+# Set up coverage dir env variable
+ENV GOCOVERDIR="coverage"
+RUN mkdir -p coverage
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]
