@@ -27,7 +27,7 @@ type OffRampReader interface {
 	// GetExecutionStateChangesBetweenSeqNums returns all the execution state change events for the provided message sequence numbers (inclusive).
 	GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confirmations int) ([]ExecutionStateChangedWithTxMeta, error)
 	GetRouter(ctx context.Context) (Address, error)
-	GetSenderNonce(ctx context.Context, sender Address) (uint64, error)
+	ListSenderNonces(ctx context.Context, senders []Address) (map[Address]uint64, error)
 	GetSourceToDestTokensMapping(ctx context.Context) (map[Address]Address, error)
 	GetStaticConfig(ctx context.Context) (OffRampStaticConfig, error)
 	GetTokens(ctx context.Context) (OffRampTokens, error)

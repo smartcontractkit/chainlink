@@ -188,15 +188,20 @@ func (o *OffRampReaderGRPCClient) GetExecutionStateChangesBetweenSeqNums(ctx con
 	return executionStateChangedWithTxMetaSlice(resp.ExecutionStateChanges), nil
 }
 
-// GetSenderNonce i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderGRPCClient) GetSenderNonce(ctx context.Context, sender cciptypes.Address) (uint64, error) {
-	resp, err := o.client.GetSenderNonce(ctx, &ccippb.GetSenderNonceRequest{
-		Sender: string(sender),
+// GetSendersNonce i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
+func (o *OffRampReaderGRPCClient) ListSenderNonces(ctx context.Context, senders []cciptypes.Address) (map[cciptypes.Address]uint64, error) {
+	stringSenders := make([]string, len(senders))
+	for i, s := range senders {
+		stringSenders[i] = string(s)
+	}
+
+	resp, err := o.client.ListSenderNonces(ctx, &ccippb.ListSenderNoncesRequest{
+		Senders: stringSenders,
 	})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return resp.Nonce, nil
+	return senderToNonceMapping(resp.GetNonceMapping()), nil
 }
 
 // GetSourceToDestTokensMapping i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
@@ -347,13 +352,18 @@ func (o *OffRampReaderGRPCServer) GetExecutionStateChanges(ctx context.Context, 
 	return &ccippb.GetExecutionStateChangesResponse{ExecutionStateChanges: executionStateChangedWithTxMetaSliceToPB(changes)}, nil
 }
 
-// GetSenderNonce implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderGRPCServer) GetSenderNonce(ctx context.Context, req *ccippb.GetSenderNonceRequest) (*ccippb.GetSenderNonceResponse, error) {
-	nonce, err := o.impl.GetSenderNonce(ctx, cciptypes.Address(req.Sender))
+// GetSendersNonce implements ccippb.OffRampReaderServer.
+func (o *OffRampReaderGRPCServer) ListSenderNonces(ctx context.Context, req *ccippb.ListSenderNoncesRequest) (*ccippb.ListSenderNoncesResponse, error) {
+	senders := make([]cciptypes.Address, len(req.Senders))
+	for i, s := range req.Senders {
+		senders[i] = cciptypes.Address(s)
+	}
+
+	resp, err := o.impl.ListSenderNonces(ctx, senders)
 	if err != nil {
 		return nil, err
 	}
-	return &ccippb.GetSenderNonceResponse{Nonce: nonce}, nil
+	return &ccippb.ListSenderNoncesResponse{NonceMapping: senderToNonceMappingToPB(resp)}, nil
 }
 
 // GetSourceToDestTokensMapping implements ccippb.OffRampReaderServer.
@@ -690,6 +700,22 @@ func sourceDestTokenMappingToPB(in map[cciptypes.Address]cciptypes.Address) map[
 	out := make(map[string]string)
 	for k, v := range in {
 		out[string(k)] = string(v)
+	}
+	return out
+}
+
+func senderToNonceMapping(in map[string]uint64) map[cciptypes.Address]uint64 {
+	out := make(map[cciptypes.Address]uint64, len(in))
+	for k, v := range in {
+		out[cciptypes.Address(k)] = v
+	}
+	return out
+}
+
+func senderToNonceMappingToPB(in map[cciptypes.Address]uint64) map[string]uint64 {
+	out := make(map[string]uint64, len(in))
+	for k, v := range in {
+		out[string(k)] = v
 	}
 	return out
 }
