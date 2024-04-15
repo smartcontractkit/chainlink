@@ -230,20 +230,75 @@ type upkeepLogQueue struct {
 	opts *logBufferOptions
 
 	// logs is the buffer of logs for the upkeep
-	logs []logpoller.Log
+	logs *blockWindowLogs
 	// states keeps track of the state of the logs that are known to the queue
 	// and the block number they were seen at
 	states map[string]logTriggerStateEntry
 	lock   sync.RWMutex
 }
 
+type blockWindowLogs struct {
+	maxLogs int
+	keys    []int64
+	logs    map[int64][]logpoller.Log
+}
+
+// returns the number of logs for a given range as denoted by the start block of the range
+func (l *blockWindowLogs) Size(startBlock int64) int {
+	return len(l.logs[startBlock])
+}
+
+func (l *blockWindowLogs) TotalSize() int {
+	size := 0
+	for _, k := range l.keys {
+		size += len(l.logs[k])
+	}
+	return size
+}
+
+func (l *blockWindowLogs) Keys() []int64 {
+	return l.keys
+}
+
+func (l *blockWindowLogs) LogsForBlock(start int64) []logpoller.Log {
+	return l.logs[start]
+}
+
+func (l *blockWindowLogs) SetLogs(start int64, logs []logpoller.Log) {
+	l.logs[start] = logs
+}
+
+func (l *blockWindowLogs) Append(start int64, log logpoller.Log) {
+	if _, ok := l.logs[start]; !ok {
+		l.keys = append(l.keys, start)
+		l.logs[start] = []logpoller.Log{}
+	}
+	l.logs[start] = append(l.logs[start], log)
+}
+
+func (l *blockWindowLogs) Remove(start int64) {
+	for i, v := range l.keys {
+		if v == start {
+			l.keys = append(l.keys[:i], l.keys[i+1:]...)
+			break
+		}
+	}
+
+	delete(l.logs, start)
+}
+
 func newUpkeepLogQueue(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
 	maxLogs := int(opts.windowLimit.Load()) * opts.windows() // limit per window * windows
 	return &upkeepLogQueue{
-		lggr:   lggr.With("upkeepID", id.String()),
-		id:     id,
-		opts:   opts,
-		logs:   make([]logpoller.Log, 0, maxLogs),
+		lggr: lggr.With("upkeepID", id.String()),
+		id:   id,
+		opts: opts,
+		//logs:   make([]logpoller.Log, 0, maxLogs),
+		logs: &blockWindowLogs{
+			maxLogs: maxLogs,
+			keys:    make([]int64, 0),
+			logs:    make(map[int64][]logpoller.Log),
+		},
 		states: make(map[string]logTriggerStateEntry),
 	}
 }
@@ -253,13 +308,7 @@ func (q *upkeepLogQueue) sizeOfRange(start, end int64) int {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
-	size := 0
-	for _, l := range q.logs {
-		if l.BlockNumber >= start && l.BlockNumber <= end {
-			size++
-		}
-	}
-	return size
+	return q.logs.Size(start)
 }
 
 // dequeue pulls logs from the buffer that are within the given block range,
@@ -268,31 +317,30 @@ func (q *upkeepLogQueue) dequeue(start, end int64, limit int) ([]logpoller.Log, 
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	if len(q.logs) == 0 {
+	if q.logs.Size(start) == 0 {
 		return nil, 0
 	}
 
 	var results []logpoller.Log
 	var remaining int
 	updatedLogs := make([]logpoller.Log, 0)
-	for _, l := range q.logs {
-		if l.BlockNumber >= start && l.BlockNumber <= end {
-			if len(results) < limit {
-				results = append(results, l)
-				lid := logID(l)
-				if s, ok := q.states[lid]; ok {
-					s.state = logTriggerStateDequeued
-					q.states[lid] = s
-				}
-				continue
+
+	for _, l := range q.logs.LogsForBlock(start) {
+		if len(results) < limit {
+			results = append(results, l)
+			lid := logID(l)
+			if s, ok := q.states[lid]; ok {
+				s.state = logTriggerStateDequeued
+				q.states[lid] = s
 			}
+		} else {
 			remaining++
+			updatedLogs = append(updatedLogs, l)
 		}
-		updatedLogs = append(updatedLogs, l)
 	}
 
 	if len(results) > 0 {
-		q.logs = updatedLogs
+		q.logs.SetLogs(start, updatedLogs)
 		q.lggr.Debugw("Dequeued logs", "start", start, "end", end, "limit", limit, "results", len(results), "remaining", remaining)
 	}
 
@@ -308,7 +356,10 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	logs := q.logs
+	blockRate := int(q.opts.blockRate.Load())
+
+	var startBlock int64
+	//logs := q.logs
 	var added int
 	for _, log := range logsToAdd {
 		if log.BlockNumber < blockThreshold {
@@ -322,15 +373,18 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 		}
 		q.states[lid] = logTriggerStateEntry{state: logTriggerStateEnqueued, block: log.BlockNumber}
 		added++
-		logs = append(logs, log)
+		//logs = append(logs, log)
+
+		startBlock, _ = getBlockWindow(log.BlockNumber, blockRate)
+		q.logs.Append(startBlock, log)
 	}
-	q.logs = logs
+	//q.logs = logs
 
 	var dropped int
 	if added > 0 {
-		q.orderLogs()
+		q.orderLogs(startBlock)
 		dropped = q.clean(blockThreshold)
-		q.lggr.Debugw("Enqueued logs", "added", added, "dropped", dropped, "blockThreshold", blockThreshold, "q size", len(q.logs), "visited size", len(q.states))
+		q.lggr.Debugw("Enqueued logs", "added", added, "dropped", dropped, "blockThreshold", blockThreshold, "q size", q.logs.TotalSize(), "visited size", len(q.states))
 	}
 
 	prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionIngress).Add(float64(added))
@@ -341,12 +395,12 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 
 // orderLogs sorts the logs in the buffer.
 // NOTE: this method is not thread safe and should be called within a lock.
-func (q *upkeepLogQueue) orderLogs() {
+func (q *upkeepLogQueue) orderLogs(blockNumber int64) {
 	// sort logs by block number, tx hash and log index
 	// to keep the q sorted and to ensure that logs can be
 	// grouped by block windows for the cleanup
-	sort.SliceStable(q.logs, func(i, j int) bool {
-		return LogSorter(q.logs[i], q.logs[j])
+	sort.SliceStable(q.logs.logs[blockNumber], func(i, j int) bool {
+		return LogSorter(q.logs.logs[blockNumber][i], q.logs.logs[blockNumber][j])
 	})
 }
 
@@ -360,43 +414,40 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 	updated := make([]logpoller.Log, 0)
 	// helper variables to keep track of the current window capacity
 	currentWindowCapacity, currentWindowStart := 0, int64(0)
-	for _, l := range q.logs {
-		if blockThreshold > l.BlockNumber { // old log, removed
-			prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionExpired).Inc()
-			// q.lggr.Debugw("Expiring old log", "blockNumber", l.BlockNumber, "blockThreshold", blockThreshold, "logIndex", l.LogIndex)
-			logid := logID(l)
-			delete(q.states, logid)
-			expired++
-			continue
-		}
-		start, _ := getBlockWindow(l.BlockNumber, blockRate)
-		if start != currentWindowStart {
-			// new window, reset capacity
-			currentWindowStart = start
-			currentWindowCapacity = 0
-		}
-		currentWindowCapacity++
-		// if capacity has been reached, drop the log
-		if currentWindowCapacity > windowLimit {
-			lid := logID(l)
-			if s, ok := q.states[lid]; ok {
-				s.state = logTriggerStateDropped
-				q.states[lid] = s
-			}
-			dropped++
-			prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Inc()
-			q.lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", l.BlockNumber,
-				"blockHash", l.BlockHash, "txHash", l.TxHash, "logIndex", l.LogIndex, "len updated", len(updated),
-				"currentWindowStart", currentWindowStart, "currentWindowCapacity", currentWindowCapacity,
-				"maxLogsPerWindow", windowLimit, "blockRate", blockRate)
-			continue
-		}
-		updated = append(updated, l)
-	}
 
-	if dropped > 0 || expired > 0 {
-		q.lggr.Debugw("Cleaned logs", "dropped", dropped, "expired", expired, "blockThreshold", blockThreshold, "len updated", len(updated), "len before", len(q.logs))
-		q.logs = updated
+	for _, blockNumber := range q.logs.keys {
+		if blockThreshold > blockNumber {
+			logs := q.logs.logs[blockNumber]
+			for _, log := range logs {
+				prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionExpired).Inc()
+				// q.lggr.Debugw("Expiring old log", "blockNumber", l.BlockNumber, "blockThreshold", blockThreshold, "logIndex", l.LogIndex)
+				logid := logID(log)
+				delete(q.states, logid)
+				expired++
+			}
+			// clean up the old logs
+			q.logs.Remove(blockNumber)
+		} else {
+			logs := q.logs.logs[blockNumber]
+
+			if len(logs) > windowLimit {
+				for _, l := range logs[windowLimit:] {
+					lid := logID(l)
+					if s, ok := q.states[lid]; ok {
+						s.state = logTriggerStateDropped
+						q.states[lid] = s
+					}
+					dropped++
+					prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Inc()
+					q.lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", l.BlockNumber,
+						"blockHash", l.BlockHash, "txHash", l.TxHash, "logIndex", l.LogIndex, "len updated", len(updated),
+						"currentWindowStart", currentWindowStart, "currentWindowCapacity", currentWindowCapacity,
+						"maxLogsPerWindow", windowLimit, "blockRate", blockRate)
+				}
+
+				q.logs.SetLogs(blockNumber, logs[:windowLimit])
+			}
+		}
 	}
 
 	q.cleanStates(blockThreshold)
