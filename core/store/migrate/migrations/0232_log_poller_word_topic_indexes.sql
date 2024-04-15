@@ -30,12 +30,14 @@ create index evm_logs_idx_topic_three
     on evm.logs (address, event_sig, evm_chain_id, (topics[3]));
 
 create index evm_logs_idx_topic_four
-    on evm.logs (address, event_sig,evm_chain_id,  (topics[4]));
+    on evm.logs (address, event_sig, evm_chain_id, (topics[4]));
 
 -- +goose Down
 
+drop index if exists evm.evm_logs_idx_data_word_one;
+drop index if exists evm.evm_logs_idx_data_word_two;
 drop index if exists evm.evm_logs_idx_data_word_three;
-drop index if exists evm.evm_logs_idx_data_word_five;
+drop index if exists evm.evm_logs_idx_data_word_four;
 drop index if exists evm.evm_logs_idx_topic_two;
 drop index if exists evm.evm_logs_idx_topic_three;
 drop index if exists evm.evm_logs_idx_topic_four;
