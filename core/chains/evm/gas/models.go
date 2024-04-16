@@ -240,7 +240,7 @@ func (e *evmFeeEstimator) Ready() error {
 func (e *evmFeeEstimator) HealthReport() map[string]error {
 	report := map[string]error{e.Name(): e.Healthy()}
 	services.CopyHealth(report, e.EvmEstimator.HealthReport())
-	
+
 	l1Oracle := e.L1Oracle()
 	if l1Oracle != nil {
 		services.CopyHealth(report, l1Oracle.HealthReport())

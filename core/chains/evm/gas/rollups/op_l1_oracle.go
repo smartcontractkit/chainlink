@@ -26,13 +26,8 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-type OptimismL1Oracle interface {
-	L1Oracle
-	GetDAGasPrice(ctx context.Context) (*big.Int, error)
-}
-
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
-type optimismL1Oracle struct {
+type OptimismL1Oracle struct {
 	services.StateMachine
 	client     l1OracleClient
 	pollPeriod time.Duration
@@ -89,7 +84,7 @@ const (
 	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
 )
 
-func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType) OptimismL1Oracle {
+func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType) *OptimismL1Oracle {
 	var precompileAddress string
 	switch chainType {
 	case config.ChainOptimismBedrock:
@@ -104,7 +99,7 @@ func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 	return newOpStackL1GasOracle(lggr, ethClient, chainType, precompileAddress)
 }
 
-func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType, precompileAddress string) OptimismL1Oracle {
+func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType, precompileAddress string) *OptimismL1Oracle {
 	var l1OracleAddress, gasPriceMethod, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
@@ -159,7 +154,7 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		panic(fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", OPStackGasOracle_getL1Fee, chainType, err))
 	}
 
-	return &optimismL1Oracle{
+	return &OptimismL1Oracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, "L1GasOracle(optimismBedrock)")),
@@ -187,18 +182,18 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 	}
 }
 
-func (o *optimismL1Oracle) Name() string {
+func (o *OptimismL1Oracle) Name() string {
 	return o.logger.Name()
 }
 
-func (o *optimismL1Oracle) Start(ctx context.Context) error {
+func (o *OptimismL1Oracle) Start(ctx context.Context) error {
 	return o.StartOnce(o.Name(), func() error {
 		go o.run()
 		<-o.chInitialised
 		return nil
 	})
 }
-func (o *optimismL1Oracle) Close() error {
+func (o *OptimismL1Oracle) Close() error {
 	return o.StopOnce(o.Name(), func() error {
 		close(o.chStop)
 		<-o.chDone
@@ -206,11 +201,11 @@ func (o *optimismL1Oracle) Close() error {
 	})
 }
 
-func (o *optimismL1Oracle) HealthReport() map[string]error {
+func (o *OptimismL1Oracle) HealthReport() map[string]error {
 	return map[string]error{o.Name(): o.Healthy()}
 }
 
-func (o *optimismL1Oracle) run() {
+func (o *OptimismL1Oracle) run() {
 	defer close(o.chDone)
 
 	t := o.refresh()
@@ -225,7 +220,7 @@ func (o *optimismL1Oracle) run() {
 		}
 	}
 }
-func (o *optimismL1Oracle) refresh() (t *time.Timer) {
+func (o *OptimismL1Oracle) refresh() (t *time.Timer) {
 	t, err := o.refreshWithError()
 	if err != nil {
 		o.SvcErrBuffer.Append(err)
@@ -233,7 +228,7 @@ func (o *optimismL1Oracle) refresh() (t *time.Timer) {
 	return
 }
 
-func (o *optimismL1Oracle) refreshWithError() (t *time.Timer, err error) {
+func (o *OptimismL1Oracle) refreshWithError() (t *time.Timer, err error) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
@@ -250,7 +245,7 @@ func (o *optimismL1Oracle) refreshWithError() (t *time.Timer, err error) {
 	return
 }
 
-func (o *optimismL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
+func (o *OptimismL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
 	var timestamp time.Time
 	ok := o.IfStarted(func() {
 		o.l1GasPriceMu.RLock()
@@ -274,7 +269,7 @@ func (o *optimismL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, 
 
 // Gets the L1 gas cost for the provided transaction at the specified block num
 // If block num is not provided, the value on the latest block num is used
-func (o *optimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
+func (o *OptimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
 	ctx, cancel := context.WithTimeout(ctx, client.QueryTimeout)
 	defer cancel()
 	var callData, b []byte
@@ -313,7 +308,7 @@ func (o *optimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 	return assets.NewWei(l1GasCost), nil
 }
 
-func (o *optimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) {
+func (o *OptimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) {
 	isEcotone, err := o.checkIsEcotone(ctx)
 	if err != nil {
 		return nil, err
@@ -328,7 +323,7 @@ func (o *optimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) 
 	return o.getV1GasPrice(ctx)
 }
 
-func (o *optimismL1Oracle) checkIsEcotone(ctx context.Context) (bool, error) {
+func (o *OptimismL1Oracle) checkIsEcotone(ctx context.Context) (bool, error) {
 	// if chain is already Ecotone, NOOP
 	if o.isEcotone {
 		return true, nil
@@ -360,7 +355,7 @@ func (o *optimismL1Oracle) checkIsEcotone(ctx context.Context) (bool, error) {
 	return o.isEcotone, nil
 }
 
-func (o *optimismL1Oracle) getV1GasPrice(ctx context.Context) (*big.Int, error) {
+func (o *OptimismL1Oracle) getV1GasPrice(ctx context.Context) (*big.Int, error) {
 	l1OracleAddress := common.HexToAddress(o.l1OracleAddress)
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &l1OracleAddress,
@@ -376,7 +371,7 @@ func (o *optimismL1Oracle) getV1GasPrice(ctx context.Context) (*big.Int, error) 
 	return new(big.Int).SetBytes(b), nil
 }
 
-func (o *optimismL1Oracle) getEcotoneGasPrice(ctx context.Context) (*big.Int, error) {
+func (o *OptimismL1Oracle) getEcotoneGasPrice(ctx context.Context) (*big.Int, error) {
 	rpcBatchCalls := []rpc.BatchElem{
 		{
 			Method: "eth_call",

@@ -203,8 +203,9 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		evmEstimator := mocks.NewEvmEstimator(t)
 		oracle := rollupMocks.NewL1Oracle(t)
 
+		evmEstimator.On("L1Oracle").Return(oracle).Twice()
 		evmEstimator.On("Ready").Return(nil).Twice()
-		oracle.On("Ready").Return(nil).Once()
+		oracle.On("Ready").Return(nil).Twice()
 		getEst := func(logger.Logger) gas.EvmEstimator { return evmEstimator }
 
 		estimator := gas.NewEvmFeeEstimator(lggr, getEst, false, geCfg)
@@ -226,7 +227,9 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		oracleKey := "oracle"
 		oracleError := pkgerrors.New("oracle error")
 
+		evmEstimator.On("L1Oracle").Return(nil).Once()
 		evmEstimator.On("HealthReport").Return(map[string]error{evmEstimatorKey: evmEstimatorError}).Twice()
+
 		oracle.On("HealthReport").Return(map[string]error{oracleKey: oracleError}).Once()
 		getEst := func(logger.Logger) gas.EvmEstimator { return evmEstimator }
 
@@ -235,6 +238,8 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		require.True(t, pkgerrors.Is(report[evmEstimatorKey], evmEstimatorError))
 		require.Nil(t, report[oracleKey])
 		require.NotNil(t, report[mockEstimatorName])
+
+		evmEstimator.On("L1Oracle").Return(oracle).Once()
 
 		estimator = gas.NewEvmFeeEstimator(lggr, getEst, false, geCfg)
 		report = estimator.HealthReport()

@@ -72,10 +72,6 @@ const (
 )
 
 func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) ArbL1GasOracle {
-	return newArbitrumL1GasOracle(lggr, ethClient)
-}
-
-func newArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) ArbL1GasOracle {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
