@@ -326,10 +326,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
         bytes("") // any future extraArgs component would be added here
       );
 
-      //      bytes4 tag = bytes4(encodedReturnData);
-      //      if (tag != Pool.POOL_RETURN_DATA_V1_TAG) revert InvalidTokenPoolConfig();
-
-      Pool.PoolReturnDataV1 memory poolReturnData = abi.decode(encodedReturnData, (Pool.PoolReturnDataV1));
+      Pool.PoolReturnDataV1 memory poolReturnData = Pool._decodePoolReturnDataV1(encodedReturnData);
       // Since the DON has to pay for the extraData to be included on the destination chain, we cap the length of the extraData.
       // This prevents gas bomb attacks on the NOPs. We use destBytesOverhead as a proxy to cap the number of bytes we accept.
       // As destBytesOverhead accounts for extraData + offchainData, this caps the worst case abuse to the number of bytes reserved for offchainData.
