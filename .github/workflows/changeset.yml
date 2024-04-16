@@ -66,9 +66,7 @@ jobs:
         with:
           message: |
             I see you updated files related to `core`. Please run `pnpm changeset` in the root directory to add a changeset as well as in the text include at least one of the following tags:
-            ```
             ${{ env.TAGS }}
-            ```
           reactions: eyes
           comment_tag: changeset-core
 
@@ -111,9 +109,7 @@ jobs:
         with:
           message: |
             I see you added a changeset file but it does not contain a tag. Please edit the text include at least one of the following tags:
-            ```
             ${{ env.TAGS }}
-            ```
           reactions: eyes
           comment_tag: changeset-core-tags
 
