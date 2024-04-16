@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
-
 	"regexp"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,10 +19,9 @@ import (
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price
 type SendError struct {
-	fatal            bool
-	err              error
-	clientErrorsLock sync.Mutex
-	clientErrors     ClientErrors
+	fatal        bool
+	err          error
+	clientErrors ClientErrors
 }
 
 func (s *SendError) Error() string {
@@ -269,8 +266,6 @@ func (s *SendError) is(errorType int) bool {
 	}
 	str := s.CauseStr()
 
-	s.clientErrorsLock.Lock()
-	defer s.clientErrorsLock.Unlock()
 	if _, ok := s.clientErrors[errorType]; ok {
 		if s.clientErrors[errorType].MatchString(str) {
 			return true
@@ -383,7 +378,7 @@ func NewFatalSendError(e error, clientErrors config.ClientErrors) *SendError {
 	if e == nil {
 		return nil
 	}
-	return &SendError{err: pkgerrors.WithStack(e), fatal: true, clientErrors: clientErrorRegexes(clientErrors), clientErrorsLock: sync.Mutex{}}
+	return &SendError{err: pkgerrors.WithStack(e), fatal: true, clientErrors: clientErrorRegexes(clientErrors)}
 }
 
 func NewSendErrorS(s string, clientErrors config.ClientErrors) *SendError {
@@ -396,7 +391,7 @@ func NewSendError(e error, clientErrors config.ClientErrors) *SendError {
 	}
 	errRegexes := clientErrorRegexes(clientErrors)
 	fatal := isFatalSendError(e, errRegexes)
-	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal, clientErrors: errRegexes, clientErrorsLock: sync.Mutex{}}
+	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal, clientErrors: errRegexes}
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:
