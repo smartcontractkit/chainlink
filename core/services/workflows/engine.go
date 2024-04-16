@@ -183,10 +183,17 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 		Config: tc,
 		Inputs: triggerInputs,
 	}
-	err = t.trigger.RegisterTrigger(ctx, e.triggerEvents, triggerRegRequest)
+	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate trigger %s, %s", t.Type, err)
 	}
+
+	go func() {
+		for event := range eventsCh {
+			e.triggerEvents <- event
+		}
+	}()
+
 	return nil
 }
 
