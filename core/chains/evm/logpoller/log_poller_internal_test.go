@@ -338,6 +338,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// Replay() should return error code received from replayComplete
 	t.Run("returns error code on replay complete", func(t *testing.T) {
+		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
 		mockBatchCallContext(t, ec)
 		anyErr := pkgerrors.New("any error")
 		done := make(chan struct{})
