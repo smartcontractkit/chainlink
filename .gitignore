@@ -68,6 +68,8 @@ __debug_bin*
 .test_summary/
 .run.id
 integration-tests/**/traces/
+benchmark_report.csv
+benchmark_summary.json
 
 # goreleaser builds
 cosign.*

@@ -221,6 +221,8 @@ func TestAutomationChaos(t *testing.T) {
 						}).
 						AddHelm(testCase.networkChart).
 						AddHelm(testCase.clChart)
+						// TODO we need to update the image in CTF, the old one is not available anymore
+						// deploy blockscout if running on simulated
 						// AddHelm(testCase.clChart).
 						// AddChart(blockscout.New(&blockscout.Props{
 						// 	Name:    "geth-blockscout",
@@ -244,22 +246,18 @@ func TestAutomationChaos(t *testing.T) {
 					require.NoError(t, err, "Error connecting to Chainlink nodes")
 
 					network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
-					readSethCfg := config.GetSethConfig()
-					require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-					sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
-					require.NoError(t, err, "Error merging seth and evm network configs")
+					sethConfigFn := func(sethCfg *seth.Config) error {
+						if sethCfg.IsSimulatedNetwork() {
+							require.Equal(t, int(*sethCfg.EphemeralAddrs), 0, "You must not use ephemeral addresses on a simulated network. Please update '[Seth] ephemeral_addresses_number = 0' field in the TOML config file", *sethCfg.EphemeralAddrs)
+							// take only the first key, all others are not funded in genesis and will crash the test ¯\_(ツ)_/¯
+							sethCfg.Network.PrivateKeys = sethCfg.Network.PrivateKeys[0:1]
+						}
 
-					if sethCfg.IsSimulatedNetwork() {
-						require.Equal(t, int(*sethCfg.EphemeralAddrs), 0, "You must not use ephemeral addresses on a simulated network. Please update '[Seth] ephemeral_addresses_number = 0' field in the TOML config file", *sethCfg.EphemeralAddrs)
-						// take only the first key, all others are not funded in genesis and will crash the test ¯\_(ツ)_/¯
-						sethCfg.Network.PrivateKeys = sethCfg.Network.PrivateKeys[0:1]
+						return nil
 					}
 
-					err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-					require.NoError(t, err, "Error validating seth network config")
-
-					chainClient, err := seth.NewClientWithConfig(&sethCfg)
+					chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, network, sethConfigFn)
 					require.NoError(t, err, "Error creating seth client")
 
 					// Register cleanup for any test

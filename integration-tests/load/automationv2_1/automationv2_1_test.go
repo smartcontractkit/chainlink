@@ -321,18 +321,12 @@ Load Config:
 	require.NoError(t, err, "Error running chainlink DON")
 
 	testNetwork = utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-	readSethCfg := loadedTestConfig.GetSethConfig()
-	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(testNetwork, *readSethCfg)
-	require.NoError(t, err, "Error merging seth and evm network configs")
+	sethConfigFn := func(sethCfg *seth.Config) error {
+		return utils.ValidateAddressesTypeAndNumber(sethCfg, 50)
+	}
 
-	err = utils.ValidateAddressesTypeAndNumber(&sethCfg, 50)
-	require.NoError(t, err, "Error validating Seth private key type and number")
-	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-	require.NoError(t, err, "Error validating seth network config")
-
-	chainClient, err := seth.NewClientWithConfig(&sethCfg)
+	chainClient, err := actions_seth.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, sethConfigFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)

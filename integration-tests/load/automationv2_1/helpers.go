@@ -96,6 +96,7 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 		Int("Concurrency", concurrency).
 		Msg("Deployment parallelisation info")
 
+	// used only for logging/visibility
 	atomicCounter := atomic.Uint64{}
 	var deplymentErr error
 	deployedContractCh := make(chan deployedContractData, concurrency)

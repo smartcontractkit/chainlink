@@ -29,9 +29,9 @@ func DeployAutoOCRRegistryAndRegistrar(
 }
 
 // DeployConsumers deploys and registers keeper consumers. If ephemeral addresses are enabled, it will deploy and register the consumers from ephemeral addresses, but each upkpeep will be registered with root key address as the admin. Which means
-// that functions like setting upkeep configuration, pausing, unpausing, etc. will be done by the root key address.
+// that functions like setting upkeep configuration, pausing, unpausing, etc. will be done by the root key address. It deployes mutlicall contract and sends link funds to each deployment address.
 func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool) ([]contracts.KeeperConsumer, []*big.Int) {
-	err := deployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
+	err := DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
 	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	upkeeps := DeployKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury)
@@ -47,6 +47,8 @@ func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.
 	return upkeeps, upkeepIds
 }
 
+// DeployPerformanceConsumers deploys and registers keeper performance consumers. If ephemeral addresses are enabled, it will deploy and register the consumers from ephemeral addresses, but each upkpeep will be registered with root key address as the admin.
+// that functions like setting upkeep configuration, pausing, unpausing, etc. will be done by the root key address. It deployes mutlicall contract and sends link funds to each deployment address.
 func DeployPerformanceConsumers(
 	t *testing.T,
 	chainClient *seth.Client,
@@ -65,7 +67,7 @@ func DeployPerformanceConsumers(
 		t, chainClient, numberOfUpkeeps, blockRange, blockInterval, checkGasToBurn, performGasToBurn,
 	)
 
-	err := deployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
+	err := DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
 	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	var upkeepsAddresses []string
@@ -76,6 +78,8 @@ func DeployPerformanceConsumers(
 	return upkeeps, upkeepIds
 }
 
+// DeployPerformDataCheckerConsumers deploys and registers keeper performance data checkers consumers. If ephemeral addresses are enabled, it will deploy and register the consumers from ephemeral addresses, but each upkpeep will be registered with root key address as the admin.
+// that functions like setting upkeep configuration, pausing, unpausing, etc. will be done by the root key address. It deployes mutlicall contract and sends link funds to each deployment address.
 func DeployPerformDataCheckerConsumers(
 	t *testing.T,
 	chainClient *seth.Client,
@@ -89,7 +93,7 @@ func DeployPerformDataCheckerConsumers(
 ) ([]contracts.KeeperPerformDataChecker, []*big.Int) {
 	upkeeps := DeployPerformDataChecker(t, chainClient, numberOfUpkeeps, expectedData)
 
-	err := deployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
+	err := DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
 	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	var upkeepsAddresses []string
@@ -100,7 +104,8 @@ func DeployPerformDataCheckerConsumers(
 	return upkeeps, upkeepIds
 }
 
-func deployMultiCallAndFundDeploymentAddresses(
+// DeployMultiCallAndFundDeploymentAddresses deploys multicall contract and sends link funds to each deployment address
+func DeployMultiCallAndFundDeploymentAddresses(
 	chainClient *seth.Client,
 	linkToken contracts.LinkToken,
 	numberOfUpkeeps int,

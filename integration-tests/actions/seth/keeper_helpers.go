@@ -121,7 +121,7 @@ func DeployPerformanceKeeperContracts(
 	}
 	registrar := DeployKeeperRegistrar(t, chainClient, registryVersion, linkToken, registrarSettings, registry)
 
-	err = deployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfContracts, linkFundsForEachUpkeep)
+	err = DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfContracts, linkFundsForEachUpkeep)
 	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	upkeeps := DeployKeeperConsumersPerformance(
@@ -183,7 +183,7 @@ func DeployPerformDataCheckerContracts(
 	registrar := DeployKeeperRegistrar(t, chainClient, registryVersion, linkToken, registrarSettings, registry)
 	upkeeps := DeployPerformDataChecker(t, chainClient, numberOfContracts, expectedData)
 
-	err = deployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfContracts, linkFundsForEachUpkeep)
+	err = DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfContracts, linkFundsForEachUpkeep)
 	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	var upkeepsAddresses []string
@@ -230,7 +230,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	upkeepIds := make([]*big.Int, 0)
 
 	concurrency := int(*client.Cfg.EphemeralAddrs)
-	require.GreaterOrEqual(t, concurrency, 1, "You need at least 1 ephemeral address to deploy consumers. Please set them in TOML config: `[Seth] ephemeral_addresses_number = 10`")
+	require.GreaterOrEqual(t, concurrency, 1, "You need at least 1 ephemeral address to deploy consumers. Please set them in TOML config. Example: `[Seth] ephemeral_addresses_number = 10`")
 
 	type config struct {
 		address string
@@ -255,6 +255,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	deplymentErrors := []error{}
 	deploymentCh := make(chan result, numberOfContracts)
 
+	// used mostly for logging/visibility and upkeep name creation
 	atomicCounter := atomic.Uint64{}
 
 	var registerUpkeepFn = func(channel chan result, keyNum int, config config) {
@@ -285,6 +286,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 			return
 		}
 
+		// not stricly necessary, but helps us to avoid an errorless revert if there is not enough LINK
 		if balance.Cmp(linkFunds) < 0 {
 			channel <- result{err: fmt.Errorf("Not enough LINK balance for %s. Has: %s. Needs: %s", client.Addresses[keyNum].Hex(), balance.String(), linkFunds.String())}
 			return
@@ -294,6 +296,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 		channel <- result{tx: tx, err: err}
 	}
 
+	// listen in the background until all registrations are done (it won't fail on the first error)
 	go func() {
 		defer l.Debug().Msg("Finished listening to results of registering upkeeps")
 		for r := range deploymentCh {
@@ -368,7 +371,7 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
 
 	concurrency := int(*client.Cfg.EphemeralAddrs)
-	require.GreaterOrEqual(t, concurrency, 1, "You need at least 1 ephemeral address to deploy consumers. Please set them in TOML config: `[Seth] ephemeral_addresses_number = 10`")
+	require.GreaterOrEqual(t, concurrency, 1, "You need at least 1 ephemeral address to deploy consumers. Please set them in TOML config. Example: `[Seth] ephemeral_addresses_number = 10`")
 
 	type result struct {
 		contract contracts.KeeperConsumer
@@ -403,10 +406,9 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	}
 
 	var wgProcess sync.WaitGroup
-	for i := 0; i < numberOfContracts; i++ {
-		wgProcess.Add(1)
-	}
+	wgProcess.Add(numberOfContracts)
 
+	// listen in the background until all registrations are done (it won't fail on the first error)
 	go func() {
 		defer l.Debug().Msg("Finished listening to results of deploying consumer contracts")
 		for contractData := range deploymentCh {

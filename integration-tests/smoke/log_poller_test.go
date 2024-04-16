@@ -83,6 +83,7 @@ func TestLogPollerReplayFinalityTag(t *testing.T) {
 func executeBasicLogPollerTest(t *testing.T) {
 	testConfig, err := tc.GetConfig(t.Name(), tc.LogPoller)
 	require.NoError(t, err, "Error getting config")
+	overrideEphemeralAddressesCount(&testConfig)
 
 	eventsToEmit := []abi.Event{}
 	for _, event := range logpoller.EmitterABI.Events {
@@ -91,11 +92,6 @@ func executeBasicLogPollerTest(t *testing.T) {
 
 	cfg := testConfig.LogPoller
 	cfg.General.EventsToEmit = eventsToEmit
-
-	// override whatever is in the config file to avoid a situatiation where we don't have enough ephemeral addresses
-	// to emit events from all contracts
-	int64Contracts := int64(*cfg.General.Contracts * 20)
-	testConfig.Seth.EphemeralAddrs = &int64Contracts
 
 	l := logging.GetTestLogger(t)
 	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
@@ -168,6 +164,7 @@ func executeBasicLogPollerTest(t *testing.T) {
 func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	testConfig, err := tc.GetConfig(t.Name(), tc.LogPoller)
 	require.NoError(t, err, "Error getting config")
+	overrideEphemeralAddressesCount(&testConfig)
 
 	eventsToEmit := []abi.Event{}
 	for _, event := range logpoller.EmitterABI.Events {
@@ -176,11 +173,6 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 
 	cfg := testConfig.LogPoller
 	cfg.General.EventsToEmit = eventsToEmit
-
-	// override whatever is in the config file to avoid a situatiation where we don't have enough ephemeral addresses
-	// to emit events from all contracts
-	int64Contracts := int64(*cfg.General.Contracts * 20)
-	testConfig.Seth.EphemeralAddrs = &int64Contracts
 
 	l := logging.GetTestLogger(t)
 	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
@@ -415,4 +407,17 @@ func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogge
 			g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
 		}, logConsistencyWaitDuration, "10s").Should(gomega.Succeed())
 	}
+}
+
+func overrideEphemeralAddressesCount(testConfig *tc.TestConfig) {
+	// override whatever is in the config file to avoid a situatiation where we don't have enough ephemeral addresses
+	// to emit events from all contracts
+	minContracts := int64(*testConfig.LogPoller.General.Contracts * 20)
+	if testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs > minContracts {
+		return
+	}
+
+	testConfig.Seth.EphemeralAddrs = &minContracts
+
+	return
 }

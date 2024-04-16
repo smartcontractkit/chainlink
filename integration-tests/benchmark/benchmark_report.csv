@@ -1,4 +1,0 @@
-Full Test Summary
-Total Times Eligible,Total Performed,Total Reverted,Total Stale Reports,Average Perform Delay,Median Perform Delay,90th pct Perform Delay,99th pct Perform Delay,Max Perform Delay,Percent Within SLA,Percent Revert,Percent Stale
-0,0,0,0,0.00,0,0,0,0,NaN%,0.00%,0.00%
-Contract Index,RegistryAddress,Contract Address,Total Times Eligible,Total Performed Upkeeps,Average Perform Delay,Median Perform Delay,90th pct Perform Delay,99th pct Perform Delay,Largest Perform Delay,Percent Within SLA

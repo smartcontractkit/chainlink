@@ -409,8 +409,8 @@ func TestAutomationAddFunds(t *testing.T) {
 	t.Parallel()
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
-		// "registry_2_1": ethereum.RegistryVersion_2_1,
-		// "registry_2_2": ethereum.RegistryVersion_2_2,
+		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {

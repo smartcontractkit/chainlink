@@ -1,5 +1,6 @@
 package utils
 
+// DivideSlice divides a slice into a number of parts. It aims for the most equal distribution possible.
 func DivideSlice[T any](slice []T, parts int) [][]T {
 	var divided [][]T
 	if parts == 1 {

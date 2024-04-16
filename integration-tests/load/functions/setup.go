@@ -16,10 +16,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
@@ -52,16 +52,7 @@ type S4SecretsCfg struct {
 
 func SetupLocalLoadTestEnv(globalConfig tc.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
 	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
-	readSethCfg := globalConfig.GetSethConfig()
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(selectedNetwork, *readSethCfg)
-	if err != nil {
-		return nil, err
-	}
-	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-	if err != nil {
-		return nil, err
-	}
-	seth, err := seth.NewClientWithConfig(&sethCfg)
+	seth, err := actions_seth.GetChainClient(globalConfig, selectedNetwork)
 	if err != nil {
 		return nil, err
 	}

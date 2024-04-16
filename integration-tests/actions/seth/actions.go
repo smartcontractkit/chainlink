@@ -36,6 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var ContractDeploymentInterval = 200
@@ -72,7 +74,7 @@ func FundChainlinkNodes(
 
 // FundChainlinkNodesAtKeyIndexFromRootAddress sends native token amount (expressed in human-scale) to each Chainlink Node
 // from root private key.It returns an error if any of the transactions failed. It sends the funds to
-// node address at keyIndex.
+// node address at keyIndex (as each node can have multiple addresses).
 func FundChainlinkNodesAtKeyIndexFromRootAddress(
 	logger zerolog.Logger,
 	client *seth.Client,
@@ -89,7 +91,7 @@ func FundChainlinkNodesAtKeyIndexFromRootAddress(
 
 // FundChainlinkNodesAtKeyIndex sends native token amount (expressed in human-scale) to each Chainlink Node
 // from private key's address. It returns an error if any of the transactions failed. It sends the funds to
-// node address at keyIndex.
+// node address at keyIndex (as each node can have multiple addresses).
 func FundChainlinkNodesAtKeyIndex(
 	logger zerolog.Logger,
 	client *seth.Client,
@@ -118,7 +120,6 @@ func fundChainlinkNodesAtAnyKey(
 ) error {
 	for _, cl := range nodes {
 		toAddress, err := keyAddressFn(cl)
-		// toAddress, err := cl.PrimaryEthAddress()
 		if err != nil {
 			return err
 		}
@@ -255,6 +256,18 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		txTimeout = *payload.TxTimeout
 	}
 
+	logger.Debug().
+		Str("From", fromAddress.Hex()).
+		Str("To", payload.ToAddress.Hex()).
+		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
+		Uint64("Nonce", nonce).
+		Uint64("Gas Limit", gasLimit).
+		Str("Gas Price", gasPrice.String()).
+		Str("Gas Fee Cap", gasFeeCap.String()).
+		Str("Gas Tip Cap", gasTipCap.String()).
+		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
+		Msg("About to send funds")
+
 	ctx, cancel = context.WithTimeout(ctx, txTimeout)
 	defer cancel()
 	err = client.Client.SendTransaction(ctx, signedTx)
@@ -266,7 +279,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Str("From", fromAddress.Hex()).
 		Str("To", payload.ToAddress.Hex()).
 		Str("TxHash", signedTx.Hash().String()).
-		Str("Amount", conversions.WeiToEther(payload.Amount).String()).
+		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
 		Uint64("Nonce", nonce).
 		Uint64("Gas Limit", gasLimit).
 		Str("Gas Price", gasPrice.String()).
@@ -807,14 +820,13 @@ func WatchNewFluxRound(
 	}
 }
 
+// EstimateCostForChainlinkOperations estimates the cost of running a number of operations on the Chainlink node based on estimated gas costs. It supports
+// both legacy and EIP-1559 transactions.
 func EstimateCostForChainlinkOperations(l zerolog.Logger, client *seth.Client, network blockchain.EVMNetwork, amountOfOperations int) (*big.Float, error) {
 	bigAmountOfOperations := big.NewInt(int64(amountOfOperations))
 	estimations := client.CalculateGasEstimations(client.NewDefaultGasEstimationRequest())
 
-	// https://ethereum.stackexchange.com/questions/19665/how-to-calculate-transaction-fee
-	// total gas limit = chainlink gas limit + gas limit buffer
 	gasLimit := network.GasEstimationBuffer + network.ChainlinkTransactionLimit
-	// gas cost for TX = total gas limit * estimated gas price
 
 	var gasPriceInWei *big.Int
 	if client.Cfg.Network.EIP1559DynamicFees {
@@ -839,6 +851,7 @@ func EstimateCostForChainlinkOperations(l zerolog.Logger, client *seth.Client, n
 	return totalEthForAllOperations, nil
 }
 
+// GetLatestFinalizedBlockHeader returns latest finalised block header for given network (taking into account finality tag/depth)
 func GetLatestFinalizedBlockHeader(ctx context.Context, client *seth.Client, network blockchain.EVMNetwork) (*types.Header, error) {
 	if network.FinalityTag {
 		return client.Client.HeaderByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
@@ -855,6 +868,7 @@ func GetLatestFinalizedBlockHeader(ctx context.Context, client *seth.Client, net
 	return client.Client.HeaderByNumber(ctx, big.NewInt(int64(finalizedBlockNumber)))
 }
 
+// SendLinkFundsToDeploymentAddresses deploys MultiCall contract to send LINK to Seth's ephemeral keys
 func SendLinkFundsToDeploymentAddresses(
 	chainClient *seth.Client,
 	concurrency,
@@ -934,4 +948,43 @@ func SendLinkFundsToDeploymentAddresses(
 	}
 
 	return nil
+}
+
+var noOpSethConfigFn = func(cfg *seth.Config) error { return nil }
+
+type SethConfigFunction = func(*seth.Config) error
+
+// GetChainClient returns a seth client for the given network after validating the config
+func GetChainClient(config tc.SethConfig, network blockchain.EVMNetwork) (*seth.Client, error) {
+	return GetChainClientWithConfigFunction(config, network, noOpSethConfigFn)
+}
+
+// GetChainClientWithConfigFunction returns a seth client for the given network after validating the config and applying the config function
+func GetChainClientWithConfigFunction(config tc.SethConfig, network blockchain.EVMNetwork, configFn SethConfigFunction) (*seth.Client, error) {
+	readSethCfg := config.GetSethConfig()
+	if readSethCfg == nil {
+		return nil, fmt.Errorf("Seth config not found")
+	}
+
+	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error merging seth and evm network configs")
+	}
+
+	err = configFn(&sethCfg)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error applying seth config function")
+	}
+
+	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error validating seth network config")
+	}
+
+	chainClient, err := seth.NewClientWithConfig(&sethCfg)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error creating seth client")
+	}
+
+	return chainClient, nil
 }

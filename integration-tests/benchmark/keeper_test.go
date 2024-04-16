@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -146,20 +145,9 @@ func TestAutomationBenchmark(t *testing.T) {
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 
 	testNetwork := utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
-	readSethCfg := config.GetSethConfig()
-	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(testNetwork, *readSethCfg)
-	require.NoError(t, err, "Error merging seth and evm network configs")
-	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-	require.NoError(t, err, "Error validating seth network config")
-
-	if sethCfg.IsSimulatedNetwork() {
-		sethCfg.Network.PrivateKeys = sethCfg.Network.PrivateKeys[0:1]
-	}
-
-	chainClient, err := seth.NewClientWithConfig(&sethCfg)
-	require.NoError(t, err, "Error creating seth client")
+	chainClient, err := actions_seth.GetChainClient(&config, testNetwork)
+	require.NoError(t, err, "Error getting Seth client")
 
 	registryVersions := addRegistry(&config)
 	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(t,
@@ -403,6 +391,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 			}))
 	}
 
+	// TODO we need to update the image in CTF, the old one is not available anymore
 	// deploy blockscout if running on simulated
 	// if testNetwork.Simulated {
 	// 	testEnvironment.
