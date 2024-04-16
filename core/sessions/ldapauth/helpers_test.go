@@ -3,27 +3,22 @@ package ldapauth
 import (
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // Returns an instantiated ldapAuthenticator struct without validation for testing
 func NewTestLDAPAuthenticator(
-	db *sqlx.DB,
-	pgCfg pg.QConfig,
+	ds sqlutil.DataSource,
 	ldapCfg config.LDAP,
-	dev bool,
 	lggr logger.Logger,
 	auditLogger audit.AuditLogger,
 ) (*ldapAuthenticator, error) {
-	namedLogger := lggr.Named("LDAPAuthenticationProvider")
 	ldapAuth := ldapAuthenticator{
-		q:           pg.NewQ(db, namedLogger, pgCfg),
+		ds:          ds,
 		ldapClient:  newLDAPClient(ldapCfg),
 		config:      ldapCfg,
 		lggr:        lggr.Named("LDAPAuthenticationProvider"),

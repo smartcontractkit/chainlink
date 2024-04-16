@@ -83,7 +83,7 @@ func TestRunner(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	require.NoError(t, pipelineORM.Start(ctx))
 	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
-	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
+	btORM := bridges.NewORM(db)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
@@ -116,8 +116,8 @@ func TestRunner(t *testing.T) {
 		mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 
 		httpURL = mockHTTP.URL
-		_, bridgeER := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockElectionWinner.URL}, config.Database())
-		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL}, config.Database())
+		_, bridgeER := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockElectionWinner.URL})
+		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL})
 
 		// Need a job in order to create a run
 		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
@@ -169,7 +169,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("must delete job before deleting bridge", func(t *testing.T) {
-		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
@@ -193,7 +193,7 @@ func TestRunner(t *testing.T) {
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
 		// Create a random bridge name
-		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
+		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 		// Reference a different one
 		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, config)
@@ -846,7 +846,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
-		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig().Database())
+		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL})
 		bridgeName = bridge.Name.String()
 		defer bridgeServer.Close()
 	}
@@ -889,7 +889,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		bridgesORM := bridges.NewORM(app.GetSqlxDB())
 		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume
@@ -1025,7 +1025,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
-		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig().Database())
+		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL})
 		bridgeName = bridge.Name.String()
 		defer bridgeServer.Close()
 	}
@@ -1066,7 +1066,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		bridgesORM := bridges.NewORM(app.GetSqlxDB())
 		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume

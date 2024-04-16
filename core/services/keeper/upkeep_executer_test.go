@@ -66,7 +66,7 @@ func setup(t *testing.T, estimator gas.EvmFeeEstimator, overrideFn func(c *chain
 	*txmmocks.MockEvmTxManager,
 	keystore.Master,
 	legacyevm.Chain,
-	keeper.ORM,
+	*keeper.ORM,
 ) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Keeper.TurnLookBack = ptr[int64](0)
@@ -85,12 +85,12 @@ func setup(t *testing.T, estimator gas.EvmFeeEstimator, overrideFn func(c *chain
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), cfg.Database(), legacyChains, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, legacyChains)
-	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config().Database())
+	orm := keeper.NewORM(db, logger.TestLogger(t))
 	registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 
 	lggr := logger.TestLogger(t)
 	executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config().Keeper(), jb.KeeperSpec.FromAddress.Address())
-	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config().Database(), registry)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, registry)
 	servicetest.Run(t, executer)
 	return db, cfg, ethClient, executer, registry, upkeep, jb, jpv2, txm, keyStore, ch, orm
 }
@@ -267,7 +267,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 		// change chain ID to non-configured chain
 		jb.KeeperSpec.EVMChainID = (*ubig.Big)(big.NewInt(999))
-		cltest.MustInsertUpkeepForRegistry(t, db, ch.Config().Database(), registry)
+		cltest.MustInsertUpkeepForRegistry(t, db, registry)
 		lggr := logger.TestLogger(t)
 		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config().Keeper(), jb.KeeperSpec.FromAddress.Address())
 		err := executer.Start(testutils.Context(t))
