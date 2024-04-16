@@ -140,7 +140,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 		tr.lggr.Errorf("failed to track abandoned txes: %v", err)
 		return
 	}
-	if err := tr.handleTxesByState(ctx, 0); err != nil {
+	if err := tr.handleTxesByState(ctx); err != nil {
 		tr.lggr.Errorf("failed to handle txes by state: %v", err)
 		return
 	}
@@ -160,8 +160,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 				if blockHeight == 0 {
 					break
 				}
-				tr.lggr.Infof("received blockHeight %v", blockHeight)
-				if err := tr.handleTxesByState(ctx, blockHeight); err != nil {
+				if err := tr.handleTxesByState(ctx); err != nil {
 					tr.lggr.Errorf("failed to handle txes by state: %v", err)
 					return
 				}
@@ -251,7 +250,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbando
 
 // handleTxesByState handles all txes in the txCache by their state
 // It's called on every new blockHeight and also on startup to handle all txes in the txCache
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context, blockHeight int64) error {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context) error {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	ctx, cancel := context.WithTimeout(ctx, handleTxesTimeout)
