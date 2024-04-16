@@ -1,8 +1,16 @@
+{{- if .Values.chainlink.enabled }}
 {{- range $index, $cfg := .Values.chainlink.nodes }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ if eq $index 0 }}{{ $.Release.Name }}-{{ $cfg.name }}-bootstrap{{ else }}{{ $.Release.Name }}-{{ $cfg.name }}{{ end }}
+  labels:
+    app: {{ $.Release.Name }}
+    instance: {{ $cfg.name }}
+    release: {{ $.Release.Name }}
+    {{- range $key, $value := $.Values.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
 spec:
   strategy:
     # Need to recreate the pod to deal with lease lock held by old pod.
@@ -67,6 +75,10 @@ spec:
               value: postgresql://postgres:verylongdatabasepassword@{{ $.Release.Name }}-db-{{ $cfg.name }}/chainlink?sslmode=disable
             - name: CL_DEV
               value: "false"
+            {{- range $name, $value := $.Values.chainlink.extraEnvVars }}
+            - name: "{{ $name }}"
+              value: "{{ $value }}"
+            {{- end }}
           volumeMounts:
             - name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
               mountPath: /etc/node-secrets-volume/
@@ -114,4 +126,5 @@ spec:
 {{ toYaml . | indent 8 }}
 {{- end }}
 ---
+{{- end }}
 {{- end }}

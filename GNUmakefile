@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := chainlink
 
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
-VERSION = $(shell cat VERSION)
+VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
@@ -27,14 +27,19 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 	go mod download
 
 .PHONY: gomodtidy
-gomodtidy: gomods ## Run go mod tidy on all modules.
-	gomods tidy
+gomodtidy: ## Run go mod tidy on all modules.
+	go mod tidy
+	cd ./core/scripts && go mod tidy
+	cd ./integration-tests && go mod tidy
+	cd ./integration-tests/load && go mod tidy
+	cd ./dashboard-lib && go mod tidy
+	cd ./charts/chainlink-cluster && go mod tidy
 
-.PHONY: godoc
-godoc: ## Install and run godoc
-	go install golang.org/x/tools/cmd/godoc@latest
-	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink/v2/
-	godoc -http=:6060
+.PHONY: docs
+docs: ## Install and run pkgsite to view Go docs
+	go install golang.org/x/pkgsite/cmd/pkgsite@latest
+	# http://localhost:8080/pkg/github.com/smartcontractkit/chainlink/v2/
+	pkgsite
 
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
@@ -81,8 +86,13 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: generate
-generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
-	gomods -w go generate -x ./...
+generate: abigen codecgen mockery protoc ## Execute all go:generate commands.
+	go generate -x ./...
+	cd ./core/scripts && go generate -x ./...
+	cd ./integration-tests && go generate -x ./...
+	cd ./integration-tests/load && go generate -x ./...
+	cd ./dashboard-lib && go generate -x ./...
+	cd ./charts/chainlink-cluster && go generate -x ./...
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.

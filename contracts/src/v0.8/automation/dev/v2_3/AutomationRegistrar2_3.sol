@@ -7,6 +7,9 @@ import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterfa
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations
@@ -19,6 +22,8 @@ import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
 contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC677Receiver {
+  using SafeERC20 for IERC20;
+
   /**
    * DISABLED: No auto approvals, all new upkeeps should be approved manually.
    * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to max allowed. Manual for rest.
@@ -72,6 +77,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   struct PendingRequest {
     address admin;
     uint96 balance;
+    IERC20 billingToken;
   }
   /**
    * @member upkeepContract address to perform upkeep on
@@ -103,8 +109,9 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     bytes offchainConfig;
   }
 
-  LinkTokenInterface public immutable LINK;
-  IAutomationRegistryMaster2_3 s_registry;
+  LinkTokenInterface public immutable i_LINK;
+  IWrappedNative public immutable i_WRAPPED_NATIVE_TOKEN;
+  IAutomationRegistryMaster2_3 private s_registry;
 
   // Only applicable if trigger config is set to ENABLED_SENDER_ALLOWLIST
   mapping(address => bool) private s_autoApproveAllowedSenders;
@@ -142,6 +149,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   error InvalidBillingToken();
   error InvalidDataLength();
   error TransferFailed(address to);
+  error DuplicateEntry();
   error OnlyAdminOrOwner();
   error OnlyLink();
   error RequestNotFound();
@@ -152,15 +160,18 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @param triggerConfigs the initial config for individual triggers
    * @param billingTokens the tokens allowed for billing
    * @param minRegistrationFees the minimum amount for registering with each billing token
+   * @param wrappedNativeToken wrapped native token
    */
   constructor(
     address LINKAddress,
     IAutomationRegistryMaster2_3 registry,
     InitialTriggerConfig[] memory triggerConfigs,
     IERC20[] memory billingTokens,
-    uint256[] memory minRegistrationFees
+    uint256[] memory minRegistrationFees,
+    IWrappedNative wrappedNativeToken
   ) ConfirmedOwner(msg.sender) {
-    LINK = LinkTokenInterface(LINKAddress);
+    i_LINK = LinkTokenInterface(LINKAddress);
+    i_WRAPPED_NATIVE_TOKEN = wrappedNativeToken;
     setConfig(registry, billingTokens, minRegistrationFees);
     for (uint256 idx = 0; idx < triggerConfigs.length; idx++) {
       setTriggerConfig(
@@ -177,10 +188,16 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @notice Allows external users to register upkeeps; assumes amount is approved for transfer by the contract
    * @param requestParams struct of all possible registration parameters
    */
-  function registerUpkeep(RegistrationParams calldata requestParams) external returns (uint256) {
-    if (!requestParams.billingToken.transferFrom(msg.sender, address(this), requestParams.amount)) {
-      revert TransferFailed(address(this));
+  function registerUpkeep(RegistrationParams memory requestParams) external payable returns (uint256) {
+    if (requestParams.billingToken == IERC20(i_WRAPPED_NATIVE_TOKEN) && msg.value != 0) {
+      requestParams.amount = SafeCast.toUint96(msg.value);
+      // wrap and send native payment
+      i_WRAPPED_NATIVE_TOKEN.deposit{value: msg.value}();
+    } else {
+      // send ERC20 payment, including wrapped native token
+      requestParams.billingToken.safeTransferFrom(msg.sender, address(this), requestParams.amount);
     }
+
     return _register(requestParams, msg.sender);
   }
 
@@ -203,11 +220,12 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   }
 
   /**
-   * @notice cancel will remove a registration request and return the refunds to the request.admin
+   * @notice cancel will remove a registration request from the pending request queue and return the refunds to the request.admin
    * @param hash the request hash
    */
   function cancel(bytes32 hash) external {
     PendingRequest memory request = s_pendingRequests[hash];
+
     if (!(msg.sender == request.admin || msg.sender == owner())) {
       revert OnlyAdminOrOwner();
     }
@@ -215,10 +233,9 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       revert RequestNotFound();
     }
     delete s_pendingRequests[hash];
-    bool success = LINK.transfer(request.admin, request.balance);
-    if (!success) {
-      revert TransferFailed(request.admin);
-    }
+
+    request.billingToken.safeTransfer(request.admin, request.balance);
+
     emit RegistrationRejected(hash);
   }
 
@@ -313,9 +330,9 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @param data Payload of the transaction
    */
   function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
-    if (msg.sender != address(LINK)) revert OnlyLink();
+    if (msg.sender != address(i_LINK)) revert OnlyLink();
     RegistrationParams memory params = abi.decode(data, (RegistrationParams));
-    if (address(params.billingToken) != address(LINK)) revert OnlyLink();
+    if (address(params.billingToken) != address(i_LINK)) revert OnlyLink();
     params.amount = uint96(amount); // ignore whatever is sent in registration params, use actual value; casting safe because max supply LINK < 2^96
     _register(params, sender);
   }
@@ -326,6 +343,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   /**
    * @dev verify registration request and emit RegistrationRequested event
+   * @dev we don't allow multiple duplicate registrations by adding to the original registration's balance
+   * users can cancel and re-register if they want to update the registration
    */
   function _register(RegistrationParams memory params, address sender) private returns (uint256) {
     if (params.amount < s_minRegistrationAmounts[params.billingToken]) {
@@ -338,6 +357,10 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       revert InvalidBillingToken();
     }
     bytes32 hash = keccak256(abi.encode(params));
+
+    if (s_pendingRequests[hash].admin != address(0)) {
+      revert DuplicateEntry();
+    }
 
     emit RegistrationRequested(
       hash,
@@ -358,8 +381,11 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       s_triggerRegistrations[params.triggerType].approvedCount++;
       upkeepId = _approve(params, hash);
     } else {
-      uint96 newBalance = s_pendingRequests[hash].balance + params.amount; // TODO - this is bad UX
-      s_pendingRequests[hash] = PendingRequest({admin: params.adminAddress, balance: newBalance});
+      s_pendingRequests[hash] = PendingRequest({
+        admin: params.adminAddress,
+        balance: params.amount,
+        billingToken: params.billingToken
+      });
     }
 
     return upkeepId;
@@ -381,8 +407,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       params.offchainConfig
     );
     bool success;
-    if (address(params.billingToken) == address(LINK)) {
-      success = LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
+    if (address(params.billingToken) == address(i_LINK)) {
+      success = i_LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
     } else {
       success = params.billingToken.approve(address(registry), params.amount);
       if (success) {

@@ -3,7 +3,7 @@ FROM golang:1.21-bullseye as buildgo
 RUN go version
 WORKDIR /chainlink
 
-COPY GNUmakefile VERSION ./
+COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
@@ -13,6 +13,8 @@ RUN go mod download
 ARG COMMIT_SHA
 
 COPY . .
+
+RUN apt-get update && apt-get install -y jq
 
 # Build the golang binary
 RUN make install-chainlink

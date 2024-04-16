@@ -1,3 +1,4 @@
+{{ if and (hasKey .Values "geth") .Values.geth.enabled }}
 {{- if .Values.networkPolicies.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -15,13 +16,10 @@ spec:
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
-        # Allow http and websocket connections from the runner pods.
-        - podSelector:
-            matchLabels:
-              app: runner
       ports:
         - protocol: TCP
           port: 8544
         - protocol: TCP
           port: 8546
+{{- end }}
 {{- end }}

@@ -1,3 +1,4 @@
+{{- if .Values.db.enabled }}
 {{- range $cfg := .Values.chainlink.nodes }}
 apiVersion: apps/v1
 {{ if $.Values.db.stateful }}
@@ -7,6 +8,10 @@ kind: Deployment
 {{ end }}
 metadata:
   name: {{ $.Release.Name }}-{{ $cfg.name }}-db
+  labels:
+    app: {{ $.Release.Name }}-db
+    instance: {{ $cfg.name }}-db
+    release: {{ $.Release.Name }}
 spec:
   {{ if $.Values.db.stateful }}
   serviceName: {{ $.Release.Name }}-db-${{ $cfg.name }}
@@ -145,4 +150,5 @@ spec:
 {{ toYaml . | indent 8 }}
 {{- end }}
 ---
+{{- end }}
 {{- end }}

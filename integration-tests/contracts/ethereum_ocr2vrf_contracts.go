@@ -13,12 +13,12 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/dkg"
+	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon"
+	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 )
 
 // EthereumDKG represents DKG contract
@@ -49,8 +49,8 @@ type EthereumVRFBeaconConsumer struct {
 	vrfBeaconConsumer *vrf_beacon_consumer.BeaconVRFConsumer
 }
 
-// EthereumVRFCoordinator represents VRF coordinator contract
-type EthereumVRFCoordinator struct {
+// LegacyEthereumVRFCoordinator represents VRF coordinator contract
+type LegacyEthereumVRFCoordinator struct {
 	address     *common.Address
 	client      blockchain.EVMClient
 	coordinator *solidity_vrf_coordinator_interface.VRFCoordinator
@@ -125,7 +125,7 @@ func (e *EthereumContractDeployer) DeployBatchBlockhashStore(blockhashStoreAddr 
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumBatchBlockhashStore{
+	return &LegacyEthereumBatchBlockhashStore{
 		client:              e.client,
 		batchBlockhashStore: instance.(*batch_blockhash_store.BatchBlockhashStore),
 		address:             address,

@@ -132,10 +132,12 @@ Name = 'bar'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+APIKey = 'key'
 
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://second.stark.node'
+APIKey = 'key'
 
 [[Starknet]]
 

@@ -20,10 +20,12 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_GATI }}
           role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: helm-publish.helm-release
 
       - name: Get Github Token
         id: get-gh-token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           url: ${{ secrets.GATI_LAMBDA_FUNCTION_URL }}
 

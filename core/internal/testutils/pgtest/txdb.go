@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
+// TODO still need to import this for side effects
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
 //
 // The original lib has various problems and is hard to understand because it

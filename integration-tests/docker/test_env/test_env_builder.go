@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"runtime/debug"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -38,28 +37,27 @@ const (
 )
 
 type CLTestEnvBuilder struct {
-	hasLogStream           bool
-	hasKillgrave           bool
-	hasForwarders          bool
-	hasSeth                bool
-	hasEVMClient           bool
-	clNodeConfig           *chainlink.Config
-	secretsConfig          string
-	nonDevGethNetworks     []blockchain.EVMNetwork
-	clNodesCount           int
-	clNodesOpts            []func(*ClNode)
-	customNodeCsaKeys      []string
-	defaultNodeCsaKeys     []string
-	l                      zerolog.Logger
-	t                      *testing.T
-	te                     *CLClusterTestEnv
-	isNonEVM               bool
-	cleanUpType            CleanUpType
-	cleanUpCustomFn        func()
-	chainOptionsFn         []ChainOption
-	evmClientNetworkOption []EVMClientNetworkOption
-	privateEthereumNetwork *test_env.EthereumNetwork
-	testConfig             tc.GlobalTestConfig
+	hasLogStream            bool
+	hasKillgrave            bool
+	hasForwarders           bool
+	hasSeth                 bool
+	hasEVMClient            bool
+	clNodeConfig            *chainlink.Config
+	secretsConfig           string
+	clNodesCount            int
+	clNodesOpts             []func(*ClNode)
+	customNodeCsaKeys       []string
+	defaultNodeCsaKeys      []string
+	l                       zerolog.Logger
+	t                       *testing.T
+	te                      *CLClusterTestEnv
+	isNonEVM                bool
+	cleanUpType             CleanUpType
+	cleanUpCustomFn         func()
+	chainOptionsFn          []ChainOption
+	evmClientNetworkOption  []EVMClientNetworkOption
+	privateEthereumNetworks []*test_env.EthereumNetwork
+	testConfig              tc.GlobalTestConfig
 
 	/* funding */
 	ETHFunds *big.Float
@@ -142,25 +140,6 @@ func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 	return b
 }
 
-// deprecated
-// left only for backward compatibility
-func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
-	ethBuilder := test_env.NewEthereumNetworkBuilder()
-	cfg, err := ethBuilder.
-		WithEthereumVersion(test_env.EthereumVersion_Eth1).
-		WithExecutionLayer(test_env.ExecutionLayer_Geth).
-		WithTest(b.t).
-		Build()
-
-	if err != nil {
-		panic(err)
-	}
-
-	b.privateEthereumNetwork = &cfg
-
-	return b
-}
-
 func (b *CLTestEnvBuilder) WithSeth() *CLTestEnvBuilder {
 	b.hasSeth = true
 	b.hasEVMClient = false
@@ -168,12 +147,12 @@ func (b *CLTestEnvBuilder) WithSeth() *CLTestEnvBuilder {
 }
 
 func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(en test_env.EthereumNetwork) *CLTestEnvBuilder {
-	b.privateEthereumNetwork = &en
+	b.privateEthereumNetworks = append(b.privateEthereumNetworks, &en)
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithPrivateGethChains(evmNetworks []blockchain.EVMNetwork) *CLTestEnvBuilder {
-	b.nonDevGethNetworks = evmNetworks
+func (b *CLTestEnvBuilder) WithPrivateEthereumNetworks(ens []*test_env.EthereumNetwork) *CLTestEnvBuilder {
+	b.privateEthereumNetworks = ens
 	return b
 }
 
@@ -290,43 +269,80 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.te.LogStream != nil {
-		b.t.Cleanup(func() {
-			b.l.Info().Msg("Shutting down LogStream")
-			logPath, err := osutil.GetAbsoluteFolderPath("logs")
+		if b.t != nil {
+			b.t.Cleanup(func() {
+				b.l.Info().Msg("Shutting down LogStream")
+				logPath, err := osutil.GetAbsoluteFolderPath("logs")
+				if err != nil {
+					b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
+				}
+
+				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
+					// we can't do much if this fails, so we just log the error in logstream
+					_ = b.te.LogStream.FlushAndShutdown()
+					b.te.LogStream.PrintLogTargetsLocations()
+					b.te.LogStream.SaveLogLocationInTestSummary()
+				}
+			})
+		}
+
+		// this is not the cleanest way to do this, but when we originally build ethereum networks, we don't have the logstream reference
+		// so we need to rebuild them here and pass logstream to them
+		for i := range b.privateEthereumNetworks {
+			builder := test_env.NewEthereumNetworkBuilder()
+			netWithLs, err := builder.
+				WithExistingConfig(*b.privateEthereumNetworks[i]).
+				WithLogStream(b.te.LogStream).
+				Build()
 			if err != nil {
-				b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
+				return nil, err
 			}
-
-			if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
-				// we can't do much if this fails, so we just log the error in logstream
-				_ = b.te.LogStream.FlushAndShutdown()
-				b.te.LogStream.PrintLogTargetsLocations()
-				b.te.LogStream.SaveLogLocationInTestSummary()
-			}
-
-		})
+			b.privateEthereumNetworks[i] = &netWithLs
+		}
 	}
 
-	if b.nonDevGethNetworks != nil {
-		b.te.WithPrivateChain(b.nonDevGethNetworks)
-		err := b.te.StartPrivateChain()
-		if err != nil {
-			return b.te, err
-		}
-		var nonDevNetworks []blockchain.EVMNetwork
-		for i, n := range b.te.PrivateChain {
-			primaryNode := n.GetPrimaryNode()
-			if primaryNode == nil {
-				return b.te, fmt.Errorf("primary node is nil in PrivateChain interface, stack: %s", string(debug.Stack()))
+	// in this case we will use the builder only to start chains, not the cluster, because currently we support only 1 network config per cluster
+	if len(b.privateEthereumNetworks) > 1 {
+		b.te.rpcProviders = make(map[int64]*test_env.RpcProvider)
+		b.te.EVMNetworks = make([]*blockchain.EVMNetwork, 0)
+		b.te.evmClients = make(map[int64]blockchain.EVMClient)
+		for _, en := range b.privateEthereumNetworks {
+			en.DockerNetworkNames = []string{b.te.DockerNetwork.Name}
+			networkConfig, rpcProvider, err := b.te.StartEthereumNetwork(en)
+			if err != nil {
+				return nil, err
 			}
-			nonDevNetworks = append(nonDevNetworks, *n.GetNetworkConfig())
-			nonDevNetworks[i].URLs = []string{primaryNode.GetInternalWsUrl()}
-			nonDevNetworks[i].HTTPURLs = []string{primaryNode.GetInternalHttpUrl()}
-		}
-		if nonDevNetworks == nil {
-			return nil, fmt.Errorf("cannot create nodes with custom config without nonDevNetworks")
-		}
 
+			if b.hasEVMClient {
+				evmClient, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
+				if err != nil {
+					return nil, err
+				}
+				b.te.evmClients[networkConfig.ChainID] = evmClient
+			}
+
+			if b.hasSeth {
+				readSethCfg := b.testConfig.GetSethConfig()
+				sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
+				if err != nil {
+					return nil, err
+				}
+				err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+				if err != nil {
+					return nil, err
+				}
+				seth, err := seth.NewClientWithConfig(&sethCfg)
+				if err != nil {
+					return nil, err
+				}
+
+				b.te.sethClients[networkConfig.ChainID] = seth
+			}
+
+			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
+			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
+
+		}
 		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
@@ -337,25 +353,41 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		return b.te, nil
 	}
 
+	b.te.rpcProviders = make(map[int64]*test_env.RpcProvider)
 	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.GetNetworkConfig())[0]
-	var rpcProvider test_env.RpcProvider
-	if b.privateEthereumNetwork != nil && networkConfig.Simulated {
-		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
-		// in general it seems we have no methods for saving config to file and we only load it from file
-		// but I don't know how that config file is to be created or whether anyone ever done that
-		b.privateEthereumNetwork.DockerNetworkNames = []string{b.te.DockerNetwork.Name}
-		networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.privateEthereumNetwork)
-		if err != nil {
-			return nil, err
-		}
-		b.te.RpcProvider = rpcProvider
-		b.te.PrivateEthereumConfig = b.privateEthereumNetwork
+	// This has some hidden behavior so I'm not the biggest fan, but it matches expected behavior.
+	// That is, when we specify we want to run on a live network in our config, we will run on the live network and not bother with a private network.
+	// Even if we explicitly declare that we want to run on a private network in the test.
+	// Keeping this a Kludge for now as SETH transition should change all of this anyway.
+	if len(b.privateEthereumNetworks) == 1 {
+		if networkConfig.Simulated {
+			// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
+			// in general it seems we have no methods for saving config to file and we only load it from file
+			// but I don't know how that config file is to be created or whether anyone ever done that
+			var rpcProvider test_env.RpcProvider
+			b.privateEthereumNetworks[0].DockerNetworkNames = []string{b.te.DockerNetwork.Name}
+			networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.privateEthereumNetworks[0])
+			if err != nil {
+				return nil, err
+			}
+			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
+			b.te.PrivateEthereumConfigs = b.privateEthereumNetworks
 
-		b.te.isSimulatedNetwork = true
+			b.te.isSimulatedNetwork = true
+		} else { // Only start and connect to a private network if we are using a private simulated network
+			b.te.l.Warn().
+				Str("Network", networkConfig.Name).
+				Int64("Chain ID", networkConfig.ChainID).
+				Msg("Private network config provided, but we are running on a live network. Ignoring private network config.")
+			rpcProvider := test_env.NewRPCProvider(networkConfig.HTTPURLs, networkConfig.URLs, networkConfig.HTTPURLs, networkConfig.URLs)
+			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
+			b.te.isSimulatedNetwork = false
+		}
+
 	}
 
 	if !b.hasSeth && !b.hasEVMClient {
-		return nil, errors.New("you need to specify, which evm client to use: Seth or EMVClient")
+		return nil, errors.New("you need to specify, which evm client to use: Seth or EVMClient")
 	}
 
 	if b.hasSeth && b.hasEVMClient {
@@ -374,7 +406,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				return nil, err
 			}
 
-			b.te.EVMClient = bc
+			b.te.evmClients = make(map[int64]blockchain.EVMClient)
+			b.te.evmClients[networkConfig.ChainID] = bc
+
 			cd, err := contracts.NewContractDeployer(bc, b.l)
 			if err != nil {
 				return nil, err
@@ -389,8 +423,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 
 		if b.hasSeth {
+			b.te.sethClients = make(map[int64]*seth.Client)
 			readSethCfg := b.testConfig.GetSethConfig()
-			sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
+			sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
+			if err != nil {
+				return nil, err
+			}
 			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 			if err != nil {
 				return nil, err
@@ -400,7 +438,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				return nil, err
 			}
 
-			b.te.SethClient = seth
+			b.te.sethClients[networkConfig.ChainID] = seth
 		}
 	}
 
@@ -421,6 +459,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if !b.isNonEVM {
 			var httpUrls []string
 			var wsUrls []string
+			rpcProvider, ok := b.te.rpcProviders[networkConfig.ChainID]
+			if !ok {
+				return nil, fmt.Errorf("rpc provider for chain %d not found", networkConfig.ChainID)
+			}
 			if networkConfig.Simulated {
 				httpUrls = rpcProvider.PrivateHttpUrls()
 				wsUrls = rpcProvider.PrivateWsUrsl()
@@ -452,7 +494,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	if b.privateEthereumNetwork != nil && b.clNodesCount > 0 && b.ETHFunds != nil {
+	if len(b.privateEthereumNetworks) > 0 && b.clNodesCount > 0 && b.ETHFunds != nil {
 		if b.hasEVMClient {
 			b.te.ParallelTransactions(true)
 			defer b.te.ParallelTransactions(false)
@@ -461,15 +503,19 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 		}
 		if b.hasSeth {
-			if err := actions_seth.FundChainlinkNodesFromRootAddress(b.l, b.te.SethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(b.te.ClCluster.NodeAPIs()), b.ETHFunds); err != nil {
-				return nil, err
+			for _, sethClient := range b.te.sethClients {
+				if err := actions_seth.FundChainlinkNodesFromRootAddress(b.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(b.te.ClCluster.NodeAPIs()), b.ETHFunds); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
 
 	var enDesc string
-	if b.te.PrivateEthereumConfig != nil {
-		enDesc = b.te.PrivateEthereumConfig.Describe()
+	if len(b.te.PrivateEthereumConfigs) > 0 {
+		for _, en := range b.te.PrivateEthereumConfigs {
+			enDesc += en.Describe()
+		}
 	} else {
 		enDesc = "none"
 	}

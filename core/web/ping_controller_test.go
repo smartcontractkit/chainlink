@@ -35,9 +35,10 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	eia := &auth.Token{
 		AccessKey: "abracadabra",
@@ -51,11 +52,11 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 
 	ei, err := bridges.NewExternalInitiator(eia, eir)
 	require.NoError(t, err)
-	err = app.BridgeORM().CreateExternalInitiator(ei)
+	err = app.BridgeORM().CreateExternalInitiator(ctx, ei)
 	require.NoError(t, err)
 
 	url := app.Server.URL + "/v2/ping"
-	request, err := http.NewRequestWithContext(testutils.Context(t), "GET", url, nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)

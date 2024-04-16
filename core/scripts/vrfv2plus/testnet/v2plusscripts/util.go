@@ -200,31 +200,26 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 
 func WrapperDeploy(
 	e helpers.Environment,
-	link, linkEthFeed, coordinator common.Address,
-) (common.Address, *big.Int) {
+	link, linkEthFeed, coordinator common.Address, subID *big.Int,
+) common.Address {
 	address, tx, _, err := vrfv2plus_wrapper.DeployVRFV2PlusWrapper(e.Owner, e.Ec,
 		link,
 		linkEthFeed,
-		coordinator)
+		coordinator,
+		subID)
 	helpers.PanicErr(err)
 
 	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	fmt.Println("VRFV2Wrapper address:", address)
 
-	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(address, e.Ec)
-	helpers.PanicErr(err)
-
-	subID, err := wrapper.SUBSCRIPTIONID(nil)
-	helpers.PanicErr(err)
-	fmt.Println("VRFV2Wrapper subscription id:", subID)
-
-	return address, subID
+	return address
 }
 
 func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
-	wrapperGasOverhead, coordinatorGasOverhead uint,
+	wrapperGasOverhead uint,
+	coordinatorGasOverhead, coordinatorGasOverheadPerWord uint,
 	nativePremiumPercentage, linkPremiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
@@ -240,6 +235,7 @@ func WrapperConfigure(
 		e.Owner,
 		uint32(wrapperGasOverhead),
 		uint32(coordinatorGasOverhead),
+		uint16(coordinatorGasOverheadPerWord),
 		uint8(nativePremiumPercentage),
 		uint8(linkPremiumPercentage),
 		common.HexToHash(keyHash),

@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestUpkeepStateStore(t *testing.T) {
@@ -329,20 +328,16 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 			chainID := testutils.FixtureChainID
 			db := pgtest.NewSqlxDB(t)
-			realORM := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+			realORM := NewORM(chainID, db)
 			insertFinished := make(chan struct{}, 1)
 			orm := &wrappedORM{
-				BatchInsertRecordsFn: func(records []persistedStateRecord, opt ...pg.QOpt) error {
-					err := realORM.BatchInsertRecords(records, opt...)
+				BatchInsertRecordsFn: func(ctx context.Context, records []persistedStateRecord) error {
+					err := realORM.BatchInsertRecords(ctx, records)
 					insertFinished <- struct{}{}
 					return err
 				},
-				SelectStatesByWorkIDsFn: func(strings []string, opt ...pg.QOpt) ([]persistedStateRecord, error) {
-					return realORM.SelectStatesByWorkIDs(strings, opt...)
-				},
-				DeleteExpiredFn: func(t time.Time, opt ...pg.QOpt) error {
-					return realORM.DeleteExpired(t, opt...)
-				},
+				SelectStatesByWorkIDsFn: realORM.SelectStatesByWorkIDs,
+				DeleteExpiredFn:         realORM.DeleteExpired,
 			}
 			scanner := &mockScanner{}
 			store := NewUpkeepStateStore(orm, lggr, scanner)
@@ -389,20 +384,16 @@ func TestUpkeepStateStore_emptyDB(t *testing.T) {
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 		chainID := testutils.FixtureChainID
 		db := pgtest.NewSqlxDB(t)
-		realORM := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+		realORM := NewORM(chainID, db)
 		insertFinished := make(chan struct{}, 1)
 		orm := &wrappedORM{
-			BatchInsertRecordsFn: func(records []persistedStateRecord, opt ...pg.QOpt) error {
-				err := realORM.BatchInsertRecords(records, opt...)
+			BatchInsertRecordsFn: func(ctx context.Context, records []persistedStateRecord) error {
+				err := realORM.BatchInsertRecords(ctx, records)
 				insertFinished <- struct{}{}
 				return err
 			},
-			SelectStatesByWorkIDsFn: func(strings []string, opt ...pg.QOpt) ([]persistedStateRecord, error) {
-				return realORM.SelectStatesByWorkIDs(strings, opt...)
-			},
-			DeleteExpiredFn: func(t time.Time, opt ...pg.QOpt) error {
-				return realORM.DeleteExpired(t, opt...)
-			},
+			SelectStatesByWorkIDsFn: realORM.SelectStatesByWorkIDs,
+			DeleteExpiredFn:         realORM.DeleteExpired,
 		}
 		scanner := &mockScanner{}
 		store := NewUpkeepStateStore(orm, lggr, scanner)
@@ -427,7 +418,7 @@ func TestUpkeepStateStore_Upsert(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 	chainID := testutils.FixtureChainID
-	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(chainID, db)
 
 	store := NewUpkeepStateStore(orm, lggr, &mockScanner{})
 
@@ -560,11 +551,11 @@ func (_m *mockORM) setErr(err error) {
 	_m.err = err
 }
 
-func (_m *mockORM) BatchInsertRecords(state []persistedStateRecord, opts ...pg.QOpt) error {
+func (_m *mockORM) BatchInsertRecords(ctx context.Context, state []persistedStateRecord) error {
 	return nil
 }
 
-func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, opts ...pg.QOpt) ([]persistedStateRecord, error) {
+func (_m *mockORM) SelectStatesByWorkIDs(ctx context.Context, workIDs []string) ([]persistedStateRecord, error) {
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 
@@ -574,7 +565,7 @@ func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, opts ...pg.QOpt) ([]p
 	return res, _m.err
 }
 
-func (_m *mockORM) DeleteExpired(tm time.Time, opts ...pg.QOpt) error {
+func (_m *mockORM) DeleteExpired(ctx context.Context, tm time.Time) error {
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 
@@ -585,19 +576,19 @@ func (_m *mockORM) DeleteExpired(tm time.Time, opts ...pg.QOpt) error {
 }
 
 type wrappedORM struct {
-	BatchInsertRecordsFn    func([]persistedStateRecord, ...pg.QOpt) error
-	SelectStatesByWorkIDsFn func([]string, ...pg.QOpt) ([]persistedStateRecord, error)
-	DeleteExpiredFn         func(time.Time, ...pg.QOpt) error
+	BatchInsertRecordsFn    func(context.Context, []persistedStateRecord) error
+	SelectStatesByWorkIDsFn func(context.Context, []string) ([]persistedStateRecord, error)
+	DeleteExpiredFn         func(context.Context, time.Time) error
 }
 
-func (o *wrappedORM) BatchInsertRecords(r []persistedStateRecord, q ...pg.QOpt) error {
-	return o.BatchInsertRecordsFn(r, q...)
+func (o *wrappedORM) BatchInsertRecords(ctx context.Context, r []persistedStateRecord) error {
+	return o.BatchInsertRecordsFn(ctx, r)
 }
 
-func (o *wrappedORM) SelectStatesByWorkIDs(ids []string, q ...pg.QOpt) ([]persistedStateRecord, error) {
-	return o.SelectStatesByWorkIDsFn(ids, q...)
+func (o *wrappedORM) SelectStatesByWorkIDs(ctx context.Context, ids []string) ([]persistedStateRecord, error) {
+	return o.SelectStatesByWorkIDsFn(ctx, ids)
 }
 
-func (o *wrappedORM) DeleteExpired(t time.Time, q ...pg.QOpt) error {
-	return o.DeleteExpiredFn(t, q...)
+func (o *wrappedORM) DeleteExpired(ctx context.Context, t time.Time) error {
+	return o.DeleteExpiredFn(ctx, t)
 }

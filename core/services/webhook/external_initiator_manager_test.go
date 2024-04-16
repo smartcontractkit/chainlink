@@ -13,6 +13,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -25,7 +26,7 @@ import (
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := pgtest.NewQConfig(true)
-	borm := newBridgeORM(t, db, cfg)
+	borm := bridges.NewORM(db)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)
@@ -62,7 +63,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	ctx := tests.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := pgtest.NewQConfig(true)
-	borm := newBridgeORM(t, db, cfg)
+	borm := bridges.NewORM(db)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
@@ -102,7 +103,7 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := pgtest.NewQConfig(true)
-	borm := newBridgeORM(t, db, cfg)
+	borm := bridges.NewORM(db)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),

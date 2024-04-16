@@ -268,6 +268,7 @@ func (s *Shell) RunNode(c *cli.Context) error {
 }
 
 func (s *Shell) runNode(c *cli.Context) error {
+	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 
 	var pwd, vrfpwd *string
@@ -448,11 +449,11 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	var user sessions.User
-	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(authProviderORM, lggr); err != nil {
+	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(ctx, authProviderORM, lggr); err != nil {
 		if !errors.Is(err, ErrNoCredentialFile) {
 			return errors.Wrap(err, "error creating api initializer")
 		}
-		if user, err = s.FallbackAPIInitializer.Initialize(authProviderORM, lggr); err != nil {
+		if user, err = s.FallbackAPIInitializer.Initialize(ctx, authProviderORM, lggr); err != nil {
 			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
 				return errors.WithStack(err)
 			}
@@ -631,7 +632,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	s.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, s.Config.Database())
+	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config().EVM())
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())

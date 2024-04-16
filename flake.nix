@@ -12,7 +12,9 @@
         pkgs = import nixpkgs { inherit system; overlays = [ ]; };
       in
       rec {
-        devShell = pkgs.callPackage ./shell.nix { };
+        devShell = pkgs.callPackage ./shell.nix {
+          inherit pkgs;
+        };
         formatter = pkgs.nixpkgs-fmt;
       });
 }
