@@ -206,41 +206,46 @@ func (o *MercuryTriggerService) process(timestamp int64) {
 				}
 			}
 
-			val, err := mercury.Codec{}.Wrap(reportList)
-			if err != nil {
-				o.lggr.Errorw("Error encoding reportList", "err", err)
-				continue
-			}
-
-			timestampStr := strconv.FormatInt(timestamp, 10)
 			// use 32-byte-padded timestamp as EventID (human-readable)
-			paddedTs := fmt.Sprintf("mercury_%024s", timestampStr)
-			triggerEvent := capabilities.TriggerEvent{
-				TriggerType: "mercury",
-				ID:          paddedTs,
-				Timestamp:   timestampStr,
-				Payload:     val,
-			}
-
-			eventVal, err := values.Wrap(triggerEvent)
+			eventID := fmt.Sprintf("mercury_%024s", strconv.FormatInt(timestamp, 10))
+			capabilityResponse, err := wrapReports(reportList, eventID, timestamp)
 			if err != nil {
-				o.lggr.Errorw("Error wrapping triggerEvent", "err", err)
+				o.lggr.Errorw("error wrapping reports", "err", err)
 				continue
 			}
 
-			// Create a new CapabilityResponse with the MercuryTriggerEvent
-			capabilityResponse := capabilities.CapabilityResponse{
-				Value: eventVal,
-			}
-
-			o.lggr.Debugw("ProcessReport pushing event", "nReports", len(reportList), "eventID", triggerEvent.ID)
+			o.lggr.Debugw("ProcessReport pushing event", "nReports", len(reportList), "eventID", eventID)
 			select {
 			case sub.ch <- capabilityResponse:
 			default:
-				o.lggr.Errorw("subscriber channel full, dropping event", "eventID", triggerEvent.ID, "workflowID", sub.workflowID)
+				o.lggr.Errorw("subscriber channel full, dropping event", "eventID", eventID, "workflowID", sub.workflowID)
 			}
 		}
 	}
+}
+
+func wrapReports(reportList []mercury.FeedReport, eventID string, timestamp int64) (capabilities.CapabilityResponse, error) {
+	val, err := mercury.Codec{}.Wrap(reportList)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, err
+	}
+
+	triggerEvent := capabilities.TriggerEvent{
+		TriggerType: "mercury",
+		ID:          eventID,
+		Timestamp:   strconv.FormatInt(timestamp, 10),
+		Payload:     val,
+	}
+
+	eventVal, err := values.Wrap(triggerEvent)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, err
+	}
+
+	// Create a new CapabilityResponse with the MercuryTriggerEvent
+	return capabilities.CapabilityResponse{
+		Value: eventVal,
+	}, nil
 }
 
 func ValidateInput(mercuryTriggerEvent values.Value) error {
