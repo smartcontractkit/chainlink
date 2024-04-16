@@ -75,8 +75,10 @@ type logBuffer struct {
 	// last block number seen by the buffer
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
-	queues map[string]*upkeepLogQueue
-	lock   sync.RWMutex
+	upkeepIDs          []string
+	mostRecentUpkeepID string
+	queues             map[string]*upkeepLogQueue
+	lock               sync.RWMutex
 }
 
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
@@ -85,6 +87,7 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogB
 		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
 		lastBlockSeen: new(atomic.Int64),
 		queues:        make(map[string]*upkeepLogQueue),
+		upkeepIDs:     make([]string, 0),
 	}
 }
 
@@ -126,7 +129,27 @@ func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int,
 func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
 	var result []BufferedLog
 	var remainingLogs int
-	for _, q := range b.queues {
+	var startIndex int
+	var found bool
+
+	if b.mostRecentUpkeepID != "" {
+		for i, upkeepID := range b.upkeepIDs {
+			if upkeepID == b.mostRecentUpkeepID {
+				startIndex = i
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found || startIndex == len(b.upkeepIDs) {
+		startIndex = 0
+	}
+
+	for i := startIndex; i < len(b.upkeepIDs); i++ {
+		upkeepID := b.upkeepIDs[startIndex]
+		b.mostRecentUpkeepID = upkeepID
+		q := b.queues[upkeepID]
 		if !upkeepSelector(q.id) {
 			// if the upkeep is not selected, skip it
 			continue
@@ -173,11 +196,13 @@ func (b *logBuffer) SyncFilters(filterStore UpkeepFilterStore) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	for upkeepID := range b.queues {
+	for i := 0; i < len(b.upkeepIDs); i++ {
 		uid := new(big.Int)
+		upkeepID := b.upkeepIDs[i]
 		_, ok := uid.SetString(upkeepID, 10)
 		if ok && !filterStore.Has(uid) {
 			// remove upkeep that is not in the filter store
+			b.upkeepIDs = append(b.upkeepIDs[:i], b.upkeepIDs[i+1:]...)
 			delete(b.queues, upkeepID)
 		}
 	}
@@ -196,6 +221,10 @@ func (b *logBuffer) getUpkeepQueue(uid *big.Int) (*upkeepLogQueue, bool) {
 func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
+
+	if _, ok := b.queues[uid.String()]; !ok {
+		b.upkeepIDs = append(b.upkeepIDs, uid.String())
+	}
 
 	b.queues[uid.String()] = buf
 }
