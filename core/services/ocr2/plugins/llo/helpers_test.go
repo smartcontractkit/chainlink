@@ -59,7 +59,7 @@ type request struct {
 }
 
 func (r request) TransmitterID() ocr2types.Account {
-	return ocr2types.Account(fmt.Sprintf("%x", r.pk))
+	return ocr2types.Account(r.pk.String())
 }
 
 type mercuryServer struct {
