@@ -1,3 +1,4 @@
+{{- if .Values.chainlink.enabled }}
 {{- range $index, $cfg := .Values.chainlink.nodes }}
 apiVersion: apps/v1
 kind: Deployment
@@ -125,4 +126,5 @@ spec:
 {{ toYaml . | indent 8 }}
 {{- end }}
 ---
+{{- end }}
 {{- end }}

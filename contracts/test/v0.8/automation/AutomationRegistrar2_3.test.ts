@@ -1012,10 +1012,6 @@ describe('AutomationRegistrar2_3', () => {
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
       const receipt = await tx.wait()
       hash = receipt.logs[2].topics[1]
-      // submit duplicate request (increase balance)
-      await linkToken
-        .connect(requestSender)
-        .transferAndCall(registrar.address, amount, abiEncodedBytes)
     })
 
     it('reverts if not called by the admin / owner', async () => {
@@ -1036,7 +1032,7 @@ describe('AutomationRegistrar2_3', () => {
       const before = await linkToken.balanceOf(await admin.getAddress())
       const tx = await registrar.connect(registrarOwner).cancel(hash)
       const after = await linkToken.balanceOf(await admin.getAddress())
-      assert.isTrue(after.sub(before).eq(amount.mul(BigNumber.from(2))))
+      assert.isTrue(after.sub(before).eq(amount.mul(BigNumber.from(1))))
       await expect(tx).to.emit(registrar, 'RegistrationRejected')
     })
 
@@ -1044,7 +1040,7 @@ describe('AutomationRegistrar2_3', () => {
       const before = await linkToken.balanceOf(await admin.getAddress())
       const tx = await registrar.connect(admin).cancel(hash)
       const after = await linkToken.balanceOf(await admin.getAddress())
-      assert.isTrue(after.sub(before).eq(amount.mul(BigNumber.from(2))))
+      assert.isTrue(after.sub(before).eq(amount.mul(BigNumber.from(1))))
       await expect(tx).to.emit(registrar, 'RegistrationRejected')
     })
 

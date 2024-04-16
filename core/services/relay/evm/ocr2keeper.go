@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -14,6 +13,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
@@ -65,7 +65,7 @@ type OCR2KeeperRelayer interface {
 
 // ocr2keeperRelayer is the relayer with added DKG and OCR2Keeper provider functions.
 type ocr2keeperRelayer struct {
-	db          *sqlx.DB
+	ds          sqlutil.DataSource
 	chain       legacyevm.Chain
 	lggr        logger.Logger
 	ethKeystore keystore.Eth
@@ -73,9 +73,9 @@ type ocr2keeperRelayer struct {
 }
 
 // NewOCR2KeeperRelayer is the constructor of ocr2keeperRelayer
-func NewOCR2KeeperRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth, dbCfg pg.QConfig) OCR2KeeperRelayer {
+func NewOCR2KeeperRelayer(ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth, dbCfg pg.QConfig) OCR2KeeperRelayer {
 	return &ocr2keeperRelayer{
-		db:          db,
+		ds:          ds,
 		chain:       chain,
 		lggr:        lggr,
 		ethKeystore: ethKeystore,
@@ -126,7 +126,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 
 	finalityDepth := client.Config().EVM().FinalityDepth()
 
-	orm := upkeepstate.NewORM(client.ID(), r.db, r.lggr, r.dbCfg)
+	orm := upkeepstate.NewORM(client.ID(), r.ds)
 	scanner := upkeepstate.NewPerformedEventsScanner(r.lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepStateStore = upkeepstate.NewUpkeepStateStore(orm, r.lggr, scanner)
 

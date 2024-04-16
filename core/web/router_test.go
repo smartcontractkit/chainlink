@@ -69,7 +69,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	}
 	ea, err := bridges.NewExternalInitiator(eia, eir)
 	require.NoError(t, err)
-	err = app.BridgeORM().CreateExternalInitiator(ea)
+	err = app.BridgeORM().CreateExternalInitiator(ctx, ea)
 	require.NoError(t, err)
 
 	request, err := http.NewRequestWithContext(ctx, "GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))
@@ -102,7 +102,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	}
 	ea, err := bridges.NewExternalInitiator(eia, eir)
 	require.NoError(t, err)
-	err = app.BridgeORM().CreateExternalInitiator(ea)
+	err = app.BridgeORM().CreateExternalInitiator(ctx, ea)
 	require.NoError(t, err)
 
 	request, err := http.NewRequestWithContext(ctx, "GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))

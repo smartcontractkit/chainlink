@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -30,7 +30,7 @@ import (
 //go:generate mockery --quiet --name EvmFeeEstimator --output ./mocks/ --case=underscore
 type EvmFeeEstimator interface {
 	services.Service
-	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
+	headtracker.HeadTrackable[*evmtypes.Head, common.Hash]
 
 	// L1Oracle returns the L1 gas price oracle only if the chain has one, e.g. OP stack L2s and Arbitrum.
 	L1Oracle() rollups.L1Oracle
@@ -117,7 +117,7 @@ type EvmPriorAttempt struct {
 //
 //go:generate mockery --quiet --name EvmEstimator --output ./mocks/ --case=underscore
 type EvmEstimator interface {
-	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
+	headtracker.HeadTrackable[*evmtypes.Head, common.Hash]
 	services.Service
 
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction

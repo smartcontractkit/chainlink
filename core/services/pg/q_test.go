@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
@@ -59,6 +60,7 @@ func Test_sprintQ(t *testing.T) {
 }
 
 func Test_ExecQWithRowsAffected(t *testing.T) {
+	testutils.SkipShortDB(t)
 	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
 	require.NoError(t, err)
 	q := NewQ(db, logger.NullLogger, NewQConfig(false))
