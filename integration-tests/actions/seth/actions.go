@@ -305,7 +305,7 @@ func DeployForwarderContracts(
 	operatorFactoryInstance = &instance
 
 	for i := 0; i < numberOfOperatorForwarderPairs; i++ {
-		decodedTx, err := seth.DecodeAlways(operatorFactoryInstance.DeployNewOperatorAndForwarder())
+		decodedTx, err := seth.Decode(operatorFactoryInstance.DeployNewOperatorAndForwarder())
 		require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
 
 		for i, event := range decodedTx.Events {
