@@ -152,7 +152,7 @@ func (f *gqlTestFramework) injectAuthenticatedUser() {
 
 	user := clsessions.User{Email: "gqltester@chain.link", Role: clsessions.UserRoleAdmin}
 
-	f.Ctx = auth.SetGQLAuthenticatedSession(f.Ctx, user, "gqltesterSession")
+	f.Ctx = auth.WithGQLAuthenticatedSession(f.Ctx, user, "gqltesterSession")
 }
 
 // GQLTestCase represents a single GQL request test.

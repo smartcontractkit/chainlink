@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
+	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
@@ -49,7 +49,7 @@ func mustNewFilterer(t *testing.T) *offchainaggregator.OffchainAggregatorFiltere
 type contractTrackerUni struct {
 	db      *ocrmocks.OCRContractTrackerDB
 	lb      *logmocks.Broadcaster
-	hb      *commonmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
+	hb      *htmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
 	ec      *evmclimocks.Client
 	tracker *ocr.OCRContractTracker
 }
@@ -81,7 +81,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	}
 	uni.db = ocrmocks.NewOCRContractTrackerDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
-	uni.hb = commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	uni.hb = htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = evmtest.NewEthClientMock(t)
 
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))

@@ -21,7 +21,6 @@ import (
 	registry1_3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -97,8 +96,7 @@ func mockRegistry1_3(
 
 func Test_LogListenerOpts1_3(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	scopedConfig := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, nil))
-	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+	korm := keeper.NewORM(db, logger.TestLogger(t))
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 
@@ -153,6 +151,7 @@ func Test_RegistrySynchronizer1_3_Start(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_3_FullSync(t *testing.T) {
+	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
 
@@ -172,7 +171,7 @@ func Test_RegistrySynchronizer1_3_FullSync(t *testing.T) {
 		3, // sync all 3
 		2,
 		1)
-	synchronizer.ExportedFullSync()
+	synchronizer.ExportedFullSync(ctx)
 
 	cltest.AssertCount(t, db, "keeper_registries", 1)
 	cltest.AssertCount(t, db, "upkeep_registrations", 3)
@@ -218,7 +217,7 @@ func Test_RegistrySynchronizer1_3_FullSync(t *testing.T) {
 		3, // sync all 3 upkeeps
 		2,
 		1)
-	synchronizer.ExportedFullSync()
+	synchronizer.ExportedFullSync(ctx)
 
 	cltest.AssertCount(t, db, "keeper_registries", 1)
 	cltest.AssertCount(t, db, "upkeep_registrations", 3)

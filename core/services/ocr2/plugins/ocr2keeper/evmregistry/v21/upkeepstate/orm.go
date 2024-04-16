@@ -1,20 +1,19 @@
 package upkeepstate
 
 import (
+	"context"
 	"math/big"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type orm struct {
 	chainID *ubig.Big
-	q       pg.Q
+	ds      sqlutil.DataSource
 }
 
 type persistedStateRecord struct {
@@ -27,17 +26,15 @@ type persistedStateRecord struct {
 }
 
 // NewORM creates an ORM scoped to chainID.
-func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
+func NewORM(chainID *big.Int, ds sqlutil.DataSource) *orm {
 	return &orm{
 		chainID: ubig.New(chainID),
-		q:       pg.NewQ(db, lggr.Named("ORM"), cfg),
+		ds:      ds,
 	}
 }
 
 // BatchInsertRecords is idempotent and sets upkeep state values in db
-func (o *orm) BatchInsertRecords(state []persistedStateRecord, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-
+func (o *orm) BatchInsertRecords(ctx context.Context, state []persistedStateRecord) error {
 	if len(state) == 0 {
 		return nil
 	}
@@ -65,17 +62,16 @@ func (o *orm) BatchInsertRecords(state []persistedStateRecord, qopts ...pg.QOpt)
 		})
 	}
 
-	return q.ExecQNamed(`INSERT INTO evm.upkeep_states
+	_, err := o.ds.NamedExecContext(ctx, `INSERT INTO evm.upkeep_states
 (evm_chain_id, work_id, completion_state, block_number, inserted_at, upkeep_id, ineligibility_reason) VALUES
 (:evm_chain_id, :work_id, :completion_state, :block_number, :inserted_at, :upkeep_id, :ineligibility_reason) ON CONFLICT (evm_chain_id, work_id) DO NOTHING`, rows)
+	return err
 }
 
 // SelectStatesByWorkIDs searches the data store for stored states for the
 // provided work ids and configured chain id
-func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states []persistedStateRecord, err error) {
-	q := o.q.WithOpts(qopts...)
-
-	err = q.Select(&states, `SELECT upkeep_id, work_id, completion_state, block_number, ineligibility_reason, inserted_at
+func (o *orm) SelectStatesByWorkIDs(ctx context.Context, workIDs []string) (states []persistedStateRecord, err error) {
+	err = o.ds.SelectContext(ctx, &states, `SELECT upkeep_id, work_id, completion_state, block_number, ineligibility_reason, inserted_at
 	  FROM evm.upkeep_states
 	  WHERE work_id = ANY($1) AND evm_chain_id = $2::NUMERIC`, pq.Array(workIDs), o.chainID)
 
@@ -87,9 +83,8 @@ func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states 
 }
 
 // DeleteExpired prunes stored states older than to the provided time
-func (o *orm) DeleteExpired(expired time.Time, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	_, err := q.Exec(`DELETE FROM evm.upkeep_states WHERE inserted_at <= $1 AND evm_chain_id::NUMERIC = $2`, expired, o.chainID)
+func (o *orm) DeleteExpired(ctx context.Context, expired time.Time) error {
+	_, err := o.ds.ExecContext(ctx, `DELETE FROM evm.upkeep_states WHERE inserted_at <= $1 AND evm_chain_id::NUMERIC = $2`, expired, o.chainID)
 
 	return err
 }

@@ -35,11 +35,11 @@ gomodtidy: ## Run go mod tidy on all modules.
 	cd ./dashboard-lib && go mod tidy
 	cd ./charts/chainlink-cluster && go mod tidy
 
-.PHONY: godoc
-godoc: ## Install and run godoc
-	go install golang.org/x/tools/cmd/godoc@latest
-	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink/v2/
-	godoc -http=:6060
+.PHONY: docs
+docs: ## Install and run pkgsite to view Go docs
+	go install golang.org/x/pkgsite/cmd/pkgsite@latest
+	# http://localhost:8080/pkg/github.com/smartcontractkit/chainlink/v2/
+	pkgsite
 
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
