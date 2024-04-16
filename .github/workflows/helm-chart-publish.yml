@@ -20,6 +20,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_GATI }}
           role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: helm-publish.helm-release
 
       - name: Get Github Token
         id: get-gh-token

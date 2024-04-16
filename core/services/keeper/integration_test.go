@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -247,8 +246,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 				c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 				c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			})
-			scopedConfig := evmtest.NewChainScopedConfig(t, config)
-			korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+			korm := keeper.NewORM(db, logger.TestLogger(t))
 
 			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 			require.NoError(t, app.Start(testutils.Context(t)))
@@ -328,6 +326,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 func TestKeeperForwarderEthIntegration(t *testing.T) {
 	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		g := gomega.NewWithT(t)
 
 		// setup node key
@@ -407,15 +406,14 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
 			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})
-		scopedConfig := evmtest.NewChainScopedConfig(t, config)
-		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+		korm := keeper.NewORM(db, logger.TestLogger(t))
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
-		require.NoError(t, app.Start(testutils.Context(t)))
+		require.NoError(t, app.Start(ctx))
 
 		forwarderORM := forwarders.NewORM(db)
 		chainID := ubig.Big(*backend.ConfiguredChainID())
-		_, err = forwarderORM.CreateForwarder(testutils.Context(t), fwdrAddress, chainID)
+		_, err = forwarderORM.CreateForwarder(ctx, fwdrAddress, chainID)
 		require.NoError(t, err)
 
 		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(nodeAddress)
@@ -452,7 +450,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 				evmtypes.EIP55AddressFromAddress(nelly.From): 1,
 			},
 		}
-		err = korm.UpsertRegistry(&registry)
+		err = korm.UpsertRegistry(ctx, &registry)
 		require.NoError(t, err)
 
 		callOpts := bind.CallOpts{From: nodeAddress}
@@ -464,7 +462,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		}
 		require.Equal(t, lastKeeper(), common.Address{})
 
-		err = app.JobSpawner().StartService(testutils.Context(t), jb)
+		err = app.JobSpawner().StartService(ctx, jb)
 		require.NoError(t, err)
 
 		// keeper job is triggered and payload is received
@@ -551,8 +549,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 		})
-		scopedConfig := evmtest.NewChainScopedConfig(t, config)
-		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+		korm := keeper.NewORM(db, logger.TestLogger(t))
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))

@@ -39,6 +39,7 @@ const (
 	BlockHeaderFeederJobSpec JobSpecType = "blockheaderfeeder"
 	BootstrapJobSpec         JobSpecType = "bootstrap"
 	GatewayJobSpec           JobSpecType = "gateway"
+	WorkflowJobSpec          JobSpecType = "workflow"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -429,6 +430,24 @@ func NewGatewaySpec(spec *job.GatewaySpec) *GatewaySpec {
 	}
 }
 
+type WorkflowSpec struct {
+	Workflow      string    `json:"workflow"`
+	WorkflowID    string    `json:"workflowId"`
+	WorkflowOwner string    `json:"workflowOwner"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+func NewWorkflowSpec(spec *job.WorkflowSpec) *WorkflowSpec {
+	return &WorkflowSpec{
+		Workflow:      spec.Workflow,
+		WorkflowID:    spec.WorkflowID,
+		WorkflowOwner: spec.WorkflowOwner,
+		CreatedAt:     spec.CreatedAt,
+		UpdatedAt:     spec.UpdatedAt,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -471,6 +490,7 @@ type JobResource struct {
 	BlockHeaderFeederSpec  *BlockHeaderFeederSpec  `json:"blockHeaderFeederSpec"`
 	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
 	GatewaySpec            *GatewaySpec            `json:"gatewaySpec"`
+	WorkflowSpec           *WorkflowSpec           `json:"workflowSpec"`
 	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
 	Errors                 []JobError              `json:"errors"`
 }
@@ -518,7 +538,7 @@ func NewJobResource(j job.Job) *JobResource {
 	case job.Stream:
 		// no spec; nothing to do
 	case job.Workflow:
-		// no spec; nothing to do
+		resource.WorkflowSpec = NewWorkflowSpec(j.WorkflowSpec)
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported
 	}
