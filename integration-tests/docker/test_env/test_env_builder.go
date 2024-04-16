@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -261,6 +262,11 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			baseCoverageDir := os.Getenv("GO_COVERAGE_DIR")
 			if baseCoverageDir != "" {
 				testCoverageDir := fmt.Sprintf("%s/%s", baseCoverageDir, b.t.Name())
+				absolutePath, err := filepath.Abs(testCoverageDir)
+				if err != nil {
+					b.l.Err(err).Msg("Error getting absolute path")
+				}
+				b.l.Info().Str("testCoverageDir", testCoverageDir).Str("absolutePath", absolutePath).Msg("Saving coverage files for chainlink nodes")
 				if err := os.MkdirAll(testCoverageDir, 0755); err != nil {
 					b.l.Error().Err(err).Str("coverageDir", testCoverageDir).Msg("Failed to create test coverage directory")
 				}
