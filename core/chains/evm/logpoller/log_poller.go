@@ -1294,6 +1294,78 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	return logPollerBlocks, nil
 }
 
+// newBlockReq constructs an eth_getBlockByNumber request for particular block number
+func newBlockReq(num string) rpc.BatchElem {
+	return rpc.BatchElem{
+		Method: "eth_getBlockByNumber",
+		Args:   []interface{}{num, false},
+		Result: &evmtypes.Head{},
+	}
+}
+
+// fetchBlocks fetches a list of blocks in a single batch. validationReq is the string to use for the
+// additional validation request (either the "finalized" or "latest" string defined in rpc module), which
+// will be used to validate the finality of the other blocks.
+func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []string, validationReq string) (blocks []*evmtypes.Head, err error) {
+	n := len(blocksRequested)
+	blocks = make([]*evmtypes.Head, 0, n+1)
+	reqs := make([]rpc.BatchElem, 0, n+1)
+
+	validationBlockIndex := n
+	for k, num := range blocksRequested {
+		if num == validationReq {
+			validationBlockIndex = k
+		}
+		reqs = append(reqs, newBlockReq(num))
+	}
+
+	if validationBlockIndex == n {
+		// Add validation req if it wasn't in there already
+		reqs = append(reqs, newBlockReq(validationReq))
+	}
+
+	err = lp.ec.BatchCallContext(ctx, reqs)
+	if err != nil {
+		return nil, err
+	}
+
+	validationBlock, err := validateBlockResponse(reqs[validationBlockIndex])
+	if err != nil {
+		return nil, err
+	}
+	latestFinalizedBlockNumber := validationBlock.Number
+	if validationReq == rpc.LatestBlockNumber.String() {
+		// subtract finalityDepth from "latest" to get finalized, when useFinalityTags = false
+		latestFinalizedBlockNumber = mathutil.Max(latestFinalizedBlockNumber-lp.finalityDepth, 0)
+	}
+	if len(reqs) == n+1 {
+		reqs = reqs[:n] // ignore last req if we added it explicitly for validation
+	}
+
+	for k, r := range reqs {
+		if k == validationBlockIndex {
+			// Already validated this one, just insert it in proper place
+			blocks = append(blocks, validationBlock)
+			continue
+		}
+
+		block, err2 := validateBlockResponse(r)
+		if err2 != nil {
+			return nil, err2
+		}
+
+		blockRequested := r.Args[0].(string)
+		if blockRequested != string(latestBlock) && block.Number > latestFinalizedBlockNumber {
+			return nil, fmt.Errorf(
+				"Received unfinalized block %d while expecting finalized block (latestFinaliezdBlockNumber = %d)",
+				block.Number, latestFinalizedBlockNumber)
+		}
+
+		blocks = append(blocks, block)
+	}
+	return blocks, nil
+}
+
 func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []string, batchSize int64) ([]*evmtypes.Head, error) {
 	var blocks = make([]*evmtypes.Head, 0, len(blocksRequested)+1)
 
@@ -1302,72 +1374,16 @@ func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []str
 		validationReq = rpc.LatestBlockNumber.String()
 	}
 
-	getBlockReq := func(num string) rpc.BatchElem {
-		return rpc.BatchElem{
-			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{num, false},
-			Result: &evmtypes.Head{},
-		}
-	}
-
 	for i := 0; i < len(blocksRequested); i += int(batchSize) {
 		j := i + int(batchSize)
 		if j > len(blocksRequested) {
 			j = len(blocksRequested)
 		}
-		reqs := make([]rpc.BatchElem, 0, j-i+1)
-
-		validationBlockIndex := j - i
-		for k, num := range blocksRequested[i:j] {
-			if num == validationReq {
-				validationBlockIndex = k
-			}
-			reqs = append(reqs, getBlockReq(num))
-		}
-
-		if validationBlockIndex == j-i {
-			// Add validation req if it wasn't in there already
-			reqs = append(reqs, getBlockReq(validationReq))
-		}
-
-		err := lp.ec.BatchCallContext(ctx, reqs)
+		moreBlocks, err := lp.fetchBlocks(ctx, blocksRequested[i:j], validationReq)
 		if err != nil {
 			return nil, err
 		}
-
-		validationBlock, err := validateBlockResponse(reqs[validationBlockIndex])
-		if err != nil {
-			return nil, err
-		}
-		latestFinalizedBlockNumber := validationBlock.Number
-		if validationReq == rpc.LatestBlockNumber.String() {
-			// subtract finalityDepth from "latest" to get finalized, when useFinalityTags = false
-			latestFinalizedBlockNumber = mathutil.Max(latestFinalizedBlockNumber-lp.finalityDepth, 0)
-		}
-		if len(reqs) == j-i+1 {
-			reqs = reqs[:j-i] // ignore last req if we added it explicitly for validation
-		}
-
-		for i, r := range reqs {
-			if i == validationBlockIndex {
-				// Already validated this one, just insert it in proper place
-				blocks = append(blocks, validationBlock)
-				continue
-			}
-
-			block, err := validateBlockResponse(r)
-			if err != nil {
-				return nil, err
-			}
-
-			blockRequested := r.Args[0].(string)
-			if blockRequested != rpc.LatestBlockNumber.String() && block.Number > latestFinalizedBlockNumber {
-				return nil, fmt.Errorf("Received unfinalized block %d while expecting finalized block (latestFinaliezdBlockNumber = %d)", block.Number, latestFinalizedBlockNumber)
-			}
-
-			blocks = append(blocks, block)
-		}
-
+		blocks = append(blocks, moreBlocks...)
 	}
 
 	return blocks, nil
