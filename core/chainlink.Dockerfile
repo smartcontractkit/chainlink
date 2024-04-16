@@ -76,8 +76,8 @@ ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
 # Set up coverage dir env variable
-ENV GOCOVERDIR="coverage"
-RUN mkdir -p coverage
+ENV GOCOVERDIR="/var/tmp/go-coverage"
+RUN mkdir -p "/var/tmp/go-coverage"
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]

@@ -265,7 +265,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				if err := os.MkdirAll(testCoverageDir, 0755); err != nil {
 					b.l.Error().Err(err).Str("coverageDir", testCoverageDir).Msg("Failed to create test coverage directory")
 				}
-				err = b.te.ClCluster.CopyFolderFromNodes(context.Background(), "/home/root/coverage", testCoverageDir)
+				err = b.te.ClCluster.CopyFolderFromNodes(context.Background(), "/var/tmp/go-coverage", testCoverageDir)
 				if err != nil {
 					b.l.Error().Err(err).Msg("Failed to copy test coverage files from nodes")
 				} else {

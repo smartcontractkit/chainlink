@@ -385,7 +385,7 @@ jobs:
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
-          go_coverage_dir: ./integration-tests/go-coverage
+          go_coverage_dir: ${{ github.workspace }}/integration-tests/go-coverage
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}

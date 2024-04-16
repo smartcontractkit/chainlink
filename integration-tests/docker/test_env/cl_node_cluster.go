@@ -98,7 +98,7 @@ func (c *ClCluster) CopyFolderFromNodes(ctx context.Context, srcPath, destPath s
 				errors <- fmt.Errorf("failed to list files in container for node %d: %w", id, err)
 				return
 			}
-			fmt.Printf("Coverage files in chainlink node container: %v\n", covFiles)
+			fmt.Printf("Coverage files for chainlink node: %v\n", covFiles)
 
 			err = copyFolderFromContainerUsingDockerCP(ctx, n.Container.GetContainerID(), srcPath, finalDestPath)
 			if err != nil {
