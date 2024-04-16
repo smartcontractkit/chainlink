@@ -61,4 +61,12 @@ func TestOCR3Store(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, items, 10)
 	})
+
+	t.Run("getN", func(t *testing.T) {
+		rid2 := uuid.New().String()
+		err := s.add(ctx, req)
+		require.NoError(t, err)
+		reqs := s.getN(ctx, []string{rid, rid2})
+		require.Equal(t, 1, len(reqs))
+	})
 }

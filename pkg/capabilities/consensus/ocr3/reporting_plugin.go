@@ -78,13 +78,19 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 		weids = append(weids, q.WorkflowExecutionId)
 	}
 
-	reqs, err := r.s.getN(ctx, weids)
-	if err != nil {
-		return nil, err
+	reqs := r.s.getN(ctx, weids)
+	reqMap := map[string]*request{}
+	for _, req := range reqs {
+		reqMap[req.WorkflowExecutionID] = req
 	}
 
 	obs := &pbtypes.Observations{}
-	for _, rq := range reqs {
+	for _, weid := range weids {
+		rq, ok := reqMap[weid]
+		if !ok {
+			r.lggr.Debugw("could not find local observations for weid requested in the query", "weid", weid)
+			continue
+		}
 		listProto := values.Proto(rq.Observations).GetListValue()
 		if listProto == nil {
 			r.lggr.Errorw("observations are not a list", "weID", rq.WorkflowExecutionID)

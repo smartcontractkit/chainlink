@@ -221,6 +221,55 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 	require.NoError(t, ts.Close())
 }
 
+func TestMercuryTrigger_RegisterTriggerErrors(t *testing.T) {
+	ts := NewMercuryTriggerService(100, logger.Nop())
+	ctx := tests.Context(t)
+	require.NoError(t, ts.Start(ctx))
+
+	im := map[string]interface{}{
+		"triggerId": "test-id-1",
+	}
+	inputsWrapped, err := values.NewMap(im)
+	require.NoError(t, err)
+
+	cm := map[string]interface{}{
+		"feedIds":        []string{feedOne},
+		"maxFrequencyMs": 90,
+	}
+	configWrapped, err := values.NewMap(cm)
+	require.NoError(t, err)
+
+	cr := capabilities.CapabilityRequest{
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID: "workflow-id-1",
+		},
+		Config: configWrapped,
+		Inputs: inputsWrapped,
+	}
+	callback := make(chan capabilities.CapabilityResponse)
+	require.Error(t, ts.RegisterTrigger(ctx, callback, cr))
+
+	cm = map[string]interface{}{
+		"feedIds":        []string{feedOne},
+		"maxFrequencyMs": 0,
+	}
+	configWrapped, err = values.NewMap(cm)
+	require.NoError(t, err)
+	cr.Config = configWrapped
+	require.Error(t, ts.RegisterTrigger(ctx, callback, cr))
+
+	cm = map[string]interface{}{
+		"feedIds":        []string{},
+		"maxFrequencyMs": 1000,
+	}
+	configWrapped, err = values.NewMap(cm)
+	require.NoError(t, err)
+	cr.Config = configWrapped
+	require.Error(t, ts.RegisterTrigger(ctx, callback, cr))
+
+	require.NoError(t, ts.Close())
+}
+
 func TestGetNextWaitIntervalMs(t *testing.T) {
 	// getNextWaitIntervalMs args = (lastTs, tickerResolutionMs, currentTs)
 

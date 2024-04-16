@@ -113,7 +113,9 @@ func (o *MercuryTriggerService) RegisterTrigger(ctx context.Context, callback ch
 	if len(feedIDs) == 0 {
 		return errors.New("no feedIDs to register")
 	}
-
+	if cfg.MaxFrequencyMs <= 0 {
+		return errors.New("MaxFrequencyMs must be greater than 0")
+	}
 	if int64(cfg.MaxFrequencyMs)%o.tickerResolutionMs != 0 {
 		return fmt.Errorf("MaxFrequencyMs must be a multiple of %d", o.tickerResolutionMs)
 	}

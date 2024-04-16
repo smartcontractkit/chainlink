@@ -36,21 +36,20 @@ func (s *store) add(ctx context.Context, req *request) error {
 	return nil
 }
 
-func (s *store) getN(ctx context.Context, requestIDs []string) ([]*request, error) {
+// best-effort, doesn't return requests that are not in store
+func (s *store) getN(ctx context.Context, requestIDs []string) []*request {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	o := []*request{}
 	for _, r := range requestIDs {
 		gr, ok := s.requests[r]
-		if !ok {
-			return nil, fmt.Errorf("request with id %s not found", r)
+		if ok {
+			o = append(o, gr)
 		}
-
-		o = append(o, gr)
 	}
 
-	return o, nil
+	return o
 }
 
 func (s *store) firstN(ctx context.Context, batchSize int) ([]*request, error) {
