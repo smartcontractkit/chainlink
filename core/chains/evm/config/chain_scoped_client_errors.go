@@ -4,11 +4,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
-var defaultRegex = ""
-
 func derefOrDefault(s *string) string {
 	if s == nil {
-		return defaultRegex
+		return ""
 	}
 
 	return *s
