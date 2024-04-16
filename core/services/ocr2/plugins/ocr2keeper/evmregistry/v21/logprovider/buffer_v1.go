@@ -75,7 +75,8 @@ type logBuffer struct {
 	// last block number seen by the buffer
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
-	queues         map[string]*upkeepLogQueue
+	queues map[string]*upkeepLogQueue
+	// map for then number of times we have enqueued logs for a block number
 	enqueuedBlocks map[int64]int
 	lock           sync.RWMutex
 }
@@ -109,12 +110,12 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		b.lggr.Debugw("enqueuing logs from a block older than latest seen block", "logBlock", latestLogBlock, "lastBlockSeen", lastBlockSeen)
 	}
 
-	for block := range uniqueBlocks {
-		if _, ok := b.enqueuedBlocks[block]; ok {
-			b.enqueuedBlocks[block] = b.enqueuedBlocks[block] + 1
-			b.lggr.Debugw("enqueuing logs again for a previously seen block", "block", block, "timesSeen", b.enqueuedBlocks[block])
+	for blockNumber := range uniqueBlocks {
+		if _, ok := b.enqueuedBlocks[blockNumber]; ok {
+			b.enqueuedBlocks[blockNumber] = b.enqueuedBlocks[blockNumber] + 1
+			b.lggr.Debugw("enqueuing logs again for a previously seen block", "blockNumber", blockNumber, "numberOfEnqueues", b.enqueuedBlocks[blockNumber])
 		} else {
-			b.enqueuedBlocks[block] = 1
+			b.enqueuedBlocks[blockNumber] = 1
 		}
 	}
 
