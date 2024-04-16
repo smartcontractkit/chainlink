@@ -29,74 +29,76 @@ func NewWebAuthnController(app chainlink.Application) WebAuthnController {
 	}
 }
 
-func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
-	user, ok := auth.GetAuthenticatedUser(ctx)
+func (w *WebAuthnController) BeginRegistration(c *gin.Context) {
+	ctx := c.Request.Context()
+	user, ok := auth.GetAuthenticatedUser(c)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
 		return
 	}
 
-	orm := c.App.AuthenticationProvider()
-	uwas, err := orm.GetUserWebAuthn(user.Email)
+	orm := w.App.AuthenticationProvider()
+	uwas, err := orm.GetUserWebAuthn(ctx, user.Email)
 	if err != nil {
-		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %+v", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Unable to register key"))
+		w.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %+v", err)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("Unable to register key"))
 		return
 	}
 
-	webAuthnConfig := c.App.GetWebAuthnConfiguration()
+	webAuthnConfig := w.App.GetWebAuthnConfiguration()
 
-	options, err := c.inProgressRegistrationsStore.BeginWebAuthnRegistration(*user, uwas, webAuthnConfig)
+	options, err := w.inProgressRegistrationsStore.BeginWebAuthnRegistration(*user, uwas, webAuthnConfig)
 	if err != nil {
-		c.App.GetLogger().Errorf("error in BeginWebAuthnRegistration: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
+		w.App.GetLogger().Errorf("error in BeginWebAuthnRegistration: %s", err)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
 
 	optionsp := presenters.NewRegistrationSettings(*options)
 
-	jsonAPIResponse(ctx, optionsp, "settings")
+	jsonAPIResponse(c, optionsp, "settings")
 }
 
-func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
-	user, ok := auth.GetAuthenticatedUser(ctx)
+func (w *WebAuthnController) FinishRegistration(c *gin.Context) {
+	ctx := c.Request.Context()
+	user, ok := auth.GetAuthenticatedUser(c)
 	if !ok {
-		logger.Sugared(c.App.GetLogger()).AssumptionViolationf("failed to obtain current user from context")
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Unable to register key"))
+		logger.Sugared(w.App.GetLogger()).AssumptionViolationf("failed to obtain current user from context")
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("Unable to register key"))
 		return
 	}
 
-	orm := c.App.AuthenticationProvider()
-	uwas, err := orm.GetUserWebAuthn(user.Email)
+	orm := w.App.AuthenticationProvider()
+	uwas, err := orm.GetUserWebAuthn(ctx, user.Email)
 	if err != nil {
-		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Unable to register key"))
+		w.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %s", err)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("Unable to register key"))
 		return
 	}
 
-	webAuthnConfig := c.App.GetWebAuthnConfiguration()
+	webAuthnConfig := w.App.GetWebAuthnConfiguration()
 
-	credential, err := c.inProgressRegistrationsStore.FinishWebAuthnRegistration(*user, uwas, ctx.Request, webAuthnConfig)
+	credential, err := w.inProgressRegistrationsStore.FinishWebAuthnRegistration(*user, uwas, c.Request, webAuthnConfig)
 	if err != nil {
-		c.App.GetLogger().Errorf("error in FinishWebAuthnRegistration: %s", err)
-		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
+		w.App.GetLogger().Errorf("error in FinishWebAuthnRegistration: %s", err)
+		jsonAPIError(c, http.StatusBadRequest, errors.New("registration was unsuccessful"))
 		return
 	}
 
-	if sessions.AddCredentialToUser(c.App.AuthenticationProvider(), user.Email, credential) != nil {
-		c.App.GetLogger().Errorf("Could not save WebAuthn credential to DB for user: %s", user.Email)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
+	if sessions.AddCredentialToUser(ctx, w.App.AuthenticationProvider(), user.Email, credential) != nil {
+		w.App.GetLogger().Errorf("Could not save WebAuthn credential to DB for user: %s", user.Email)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
 
 	// Forward registered credentials for audit logs
 	credj, err := json.Marshal(credential)
 	if err != nil {
-		c.App.GetLogger().Errorf("error in Marshal credentials: %s", err)
-		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
+		w.App.GetLogger().Errorf("error in Marshal credentials: %s", err)
+		jsonAPIError(c, http.StatusBadRequest, errors.New("registration was unsuccessful"))
 		return
 	}
-	c.App.GetAuditLogger().Audit(audit.Auth2FAEnrolled, map[string]interface{}{"email": user.Email, "credential": string(credj)})
+	w.App.GetAuditLogger().Audit(audit.Auth2FAEnrolled, map[string]interface{}{"email": user.Email, "credential": string(credj)})
 
-	ctx.String(http.StatusOK, "{}")
+	c.String(http.StatusOK, "{}")
 }

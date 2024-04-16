@@ -33,14 +33,14 @@ type UpdatePasswordRequest struct {
 var errUnsupportedForAuth = errors.New("action is unsupported with configured authentication provider")
 
 // Index lists all API users
-func (c *UserController) Index(ctx *gin.Context) {
-	users, err := c.App.AuthenticationProvider().ListUsers()
+func (u *UserController) Index(ctx *gin.Context) {
+	users, err := u.App.AuthenticationProvider().ListUsers(ctx)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		c.App.GetLogger().Errorf("Unable to list users", "err", err)
+		u.App.GetLogger().Errorf("Unable to list users", "err", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
@@ -48,7 +48,7 @@ func (c *UserController) Index(ctx *gin.Context) {
 }
 
 // Create creates a new API user with provided context arguments.
-func (c *UserController) Create(ctx *gin.Context) {
+func (u *UserController) Create(ctx *gin.Context) {
 	type newUserRequest struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -82,7 +82,7 @@ func (c *UserController) Create(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.Errorf("error creating API user: %s", err))
 		return
 	}
-	if err = c.App.AuthenticationProvider().CreateUser(&user); err != nil {
+	if err = u.App.AuthenticationProvider().CreateUser(ctx, &user); err != nil {
 		// If this is a duplicate key error (code 23505), return a nicer error message
 		var pgErr *pgconn.PgError
 		if ok := errors.As(err, &pgErr); ok {
@@ -95,7 +95,7 @@ func (c *UserController) Create(ctx *gin.Context) {
 			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		c.App.GetLogger().Errorf("Error creating new API user", "err", err)
+		u.App.GetLogger().Errorf("Error creating new API user", "err", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("error creating API user"))
 		return
 	}
@@ -104,7 +104,7 @@ func (c *UserController) Create(ctx *gin.Context) {
 }
 
 // UpdateRole changes role field of a specified API user.
-func (c *UserController) UpdateRole(ctx *gin.Context) {
+func (u *UserController) UpdateRole(ctx *gin.Context) {
 	type updateUserRequest struct {
 		Email   string `json:"email"`
 		NewRole string `json:"newRole"`
@@ -142,7 +142,7 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.App.AuthenticationProvider().UpdateRole(request.Email, request.NewRole)
+	user, err := u.App.AuthenticationProvider().UpdateRole(ctx, request.Email, request.NewRole)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
@@ -156,11 +156,11 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 }
 
 // Delete deletes an API user and any sessions by email
-func (c *UserController) Delete(ctx *gin.Context) {
+func (u *UserController) Delete(ctx *gin.Context) {
 	email := ctx.Param("email")
 
 	// Attempt find user by email
-	user, err := c.App.AuthenticationProvider().FindUser(email)
+	user, err := u.App.AuthenticationProvider().FindUser(ctx, email)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
@@ -181,12 +181,12 @@ func (c *UserController) Delete(ctx *gin.Context) {
 		return
 	}
 
-	if err = c.App.AuthenticationProvider().DeleteUser(email); err != nil {
+	if err = u.App.AuthenticationProvider().DeleteUser(ctx, email); err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		c.App.GetLogger().Errorf("Error deleting API user", "err", err)
+		u.App.GetLogger().Errorf("Error deleting API user", "err", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("error deleting API user"))
 		return
 	}
@@ -195,135 +195,138 @@ func (c *UserController) Delete(ctx *gin.Context) {
 }
 
 // UpdatePassword changes the password for the current User.
-func (c *UserController) UpdatePassword(ctx *gin.Context) {
+func (u *UserController) UpdatePassword(c *gin.Context) {
+	ctx := c.Request.Context()
 	var request UpdatePasswordRequest
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
+	if err := c.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
+	sessionUser, ok := webauth.GetAuthenticatedUser(c)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
 		return
 	}
-	user, err := c.App.AuthenticationProvider().FindUser(sessionUser.Email)
+	user, err := u.App.AuthenticationProvider().FindUser(ctx, sessionUser.Email)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
+			jsonAPIError(c, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("unable to update password"))
+		u.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("unable to update password"))
 		return
 	}
 	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
-		c.App.GetAuditLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]interface{}{"user": user.Email})
-		jsonAPIError(ctx, http.StatusConflict, errors.New("old password does not match"))
+		u.App.GetAuditLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]interface{}{"user": user.Email})
+		jsonAPIError(c, http.StatusConflict, errors.New("old password does not match"))
 		return
 	}
 	if err := utils.VerifyPasswordComplexity(request.NewPassword, user.Email); err != nil {
-		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
+	if err := u.updateUserPassword(c, &user, request.NewPassword); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	c.App.GetAuditLogger().Audit(audit.PasswordResetSuccess, map[string]interface{}{"user": user.Email})
-	jsonAPIResponse(ctx, presenters.NewUserResource(user), "user")
+	u.App.GetAuditLogger().Audit(audit.PasswordResetSuccess, map[string]interface{}{"user": user.Email})
+	jsonAPIResponse(c, presenters.NewUserResource(user), "user")
 }
 
 // NewAPIToken generates a new API token for a user overwriting any pre-existing one set.
-func (c *UserController) NewAPIToken(ctx *gin.Context) {
+func (u *UserController) NewAPIToken(c *gin.Context) {
+	ctx := c.Request.Context()
 	var request clsession.ChangeAuthTokenRequest
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
+	if err := c.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
+	sessionUser, ok := webauth.GetAuthenticatedUser(c)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
 		return
 	}
-	user, err := c.App.AuthenticationProvider().FindUser(sessionUser.Email)
+	user, err := u.App.AuthenticationProvider().FindUser(ctx, sessionUser.Email)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
+			jsonAPIError(c, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("unable to create API token"))
+		u.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("unable to create API token"))
 		return
 	}
 	// In order to create an API token, login validation with provided password must succeed
-	err = c.App.AuthenticationProvider().TestPassword(sessionUser.Email, request.Password)
+	err = u.App.AuthenticationProvider().TestPassword(ctx, sessionUser.Email, request.Password)
 	if err != nil {
-		c.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
-		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
+		u.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
+		jsonAPIError(c, http.StatusUnauthorized, errors.New("incorrect password"))
 		return
 	}
 	newToken := auth.NewToken()
-	if err := c.App.AuthenticationProvider().SetAuthToken(&user, newToken); err != nil {
+	if err := u.App.AuthenticationProvider().SetAuthToken(ctx, &user, newToken); err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
+			jsonAPIError(c, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	c.App.GetAuditLogger().Audit(audit.APITokenCreated, map[string]interface{}{"user": user.Email})
-	jsonAPIResponseWithStatus(ctx, newToken, "auth_token", http.StatusCreated)
+	u.App.GetAuditLogger().Audit(audit.APITokenCreated, map[string]interface{}{"user": user.Email})
+	jsonAPIResponseWithStatus(c, newToken, "auth_token", http.StatusCreated)
 }
 
 // DeleteAPIToken deletes and disables a user's API token.
-func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
+func (u *UserController) DeleteAPIToken(c *gin.Context) {
+	ctx := c.Request.Context()
 	var request clsession.ChangeAuthTokenRequest
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
+	if err := c.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
+	sessionUser, ok := webauth.GetAuthenticatedUser(c)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
 		return
 	}
-	user, err := c.App.AuthenticationProvider().FindUser(sessionUser.Email)
+	user, err := u.App.AuthenticationProvider().FindUser(ctx, sessionUser.Email)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
+			jsonAPIError(c, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("unable to delete API token"))
+		u.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("unable to delete API token"))
 		return
 	}
-	err = c.App.AuthenticationProvider().TestPassword(sessionUser.Email, request.Password)
+	err = u.App.AuthenticationProvider().TestPassword(ctx, sessionUser.Email, request.Password)
 	if err != nil {
-		c.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
-		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
+		u.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
+		jsonAPIError(c, http.StatusUnauthorized, errors.New("incorrect password"))
 		return
 	}
-	if err := c.App.AuthenticationProvider().DeleteAuthToken(&user); err != nil {
+	if err := u.App.AuthenticationProvider().DeleteAuthToken(ctx, &user); err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
+			jsonAPIError(c, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 	{
-		c.App.GetAuditLogger().Audit(audit.APITokenDeleted, map[string]interface{}{"user": user.Email})
-		jsonAPIResponseWithStatus(ctx, nil, "auth_token", http.StatusNoContent)
+		u.App.GetAuditLogger().Audit(audit.APITokenDeleted, map[string]interface{}{"user": user.Email})
+		jsonAPIResponseWithStatus(c, nil, "auth_token", http.StatusNoContent)
 	}
 }
 
-func getCurrentSessionID(ctx *gin.Context) (string, error) {
-	session := sessions.Default(ctx)
+func getCurrentSessionID(c *gin.Context) (string, error) {
+	session := sessions.Default(c)
 	sessionID, ok := session.Get(webauth.SessionIDKey).(string)
 	if !ok {
 		return "", errors.New("unable to get current session ID")
@@ -331,21 +334,22 @@ func getCurrentSessionID(ctx *gin.Context) (string, error) {
 	return sessionID, nil
 }
 
-func (c *UserController) updateUserPassword(ctx *gin.Context, user *clsession.User, newPassword string) error {
-	sessionID, err := getCurrentSessionID(ctx)
+func (u *UserController) updateUserPassword(c *gin.Context, user *clsession.User, newPassword string) error {
+	ctx := c.Request.Context()
+	sessionID, err := getCurrentSessionID(c)
 	if err != nil {
 		return err
 	}
-	orm := c.App.AuthenticationProvider()
-	if err := orm.ClearNonCurrentSessions(sessionID); err != nil {
-		c.App.GetLogger().Errorf("failed to clear non current user sessions: %s", err)
+	orm := u.App.AuthenticationProvider()
+	if err := orm.ClearNonCurrentSessions(ctx, sessionID); err != nil {
+		u.App.GetLogger().Errorf("failed to clear non current user sessions: %s", err)
 		return errors.New("unable to update password")
 	}
-	if err := orm.SetPassword(user, newPassword); err != nil {
+	if err := orm.SetPassword(ctx, user, newPassword); err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
 			return errUnsupportedForAuth
 		}
-		c.App.GetLogger().Errorf("failed to update current user password: %s", err)
+		u.App.GetLogger().Errorf("failed to update current user password: %s", err)
 		return errors.New("unable to update password")
 	}
 	return nil
