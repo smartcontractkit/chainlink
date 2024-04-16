@@ -258,15 +258,18 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	case CleanUpTypeStandard:
 		b.t.Cleanup(func() {
 			// Save test coverage profile from node containers
-			coverageDir := fmt.Sprintf("/tmp/coverage/%s", b.t.Name())
-			if err := os.MkdirAll(coverageDir, 0755); err != nil {
-				b.l.Error().Err(err).Str("coverageDir", coverageDir).Msg("Failed to create test coverage directory")
-			}
-			err = b.te.ClCluster.CopyFolderFromNodes(context.Background(), "/home/root/coverage", coverageDir)
-			if err != nil {
-				b.l.Error().Err(err).Msg("Failed to copy test coverage files from nodes")
-			} else {
-				b.l.Info().Str("coverageDir", coverageDir).Msg("Node test coverage files saved")
+			baseCoverageDir, isSet := os.LookupEnv("GO_COVERAGE_DIR")
+			if isSet {
+				testCoverageDir := fmt.Sprintf("%s/%s", baseCoverageDir, b.t.Name())
+				if err := os.MkdirAll(testCoverageDir, 0755); err != nil {
+					b.l.Error().Err(err).Str("coverageDir", testCoverageDir).Msg("Failed to create test coverage directory")
+				}
+				err = b.te.ClCluster.CopyFolderFromNodes(context.Background(), "/home/root/coverage", testCoverageDir)
+				if err != nil {
+					b.l.Error().Err(err).Msg("Failed to copy test coverage files from nodes")
+				} else {
+					b.l.Info().Str("coverageDir", testCoverageDir).Msg("Node test coverage files saved")
+				}
 			}
 
 			// Cleanup test environment
