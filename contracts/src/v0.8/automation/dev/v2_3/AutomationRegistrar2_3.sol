@@ -9,6 +9,7 @@ import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations
@@ -21,6 +22,8 @@ import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/u
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
 contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC677Receiver {
+  using SafeERC20 for IERC20;
+
   /**
    * DISABLED: No auto approvals, all new upkeeps should be approved manually.
    * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to max allowed. Manual for rest.
@@ -74,6 +77,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   struct PendingRequest {
     address admin;
     uint96 balance;
+    IERC20 billingToken;
   }
   /**
    * @member upkeepContract address to perform upkeep on
@@ -145,6 +149,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   error InvalidBillingToken();
   error InvalidDataLength();
   error TransferFailed(address to);
+  error DuplicateEntry();
   error OnlyAdminOrOwner();
   error OnlyLink();
   error RequestNotFound();
@@ -190,9 +195,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       i_WRAPPED_NATIVE_TOKEN.deposit{value: msg.value}();
     } else {
       // send ERC20 payment, including wrapped native token
-      if (!requestParams.billingToken.transferFrom(msg.sender, address(this), requestParams.amount)) {
-        revert TransferFailed(address(this));
-      }
+      requestParams.billingToken.safeTransferFrom(msg.sender, address(this), requestParams.amount);
     }
 
     return _register(requestParams, msg.sender);
@@ -217,11 +220,12 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   }
 
   /**
-   * @notice cancel will remove a registration request and return the refunds to the request.admin
+   * @notice cancel will remove a registration request from the pending request queue and return the refunds to the request.admin
    * @param hash the request hash
    */
   function cancel(bytes32 hash) external {
     PendingRequest memory request = s_pendingRequests[hash];
+
     if (!(msg.sender == request.admin || msg.sender == owner())) {
       revert OnlyAdminOrOwner();
     }
@@ -229,10 +233,9 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       revert RequestNotFound();
     }
     delete s_pendingRequests[hash];
-    bool success = i_LINK.transfer(request.admin, request.balance);
-    if (!success) {
-      revert TransferFailed(request.admin);
-    }
+
+    request.billingToken.safeTransfer(request.admin, request.balance);
+
     emit RegistrationRejected(hash);
   }
 
@@ -340,9 +343,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   /**
    * @dev verify registration request and emit RegistrationRequested event
-   * @dev we currently allow multiple duplicate registrations by adding to the original registration's balance
-   * we could make this much simpler by using a nonce to differentiate otherwise identical requests and then
-   * we don't have to worry about identical registrations
+   * @dev we don't allow multiple duplicate registrations by adding to the original registration's balance
+   * users can cancel and re-register if they want to update the registration
    */
   function _register(RegistrationParams memory params, address sender) private returns (uint256) {
     if (params.amount < s_minRegistrationAmounts[params.billingToken]) {
@@ -355,6 +357,10 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       revert InvalidBillingToken();
     }
     bytes32 hash = keccak256(abi.encode(params));
+
+    if (s_pendingRequests[hash].admin != address(0)) {
+      revert DuplicateEntry();
+    }
 
     emit RegistrationRequested(
       hash,
@@ -375,8 +381,11 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       s_triggerRegistrations[params.triggerType].approvedCount++;
       upkeepId = _approve(params, hash);
     } else {
-      uint96 newBalance = s_pendingRequests[hash].balance + params.amount;
-      s_pendingRequests[hash] = PendingRequest({admin: params.adminAddress, balance: newBalance});
+      s_pendingRequests[hash] = PendingRequest({
+        admin: params.adminAddress,
+        balance: params.amount,
+        billingToken: params.billingToken
+      });
     }
 
     return upkeepId;

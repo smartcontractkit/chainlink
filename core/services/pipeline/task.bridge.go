@@ -109,7 +109,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		return Result{Error: errors.Errorf("headers must have an even number of elements")}, runInfo
 	}
 
-	url, err := t.getBridgeURLFromName(name)
+	url, err := t.getBridgeURLFromName(ctx, name)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
@@ -181,7 +181,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		}
 
 		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, cacheDuration)
+		responseBytes, cacheErr = t.orm.GetCachedResponse(ctx, t.dotID, t.specId, cacheDuration)
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
 			if !errors.Is(cacheErr, sql.ErrNoRows) {
@@ -217,7 +217,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	if !cachedResponse && cacheTTL > 0 {
-		err := t.orm.UpsertBridgeResponse(t.dotID, t.specId, responseBytes)
+		err := t.orm.UpsertBridgeResponse(ctx, t.dotID, t.specId, responseBytes)
 		if err != nil {
 			lggr.Errorw("Bridge task: failed to upsert response in bridge cache", "err", err)
 		}
@@ -241,8 +241,8 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	return result, runInfo
 }
 
-func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
-	bt, err := t.orm.FindBridge(bridges.BridgeName(name))
+func (t BridgeTask) getBridgeURLFromName(ctx context.Context, name StringParam) (URLParam, error) {
+	bt, err := t.orm.FindBridge(ctx, bridges.BridgeName(name))
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}

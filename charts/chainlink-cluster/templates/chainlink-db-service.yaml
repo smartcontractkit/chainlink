@@ -1,3 +1,4 @@
+{{- if .Values.db.enabled }}
 {{- range $cfg := .Values.chainlink.nodes }}
 apiVersion: v1
 kind: Service
@@ -13,4 +14,5 @@ spec:
       port: 5432
       targetPort: 5432
 ---
+{{- end }}
 {{- end }}
