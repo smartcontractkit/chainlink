@@ -68,6 +68,8 @@ func TestFluxBasic(t *testing.T) {
 	err = lt.Transfer(fluxInstance.Address(), big.NewInt(1e18))
 	require.NoError(t, err, "Funding Flux Aggregator Contract shouldn't fail")
 
+	require.True(t, false, "on demand")
+
 	err = fluxInstance.UpdateAvailableFunds()
 	require.NoError(t, err, "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
 
