@@ -24,6 +24,7 @@ for a blocking auth call while the user responds to a potential push notificatio
 package ldapauth
 
 import (
+	"context"
 	"crypto/subtle"
 	"database/sql"
 	"errors"
@@ -32,15 +33,14 @@ import (
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
-	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -53,7 +53,7 @@ var ErrUserNotInUpstream = errors.New("LDAP query returned no matching users")
 var ErrUserNoLDAPGroups = errors.New("user present in directory, but matching no role groups assigned")
 
 type ldapAuthenticator struct {
-	q           pg.Q
+	ds          sqlutil.DataSource
 	ldapClient  LDAPClient
 	config      config.LDAP
 	lggr        logger.Logger
@@ -64,15 +64,12 @@ type ldapAuthenticator struct {
 var _ sessions.AuthenticationProvider = (*ldapAuthenticator)(nil)
 
 func NewLDAPAuthenticator(
-	db *sqlx.DB,
-	pgCfg pg.QConfig,
+	ds sqlutil.DataSource,
 	ldapCfg config.LDAP,
 	dev bool,
 	lggr logger.Logger,
 	auditLogger audit.AuditLogger,
 ) (*ldapAuthenticator, error) {
-	namedLogger := lggr.Named("LDAPAuthenticationProvider")
-
 	// If not chainlink dev and not tls, error
 	if !dev && !ldapCfg.ServerTLS() {
 		return nil, errors.New("LDAP Authentication driver requires TLS when running in Production mode")
@@ -91,7 +88,7 @@ func NewLDAPAuthenticator(
 	}
 
 	ldapAuth := ldapAuthenticator{
-		q:           pg.NewQ(db, namedLogger, pgCfg),
+		ds:          ds,
 		ldapClient:  newLDAPClient(ldapCfg),
 		config:      ldapCfg,
 		lggr:        lggr.Named("LDAPAuthenticationProvider"),
@@ -114,16 +111,12 @@ func NewLDAPAuthenticator(
 }
 
 // FindUser will attempt to return an LDAP user with mapped role by email.
-func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
+func (l *ldapAuthenticator) FindUser(ctx context.Context, email string) (sessions.User, error) {
 	email = strings.ToLower(email)
-	foundUser := sessions.User{}
 
 	// First check for the supported local admin users table
 	var foundLocalAdminUser sessions.User
-	checkErr := l.q.Transaction(func(tx pg.Queryer) error {
-		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-		return tx.Get(&foundLocalAdminUser, sql, email)
-	})
+	checkErr := l.ds.GetContext(ctx, &foundLocalAdminUser, "SELECT * FROM users WHERE lower(email) = lower($1)", email)
 	if checkErr == nil {
 		return foundLocalAdminUser, nil
 	}
@@ -138,19 +131,19 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	usersActive, err := l.validateUsersActive([]string{email})
 	if err != nil {
 		if errors.Is(err, ErrUserNotInUpstream) {
-			return foundUser, ErrUserNotInUpstream
+			return sessions.User{}, ErrUserNotInUpstream
 		}
 		l.lggr.Errorf("error in validateUsers call: %v", err)
-		return foundUser, errors.New("error running query to validate user active")
+		return sessions.User{}, errors.New("error running query to validate user active")
 	}
 	if !usersActive[0] {
-		return foundUser, errors.New("user not active")
+		return sessions.User{}, errors.New("user not active")
 	}
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		l.lggr.Errorf("error in LDAP dial: ", err)
-		return foundUser, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
+		return sessions.User{}, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
 
@@ -173,30 +166,24 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	result, err := conn.Search(searchRequest)
 	if err != nil {
 		l.lggr.Errorf("error searching users in LDAP query: %v", err)
-		return foundUser, errors.New("error searching users in LDAP directory")
+		return sessions.User{}, errors.New("error searching users in LDAP directory")
 	}
 
 	if len(result.Entries) == 0 {
 		// Provided email is not present in upstream LDAP server, local admin CLI auth is supported
 		// So query and check the users table as well before failing
-		if err = l.q.Transaction(func(tx pg.Queryer) error {
-			var localUserRole sessions.UserRole
-			if err = tx.Get(&localUserRole, "SELECT role FROM users WHERE email = $1", email); err != nil {
-				return err
-			}
-			foundUser = sessions.User{
-				Email: email,
-				Role:  localUserRole,
-			}
-			return nil
-		}); err != nil {
+		var localUserRole sessions.UserRole
+		if err = l.ds.GetContext(ctx, &localUserRole, "SELECT role FROM users WHERE email = $1", email); err != nil {
 			// Above query for local user unsuccessful, return error
 			l.lggr.Warnf("No local users table user found with email %s", email)
-			return foundUser, errors.New("no users found with provided email")
+			return sessions.User{}, errors.New("no users found with provided email")
 		}
 
 		// If the above query to the local users table was successful, return that local user's role
-		return foundUser, nil
+		return sessions.User{
+			Email: email,
+			Role:  localUserRole,
+		}, nil
 	}
 
 	// Populate found user by email and role based on matched group names
@@ -207,59 +194,48 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	}
 
 	// Convert search result to sessions.User type with required fields
-	foundUser = sessions.User{
+	return sessions.User{
 		Email: email,
 		Role:  userRole,
-	}
-
-	return foundUser, nil
+	}, nil
 }
 
 // FindUserByAPIToken retrieves a possible stored user and role from the ldap_user_api_tokens table store
-func (l *ldapAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, error) {
+func (l *ldapAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken string) (sessions.User, error) {
 	if !l.config.UserApiTokenEnabled() {
 		return sessions.User{}, errors.New("API token is not enabled ")
 	}
 
-	var foundUser sessions.User
-	err := l.q.Transaction(func(tx pg.Queryer) error {
-		// Query the ldap user API token table for given token, user role and email are cached so
-		// no further upstream LDAP query is performed, sessions and tokens are synced against the upstream server
-		// via the UpstreamSyncInterval config and reaper.go sync implementation
-		var foundUserToken struct {
-			UserEmail string
-			UserRole  sessions.UserRole
-			Valid     bool
-		}
-		if err := tx.Get(&foundUserToken,
-			"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM ldap_user_api_tokens WHERE token_key = $1",
-			apiToken, l.config.UserAPITokenDuration().Duration(),
-		); err != nil {
-			return err
-		}
-		if !foundUserToken.Valid {
-			return sessions.ErrUserSessionExpired
-		}
-		foundUser = sessions.User{
-			Email: foundUserToken.UserEmail,
-			Role:  foundUserToken.UserRole,
-		}
-		return nil
-	})
+	// Query the ldap user API token table for given token, user role and email are cached so
+	// no further upstream LDAP query is performed, sessions and tokens are synced against the upstream server
+	// via the UpstreamSyncInterval config and reaper.go sync implementation
+	var foundUserToken struct {
+		UserEmail string
+		UserRole  sessions.UserRole
+		Valid     bool
+	}
+	err := l.ds.GetContext(ctx, &foundUserToken,
+		"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM ldap_user_api_tokens WHERE token_key = $1",
+		apiToken, l.config.UserAPITokenDuration().Duration(),
+	)
 	if err != nil {
-		if errors.Is(err, sessions.ErrUserSessionExpired) {
-			// API Token expired, purge
-			if _, execErr := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
-				l.lggr.Errorf("error purging stale ldap API token session: %v", execErr)
-			}
-		}
 		return sessions.User{}, err
 	}
-	return foundUser, nil
+	if !foundUserToken.Valid { // API Token expired, purge
+		if _, execErr := l.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE token_key = $1", apiToken); execErr != nil {
+			l.lggr.Errorf("error purging stale ldap API token session: %v", execErr)
+		}
+		return sessions.User{}, sessions.ErrUserSessionExpired
+	}
+
+	return sessions.User{
+		Email: foundUserToken.UserEmail,
+		Role:  foundUserToken.UserRole,
+	}, nil
 }
 
 // ListUsers will load and return all active users in applicable LDAP groups, extended with local admin users as well
-func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
+func (l *ldapAuthenticator) ListUsers(ctx context.Context) ([]sessions.User, error) {
 	// For each defined role/group, query for the list of group members to gather the full list of possible users
 	users := []sessions.User{}
 	var err error
@@ -338,10 +314,8 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 
 	// Extend with local admin users
 	var localAdminUsers []sessions.User
-	if err := l.q.Transaction(func(tx pg.Queryer) error {
-		sql := "SELECT * FROM users ORDER BY email ASC;"
-		return tx.Select(&localAdminUsers, sql)
-	}); err != nil {
+	sql := "SELECT * FROM users ORDER BY email ASC;"
+	if err := l.ds.SelectContext(ctx, &localAdminUsers, sql); err != nil {
 		l.lggr.Errorf("error extending upstream LDAP users with local admin users in users table: ", err)
 	} else {
 		returnUsers = append(returnUsers, localAdminUsers...)
@@ -367,60 +341,50 @@ func (l *ldapAuthenticator) ldapGroupMembersListToUser(conn LDAPConn, groupNameC
 // AuthorizedUserWithSession will return the API user associated with the Session ID if it
 // exists and hasn't expired, and update session's LastUsed field. The state of the upstream LDAP server
 // is polled and synced at the defined interval via a SleeperTask
-func (l *ldapAuthenticator) AuthorizedUserWithSession(sessionID string) (sessions.User, error) {
+func (l *ldapAuthenticator) AuthorizedUserWithSession(ctx context.Context, sessionID string) (sessions.User, error) {
 	if len(sessionID) == 0 {
 		return sessions.User{}, errors.New("session ID cannot be empty")
 	}
-	var foundUser sessions.User
-	err := l.q.Transaction(func(tx pg.Queryer) error {
-		// Query the ldap_sessions table for given session ID, user role and email are cached so
-		// no further upstream LDAP query is performed
-		var foundSession struct {
-			UserEmail string
-			UserRole  sessions.UserRole
-			Valid     bool
-		}
-		if err := tx.Get(&foundSession,
-			"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM ldap_sessions WHERE id = $1",
-			sessionID, l.config.SessionTimeout().Duration(),
-		); err != nil {
-			return sessions.ErrUserSessionExpired
-		}
-		if !foundSession.Valid {
-			// Sessions expired, purge
-			return sessions.ErrUserSessionExpired
-		}
-		foundUser = sessions.User{
-			Email: foundSession.UserEmail,
-			Role:  foundSession.UserRole,
-		}
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, sessions.ErrUserSessionExpired) {
-			if _, execErr := l.q.Exec("DELETE FROM ldap_sessions WHERE id = $1", sessionID); err != nil {
-				l.lggr.Errorf("error purging stale ldap session: %v", execErr)
-			}
-		}
-		return sessions.User{}, err
+	// Query the ldap_sessions table for given session ID, user role and email are cached so
+	// no further upstream LDAP query is performed
+	var foundSession struct {
+		UserEmail string
+		UserRole  sessions.UserRole
+		Valid     bool
 	}
-	return foundUser, nil
+	if err := l.ds.GetContext(ctx, &foundSession,
+		"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM ldap_sessions WHERE id = $1",
+		sessionID, l.config.SessionTimeout().Duration(),
+	); err != nil {
+		return sessions.User{}, sessions.ErrUserSessionExpired
+	}
+	if !foundSession.Valid {
+		// Sessions expired, purge
+		if _, execErr := l.ds.ExecContext(ctx, "DELETE FROM ldap_sessions WHERE id = $1", sessionID); execErr != nil {
+			l.lggr.Errorf("error purging stale ldap session: %v", execErr)
+		}
+		return sessions.User{}, sessions.ErrUserSessionExpired
+	}
+	return sessions.User{
+		Email: foundSession.UserEmail,
+		Role:  foundSession.UserRole,
+	}, nil
 }
 
 // DeleteUser is not supported for read only LDAP
-func (l *ldapAuthenticator) DeleteUser(email string) error {
+func (l *ldapAuthenticator) DeleteUser(ctx context.Context, email string) error {
 	return sessions.ErrNotSupported
 }
 
 // DeleteUserSession removes an ldapSession table entry by ID
-func (l *ldapAuthenticator) DeleteUserSession(sessionID string) error {
-	_, err := l.q.Exec("DELETE FROM ldap_sessions WHERE id = $1", sessionID)
+func (l *ldapAuthenticator) DeleteUserSession(ctx context.Context, sessionID string) error {
+	_, err := l.ds.ExecContext(ctx, "DELETE FROM ldap_sessions WHERE id = $1", sessionID)
 	return err
 }
 
 // GetUserWebAuthn returns an empty stub, MFA token prompt is handled either by the upstream
 // server blocking callback, or an error code to pass a OTP
-func (l *ldapAuthenticator) GetUserWebAuthn(email string) ([]sessions.WebAuthn, error) {
+func (l *ldapAuthenticator) GetUserWebAuthn(ctx context.Context, email string) ([]sessions.WebAuthn, error) {
 	return []sessions.WebAuthn{}, nil
 }
 
@@ -428,7 +392,7 @@ func (l *ldapAuthenticator) GetUserWebAuthn(email string) ([]sessions.WebAuthn, 
 // LDAP server, querying for a user + role response if username and
 // password match. The API call is blocking with timeout, so a sufficient timeout
 // should allow the user to respond to potential MFA push notifications
-func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, error) {
+func (l *ldapAuthenticator) CreateSession(ctx context.Context, sr sessions.SessionRequest) (string, error) {
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		return "", errors.New("unable to establish connection to LDAP server with provided URL and credentials")
@@ -448,7 +412,7 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	// Bind was successful meaning user and credentials are present in LDAP directory
 	// Reuse FindUser functionality to fetch user roles used to create ldap_session entry
 	// with cached user email and role
-	foundUser, err := l.FindUser(escapedEmail)
+	foundUser, err := l.FindUser(ctx, escapedEmail)
 	if err != nil {
 		l.lggr.Infof("Successful user login, but error querying for user groups: user: %s, error %v", escapedEmail, err)
 		returnErr = errors.New("log in successful, but no assigned groups to assume role")
@@ -458,7 +422,7 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	if returnErr != nil {
 		// Unable to log in against LDAP server, attempt fallback local auth with credentials, case of local CLI Admin account
 		// Successful local user sessions can not be managed by the upstream server and have expiration handled by the reaper sync module
-		foundUser, returnErr = l.localLoginFallback(sr)
+		foundUser, returnErr = l.localLoginFallback(ctx, sr)
 		isLocalUser = true
 	}
 
@@ -473,7 +437,8 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	// Sessions are set to expire after the duration + creation date elapsed, and are synced on an interval against the upstream
 	// LDAP server
 	session := sessions.NewSession()
-	_, err = l.q.Exec(
+	_, err = l.ds.ExecContext(
+		ctx,
 		"INSERT INTO ldap_sessions (id, user_email, user_role, localauth_user, created_at) VALUES ($1, $2, $3, $4, now())",
 		session.ID,
 		strings.ToLower(sr.Email),
@@ -491,30 +456,28 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 }
 
 // ClearNonCurrentSessions removes all ldap_sessions but the id passed in.
-func (l *ldapAuthenticator) ClearNonCurrentSessions(sessionID string) error {
-	_, err := l.q.Exec("DELETE FROM ldap_sessions where id != $1", sessionID)
+func (l *ldapAuthenticator) ClearNonCurrentSessions(ctx context.Context, sessionID string) error {
+	_, err := l.ds.ExecContext(ctx, "DELETE FROM ldap_sessions where id != $1", sessionID)
 	return err
 }
 
 // CreateUser is not supported for read only LDAP
-func (l *ldapAuthenticator) CreateUser(user *sessions.User) error {
+func (l *ldapAuthenticator) CreateUser(ctx context.Context, user *sessions.User) error {
 	return sessions.ErrNotSupported
 }
 
 // UpdateRole is not supported for read only LDAP
-func (l *ldapAuthenticator) UpdateRole(email, newRole string) (sessions.User, error) {
+func (l *ldapAuthenticator) UpdateRole(ctx context.Context, email, newRole string) (sessions.User, error) {
 	return sessions.User{}, sessions.ErrNotSupported
 }
 
 // SetPassword for remote users is not supported via the read only LDAP implementation, however change password
 // in the context of updating a local admin user's password is required
-func (l *ldapAuthenticator) SetPassword(user *sessions.User, newPassword string) error {
+func (l *ldapAuthenticator) SetPassword(ctx context.Context, user *sessions.User, newPassword string) error {
 	// Ensure specified user is part of the local admins user table
 	var localAdminUser sessions.User
-	if err := l.q.Transaction(func(tx pg.Queryer) error {
-		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-		return tx.Get(&localAdminUser, sql, user.Email)
-	}); err != nil {
+	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
+	if err := l.ds.GetContext(ctx, &localAdminUser, sql, user.Email); err != nil {
 		l.lggr.Infof("Can not change password, local user with email not found in users table: %s, err: %v", user.Email, err)
 		return sessions.ErrNotSupported
 	}
@@ -524,10 +487,8 @@ func (l *ldapAuthenticator) SetPassword(user *sessions.User, newPassword string)
 	if err != nil {
 		return err
 	}
-	if err := l.q.Transaction(func(tx pg.Queryer) error {
-		sql := "UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *"
-		return tx.Get(user, sql, hashedPassword, user.Email)
-	}); err != nil {
+	sql = "UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *"
+	if err := l.ds.GetContext(ctx, user, sql, hashedPassword, user.Email); err != nil {
 		l.lggr.Errorf("unable to set password for user: %s, err: %v", user.Email, err)
 		return errors.New("unable to save password")
 	}
@@ -535,7 +496,7 @@ func (l *ldapAuthenticator) SetPassword(user *sessions.User, newPassword string)
 }
 
 // TestPassword tests if an LDAP login bind can be performed with provided credentials, returns nil if success
-func (l *ldapAuthenticator) TestPassword(email string, password string) error {
+func (l *ldapAuthenticator) TestPassword(ctx context.Context, email string, password string) error {
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		return errors.New("unable to establish connection to LDAP server with provided URL and credentials")
@@ -553,7 +514,7 @@ func (l *ldapAuthenticator) TestPassword(email string, password string) error {
 
 	// Fall back to test local users table in case of supported local CLI users as well
 	var hashedPassword string
-	if err := l.q.Get(&hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
+	if err := l.ds.GetContext(ctx, &hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
 		return errors.New("invalid credentials")
 	}
 	if !utils.CheckPasswordHash(password, hashedPassword) {
@@ -564,10 +525,10 @@ func (l *ldapAuthenticator) TestPassword(email string, password string) error {
 }
 
 // CreateAndSetAuthToken generates a new credential token with the user role
-func (l *ldapAuthenticator) CreateAndSetAuthToken(user *sessions.User) (*auth.Token, error) {
+func (l *ldapAuthenticator) CreateAndSetAuthToken(ctx context.Context, user *sessions.User) (*auth.Token, error) {
 	newToken := auth.NewToken()
 
-	err := l.SetAuthToken(user, newToken)
+	err := l.SetAuthToken(ctx, user, newToken)
 	if err != nil {
 		return nil, err
 	}
@@ -576,7 +537,7 @@ func (l *ldapAuthenticator) CreateAndSetAuthToken(user *sessions.User) (*auth.To
 }
 
 // SetAuthToken updates the user to use the given Authentication Token.
-func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token) error {
+func (l *ldapAuthenticator) SetAuthToken(ctx context.Context, user *sessions.User, token *auth.Token) error {
 	if !l.config.UserApiTokenEnabled() {
 		return errors.New("API token is not enabled ")
 	}
@@ -587,22 +548,23 @@ func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token)
 		return fmt.Errorf("LDAPAuth SetAuthToken hashed secret error: %w", err)
 	}
 
-	err = l.q.Transaction(func(tx pg.Queryer) error {
+	err = sqlutil.TransactDataSource(ctx, l.ds, nil, func(tx sqlutil.DataSource) error {
 		// Is this user a local CLI Admin or upstream LDAP user?
 		// Check presence in local users table. Set localauth_user column true if present.
 		// This flag omits the session/token from being purged by the sync daemon/reaper.go
 		isLocalCLIAdmin := false
-		err = l.q.QueryRow("SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", user.Email).Scan(&isLocalCLIAdmin)
+		err = l.ds.QueryRowxContext(ctx, "SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", user.Email).Scan(&isLocalCLIAdmin)
 		if err != nil {
 			return fmt.Errorf("error checking user presence in users table: %w", err)
 		}
 
 		// Remove any existing API tokens
-		if _, err = l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
+		if _, err = l.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
 			return fmt.Errorf("error executing DELETE FROM ldap_user_api_tokens: %w", err)
 		}
 		// Create new API token for user
-		_, err = l.q.Exec(
+		_, err = l.ds.ExecContext(
+			ctx,
 			"INSERT INTO ldap_user_api_tokens (user_email, user_role, localauth_user, token_key, token_salt, token_hashed_secret, created_at) VALUES ($1, $2, $3, $4, $5, $6, now())",
 			user.Email,
 			user.Role,
@@ -625,39 +587,39 @@ func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token)
 }
 
 // DeleteAuthToken clears and disables the users Authentication Token.
-func (l *ldapAuthenticator) DeleteAuthToken(user *sessions.User) error {
-	_, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE email = $1")
+func (l *ldapAuthenticator) DeleteAuthToken(ctx context.Context, user *sessions.User) error {
+	_, err := l.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE email = $1")
 	return err
 }
 
 // SaveWebAuthn is not supported for read only LDAP
-func (l *ldapAuthenticator) SaveWebAuthn(token *sessions.WebAuthn) error {
+func (l *ldapAuthenticator) SaveWebAuthn(ctx context.Context, token *sessions.WebAuthn) error {
 	return sessions.ErrNotSupported
 }
 
 // Sessions returns all sessions limited by the parameters.
-func (l *ldapAuthenticator) Sessions(offset, limit int) ([]sessions.Session, error) {
+func (l *ldapAuthenticator) Sessions(ctx context.Context, offset, limit int) ([]sessions.Session, error) {
 	var sessions []sessions.Session
 	sql := `SELECT * FROM ldap_sessions ORDER BY created_at, id LIMIT $1 OFFSET $2;`
-	if err := l.q.Select(&sessions, sql, limit, offset); err != nil {
+	if err := l.ds.SelectContext(ctx, &sessions, sql, limit, offset); err != nil {
 		return sessions, nil
 	}
 	return sessions, nil
 }
 
 // FindExternalInitiator supports the 'Run' role external intiator header auth functionality
-func (l *ldapAuthenticator) FindExternalInitiator(eia *auth.Token) (*bridges.ExternalInitiator, error) {
+func (l *ldapAuthenticator) FindExternalInitiator(ctx context.Context, eia *auth.Token) (*bridges.ExternalInitiator, error) {
 	exi := &bridges.ExternalInitiator{}
-	err := l.q.Get(exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
+	err := l.ds.GetContext(ctx, exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
 	return exi, err
 }
 
 // localLoginFallback tests the credentials provided against the 'local' authentication method
 // This covers the case of local CLI API calls requiring local login separate from the LDAP server
-func (l *ldapAuthenticator) localLoginFallback(sr sessions.SessionRequest) (sessions.User, error) {
+func (l *ldapAuthenticator) localLoginFallback(ctx context.Context, sr sessions.SessionRequest) (sessions.User, error) {
 	var user sessions.User
 	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-	err := l.q.Get(&user, sql, sr.Email)
+	err := l.ds.GetContext(ctx, &user, sql, sr.Email)
 	if err != nil {
 		return user, err
 	}

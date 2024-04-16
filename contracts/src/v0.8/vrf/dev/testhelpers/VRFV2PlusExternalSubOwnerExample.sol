@@ -20,7 +20,7 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
   }
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+  function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
     // solhint-disable-next-line gas-custom-errors
     require(requestId == s_requestId, "request ID is incorrect");
     s_randomWords = randomWords;

@@ -10,6 +10,7 @@
 #   image: ethereum/client-go
 #   version: stable
 chainlink:
+  enabled: true
   podSecurityContext:
     fsGroup: 14933
   securityContext:
@@ -88,6 +89,7 @@ chainlink:
 #
 # if you are running long tests
 db:
+  enabled: true
   podSecurityContext:
     fsGroup: 999
   securityContext:
@@ -109,6 +111,7 @@ db:
       memory: 1024Mi
 # default cluster shipped with latest Geth ( dev mode by default )
 geth:
+  enabled: true
   podSecurityContext:
     fsGroup: 999
   securityContext:

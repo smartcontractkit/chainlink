@@ -11,6 +11,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -34,7 +35,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	config := sessionReaperConfig{}
 	lggr := logger.TestLogger(t)
-	orm := localauth.NewORM(db, config.SessionTimeout().Duration(), lggr, pgtest.NewQConfig(true), audit.NoopLogger)
+	orm := localauth.NewORM(db, config.SessionTimeout().Duration(), lggr, audit.NoopLogger)
 
 	r := localauth.NewSessionReaper(db.DB, config, lggr)
 	t.Cleanup(func() {
@@ -55,6 +56,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			t.Cleanup(func() {
 				_, err2 := db.Exec("DELETE FROM sessions where email = $1", cltest.APIEmailAdmin)
 				require.NoError(t, err2)
@@ -67,13 +69,13 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 			if test.wantReap {
 				gomega.NewWithT(t).Eventually(func() []sessions.Session {
-					sessions, err := orm.Sessions(0, 10)
+					sessions, err := orm.Sessions(ctx, 0, 10)
 					assert.NoError(t, err)
 					return sessions
 				}).Should(gomega.HaveLen(0))
 			} else {
 				gomega.NewWithT(t).Consistently(func() []sessions.Session {
-					sessions, err := orm.Sessions(0, 10)
+					sessions, err := orm.Sessions(ctx, 0, 10)
 					assert.NoError(t, err)
 					return sessions
 				}).Should(gomega.HaveLen(1))
