@@ -2,21 +2,17 @@ package test
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"reflect"
-	"sync"
 	"testing"
 
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 
+	loopnet "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip"
+	looptest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
@@ -38,71 +34,34 @@ func TestStaticOnRamp(t *testing.T) {
 
 func TestOnRampGRPC(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
-	// create a price registry server
-	port := freeport.GetOne(t)
-	addr := fmt.Sprintf("localhost:%d", port)
-	lis, err := net.Listen("tcp", addr)
-	require.NoError(t, err, "failed to listen on port %d", port)
-	t.Cleanup(func() { lis.Close() })
-	// we explicitly stop the server later, do not add a cleanup function here
-	testServer := grpc.NewServer()
-	// handle client close and server stop
-	shutdown := make(chan struct{})
-	closer := &serviceCloser{closeFn: func() error { close(shutdown); return nil }}
 
-	onRamp := ccip.NewOnRampReaderGRPCServer(OnRampReader)
-	require.NoError(t, err)
-	onRamp = onRamp.AddDep(closer)
-
-	ccippb.RegisterOnRampReaderServer(testServer, onRamp)
-	// start the server and shutdown handler
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		require.NoError(t, testServer.Serve(lis))
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		<-shutdown
-		t.Log("shutting down server")
-		testServer.Stop()
-	}()
-	// create a price registry client
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	require.NoError(t, err, "failed to dial %s", addr)
-	t.Cleanup(func() { conn.Close() })
-	client := ccip.NewOnRampReaderGRPCClient(conn)
-
-	// test the client
-	roundTripOnRampTests(ctx, t, client)
-	// closing the client executes the shutdown callback
-	// which stops the server.  the wg.Wait() below ensures
-	// that the server has stopped, which is what we care about.
-	cerr := client.Close()
-	require.NoError(t, cerr, "failed to close client %T, %v", cerr, status.Code(cerr))
-	wg.Wait()
+	scaffold := looptest.NewGRPCScaffold(t, setupOnRampServer, setupOnRampClient)
+	roundTripOnRampTests(t, scaffold.Client())
+	// offramp implements dependency management, test that it closes properly
+	t.Run("Dependency management", func(t *testing.T) {
+		d := &looptest.MockDep{}
+		scaffold.Server().AddDep(d)
+		assert.False(t, d.IsClosed())
+		scaffold.Client().Close()
+		assert.True(t, d.IsClosed())
+	})
 }
 
-func roundTripOnRampTests(ctx context.Context, t *testing.T, client cciptypes.OnRampReader) {
-	// test the client
-
+func roundTripOnRampTests(t *testing.T, client cciptypes.OnRampReader) {
 	t.Run("Address", func(t *testing.T) {
-		got, err := client.Address(ctx)
+		got, err := client.Address(tests.Context(t))
 		require.NoError(t, err)
 		assert.Equal(t, OnRampReader.addressResponse, got)
 	})
 
 	t.Run("GetDynamicConfig", func(t *testing.T) {
-		got, err := client.GetDynamicConfig(ctx)
+		got, err := client.GetDynamicConfig(tests.Context(t))
 		require.NoError(t, err)
 		assert.Equal(t, OnRampReader.dynamicConfigResponse, got)
 	})
 
 	t.Run("GetSendRequestsBetweenSeqNums", func(t *testing.T) {
-		got, err := client.GetSendRequestsBetweenSeqNums(ctx, OnRampReader.getSendRequestsBetweenSeqNums.SeqNumMin, OnRampReader.getSendRequestsBetweenSeqNums.SeqNumMax, OnRampReader.getSendRequestsBetweenSeqNums.Finalized)
+		got, err := client.GetSendRequestsBetweenSeqNums(tests.Context(t), OnRampReader.getSendRequestsBetweenSeqNums.SeqNumMin, OnRampReader.getSendRequestsBetweenSeqNums.SeqNumMax, OnRampReader.getSendRequestsBetweenSeqNums.Finalized)
 		require.NoError(t, err)
 		if !reflect.DeepEqual(OnRampReader.getSendRequestsBetweenSeqNumsResponse.EVM2EVMMessageWithTxMeta, got) {
 			t.Errorf("expected %v, got %v", OnRampReader.getSendRequestsBetweenSeqNumsResponse.EVM2EVMMessageWithTxMeta, got)
@@ -110,26 +69,36 @@ func roundTripOnRampTests(ctx context.Context, t *testing.T, client cciptypes.On
 	})
 
 	t.Run("IsSourceChainHealthy", func(t *testing.T) {
-		got, err := client.IsSourceChainHealthy(ctx)
+		got, err := client.IsSourceChainHealthy(tests.Context(t))
 		require.NoError(t, err)
 		assert.Equal(t, OnRampReader.isSourceChainHealthyResponse, got)
 	})
 
 	t.Run("IsSourceCursed", func(t *testing.T) {
-		got, err := client.IsSourceCursed(ctx)
+		got, err := client.IsSourceCursed(tests.Context(t))
 		require.NoError(t, err)
 		assert.Equal(t, OnRampReader.isSourceCursedResponse, got)
 	})
 
 	t.Run("RouterAddress", func(t *testing.T) {
-		got, err := client.RouterAddress(ctx)
+		got, err := client.RouterAddress(tests.Context(t))
 		require.NoError(t, err)
 		assert.Equal(t, OnRampReader.routerResponse, got)
 	})
 
 	t.Run("SourcePriceRegistryAddress", func(t *testing.T) {
-		got, err := client.SourcePriceRegistryAddress(ctx)
+		got, err := client.SourcePriceRegistryAddress(tests.Context(t))
 		require.NoError(t, err)
 		assert.Equal(t, OnRampReader.sourcePriceRegistryResponse, got)
 	})
+}
+
+func setupOnRampServer(t *testing.T, server *grpc.Server, b *loopnet.BrokerExt) *ccip.OnRampReaderGRPCServer {
+	onRamp := ccip.NewOnRampReaderGRPCServer(OnRampReader)
+	ccippb.RegisterOnRampReaderServer(server, onRamp)
+	return onRamp
+}
+
+func setupOnRampClient(b *loopnet.BrokerExt, conn grpc.ClientConnInterface) *ccip.OnRampReaderGRPCClient {
+	return ccip.NewOnRampReaderGRPCClient(conn)
 }

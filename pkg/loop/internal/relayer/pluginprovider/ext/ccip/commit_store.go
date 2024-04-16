@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -30,11 +31,12 @@ type CommitStoreGRPCClient struct {
 	//  marking it so that it is considered when we implement the proxy.
 	//  the reason it may not need to change is that the gas estimator server is
 	//  a static resource of the offramp reader server. It is not created directly by the client.
-	b *net.BrokerExt
+	b    *net.BrokerExt
+	conn grpc.ClientConnInterface
 }
 
-func NewCommitStoreReaderGRPCClient(cc grpc.ClientConnInterface, brokerExt *net.BrokerExt) *CommitStoreGRPCClient {
-	return &CommitStoreGRPCClient{client: ccippb.NewCommitStoreReaderClient(cc), b: brokerExt}
+func NewCommitStoreReaderGRPCClient(brokerExt *net.BrokerExt, cc grpc.ClientConnInterface) *CommitStoreGRPCClient {
+	return &CommitStoreGRPCClient{client: ccippb.NewCommitStoreReaderClient(cc), b: brokerExt, conn: cc}
 }
 
 // CommitStoreGRPCServer implements [ccippb.CommitStoreReaderServer] by wrapping a
@@ -79,6 +81,12 @@ func NewCommitStoreReaderGRPCServer(impl ccip.CommitStoreReader, brokerExt *net.
 // ensure the types are satisfied
 var _ ccippb.CommitStoreReaderServer = (*CommitStoreGRPCServer)(nil)
 var _ ccip.CommitStoreReader = (*CommitStoreGRPCClient)(nil)
+var _ goplugin.GRPCClientConn = (*CommitStoreGRPCClient)(nil)
+
+// ClientConn implements goplugin.GRPCClientConn.
+func (c *CommitStoreGRPCClient) ClientConn() grpc.ClientConnInterface {
+	return c.conn
+}
 
 // ChangeConfig implements ccip.CommitStoreReader.
 func (c *CommitStoreGRPCClient) ChangeConfig(ctx context.Context, onchainConfig []byte, offchainConfig []byte) (ccip.Address, error) {

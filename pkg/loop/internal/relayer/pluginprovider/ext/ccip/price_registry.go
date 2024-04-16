@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -24,6 +22,7 @@ import (
 // is hosted by the relayer
 type PriceRegistryGRPCClient struct {
 	grpc ccippb.PriceRegistryReaderClient
+	conn grpc.ClientConnInterface
 }
 
 func NewPriceRegistryGRPCClient(cc grpc.ClientConnInterface) *PriceRegistryGRPCClient {
@@ -60,15 +59,13 @@ func (p *PriceRegistryGRPCClient) Address(ctx context.Context) (cciptypes.Addres
 	return cciptypes.Address(resp.Address), nil
 }
 
+func (p *PriceRegistryGRPCClient) ClientConn() grpc.ClientConnInterface {
+	return p.conn
+}
+
 // Close implements ccip.PriceRegistryReader.
 func (p *PriceRegistryGRPCClient) Close() error {
-	_, err := p.grpc.Close(context.Background(), &emptypb.Empty{})
-	// due to the onClose handler in the server, it may shutdown before it sends a response to client
-	// in that case, we expect the client to receive an Unavailable or Internal error
-	if status.Code(err) == codes.Unavailable || status.Code(err) == codes.Internal {
-		return nil
-	}
-	return err
+	return shutdownGRPCServer(context.Background(), p.grpc)
 }
 
 // GetFeeTokens implements ccip.PriceRegistryReader.

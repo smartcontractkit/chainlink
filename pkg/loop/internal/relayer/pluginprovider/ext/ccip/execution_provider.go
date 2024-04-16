@@ -59,7 +59,7 @@ func (e *ExecProviderClient) NewCommitStoreReader(ctx context.Context, addr ccip
 		return nil, fmt.Errorf("failed to lookup off ramp reader service at %d: %w", resp.CommitStoreReaderServiceId, err)
 	}
 	// need to wrap grpc commitStore into the desired interface
-	commitStore := NewCommitStoreReaderGRPCClient(commitStoreConn, e.BrokerExt)
+	commitStore := NewCommitStoreReaderGRPCClient(e.BrokerExt, commitStoreConn)
 
 	return commitStore, nil
 }
@@ -78,7 +78,7 @@ func (e *ExecProviderClient) NewOffRampReader(ctx context.Context, addr cciptype
 		return nil, fmt.Errorf("failed to lookup off ramp reader service at %d: %w", resp.OfframpReaderServiceId, err)
 	}
 	// need to wrap grpc offRamp into the desired interface
-	offRamp := NewOffRampReaderGRPCClient(offRampConn, e.BrokerExt)
+	offRamp := NewOffRampReaderGRPCClient(e.BrokerExt, offRampConn)
 
 	return offRamp, nil
 }
@@ -167,6 +167,11 @@ func (e *ExecProviderClient) SourceNativeToken(ctx context.Context) (cciptypes.A
 		return "", err
 	}
 	return cciptypes.Address(resp.NativeTokenAddress), nil
+}
+
+// Close implements types.CCIPExecProvider.
+func (e *ExecProviderClient) Close() error {
+	return shutdownGRPCServer(context.Background(), e.grpcClient)
 }
 
 // ExecProviderServer is a server that wraps the custom methods of the [types.CCIPExecProvider]

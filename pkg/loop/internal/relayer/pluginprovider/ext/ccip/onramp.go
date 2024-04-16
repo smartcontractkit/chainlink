@@ -18,6 +18,7 @@ var _ cciptypes.OnRampReader = (*OnRampReaderGRPCClient)(nil)
 
 type OnRampReaderGRPCClient struct {
 	grpc ccippb.OnRampReaderClient
+	conn grpc.ClientConnInterface
 }
 
 func NewOnRampReaderGRPCClient(cc grpc.ClientConnInterface) *OnRampReaderGRPCClient {
@@ -31,6 +32,10 @@ func (o *OnRampReaderGRPCClient) Address(ctx context.Context) (cciptypes.Address
 		return cciptypes.Address(""), err
 	}
 	return cciptypes.Address(resp.Address), nil
+}
+
+func (o *OnRampReaderGRPCClient) ClientConn() grpc.ClientConnInterface {
+	return o.conn
 }
 
 func (o *OnRampReaderGRPCClient) Close() error {

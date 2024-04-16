@@ -20,6 +20,7 @@ import (
 // is hosted by the relayer
 type CommitGasEstimatorGRPCClient struct {
 	client ccippb.GasPriceEstimatorCommitClient
+	conn   grpc.ClientConnInterface
 }
 
 func NewCommitGasEstimatorGRPCClient(cc grpc.ClientConnInterface) *CommitGasEstimatorGRPCClient {
@@ -42,6 +43,14 @@ func NewCommitGasEstimatorGRPCServer(impl cciptypes.GasPriceEstimatorCommit) *Co
 
 var _ cciptypes.GasPriceEstimatorCommit = (*CommitGasEstimatorGRPCClient)(nil)
 var _ ccippb.GasPriceEstimatorCommitServer = (*CommitGasEstimatorGRPCServer)(nil)
+
+func (c *CommitGasEstimatorGRPCClient) ClientConn() grpc.ClientConnInterface {
+	return c.conn
+}
+
+func (c *CommitGasEstimatorGRPCClient) Close() error {
+	return nil
+}
 
 // DenoteInUSD implements ccip.GasPriceEstimatorCommit.
 func (c *CommitGasEstimatorGRPCClient) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
@@ -131,10 +140,11 @@ func (c *CommitGasEstimatorGRPCServer) Median(ctx context.Context, req *ccippb.M
 // is hosted by the relayer
 type ExecGasEstimatorGRPCClient struct {
 	client ccippb.GasPriceEstimatorExecClient
+	conn   grpc.ClientConnInterface
 }
 
 func NewExecGasEstimatorGRPCClient(cc grpc.ClientConnInterface) *ExecGasEstimatorGRPCClient {
-	return &ExecGasEstimatorGRPCClient{client: ccippb.NewGasPriceEstimatorExecClient(cc)}
+	return &ExecGasEstimatorGRPCClient{client: ccippb.NewGasPriceEstimatorExecClient(cc), conn: cc}
 }
 
 // ExecGasEstimatorGRPCServer implements [ccippb.ExecGasEstimatorReaderServer] by wrapping a
@@ -154,6 +164,14 @@ func NewExecGasEstimatorGRPCServer(impl cciptypes.GasPriceEstimatorExec) *ExecGa
 // ensure interfaces are implemented
 var _ cciptypes.GasPriceEstimatorExec = (*ExecGasEstimatorGRPCClient)(nil)
 var _ ccippb.GasPriceEstimatorExecServer = (*ExecGasEstimatorGRPCServer)(nil)
+
+func (e *ExecGasEstimatorGRPCClient) ClientConn() grpc.ClientConnInterface {
+	return nil
+}
+
+func (e *ExecGasEstimatorGRPCClient) Close() error {
+	return nil
+}
 
 // DenoteInUSD implements ccip.GasPriceEstimatorExec.
 func (e *ExecGasEstimatorGRPCClient) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {

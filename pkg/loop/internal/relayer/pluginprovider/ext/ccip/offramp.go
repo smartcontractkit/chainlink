@@ -29,13 +29,15 @@ type OffRampReaderGRPCClient struct {
 	//  the reason it may not need to change is that the gas estimator server is
 	//  a static resource of the offramp reader server. It is not created directly by the client.
 	b *net.BrokerExt
+
+	conn grpc.ClientConnInterface
 }
 
 // NewOffRampReaderGRPCClient creates a new OffRampReaderGRPCClient. It is used by the reporting plugin to call the offramp reader service.
 // The client is created by wrapping a grpc client connection. It requires a brokerExt to allocate and serve the gas estimator server.
 // *must* be the same broker used by the server BCF-3061
-func NewOffRampReaderGRPCClient(cc grpc.ClientConnInterface, brokerExt *net.BrokerExt) *OffRampReaderGRPCClient {
-	return &OffRampReaderGRPCClient{client: ccippb.NewOffRampReaderClient(cc), b: brokerExt}
+func NewOffRampReaderGRPCClient(brokerExt *net.BrokerExt, cc grpc.ClientConnInterface) *OffRampReaderGRPCClient {
+	return &OffRampReaderGRPCClient{client: ccippb.NewOffRampReaderClient(cc), b: brokerExt, conn: cc}
 }
 
 // OffRampReaderGRPCServer implements [ccippb.OffRampReaderServer] by wrapping a [cciptypes.OffRampReader] implementation.
@@ -107,6 +109,10 @@ func (o *OffRampReaderGRPCClient) ChangeConfig(ctx context.Context, onchainConfi
 	}
 
 	return cciptypes.Address(resp.OnchainConfigAddress), cciptypes.Address(resp.OffchainConfigAddress), nil
+}
+
+func (o *OffRampReaderGRPCClient) ClientConn() grpc.ClientConnInterface {
+	return o.conn
 }
 
 func (o *OffRampReaderGRPCClient) Close() error {

@@ -19,10 +19,11 @@ import (
 
 type TokenPoolBatchedReaderGRPCClient struct {
 	client ccippb.TokenPoolBatcherReaderClient
+	conn   grpc.ClientConnInterface
 }
 
 func NewTokenPoolBatchedReaderGRPCClient(cc grpc.ClientConnInterface) *TokenPoolBatchedReaderGRPCClient {
-	return &TokenPoolBatchedReaderGRPCClient{client: ccippb.NewTokenPoolBatcherReaderClient(cc)}
+	return &TokenPoolBatchedReaderGRPCClient{client: ccippb.NewTokenPoolBatcherReaderClient(cc), conn: cc}
 }
 
 // TokenPoolBatchedReaderGRPCServer implements [ccippb.TokenPoolBatchedReaderServer] by wrapping a
@@ -43,6 +44,10 @@ func NewTokenPoolBatchedReaderGRPCServer(impl cciptypes.TokenPoolBatchedReader) 
 // ensure interface is implemented
 var _ ccippb.TokenPoolBatcherReaderServer = (*TokenPoolBatchedReaderGRPCServer)(nil)
 var _ cciptypes.TokenPoolBatchedReader = (*TokenPoolBatchedReaderGRPCClient)(nil)
+
+func (t *TokenPoolBatchedReaderGRPCClient) ClientConn() grpc.ClientConnInterface {
+	return t.conn
+}
 
 // Close implements ccip.TokenPoolBatchedReader.
 func (t *TokenPoolBatchedReaderGRPCClient) Close() error {

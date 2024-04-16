@@ -19,10 +19,11 @@ import (
 // is hosted by the relayer
 type TokenDataReaderGRPCClient struct {
 	client ccippb.TokenDataReaderClient
+	conn   grpc.ClientConnInterface
 }
 
 func NewTokenDataReaderGRPCClient(cc grpc.ClientConnInterface) *TokenDataReaderGRPCClient {
-	return &TokenDataReaderGRPCClient{client: ccippb.NewTokenDataReaderClient(cc)}
+	return &TokenDataReaderGRPCClient{client: ccippb.NewTokenDataReaderClient(cc), conn: cc}
 }
 
 // TokenDataReaderGRPCServer implements [ccippb.TokenDataReaderReaderServer] by wrapping a
@@ -44,6 +45,10 @@ func NewTokenDataReaderGRPCServer(impl cciptypes.TokenDataReader) *TokenDataRead
 // ensure interface is implemented
 var _ ccippb.TokenDataReaderServer = (*TokenDataReaderGRPCServer)(nil)
 var _ cciptypes.TokenDataReader = (*TokenDataReaderGRPCClient)(nil)
+
+func (t *TokenDataReaderGRPCClient) ClientConn() grpc.ClientConnInterface {
+	return t.conn
+}
 
 // Close implements ccip.TokenDataReader.
 func (t *TokenDataReaderGRPCClient) Close() error {

@@ -9,13 +9,13 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type grpcResourceCloser interface {
+type GRPCResourceCloser interface {
 	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 // shutdownGRPCServer is a helper function to release server resources
 // created by a grpc client.
-func shutdownGRPCServer(ctx context.Context, rc grpcResourceCloser) error {
+func shutdownGRPCServer(ctx context.Context, rc GRPCResourceCloser) error {
 	_, err := rc.Close(ctx, &emptypb.Empty{})
 	// due to the handler in the server, it may shutdown before it sends a response to client
 	// in that case, we expect the client to receive an Unavailable or Internal error

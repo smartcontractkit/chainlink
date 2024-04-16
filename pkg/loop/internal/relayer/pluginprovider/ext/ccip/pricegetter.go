@@ -21,10 +21,11 @@ import (
 // is hosted by the relayer
 type PriceGetterGRPCClient struct {
 	grpc ccippb.PriceGetterClient
+	conn grpc.ClientConnInterface
 }
 
 func NewPriceGetterGRPCClient(cc grpc.ClientConnInterface) *PriceGetterGRPCClient {
-	return &PriceGetterGRPCClient{grpc: ccippb.NewPriceGetterClient(cc)}
+	return &PriceGetterGRPCClient{grpc: ccippb.NewPriceGetterClient(cc), conn: cc}
 }
 
 // PriceGetterGRPCServer implements [ccippb.PriceGetterServer] by wrapping a
@@ -45,6 +46,10 @@ func NewPriceGetterGRPCServer(impl cciptypes.PriceGetter) *PriceGetterGRPCServer
 // ensure the types are satisfied
 var _ cciptypes.PriceGetter = (*PriceGetterGRPCClient)(nil)
 var _ ccippb.PriceGetterServer = (*PriceGetterGRPCServer)(nil)
+
+func (p *PriceGetterGRPCClient) ClientConn() grpc.ClientConnInterface {
+	return p.conn
+}
 
 // FilterConfiguredTokens implements ccip.PriceGetter.
 func (p *PriceGetterGRPCClient) FilterConfiguredTokens(ctx context.Context, tokens []cciptypes.Address) (configured []cciptypes.Address, unconfigured []cciptypes.Address, err error) {
