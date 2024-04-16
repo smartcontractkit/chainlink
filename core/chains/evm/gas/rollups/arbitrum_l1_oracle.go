@@ -71,7 +71,7 @@ const (
 	ArbGasInfo_getPricesInArbGas = "02199f34"
 )
 
-func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) ArbL1GasOracle {
+func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) *arbitrumL1Oracle {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
