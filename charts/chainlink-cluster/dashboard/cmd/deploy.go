@@ -5,6 +5,7 @@ import (
 	lib "github.com/smartcontractkit/chainlink/dashboard-lib"
 	atlas_don "github.com/smartcontractkit/chainlink/dashboard-lib/atlas-don"
 	core_don "github.com/smartcontractkit/chainlink/dashboard-lib/core-don"
+	core_node_components "github.com/smartcontractkit/chainlink/dashboard-lib/core-node-components"
 	k8spods "github.com/smartcontractkit/chainlink/dashboard-lib/k8s-pods"
 	waspdb "github.com/smartcontractkit/wasp/dashboard"
 	"strings"
@@ -30,6 +31,17 @@ func main() {
 		// TODO: refactor as a component later
 		addWASPRows(db, cfg)
 	}
+	if cfg.PanelsIncluded["components"] {
+		db.Add(
+			core_node_components.New(
+				core_node_components.Props{
+					PrometheusDataSource: cfg.DataSources.Prometheus,
+					PlatformOpts:         core_node_components.PlatformPanelOpts(cfg.Platform),
+				},
+			),
+		)
+	}
+
 	if cfg.PanelsIncluded["ocr"] || cfg.PanelsIncluded["ocr2"] || cfg.PanelsIncluded["ocr3"] {
 		for key := range cfg.PanelsIncluded {
 			if strings.Contains(key, "ocr") {
