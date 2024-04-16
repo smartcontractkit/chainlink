@@ -3,17 +3,14 @@ package test_env
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-
-	tc "github.com/testcontainers/testcontainers-go"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
@@ -111,71 +108,6 @@ func (c *ClCluster) CopyFolderFromNodes(ctx context.Context, srcPath, destPath s
 	return nil
 }
 
-func copyFolderFromContainer(ctx context.Context, container tc.Container, srcPath, destPath string) error {
-	// List all files and directories recursively inside the container
-	lsCmd := []string{"find", srcPath, "-type", "f"} // Lists only files, omitting directories
-	outputCode, outputReader, err := container.Exec(ctx, lsCmd)
-	if err != nil {
-		return fmt.Errorf("failed to list files in container: %w", err)
-	}
-	if outputCode != 0 {
-		return fmt.Errorf("could not list files in the container. Command exited with code: %d", outputCode)
-	}
-
-	// Read the output into a slice of file paths
-	output, err := io.ReadAll(outputReader)
-	if err != nil {
-		return fmt.Errorf("failed to read command output: %w", err)
-	}
-	outStr := string(output)
-	files := strings.Split(outStr, "\n")
-
-	// Ensure destination path exists or create it
-	if err := os.MkdirAll(destPath, 0755); err != nil {
-		return fmt.Errorf("failed to create destination directory: %w", err)
-	}
-
-	// Iterate over each file path
-	for _, file := range files {
-		if file == "" {
-			continue
-		}
-
-		// Define the path for the file on the host
-		relPath, err := filepath.Rel(srcPath, file)
-		if err != nil {
-			return fmt.Errorf("failed to compute relative path: %w", err)
-		}
-		hostPath := filepath.Join(destPath, relPath)
-
-		// Ensure the subdirectory exists
-		if err := os.MkdirAll(filepath.Dir(hostPath), 0755); err != nil {
-			return fmt.Errorf("failed to create subdirectory: %w", err)
-		}
-
-		// Copy the file from the container
-		reader, err := container.CopyFileFromContainer(ctx, file)
-		if err != nil {
-			return fmt.Errorf("failed to copy file %s from container: %w", file, err)
-		}
-		defer reader.Close()
-
-		// Create the file on the host
-		localFile, err := os.Create(hostPath)
-		if err != nil {
-			return fmt.Errorf("failed to create file on host: %w", err)
-		}
-		defer localFile.Close()
-
-		// Copy data from reader to local file
-		if _, err := io.Copy(localFile, reader); err != nil {
-			return fmt.Errorf("failed to copy file content: %w", err)
-		}
-	}
-
-	return nil
-}
-
 func copyFolderFromContainerUsingDockerCP(ctx context.Context, containerID, srcPath, destPath string) error {
 	source := fmt.Sprintf("%s:%s", containerID, srcPath)
 
@@ -184,7 +116,7 @@ func copyFolderFromContainerUsingDockerCP(ctx context.Context, containerID, srcP
 
 	// Execute the docker cp command
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("docker cp command failed: %s, output: %s", err, string(output))
+		return errors.Wrapf(err, "docker cp command failed: %s, output: %s", cmd, string(output))
 	}
 
 	return nil
