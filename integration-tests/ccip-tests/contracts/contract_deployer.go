@@ -550,7 +550,7 @@ func (e *CCIPContractsDeployer) DeployPriceRegistry(tokens []common.Address) (*P
 }
 
 func (e *CCIPContractsDeployer) DeployTokenAdminRegistry() (*TokenAdminRegistry, error) {
-	address, _, instance, err := e.evmClient.DeployContract("PriceRegistry", func(
+	address, _, instance, err := e.evmClient.DeployContract("TokenAdminRegistry", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {

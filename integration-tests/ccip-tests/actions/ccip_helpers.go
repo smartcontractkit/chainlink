@@ -260,6 +260,14 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig)
 				EthAddress: common.HexToAddress(conf.FeeToken),
 			}
 		}
+		if conf.Version == "" {
+			// for now set version to 1.4.0 for existing deployments , if not explicitly set
+			if ccipModule.ExistingDeployment {
+				conf.Version = "1.4.0"
+			} else {
+				conf.Version = CurrentVersion
+			}
+		}
 		if conf.IsNativeFeeToken {
 			ccipModule.FeeToken = &contracts.LinkToken{
 				EthAddress: common.HexToAddress("0x0"),
@@ -643,7 +651,11 @@ func (ccipModule *CCIPCommon) NeedTokenAdminRegistry(conf *laneconfig.LaneConfig
 	if conf == nil || conf.Version == "" {
 		return false
 	}
-	currentSemver := semver.MustParse(CurrentVersion)
+	version := conf.Version
+	if version == "" {
+		version = CurrentVersion
+	}
+	currentSemver := semver.MustParse(version)
 	tokenAdminEnabledVersion := semver.MustParse("1.5.0-dev")
 	return currentSemver.Compare(tokenAdminEnabledVersion) >= 0
 }
@@ -922,39 +934,41 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	}
 
 	// if the version is after 1.4.0, we need to deploy TokenAdminRegistry
-	if ccipModule.TokenAdminRegistry == nil {
-		if ccipModule.ExistingDeployment && ccipModule.NeedTokenAdminRegistry(conf) {
-			return fmt.Errorf("token admin registry contract address is not provided in lane config")
-		}
-		// deploy token admin registry
-		ccipModule.TokenAdminRegistry, err = cd.DeployTokenAdminRegistry()
-		if err != nil {
-			return fmt.Errorf("deploying token admin registry shouldn't fail %w", err)
-		}
-		err = ccipModule.ChainClient.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("error in waiting for token admin registry deployment %w", err)
-		}
-
-		if len(ccipModule.BridgeTokens) != len(ccipModule.BridgeTokenPools) {
-			return fmt.Errorf("tokens number %d and pools number %d do not match", len(ccipModule.BridgeTokens), len(ccipModule.BridgeTokenPools))
-		}
-		// add all pools to registry
-		for i, pool := range ccipModule.BridgeTokenPools {
-			token := ccipModule.BridgeTokens[i]
-			err := ccipModule.TokenAdminRegistry.SetAdminAndRegisterPool(token.ContractAddress, pool.EthAddress)
-			if err != nil {
-				return fmt.Errorf("error setting up token %s and pool %s on TokenAdminRegistry : %w", token.Address(), pool.Address(), err)
+	if ccipModule.NeedTokenAdminRegistry(conf) {
+		if ccipModule.TokenAdminRegistry == nil {
+			if ccipModule.ExistingDeployment {
+				return fmt.Errorf("token admin registry contract address is not provided in lane config")
 			}
-		}
-		err = ccipModule.ChainClient.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("error in waiting for token admin registry set up with tokens and pools %w", err)
-		}
-	} else {
-		ccipModule.TokenAdminRegistry, err = cd.NewTokenAdminRegistry(ccipModule.TokenAdminRegistry.EthAddress)
-		if err != nil {
-			return fmt.Errorf("getting new token admin registry contract shouldn't fail %w", err)
+			// deploy token admin registry
+			ccipModule.TokenAdminRegistry, err = cd.DeployTokenAdminRegistry()
+			if err != nil {
+				return fmt.Errorf("deploying token admin registry shouldn't fail %w", err)
+			}
+			err = ccipModule.ChainClient.WaitForEvents()
+			if err != nil {
+				return fmt.Errorf("error in waiting for token admin registry deployment %w", err)
+			}
+
+			if len(ccipModule.BridgeTokens) != len(ccipModule.BridgeTokenPools) {
+				return fmt.Errorf("tokens number %d and pools number %d do not match", len(ccipModule.BridgeTokens), len(ccipModule.BridgeTokenPools))
+			}
+			// add all pools to registry
+			for i, pool := range ccipModule.BridgeTokenPools {
+				token := ccipModule.BridgeTokens[i]
+				err := ccipModule.TokenAdminRegistry.SetAdminAndRegisterPool(token.ContractAddress, pool.EthAddress)
+				if err != nil {
+					return fmt.Errorf("error setting up token %s and pool %s on TokenAdminRegistry : %w", token.Address(), pool.Address(), err)
+				}
+			}
+			err = ccipModule.ChainClient.WaitForEvents()
+			if err != nil {
+				return fmt.Errorf("error in waiting for token admin registry set up with tokens and pools %w", err)
+			}
+		} else {
+			ccipModule.TokenAdminRegistry, err = cd.NewTokenAdminRegistry(ccipModule.TokenAdminRegistry.EthAddress)
+			if err != nil {
+				return fmt.Errorf("getting new token admin registry contract shouldn't fail %w", err)
+			}
 		}
 	}
 	log.Info().Msg("finished deploying common contracts")
