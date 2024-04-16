@@ -75,21 +75,25 @@ type logBuffer struct {
 	// last block number seen by the buffer
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
-	queues map[string]*upkeepLogQueue
-	lock   sync.RWMutex
+	queues         map[string]*upkeepLogQueue
+	enqueuedBlocks map[int64]int
+	lock           sync.RWMutex
 }
 
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
 	return &logBuffer{
-		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV1"),
-		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
-		lastBlockSeen: new(atomic.Int64),
-		queues:        make(map[string]*upkeepLogQueue),
+		lggr:           lggr.Named("KeepersRegistry.LogEventBufferV1"),
+		opts:           newLogBufferOptions(lookback, blockRate, logLimit),
+		lastBlockSeen:  new(atomic.Int64),
+		enqueuedBlocks: map[int64]int{},
+		queues:         make(map[string]*upkeepLogQueue),
 	}
 }
 
 // Enqueue adds logs to the buffer and might also drop logs if the limit for the
 // given upkeep was exceeded. It will create a new buffer if it does not exist.
+// Logs are expected to be enqueued in increasing order of block number.
+// All logs for a particular block will be enqueued at once and not across separate calls.
 // Returns the number of logs that were added and number of logs that were  dropped.
 func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	buf, ok := b.getUpkeepQueue(uid)
@@ -97,10 +101,23 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		buf = newUpkeepLogQueue(b.lggr, uid, b.opts)
 		b.setUpkeepQueue(uid, buf)
 	}
-	latestBlock := latestBlockNumber(logs...)
-	if b.lastBlockSeen.Load() < latestBlock {
-		b.lastBlockSeen.Store(latestBlock)
+
+	latestLogBlock, uniqueBlocks := latestBlockNumber(logs...)
+	if lastBlockSeen := b.lastBlockSeen.Load(); lastBlockSeen < latestLogBlock {
+		b.lastBlockSeen.Store(latestLogBlock)
+	} else if latestLogBlock < lastBlockSeen {
+		b.lggr.Debugw("enqueuing logs from a block older than latest seen block", "logBlock", latestLogBlock, "lastBlockSeen", lastBlockSeen)
 	}
+
+	for block := range uniqueBlocks {
+		if _, ok := b.enqueuedBlocks[block]; ok {
+			b.enqueuedBlocks[block] = b.enqueuedBlocks[block] + 1
+			b.lggr.Debugw("enqueuing logs again for a previously seen block", "block", block, "timesSeen", b.enqueuedBlocks[block])
+		} else {
+			b.enqueuedBlocks[block] = 1
+		}
+	}
+
 	blockThreshold := b.lastBlockSeen.Load() - int64(b.opts.lookback.Load())
 	if blockThreshold <= 0 {
 		blockThreshold = 1
