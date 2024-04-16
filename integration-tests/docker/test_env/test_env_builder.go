@@ -258,8 +258,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	case CleanUpTypeStandard:
 		b.t.Cleanup(func() {
 			// Save test coverage profile from node containers
-			baseCoverageDir, isSet := os.LookupEnv("GO_COVERAGE_DIR")
-			if isSet {
+			baseCoverageDir := os.Getenv("GO_COVERAGE_DIR")
+			if baseCoverageDir != "" {
 				testCoverageDir := fmt.Sprintf("%s/%s", baseCoverageDir, b.t.Name())
 				if err := os.MkdirAll(testCoverageDir, 0755); err != nil {
 					b.l.Error().Err(err).Str("coverageDir", testCoverageDir).Msg("Failed to create test coverage directory")
