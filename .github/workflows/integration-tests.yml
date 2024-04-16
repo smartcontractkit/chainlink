@@ -392,6 +392,13 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
           should_tidy: "false"
+
+      - name: Upload Go Coverage Directory
+        uses: actions/upload-artifact@v3
+        with:
+          name: go-coverage-${{ matrix.product.name }}
+          path: ./integration-tests/go-coverage/
+          
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
