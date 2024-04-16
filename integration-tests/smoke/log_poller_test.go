@@ -418,6 +418,4 @@ func overrideEphemeralAddressesCount(testConfig *tc.TestConfig) {
 	}
 
 	testConfig.Seth.EphemeralAddrs = &minContracts
-
-	return
 }
