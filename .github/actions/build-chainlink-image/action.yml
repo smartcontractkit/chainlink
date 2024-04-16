@@ -23,16 +23,17 @@ runs:
   using: composite
   steps:
     - name: Check if image exists
+      if: ${{ inputs.dep_evm_sha != '' }}
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
       with:
         repository: chainlink
         tag: ${{ inputs.git_commit_sha }}${{ inputs.tag_suffix }}
         AWS_REGION: ${{ inputs.AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
     - name: Build Image
-      if: steps.check-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
+      if: steps.check-image.outputs.exists != 'true'
+      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
       with:
         cl_repo: smartcontractkit/chainlink
         cl_ref: ${{ inputs.git_commit_sha }}
