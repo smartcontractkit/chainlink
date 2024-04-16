@@ -5908,6 +5908,22 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
+[NodePool.Errors]
+NonceTooLow = '(: |^)nonce too low'
+NonceTooHigh = '(: |^)nonce too high'
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
+LimitReached = '(: |^)limit reached'
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
+TerminallyUnderpriced = '(: |^)terminally underpriced'
+InsufficientEth = '(: |^)infufficient Eth'
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
+L2FeeTooLow = '(: |^)l2 fee too low'
+L2FeeTooHigh = '(: |^)l2 fee too high'
+L2Full = '(: |^)l2 full'
+TransactionAlreadyMined = '(: |^)transaction already mined'
+Fatal = '(: |^)fatal'
+ServiceUnavailable = '(: |^)service unavailable'
+
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -6093,6 +6109,22 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
+[NodePool.Errors]
+NonceTooLow = '(: |^)nonce too low'
+NonceTooHigh = '(: |^)nonce too high'
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
+LimitReached = '(: |^)limit reached'
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
+TerminallyUnderpriced = '(: |^)terminally underpriced'
+InsufficientEth = '(: |^)infufficient Eth'
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
+L2FeeTooLow = '(: |^)l2 fee too low'
+L2FeeTooHigh = '(: |^)l2 fee too high'
+L2Full = '(: |^)l2 full'
+TransactionAlreadyMined = '(: |^)transaction already mined'
+Fatal = '(: |^)fatal'
+ServiceUnavailable = '(: |^)service unavailable'
+
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -6277,6 +6309,22 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+
+[NodePool.Errors]
+NonceTooLow = '(: |^)nonce too low'
+NonceTooHigh = '(: |^)nonce too high'
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
+LimitReached = '(: |^)limit reached'
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
+TerminallyUnderpriced = '(: |^)terminally underpriced'
+InsufficientEth = '(: |^)infufficient Eth'
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
+L2FeeTooLow = '(: |^)l2 fee too low'
+L2FeeTooHigh = '(: |^)l2 fee too high'
+L2Full = '(: |^)l2 full'
+TransactionAlreadyMined = '(: |^)transaction already mined'
+Fatal = '(: |^)fatal'
+ServiceUnavailable = '(: |^)service unavailable'
 
 [OCR]
 ContractConfirmations = 4
