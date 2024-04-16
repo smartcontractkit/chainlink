@@ -409,8 +409,8 @@ func TestAutomationAddFunds(t *testing.T) {
 	t.Parallel()
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
-		// "registry_2_1": ethereum.RegistryVersion_2_1,
-		// "registry_2_2": ethereum.RegistryVersion_2_2,
+		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {
@@ -418,6 +418,7 @@ func TestAutomationAddFunds(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
 				t.Fatal(err)
@@ -432,7 +433,7 @@ func TestAutomationAddFunds(t *testing.T) {
 				a.Registry,
 				a.Registrar,
 				a.LinkToken,
-				1,
+				2,
 				big.NewInt(1),
 				automationDefaultUpkeepGasLimit,
 				false,
@@ -442,26 +443,33 @@ func TestAutomationAddFunds(t *testing.T) {
 			gom := gomega.NewGomegaWithT(t)
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
 			gom.Consistently(func(g gomega.Gomega) {
-				counter, err := consumers[0].Counter(testcontext.Get(t))
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				g.Expect(counter.Int64()).Should(gomega.Equal(int64(0)),
-					"Expected consumer counter to remain zero, but got %d", counter.Int64())
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
+					g.Expect(counter.Int64()).Should(gomega.Equal(int64(0)),
+						"Expected consumer counter to remain zero, but got %d", counter.Int64())
+					l.Info().Int("Upkeep Index", i).Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				}
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for setup, 1m assertion
 
-			// Grant permission to the registry to fund the upkeep
-			err = a.LinkToken.Approve(a.Registry.Address(), big.NewInt(9e18))
-			require.NoError(t, err, "Could not approve permissions for the registry on the link token contract")
-
 			// Add funds to the upkeep whose ID we know from above
-			err = a.Registry.AddUpkeepFunds(upkeepIDs[0], big.NewInt(9e18))
-			require.NoError(t, err, "Unable to add upkeep")
+			for i := 0; i < len(upkeepIDs); i++ {
+				// Grant permission to the registry to fund the upkeep
+				err = a.LinkToken.Approve(a.Registry.Address(), big.NewInt(9e18))
+				require.NoError(t, err, "Could not approve permissions for the registry on the link token contract")
+				err = a.Registry.AddUpkeepFunds(upkeepIDs[i], big.NewInt(9e18))
+				require.NoError(t, err, "Unable to fund upkeep %s", upkeepIDs[i].String())
+			}
 
 			// Now the new upkeep should be performing because we added enough funds
 			gom.Eventually(func(g gomega.Gomega) {
-				counter, err := consumers[0].Counter(testcontext.Get(t))
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
-					"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
+						"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
+					l.Info().Int("Upkeep Index", i).Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				}
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for perform, 1m buffer
 		})
 	}
