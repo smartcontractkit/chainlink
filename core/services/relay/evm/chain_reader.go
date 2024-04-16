@@ -40,6 +40,7 @@ type chainReader struct {
 }
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
+// Note that the ChainReaderService returned does not support anonymous events.
 func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
 		lggr:             lggr.Named("ChainReader"),

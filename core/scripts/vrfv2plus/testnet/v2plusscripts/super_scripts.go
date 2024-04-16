@@ -870,6 +870,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	subscriptionID := cmd.String("subscription-id", "", "subscription ID for the wrapper")
 	wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
 	coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
+	coordinatorGasOverheadPerWord := cmd.Uint("coordinator-gas-overhead-per-word", 0, "amount of gas overhead per word in coordinator fulfillment")
 	wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
 	wrapperLinkPremiumPercentage := cmd.Uint("wrapper-link-premium-percentage", 25, "gas premium charged by wrapper for link payment")
 	keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
@@ -899,6 +900,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 		wrapper,
 		*wrapperGasOverhead,
 		*coordinatorGasOverhead,
+		*coordinatorGasOverheadPerWord,
 		*wrapperNativePremiumPercentage,
 		*wrapperLinkPremiumPercentage,
 		*keyHash,
