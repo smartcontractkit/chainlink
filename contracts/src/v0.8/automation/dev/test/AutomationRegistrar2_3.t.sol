@@ -211,4 +211,34 @@ contract RegisterUpkeep is SetUp {
     assertEq(weth.balanceOf(address(registrar)), amount);
     assertEq(registry.getNumUpkeeps(), 0);
   }
+
+  function testLink_autoApproveOff_revertOnDuplicateEntry() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(IERC20(address(linkToken))));
+    linkToken.approve(address(registrar), amount * 2);
+
+    AutomationRegistrar2_3.RegistrationParams memory params = AutomationRegistrar2_3.RegistrationParams({
+      upkeepContract: address(TARGET1),
+      amount: amount,
+      adminAddress: UPKEEP_ADMIN,
+      gasLimit: 10_000,
+      triggerType: 0,
+      billingToken: IERC20(address(linkToken)),
+      name: "foobar",
+      encryptedEmail: "",
+      checkData: bytes("check data"),
+      triggerConfig: "",
+      offchainConfig: ""
+    });
+
+    registrar.registerUpkeep(params);
+
+    assertEq(linkToken.balanceOf(address(registrar)), amount);
+    assertEq(registry.getNumUpkeeps(), 0);
+
+    // attempt to register the same upkeep again
+    vm.expectRevert(AutomationRegistrar2_3.DuplicateEntry.selector);
+    registrar.registerUpkeep(params);
+  }
 }

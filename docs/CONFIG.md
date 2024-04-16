@@ -5554,7 +5554,7 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '1 gwei'
+PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
@@ -5564,7 +5564,7 @@ LimitTransfer = 21000
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'

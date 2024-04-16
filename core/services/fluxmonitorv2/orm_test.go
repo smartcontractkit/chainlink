@@ -93,7 +93,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
 	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	bridgeORM := bridges.NewORM(db, lggr, cfg.Database())
+	bridgeORM := bridges.NewORM(db)
 
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
