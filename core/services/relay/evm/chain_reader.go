@@ -143,15 +143,15 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
-func (cr *chainReader) CreateContractType(key string, forEncoding bool) (any, error) {
-	return cr.codec.CreateType(wrapItemType(key, forEncoding), forEncoding)
+func (cr *chainReader) CreateContractType(contractName, itemType string, forEncoding bool) (any, error) {
+	return cr.codec.CreateType(wrapItemType(contractName, itemType, forEncoding), forEncoding)
 }
 
-func wrapItemType(key string, isParams bool) string {
+func wrapItemType(contractName, itemType string, isParams bool) string {
 	if isParams {
-		return fmt.Sprintf("params.%s", key)
+		return fmt.Sprintf("params.%s.%s", contractName, itemType)
 	}
-	return fmt.Sprintf("return.%s", key)
+	return fmt.Sprintf("return.%s.%s", contractName, itemType)
 }
 
 func (cr *chainReader) addMethod(
@@ -177,12 +177,11 @@ func (cr *chainReader) addMethod(
 		client:       cr.client,
 	})
 
-	methodKey := formatKey(contractName, methodName)
-	if err := cr.addEncoderDef(methodKey, method.Inputs, method.ID, chainReaderDefinition); err != nil {
+	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition); err != nil {
 		return err
 	}
 
-	return cr.addDecoderDef(methodKey, method.Outputs, chainReaderDefinition)
+	return cr.addDecoderDef(contractName, methodName, method.Outputs, chainReaderDefinition)
 }
 
 func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chainReaderDefinition types.ChainReaderDefinition) error {
@@ -200,14 +199,12 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	readKey := formatKey(contractName, eventName)
-
 	// Encoder def's codec won't be used to encode, only for its type as input for GetLatestValue
-	if err := cr.addEncoderDef(readKey, filterArgs, nil, chainReaderDefinition); err != nil {
+	if err := cr.addEncoderDef(contractName, eventName, filterArgs, nil, chainReaderDefinition); err != nil {
 		return err
 	}
 
-	inputInfo, inputModifier, err := cr.getEventInput(chainReaderDefinition, formatKey(contractName, eventName))
+	inputInfo, inputModifier, err := cr.getEventInput(chainReaderDefinition, contractName, eventName)
 	if err != nil {
 		return err
 	}
@@ -222,7 +219,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		codecTopicInfo: codecTopicInfo,
 		topicsInfo:     make(map[string]topicInfo),
 		eventDataWords: chainReaderDefinition.GenericDataWordNames,
-		id:             wrapItemType(readKey, false) + uuid.NewString(),
+		id:             wrapItemType(contractName, eventName, false) + uuid.NewString(),
 	}
 
 	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
@@ -246,12 +243,12 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		cr.contractBindings.AddReadBinding(contractName, genericDataWordName, eb)
 	}
 
-	return cr.addDecoderDef(readKey, event.Inputs, chainReaderDefinition)
+	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
 
-func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, key string) (
+func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractName, eventName string) (
 	types.CodecEntry, codec.Modifier, error) {
-	inputInfo := cr.parsed.encoderDefs[wrapItemType(key, true)]
+	inputInfo := cr.parsed.encoderDefs[wrapItemType(contractName, eventName, true)]
 	inMod, err := def.InputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return nil, nil, err
@@ -274,7 +271,7 @@ func verifyEventInputsUsed(chainReaderDefinition types.ChainReaderDefinition, in
 	return nil
 }
 
-func (cr *chainReader) addEncoderDef(key string, args abi.Arguments, prefix []byte, chainReaderDefinition types.ChainReaderDefinition) error {
+func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, chainReaderDefinition types.ChainReaderDefinition) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
 	inputMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
@@ -282,21 +279,21 @@ func (cr *chainReader) addEncoderDef(key string, args abi.Arguments, prefix []by
 	}
 	input := types.NewCodecEntry(args, prefix, inputMod)
 
-	if err := input.Init(); err != nil {
+	if err = input.Init(); err != nil {
 		return err
 	}
 
-	cr.parsed.encoderDefs[wrapItemType(key, true)] = input
+	cr.parsed.encoderDefs[wrapItemType(contractName, itemType, true)] = input
 	return nil
 }
 
-func (cr *chainReader) addDecoderDef(key string, outputs abi.Arguments, def types.ChainReaderDefinition) error {
+func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.Arguments, def types.ChainReaderDefinition) error {
 	mod, err := def.OutputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
 	}
 	output := types.NewCodecEntry(outputs, nil, mod)
-	cr.parsed.decoderDefs[wrapItemType(key, false)] = output
+	cr.parsed.decoderDefs[wrapItemType(contractName, itemType, false)] = output
 	return output.Init()
 }
 

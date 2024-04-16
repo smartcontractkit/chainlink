@@ -70,7 +70,7 @@ func TestChainReaderGetLatestValue(t *testing.T) {
 
 		input := struct{ Field string }{Field: anyString}
 		tp := cr.(clcommontypes.ContractTypeProvider)
-		output, err := tp.CreateContractType(AnyContractName+"."+triggerWithDynamicTopic, false)
+		output, err := tp.CreateContractType(AnyContractName, triggerWithDynamicTopic, false)
 		require.NoError(t, err)
 		rOutput := reflect.Indirect(reflect.ValueOf(output))
 

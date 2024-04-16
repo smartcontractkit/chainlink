@@ -60,7 +60,3 @@ func (b contractBindings) ForEach(ctx context.Context, fn func(readBinding, cont
 	}
 	return nil
 }
-
-func formatKey(contractName, readName string) string {
-	return contractName + "." + readName
-}
