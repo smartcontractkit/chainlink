@@ -1,0 +1,5 @@
+---
+"chainlink": patch
+---
+
+contracts work

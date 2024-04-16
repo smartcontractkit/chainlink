@@ -175,7 +175,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 			require.NoError(t, err)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
-		err := app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		err := app.BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 			Name: bridges.BridgeName("substrate-adapter1"),
 			URL:  models.WebURL(*u),
 		})
@@ -237,7 +237,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		bridgeORM := bridges.NewORM(app.GetSqlxDB())
 		jobORM := job.NewORM(app.GetSqlxDB(), pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
@@ -259,6 +259,7 @@ observationSource   = """
 
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -268,8 +269,8 @@ func TestIntegration_AuthToken(t *testing.T) {
 	key, secret := uuid.New().String(), uuid.New().String()
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	orm := app.AuthenticationProvider()
-	require.NoError(t, orm.CreateUser(&mockUser))
-	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
+	require.NoError(t, orm.CreateUser(ctx, &mockUser))
+	require.NoError(t, orm.SetAuthToken(ctx, &mockUser, &apiToken))
 
 	url := app.Server.URL + "/users"
 	headers := make(map[string]string)
@@ -927,7 +928,7 @@ isBootstrapPeer    = true
 				}))
 				t.Cleanup(servers[i].Close)
 				u, _ := url.Parse(servers[i].URL)
-				err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+				err := apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 					URL:  models.WebURL(*u),
 				})
@@ -1153,7 +1154,7 @@ isBootstrapPeer    = true
 			}))
 			t.Cleanup(servers[i].Close)
 			u, _ := url.Parse(servers[i].URL)
-			err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			err := apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 				Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 				URL:  models.WebURL(*u),
 			})

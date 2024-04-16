@@ -10,7 +10,6 @@ import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
-import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
@@ -122,6 +121,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
   error InsufficientBalance(uint256 available, uint256 requested);
+  error InsufficientLinkLiquidity();
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();

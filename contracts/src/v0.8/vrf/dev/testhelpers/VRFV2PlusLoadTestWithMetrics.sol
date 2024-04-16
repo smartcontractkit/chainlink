@@ -37,7 +37,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
   constructor(address _vrfCoordinator) VRFConsumerBaseV2Plus(_vrfCoordinator) {}
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
+  function fulfillRandomWords(uint256 _requestId, uint256[] calldata _randomWords) internal override {
     s_requests[_requestId].fulfilled = true;
     s_requests[_requestId].randomWords = _randomWords;
     s_requests[_requestId].fulfilmentTimestamp = block.timestamp;

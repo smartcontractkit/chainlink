@@ -269,21 +269,36 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.te.LogStream != nil {
-		b.t.Cleanup(func() {
-			b.l.Info().Msg("Shutting down LogStream")
-			logPath, err := osutil.GetAbsoluteFolderPath("logs")
+		if b.t != nil {
+			b.t.Cleanup(func() {
+				b.l.Info().Msg("Shutting down LogStream")
+				logPath, err := osutil.GetAbsoluteFolderPath("logs")
+				if err != nil {
+					b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
+				}
+
+				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
+					// we can't do much if this fails, so we just log the error in logstream
+					_ = b.te.LogStream.FlushAndShutdown()
+					b.te.LogStream.PrintLogTargetsLocations()
+					b.te.LogStream.SaveLogLocationInTestSummary()
+				}
+			})
+		}
+
+		// this is not the cleanest way to do this, but when we originally build ethereum networks, we don't have the logstream reference
+		// so we need to rebuild them here and pass logstream to them
+		for i := range b.privateEthereumNetworks {
+			builder := test_env.NewEthereumNetworkBuilder()
+			netWithLs, err := builder.
+				WithExistingConfig(*b.privateEthereumNetworks[i]).
+				WithLogStream(b.te.LogStream).
+				Build()
 			if err != nil {
-				b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
+				return nil, err
 			}
-
-			if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
-				// we can't do much if this fails, so we just log the error in logstream
-				_ = b.te.LogStream.FlushAndShutdown()
-				b.te.LogStream.PrintLogTargetsLocations()
-				b.te.LogStream.SaveLogLocationInTestSummary()
-			}
-
-		})
+			b.privateEthereumNetworks[i] = &netWithLs
+		}
 	}
 
 	// in this case we will use the builder only to start chains, not the cluster, because currently we support only 1 network config per cluster
@@ -298,9 +313,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				return nil, err
 			}
 
-			// TODO: remove after fixing in CTF
-			networkConfig.ChainID = int64(en.EthereumChainConfig.ChainID)
-
 			if b.hasEVMClient {
 				evmClient, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
 				if err != nil {
@@ -311,7 +323,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			if b.hasSeth {
 				readSethCfg := b.testConfig.GetSethConfig()
-				sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
+				sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
+				if err != nil {
+					return nil, err
+				}
 				err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 				if err != nil {
 					return nil, err
@@ -410,7 +425,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if b.hasSeth {
 			b.te.sethClients = make(map[int64]*seth.Client)
 			readSethCfg := b.testConfig.GetSethConfig()
-			sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
+			sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
+			if err != nil {
+				return nil, err
+			}
 			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 			if err != nil {
 				return nil, err

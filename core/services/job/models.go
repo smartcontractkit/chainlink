@@ -163,8 +163,10 @@ type Job struct {
 	EALSpecID                     *int32
 	LiquidityBalancerSpec         *LiquidityBalancerSpec
 	LiquidityBalancerSpecID       *int32
-	PipelineSpecID                int32
+	PipelineSpecID                int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
 	PipelineSpec                  *pipeline.Spec
+	WorkflowSpecID                *int32
+	WorkflowSpec                  *WorkflowSpec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -208,6 +210,12 @@ func (j *Job) SetID(value string) error {
 	return nil
 }
 
+type PipelineSpec struct {
+	JobID          int32 `json:"-"`
+	PipelineSpecID int32 `json:"-"`
+	IsPrimary      bool  `json:"is_primary"`
+}
+
 type SpecError struct {
 	ID          int64
 	JobID       int32
@@ -229,7 +237,8 @@ func (j *SpecError) SetID(value string) error {
 }
 
 type PipelineRun struct {
-	ID int64 `json:"-"`
+	ID         int64 `json:"-"`
+	PruningKey int64 `json:"-"`
 }
 
 func (pr PipelineRun) GetID() string {
@@ -813,4 +822,30 @@ type LiquidityBalancerSpec struct {
 	ID int32
 
 	LiquidityBalancerConfig string `toml:"liquidityBalancerConfig" db:"liquidity_balancer_config"`
+}
+
+type WorkflowSpec struct {
+	ID            int32     `toml:"-"`
+	WorkflowID    string    `toml:"workflowId"`
+	Workflow      string    `toml:"workflow"`
+	WorkflowOwner string    `toml:"workflowOwner"`
+	CreatedAt     time.Time `toml:"-"`
+	UpdatedAt     time.Time `toml:"-"`
+}
+
+const (
+	workflowIDLen    = 64
+	workflowOwnerLen = 40
+)
+
+func (w *WorkflowSpec) Validate() error {
+	if len(w.WorkflowID) != workflowIDLen {
+		return fmt.Errorf("incorrect length for id %s: expected %d, got %d", w.WorkflowID, workflowIDLen, len(w.WorkflowID))
+	}
+
+	if len(w.WorkflowOwner) != workflowOwnerLen {
+		return fmt.Errorf("incorrect length for owner %s: expected %d, got %d", w.WorkflowOwner, workflowOwnerLen, len(w.WorkflowOwner))
+	}
+
+	return nil
 }

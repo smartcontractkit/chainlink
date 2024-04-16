@@ -18,7 +18,6 @@ func TestGatewayLoad(t *testing.T) {
 	require.NoError(t, err)
 	ft, err := SetupLocalLoadTestEnv(&listConfig, &listConfig)
 	require.NoError(t, err)
-	ft.EVMClient.ParallelTransactions(false)
 
 	labels := map[string]string{
 		"branch": "gateway_healthcheck",

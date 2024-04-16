@@ -19,6 +19,7 @@ import (
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -195,6 +196,11 @@ func (s *Shell) ListUsers(_ *cli.Context) (err error) {
 
 // CreateUser creates a new user by prompting for email, password, and role
 func (s *Shell) CreateUser(c *cli.Context) (err error) {
+	// Check user's email validity. Note that it will also be later checked on the server side in the NewUser function.
+	if err = sessions.ValidateEmail(c.String("email")); err != nil {
+		return err
+	}
+
 	resp, err := s.HTTP.Get(s.ctx(), "/v2/users/", nil)
 	if err != nil {
 		return s.errorOut(err)

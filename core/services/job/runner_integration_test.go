@@ -83,7 +83,7 @@ func TestRunner(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	require.NoError(t, pipelineORM.Start(ctx))
 	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
-	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
+	btORM := bridges.NewORM(db)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
@@ -116,8 +116,8 @@ func TestRunner(t *testing.T) {
 		mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 
 		httpURL = mockHTTP.URL
-		_, bridgeER := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockElectionWinner.URL}, config.Database())
-		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL}, config.Database())
+		_, bridgeER := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockElectionWinner.URL})
+		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL})
 
 		// Need a job in order to create a run
 		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
@@ -126,9 +126,10 @@ func TestRunner(t *testing.T) {
 
 		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), logger.TestLogger(t), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), logger.TestLogger(t), true)
 		require.NoError(t, err)
 
+		results := taskResults.FinalResult(logger.TestLogger(t))
 		require.Len(t, results.Values, 2)
 		require.GreaterOrEqual(t, len(results.FatalErrors), 2)
 		assert.Nil(t, results.FatalErrors[0])
@@ -168,7 +169,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("must delete job before deleting bridge", func(t *testing.T) {
-		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
@@ -192,7 +193,7 @@ func TestRunner(t *testing.T) {
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
 		// Create a random bridge name
-		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
+		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 		// Reference a different one
 		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, config)
@@ -227,7 +228,7 @@ func TestRunner(t *testing.T) {
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		jb2, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -254,7 +255,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, placeHolderAddress.String(), b.Name.String()))
+`, placeHolderAddress.String(), b.Name.String()), nil)
 		require.NoError(t, err)
 		// Should error creating it because of the juels per fee coin non-existent bridge
 		err = jobORM.CreateJob(&jb2)
@@ -262,7 +263,7 @@ answer1      [type=median index=0];
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Duplicate bridge names that exist is ok
-		jb3, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -293,7 +294,7 @@ ds2_multiply [type=multiply times=1.23];
 ds2 -> ds2_parse -> ds2_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, placeHolderAddress, b.Name.String(), b.Name.String(), b.Name.String()))
+`, placeHolderAddress, b.Name.String(), b.Name.String(), b.Name.String()), nil)
 		require.NoError(t, err)
 		// Should not error with duplicate bridges
 		err = jobORM.CreateJob(&jb3)
@@ -313,9 +314,10 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 
+		results := taskResults.FinalResult(logger.TestLogger(t))
 		assert.Len(t, results.FatalErrors, 1)
 		assert.Len(t, results.Values, 1)
 		assert.Contains(t, results.FatalErrors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
@@ -358,9 +360,10 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 
+		results := taskResults.FinalResult(logger.TestLogger(t))
 		assert.Len(t, results.Values, 1)
 		assert.Len(t, results.FatalErrors, 1)
 		assert.Contains(t, results.FatalErrors[0].Error(), pipeline.ErrTooManyErrors.Error())
@@ -402,9 +405,10 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
 
+		results := taskResults.FinalResult(logger.TestLogger(t))
 		assert.Len(t, results.Values, 1)
 		assert.Contains(t, results.FatalErrors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
@@ -685,8 +689,9 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		_, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
+		results := taskResults.FinalResult(logger.TestLogger(t))
 		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
@@ -694,8 +699,9 @@ answer1      [type=median index=0];
 		jb.Name = null.NewString("a job 2", true)
 		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
-		_, results, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
+		results = taskResults.FinalResult(logger.TestLogger(t))
 		assert.Equal(t, 10.1, results.Values[0])
 		assert.Nil(t, results.FatalErrors[0])
 
@@ -706,9 +712,10 @@ answer1      [type=median index=0];
 		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		_, results, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
-		assert.NotNil(t, results.FatalErrors[0])
+		resultsNoFatalErrs := taskResults.FinalResult(logger.TestLogger(t))
+		assert.NotNil(t, resultsNoFatalErrs.FatalErrors[0])
 	})
 
 	t.Run("deleting jobs", func(t *testing.T) {
@@ -724,8 +731,9 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		_, results, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
 		require.NoError(t, err)
+		results := taskResults.FinalResult(logger.TestLogger(t))
 		assert.Len(t, results.Values, 1)
 		assert.Nil(t, results.FatalErrors[0])
 		assert.Equal(t, "4242", results.Values[0].(decimal.Decimal).String())
@@ -838,7 +846,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
-		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig().Database())
+		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL})
 		bridgeName = bridge.Name.String()
 		defer bridgeServer.Close()
 	}
@@ -881,7 +889,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		bridgesORM := bridges.NewORM(app.GetSqlxDB())
 		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume
@@ -1017,7 +1025,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
-		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig().Database())
+		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL})
 		bridgeName = bridge.Name.String()
 		defer bridgeServer.Close()
 	}
@@ -1058,7 +1066,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		bridgesORM := bridges.NewORM(app.GetSqlxDB())
 		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume

@@ -170,7 +170,7 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
 	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
@@ -187,7 +187,7 @@ func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
 	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Return(nil)
 
@@ -231,7 +231,7 @@ func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
 	t.Parallel()
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil, nil, errors.New("error"))
 	uni.pluginORM.On("SetError", RequestID, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -264,7 +264,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) 
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(nil, ErrorBytes, nil, nil)
 	uni.pluginORM.On("SetError", RequestID, mock.Anything, ErrorBytes, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
@@ -303,7 +303,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *te
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("FetchEncryptedSecrets", mock.Anything, mock.Anything, RequestIDStr, mock.Anything, mock.Anything).Return(EncryptedSecrets, nil, nil)
 	uni.decryptor.On("Decrypt", mock.Anything, decryptionPlugin.CiphertextId(RequestID[:]), EncryptedSecrets).Return(DecryptedSecrets, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
@@ -359,7 +359,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, Domains, nil)
 	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
