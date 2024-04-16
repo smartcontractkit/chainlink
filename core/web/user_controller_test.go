@@ -182,13 +182,14 @@ func TestUserController_CreateUser(t *testing.T) {
 
 func TestUserController_UpdateRole(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(nil)
 	user := cltest.MustRandomUser(t)
-	err := app.AuthenticationProvider().CreateUser(&user)
+	err := app.AuthenticationProvider().CreateUser(ctx, &user)
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -229,13 +230,14 @@ func TestUserController_UpdateRole(t *testing.T) {
 
 func TestUserController_DeleteUser(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(nil)
 	user := cltest.MustRandomUser(t)
-	err := app.AuthenticationProvider().CreateUser(&user)
+	err := app.AuthenticationProvider().CreateUser(ctx, &user)
 	require.NoError(t, err)
 
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/users/%s", url.QueryEscape(user.Email)))

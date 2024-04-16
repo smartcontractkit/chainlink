@@ -79,7 +79,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, lggr, cfg.Database())
+	btORM := bridges.NewORM(db)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	txm, err := txmgr.NewTxm(db, db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)

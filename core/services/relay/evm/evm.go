@@ -131,7 +131,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	lggr = lggr.Named("Relayer")
 
 	mercuryORM := mercury.NewORM(opts.DB, lggr, opts.QConfig)
-	lloORM := llo.NewORM(pg.NewQ(opts.DB, lggr, opts.QConfig), chain.ID())
+	lloORM := llo.NewORM(opts.DS, chain.ID())
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
 	return &Relayer{
 		db:          opts.DB,

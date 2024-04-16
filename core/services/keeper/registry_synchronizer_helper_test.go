@@ -38,7 +38,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 ) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	korm := keeper.NewORM(db, logger.TestLogger(t), cfg.Database())
+	korm := keeper.NewORM(db, logger.TestLogger(t))
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	lbMock := logmocks.NewBroadcaster(t)
@@ -73,7 +73,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
-	orm := keeper.NewORM(db, logger.TestLogger(t), cfg.Database())
+	orm := keeper.NewORM(db, logger.TestLogger(t))
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
 		RegistryWrapper:          *registryWrapper,
