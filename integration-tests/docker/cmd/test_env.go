@@ -33,7 +33,7 @@ func main() {
 	startFullEnvCmd := &cobra.Command{
 		Use:   "cl-cluster",
 		Short: "Basic CL cluster",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			log.Logger = logging.GetLogger(nil, "CORE_DOCKER_ENV_LOG_LEVEL")
 			log.Info().Msg("Starting CL cluster test environment..")
 

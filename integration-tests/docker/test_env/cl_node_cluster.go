@@ -12,8 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	tc "github.com/testcontainers/testcontainers-go"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 var (
@@ -82,19 +83,19 @@ func (c *ClCluster) CopyFolderFromNodes(ctx context.Context, srcPath, destPath s
 
 	for i, node := range c.Nodes {
 		wg.Add(1)
-		go func(n *ClNode) {
+		go func(n *ClNode, id int) {
 			defer wg.Done()
 			// Create a unique subdirectory for each node based on an identifier
-			destPath := filepath.Join(destPath, fmt.Sprintf("node_%d", i)) // Use node ID or another unique identifier
-			if err := os.MkdirAll(destPath, 0755); err != nil {
-				errors <- fmt.Errorf("failed to create directory for node %d: %w", i, err)
+			finalDestPath := filepath.Join(destPath, fmt.Sprintf("node_%d", id)) // Use node ID or another unique identifier
+			if err := os.MkdirAll(finalDestPath, 0755); err != nil {
+				errors <- fmt.Errorf("failed to create directory for node %d: %w", id, err)
 				return
 			}
-			err := copyFolderFromContainer(ctx, n.Container, srcPath, destPath)
+			err := copyFolderFromContainer(ctx, n.Container, srcPath, finalDestPath)
 			if err != nil {
-				errors <- fmt.Errorf("failed to copy folder for node %d: %w", i, err)
+				errors <- fmt.Errorf("failed to copy folder for node %d: %w", id, err)
 			}
-		}(node)
+		}(node, i)
 	}
 
 	wg.Wait()
