@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -1470,7 +1472,7 @@ func TestORM_GetTxInProgress(t *testing.T) {
 	})
 }
 
-func TestORM_GetNonFatalTransactions(t *testing.T) {
+func TestORM_GetAbandonedTransactionsByBatch(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1479,9 +1481,19 @@ func TestORM_GetNonFatalTransactions(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	_, enabled := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	enabledAddrs := []common.Address{enabled}
 
-	t.Run("gets 0 non finalized eth transaction", func(t *testing.T) {
-		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t), ethClient.ConfiguredChainID())
+	t.Run("get 0 abandoned transactions", func(t *testing.T) {
+		txes, err := txStore.GetAbandonedTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), enabledAddrs, 0, 10)
+		require.NoError(t, err)
+		require.Empty(t, txes)
+	})
+
+	t.Run("do not return enabled addresses", func(t *testing.T) {
+		_ = mustInsertInProgressEthTxWithAttempt(t, txStore, 123, enabled)
+		_ = mustCreateUnstartedGeneratedTx(t, txStore, enabled, ethClient.ConfiguredChainID())
+		txes, err := txStore.GetAbandonedTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), enabledAddrs, 0, 10)
 		require.NoError(t, err)
 		require.Empty(t, txes)
 	})
@@ -1490,12 +1502,31 @@ func TestORM_GetNonFatalTransactions(t *testing.T) {
 		inProgressTx := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
 		unstartedTx := mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
 
-		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t), ethClient.ConfiguredChainID())
+		txes, err := txStore.GetAbandonedTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), enabledAddrs, 0, 10)
 		require.NoError(t, err)
+		require.Len(t, txes, 2)
 
 		for _, tx := range txes {
 			require.True(t, tx.ID == inProgressTx.ID || tx.ID == unstartedTx.ID)
 		}
+	})
+
+	t.Run("get batches of transactions", func(t *testing.T) {
+		var batchSize uint = 10
+		numTxes := 55
+		for i := 0; i < numTxes; i++ {
+			_ = mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
+		}
+
+		allTxes := make([]*txmgr.Tx, 0)
+		err := sqlutil.Batch(func(offset, limit uint) (count uint, err error) {
+			batchTxes, err := txStore.GetAbandonedTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), enabledAddrs, offset, limit)
+			require.NoError(t, err)
+			allTxes = append(allTxes, batchTxes...)
+			return uint(len(batchTxes)), nil
+		}, batchSize)
+		require.NoError(t, err)
+		require.Len(t, allTxes, numTxes+2)
 	})
 }
 

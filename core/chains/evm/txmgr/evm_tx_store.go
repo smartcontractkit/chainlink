@@ -1292,26 +1292,28 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 	return nil
 }
 
-func (o *evmTxStore) GetNonFatalTransactions(ctx context.Context, chainID *big.Int) (txes []*Tx, err error) {
+func (o *evmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainID *big.Int, enabledAddrs []common.Address, offset, limit uint) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	err = o.Transaction(ctx, true, func(orm *evmTxStore) error {
-		stmt := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND evm_chain_id = $1`
-		var dbEtxs []DbEthTx
-		if err = orm.q.SelectContext(ctx, &dbEtxs, stmt, chainID.String()); err != nil {
-			return fmt.Errorf("failed to load evm.txes: %w", err)
-		}
-		txes = make([]*Tx, len(dbEtxs))
-		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
-		err = o.LoadTxesAttempts(ctx, txes)
-		if err != nil {
-			return fmt.Errorf("failed to load evm.txes: %w", err)
-		}
-		return nil
-	})
 
-	return txes, nil
+	var enabledAddrsBytea [][]byte
+	for _, addr := range enabledAddrs {
+		enabledAddrsBytea = append(enabledAddrsBytea, addr[:])
+	}
+
+	// TODO: include confirmed txes https://smartcontract-it.atlassian.net/browse/BCI-2920
+	query := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND state <> 'confirmed' AND evm_chain_id = $1 
+                       AND from_address <> ALL($2) ORDER BY nonce ASC OFFSET $3 LIMIT $4`
+
+	var dbEtxs []DbEthTx
+	if err = o.q.SelectContext(ctx, &dbEtxs, query, chainID.String(), enabledAddrsBytea, offset, limit); err != nil {
+		return nil, fmt.Errorf("failed to load evm.txes: %w", err)
+	}
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+
+	return txes, err
 }
 
 func (o *evmTxStore) GetTxByID(ctx context.Context, id int64) (txe *Tx, err error) {
