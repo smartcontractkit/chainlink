@@ -98,8 +98,8 @@ func TestLogEventBufferV1_Enqueueviolations(t *testing.T) {
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 		)
 
-		assert.Equal(t, 1, buf.enqueuedBlocks[2])
-		assert.Equal(t, 1, buf.enqueuedBlocks[1])
+		assert.Equal(t, 1, buf.enqueuedBlocks[2]["1"])
+		assert.Equal(t, 1, buf.enqueuedBlocks[1]["2"])
 		assert.True(t, true, logReceived)
 	})
 
@@ -135,9 +135,9 @@ func TestLogEventBufferV1_Enqueueviolations(t *testing.T) {
 			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3b"), LogIndex: 0},
 		)
 
-		assert.Equal(t, 1, buf.enqueuedBlocks[2])
-		assert.Equal(t, 1, buf.enqueuedBlocks[1])
-		assert.Equal(t, 2, buf.enqueuedBlocks[3])
+		assert.Equal(t, 1, buf.enqueuedBlocks[2]["2"])
+		assert.Equal(t, 1, buf.enqueuedBlocks[1]["1"])
+		assert.Equal(t, 2, buf.enqueuedBlocks[3]["3"])
 		assert.True(t, true, logReceived)
 	})
 }
