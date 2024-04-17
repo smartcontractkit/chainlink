@@ -104,7 +104,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 
 		// Set a queue size of 256. At most we store the blockhash of every block, and only the
 		// latest 256 can possibly be stored.
-		Strategy: txmgrcommon.NewQueueingTxStrategy(c.jobID, 256, c.dbConfig.DefaultQueryTimeout()),
+		Strategy: txmgrcommon.NewQueueingTxStrategy(c.jobID, 256),
 	})
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")
