@@ -386,7 +386,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/integration-tests/go-coverage
+          go_coverage_dest_dir: /var/tmp/go-coverage
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -395,14 +395,8 @@ jobs:
           should_tidy: "false"
 
       - name: Show Go Coverage
-        run: go run ./integration-tests/scripts/showCoverage.go ./integration-tests/go-coverage
+        run: go run ./integration-tests/scripts/showCoverage.go /var/tmp/go-coverage
 
-      - name: Upload Go Coverage Directory
-        uses: actions/upload-artifact@v3
-        with:
-          name: go-coverage-${{ matrix.product.name }}
-          path: ./integration-tests/go-coverage/
-          
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
@@ -691,7 +685,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/integration-tests/go-coverage
+          go_coverage_dest_dir: /var/tmp/go-coverage
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -700,13 +694,7 @@ jobs:
           should_tidy: "false"
 
       - name: Show Go Coverage
-        run: go run ./integration-tests/scripts/showCoverage.go ./integration-tests/go-coverage
-
-      - name: Upload Go Coverage Directory
-        uses: actions/upload-artifact@v3
-        with:
-          name: go-coverage-${{ matrix.product.name }}
-          path: ./integration-tests/go-coverage/
+        run: go run ./integration-tests/scripts/showCoverage.go /var/tmp/go-coverage
 
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup

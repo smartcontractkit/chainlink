@@ -12,15 +12,15 @@ RUN go mod download
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 
-# Build chainlink bin with cover flag
-ARG COVER_FLAG=false
+# Build chainlink bin with cover flag https://go.dev/doc/build-cover#FAQ
+ARG GO_COVER_FLAG=false
 
 COPY . .
 
 RUN apt-get update && apt-get install -y jq
 
 # Build the golang binary
-RUN if [ "$COVER_FLAG" = "true" ]; then \
+RUN if [ "$GO_COVER_FLAG" = "true" ]; then \
         make install-chainlink-cover; \
     else \
         make install-chainlink; \
@@ -75,9 +75,10 @@ WORKDIR /home/${CHAINLINK_USER}
 ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
-# Set up go coverage dir
-ENV GOCOVERDIR="/var/tmp/go-coverage"
-RUN mkdir -p "/var/tmp/go-coverage"
+# Set up env and dir for go coverage profiling https://go.dev/doc/build-cover#FAQ
+ARG GO_COVER_DIR="/var/tmp/go-coverage"
+ENV GOCOVERDIR=${GO_COVER_DIR}
+RUN mkdir -p $GO_COVER_DIR
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]

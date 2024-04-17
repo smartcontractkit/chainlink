@@ -15,12 +15,22 @@ func main() {
 	}
 	root := os.Args[1] // Use the first command-line argument as the root directory
 
+	// Validate the root directory before proceeding
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		fmt.Printf("The specified root directory does not exist: %s\n", root)
+		os.Exit(1)
+	}
+
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
+		// Skip the root directory itself
+		if path == root {
+			return nil
+		}
 		if info.IsDir() && info.Name() == "go-coverage" {
-			fmt.Println("Found go-coverage folder:", path)
+			fmt.Println("Found coverage profile for:", path)
 			// Run the go tool covdata percent command
 			cmd := exec.Command("go", "tool", "covdata", "percent", "-i=.")
 			cmd.Dir = path // set working directory
