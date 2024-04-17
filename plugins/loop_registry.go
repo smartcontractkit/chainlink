@@ -65,6 +65,8 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TracingAttributes = m.cfgTracing.Attributes()
 	}
 
+	//TODO set DB config? Always? sometimes?
+
 	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}
 	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort)
 	return m.registry[id], nil

@@ -6,16 +6,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v4/stdlib" // need to make sure pgx driver is registered before opening connection
 	"github.com/jmoiron/sqlx"
-	"github.com/scylladb/go-reflectx"
-	"go.opentelemetry.io/otel"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
+	commonpg "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
-
-	"github.com/XSAM/otelsql"
 )
 
 var MinRequiredPGVersion = 110000
@@ -44,45 +39,16 @@ type ConnectionConfig interface {
 }
 
 func NewConnection(uri string, dialect dialects.DialectName, config ConnectionConfig) (db *sqlx.DB, err error) {
-	if dialect == dialects.TransactionWrappedPostgres {
-		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
-		// should be encapsulated in it's own transaction, and thus needs its own
-		// unique id.
-		//
-		// We can happily throw away the original uri here because if we are using
-		// txdb it should have already been set at the point where we called
-		// txdb.Register
-		uri = uuid.New().String()
-	}
-
-	// Initialize sql/sqlx
-	sqldb, err := otelsql.Open(string(dialect), uri,
-		otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
-		otelsql.WithTracerProvider(otel.GetTracerProvider()),
-		otelsql.WithSQLCommenter(true),
-		otelsql.WithSpanOptions(otelsql.SpanOptions{
-			OmitConnResetSession: true,
-			OmitConnPrepare:      true,
-			OmitRows:             true,
-			OmitConnectorConnect: true,
-			OmitConnQuery:        false,
-		}),
-	)
+	db, err = commonpg.ConnectionConfig{
+		DefaultIdleInTxSessionTimeout: config.DefaultIdleInTxSessionTimeout(),
+		DefaultLockTimeout:            config.DefaultLockTimeout(),
+		MaxOpenConns:                  config.MaxOpenConns(),
+		MaxIdleConns:                  config.MaxIdleConns(),
+	}.NewDB(uri, commonpg.DialectName(dialect))
 	if err != nil {
 		return nil, err
 	}
-	db = sqlx.NewDb(sqldb, string(dialect))
-	db.MapperFunc(reflectx.CamelToSnakeASCII)
-
-	// Set default connection options
-	lockTimeout := config.DefaultLockTimeout().Milliseconds()
-	idleInTxSessionTimeout := config.DefaultIdleInTxSessionTimeout().Milliseconds()
-	stmt := fmt.Sprintf(`SET TIME ZONE 'UTC'; SET lock_timeout = %d; SET idle_in_transaction_session_timeout = %d; SET default_transaction_isolation = %q`,
-		lockTimeout, idleInTxSessionTimeout, defaultIsolation.String())
-	if _, err = db.Exec(stmt); err != nil {
-		return nil, err
-	}
-	setMaxConns(db, config)
+	setMaxMercuryConns(db, config)
 
 	if os.Getenv("SKIP_PG_VERSION_CHECK") != "true" {
 		if err := checkVersion(db, MinRequiredPGVersion); err != nil {
@@ -90,13 +56,10 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		}
 	}
 
-	return db, disallowReplica(db)
+	return db, nil
 }
 
-func setMaxConns(db *sqlx.DB, config ConnectionConfig) {
-	db.SetMaxOpenConns(config.MaxOpenConns())
-	db.SetMaxIdleConns(config.MaxIdleConns())
-
+func setMaxMercuryConns(db *sqlx.DB, config ConnectionConfig) {
 	// HACK: In the case of mercury jobs, one conn is needed per job for good
 	// performance. Most nops will forget to increase the defaults to account
 	// for this so we detect it here instead.

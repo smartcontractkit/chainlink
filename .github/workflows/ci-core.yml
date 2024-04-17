@@ -147,6 +147,7 @@ jobs:
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer)
           go install ./pkg/chainlink/cmd/chainlink-starknet
           popd
+          go install ./plugins/cmd/chainlink-example-relay
       - name: Increase Race Timeout
         if: ${{ github.event.schedule != '' && needs.filter.outputs.changes == 'true' }}
         run: |

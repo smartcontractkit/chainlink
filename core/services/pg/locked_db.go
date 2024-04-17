@@ -82,7 +82,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 
 	// Step 2: start the stat reporter
 	l.statsReporter = NewStatsReporter(l.db.Stats, l.lggr)
-	l.statsReporter.Start(ctx)
+	l.statsReporter.Start()
 
 	// Step 3: acquire DB locks
 	lockingMode := l.lockCfg.LockingMode()
