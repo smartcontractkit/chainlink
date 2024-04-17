@@ -48,7 +48,7 @@ func main() {
 
 	// Iterate over the map and run the merge command for each test
 	for test, dirs := range testDirs {
-		fmt.Printf("Merging coverage for test: %s\n", test)
+		testName := filepath.Base(test)
 
 		// Ensure the merged directory exists
 		mergedDir := filepath.Join(test, "merged")
@@ -60,8 +60,8 @@ func main() {
 		// Merge the coverage data from all chainlink nodes
 		dirInput := strings.Join(dirs, ",")
 		mergeCmd := exec.Command("go", "tool", "covdata", "merge", "-o", mergedDir, "-i="+dirInput)
-		mergeCmd.Dir = test // Set working directory
-		// fmt.Printf("Running merge command: %s\n", mergeCmd.String())
+		mergeCmd.Dir = test
+		fmt.Printf("Merging coverage for %s:\n%s\n", testName, mergeCmd.String())
 		output, err := mergeCmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("Error executing merge command for %s: %v, output: %s\n", test, err, output)
@@ -69,14 +69,13 @@ func main() {
 		}
 
 		// Calculate coverage percentage in the merged directory
-		percentCmd := exec.Command("go", "tool", "covdata", "percent", "-i=.")
-		percentCmd.Dir = filepath.Join(test, "merged") // Set working directory to the merged folder
-		percentOutput, err := percentCmd.CombinedOutput()
+		coverageCmd := exec.Command("go", "tool", "covdata", "percent", "-i=merged")
+		coverageCmd.Dir = test
+		coverageOutput, err := coverageCmd.CombinedOutput()
 		if err != nil {
-			fmt.Printf("Error calculating coverage percentage for %s: %v\n", test, err)
+			fmt.Printf("Error calculating coverage for %s: %v, %s\n", test, err, string(coverageOutput))
 			continue
 		}
-		fmt.Printf("Coverage command: %s\n", percentCmd.String())
-		fmt.Printf("Coverage output:\n%s", string(percentOutput))
+		fmt.Printf("Total coverage for %s:\n%s\n%s\n\n", testName, coverageCmd.String(), string(coverageOutput))
 	}
 }
