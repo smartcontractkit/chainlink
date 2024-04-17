@@ -85,7 +85,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 	switch s {
 	case "Arbitrum":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewArbitrumEstimator(lggr, geCfg, ethClient, l1Oracle.(rollups.ArbL1GasOracle))
+			return NewArbitrumEstimator(lggr, geCfg, ethClient, rollups.NewArbitrumL1GasOracle(lggr, ethClient))
 		}
 	case "BlockHistory":
 		newEstimator = func(l logger.Logger) EvmEstimator {
