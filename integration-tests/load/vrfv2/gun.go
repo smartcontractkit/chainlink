@@ -37,7 +37,7 @@ func NewBHSTestGun(
 
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
-	_, err := vrfv2.RequestRandomnessAndWaitForRequestedEvent(
+	_, err := vrfv2.RequestRandomness(
 		m.logger,
 		m.contracts.VRFV2Consumers[0],
 		m.contracts.CoordinatorV2,
@@ -48,7 +48,6 @@ func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
 		*m.testConfig.General.NumberOfWords,
 		*m.testConfig.General.RandomnessRequestCountPerRequest,
 		*m.testConfig.General.RandomnessRequestCountPerRequestDeviation,
-		m.testConfig.General.RandomWordsFulfilledEventTimeout.Duration,
 	)
 	//todo - might need to store randRequestBlockNumber and blockhash to verify that it was stored in BHS contract at the end of the test
 	if err != nil {

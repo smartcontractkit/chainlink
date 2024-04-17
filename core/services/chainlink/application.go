@@ -22,6 +22,7 @@ import (
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -88,6 +89,7 @@ type Application interface {
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
+	GetLoopRegistrarConfig() plugins.RegistrarConfig
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -100,7 +102,7 @@ type Application interface {
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
+	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -149,6 +151,7 @@ type ChainlinkApplication struct {
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
+	loopRegistrarConfig      plugins.RegistrarConfig
 
 	started     bool
 	startStopMu sync.Mutex
@@ -279,7 +282,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
-	localAdminUsersORM := localauth.NewORM(sqlxDB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+	localAdminUsersORM := localauth.NewORM(opts.DB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, auditLogger)
 
 	// Initialize Sessions ORM based on environment configured authenticator
 	// localDB auth or remote LDAP auth
@@ -291,14 +294,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	case sessions.LDAPAuth:
 		var err error
 		authenticationProvider, err = ldapauth.NewLDAPAuthenticator(
-			sqlxDB, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
+			opts.DB, cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
 		}
 		sessionReaper = ldapauth.NewLDAPServerStateSync(sqlxDB, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
 	case sessions.LocalAuth:
-		authenticationProvider = localauth.NewORM(sqlxDB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		authenticationProvider = localauth.NewORM(opts.DB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, auditLogger)
 		sessionReaper = localauth.NewSessionReaper(sqlxDB.DB, cfg.WebServer(), globalLogger)
 	default:
 		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
@@ -306,7 +309,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var (
 		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(sqlxDB, globalLogger, cfg.Database())
+		bridgeORM      = bridges.NewORM(sqlxDB)
 		mercuryORM     = mercury.NewORM(sqlxDB, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(sqlxDB, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
@@ -424,12 +427,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
+
+	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
+
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		registrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
+
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), loopRegistrarConfig)
+
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			sqlxDB,
+			opts.DB,
 			jobORM,
 			bridgeORM,
 			mercuryORM,
@@ -495,6 +503,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			legacyEVMChains,
 			globalLogger,
 			opts.Version,
+			loopRegistrarConfig,
 		)
 	} else {
 		feedsService = &feeds.NullService{}
@@ -533,6 +542,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
+		loopRegistrarConfig:      loopRegistrarConfig,
 
 		sqlxDB: opts.SqlxDB,
 		db:     opts.DB,
@@ -602,6 +612,9 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 
 func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
 	return app.loopRegistry
+}
+func (app *ChainlinkApplication) GetLoopRegistrarConfig() plugins.RegistrarConfig {
+	return app.loopRegistrarConfig
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -742,7 +755,7 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 	return app.jobSpawner.DeleteJob(jobID, pg.WithParentCtx(ctx))
 }
 
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
+func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
 	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 

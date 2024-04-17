@@ -206,7 +206,6 @@ func TestVRFv2Basic(t *testing.T) {
 
 		// Request Randomness and wait for fulfillment event
 		randomWordsFulfilledEvent, err := vrfv2.DirectFundingRequestRandomnessAndWaitForFulfillment(
-			testcontext.Get(t),
 			l,
 			wrapperConsumer,
 			vrfContracts.CoordinatorV2,
@@ -854,23 +853,20 @@ func TestVRFV2WithBHS(t *testing.T) {
 		vrfv2.LogSubDetails(l, subscriptionForBHS, subIDForBHS, vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForBHS...)
 
-		_, err = consumers[0].RequestRandomness(
-			vrfKey.KeyHash,
+		randomWordsRequestedEvent, err := vrfv2.RequestRandomness(
+			l,
+			consumers[0],
+			vrfContracts.CoordinatorV2,
 			subIDForBHS,
+			vrfKey,
 			*configCopy.VRFv2.General.MinimumConfirmations,
 			*configCopy.VRFv2.General.CallbackGasLimit,
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 		)
 		require.NoError(t, err, "error requesting randomness")
 
-		randomWordsRequestedEvent, err := vrfContracts.CoordinatorV2.WaitForRandomWordsRequestedEvent(
-			[][32]byte{vrfKey.KeyHash},
-			[]uint64{subIDForBHS},
-			[]common.Address{common.HexToAddress(consumers[0].Address())},
-			time.Minute*1,
-		)
-		require.NoError(t, err, "error waiting for randomness requested event")
 		vrfv2.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2, randomWordsRequestedEvent)
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
@@ -916,24 +912,20 @@ func TestVRFV2WithBHS(t *testing.T) {
 		vrfv2.LogSubDetails(l, subscriptionForBHS, subIDForBHS, vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForBHS...)
 
-		_, err = consumers[0].RequestRandomness(
-			vrfKey.KeyHash,
+		randomWordsRequestedEvent, err := vrfv2.RequestRandomness(
+			l,
+			consumers[0],
+			vrfContracts.CoordinatorV2,
 			subIDForBHS,
+			vrfKey,
 			*configCopy.VRFv2.General.MinimumConfirmations,
 			*configCopy.VRFv2.General.CallbackGasLimit,
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 		)
 		require.NoError(t, err, "error requesting randomness")
 
-		randomWordsRequestedEvent, err := vrfContracts.CoordinatorV2.WaitForRandomWordsRequestedEvent(
-			[][32]byte{vrfKey.KeyHash},
-			[]uint64{subIDForBHS},
-			[]common.Address{common.HexToAddress(consumers[0].Address())},
-			time.Minute*1,
-		)
-		require.NoError(t, err, "error waiting for randomness requested event")
-		vrfv2.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2, randomWordsRequestedEvent)
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 
 		_, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))

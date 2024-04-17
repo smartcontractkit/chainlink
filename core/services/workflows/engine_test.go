@@ -16,6 +16,54 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+const hardcodedWorkflow = `
+triggers:
+  - type: "mercury-trigger"
+    config:
+      feedIds:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000"
+        - "0x2222222222222222222200000000000000000000000000000000000000000000"
+        - "0x3333333333333333333300000000000000000000000000000000000000000000"
+
+consensus:
+  - type: "offchain_reporting"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - type: "write_polygon-testnet-mumbai"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+  - type: "write_ethereum-testnet-sepolia"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
+
 type mockCapability struct {
 	capabilities.CapabilityInfo
 	capabilities.CallbackExecutable
@@ -86,9 +134,9 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			"v1.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-			list := req.Inputs.Underlying["report"].(*values.List)
+			m := req.Inputs.Underlying["report"].(*values.Map)
 			return capabilities.CapabilityResponse{
-				Value: list.Underlying[0],
+				Value: m,
 			}, nil
 		},
 	)
@@ -120,7 +168,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 const (
 	simpleWorkflow = `
 triggers:
-  - type: "on_mercury_report"
+  - type: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -152,11 +200,10 @@ consensus:
 targets:
   - type: "write_polygon-testnet-mumbai"
     inputs:
-      report:
-        - "$(evm_median.outputs.reports)"
+      report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
-      params: ["$(inputs.report)"]
+      params: ["$(report)"]
       abi: "receive(report bytes)"
 `
 )
@@ -164,7 +211,7 @@ targets:
 func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.CapabilityResponse) {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"on_mercury_report",
+			"mercury-trigger",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			"v1.0.0",
@@ -207,9 +254,9 @@ func mockConsensus() *mockCapability {
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			obs := req.Inputs.Underlying["observations"]
-			reports := obs.(*values.List)
+			report := obs.(*values.List)
 			rm := map[string]any{
-				"reports": reports.Underlying[0],
+				"report": report.Underlying[0],
 			}
 			rv, err := values.NewMap(rm)
 			if err != nil {
@@ -232,9 +279,9 @@ func mockTarget() *mockCapability {
 			"v1.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-			list := req.Inputs.Underlying["report"].(*values.List)
+			m := req.Inputs.Underlying["report"].(*values.Map)
 			return capabilities.CapabilityResponse{
-				Value: list.Underlying[0],
+				Value: m,
 			}, nil
 		},
 	)
@@ -274,7 +321,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 const (
 	multiStepWorkflow = `
 triggers:
-  - type: "on_mercury_report"
+  - type: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -314,11 +361,10 @@ consensus:
 targets:
   - type: "write_polygon-testnet-mumbai"
     inputs:
-      report:
-        - "$(evm_median.outputs.reports)"
+      report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
-      params: ["$(inputs.report)"]
+      params: ["$(report)"]
       abi: "receive(report bytes)"
 `
 )

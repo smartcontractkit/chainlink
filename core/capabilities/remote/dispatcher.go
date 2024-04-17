@@ -117,7 +117,7 @@ func (d *dispatcher) receive() {
 				d.tryRespondWithError(msg.Sender, body, types.Error_VALIDATION_FAILED)
 				continue
 			}
-			k := key{body.CapabilityId, body.DonId}
+			k := key{body.CapabilityId, body.CapabilityDonId}
 			d.mu.RLock()
 			receiver, ok := d.receivers[k]
 			d.mu.RUnlock()

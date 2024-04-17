@@ -1,4 +1,4 @@
-{{- if $.Values.prometheusMonitor }}
+{{- if and .Values.chainlink.enabled .Values.prometheusMonitor }}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:

@@ -148,7 +148,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		consumer := vrfContracts.VRFV2PlusConsumer[0]
 		err = consumer.ResetMetrics()
 		require.NoError(t, err)
-		MonitorLoadStats(lc, consumer, updatedLabels)
+		MonitorLoadStats(testcontext.Get(t), lc, consumer, updatedLabels)
 
 		singleFeedConfig.Schedule = wasp.Plain(
 			*vrfv2PlusConfig.Performance.RPS,
@@ -269,7 +269,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		consumer := vrfContracts.VRFV2PlusConsumer[0]
 		err = consumer.ResetMetrics()
 		require.NoError(t, err)
-		MonitorLoadStats(lc, consumer, updatedLabels)
+		MonitorLoadStats(testcontext.Get(t), lc, consumer, updatedLabels)
 
 		singleFeedConfig := &wasp.Config{
 			T:                     t,
@@ -340,7 +340,7 @@ func teardown(
 	testConfig *tc.TestConfig,
 ) {
 	//send final results to Loki
-	metrics := GetLoadTestMetrics(consumer)
+	metrics := GetLoadTestMetrics(testcontext.Get(t), consumer)
 	SendMetricsToLoki(metrics, lc, updatedLabels)
 	//set report data for Slack notification
 	testReporter.SetReportData(
@@ -351,6 +351,8 @@ func teardown(
 			AverageFulfillmentInMillions:         metrics.AverageFulfillmentInMillions,
 			SlowestFulfillment:                   metrics.SlowestFulfillment,
 			FastestFulfillment:                   metrics.FastestFulfillment,
+			P90FulfillmentBlockTime:              metrics.P90FulfillmentBlockTime,
+			P95FulfillmentBlockTime:              metrics.P95FulfillmentBlockTime,
 			AverageResponseTimeInSecondsMillions: metrics.AverageResponseTimeInSecondsMillions,
 			SlowestResponseTimeInSeconds:         metrics.SlowestResponseTimeInSeconds,
 			FastestResponseTimeInSeconds:         metrics.FastestResponseTimeInSeconds,
