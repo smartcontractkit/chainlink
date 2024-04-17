@@ -102,13 +102,22 @@ func (l *LoadArgs) setSchedule() {
 }
 
 func (l *LoadArgs) SanityCheck() {
+	var allLanes []*actions.CCIPLane
 	for _, lane := range l.TestSetupArgs.Lanes {
-		err := lane.ForwardLane.SendRequests(1, actions.DataOnlyTransfer, big.NewInt(600_000))
-		require.NoError(l.t, err)
-		lane.ForwardLane.ValidateRequests(true)
-		err = lane.ReverseLane.SendRequests(1, actions.DataOnlyTransfer, big.NewInt(600_000))
-		require.NoError(l.t, err)
-		lane.ReverseLane.ValidateRequests(true)
+		allLanes = append(allLanes, lane.ForwardLane)
+		if lane.ReverseLane != nil {
+			allLanes = append(allLanes, lane.ReverseLane)
+		}
+	}
+	for _, lane := range allLanes {
+		ccipLoad := NewCCIPLoad(
+			l.TestCfg.Test, lane,
+			l.TestCfg.TestGroupInput.PhaseTimeout.Duration(),
+			1, 0, nil,
+		)
+		ccipLoad.BeforeAllCall(actions.DataOnlyTransfer, big.NewInt(*l.TestCfg.TestGroupInput.DestGasLimit))
+		resp := ccipLoad.Call(nil)
+		require.False(l.t, resp.Failed, "request failed in sanity check")
 	}
 }
 

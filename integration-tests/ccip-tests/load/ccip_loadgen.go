@@ -89,21 +89,6 @@ func NewCCIPLoad(
 func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 	sourceCCIP := c.Lane.Source
 	destCCIP := c.Lane.Dest
-	var tokenAndAmounts []router.ClientEVMTokenAmount
-	for i := range c.Lane.Source.TransferAmount {
-		// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
-		token := sourceCCIP.Common.BridgeTokens[0]
-		if i < len(sourceCCIP.Common.BridgeTokens) {
-			token = sourceCCIP.Common.BridgeTokens[i]
-		}
-		tokenAndAmounts = append(tokenAndAmounts, router.ClientEVMTokenAmount{
-			Token: common.HexToAddress(token.Address()), Amount: c.Lane.Source.TransferAmount[i],
-		})
-	}
-
-	err := sourceCCIP.Common.ChainClient.WaitForEvents()
-	require.NoError(c.t, err, "Failed to wait for events")
-
 	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(gasLimit, false)
 	require.NoError(c.t, err, "Failed encoding the options field")
 
@@ -115,16 +100,30 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 		FeeToken:  common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
 		Data:      []byte("message with Id 1"),
 	}
+	var tokenAndAmounts []router.ClientEVMTokenAmount
 	if msgType == actions.TokenTransfer {
+		for i := range c.Lane.Source.TransferAmount {
+			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
+			token := sourceCCIP.Common.BridgeTokens[0]
+			if i < len(sourceCCIP.Common.BridgeTokens) {
+				token = sourceCCIP.Common.BridgeTokens[i]
+			}
+			tokenAndAmounts = append(tokenAndAmounts, router.ClientEVMTokenAmount{
+				Token: common.HexToAddress(token.Address()), Amount: c.Lane.Source.TransferAmount[i],
+			})
+		}
 		c.msg.TokenAmounts = tokenAndAmounts
 	}
+
 	if c.SendMaxDataIntermittentlyInMsgCount > 0 {
 		dCfg, err := sourceCCIP.OnRamp.Instance.GetDynamicConfig(nil)
 		require.NoError(c.t, err, "failed to fetch dynamic config")
 		c.MaxDataBytes = dCfg.MaxDataBytes
 	}
 	// if the msg is sent via multicall, transfer the token transfer amount to multicall contract
-	if sourceCCIP.Common.MulticallEnabled && sourceCCIP.Common.MulticallContract != (common.Address{}) {
+	if sourceCCIP.Common.MulticallEnabled &&
+		sourceCCIP.Common.MulticallContract != (common.Address{}) &&
+		msgType == actions.TokenTransfer {
 		for i, amount := range sourceCCIP.TransferAmount {
 			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
 			token := sourceCCIP.Common.BridgeTokens[0]
@@ -147,11 +146,7 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 		sourceCCIP.Common.BridgeTokens = nil
 		destCCIP.Common.BridgeTokens = nil
 	}
-	// wait for any pending txs before moving on
-	err = sourceCCIP.Common.ChainClient.WaitForEvents()
-	require.NoError(c.t, err, "Failed to wait for events")
-	err = destCCIP.Common.ChainClient.WaitForEvents()
-	require.NoError(c.t, err, "Failed to wait for events")
+
 	c.LastFinalizedTxBlock.Store(c.Lane.Source.NewFinalizedBlockNum.Load())
 	c.LastFinalizedTimestamp.Store(c.Lane.Source.NewFinalizedBlockTimestamp.Load())
 

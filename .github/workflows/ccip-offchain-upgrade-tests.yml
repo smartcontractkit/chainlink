@@ -256,7 +256,8 @@ jobs:
           # uncomment this later for next release
           # ENV_JOB_IMAGE: ${{ env.ENV_JOB_IMAGE_BASE }}:${{ env.RELEASE_SHA }}
           # for now we run test with a specific test image pertaining to previous release with some added fixes
-          ENV_JOB_IMAGE: ${{ env.ENV_JOB_IMAGE_BASE }}:test-updates-v2.9.1-ccip-1.4.0
+          # this image use 1.2 ramps instead of incompatible 1.5-dev ramps from offchain v2.10.0-ccip1.4-release
+          ENV_JOB_IMAGE: ${{ env.ENV_JOB_IMAGE_BASE }}:release-v2.10.0-ccip1.4
           TEST_SUITE: smoke
           TEST_ARGS: -test.timeout 30m
           TEST_LOG_LEVEL: info
