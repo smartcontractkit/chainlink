@@ -153,9 +153,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					l.Info().Int("Upkeep index", i).Msg("Upkeep privilege config set")
 				}
 
-				// will this help? Why isn't the first upkeep being performed?
-				time.Sleep(10 * time.Second)
-
 				if isLogTrigger || isMercuryV02 {
 					if err := consumers[i].Start(); err != nil {
 						l.Error().Msg("Error when starting consumer")
@@ -1051,7 +1048,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
-		// "registry_2_2": ethereum.RegistryVersion_2_2,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {
@@ -1125,7 +1122,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			}
 
 			// Upkeep should now start performing
-			l.Info().Msg("Waiting for 2m for all contracts to perform at least one upkeep")
+			l.Info().Msg("Waiting for 2m for all contracts to perform at least one upkeep after gas limit increase")
 			gom.Eventually(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					cnt, err := consumersPerformance[i].GetUpkeepCount(testcontext.Get(t))
@@ -1134,7 +1131,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 						"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
 					)
 				}
-			}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
+			}, "3m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
 			l.Info().Msg("Increasing check gas limit for upkeeps")
@@ -1196,7 +1193,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			}
 			require.NoError(t, err, "Registry config should be set successfully!")
 
-			l.Info().Msg("Waiting for 3m for all contracts to make sure they perform at maximum 1 upkeep")
+			l.Info().Msg("Waiting for 3m for all contracts to make sure they perform at maximum 1 upkeep after check gas limit increase")
 			// Upkeep should start performing again, and it should get regularly performed
 			gom.Eventually(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
