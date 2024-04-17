@@ -24,7 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -118,6 +120,11 @@ type Application interface {
 	ID() uuid.UUID
 
 	SecretGenerator() SecretGenerator
+
+	// FindLCA - finds last common ancestor for LogPoller's chain available in the database and RPC chain
+	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error)
+	// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
+	DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -881,4 +888,40 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 
 func (app *ChainlinkApplication) ID() uuid.UUID {
 	return app.Config.AppID()
+}
+
+// FindLCA - finds last common ancestor
+func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error) {
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	if err != nil {
+		return nil, err
+	}
+	if !app.Config.Feature().LogPoller() {
+		return nil, fmt.Errorf("FindLCA is only available if LogPoller is enabled")
+	}
+
+	lca, err := chain.LogPoller().FindLCA(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find lca: %w", err)
+	}
+
+	return lca, nil
+}
+
+// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
+func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error {
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	if err != nil {
+		return err
+	}
+	if !app.Config.Feature().LogPoller() {
+		return fmt.Errorf("DeleteLogPollerDataAfter is only available if LogPoller is enabled")
+	}
+
+	err = chain.LogPoller().DeleteLogsAndBlocksAfter(ctx, start)
+	if err != nil {
+		return fmt.Errorf("failed to recover LogPoller: %w", err)
+	}
+
+	return nil
 }
