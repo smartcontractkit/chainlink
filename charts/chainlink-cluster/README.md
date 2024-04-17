@@ -151,6 +151,9 @@ We are using [Grabana](https://github.com/K-Phoen/grabana) lib to create dashboa
 
 You can also select dashboard platform in `INFRA_PLATFORM` either `kubernetes` or `docker`
 
+You can select the dashboard panels with `PANELS_INCLUDED` which is a list of panel names separated by comma
+If you don't specify it will include core panels by default
+
 ```
 export LOKI_TENANT_ID=promtail
 export LOKI_URL=...
@@ -159,7 +162,7 @@ export GRAFANA_TOKEN=...
 export PROMETHEUS_DATA_SOURCE_NAME=Thanos
 export LOKI_DATA_SOURCE_NAME=Loki
 export INFRA_PLATFORM=kubernetes
-export GRAFANA_FOLDER=CRIB
+export GRAFANA_FOLDER=DashboardCoreDebug
 export DASHBOARD_NAME=CL-Cluster
 
 devspace run dashboard_deploy
