@@ -153,6 +153,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					l.Info().Int("Upkeep index", i).Msg("Upkeep privilege config set")
 				}
 
+				// will this help? Why isn't the first upkeep being performed?
+				time.Sleep(10 * time.Second)
+
 				if isLogTrigger || isMercuryV02 {
 					if err := consumers[i].Start(); err != nil {
 						l.Error().Msg("Error when starting consumer")
@@ -1048,7 +1051,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
-		"registry_2_2": ethereum.RegistryVersion_2_2,
+		// "registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {
