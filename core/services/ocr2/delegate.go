@@ -185,7 +185,9 @@ type ocr2Config interface {
 	ContractPollInterval() time.Duration
 	ContractTransmitterTransmitTimeout() time.Duration
 	DatabaseTimeout() time.Duration
+	DefaultTransactionQueueDepth() uint32
 	KeyBundleID() (string, error)
+	SimulateTransactions() bool
 	TraceLogging() bool
 	CaptureAutomationCustomTelemetry() bool
 }
@@ -1568,17 +1570,12 @@ func (d *Delegate) newServicesOCR2Functions(
 	if err != nil {
 		return nil, fmt.Errorf("functions services: failed to get chain %s: %w", rid.ChainID, err)
 	}
+	rargs := d.relayConfigsWithDefaults(jb)
 	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(
 			ctx,
 			chain,
-			types.RelayArgs{
-				ExternalJobID: jb.ExternalJobID,
-				JobID:         jb.ID,
-				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
-				New:           d.isNewlyCreatedJob,
-			},
+			rargs,
 			types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1690,6 +1687,31 @@ func (d *Delegate) newServicesOCR2Functions(
 	}
 
 	return append([]job.ServiceCtx{functionsProvider, thresholdProvider, s4Provider}, functionsServices...), nil
+}
+
+func (d *Delegate) relayConfigsWithDefaults(jb job.Job) types.RelayArgs {
+	spec := jb.OCR2OracleSpec
+
+	_, ok := spec.RelayConfig["defaultQueryTimeout"]
+	if !ok {
+		spec.RelayConfig["defaultQueryTimeout"] = d.cfg.Database().DefaultQueryTimeout()
+	}
+	_, ok = spec.RelayConfig["defaultTransactionQueueDepth"]
+	if !ok {
+		spec.RelayConfig["defaultTransactionQueueDepth"] = d.cfg.OCR2().DefaultTransactionQueueDepth()
+	}
+	_, ok = spec.RelayConfig["simulateTransactions"]
+	if !ok {
+		spec.RelayConfig["simulateTransactions"] = d.cfg.OCR2().SimulateTransactions()
+	}
+
+	return types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		ContractID:    spec.ContractID,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		New:           d.isNewlyCreatedJob,
+	}
 }
 
 // errorLog implements [loop.ErrorLog]
