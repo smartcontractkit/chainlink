@@ -1,6 +1,7 @@
 package experiments
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
@@ -21,6 +22,13 @@ func TestGasExperiment(t *testing.T) {
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
 	seth, err := actions_seth.GetChainClient(&config, network)
 	require.NoError(t, err, "Error creating seth client")
+
+	_, err = actions_seth.SendFunds(l, seth, actions_seth.FundsToSendPayload{
+		ToAddress:  seth.Addresses[0],
+		Amount:     big.NewInt(10_000_000),
+		PrivateKey: seth.PrivateKeys[0],
+	})
+	require.NoError(t, err, "Error sending funds")
 
 	for i := 0; i < 1; i++ {
 		_, err = contracts.DeployLinkTokenContract(l, seth)
