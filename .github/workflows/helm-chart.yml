@@ -39,3 +39,4 @@ jobs:
         uses: shivjm/helm-kubeconform-action@e330da645f13bc035d5d2772838d185877f80701 # v0.3.0
         with:
           chartsDirectory: "charts"
+          regexSkipDir: "charts/chainlink-cluster/dashboard"
