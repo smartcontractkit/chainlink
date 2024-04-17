@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -256,7 +257,8 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		}
 
 		// Get go coverage profiles from node containers and save them to a local folder
-		finalCovDestDir := fmt.Sprintf("%s/%s", covDestDir, opts.TestName)
+		testName := strings.ReplaceAll(opts.TestName, "/", "_")
+		finalCovDestDir := fmt.Sprintf("%s/%s", covDestDir, testName)
 		err = te.ClCluster.CopyFolderFromNodes(context.Background(), covSrcDir, finalCovDestDir)
 		if err != nil {
 			te.l.Error().Err(err).Str("srcDir", covSrcDir).Str("destDir", finalCovDestDir).Msg("Failed to copy test coverage files from nodes")

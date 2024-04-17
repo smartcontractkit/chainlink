@@ -395,7 +395,7 @@ jobs:
           should_tidy: "false"
 
       - name: Show Go Coverage
-        run: go run ./integration-tests/scripts/showCoverage.go /var/tmp/go-coverage
+        run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
 
       - name: Print failed test summary
         if: always()
@@ -694,7 +694,7 @@ jobs:
           should_tidy: "false"
 
       - name: Show Go Coverage
-        run: go run ./integration-tests/scripts/showCoverage.go /var/tmp/go-coverage
+        run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
 
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
