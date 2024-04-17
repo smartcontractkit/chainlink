@@ -1,4 +1,4 @@
-{{- if $.Values.ccip.deployContractsAndJobs }}
+{{- if $.Values.deployContractsAndJobs }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -34,7 +34,7 @@ data:
     ]
     },
       {{- $networkIDs := list }}
-      {{- range $index, $cfg :=$.Values.ccip.chains }}
+      {{- range $index, $cfg :=$.Values.chains }}
         {{- $networkIDs = append $networkIDs $cfg.ChainId }}
       {{- end }}
 
@@ -42,7 +42,7 @@ data:
       {{- $foldedString := join $delimiter $networkIDs }}
     "ChainPairs":[{{- printf $foldedString | quote }}],
     "CCIPChains": {
-        {{- range $index, $cfg := $.Values.ccip.chains }}
+        {{- range $index, $cfg := $.Values.chains }}
         {{- if ne $index 0 }},{{- end }}"{{$cfg.ChainId}}":{
     "NetworkURL": "ws://geth-{{$cfg.NetworkId}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.geth.wsRpcPort}}",
     "WalletKey": {{$cfg.WalletKey | quote}},
@@ -52,6 +52,6 @@ data:
     }
         {{- end}}
     },
-    "LaneDeploySettings": {{$.Values.ccip.LaneDeploySettings | toJson }}
+    "LaneDeploySettings": {{$.Values.LaneDeploySettings | toJson }}
     }
 {{- end }}

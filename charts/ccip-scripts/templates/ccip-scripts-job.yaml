@@ -1,4 +1,4 @@
-{{- if $.Values.ccip.deployContractsAndJobs }}
+{{- if $.Values.deployContractsAndJobs }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -24,7 +24,7 @@ spec:
     spec:
       initContainers:
         - name: wait-for-nodes
-          image: {{.Values.ccip.ccipScriptsImage}}
+          image: {{.Values.ccipScriptsImage}}
           volumeMounts:
             - name: scripts-volume
               mountPath: /scripts
@@ -43,7 +43,7 @@ spec:
             {{- end }}
       containers:
         - name: ccip-scripts
-          image: {{.Values.ccip.ccipScriptsImage}}
+          image: {{.Values.ccipScriptsImage}}
           env:
             - name: CONFIG_JSON_PATH
               value: /data/config.json

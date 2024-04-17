@@ -1,8 +1,8 @@
-# Chainlink cluster (Depracated)
+# Crib Devspace Setup
 
-**This copy of the chart is deprecated, it will be replaced with the dependency reference to the chart defined in the chainlink repo** 
+CRIB is a devspace configuration to launch CCIP enabled chainlink cluster 
 
-Example CL nodes cluster for system level tests
+ CL nodes cluster for system level tests
 
 Install `kubefwd` (no nixpkg for it yet, planned)
 
@@ -86,14 +86,14 @@ devspace purge
 ```
 
 ## CCIP Contracts and Jobs Deployment
-By default, the helm chart includes a post install hook defined in the ccip-scripts-deploy job. 
+By default, the root helm chart includes a post install hook defined in the ccip-scripts-deploy job. 
 It will deploy contracts and jobs to make the CCIP enabled cluster operational.
 
 `ccip-scripts-deploy` job usually takes around 6 minutes to complete.
 
 ## Running load tests
 
-Check this [doc](../../integration-tests/load/ocr/README.md)
+Check this [doc](../integration-tests/load/ocr/README.md)
 
 If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
 
@@ -104,6 +104,7 @@ If you would like to use `helm` directly, please uncomment data in `values.yaml`
 ## Install from local files
 
 ```
+cd charts/root
 helm install -f values.yaml cl-cluster .
 ```
 
@@ -114,47 +115,6 @@ sudo kubefwd svc -n cl-cluster
 ```
 
 Then you can connect and run your tests
-
-## Install from release
-
-Add the repository
-
-```
-helm repo add chainlink-cluster https://raw.githubusercontent.com/smartcontractkit/chainlink/helm-release/
-helm repo update
-```
-
-Set default namespace
-
-```
-kubectl create ns cl-cluster
-kubectl config set-context --current --namespace cl-cluster
-```
-
-Install
-
-```
-helm install -f values.yaml cl-cluster . \
-    --set=ingress.baseDomain="$DEVSPACE_INGRESS_BASE_DOMAIN" \
-    --set=ccip.ccipScriptsImage="$DEVSPACE_CCIP_SCRIPTS_IMAGE"
-```
-
-
-## Create a new release
-
-Bump version in `Chart.yml` add your changes and add `helm_release` label to any PR to trigger a release
-
-## Helm Test
-
-```
-helm test cl-cluster
-```
-
-## Uninstall
-
-```
-helm uninstall cl-cluster
-```
 
 # Grafana dashboard
 
@@ -190,7 +150,7 @@ devspace run dashboard_test
 
 # Local Testing
 
-Go to [dashboard-lib](../../dashboard) and link the modules locally
+Go to [dashboard-lib](../dashboard-lib) and link the modules locally
 
 ```
 cd dashboard
