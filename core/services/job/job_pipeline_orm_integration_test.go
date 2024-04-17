@@ -126,14 +126,15 @@ func TestPipelineORM_Integration(t *testing.T) {
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	t.Run("creates task DAGs", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		clearJobsDb(t, db)
 
-		orm := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+		orm := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 
 		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(*p, models.Interval(0))
+		specID, err = orm.CreateSpec(ctx, nil, *p, models.Interval(0))
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
@@ -152,7 +153,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		clearJobsDb(t, db)
-		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
 		btORM := bridges.NewORM(db)
 		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)

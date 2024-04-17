@@ -1141,6 +1141,7 @@ func setupSubscriptionAndFund(
 
 func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	key1 := cltest.MustGenerateRandomKey(t)
@@ -1200,7 +1201,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1

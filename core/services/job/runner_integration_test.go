@@ -80,7 +80,7 @@ func TestRunner(t *testing.T) {
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	ctx := testutils.Context(t)
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	require.NoError(t, pipelineORM.Start(ctx))
 	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
 	btORM := bridges.NewORM(db)
@@ -888,7 +888,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgesORM := bridges.NewORM(app.GetSqlxDB())
 		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
@@ -1065,7 +1065,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	t.Run("simulate request from EI -> Core node with erroring callback", func(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgesORM := bridges.NewORM(app.GetSqlxDB())
 		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
