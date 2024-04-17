@@ -30,3 +30,12 @@ jobs:
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+  kubeconform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Generate and validate releases
+        uses: shivjm/helm-kubeconform-action@e330da645f13bc035d5d2772838d185877f80701 # v0.3.0
+        with:
+          chartsDirectory: "charts"
