@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -13,10 +14,12 @@ import (
 	"testing"
 	"time"
 
+	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
@@ -36,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
@@ -980,4 +984,85 @@ func GetChainClientWithConfigFunction(config tc.SethConfig, network blockchain.E
 	}
 
 	return chainClient, nil
+}
+
+func GetReportStalenessData(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpeeps, succesfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
+	registryLogs := []gethtypes.Log{}
+	l := logging.GetTestLogger(t)
+
+	var (
+		blockBatchSize  int64 = 100
+		logs            []gethtypes.Log
+		timeout         = 5 * time.Second
+		addr            = common.HexToAddress(instance.Address())
+		queryStartBlock = startBlock
+	)
+
+	// Gather logs from the registry in 100 block chunks to avoid read limits
+	for queryStartBlock.Cmp(endBlock) < 0 {
+		filterQuery := geth.FilterQuery{
+			Addresses: []common.Address{addr},
+			FromBlock: queryStartBlock,
+			ToBlock:   big.NewInt(0).Add(queryStartBlock, big.NewInt(blockBatchSize)),
+		}
+
+		// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
+		err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
+		for err != nil {
+			ctx, cancel := context.WithTimeout(testcontext.Get(t), timeout)
+			logs, err = chainClient.Client.FilterLogs(ctx, filterQuery)
+			cancel()
+			if err != nil {
+				l.Error().
+					Err(err).
+					Interface("Filter Query", filterQuery).
+					Str("Timeout", timeout.String()).
+					Msg("Error getting logs from chain, trying again")
+				timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
+				continue
+			}
+			l.Info().
+				Uint64("From Block", queryStartBlock.Uint64()).
+				Uint64("To Block", filterQuery.ToBlock.Uint64()).
+				Int("Log Count", len(logs)).
+				Str("Registry Address", addr.Hex()).
+				Msg("Collected logs")
+			queryStartBlock.Add(queryStartBlock, big.NewInt(blockBatchSize))
+			registryLogs = append(registryLogs, logs...)
+		}
+	}
+
+	var contractABI *abi.ABI
+	contractABI, err = contracts.GetRegistryContractABI(registryVersion)
+	if err != nil {
+		return
+	}
+
+	for _, allLogs := range registryLogs {
+		log := allLogs
+		var eventDetails *abi.Event
+		eventDetails, err = contractABI.EventByID(log.Topics[0])
+		if err != nil {
+			l.Error().Err(err).Str("Log Hash", log.TxHash.Hex()).Msg("Error getting event details for log, report data inaccurate")
+			break
+		}
+		if eventDetails.Name == "UpkeepPerformed" {
+			performedUpeeps++
+			var parsedLog *contracts.UpkeepPerformedLog
+			parsedLog, err = instance.ParseUpkeepPerformedLog(&log)
+			if err != nil {
+				l.Error().Err(err).Str("Log Hash", log.TxHash.Hex()).Msg("Error parsing upkeep performed log, report data inaccurate")
+				break
+			}
+			if !parsedLog.Success {
+				revertedUpkeeps++
+			} else {
+				succesfulUpkeeps++
+			}
+		} else if eventDetails.Name == "StaleUpkeepReport" {
+			staleUpkeeps++
+		}
+	}
+
+	return
 }
