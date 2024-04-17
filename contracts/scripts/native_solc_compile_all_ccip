@@ -8,7 +8,7 @@ echo " └───────────────────────�
 
 SOLC_VERSION="0.8.19"
 OPTIMIZE_RUNS=26000
-OPTIMIZE_RUNS_LOW=10000
+OPTIMIZE_RUNS_LOW=4000
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -41,7 +41,7 @@ compileContractLowOpts () {
 
 # Solc produces and overwrites intermediary contracts.
 # Contracts should be ordered in reverse-import-complexity-order to minimize overwrite risks.
-compileContractLowOpts ccip/offRamp/EVM2EVMOffRamp.sol
+compileContract ccip/offRamp/EVM2EVMOffRamp.sol
 compileContract ccip/applications/PingPongDemo.sol
 compileContract ccip/applications/SelfFundedPingPong.sol
 compileContract ccip/applications/EtherSenderReceiver.sol

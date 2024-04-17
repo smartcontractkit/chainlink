@@ -640,6 +640,9 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 				MaxDataBytes:                      50000,
 				MaxPerMsgGasLimit:                 4_000_000,
 				TokenAdminRegistry:                tokenAdminRegistry,
+				DefaultTokenFeeUSDCents:           50,
+				DefaultTokenDestGasOverhead:       34_000,
+				DefaultTokenDestBytesOverhead:     500,
 			},
 			evm_2_evm_onramp.RateLimiterConfig{
 				Capacity: opts.Capacity,

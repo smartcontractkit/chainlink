@@ -92,8 +92,12 @@ contract StructFactory {
   uint32 internal constant DEST_GAS_OVERHEAD = 350_000;
   uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE = 16;
 
+  uint16 internal constant DEFAULT_TOKEN_FEE_USD_CENTS = 50;
+  uint32 internal constant DEFAULT_TOKEN_DEST_GAS_OVERHEAD = 34_000;
+  uint32 internal constant DEFAULT_TOKEN_BYTES_OVERHEAD = 50;
+
   // Use 16 gas per data availability byte in our tests.
-  // This is an overstimation in OP stack, it ignores 4 gas per 0 byte rule.
+  // This is an overestimation in OP stack, it ignores 4 gas per 0 byte rule.
   // Arbitrum on the other hand, does always use 16 gas per data availability byte.
   // This value may be substantially decreased after EIP 4844.
   uint16 internal constant DEST_GAS_PER_DATA_AVAILABILITY_BYTE = 16;
@@ -151,7 +155,10 @@ contract StructFactory {
       priceRegistry: priceRegistry,
       maxDataBytes: MAX_DATA_SIZE,
       maxPerMsgGasLimit: MAX_GAS_LIMIT,
-      tokenAdminRegistry: tokenAdminRegistry
+      tokenAdminRegistry: tokenAdminRegistry,
+      defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
+      defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
+      defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD
     });
   }
 

@@ -26,7 +26,8 @@ single_line_statement_blocks = "preserve"
 solc_version = '0.8.19'
 src = 'src/v0.8/ccip'
 test = 'src/v0.8/ccip/test'
-optimizer_runs = 10_000
+optimizer_runs = 4_000
+evm_version = 'paris'
 
 [profile.functions]
 solc_version = '0.8.19'

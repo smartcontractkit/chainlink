@@ -342,54 +342,24 @@ func (_m *EVM2EVMOnRampInterface) FilterOwnershipTransferred(opts *bind.FilterOp
 	return r0, r1
 }
 
-// FilterPoolAdded provides a mock function with given fields: opts
-func (_m *EVM2EVMOnRampInterface) FilterPoolAdded(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampPoolAddedIterator, error) {
+// FilterTokenTransferFeeConfigDeleted provides a mock function with given fields: opts
+func (_m *EVM2EVMOnRampInterface) FilterTokenTransferFeeConfigDeleted(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeletedIterator, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
-		panic("no return value specified for FilterPoolAdded")
+		panic("no return value specified for FilterTokenTransferFeeConfigDeleted")
 	}
 
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampPoolAddedIterator
+	var r0 *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeletedIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampPoolAddedIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeletedIterator, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_onramp.EVM2EVMOnRampPoolAddedIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeletedIterator); ok {
 		r0 = rf(opts)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampPoolAddedIterator)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FilterPoolRemoved provides a mock function with given fields: opts
-func (_m *EVM2EVMOnRampInterface) FilterPoolRemoved(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampPoolRemovedIterator, error) {
-	ret := _m.Called(opts)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FilterPoolRemoved")
-	}
-
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampPoolRemovedIterator
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampPoolRemovedIterator, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_onramp.EVM2EVMOnRampPoolRemovedIterator); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampPoolRemovedIterator)
+			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeletedIterator)
 		}
 	}
 
@@ -1138,54 +1108,24 @@ func (_m *EVM2EVMOnRampInterface) ParseOwnershipTransferred(log types.Log) (*evm
 	return r0, r1
 }
 
-// ParsePoolAdded provides a mock function with given fields: log
-func (_m *EVM2EVMOnRampInterface) ParsePoolAdded(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampPoolAdded, error) {
+// ParseTokenTransferFeeConfigDeleted provides a mock function with given fields: log
+func (_m *EVM2EVMOnRampInterface) ParseTokenTransferFeeConfigDeleted(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
-		panic("no return value specified for ParsePoolAdded")
+		panic("no return value specified for ParseTokenTransferFeeConfigDeleted")
 	}
 
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampPoolAdded
+	var r0 *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampPoolAdded, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_onramp.EVM2EVMOnRampPoolAdded); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampPoolAdded)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
-		r1 = rf(log)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ParsePoolRemoved provides a mock function with given fields: log
-func (_m *EVM2EVMOnRampInterface) ParsePoolRemoved(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampPoolRemoved, error) {
-	ret := _m.Called(log)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ParsePoolRemoved")
-	}
-
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampPoolRemoved
-	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampPoolRemoved, error)); ok {
-		return rf(log)
-	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_onramp.EVM2EVMOnRampPoolRemoved); ok {
-		r0 = rf(log)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampPoolRemoved)
+			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted)
 		}
 	}
 
@@ -1408,9 +1348,9 @@ func (_m *EVM2EVMOnRampInterface) SetRateLimiterConfig(opts *bind.TransactOpts, 
 	return r0, r1
 }
 
-// SetTokenTransferFeeConfig provides a mock function with given fields: opts, tokenTransferFeeConfigArgs
-func (_m *EVM2EVMOnRampInterface) SetTokenTransferFeeConfig(opts *bind.TransactOpts, tokenTransferFeeConfigArgs []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs) (*types.Transaction, error) {
-	ret := _m.Called(opts, tokenTransferFeeConfigArgs)
+// SetTokenTransferFeeConfig provides a mock function with given fields: opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs
+func (_m *EVM2EVMOnRampInterface) SetTokenTransferFeeConfig(opts *bind.TransactOpts, tokenTransferFeeConfigArgs []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs []common.Address) (*types.Transaction, error) {
+	ret := _m.Called(opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetTokenTransferFeeConfig")
@@ -1418,19 +1358,19 @@ func (_m *EVM2EVMOnRampInterface) SetTokenTransferFeeConfig(opts *bind.TransactO
 
 	var r0 *types.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs) (*types.Transaction, error)); ok {
-		return rf(opts, tokenTransferFeeConfigArgs)
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs, []common.Address) (*types.Transaction, error)); ok {
+		return rf(opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs) *types.Transaction); ok {
-		r0 = rf(opts, tokenTransferFeeConfigArgs)
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs, []common.Address) *types.Transaction); ok {
+		r0 = rf(opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs) error); ok {
-		r1 = rf(opts, tokenTransferFeeConfigArgs)
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs, []common.Address) error); ok {
+		r1 = rf(opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1736,20 +1676,20 @@ func (_m *EVM2EVMOnRampInterface) WatchOwnershipTransferred(opts *bind.WatchOpts
 	return r0, r1
 }
 
-// WatchPoolAdded provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOnRampInterface) WatchPoolAdded(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampPoolAdded) (event.Subscription, error) {
+// WatchTokenTransferFeeConfigDeleted provides a mock function with given fields: opts, sink
+func (_m *EVM2EVMOnRampInterface) WatchTokenTransferFeeConfigDeleted(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
 
 	if len(ret) == 0 {
-		panic("no return value specified for WatchPoolAdded")
+		panic("no return value specified for WatchTokenTransferFeeConfigDeleted")
 	}
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampPoolAdded) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted) (event.Subscription, error)); ok {
 		return rf(opts, sink)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampPoolAdded) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted) event.Subscription); ok {
 		r0 = rf(opts, sink)
 	} else {
 		if ret.Get(0) != nil {
@@ -1757,37 +1697,7 @@ func (_m *EVM2EVMOnRampInterface) WatchPoolAdded(opts *bind.WatchOpts, sink chan
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampPoolAdded) error); ok {
-		r1 = rf(opts, sink)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// WatchPoolRemoved provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOnRampInterface) WatchPoolRemoved(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampPoolRemoved) (event.Subscription, error) {
-	ret := _m.Called(opts, sink)
-
-	if len(ret) == 0 {
-		panic("no return value specified for WatchPoolRemoved")
-	}
-
-	var r0 event.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampPoolRemoved) (event.Subscription, error)); ok {
-		return rf(opts, sink)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampPoolRemoved) event.Subscription); ok {
-		r0 = rf(opts, sink)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(event.Subscription)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampPoolRemoved) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)

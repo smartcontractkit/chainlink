@@ -45,10 +45,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   error UnsupportedToken(IERC20 token);
   error MustBeCalledByRouter();
   error RouterMustSetOriginalSender();
-  error InvalidTokenPoolConfig();
-  error PoolAlreadyAdded();
-  error PoolDoesNotExist(address token);
-  error TokenPoolMismatch();
   error InvalidConfig();
   error InvalidAddress(bytes encodedAddress);
   error BadARMSignal();
@@ -63,11 +59,10 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   event NopPaid(address indexed nop, uint256 amount);
   event FeeConfigSet(FeeTokenConfigArgs[] feeConfig);
   event TokenTransferFeeConfigSet(TokenTransferFeeConfigArgs[] transferFeeConfig);
+  event TokenTransferFeeConfigDeleted(address[] tokens);
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
   event CCIPSendRequested(Internal.EVM2EVMMessage message);
   event NopsSet(uint256 nopWeightsTotal, NopAndWeight[] nopsAndWeights);
-  event PoolAdded(address token, address pool);
-  event PoolRemoved(address token, address pool);
 
   /// @dev Struct that contains the static configuration
   /// RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -93,7 +88,12 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     address priceRegistry; //                    │ Price registry address
     uint32 maxDataBytes; //                      │ Maximum payload data size in bytes
     uint32 maxPerMsgGasLimit; // ────────────────╯ Maximum gas limit for messages targeting EVMs
-    address tokenAdminRegistry; //                 Token admin registry address
+    address tokenAdminRegistry; // ──────────────╮ Token admin registry address
+    //                                           │
+    // The following three properties are defaults, they can be overridden by setting the TokenTransferFeeConfig for a token
+    uint16 defaultTokenFeeUSDCents; //           │ Default token fee charged per token transfer
+    uint32 defaultTokenDestGasOverhead; //       │ Default gas charged to execute the token transfer on the destination chain
+    uint32 defaultTokenDestBytesOverhead; // ────╯ Default extra data availability bytes charged per token transfer
   }
 
   /// @dev Struct to hold the execution fee configuration for a fee token
@@ -120,7 +120,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     uint32 maxFeeUSDCents; //     │ Maximum fee to charge per token transfer, multiples of 0.01 USD
     uint16 deciBps; //            │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
     uint32 destGasOverhead; //    │ Gas charged to execute the token transfer on the destination chain
-    uint32 destBytesOverhead; // ─╯ Extra data availability bytes on top of fixed transfer data, including sourceTokenData and offchainData
+    uint32 destBytesOverhead; //  │ Extra data availability bytes on top of fixed transfer data, including sourceTokenData and offchainData
+    bool isEnabled; // ───────────╯ Whether this token has custom transfer fees
   }
 
   /// @dev Same as TokenTransferFeeConfig
@@ -220,7 +221,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
     _setDynamicConfig(dynamicConfig);
     _setFeeTokenConfig(feeTokenConfigs);
-    _setTokenTransferFeeConfig(tokenTransferFeeConfigArgs);
+    _setTokenTransferFeeConfig(tokenTransferFeeConfigArgs, new address[](0));
     _setNops(nopsAndWeights);
   }
 
@@ -250,7 +251,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     Client.EVM2AnyMessage calldata message,
     uint256 feeTokenAmount,
     address originalSender
-  ) external whenHealthy returns (bytes32) {
+  ) external returns (bytes32) {
+    if (IARM(i_armProxy).isCursed()) revert BadARMSignal();
     // Validate message sender is set and allowed. Not validated in `getFee` since it is not user-driven.
     if (originalSender == address(0)) revert RouterMustSetOriginalSender();
     // Router address may be zero intentionally to pause.
@@ -473,7 +475,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
     (uint224 feeTokenPrice, uint224 packedGasPrice) =
       IPriceRegistry(s_dynamicConfig.priceRegistry).getTokenAndGasPrices(message.feeToken, destChainSelector);
-    uint112 executionGasPrice = uint112(packedGasPrice);
 
     // Calculate premiumFee in USD with 18 decimals precision first.
     // If message-only and no token transfers, a flat network fee is charged.
@@ -490,38 +491,36 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
       premiumFee = uint256(feeTokenConfig.networkFeeUSDCents) * 1e16;
     }
 
-    // Apply a feeToken-specific multiplier with 18 decimals, raising the premiumFee to 36 decimals
-    premiumFee = premiumFee * feeTokenConfig.premiumMultiplierWeiPerEth;
-
-    // Calculate execution gas fee on destination chain in USD with 36 decimals.
-    // We add the message gas limit, the overhead gas, the gas of passing message data to receiver, and token transfer gas together.
-    // We then multiply this gas total with the gas multiplier and gas price, converting it into USD with 36 decimals.
-    uint256 executionCost = executionGasPrice
-      * (
-        (
-          gasLimit + s_dynamicConfig.destGasOverhead + (message.data.length * s_dynamicConfig.destGasPerPayloadByte)
-            + tokenTransferGas
-        ) * feeTokenConfig.gasMultiplierWeiPerEth
-      );
-
     // Calculate data availability cost in USD with 36 decimals. Data availability cost exists on rollups that need to post
     // transaction calldata onto another storage layer, e.g. Eth mainnet, incurring additional storage gas costs.
     uint256 dataAvailabilityCost = 0;
     // Only calculate data availability cost if data availability multiplier is non-zero.
     // The multiplier should be set to 0 if destination chain does not charge data availability cost.
     if (s_dynamicConfig.destDataAvailabilityMultiplierBps > 0) {
-      // Parse the data availability gas price stored in the higher-order 112 bits of the encoded gas price.
-      uint112 dataAvailabilityGasPrice = uint112(packedGasPrice >> Internal.GAS_PRICE_BITS);
-
       dataAvailabilityCost = _getDataAvailabilityCost(
-        dataAvailabilityGasPrice, message.data.length, message.tokenAmounts.length, tokenTransferBytesOverhead
+        // Parse the data availability gas price stored in the higher-order 112 bits of the encoded gas price.
+        uint112(packedGasPrice >> Internal.GAS_PRICE_BITS),
+        message.data.length,
+        message.tokenAmounts.length,
+        tokenTransferBytesOverhead
       );
     }
+
+    // Calculate execution gas fee on destination chain in USD with 36 decimals.
+    // We add the message gas limit, the overhead gas, the gas of passing message data to receiver, and token transfer gas together.
+    // We then multiply this gas total with the gas multiplier and gas price, converting it into USD with 36 decimals.
+    // uint112(packedGasPrice) = executionGasPrice
+    uint256 executionCost = uint112(packedGasPrice)
+      * (
+        gasLimit + s_dynamicConfig.destGasOverhead + (message.data.length * s_dynamicConfig.destGasPerPayloadByte)
+          + tokenTransferGas
+      ) * feeTokenConfig.gasMultiplierWeiPerEth;
 
     // Calculate number of fee tokens to charge.
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
     // Result of the division is the number of smallest token denominations.
-    return (premiumFee + executionCost + dataAvailabilityCost) / feeTokenPrice;
+    return
+      ((premiumFee * feeTokenConfig.premiumMultiplierWeiPerEth) + executionCost + dataAvailabilityCost) / feeTokenPrice;
   }
 
   /// @notice Returns the estimated data availability cost of the message.
@@ -574,11 +573,20 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
     for (uint256 i = 0; i < numberOfTokens; ++i) {
       Client.EVMTokenAmount memory tokenAmount = tokenAmounts[i];
-      TokenTransferFeeConfig memory transferFeeConfig = s_tokenTransferFeeConfig[tokenAmount.token];
 
       // Validate if the token is supported, do not calculate fee for unsupported tokens.
       if (address(getPoolBySourceToken(i_destChainSelector, IERC20(tokenAmount.token))) == address(0)) {
         revert UnsupportedToken(IERC20(tokenAmount.token));
+      }
+
+      TokenTransferFeeConfig memory transferFeeConfig = s_tokenTransferFeeConfig[tokenAmount.token];
+
+      // If the token has no specific overrides configured, we use the global defaults.
+      if (!transferFeeConfig.isEnabled) {
+        tokenTransferFeeUSDWei += uint256(s_dynamicConfig.defaultTokenFeeUSDCents) * 1e16;
+        tokenTransferGas += s_dynamicConfig.defaultTokenDestGasOverhead;
+        tokenTransferBytesOverhead += s_dynamicConfig.defaultTokenDestBytesOverhead;
+        continue;
       }
 
       uint256 bpsFeeUSDWei = 0;
@@ -660,15 +668,18 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   /// @notice Sets the transfer fee config.
   /// @dev only callable by the owner or admin.
-  function setTokenTransferFeeConfig(TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs)
-    external
-    onlyOwnerOrAdmin
-  {
-    _setTokenTransferFeeConfig(tokenTransferFeeConfigArgs);
+  function setTokenTransferFeeConfig(
+    TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
+    address[] memory tokensToUseDefaultFeeConfigs
+  ) external onlyOwnerOrAdmin {
+    _setTokenTransferFeeConfig(tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs);
   }
 
   /// @notice internal helper to set the token transfer fee config.
-  function _setTokenTransferFeeConfig(TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs) internal {
+  function _setTokenTransferFeeConfig(
+    TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
+    address[] memory tokensToUseDefaultFeeConfigs
+  ) internal {
     for (uint256 i = 0; i < tokenTransferFeeConfigArgs.length; ++i) {
       TokenTransferFeeConfigArgs memory configArg = tokenTransferFeeConfigArgs[i];
 
@@ -677,10 +688,19 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
         maxFeeUSDCents: configArg.maxFeeUSDCents,
         deciBps: configArg.deciBps,
         destGasOverhead: configArg.destGasOverhead,
-        destBytesOverhead: configArg.destBytesOverhead
+        destBytesOverhead: configArg.destBytesOverhead,
+        isEnabled: true
       });
     }
     emit TokenTransferFeeConfigSet(tokenTransferFeeConfigArgs);
+
+    // Remove the custom fee configs for the tokens that are in the tokensToUseDefaultFeeConfigs array
+    for (uint256 i = 0; i < tokensToUseDefaultFeeConfigs.length; ++i) {
+      delete s_tokenTransferFeeConfig[tokensToUseDefaultFeeConfigs[i]];
+    }
+    if (tokensToUseDefaultFeeConfigs.length > 0) {
+      emit TokenTransferFeeConfigDeleted(tokensToUseDefaultFeeConfigs);
+    }
   }
 
   // ================================================================
@@ -757,13 +777,16 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// @dev some balance can remain after payments are done. This is at most the sum
   /// of the weight of all nops. Since nop weights are uint16s and we can have at
   /// most MAX_NUMBER_OF_NOPS NOPs, the highest possible value is 2**22 or 0.04 gjuels.
-  function payNops() public onlyOwnerOrAdminOrNop {
+  function payNops() public {
+    if (msg.sender != owner() && msg.sender != s_admin && !s_nops.contains(msg.sender)) {
+      revert OnlyCallableByOwnerOrAdminOrNop();
+    }
     uint256 weightsTotal = s_nopWeightsTotal;
     if (weightsTotal == 0) revert NoNopsToPay();
 
     uint96 totalFeesToPay = s_nopFeesJuels;
     if (totalFeesToPay < weightsTotal) revert NoFeesToPay();
-    if (_linkLeftAfterNopFees() < 0) revert InsufficientBalance();
+    if (linkAvailableForPayment() < 0) revert InsufficientBalance();
 
     uint96 fundsLeft = totalFeesToPay;
     uint256 numberOfNops = s_nops.length();
@@ -788,7 +811,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     if (to == address(0)) revert InvalidWithdrawParams();
 
     // We require the link balance to be settled before allowing withdrawal of non-link fees.
-    int256 linkAfterNopFees = _linkLeftAfterNopFees();
+    int256 linkAfterNopFees = linkAvailableForPayment();
     if (linkAfterNopFees < 0) revert LinkBalanceNotSettled();
 
     if (feeToken == i_linkToken) {
@@ -805,38 +828,20 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   // ================================================================
 
   /// @notice Calculate remaining LINK balance after paying nops
+  /// @dev Allow keeper to monitor funds available for paying nops
   /// @return balance if nops were to be paid
-  function _linkLeftAfterNopFees() private view returns (int256) {
+  function linkAvailableForPayment() public view returns (int256) {
     // Since LINK caps at uint96, casting to int256 is safe
     return int256(IERC20(i_linkToken).balanceOf(address(this))) - int256(uint256(s_nopFeesJuels));
-  }
-
-  /// @notice Allow keeper to monitor funds available for paying nops
-  function linkAvailableForPayment() external view returns (int256) {
-    return _linkLeftAfterNopFees();
   }
 
   // ================================================================
   // │                        Access and ARM                        │
   // ================================================================
 
-  /// @dev Require that the sender is the owner or the fee admin or a nop
-  modifier onlyOwnerOrAdminOrNop() {
-    if (msg.sender != owner() && msg.sender != s_admin && !s_nops.contains(msg.sender)) {
-      revert OnlyCallableByOwnerOrAdminOrNop();
-    }
-    _;
-  }
-
   /// @dev Require that the sender is the owner or the fee admin
   modifier onlyOwnerOrAdmin() {
     if (msg.sender != owner() && msg.sender != s_admin) revert OnlyCallableByOwnerOrAdmin();
-    _;
-  }
-
-  /// @notice Ensure that the ARM has not emitted a bad signal, and that the latest heartbeat is not stale.
-  modifier whenHealthy() {
-    if (IARM(i_armProxy).isCursed()) revert BadARMSignal();
     _;
   }
 }

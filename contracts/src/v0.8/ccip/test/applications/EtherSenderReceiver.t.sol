@@ -42,7 +42,7 @@ contract EtherSenderReceiverTest is Test {
 }
 
 contract EtherSenderReceiverTest_constructor is EtherSenderReceiverTest {
-  function test_constructor() public {
+  function test_constructor() public view {
     assertEq(s_etherSenderReceiver.getRouter(), ROUTER, "router must be set correctly");
     uint256 allowance = s_weth.allowance(address(s_etherSenderReceiver), ROUTER);
     assertEq(allowance, type(uint256).max, "allowance must be set infinite");
@@ -107,7 +107,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTest {
 
   uint256 internal constant amount = 100;
 
-  function test_Fuzz_validatedMessage_msgSenderOverwrite(bytes memory data) public {
+  function test_Fuzz_validatedMessage_msgSenderOverwrite(bytes memory data) public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({
       token: address(0), // callers may not specify this.
@@ -130,7 +130,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTest {
     assertEq(validatedMessage.extraArgs, bytes(""), "extraArgs must be empty");
   }
 
-  function test_Fuzz_validatedMessage_tokenAddressOverwrite(address token) public {
+  function test_Fuzz_validatedMessage_tokenAddressOverwrite(address token) public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({token: token, amount: amount});
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
@@ -150,7 +150,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTest {
     assertEq(validatedMessage.extraArgs, bytes(""), "extraArgs must be empty");
   }
 
-  function test_validatedMessage_emptyDataOverwrittenToMsgSender() public {
+  function test_validatedMessage_emptyDataOverwrittenToMsgSender() public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({
       token: address(0), // callers may not specify this.
@@ -173,7 +173,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTest {
     assertEq(validatedMessage.extraArgs, bytes(""), "extraArgs must be empty");
   }
 
-  function test_validatedMessage_dataOverwrittenToMsgSender() public {
+  function test_validatedMessage_dataOverwrittenToMsgSender() public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({
       token: address(0), // callers may not specify this.
@@ -196,7 +196,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTest {
     assertEq(validatedMessage.extraArgs, bytes(""), "extraArgs must be empty");
   }
 
-  function test_validatedMessage_tokenOverwrittenToWeth() public {
+  function test_validatedMessage_tokenOverwrittenToWeth() public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({
       token: address(42), // incorrect token.
@@ -219,7 +219,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTest {
     assertEq(validatedMessage.extraArgs, bytes(""), "extraArgs must be empty");
   }
 
-  function test_validatedMessage_validMessage_extraArgs() public {
+  function test_validatedMessage_validMessage_extraArgs() public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({
       token: address(0), // callers may not specify this.

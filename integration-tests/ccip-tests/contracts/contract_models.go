@@ -831,7 +831,7 @@ func (onRamp *OnRamp) SetTokenTransferFeeConfig(tokenTransferFeeConfig []evm_2_e
 	if err != nil {
 		return fmt.Errorf("failed to get transaction opts: %w", err)
 	}
-	tx, err := onRamp.Instance.SetTokenTransferFeeConfig(opts, tokenTransferFeeConfig)
+	tx, err := onRamp.Instance.SetTokenTransferFeeConfig(opts, tokenTransferFeeConfig, []common.Address{})
 	if err != nil {
 		return fmt.Errorf("failed to set token transfer fee config: %w", err)
 	}

@@ -319,6 +319,9 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 			MaxDataBytes:                      1e5,
 			MaxPerMsgGasLimit:                 4_000_000,
 			TokenAdminRegistry:                c.Source.TokenAdminRegistry.Address(),
+			DefaultTokenFeeUSDCents:           50,
+			DefaultTokenDestGasOverhead:       34_000,
+			DefaultTokenDestBytesOverhead:     500,
 		},
 		evm_2_evm_onramp.RateLimiterConfig{
 			IsEnabled: true,
@@ -1028,6 +1031,9 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			MaxDataBytes:                      1e5,
 			MaxPerMsgGasLimit:                 4_000_000,
 			TokenAdminRegistry:                sourceTokenAdminRegistry.Address(),
+			DefaultTokenFeeUSDCents:           50,
+			DefaultTokenDestGasOverhead:       34_000,
+			DefaultTokenDestBytesOverhead:     500,
 		},
 		evm_2_evm_onramp.RateLimiterConfig{
 			IsEnabled: true,

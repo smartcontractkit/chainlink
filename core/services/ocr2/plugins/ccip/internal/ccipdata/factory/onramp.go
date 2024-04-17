@@ -42,6 +42,8 @@ func initOrCloseOnRampReader(lggr logger.Logger, versionFinder VersionFinder, so
 		return nil, err
 	}
 
+	lggr.Infof("Initializing onRamp for version %v", version.String())
+
 	switch version.String() {
 	case ccipdata.V1_0_0:
 		onRamp, err := v1_0_0.NewOnRamp(lggr, sourceSelector, destSelector, onRampAddrEvm, sourceLP, source)

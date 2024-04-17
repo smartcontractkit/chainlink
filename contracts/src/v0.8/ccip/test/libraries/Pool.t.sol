@@ -57,7 +57,7 @@ contract Pool__removeFirstFourBytes is BaseTest {
     assertEq(result, data[4:]);
   }
 
-  function test__removeFirstFourBytes_EmptyData_Success() public {
+  function test__removeFirstFourBytes_EmptyData_Success() public pure {
     bytes memory input = abi.encodePacked(bytes4(0x00112233));
 
     assertEq(input.length, 4);

@@ -9,6 +9,7 @@ import {ARM} from "../../ARM.sol";
 import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
+import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
@@ -387,8 +388,6 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
   }
 
   // Reverts
-
-  // TODO add test for "token pool isn't even a contract"
 
   function test_InvalidMessageId_Revert() public {
     Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages();
@@ -1080,6 +1079,42 @@ contract EVM2EVMOffRamp__trialExecute is EVM2EVMOffRampSetup {
       s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
     assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
     assertEq(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, errorMessage), err);
+  }
+
+  function test_TokenPoolIsNoAContract_Success() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 10000;
+    Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageWithTokens(1, amounts);
+
+    // Happy path, pool is correct
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+
+    assertEq(uint256(Internal.MessageExecutionState.SUCCESS), uint256(newState));
+    assertEq("", err);
+
+    // address 0 has no contract
+    assertEq(address(0).code.length, 0);
+    message.sourceTokenData[0] = abi.encode(
+      IPool.SourceTokenData({
+        sourcePoolAddress: abi.encode(address(0)),
+        destPoolAddress: abi.encode(address(0)),
+        extraData: ""
+      })
+    );
+
+    message.messageId = Internal._hash(
+      message,
+      keccak256(
+        abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_SELECTOR, DEST_CHAIN_SELECTOR, ON_RAMP_ADDRESS)
+      )
+    );
+
+    // Unhappy path, no revert but marked as failed.
+    (newState, err) = s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+
+    assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
+    assertEq(abi.encodeWithSelector(EVM2EVMOffRamp.InvalidAddress.selector, abi.encode(address(0))), err);
   }
 }
 
