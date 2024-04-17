@@ -394,6 +394,9 @@ jobs:
           QA_KUBECONFIG: ""
           should_tidy: "false"
 
+      - name: Show Go Coverage
+        run: go run ./integration-tests/scripts/showCoverage.go ./integration-tests/go-coverage
+
       - name: Upload Go Coverage Directory
         uses: actions/upload-artifact@v3
         with:
@@ -695,6 +698,9 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
           should_tidy: "false"
+
+      - name: Show Go Coverage
+        run: go run ./integration-tests/scripts/showCoverage.go ./integration-tests/go-coverage
 
       - name: Upload Go Coverage Directory
         uses: actions/upload-artifact@v3
