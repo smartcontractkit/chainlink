@@ -46,9 +46,7 @@ type fixedPriceEstimatorBlockHistoryConfig interface {
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, ethClient feeEstimatorClient, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger, chainType config.ChainType) EvmEstimator {
-	l1Oracle := rollups.NewL1GasOracle(lggr, ethClient, chainType)
-
+func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, ethClient feeEstimatorClient, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger, chainType config.ChainType, l1Oracle rollups.L1Oracle) EvmEstimator {
 	return &fixedPriceEstimator{cfg, bhCfg, logger.Sugared(logger.Named(lggr, "FixedPriceEstimator")), l1Oracle}
 }
 

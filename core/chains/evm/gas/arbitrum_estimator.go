@@ -47,14 +47,12 @@ type arbitrumEstimator struct {
 	l1Oracle rollups.ArbL1GasOracle
 }
 
-func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, ethClient feeEstimatorClient) EvmEstimator {
+func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, ethClient feeEstimatorClient, l1Oracle rollups.ArbL1GasOracle) EvmEstimator {
 	lggr = logger.Named(lggr, "ArbitrumEstimator")
-
-	l1Oracle := rollups.NewArbitrumL1GasOracle(lggr, ethClient)
 
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		EvmEstimator:   NewSuggestedPriceEstimator(lggr, ethClient, cfg, config.ChainArbitrum),
+		EvmEstimator:   NewSuggestedPriceEstimator(lggr, ethClient, cfg, config.ChainArbitrum, l1Oracle),
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
 		chForceRefetch: make(chan (chan struct{})),
