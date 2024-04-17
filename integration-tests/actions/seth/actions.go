@@ -556,15 +556,10 @@ func TeardownRemoteSuite(
 
 			pkStrings := []string{}
 			for _, pk := range client.PrivateKeys {
-				// Convert the D field (private key) to a byte slice of length 32
 				privateKeyBytes := pk.D.Bytes()
-				// Ensure the byte slice is exactly 32 bytes long, as required for Ethereum
 				privateKeyBytes32 := make([]byte, 32)
 				copy(privateKeyBytes32[32-len(privateKeyBytes):], privateKeyBytes)
-
-				// Convert to a hexadecimal string
 				privateKeyHex := hex.EncodeToString(privateKeyBytes32)
-
 				pkStrings = append(pkStrings, "0x"+privateKeyHex)
 			}
 

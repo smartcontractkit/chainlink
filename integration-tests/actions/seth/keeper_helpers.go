@@ -224,6 +224,7 @@ func RegisterUpkeepContracts(t *testing.T, client *seth.Client, linkToken contra
 		numberOfContracts, upkeepAddresses, checkData, isLogTrigger, isMercury)
 }
 
+// RegisterUpkeepContractsWithCheckData concurrently registers a set of upkeep contracts with the given check data. It requires at least 1 ephemeral key to be present in Seth config.
 func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, linkToken contracts.LinkToken, linkFunds *big.Int, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, checkData [][]byte, isLogTrigger bool, isMercury bool) []*big.Int {
 	l := logging.GetTestLogger(t)
 	registrationTxHashes := make([]common.Hash, 0)
@@ -366,6 +367,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	return upkeepIds
 }
 
+// DeployKeeperConsumers concurrently deploys keeper consumer contracts. It requires at least 1 ephemeral key to be present in Seth config.
 func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts int, isLogTrigger bool, isMercury bool) []contracts.KeeperConsumer {
 	l := logging.GetTestLogger(t)
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
@@ -378,7 +380,7 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 		err      error
 	}
 
-	var deplymentErr error
+	deplymentErrors := []error{}
 	deploymentCh := make(chan result, numberOfContracts)
 	stopCh := make(chan struct{})
 
@@ -414,9 +416,9 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 		for contractData := range deploymentCh {
 			if contractData.err != nil {
 				l.Error().Err(contractData.err).Msg("Error deploying customer contract")
-				deplymentErr = contractData.err
-				close(stopCh)
-				return
+				deplymentErrors = append(deplymentErrors, contractData.err)
+				wgProcess.Done()
+				continue
 			}
 			if contractData.contract != nil {
 				keeperConsumerContracts = append(keeperConsumerContracts, contractData.contract)
@@ -453,12 +455,13 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	wgProcess.Wait()
 	close(deploymentCh)
 
-	require.NoError(t, deplymentErr, "Error deploying consumer contracts")
+	require.Equal(t, 0, len(deplymentErrors), "Error deploying consumer contracts")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return keeperConsumerContracts
 }
 
+// DeployKeeperConsumersPerformance sequentially deploys keeper performance consumer contracts.
 func DeployKeeperConsumersPerformance(
 	t *testing.T,
 	client *seth.Client,
@@ -493,6 +496,7 @@ func DeployKeeperConsumersPerformance(
 	return upkeeps
 }
 
+// DeployPerformDataChecker sequentially deploys keeper perform data checker contracts.
 func DeployPerformDataChecker(
 	t *testing.T,
 	client *seth.Client,
@@ -517,6 +521,7 @@ func DeployPerformDataChecker(
 	return upkeeps
 }
 
+// DeployUpkeepCounters sequentially deploys a set amount of upkeep counter contracts.
 func DeployUpkeepCounters(
 	t *testing.T,
 	client *seth.Client,
@@ -543,6 +548,7 @@ func DeployUpkeepCounters(
 	return upkeepCounters
 }
 
+// DeployUpkeepPerformCounter sequentially deploys a set amount of upkeep perform counter restrictive contracts.
 func DeployUpkeepPerformCounterRestrictive(
 	t *testing.T,
 	client *seth.Client,
@@ -569,9 +575,8 @@ func DeployUpkeepPerformCounterRestrictive(
 	return upkeepCounters
 }
 
-// RegisterNewUpkeeps registers the given amount of new upkeeps, using the registry and registrar
-// which are passed as parameters.
-// It returns the newly deployed contracts (consumers), as well as their upkeep IDs.
+// RegisterNewUpkeeps concurrently registers the given amount of new upkeeps, using the registry and registrar,
+// which are passed as parameters. It returns the newly deployed contracts (consumers), as well as their upkeep IDs.
 func RegisterNewUpkeeps(
 	t *testing.T,
 	chainClient *seth.Client,

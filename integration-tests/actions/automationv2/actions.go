@@ -598,9 +598,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 	resultCh := make(chan result, concurrency)
 
 	var wgProcesses sync.WaitGroup
-	for range upkeepConfigs {
-		wgProcesses.Add(1)
-	}
+	wgProcesses.Add(len(upkeepConfigs))
 
 	failedRegistrations := make([]result, 0)
 	successfulRegistrations := make(map[int]int, 0)
@@ -671,6 +669,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 			}
 		default:
 			resultCh <- result{err: fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")}
+			return
 		}
 
 		tx, err := a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum)

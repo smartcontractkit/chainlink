@@ -165,9 +165,7 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 	}
 
 	var wgProcess sync.WaitGroup
-	for i := 0; i < *loadConfig.NumberOfUpkeeps; i++ {
-		wgProcess.Add(1)
-	}
+	wgProcess.Add(*loadConfig.NumberOfUpkeeps)
 
 	go func() {
 		defer l.Debug().Msg("Finished listening to results of deploying consumer/trigger contracts")

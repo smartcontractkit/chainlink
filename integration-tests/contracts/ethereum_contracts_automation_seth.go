@@ -154,7 +154,6 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 		Pending: false,
 	}
 
-	//nolint: exhaustive
 	switch v.version {
 	case ethereum.RegistryVersion_2_2:
 		ownerAddress, _ := v.registry2_2.Owner(callOpts)
@@ -167,9 +166,9 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 		return ownerAddress
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1, ethereum.RegistryVersion_1_2, ethereum.RegistryVersion_1_3:
 		return v.client.Addresses[0]
+	default:
+		return v.client.Addresses[0]
 	}
-
-	return v.client.Addresses[0]
 }
 
 func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error {
@@ -208,11 +207,10 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 		From:    v.client.Addresses[0],
 		Context: nil,
 	}
-	var err error
 
 	switch v.version {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
-		_, err = v.client.Decode(v.registry1_1.SetConfig(
+		_, err := v.client.Decode(v.registry1_1.SetConfig(
 			txOpts,
 			config.PaymentPremiumPPB,
 			config.FlatFeeMicroLINK,
@@ -269,7 +267,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 		}))
 		return err
 	case ethereum.RegistryVersion_2_0:
-		_, err = v.client.Decode(v.registry2_0.SetConfig(txOpts,
+		_, err := v.client.Decode(v.registry2_0.SetConfig(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
 			ocrConfig.F,
@@ -1367,7 +1365,7 @@ func loadRegistry1_1(client *seth.Client, address common.Address) (*EthereumKeep
 		address:     &address,
 		client:      client,
 		registry1_1: instance,
-	}, err
+	}, nil
 }
 
 func loadRegistry1_2(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
@@ -1388,7 +1386,7 @@ func loadRegistry1_2(client *seth.Client, address common.Address) (*EthereumKeep
 		address:     &address,
 		client:      client,
 		registry1_2: instance,
-	}, err
+	}, nil
 }
 
 func loadRegistry1_3(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
@@ -1409,7 +1407,7 @@ func loadRegistry1_3(client *seth.Client, address common.Address) (*EthereumKeep
 		address:     &address,
 		client:      client,
 		registry1_3: instance,
-	}, err
+	}, nil
 }
 
 func loadRegistry2_0(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
@@ -1430,7 +1428,7 @@ func loadRegistry2_0(client *seth.Client, address common.Address) (*EthereumKeep
 		address:     &address,
 		client:      client,
 		registry2_0: instance,
-	}, err
+	}, nil
 }
 
 func loadRegistry2_1(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
@@ -1453,7 +1451,7 @@ func loadRegistry2_1(client *seth.Client, address common.Address) (*EthereumKeep
 		address:     &address,
 		client:      client,
 		registry2_1: instance.(*iregistry21.IKeeperRegistryMaster),
-	}, err
+	}, nil
 }
 
 func loadRegistry2_2(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
@@ -1474,7 +1472,7 @@ func loadRegistry2_2(client *seth.Client, address common.Address) (*EthereumKeep
 		address:     &address,
 		client:      client,
 		registry2_2: instance,
-	}, err
+	}, nil
 }
 
 func deployAutomationForwarderLogicSeth(client *seth.Client) (common.Address, error) {
@@ -1698,7 +1696,7 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 			client:      client,
 			registrar20: instance,
 			address:     &data.Address,
-		}, err
+		}, nil
 	} else if registryVersion == eth_contracts.RegistryVersion_2_1 || registryVersion == eth_contracts.RegistryVersion_2_2 { // both 2.1 and 2.2 registry use registrar 2.1
 		abi, err := registrar21.AutomationRegistrarMetaData.GetAbi()
 		if err != nil {
@@ -1731,7 +1729,7 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 			client:      client,
 			registrar21: instance,
 			address:     &data.Address,
-		}, err
+		}, nil
 	}
 
 	// non OCR registrar
@@ -1760,7 +1758,7 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 		client:    client,
 		registrar: instance,
 		address:   &data.Address,
-	}, err
+	}, nil
 }
 
 // LoadKeeperRegistrar returns deployed on given address EthereumKeeperRegistrar
@@ -1804,7 +1802,7 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			address:     &address,
 			client:      client,
 			registrar20: instance,
-		}, err
+		}, nil
 	}
 
 	abi, err := registrar21.AutomationRegistrarMetaData.GetAbi()
@@ -1824,7 +1822,7 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 		address:     &address,
 		client:      client,
 		registrar21: instance,
-	}, err
+	}, nil
 }
 
 type EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer struct {
@@ -1923,7 +1921,7 @@ func DeployAutomationStreamsLookupUpkeepConsumerFromKey(client *seth.Client, key
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,
-	}, err
+	}, nil
 }
 
 func DeployAutomationStreamsLookupUpkeepConsumer(client *seth.Client, testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
@@ -1971,7 +1969,7 @@ func DeployAutomationLogTriggerConsumerFromKey(client *seth.Client, keyNum int, 
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,
-	}, err
+	}, nil
 }
 
 func DeployAutomationLogTriggerConsumer(client *seth.Client, testInterval *big.Int) (KeeperConsumer, error) {
@@ -2028,7 +2026,7 @@ func DeployUpkeepCounterFromKey(client *seth.Client, keyNum int, testRange *big.
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,
-	}, err
+	}, nil
 }
 
 func DeployUpkeepCounter(client *seth.Client, testRange *big.Int, interval *big.Int) (UpkeepCounter, error) {
@@ -2080,7 +2078,7 @@ func DeployUpkeepPerformCounterRestrictive(client *seth.Client, testRange *big.I
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,
-	}, err
+	}, nil
 }
 
 // EthereumKeeperPerformDataCheckerConsumer represents keeper perform data checker contract
@@ -2125,7 +2123,7 @@ func DeployKeeperPerformDataChecker(client *seth.Client, expectedData []byte) (K
 		client:             client,
 		performDataChecker: instance,
 		address:            &data.Address,
-	}, err
+	}, nil
 }
 
 // EthereumKeeperConsumerPerformance represents a more complicated keeper consumer contract, one intended only for
@@ -2197,7 +2195,7 @@ func DeployKeeperConsumerPerformance(
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,
-	}, err
+	}, nil
 }
 
 type EthereumAutomationSimpleLogCounterConsumer struct {
@@ -2244,7 +2242,7 @@ func DeployAutomationSimpleLogTriggerConsumerFromKey(client *seth.Client, isStre
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,
-	}, err
+	}, nil
 }
 
 // EthereumAutomationConsumerBenchmark represents a more complicated keeper consumer contract, one intended only for
@@ -2296,5 +2294,5 @@ func DeployKeeperConsumerBenchmark(client *seth.Client) (AutomationConsumerBench
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,
-	}, err
+	}, nil
 }

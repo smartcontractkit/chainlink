@@ -105,9 +105,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			l := logging.GetTestLogger(t)
 
 			cfg, err := tc.GetConfig("Smoke", tc.Automation)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
 
 			if nodeUpgrade {
 				if cfg.GetChainlinkUpgradeImageConfig() == nil {
