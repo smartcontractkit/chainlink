@@ -37,5 +37,6 @@ jobs:
         with:
           charts_dir: charts
           config: .github/cr.yaml
+          pages_branch: helm-releases
         env:
           CR_TOKEN: "${{ steps.get-gh-token.outputs.access-token }}"
