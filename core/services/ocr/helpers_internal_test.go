@@ -5,7 +5,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -14,5 +13,5 @@ func (c *ConfigOverriderImpl) ExportedUpdateFlagsStatus() error {
 }
 
 func NewTestDB(t *testing.T, sqldb *sqlx.DB, oracleSpecID int32) *db {
-	return NewDB(sqldb, oracleSpecID, logger.TestLogger(t), pgtest.NewQConfig(true))
+	return NewDB(sqldb, oracleSpecID, logger.TestLogger(t))
 }
