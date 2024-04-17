@@ -672,7 +672,7 @@ func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int6
 }
 
 // FindTxesWithAttemptsAndReceiptsByIdsAndState provides a mock function with given fields: ctx, ids, states, chainID
-func (_m *EvmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, ids, states, chainID)
 
 	if len(ret) == 0 {
@@ -681,10 +681,10 @@ func (_m *EvmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.C
 
 	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []big.Int, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, ids, states, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []big.Int, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, ids, states, chainID)
 	} else {
 		if ret.Get(0) != nil {
@@ -692,7 +692,7 @@ func (_m *EvmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.C
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []big.Int, []types.TxState, *big.Int) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []int64, []types.TxState, *big.Int) error); ok {
 		r1 = rf(ctx, ids, states, chainID)
 	} else {
 		r1 = ret.Error(1)

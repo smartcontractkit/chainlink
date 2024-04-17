@@ -1872,7 +1872,7 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 
 	t.Run("does not prune if queue has not exceeded capacity-1", func(t *testing.T) {
 		subject1 := uuid.New()
-		strategy1 := txmgrcommon.NewDropOldestStrategy(subject1, uint32(5), cfg.Database().DefaultQueryTimeout())
+		strategy1 := txmgrcommon.NewDropOldestStrategy(subject1, uint32(5))
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy1))
 		}
@@ -1881,12 +1881,35 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 
 	t.Run("prunes if queue has exceeded capacity-1", func(t *testing.T) {
 		subject2 := uuid.New()
-		strategy2 := txmgrcommon.NewDropOldestStrategy(subject2, uint32(3), cfg.Database().DefaultQueryTimeout())
+		strategy2 := txmgrcommon.NewDropOldestStrategy(subject2, uint32(3))
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy2))
 		}
 		AssertCountPerSubject(t, txStore, int64(2), subject2)
 	})
+}
+
+func TestORM_FindTxesWithAttemptsAndReceiptsByIdsAndState(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	txStore := cltest.NewTestTxStore(t, db)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ctx := testutils.Context(t)
+
+	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
+	r := newEthReceipt(4, utils.NewHash(), tx.TxAttempts[0].Hash, 0x1)
+	_, err := txStore.InsertReceipt(ctx, &r.Receipt)
+	require.NoError(t, err)
+
+	txes, err := txStore.FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx, []int64{tx.ID}, []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, testutils.FixtureChainID)
+	require.NoError(t, err)
+	require.Len(t, txes, 1)
+	require.Len(t, txes[0].TxAttempts, 1)
+	require.Len(t, txes[0].TxAttempts[0].Receipts, 1)
 }
 
 func AssertCountPerSubject(t *testing.T, txStore txmgr.TestEvmTxStore, expected int64, subject uuid.UUID) {

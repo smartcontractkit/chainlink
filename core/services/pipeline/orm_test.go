@@ -71,7 +71,7 @@ func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM, jorm job
 		db = pgtest.NewSqlxDB(t)
 	}
 	cfg := ormconfig{pgtest.NewQConfig(true)}
-	orm = pipeline.NewORM(db, logger.TestLogger(t), cfg, cfg.JobPipelineMaxSuccessfulRuns())
+	orm = pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipelineMaxSuccessfulRuns())
 	config := configtest.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
@@ -91,6 +91,7 @@ func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
 }
 
 func Test_PipelineORM_CreateSpec(t *testing.T) {
+	ctx := testutils.Context(t)
 	db, orm, _ := setupLiteORM(t)
 
 	var (
@@ -102,7 +103,7 @@ func Test_PipelineORM_CreateSpec(t *testing.T) {
 		Source: source,
 	}
 
-	id, err := orm.CreateSpec(p, maxTaskDuration)
+	id, err := orm.CreateSpec(ctx, nil, p, maxTaskDuration)
 	require.NoError(t, err)
 
 	actual := pipeline.Spec{}
@@ -121,7 +122,8 @@ func Test_PipelineORM_FindRun(t *testing.T) {
 	require.NoError(t, err)
 	expected := mustInsertPipelineRun(t, orm)
 
-	run, err := orm.FindRun(expected.ID)
+	ctx := testutils.Context(t)
+	run, err := orm.FindRun(ctx, expected.ID)
 	require.NoError(t, err)
 
 	require.Equal(t, expected.ID, run.ID)
@@ -138,12 +140,14 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM) pipeline.Run {
 		FinishedAt:  null.Time{},
 	}
 
-	require.NoError(t, orm.InsertRun(&run))
+	ctx := testutils.Context(t)
+	require.NoError(t, orm.InsertRun(ctx, &run))
 	return run
 }
 
 func mustInsertAsyncRun(t *testing.T, orm pipeline.ORM, jobORM job.ORM) *pipeline.Run {
 	t.Helper()
+	ctx := testutils.Context(t)
 
 	s := `
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -178,12 +182,13 @@ answer2 [type=bridge name=election_winner index=1];
 		CreatedAt:      time.Now(),
 	}
 
-	err = orm.CreateRun(run)
+	err = orm.CreateRun(ctx, run)
 	require.NoError(t, err)
 	return run
 }
 
 func TestInsertFinishedRuns(t *testing.T) {
+	ctx := testutils.Context(t)
 	db, orm, _ := setupLiteORM(t)
 
 	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
@@ -207,7 +212,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 			Outputs:        jsonserializable.JSONSerializable{},
 		}
 
-		require.NoError(t, orm.InsertRun(&r))
+		require.NoError(t, orm.InsertRun(ctx, &r))
 
 		r.PipelineTaskRuns = []pipeline.TaskRun{
 			{
@@ -238,12 +243,13 @@ func TestInsertFinishedRuns(t *testing.T) {
 		runs = append(runs, &r)
 	}
 
-	err = orm.InsertFinishedRuns(runs, true)
+	err = orm.InsertFinishedRuns(ctx, runs, true)
 	require.NoError(t, err)
 
 }
 
 func Test_PipelineORM_InsertFinishedRunWithSpec(t *testing.T) {
+	ctx := testutils.Context(t)
 	db, orm, jorm := setupLiteORM(t)
 
 	s := `
@@ -314,7 +320,7 @@ answer2 [type=bridge name=election_winner index=1];
 	run.AllErrors = append(run.AllErrors, null.NewString("", false))
 	run.State = pipeline.RunStatusCompleted
 
-	err = orm.InsertFinishedRunWithSpec(run, true)
+	err = orm.InsertFinishedRunWithSpec(ctx, run, true)
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
@@ -330,6 +336,7 @@ answer2 [type=bridge name=election_winner index=1];
 
 // Tests that inserting run results, then later updating the run results via upsert will work correctly.
 func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
+	ctx := testutils.Context(t)
 	_, orm, jorm := setupLiteORM(t)
 
 	run := mustInsertAsyncRun(t, orm, jorm)
@@ -357,14 +364,14 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err := orm.StoreRun(run)
+	restart, err := orm.StoreRun(ctx, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)
 	// the run is paused
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
-	r, err := orm.FindRun(run.ID)
+	r, err := orm.FindRun(ctx, run.ID)
 	require.NoError(t, err)
 	run = &r
 	// this is an incomplete run, so partial results should be present (regardless of saveSuccessfulTaskRuns)
@@ -388,14 +395,14 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err = orm.StoreRun(run)
+	restart, err = orm.StoreRun(ctx, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)
 	// the run is paused
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
-	r, err = orm.FindRun(run.ID)
+	r, err = orm.FindRun(ctx, run.ID)
 	require.NoError(t, err)
 	run = &r
 	// this is an incomplete run, so partial results should be present (regardless of saveSuccessfulTaskRuns)
@@ -409,11 +416,12 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 // Tests that trying to persist a partial run while new data became available (i.e. via /v2/restart)
 // will detect a restart and update the result data on the Run.
 func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
+	ctx := testutils.Context(t)
 	db, orm, jorm := setupLiteORM(t)
 
 	run := mustInsertAsyncRun(t, orm, jorm)
 
-	r, err := orm.FindRun(run.ID)
+	r, err := orm.FindRun(ctx, run.ID)
 	require.NoError(t, err)
 	require.Equal(t, run.Inputs, r.Inputs)
 
@@ -459,7 +467,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		},
 	}
 
-	restart, err := orm.StoreRun(run)
+	restart, err := orm.StoreRun(ctx, run)
 	require.NoError(t, err)
 	// new data available! immediately restart the run
 	require.Equal(t, true, restart)
@@ -474,6 +482,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 }
 
 func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
+	ctx := testutils.Context(t)
 	_, orm, jorm := setupLiteORM(t)
 
 	run := mustInsertAsyncRun(t, orm, jorm)
@@ -525,13 +534,13 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	require.Equal(t, pipeline.RunStatusRunning, run.State)
 
 	// Now store a partial run
-	restart, err := orm.StoreRun(run)
+	restart, err := orm.StoreRun(ctx, run)
 	require.NoError(t, err)
 	require.False(t, restart)
 	// assert that run should be in "paused" state
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
-	r, start, err := orm.UpdateTaskRunResult(ds1_id, pipeline.Result{Value: "foo"})
+	r, start, err := orm.UpdateTaskRunResult(ctx, ds1_id, pipeline.Result{Value: "foo"})
 	run = &r
 	require.NoError(t, err)
 	assert.Greater(t, run.ID, int64(0))
@@ -555,6 +564,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {
+	ctx := testutils.Context(t)
 	_, orm, jorm := setupLiteORM(t)
 
 	run := mustInsertAsyncRun(t, orm, jorm)
@@ -582,21 +592,22 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err := orm.StoreRun(run)
+	restart, err := orm.StoreRun(ctx, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)
 	// the run is paused
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
-	err = orm.DeleteRun(run.ID)
+	err = orm.DeleteRun(ctx, run.ID)
 	require.NoError(t, err)
 
-	_, err = orm.FindRun(run.ID)
+	_, err = orm.FindRun(ctx, run.ID)
 	require.Error(t, err, "not found")
 }
 
 func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
+	ctx := testutils.Context(t)
 	_, orm, jorm := setupHeavyORM(t)
 
 	var runsIds []int64
@@ -623,7 +634,7 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		run.Outputs = jsonserializable.JSONSerializable{Val: 1, Valid: true}
 		run.AllErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
 
-		restart, err := orm.StoreRun(run)
+		restart, err := orm.StoreRun(ctx, run)
 		assert.NoError(t, err)
 		// no new data, so we don't need a restart
 		assert.Equal(t, false, restart)
@@ -635,13 +646,14 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, runId := range runsIds {
-		_, err := orm.FindRun(runId)
+		_, err := orm.FindRun(ctx, runId)
 		require.Error(t, err, "not found")
 	}
 }
 
 func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	// The test configures single Keeper job with two running tasks.
 	// GetUnfinishedRuns() expects to catch both running tasks.
@@ -650,7 +662,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
-	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	porm := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db)
 
 	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr, config.Database())
@@ -684,7 +696,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	runID1 := uuid.New()
 	runID2 := uuid.New()
 
-	err = porm.CreateRun(&pipeline.Run{
+	err = porm.CreateRun(ctx, &pipeline.Run{
 		PipelineSpecID: keeperJob.PipelineSpecID,
 		PruningKey:     keeperJob.ID,
 		State:          pipeline.RunStatusRunning,
@@ -701,7 +713,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = porm.CreateRun(&pipeline.Run{
+	err = porm.CreateRun(ctx, &pipeline.Run{
 		PipelineSpecID: keeperJob.PipelineSpecID,
 		PruningKey:     keeperJob.ID,
 		State:          pipeline.RunStatusRunning,
@@ -744,6 +756,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 
 func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	// The test configures single DR job with two task runs: one is running and one is suspended.
 	// GetUnfinishedRuns() expects to catch the one that is running.
@@ -752,7 +765,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
-	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	porm := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db)
 
 	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr, config.Database())
@@ -784,7 +797,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 
 	runningID := uuid.New()
 
-	err = porm.CreateRun(&pipeline.Run{
+	err = porm.CreateRun(ctx, &pipeline.Run{
 		PipelineSpecID: drJob.PipelineSpecID,
 		PruningKey:     drJob.ID,
 		State:          pipeline.RunStatusRunning,
@@ -801,7 +814,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = porm.CreateRun(&pipeline.Run{
+	err = porm.CreateRun(ctx, &pipeline.Run{
 		PipelineSpecID: drJob.PipelineSpecID,
 		PruningKey:     drJob.ID,
 		State:          pipeline.RunStatusSuspended,
@@ -846,7 +859,7 @@ func Test_Prune(t *testing.T) {
 	})
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	db := pgtest.NewSqlxDB(t)
-	porm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	porm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	torm := newTestORM(porm, db)
 
 	ps1 := cltest.MustInsertPipelineSpec(t, db)
