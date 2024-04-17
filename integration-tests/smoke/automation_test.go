@@ -1126,13 +1126,19 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			// Upkeep should now start performing
 			l.Info().Msg("Waiting for 4m for all contracts to perform at least one upkeep after gas limit increase")
 			gom.Eventually(func(g gomega.Gomega) {
+				allPerformed := true
 				for i := 0; i < len(upkeepIDs); i++ {
 					cnt, err := consumersPerformance[i].GetUpkeepCount(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-					g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", int64(0)),
-						"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
-					)
+					l.Info().Int("Upkeep index", i).Int64("Upkeep counter", cnt.Int64()).Msg("Number of upkeeps performed")
+					if cnt.Int64() == 0 {
+						allPerformed = false
+					}
+					// g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", int64(0)),
+					// 	"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
+					// )
 				}
+				g.Expect(allPerformed).Should(gomega.BeTrue(), "All upkeeps should have performed at least once")
 			}, "4m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
