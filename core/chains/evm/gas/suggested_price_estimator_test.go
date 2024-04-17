@@ -33,7 +33,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "estimator is not started")
 	})
@@ -47,7 +47,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(42)
 		})
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
@@ -59,7 +59,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 
 		feeEstimatorClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -78,7 +78,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 
 		feeEstimatorClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -96,7 +96,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 
 		feeEstimatorClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(pkgerrors.New("kaboom"))
 
@@ -110,7 +110,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		_, err := o.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
@@ -119,7 +119,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), gasLimit, maxGasPrice, nil)
 		assert.EqualError(t, err, "estimator is not started")
 	})
@@ -128,7 +128,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		fee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(42),
 			TipCap: assets.NewWeiI(5),
@@ -146,7 +146,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(40)
 		})
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		})
 
 		testCfg := &gas.MockGasEstimatorConfig{BumpPercentF: 1, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1, LimitMultiplierF: 1}
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, testCfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, testCfg, l1Oracle)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
@@ -181,7 +181,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(5)
 		})
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
@@ -193,7 +193,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 
 		feeEstimatorClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -212,7 +212,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 
 		feeEstimatorClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -230,7 +230,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 
 		feeEstimatorClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(pkgerrors.New("kaboom"))
 
@@ -244,7 +244,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		feeEstimatorClient := mocks.NewFeeEstimatorClient(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, "", l1Oracle)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 
 		feeEstimatorClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)

@@ -6,7 +6,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -46,7 +45,7 @@ type fixedPriceEstimatorBlockHistoryConfig interface {
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, ethClient feeEstimatorClient, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger, chainType config.ChainType, l1Oracle rollups.L1Oracle) EvmEstimator {
+func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, ethClient feeEstimatorClient, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger, l1Oracle rollups.L1Oracle) EvmEstimator {
 	return &fixedPriceEstimator{cfg, bhCfg, logger.Sugared(logger.Named(lggr, "FixedPriceEstimator")), l1Oracle}
 }
 

@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2966,7 +2967,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
 	t.Run("doesn't process task runs that are not suspended (possibly already previously resumed)", func(t *testing.T) {
-		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(uuid.UUID, interface{}, error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(context.Context, uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -2985,7 +2986,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	})
 
 	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
-		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(uuid.UUID, interface{}, error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(context.Context, uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -3006,7 +3007,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		ch := make(chan interface{})
 		nonce := evmtypes.Nonce(3)
 		var err error
-		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(ctx context.Context, id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
 			ch <- value
 			return nil
@@ -3059,7 +3060,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		}
 		ch := make(chan data)
 		nonce := evmtypes.Nonce(4)
-		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, err error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(ctx context.Context, id uuid.UUID, value interface{}, err error) error {
 			ch <- data{value, err}
 			return nil
 		})
@@ -3106,7 +3107,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	t.Run("does not mark callback complete if callback fails", func(t *testing.T) {
 		nonce := evmtypes.Nonce(5)
-		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(uuid.UUID, interface{}, error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(context.Context, uuid.UUID, interface{}, error) error {
 			return errors.New("error")
 		})
 
@@ -3133,7 +3134,7 @@ func newEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Cl
 	lggr := logger.Test(t)
 	ge := config.EVM().GasEstimator()
 	estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
-		return gas.NewFixedPriceEstimator(ge, nil, ge.BlockHistory(), lggr, "", nil)
+		return gas.NewFixedPriceEstimator(ge, nil, ge.BlockHistory(), lggr, nil)
 	}, ge.EIP1559DynamicFees(), ge)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ks, txBuilder, lggr)

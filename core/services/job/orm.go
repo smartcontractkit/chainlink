@@ -456,7 +456,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
 
-		pipelineSpecID, err := o.pipelineORM.CreateSpec(p, jb.MaxTaskDuration, pg.WithQueryer(tx))
+		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, p, jb.MaxTaskDuration)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}

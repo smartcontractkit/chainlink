@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -58,7 +57,7 @@ type SuggestedPriceEstimator struct {
 }
 
 // NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
-func NewSuggestedPriceEstimator(lggr logger.Logger, client feeEstimatorClient, cfg suggestedPriceConfig, chainType config.ChainType, l1Oracle rollups.L1Oracle) EvmEstimator {
+func NewSuggestedPriceEstimator(lggr logger.Logger, client feeEstimatorClient, cfg suggestedPriceConfig, l1Oracle rollups.L1Oracle) EvmEstimator {
 	return &SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,

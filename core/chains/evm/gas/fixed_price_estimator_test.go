@@ -29,7 +29,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config := &gas.MockGasEstimatorConfig{}
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), "", l1Oracle)
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), l1Oracle)
 
 		config.PriceDefaultF = assets.NewWeiI(42)
 		config.PriceMaxF = maxGasPrice
@@ -46,7 +46,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.PriceMaxF = assets.NewWeiI(35)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), "", l1Oracle)
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), l1Oracle)
 
 		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
@@ -60,7 +60,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.PriceMaxF = assets.NewWeiI(20)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
-		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), "", l1Oracle)
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), l1Oracle)
 		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
 		assert.Equal(t, 100000, int(gasLimit))
@@ -76,7 +76,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		lggr := logger.TestSugared(t)
-		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, "", l1Oracle)
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, l1Oracle)
 
 		gasPrice, gasLimit, err := f.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 		require.NoError(t, err)
@@ -97,7 +97,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		lggr := logger.Test(t)
-		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, "", l1Oracle)
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, l1Oracle)
 
 		fee, err := f.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		require.NoError(t, err)
@@ -131,7 +131,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		lggr := logger.TestSugared(t)
-		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, "", l1Oracle)
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, l1Oracle)
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
 		fee, err := f.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, nil)

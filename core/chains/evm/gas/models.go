@@ -76,9 +76,12 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 	)
 	df := geCfg.EIP1559DynamicFees()
 
+	// create l1Oracle only if it is supported for the chain
+	var l1Oracle rollups.L1Oracle
+	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
+		l1Oracle = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+	}
 	var newEstimator func(logger.Logger) EvmEstimator
-	l1Oracle := rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
-
 	switch s {
 	case "Arbitrum":
 		newEstimator = func(l logger.Logger) EvmEstimator {
@@ -90,16 +93,16 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		}
 	case "FixedPrice":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, cfg.ChainType(), l1Oracle)
+			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, l1Oracle)
 		}
 	case "L2Suggested", "SuggestedPrice":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewSuggestedPriceEstimator(lggr, ethClient, geCfg, cfg.ChainType(), l1Oracle)
+			return NewSuggestedPriceEstimator(lggr, ethClient, geCfg, l1Oracle)
 		}
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, cfg.ChainType(), l1Oracle)
+			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, l1Oracle)
 		}
 	}
 	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg)

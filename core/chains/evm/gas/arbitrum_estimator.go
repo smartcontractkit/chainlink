@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
@@ -52,7 +51,7 @@ func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, ethClient feeEstima
 
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		EvmEstimator:   NewSuggestedPriceEstimator(lggr, ethClient, cfg, config.ChainArbitrum, l1Oracle),
+		EvmEstimator:   NewSuggestedPriceEstimator(lggr, ethClient, cfg, l1Oracle),
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
 		chForceRefetch: make(chan (chan struct{})),
