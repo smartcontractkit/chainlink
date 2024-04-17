@@ -986,7 +986,7 @@ func GetChainClientWithConfigFunction(config tc.SethConfig, network blockchain.E
 	return chainClient, nil
 }
 
-func GetReportStalenessData(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpeeps, succesfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
+func GetReportStalenessData(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpkeeps, succesfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
 	registryLogs := []gethtypes.Log{}
 	l := logging.GetTestLogger(t)
 
@@ -1047,7 +1047,7 @@ func GetReportStalenessData(t *testing.T, chainClient *seth.Client, startBlock, 
 			break
 		}
 		if eventDetails.Name == "UpkeepPerformed" {
-			performedUpeeps++
+			performedUpkeeps++
 			var parsedLog *contracts.UpkeepPerformedLog
 			parsedLog, err = instance.ParseUpkeepPerformedLog(&log)
 			if err != nil {

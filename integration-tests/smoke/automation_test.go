@@ -150,6 +150,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 						l.Error().Msg("Error when setting upkeep privilege config")
 						return
 					}
+					l.Info().Int("Upkeep index", i).Msg("Upkeep privilege config set")
 				}
 
 				if isLogTrigger || isMercuryV02 {
@@ -157,6 +158,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 						l.Error().Msg("Error when starting consumer")
 						return
 					}
+					l.Info().Int("Consumer index", i).Msg("Consumer started")
 				}
 			}
 
@@ -172,9 +174,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 					require.NoError(t, err, "Failed to get staleness data")
 					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					} else {
-						l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					}
 				}
 			})
@@ -182,14 +184,19 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			// TODO Tune this timeout window after stress testing
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters
+				allPerformed := true
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(testcontext.Get(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
 					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
-					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
-						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+					if counter.Int64() < int64(expect) {
+						allPerformed = false
+					}
+					// g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+					// 	"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
+				g.Expect(allPerformed).Should(gomega.BeTrue(), "Expected all upkeeps to be performed at least 5 times")
 			}, "10m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
@@ -298,9 +305,9 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 				total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 				require.NoError(t, err, "Failed to get staleness data")
 				if stale > 0 || reverted > 0 {
-					l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 				} else {
-					l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 				}
 			}
 
@@ -483,9 +490,9 @@ func TestAutomationAddFunds(t *testing.T) {
 					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 					require.NoError(t, err, "Failed to get staleness data")
 					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					} else {
-						l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					}
 				}
 			})
@@ -573,9 +580,9 @@ func TestAutomationPauseUnPause(t *testing.T) {
 					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 					require.NoError(t, err, "Failed to get staleness data")
 					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					} else {
-						l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					}
 				}
 			})
@@ -683,9 +690,9 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 					require.NoError(t, err, "Failed to get staleness data")
 					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					} else {
-						l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					}
 				}
 			})
@@ -790,9 +797,9 @@ func TestAutomationPauseRegistry(t *testing.T) {
 					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 					require.NoError(t, err, "Failed to get staleness data")
 					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					} else {
-						l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					}
 				}
 			})
@@ -880,9 +887,9 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 					require.NoError(t, err, "Failed to get staleness data")
 					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					} else {
-						l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					}
 				}
 			})
@@ -1000,9 +1007,9 @@ func TestAutomationPerformSimulation(t *testing.T) {
 					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 					require.NoError(t, err, "Failed to get staleness data")
 					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					} else {
-						l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					}
 				}
 			})
@@ -1084,9 +1091,9 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 					require.NoError(t, err, "Failed to get staleness data")
 					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					} else {
-						l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					}
 				}
 			})
@@ -1248,9 +1255,9 @@ func TestUpdateCheckData(t *testing.T) {
 					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, a.ChainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), a.Registry, registryVersion)
 					require.NoError(t, err, "Failed to get staleness data")
 					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					} else {
-						l.Info().Int("Total upeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
 					}
 				}
 			})
