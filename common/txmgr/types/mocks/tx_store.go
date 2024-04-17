@@ -551,7 +551,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPen
 }
 
 // FindTxesWithAttemptsAndReceiptsByIdsAndState provides a mock function with given fields: ctx, ids, states, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []txmgrtypes.TxState, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ret := _m.Called(ctx, ids, states, chainID)
 
 	if len(ret) == 0 {
@@ -560,10 +560,10 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWit
 
 	var r0 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []big.Int, []txmgrtypes.TxState, *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, []txmgrtypes.TxState, *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
 		return rf(ctx, ids, states, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []big.Int, []txmgrtypes.TxState, *big.Int) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, []txmgrtypes.TxState, *big.Int) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
 		r0 = rf(ctx, ids, states, chainID)
 	} else {
 		if ret.Get(0) != nil {
@@ -571,7 +571,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWit
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []big.Int, []txmgrtypes.TxState, *big.Int) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []int64, []txmgrtypes.TxState, *big.Int) error); ok {
 		r1 = rf(ctx, ids, states, chainID)
 	} else {
 		r1 = ret.Error(1)
