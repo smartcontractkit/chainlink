@@ -1,7 +1,6 @@
 package test_env
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -257,24 +256,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	switch b.cleanUpType {
 	case CleanUpTypeStandard:
 		b.t.Cleanup(func() {
-			// Save test coverage profile from node containers
-			baseCoverageDir := os.Getenv("GO_COVERAGE_DIR")
-			if baseCoverageDir != "" {
-				testCoverageDir := fmt.Sprintf("%s/%s", baseCoverageDir, b.t.Name())
-				b.l.Info().Str("testCoverageDir", testCoverageDir).Msg("Saving coverage files for chainlink nodes")
-				if err := os.MkdirAll(testCoverageDir, 0755); err != nil {
-					b.l.Error().Err(err).Str("coverageDir", testCoverageDir).Msg("Failed to create test coverage directory")
-				}
-				err = b.te.ClCluster.CopyFolderFromNodes(context.Background(), "/var/tmp/go-coverage", testCoverageDir)
-				if err != nil {
-					b.l.Error().Err(err).Msg("Failed to copy test coverage files from nodes")
-				} else {
-					b.l.Info().Str("coverageDir", testCoverageDir).Msg("Chainlink node coverage files saved")
-				}
-			}
-
 			// Cleanup test environment
-			if err := b.te.Cleanup(); err != nil {
+			if err := b.te.Cleanup(CleanupOpts{TestName: b.t.Name()}); err != nil {
 				b.l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		})

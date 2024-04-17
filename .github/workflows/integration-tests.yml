@@ -372,7 +372,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1877ccce17d03bd8cb3a0644df598833d5e5470f
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@be4b0f4b2e3bb5f9e56255f19e5a4809c515f954
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -385,7 +385,8 @@ jobs:
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
-          go_coverage_dir: ${{ github.workspace }}/integration-tests/go-coverage
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: ${{ github.workspace }}/integration-tests/go-coverage
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -672,7 +673,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1877ccce17d03bd8cb3a0644df598833d5e5470f
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@be4b0f4b2e3bb5f9e56255f19e5a4809c515f954
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -onlyerrors=false
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -686,7 +687,8 @@ jobs:
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
-          go_coverage_dir: ${{ github.workspace }}/integration-tests/go-coverage
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: ${{ github.workspace }}/integration-tests/go-coverage
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}

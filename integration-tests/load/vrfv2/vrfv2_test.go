@@ -88,7 +88,7 @@ func TestVRFV2Performance(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -226,7 +226,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}

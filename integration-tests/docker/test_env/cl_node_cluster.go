@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -36,6 +37,25 @@ func (c *ClCluster) Start() error {
 		nodeIndex := i
 		eg.Go(func() error {
 			err := nodes[nodeIndex].StartContainer()
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+
+	return eg.Wait()
+}
+
+func (c *ClCluster) Stop() error {
+	eg := &errgroup.Group{}
+	nodes := c.Nodes
+	timeout := time.Minute * 1
+
+	for i := 0; i < len(nodes); i++ {
+		nodeIndex := i
+		eg.Go(func() error {
+			err := nodes[nodeIndex].Container.Stop(context.Background(), &timeout)
 			if err != nil {
 				return err
 			}
@@ -93,14 +113,7 @@ func (c *ClCluster) CopyFolderFromNodes(ctx context.Context, srcPath, destPath s
 				errors <- fmt.Errorf("failed to create directory for node %d: %w", id, err)
 				return
 			}
-			covFiles, err := lsFilesInContainer(ctx, n.Container, srcPath)
-			if err != nil {
-				errors <- fmt.Errorf("failed to list files in container for node %d: %w", id, err)
-				return
-			}
-			fmt.Printf("Coverage files for chainlink node: %v\n", covFiles)
-
-			err = copyFolderFromContainerUsingDockerCP(ctx, n.Container.GetContainerID(), srcPath, finalDestPath)
+			err := copyFolderFromContainerUsingDockerCP(ctx, n.Container.GetContainerID(), srcPath, finalDestPath)
 			if err != nil {
 				errors <- fmt.Errorf("failed to copy folder for node %d: %w", id, err)
 				return
@@ -135,8 +148,7 @@ func lsFilesInContainer(ctx context.Context, container tc.Container, srcPath str
 	if outputCode != 0 {
 		return nil, fmt.Errorf("failed to list files in container. Command exited with code: %d. Output: %s", outputCode, output)
 	}
-	outStr := string(output)
-	files := strings.Split(outStr, "\n")
+	files := strings.Split(string(output), "\n")
 
 	return files, nil
 }

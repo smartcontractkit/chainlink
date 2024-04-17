@@ -75,7 +75,7 @@ WORKDIR /home/${CHAINLINK_USER}
 ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
-# Set up coverage dir env variable
+# Set up go coverage dir
 ENV GOCOVERDIR="/var/tmp/go-coverage"
 RUN mkdir -p "/var/tmp/go-coverage"
 

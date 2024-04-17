@@ -63,7 +63,7 @@ func TestVRFv2Plus(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -693,7 +693,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -800,7 +800,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1223,7 +1223,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1456,7 +1456,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1610,7 +1610,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1807,7 +1807,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}

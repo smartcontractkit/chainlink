@@ -61,7 +61,7 @@ func TestVRFv2Basic(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -554,7 +554,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -662,7 +662,7 @@ func TestVRFOwner(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -805,7 +805,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}

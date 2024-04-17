@@ -1,9 +1,11 @@
 package test_env
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -197,8 +199,12 @@ func (te *CLClusterTestEnv) Terminate() error {
 	return nil
 }
 
+type CleanupOpts struct {
+	TestName string
+}
+
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
-func (te *CLClusterTestEnv) Cleanup() error {
+func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	te.l.Info().Msg("Cleaning up test environment")
 
 	runIdErr := runid.RemoveLocalRunId()
@@ -235,6 +241,28 @@ func (te *CLClusterTestEnv) Cleanup() error {
 
 	for _, sethClient := range te.sethClients {
 		sethClient.Client.Close()
+	}
+
+	covSrcDir := os.Getenv("GO_COVERAGE_SRC_DIR")
+	covDestDir := os.Getenv("GO_COVERAGE_DEST_DIR")
+	shouldCheckCoverage := covSrcDir != "" && covDestDir != ""
+
+	if shouldCheckCoverage {
+		// Stop all nodes in the chainlink cluster.
+		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
+		err := te.ClCluster.Stop()
+		if err != nil {
+			return err
+		}
+
+		// Get go coverage profiles from node containers and save them to a local folder
+		finalCovDestDir := fmt.Sprintf("%s/%s", covDestDir, opts.TestName)
+		err = te.ClCluster.CopyFolderFromNodes(context.Background(), covSrcDir, finalCovDestDir)
+		if err != nil {
+			te.l.Error().Err(err).Str("srcDir", covSrcDir).Str("destDir", finalCovDestDir).Msg("Failed to copy test coverage files from nodes")
+		} else {
+			te.l.Info().Str("srcDir", covSrcDir).Str("destDir", finalCovDestDir).Msg("Chainlink node coverage files saved")
+		}
 	}
 
 	return nil
