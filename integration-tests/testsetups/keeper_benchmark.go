@@ -37,12 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
-	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 // KeeperBenchmarkTest builds a test to check that chainlink nodes are able to upkeep a specified amount of Upkeep
@@ -702,26 +696,7 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents() {
 
 // contractABI returns the ABI of the proper keeper registry contract
 func (k *KeeperBenchmarkTest) contractABI(rIndex int) *abi.ABI {
-	var (
-		contractABI *abi.ABI
-		err         error
-	)
-	switch k.Inputs.RegistryVersions[rIndex] {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
-		contractABI, err = keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_1_2:
-		contractABI, err = keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_1_3:
-		contractABI, err = keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_2_0:
-		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_2_1:
-		contractABI, err = iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
-	case ethereum.RegistryVersion_2_2:
-		contractABI, err = iregistry22.IAutomationRegistryMasterMetaData.GetAbi()
-	default:
-		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
-	}
+	contractABI, err := contracts.GetRegistryContractABI(k.Inputs.RegistryVersions[rIndex])
 	require.NoError(k.t, err, "Getting contract ABI shouldn't fail")
 	return contractABI
 }

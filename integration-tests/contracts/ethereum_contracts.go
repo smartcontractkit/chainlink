@@ -21,6 +21,7 @@ import (
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	contractsethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
@@ -34,9 +35,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
@@ -2516,4 +2523,29 @@ func V1OffChainAgrregatorToOffChainAggregatorWithRounds(contracts []OffchainAggr
 	}
 
 	return contractsAsInterface
+}
+
+func GetRegistryContractABI(version contractsethereum.KeeperRegistryVersion) (*abi.ABI, error) {
+	var (
+		contractABI *abi.ABI
+		err         error
+	)
+	switch version {
+	case contractsethereum.RegistryVersion_1_0, contractsethereum.RegistryVersion_1_1:
+		contractABI, err = keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
+	case contractsethereum.RegistryVersion_1_2:
+		contractABI, err = keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
+	case contractsethereum.RegistryVersion_1_3:
+		contractABI, err = keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
+	case contractsethereum.RegistryVersion_2_0:
+		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
+	case contractsethereum.RegistryVersion_2_1:
+		contractABI, err = iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
+	case contractsethereum.RegistryVersion_2_2:
+		contractABI, err = iregistry22.IAutomationRegistryMasterMetaData.GetAbi()
+	default:
+		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
+	}
+
+	return contractABI, err
 }
