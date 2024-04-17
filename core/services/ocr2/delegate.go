@@ -27,6 +27,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
@@ -109,7 +110,8 @@ type RelayGetter interface {
 	Get(id relay.ID) (loop.Relayer, error)
 }
 type Delegate struct {
-	db                    *sqlx.DB
+	db                    *sqlx.DB // legacy: prefer to use ds instead
+	ds                    sqlutil.DataSource
 	jobORM                job.ORM
 	bridgeORM             bridges.ORM
 	mercuryORM            evmmercury.ORM
@@ -223,6 +225,7 @@ var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
 	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	jobORM job.ORM,
 	bridgeORM bridges.ORM,
 	mercuryORM evmmercury.ORM,
@@ -243,6 +246,7 @@ func NewDelegate(
 ) *Delegate {
 	return &Delegate{
 		db:                    db,
+		ds:                    ds,
 		jobORM:                jobORM,
 		bridgeORM:             bridgeORM,
 		mercuryORM:            mercuryORM,
@@ -1669,8 +1673,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		Job:               jb,
 		JobORM:            d.jobORM,
 		BridgeORM:         d.bridgeORM,
-		QConfig:           d.cfg.Database(),
-		DB:                d.db,
+		DS:                d.ds,
 		Chain:             chain,
 		ContractID:        spec.ContractID,
 		Logger:            lggr,
