@@ -35,7 +35,6 @@ jobs:
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 
   ci-kubeconform:
-    needs: add-helm-repos
     runs-on: ubuntu-latest
     steps:
       - name: Setup yq
