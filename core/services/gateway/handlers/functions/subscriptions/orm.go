@@ -1,6 +1,7 @@
 package subscriptions
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -8,21 +9,19 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 type ORM interface {
-	GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]StoredSubscription, error)
-	UpsertSubscription(subscription StoredSubscription, qopts ...pg.QOpt) error
+	GetSubscriptions(ctx context.Context, offset, limit uint) ([]StoredSubscription, error)
+	UpsertSubscription(ctx context.Context, subscription StoredSubscription) error
 }
 
 type orm struct {
-	q                     pg.Q
+	ds                    sqlutil.DataSource
 	lggr                  logger.Logger
 	routerContractAddress common.Address
 }
@@ -47,19 +46,19 @@ type storedSubscriptionRow struct {
 	RouterContractAddress common.Address
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, routerContractAddress common.Address) (ORM, error) {
-	if db == nil || cfg == nil || lggr == nil || routerContractAddress == (common.Address{}) {
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger, routerContractAddress common.Address) (ORM, error) {
+	if ds == nil || lggr == nil || routerContractAddress == (common.Address{}) {
 		return nil, ErrInvalidParameters
 	}
 
 	return &orm{
-		q:                     pg.NewQ(db, lggr, cfg),
+		ds:                    ds,
 		lggr:                  lggr,
 		routerContractAddress: routerContractAddress,
 	}, nil
 }
 
-func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]StoredSubscription, error) {
+func (o *orm) GetSubscriptions(ctx context.Context, offset, limit uint) ([]StoredSubscription, error) {
 	var storedSubscriptions []StoredSubscription
 	var storedSubscriptionRows []storedSubscriptionRow
 	stmt := fmt.Sprintf(`
@@ -70,7 +69,7 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]StoredSu
 		OFFSET $2
 		LIMIT $3;
 	`, tableName)
-	err := o.q.WithOpts(qopts...).Select(&storedSubscriptionRows, stmt, o.routerContractAddress, offset, limit)
+	err := o.ds.SelectContext(ctx, &storedSubscriptionRows, stmt, o.routerContractAddress, offset, limit)
 	if err != nil {
 		return storedSubscriptions, err
 	}
@@ -84,7 +83,7 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]StoredSu
 
 // UpsertSubscription will update if a subscription exists or create if it does not.
 // In case a subscription gets deleted we will update it with an owner address equal to 0x0.
-func (o *orm) UpsertSubscription(subscription StoredSubscription, qopts ...pg.QOpt) error {
+func (o *orm) UpsertSubscription(ctx context.Context, subscription StoredSubscription) error {
 	stmt := fmt.Sprintf(`
 		INSERT INTO %s (subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (subscription_id, router_contract_address) DO UPDATE
@@ -103,7 +102,8 @@ func (o *orm) UpsertSubscription(subscription StoredSubscription, qopts ...pg.QO
 		consumers = append(consumers, c.Bytes())
 	}
 
-	_, err := o.q.WithOpts(qopts...).Exec(
+	_, err := o.ds.ExecContext(
+		ctx,
 		stmt,
 		subscription.SubscriptionID,
 		subscription.Owner,

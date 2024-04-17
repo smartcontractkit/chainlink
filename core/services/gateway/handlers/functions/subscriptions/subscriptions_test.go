@@ -51,8 +51,8 @@ func TestSubscriptions_OnePass(t *testing.T) {
 		UpdateRangeSize:    3,
 	}
 	orm := smocks.NewORM(t)
-	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]subscriptions.StoredSubscription{}, nil)
-	orm.On("UpsertSubscription", mock.Anything).Return(nil)
+	orm.On("GetSubscriptions", mock.Anything, uint(0), uint(100)).Return([]subscriptions.StoredSubscription{}, nil)
+	orm.On("UpsertSubscription", mock.Anything, mock.Anything).Return(nil)
 	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -102,8 +102,8 @@ func TestSubscriptions_MultiPass(t *testing.T) {
 		UpdateRangeSize:    3,
 	}
 	orm := smocks.NewORM(t)
-	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]subscriptions.StoredSubscription{}, nil)
-	orm.On("UpsertSubscription", mock.Anything).Return(nil)
+	orm.On("GetSubscriptions", mock.Anything, uint(0), uint(100)).Return([]subscriptions.StoredSubscription{}, nil)
+	orm.On("UpsertSubscription", mock.Anything, mock.Anything).Return(nil)
 	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -144,7 +144,7 @@ func TestSubscriptions_Stored(t *testing.T) {
 
 	expectedBalance := big.NewInt(5)
 	orm := smocks.NewORM(t)
-	orm.On("GetSubscriptions", uint(0), uint(1)).Return([]subscriptions.StoredSubscription{
+	orm.On("GetSubscriptions", mock.Anything, uint(0), uint(1)).Return([]subscriptions.StoredSubscription{
 		{
 			SubscriptionID: 1,
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
@@ -154,8 +154,8 @@ func TestSubscriptions_Stored(t *testing.T) {
 			},
 		},
 	}, nil)
-	orm.On("GetSubscriptions", uint(1), uint(1)).Return([]subscriptions.StoredSubscription{}, nil)
-	orm.On("UpsertSubscription", mock.Anything).Return(nil)
+	orm.On("GetSubscriptions", mock.Anything, uint(1), uint(1)).Return([]subscriptions.StoredSubscription{}, nil)
+	orm.On("UpsertSubscription", mock.Anything, mock.Anything).Return(nil)
 
 	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
