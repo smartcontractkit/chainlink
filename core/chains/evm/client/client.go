@@ -376,5 +376,5 @@ func (client *client) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, e
 }
 
 func (client *client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
-	return NewSendError(pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives"), nil)
+	return NewSendError(pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives"))
 }

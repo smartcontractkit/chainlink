@@ -19,7 +19,7 @@ type simulatorClient interface {
 // Used as an entry point in case custom simulation is required across different chains
 func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, chainType config.ChainType, msg ethereum.CallMsg) *SendError {
 	err := simulateTransactionDefault(ctx, client, msg)
-	return NewSendError(err, nil)
+	return NewSendError(err)
 }
 
 // eth_estimateGas returns out-of-counters (OOC) error if the transaction would result in an overflow
