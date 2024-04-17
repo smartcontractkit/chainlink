@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
@@ -64,7 +65,6 @@ type KeeperBenchmarkTest struct {
 	chainlinkNodes []*client.ChainlinkK8sClient
 	chainClient    *seth.Client
 	testConfig     tt.KeeperBenchmarkTestConfig
-	// contractDeployer contracts.ContractDeployer
 
 	linkToken contracts.LinkToken
 	ethFeed   contracts.MockETHLINKFeed
@@ -259,7 +259,7 @@ func (k *KeeperBenchmarkTest) Run() {
 		}
 	}
 
-	type roundObservationData struct {
+	type roundsObservationData struct {
 		instance                contracts.AutomationConsumerBenchmark
 		registry                contracts.KeeperRegistry
 		metricsReporter         *testreporters.KeeperBenchmarkTestReporter
@@ -279,7 +279,7 @@ func (k *KeeperBenchmarkTest) Run() {
 	}
 
 	// observeRunds queries the upkpeep contract for the upkeep count and checks if the upkeep is eligible
-	var observeRunds = func(r *roundObservationData) (bool, error) {
+	var observeRunds = func(r *roundsObservationData) (bool, error) {
 		lastBlock, err := k.chainClient.Client.BlockNumber(context.Background())
 		if err != nil {
 			return false, err
@@ -305,7 +305,7 @@ func (k *KeeperBenchmarkTest) Run() {
 		}
 
 		if upkeepCount == nil {
-			return false, errors.New("upkeep count is nil")
+			return false, fmt.Errorf("upkeep count returned by upkeepID %s was nil", r.upkeepID.String())
 		}
 
 		if int(upkeepCount.Int64()) > r.upkeepCount {
@@ -340,7 +340,7 @@ func (k *KeeperBenchmarkTest) Run() {
 
 		isEligible, err := r.instance.CheckEligible(context.Background(), big.NewInt(r.upkeepIndex), big.NewInt(r.blockRange), big.NewInt(r.firstEligibleBuffer))
 		if err != nil {
-			return false, err
+			return false, pkgerrors.Wrapf(err, "failed to check upkeep eligibility for upkeepID %s", r.upkeepID.String())
 		}
 
 		if isEligible {
@@ -433,7 +433,7 @@ func (k *KeeperBenchmarkTest) Run() {
 			upkeepIDtoUse := upkeepID
 
 			errgroup.Go(func() error {
-				roundObserver := roundObservationData{
+				roundObserver := roundsObservationData{
 					instance:            k.keeperConsumerContracts[registryIndex],
 					registry:            k.keeperRegistries[registryIndex],
 					upkeepID:            upkeepIDtoUse,

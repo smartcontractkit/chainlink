@@ -239,6 +239,8 @@ func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, logE
 	defer wg.Done()
 
 	var executionGroup sync.WaitGroup
+
+	// Atomic counter is used to keep track of the number of logs emitted
 	var atomicCounter = atomic.Int32{}
 
 	for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
