@@ -310,10 +310,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(sqlxDB)
-		mercuryORM     = mercury.NewORM(sqlxDB, globalLogger, cfg.Database())
+		mercuryORM     = mercury.NewORM(opts.DB)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(sqlxDB, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(sqlxDB, globalLogger)
+		txmORM         = txmgr.NewTxStore(opts.DB, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 

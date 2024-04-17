@@ -97,3 +97,5 @@ override*.toml
 
 # Pythin venv
 .venv/
+
+ocr_soak_report.csv
