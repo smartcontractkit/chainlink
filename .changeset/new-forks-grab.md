@@ -2,4 +2,4 @@
 "chainlink": removed
 ---
 
-Drop unused queryTimeout config from TXM strategy
+Drop unused queryTimeout config from TXM strategy #internal
