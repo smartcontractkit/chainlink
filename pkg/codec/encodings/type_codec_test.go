@@ -26,8 +26,22 @@ import (
 func TestCodecFromTypeCodecs(t *testing.T) {
 	t.Parallel()
 	biit := &bigEndianInterfaceTester{}
+	lbiit := &bigEndianInterfaceTester{lenient: true}
 	RunCodecWithStrictArgsInterfaceTest(t, biit)
 	RunCodecWithStrictArgsInterfaceTest(t, testutils.WrapCodecTesterForLoop(biit))
+	RunCodecInterfaceTests(t, lbiit)
+
+	t.Run("Lenient encoding allows extra bits", func(t *testing.T) {
+		ts := CreateTestStruct(0, lbiit)
+		c := lbiit.GetCodec(t)
+		encoded, err := c.Encode(tests.Context(t), ts, TestItemType)
+		require.NoError(t, err)
+		encoded = append(encoded, 0x00, 0x01, 0x02, 0x03, 0x04)
+		actual := &TestStruct{}
+		require.NoError(t, c.Decode(tests.Context(t), encoded, actual, TestItemType))
+		assert.Equal(t, ts, *actual)
+	})
+
 	t.Run("GetMaxEncodingSize delegates to Size", func(t *testing.T) {
 		testCodec := &encodingtestutils.TestTypeCodec{
 			Value: []int{55, 11},
@@ -120,6 +134,7 @@ func (*interfaceTesterBase) GetAccountBytes(i int) []byte {
 
 type bigEndianInterfaceTester struct {
 	interfaceTesterBase
+	lenient bool
 }
 
 func (b *bigEndianInterfaceTester) Name() string {
@@ -235,7 +250,7 @@ func (b *bigEndianInterfaceTester) GetCodec(t *testing.T) types.Codec {
 
 	ts := CreateTestStruct(0, b)
 
-	c := &encodings.CodecFromTypeCodec{
+	tc := &encodings.CodecFromTypeCodec{
 		TestItemType:            testStruct,
 		TestItemSliceType:       slice,
 		TestItemArray1Type:      arr1,
@@ -243,7 +258,13 @@ func (b *bigEndianInterfaceTester) GetCodec(t *testing.T) types.Codec {
 		TestItemWithConfigExtra: testStruct,
 		NilType:                 encodings.Empty{},
 	}
+
 	require.NoError(t, err)
+
+	var c types.RemoteCodec = tc
+	if b.lenient {
+		c = (*encodings.LenientCodecFromTypeCodec)(tc)
+	}
 
 	mod, err := codec.NewHardCoder(map[string]any{
 		"BigField": ts.BigField.String(),

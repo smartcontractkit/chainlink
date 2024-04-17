@@ -34,10 +34,15 @@ type TopLevelCodec interface {
 }
 
 // CodecFromTypeCodec maps TypeCodec to types.RemoteCodec, using the key as the itemType
-// If the TypeCodec is a TopLevelCodec, GetMaxEncodingSize and GetMaxDecodingSize will call SizeAtTopLevel instead of SIze.
+// If the TypeCodec is a TopLevelCodec, GetMaxEncodingSize and GetMaxDecodingSize will call SizeAtTopLevel instead of Size.
 type CodecFromTypeCodec map[string]TypeCodec
 
 var _ types.RemoteCodec = &CodecFromTypeCodec{}
+
+// LenientCodecFromTypeCodec works like CodecFromTypeCodec but allows for extra bits at the end
+type LenientCodecFromTypeCodec map[string]TypeCodec
+
+var _ types.RemoteCodec = &LenientCodecFromTypeCodec{}
 
 func (c CodecFromTypeCodec) CreateType(itemType string, _ bool) (any, error) {
 	ntcwt, ok := c[itemType]
@@ -93,6 +98,30 @@ func (c CodecFromTypeCodec) GetMaxEncodingSize(_ context.Context, n int, itemTyp
 }
 
 func (c CodecFromTypeCodec) Decode(_ context.Context, raw []byte, into any, itemType string) error {
+	return decode(c, raw, into, itemType, true)
+}
+
+func (c LenientCodecFromTypeCodec) CreateType(itemType string, forEncoding bool) (any, error) {
+	return (CodecFromTypeCodec)(c).CreateType(itemType, forEncoding)
+}
+
+func (c LenientCodecFromTypeCodec) Encode(ctx context.Context, item any, itemType string) ([]byte, error) {
+	return (CodecFromTypeCodec)(c).Encode(ctx, item, itemType)
+}
+
+func (c LenientCodecFromTypeCodec) GetMaxEncodingSize(ctx context.Context, n int, itemType string) (int, error) {
+	return (CodecFromTypeCodec)(c).GetMaxEncodingSize(ctx, n, itemType)
+}
+
+func (c LenientCodecFromTypeCodec) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
+	return c.GetMaxEncodingSize(ctx, n, itemType)
+}
+
+func (c LenientCodecFromTypeCodec) Decode(ctx context.Context, raw []byte, into any, itemType string) error {
+	return decode(c, raw, into, itemType, false)
+}
+
+func decode(c map[string]TypeCodec, raw []byte, into any, itemType string, exactSize bool) error {
 	ntcwt, ok := c[itemType]
 	if !ok {
 		return fmt.Errorf("%w: cannot find type %s", types.ErrInvalidType, itemType)
@@ -102,15 +131,11 @@ func (c CodecFromTypeCodec) Decode(_ context.Context, raw []byte, into any, item
 		return err
 	}
 
-	if len(remaining) != 0 {
+	if exactSize && len(remaining) != 0 {
 		return fmt.Errorf("%w: remaining bytes after decoding %s", types.ErrInvalidEncoding, itemType)
 	}
 
-	if err = codec.Convert(reflect.ValueOf(val), reflect.ValueOf(into), nil); err != nil {
-		return fmt.Errorf("%w: %v", types.ErrInvalidType, err)
-	}
-
-	return nil
+	return codec.Convert(reflect.ValueOf(val), reflect.ValueOf(into), nil)
 }
 
 func (c CodecFromTypeCodec) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
