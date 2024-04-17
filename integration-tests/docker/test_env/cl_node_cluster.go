@@ -3,19 +3,15 @@ package test_env
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-
-	tc "github.com/testcontainers/testcontainers-go"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
@@ -131,26 +127,6 @@ func (c *ClCluster) CopyFolderFromNodes(ctx context.Context, srcPath, destPath s
 	}
 
 	return nil
-}
-
-func lsFilesInContainer(ctx context.Context, container tc.Container, srcPath string) ([]string, error) {
-	// List all files and directories recursively inside the container
-	lsCmd := []string{"find", srcPath, "-type", "f"} // Lists only files, omitting directories
-	outputCode, outputReader, err := container.Exec(ctx, lsCmd)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list files in container: %w", err)
-	}
-	// Read the output into a slice of file paths
-	output, err := io.ReadAll(outputReader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read command output: %w", err)
-	}
-	if outputCode != 0 {
-		return nil, fmt.Errorf("failed to list files in container. Command exited with code: %d. Output: %s", outputCode, output)
-	}
-	files := strings.Split(string(output), "\n")
-
-	return files, nil
 }
 
 func copyFolderFromContainerUsingDockerCP(ctx context.Context, containerID, srcPath, destPath string) error {
