@@ -130,7 +130,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"known transaction. transaction with hash 0x6013…3053 is already in the system", true, "zkSync"},
 			// This seems to be an erroneous message from the zkSync client, we'll have to match it anyway
 			{"ErrorObject { code: ServerError(3), message: \\\"known transaction. transaction with hash 0xf016…ad63 is already in the system\\\", data: Some(RawValue(\\\"0x\\\")) }", true, "zkSync"},
-			{`400 Bad Request: {\"id\":71,\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"already known\"}}`, true, "arbitrum"},
+			{"400 Bad Request: {\"id\":71,\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"already known\"}}", true, "arbitrum"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
