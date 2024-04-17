@@ -28,18 +28,14 @@ import (
 	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
-	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
-	config2 "github.com/smartcontractkit/chainlink-common/pkg/config"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
@@ -143,7 +139,7 @@ type CCIPCommon struct {
 	MulticallEnabled             bool
 	MulticallContract            common.Address
 	ExistingDeployment           bool
-	NoOfUSDCTokens               *int
+	USDCMockDeployment           *bool
 	TokenMessenger               *common.Address
 	TokenTransmitter             *contracts.TokenTransmitter
 	poolFunds                    *big.Int
@@ -465,7 +461,7 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 
 func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 	gasUpdateEvent := make(chan *price_registry.PriceRegistryUsdPerUnitGasUpdated)
-	sub := event.Resubscribe(2*time.Hour, func(ctx context.Context) (event.Subscription, error) {
+	sub := event.Resubscribe(2*time.Hour, func(_ context.Context) (event.Subscription, error) {
 		return ccipModule.PriceRegistry.Instance.WatchUsdPerUnitGasUpdated(nil, gasUpdateEvent, nil)
 	})
 
@@ -589,7 +585,7 @@ func (ccipModule *CCIPCommon) PollRPCConnection(ctx context.Context, lggr zerolo
 }
 
 func (ccipModule *CCIPCommon) IsUSDCDeployment() bool {
-	return pointer.GetInt(ccipModule.NoOfUSDCTokens) > 0
+	return pointer.GetBool(ccipModule.USDCMockDeployment)
 }
 
 func (ccipModule *CCIPCommon) WriteLaneConfig(conf *laneconfig.LaneConfig) {
@@ -987,7 +983,11 @@ type DynamicPriceGetterConfig struct {
 	StaticPrices     map[common.Address]StaticPriceConfig     `json:"staticPrices"`
 }
 
-func (d *DynamicPriceGetterConfig) AddAggregatorPriceConfig(tokenAddr string, aggregatorMap map[common.Address]*contracts.MockAggregator, price *big.Int) error {
+func (d *DynamicPriceGetterConfig) AddAggregatorPriceConfig(
+	tokenAddr string,
+	aggregatorMap map[common.Address]*contracts.MockAggregator,
+	price *big.Int,
+) error {
 	aggregatorContract, ok := aggregatorMap[common.HexToAddress(tokenAddr)]
 	if !ok || aggregatorContract == nil {
 		return fmt.Errorf("aggregator contract not found for token %s", tokenAddr)
@@ -1048,8 +1048,15 @@ type StaticPriceConfig struct {
 	Price   *big.Int `json:"price"`
 }
 
-func NewCCIPCommonFromConfig(logger zerolog.Logger, chainClient blockchain.EVMClient, existingDeployment, multiCall bool, NoOfUSDCToken *int, laneConfig *laneconfig.LaneConfig) (*CCIPCommon, error) {
-	newCCIPModule, err := DefaultCCIPModule(logger, chainClient, existingDeployment, multiCall, NoOfUSDCToken)
+func NewCCIPCommonFromConfig(
+	logger zerolog.Logger,
+	chainClient blockchain.EVMClient,
+	existingDeployment,
+	multiCall bool,
+	USDCMockDeployment *bool,
+	laneConfig *laneconfig.LaneConfig,
+) (*CCIPCommon, error) {
+	newCCIPModule, err := DefaultCCIPModule(logger, chainClient, existingDeployment, multiCall, USDCMockDeployment)
 	if err != nil {
 		return nil, err
 	}
@@ -1120,7 +1127,7 @@ func NewCCIPCommonFromConfig(logger zerolog.Logger, chainClient blockchain.EVMCl
 	return newCCIPModule, nil
 }
 
-func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, existingDeployment, multiCall bool, NoOfUSDCToken *int) (*CCIPCommon, error) {
+func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, existingDeployment, multiCall bool, USDCMockDeployment *bool) (*CCIPCommon, error) {
 	cd, err := contracts.NewCCIPContractsDeployer(logger, chainClient)
 	if err != nil {
 		return nil, err
@@ -1134,7 +1141,7 @@ func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, 
 		},
 		ExistingDeployment: existingDeployment,
 		MulticallEnabled:   multiCall,
-		NoOfUSDCTokens:     NoOfUSDCToken,
+		USDCMockDeployment: USDCMockDeployment,
 		poolFunds:          testhelpers.Link(5),
 		gasUpdateWatcherMu: &sync.Mutex{},
 		gasUpdateWatcher:   make(map[uint64]*big.Int),
@@ -1452,13 +1459,13 @@ func (sourceCCIP *SourceCCIPModule) AssertSendRequestedLogFinalized(
 	return finalizedAt, finalizedBlockNum.Uint64(), nil
 }
 
-func (sourceCCIP *SourceCCIPModule) IsRequestTriggeredWithinTimeframe(timeframe *config2.Duration) *time.Time {
+func (sourceCCIP *SourceCCIPModule) IsRequestTriggeredWithinTimeframe(timeframe *commonconfig.Duration) *time.Time {
 	if timeframe == nil {
 		return nil
 	}
 	var foundAt *time.Time
 	lastSeenTimestamp := time.Now().UTC().Add(-timeframe.Duration())
-	sourceCCIP.CCIPSendRequestedWatcher.Range(func(key, value any) bool {
+	sourceCCIP.CCIPSendRequestedWatcher.Range(func(_, value any) bool {
 		if sendRequestedEvents, exists := value.([]*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested); exists {
 			for _, sendRequestedEvent := range sendRequestedEvents {
 				raw := sendRequestedEvent.Raw
@@ -1635,10 +1642,10 @@ func DefaultSourceCCIPModule(
 	transferAmount []*big.Int,
 	existingDeployment bool,
 	multiCall bool,
-	NoOfUSDCToken *int,
+	USDCMockDeployment *bool,
 	laneConf *laneconfig.LaneConfig,
 ) (*SourceCCIPModule, error) {
-	cmn, err := NewCCIPCommonFromConfig(logger, chainClient, existingDeployment, multiCall, NoOfUSDCToken, laneConf)
+	cmn, err := NewCCIPCommonFromConfig(logger, chainClient, existingDeployment, multiCall, USDCMockDeployment, laneConf)
 	if err != nil {
 		return nil, err
 	}
@@ -1911,7 +1918,7 @@ func (destCCIP *DestCCIPModule) AssertNoReportAcceptedEventReceived(lggr zerolog
 		case <-ticker.C:
 			var eventFoundAfterCursing *time.Time
 			// verify if CommitReportAccepted is received, it's not generated after provided lastSeenTimestamp
-			destCCIP.ReportAcceptedWatcher.Range(func(key, value any) bool {
+			destCCIP.ReportAcceptedWatcher.Range(func(_, value any) bool {
 				e, exists := value.(*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
 				if exists {
 					vLogs := e.Raw
@@ -1947,7 +1954,7 @@ func (destCCIP *DestCCIPModule) AssertNoExecutionStateChangedEventReceived(lggr 
 		case <-ticker.C:
 			var eventFoundAfterCursing *time.Time
 			// verify if executionstate changed is received, it's not generated after provided lastSeenTimestamp
-			destCCIP.ExecStateChangedWatcher.Range(func(key, value any) bool {
+			destCCIP.ExecStateChangedWatcher.Range(func(_, value any) bool {
 				e, exists := value.(*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
 				if exists {
 					vLogs := e.Raw
@@ -2265,10 +2272,10 @@ func DefaultDestinationCCIPModule(
 	sourceChain string,
 	existingDeployment bool,
 	multiCall bool,
-	NoOfUSDCToken *int,
+	USDCMockDeployment *bool,
 	laneConf *laneconfig.LaneConfig,
 ) (*DestCCIPModule, error) {
-	cmn, err := NewCCIPCommonFromConfig(logger, chainClient, existingDeployment, multiCall, NoOfUSDCToken, laneConf)
+	cmn, err := NewCCIPCommonFromConfig(logger, chainClient, existingDeployment, multiCall, USDCMockDeployment, laneConf)
 	if err != nil {
 		return nil, err
 	}
@@ -2529,13 +2536,9 @@ func (lane *CCIPLane) Multicall(noOfRequests int, msgType string, multiSendAddr 
 
 	tx, err := contracts.MultiCallCCIP(lane.Source.Common.ChainClient, multiSendAddr.Hex(), ccipMultipleMsg, isNative)
 	if err != nil {
-		return fmt.Errorf("failed to send the multicall: %w", err)
-	}
-	if err != nil {
 		// update the stats as failure for all the requests in the multicall tx
 		for _, stat := range reqStats {
-			stat.UpdateState(lane.Logger, 0,
-				testreporters.TX, 0, testreporters.Failure)
+			stat.UpdateState(lane.Logger, 0, testreporters.TX, 0, testreporters.Failure)
 		}
 		return fmt.Errorf("failed to send the multicall: %w", err)
 	}
@@ -3004,7 +3007,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	staticPrice bool,
 	existingDeployment bool,
 	multiCall bool,
-	NoOfUSDCToken *int,
+	USDCMockDeployment *bool,
 ) error {
 	var err error
 	sourceChainClient := lane.SourceChain
@@ -3015,7 +3018,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		lane.Logger,
 		sourceChainClient, destChainClient.GetChainID().Uint64(),
 		destChainClient.GetNetworkName(), transferAmounts,
-		existingDeployment, multiCall, NoOfUSDCToken, srcConf,
+		existingDeployment, multiCall, USDCMockDeployment, srcConf,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create source module: %w", err)
@@ -3024,7 +3027,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		lane.Logger,
 		destChainClient, sourceChainClient.GetChainID().Uint64(),
 		sourceChainClient.GetNetworkName(),
-		existingDeployment, multiCall, NoOfUSDCToken, destConf,
+		existingDeployment, multiCall, USDCMockDeployment, destConf,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create destination module: %w", err)
@@ -3206,19 +3209,19 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 // SetOCR2Configs sets the oracle config in ocr2 contracts
 // nil value in execNodes denotes commit and execution jobs are to be set up in same DON
 func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP DestCCIPModule) error {
-	rootSnooze := config2.MustNewDuration(7 * time.Minute)
-	inflightExpiryExec := config2.MustNewDuration(InflightExpiryExec)
-	inflightExpiryCommit := config2.MustNewDuration(InflightExpiryCommit)
+	rootSnooze := commonconfig.MustNewDuration(7 * time.Minute)
+	inflightExpiryExec := commonconfig.MustNewDuration(InflightExpiryExec)
+	inflightExpiryCommit := commonconfig.MustNewDuration(InflightExpiryCommit)
 	if destCCIP.Common.ChainClient.NetworkSimulated() {
-		rootSnooze = config2.MustNewDuration(RootSnoozeTimeSimulated)
+		rootSnooze = commonconfig.MustNewDuration(RootSnoozeTimeSimulated)
 	}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := contracts.NewOffChainAggregatorV2ConfigForCCIPPlugin(
 		commitNodes, testhelpers.NewCommitOffchainConfig(
-			*config2.MustNewDuration(5 * time.Second),
+			*commonconfig.MustNewDuration(5 * time.Second),
 			1e6,
 			1e6,
-			*config2.MustNewDuration(5 * time.Second),
+			*commonconfig.MustNewDuration(5 * time.Second),
 			1e6,
 			*inflightExpiryCommit,
 		), testhelpers.NewCommitOnchainConfig(

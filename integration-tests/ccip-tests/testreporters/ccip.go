@@ -68,7 +68,14 @@ type RequestStat struct {
 	StatusByPhase map[Phase]PhaseStat `json:"status_by_phase,omitempty"`
 }
 
-func (stat *RequestStat) UpdateState(lggr zerolog.Logger, seqNum uint64, step Phase, duration time.Duration, state Status, sendTransactionStats ...TransactionStats) {
+func (stat *RequestStat) UpdateState(
+	lggr zerolog.Logger,
+	seqNum uint64,
+	step Phase,
+	duration time.Duration,
+	state Status,
+	sendTransactionStats ...TransactionStats,
+) {
 	durationInSec := duration.Seconds()
 	stat.SeqNum = seqNum
 	phaseDetails := PhaseStat{

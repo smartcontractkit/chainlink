@@ -12,39 +12,34 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
-	testutils "github.com/smartcontractkit/ccip/integration-tests/ccip-tests/utils"
-
 	"dario.cat/mergo"
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-
-	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
+
+	testutils "github.com/smartcontractkit/ccip/integration-tests/ccip-tests/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
@@ -413,7 +408,8 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 		lggr, chain,
 		o.Cfg.useExistingDeployment(),
 		o.Cfg.MultiCallEnabled(),
-		o.Cfg.TestGroupInput.NoOfUSDCMockTokens)
+		o.Cfg.TestGroupInput.USDCMockDeployment,
+	)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create ccip common module for %s: %w", networkCfg.Name, err))
 	}
@@ -573,7 +569,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 			withPipeline, staticPrice,
 			o.Cfg.useExistingDeployment(),
 			o.Cfg.MultiCallEnabled(),
-			o.Cfg.TestGroupInput.NoOfUSDCMockTokens,
+			o.Cfg.TestGroupInput.USDCMockDeployment,
 		)
 		if err != nil {
 			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %w", networkA.Name, networkB.Name, errors.WithStack(err))))
@@ -606,7 +602,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 				withPipeline, staticPrice,
 				o.Cfg.useExistingDeployment(),
 				o.Cfg.MultiCallEnabled(),
-				o.Cfg.TestGroupInput.NoOfUSDCMockTokens,
+				o.Cfg.TestGroupInput.USDCMockDeployment,
 			)
 			if err != nil {
 				lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkB.Name, networkA.Name)
@@ -856,7 +852,7 @@ func CCIPDefaultTestSetUp(
 			// regex to match the path for all tokens across all lanes
 			actions.SetMockserverWithTokenPriceValue(killgrave, setUpArgs.Env.MockServer)
 		}
-		if setUpArgs.Cfg.TestGroupInput.NoOfUSDCMockTokens != nil {
+		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.USDCMockDeployment) {
 			// if it's a new USDC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes

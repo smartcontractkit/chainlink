@@ -51,7 +51,7 @@ type CCIPTestConfig struct {
 	AmountPerToken                             int64                                 `toml:",omitempty"`
 	MaxNoOfLanes                               int                                   `toml:",omitempty"`
 	ChaosDuration                              *config.Duration                      `toml:",omitempty"`
-	NoOfUSDCMockTokens                         *int                                  `toml:",omitempty"`
+	USDCMockDeployment                         *bool                                 `toml:",omitempty"`
 	TimeoutForPriceUpdate                      *config.Duration                      `toml:",omitempty"`
 	WithPipeline                               *bool                                 `toml:",omitempty"`
 	FailOnFirstErrorInLoad                     *bool                                 `toml:",omitempty"`
