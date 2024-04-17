@@ -363,6 +363,8 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 			Msg("Found upkeepId in tx hash")
 		upkeepIds = append(upkeepIds, upkeepId)
 	}
+
+	require.Equal(t, numberOfContracts, len(upkeepIds), "Incorrect number of Keeper Consumer Contracts registered")
 	l.Info().Msg("Successfully registered all Keeper Consumer Contracts")
 	return upkeepIds
 }
@@ -456,6 +458,7 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	close(deploymentCh)
 
 	require.Equal(t, 0, len(deplymentErrors), "Error deploying consumer contracts")
+	require.Equal(t, numberOfContracts, len(keeperConsumerContracts), "Incorrect number of Keeper Consumer Contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return keeperConsumerContracts
@@ -491,6 +494,8 @@ func DeployKeeperConsumersPerformance(
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed Keeper Performance Contract")
 	}
+
+	require.Equal(t, numberOfContracts, len(upkeeps), "Incorrect number of consumers contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeeps
@@ -516,6 +521,7 @@ func DeployPerformDataChecker(
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed PerformDataChecker Contract")
 	}
+	require.Equal(t, numberOfContracts, len(upkeeps), "Incorrect number of PerformDataChecker contracts deployed")
 	l.Info().Msg("Successfully deployed all PerformDataChecker Contracts")
 
 	return upkeeps
@@ -543,6 +549,7 @@ func DeployUpkeepCounters(
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed Keeper Consumer Contract")
 	}
+	require.Equal(t, numberOfContracts, len(upkeepCounters), "Incorrect number of Keeper Consumer contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeepCounters
@@ -570,6 +577,7 @@ func DeployUpkeepPerformCounterRestrictive(
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed Keeper Consumer Contract")
 	}
+	require.Equal(t, numberOfContracts, len(upkeepCounters), "Incorrect number of Keeper Consumer contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeepCounters
