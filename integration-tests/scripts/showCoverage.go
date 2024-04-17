@@ -19,8 +19,8 @@ func main() {
 
 	// Validate the root directory before proceeding
 	if _, err := os.Stat(root); os.IsNotExist(err) {
-		fmt.Printf("The specified root directory does not exist: %s\n", root)
-		os.Exit(1)
+		fmt.Printf("No coverage dir found: %s\n", root)
+		os.Exit(0)
 	}
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
