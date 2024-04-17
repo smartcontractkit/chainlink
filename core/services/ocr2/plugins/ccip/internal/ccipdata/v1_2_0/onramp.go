@@ -118,7 +118,7 @@ func (o *OnRamp) GetDynamicConfig(context.Context) (cciptypes.OnRampDynamicConfi
 	}
 	config, err := o.onRamp.GetDynamicConfig(&bind.CallOpts{})
 	if err != nil {
-		return cciptypes.OnRampDynamicConfig{}, fmt.Errorf("get dynamic config: %w", err)
+		return cciptypes.OnRampDynamicConfig{}, fmt.Errorf("get dynamic config v1.2: %w", err)
 	}
 	return cciptypes.OnRampDynamicConfig{
 		Router:                            cciptypes.Address(config.Router.String()),
