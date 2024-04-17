@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 )
 
+// This script searches for "go-coverage" directories within the root-directory. For each "go-coverage" directory found,
+// the program executes a Go command to display coverage data.
 func main() {
 	// Check if an argument is provided
 	if len(os.Args) < 2 {

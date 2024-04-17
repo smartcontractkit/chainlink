@@ -104,7 +104,7 @@ func (c *ClCluster) CopyFolderFromNodes(ctx context.Context, srcPath, destPath s
 		go func(n *ClNode, id int) {
 			defer wg.Done()
 			// Create a unique subdirectory for each node based on an identifier
-			finalDestPath := filepath.Join(destPath, fmt.Sprintf("node_%d", id)) // Use node ID or another unique identifier
+			finalDestPath := filepath.Join(destPath, fmt.Sprintf("node_%d", id))
 			if err := os.MkdirAll(finalDestPath, 0755); err != nil {
 				errors <- fmt.Errorf("failed to create directory for node %d: %w", id, err)
 				return
@@ -131,14 +131,9 @@ func (c *ClCluster) CopyFolderFromNodes(ctx context.Context, srcPath, destPath s
 
 func copyFolderFromContainerUsingDockerCP(ctx context.Context, containerID, srcPath, destPath string) error {
 	source := fmt.Sprintf("%s:%s", containerID, srcPath)
-
-	// Prepare the docker cp command
 	cmd := exec.CommandContext(ctx, "docker", "cp", source, destPath)
-
-	// Execute the docker cp command
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return errors.Wrapf(err, "docker cp command failed: %s, output: %s", cmd, string(output))
 	}
-
 	return nil
 }
