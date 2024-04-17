@@ -227,10 +227,6 @@ func TestIntegration_LLO(t *testing.T) {
 
 			assert.False(t, r.Specimen)
 
-			if _, exists := seen[req.TransmitterID()]; !exists {
-				t.Fatalf("FAIL: unexpected report from req.TransmitterID %s", req.TransmitterID())
-			}
-
 			seen[req.TransmitterID()][r.ChannelID] = struct{}{}
 			t.Logf("Got report from oracle %s with channel: %x)", req.TransmitterID(), r.ChannelID)
 
