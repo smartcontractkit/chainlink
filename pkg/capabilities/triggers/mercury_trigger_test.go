@@ -1,6 +1,7 @@
 package triggers
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,51 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
+// registerTrigger will do the following:
+//
+//  1. Register a trigger with the given feedIDs and triggerID
+//  2. Return the trigger events channel, registerUnregisterRequest, and test context
+func registerTrigger(
+	ctx context.Context,
+	t *testing.T,
+	ts *MercuryTriggerService,
+	feedIDs []string,
+	triggerID string,
+) (
+	triggerEventsCh chan capabilities.CapabilityResponse,
+	unregisterRequest capabilities.CapabilityRequest,
+) {
+
+	inputs, err := values.NewMap(map[string]interface{}{
+		"triggerId": triggerID,
+	})
+	require.NoError(t, err)
+
+	config, err := values.NewMap(map[string]interface{}{
+		"feedIds":        feedIDs,
+		"maxFrequencyMs": 100,
+	})
+	require.NoError(t, err)
+
+	requestMetadata := capabilities.RequestMetadata{
+		WorkflowID: "workflow-id-1",
+	}
+	registerRequest := capabilities.CapabilityRequest{
+		Metadata: requestMetadata,
+		Inputs:   inputs,
+		Config:   config,
+	}
+	triggerEventsCh = make(chan capabilities.CapabilityResponse, 1000)
+	require.NoError(t, ts.RegisterTrigger(ctx, triggerEventsCh, registerRequest))
+
+	unregisterRequest = capabilities.CapabilityRequest{
+		Metadata: requestMetadata,
+		Inputs:   inputs,
+	}
+
+	return triggerEventsCh, unregisterRequest
+}
+
 var (
 	feedOne   = "0x1111111111111111111100000000000000000000000000000000000000000000"
 	feedTwo   = "0x2222222222222222222200000000000000000000000000000000000000000000"
@@ -24,32 +70,16 @@ var (
 func TestMercuryTrigger(t *testing.T) {
 	ts := NewMercuryTriggerService(100, logger.Nop())
 	ctx := tests.Context(t)
-	require.NoError(t, ts.Start(ctx))
-
-	cm := map[string]interface{}{
-		"feedIds":        []string{feedOne},
-		"maxFrequencyMs": 100,
-	}
-
-	configWrapped, err := values.NewMap(cm)
+	err := ts.Start(ctx)
 	require.NoError(t, err)
-
-	im := map[string]interface{}{
-		"triggerId": "test-id-1",
-	}
-
-	inputsWrapped, err := values.NewMap(im)
-	require.NoError(t, err)
-
-	cr := capabilities.CapabilityRequest{
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID: "workflow-id-1",
-		},
-		Config: configWrapped,
-		Inputs: inputsWrapped,
-	}
-	callback := make(chan capabilities.CapabilityResponse, 1000)
-	require.NoError(t, ts.RegisterTrigger(ctx, callback, cr))
+	// use registerTriggerHelper to register a trigger
+	callback, registerUnregisterRequest := registerTrigger(
+		ctx,
+		t,
+		ts,
+		[]string{feedOne},
+		"test-id-1",
+	)
 
 	// Send events to trigger and check for them in the callback
 	mfr := []mercury.FeedReport{
@@ -69,7 +99,7 @@ func TestMercuryTrigger(t *testing.T) {
 	assert.Equal(t, mfr[0], reports[0])
 
 	// Unregister the trigger and check that events no longer go on the callback
-	require.NoError(t, ts.UnregisterTrigger(ctx, cr))
+	require.NoError(t, ts.UnregisterTrigger(ctx, registerUnregisterRequest))
 	err = ts.ProcessReport(mfr)
 	require.NoError(t, err)
 	require.Len(t, callback, 0)
@@ -79,67 +109,31 @@ func TestMercuryTrigger(t *testing.T) {
 func TestMultipleMercuryTriggers(t *testing.T) {
 	ts := NewMercuryTriggerService(100, logger.Nop())
 	ctx := tests.Context(t)
-	require.NoError(t, ts.Start(ctx))
-
-	im1 := map[string]interface{}{
-		"triggerId": "test-id-1",
-	}
-
-	iwrapped1, err := values.NewMap(im1)
+	err := ts.Start(ctx)
 	require.NoError(t, err)
-
-	cm1 := map[string]interface{}{
-		"feedIds": []string{
+	callback1, cr1 := registerTrigger(
+		ctx,
+		t,
+		ts,
+		[]string{
 			feedOne,
 			feedThree,
 			feedFour,
 		},
-		"maxFrequencyMs": 100,
-	}
+		"test-id-1",
+	)
 
-	cwrapped1, err := values.NewMap(cm1)
-	require.NoError(t, err)
-
-	cr1 := capabilities.CapabilityRequest{
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID: "workflow-id-1",
-		},
-		Inputs: iwrapped1,
-		Config: cwrapped1,
-	}
-
-	im2 := map[string]interface{}{
-		"triggerId": "test-id-2",
-	}
-
-	iwrapped2, err := values.NewMap(im2)
-	require.NoError(t, err)
-
-	cm2 := map[string]interface{}{
-		"feedIds": []string{
+	callback2, cr2 := registerTrigger(
+		ctx,
+		t,
+		ts,
+		[]string{
 			feedTwo,
 			feedThree,
 			feedFive,
 		},
-		"maxFrequencyMs": 100,
-	}
-
-	cwrapped2, err := values.NewMap(cm2)
-	require.NoError(t, err)
-
-	cr2 := capabilities.CapabilityRequest{
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID: "workflow-id-1",
-		},
-		Inputs: iwrapped2,
-		Config: cwrapped2,
-	}
-
-	callback1 := make(chan capabilities.CapabilityResponse, 1000)
-	callback2 := make(chan capabilities.CapabilityResponse, 1000)
-
-	require.NoError(t, ts.RegisterTrigger(ctx, callback1, cr1))
-	require.NoError(t, ts.RegisterTrigger(ctx, callback2, cr2))
+		"test-id-2",
+	)
 
 	// Send events to trigger and check for them in the callback
 	mfr1 := []mercury.FeedReport{
