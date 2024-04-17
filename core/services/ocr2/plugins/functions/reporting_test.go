@@ -134,7 +134,7 @@ func TestFunctionsReporting_Query(t *testing.T) {
 	const batchSize = 10
 	plugin, orm, _, _ := preparePlugin(t, batchSize, 0)
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
-	orm.On("FindOldestEntriesByState", functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
+	orm.On("FindOldestEntriesByState", mock.Anything, functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
 	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
 	reqs[0].CoordinatorContractAddress = &common.Address{1}
 	reqs[1].CoordinatorContractAddress = &common.Address{2}
-	orm.On("FindOldestEntriesByState", functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
+	orm.On("FindOldestEntriesByState", mock.Anything, functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
 	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
@@ -177,11 +177,11 @@ func TestFunctionsReporting_Observation(t *testing.T) {
 	req4 := newRequestTimedOut()
 	nonexistentId := newRequestID()
 
-	orm.On("FindById", req1.RequestID, mock.Anything).Return(&req1, nil)
-	orm.On("FindById", req2.RequestID, mock.Anything).Return(&req2, nil)
-	orm.On("FindById", req3.RequestID, mock.Anything).Return(&req3, nil)
-	orm.On("FindById", req4.RequestID, mock.Anything).Return(&req4, nil)
-	orm.On("FindById", nonexistentId, mock.Anything).Return(nil, errors.New("nonexistent ID"))
+	orm.On("FindById", mock.Anything, req1.RequestID, mock.Anything).Return(&req1, nil)
+	orm.On("FindById", mock.Anything, req2.RequestID, mock.Anything).Return(&req2, nil)
+	orm.On("FindById", mock.Anything, req3.RequestID, mock.Anything).Return(&req3, nil)
+	orm.On("FindById", mock.Anything, req4.RequestID, mock.Anything).Return(&req4, nil)
+	orm.On("FindById", mock.Anything, nonexistentId, mock.Anything).Return(nil, errors.New("nonexistent ID"))
 
 	// Query asking for 5 requests (with duplicates), out of which:
 	//   - two are ready
@@ -209,7 +209,7 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	req1 := newRequestWithResult([]byte("abc"))
 	invalidId := []byte("invalid")
 
-	orm.On("FindById", req1.RequestID, mock.Anything).Return(&req1, nil)
+	orm.On("FindById", mock.Anything, req1.RequestID, mock.Anything).Return(&req1, nil)
 
 	// Query asking for 3 requests (with duplicates), out of which:
 	//   - two are invalid
@@ -441,13 +441,13 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	req3 := newRequestFinalized()
 	req4 := newRequestTimedOut()
 
-	orm.On("FindById", req1.RequestID, mock.Anything).Return(nil, errors.New("nonexistent ID"))
-	orm.On("FindById", req2.RequestID, mock.Anything).Return(&req2, nil)
-	orm.On("SetFinalized", req2.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	orm.On("FindById", req3.RequestID, mock.Anything).Return(&req3, nil)
-	orm.On("SetFinalized", req3.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("same state"))
-	orm.On("FindById", req4.RequestID, mock.Anything).Return(&req4, nil)
-	orm.On("SetFinalized", req4.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("already timed out"))
+	orm.On("FindById", mock.Anything, req1.RequestID, mock.Anything).Return(nil, errors.New("nonexistent ID"))
+	orm.On("FindById", mock.Anything, req2.RequestID, mock.Anything).Return(&req2, nil)
+	orm.On("SetFinalized", mock.Anything, req2.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	orm.On("FindById", mock.Anything, req3.RequestID, mock.Anything).Return(&req3, nil)
+	orm.On("SetFinalized", mock.Anything, req3.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("same state"))
+	orm.On("FindById", mock.Anything, req4.RequestID, mock.Anything).Return(&req4, nil)
+	orm.On("SetFinalized", mock.Anything, req4.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("already timed out"))
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one was already accepted for transmission earlier
@@ -477,8 +477,8 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport_OffchainTransmission(t *
 	req1 := newRequestWithResult([]byte("abc"))
 	req1.OnchainMetadata = []byte(functions_srv.OffchainRequestMarker)
 
-	orm.On("FindById", req1.RequestID, mock.Anything).Return(&req1, nil)
-	orm.On("SetFinalized", req1.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	orm.On("FindById", mock.Anything, req1.RequestID, mock.Anything).Return(&req1, nil)
+	orm.On("SetFinalized", mock.Anything, req1.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	offchainTransmitter.On("TransmitReport", mock.Anything, mock.Anything).Return(nil)
 
 	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1))
@@ -496,11 +496,11 @@ func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	req4 := newRequestTimedOut()
 	req5 := newRequestConfirmed()
 
-	orm.On("FindById", req1.RequestID, mock.Anything).Return(nil, errors.New("nonexistent ID"))
-	orm.On("FindById", req2.RequestID, mock.Anything).Return(&req2, nil)
-	orm.On("FindById", req3.RequestID, mock.Anything).Return(&req3, nil)
-	orm.On("FindById", req4.RequestID, mock.Anything).Return(&req4, nil)
-	orm.On("FindById", req5.RequestID, mock.Anything).Return(&req5, nil)
+	orm.On("FindById", mock.Anything, req1.RequestID, mock.Anything).Return(nil, errors.New("nonexistent ID"))
+	orm.On("FindById", mock.Anything, req2.RequestID, mock.Anything).Return(&req2, nil)
+	orm.On("FindById", mock.Anything, req3.RequestID, mock.Anything).Return(&req3, nil)
+	orm.On("FindById", mock.Anything, req4.RequestID, mock.Anything).Return(&req4, nil)
+	orm.On("FindById", mock.Anything, req5.RequestID, mock.Anything).Return(&req5, nil)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one was already confirmed on chain

@@ -441,6 +441,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			sqlxDB,
+			opts.DB,
 			jobORM,
 			bridgeORM,
 			mercuryORM,
