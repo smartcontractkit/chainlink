@@ -77,7 +77,7 @@ type logBuffer struct {
 	// map of upkeep id to its queue
 	queues map[string]*upkeepLogQueue
 	// map for then number of times we have enqueued logs for a block number
-	enqueuedBlocks map[int64]int
+	enqueuedBlocks map[int64]map[string]int
 	lock           sync.RWMutex
 }
 
@@ -86,7 +86,7 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogB
 		lggr:           lggr.Named("KeepersRegistry.LogEventBufferV1"),
 		opts:           newLogBufferOptions(lookback, blockRate, logLimit),
 		lastBlockSeen:  new(atomic.Int64),
-		enqueuedBlocks: map[int64]int{},
+		enqueuedBlocks: map[int64]map[string]int{},
 		queues:         make(map[string]*upkeepLogQueue),
 	}
 }
@@ -94,7 +94,7 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogB
 // Enqueue adds logs to the buffer and might also drop logs if the limit for the
 // given upkeep was exceeded. It will create a new buffer if it does not exist.
 // Logs are expected to be enqueued in increasing order of block number.
-// All logs for a particular block will be enqueued at once and not across separate calls.
+// All logs for an upkeep on a particular block will be enqueued in a single Enqueue call.
 // Returns the number of logs that were added and number of logs that were  dropped.
 func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	buf, ok := b.getUpkeepQueue(uid)
@@ -111,11 +111,18 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	}
 
 	for blockNumber := range uniqueBlocks {
-		if _, ok := b.enqueuedBlocks[blockNumber]; ok {
-			b.enqueuedBlocks[blockNumber] = b.enqueuedBlocks[blockNumber] + 1
-			b.lggr.Debugw("enqueuing logs again for a previously seen block", "blockNumber", blockNumber, "numberOfEnqueues", b.enqueuedBlocks[blockNumber])
+		if blockNumbers, ok := b.enqueuedBlocks[blockNumber]; ok {
+			if count, ok := blockNumbers[uid.String()]; ok {
+				blockNumbers[uid.String()] = count + 1
+				b.lggr.Debugw("enqueuing logs again for a previously seen block for this upkeep", "blockNumber", blockNumber, "numberOfEnqueues", b.enqueuedBlocks[blockNumber], "upkeepID", uid.String())
+			} else {
+				blockNumbers[uid.String()] = 1
+			}
+			b.enqueuedBlocks[blockNumber] = blockNumbers
 		} else {
-			b.enqueuedBlocks[blockNumber] = 1
+			b.enqueuedBlocks[blockNumber] = map[string]int{
+				uid.String(): 1,
+			}
 		}
 	}
 
