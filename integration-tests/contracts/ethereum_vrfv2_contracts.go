@@ -856,20 +856,11 @@ func (v *EthereumVRFv2LoadTestConsumer) RequestRandomness(
 	if err != nil {
 		return nil, fmt.Errorf("RequestRandomWords failed, err: %w", err)
 	}
-	err = v.client.ProcessTransaction(tx)
+	randomWordsRequestedEvent, err := RetrieveRequestRandomnessLogs(coordinator, v.client, tx)
 	if err != nil {
-		return nil, fmt.Errorf("ProcessTransaction failed, err: %w", err)
+		return nil, err
 	}
-	err = v.client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("WaitForEvents failed, err: %w", err)
-	}
-	receipt, err := v.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
-	}
-	randomWordsRequestedEvent, err := parseRequestRandomnessLogs(coordinator, receipt.Logs)
-	return randomWordsRequestedEvent, err
+	return randomWordsRequestedEvent, nil
 }
 
 func (v *EthereumVRFv2LoadTestConsumer) RequestRandomWordsWithForceFulfill(
@@ -899,20 +890,11 @@ func (v *EthereumVRFv2LoadTestConsumer) RequestRandomWordsWithForceFulfill(
 	if err != nil {
 		return nil, fmt.Errorf("RequestRandomWords failed, err: %w", err)
 	}
-	err = v.client.ProcessTransaction(tx)
+	randomWordsRequestedEvent, err := RetrieveRequestRandomnessLogs(coordinator, v.client, tx)
 	if err != nil {
-		return nil, fmt.Errorf("ProcessTransaction failed, err: %w", err)
+		return nil, err
 	}
-	err = v.client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("WaitForEvents failed, err: %w", err)
-	}
-	receipt, err := v.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
-	}
-	randomWordsRequestedEvent, err := parseRequestRandomnessLogs(coordinator, receipt.Logs)
-	return randomWordsRequestedEvent, err
+	return randomWordsRequestedEvent, nil
 }
 
 func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2_consumer_wrapper.GetRequestStatus, error) {
@@ -1059,23 +1041,11 @@ func (v *EthereumVRFV2WrapperLoadTestConsumer) RequestRandomness(coordinator Coo
 	if err != nil {
 		return nil, err
 	}
-	err = v.client.ProcessTransaction(tx)
+	randomWordsRequestedEvent, err := RetrieveRequestRandomnessLogs(coordinator, v.client, tx)
 	if err != nil {
 		return nil, err
 	}
-	err = v.client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("WaitForEvents failed, err: %w", err)
-	}
-	receipt, err := v.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
-	}
-	randomWordsRequestedEvent, err := parseRequestRandomnessLogs(coordinator, receipt.Logs)
-	if err != nil {
-		return nil, err
-	}
-	return randomWordsRequestedEvent, err
+	return randomWordsRequestedEvent, nil
 }
 
 func (v *EthereumVRFV2WrapperLoadTestConsumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrfv2_wrapper_load_test_consumer.GetRequestStatus, error) {
