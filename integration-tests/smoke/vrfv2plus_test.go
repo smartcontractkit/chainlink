@@ -1385,6 +1385,9 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 		err = evmClient.WaitForEvents()
 		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
+		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
+		require.Equal(t, 0, metrics.RequestCount.Cmp(big.NewInt(1)))
+		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(0)))
 
 		var clNodeTxs *client.TransactionsData
 		var txHash string

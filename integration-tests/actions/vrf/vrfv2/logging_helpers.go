@@ -12,7 +12,7 @@ import (
 )
 
 func LogSubDetails(l zerolog.Logger, subscription vrf_coordinator_v2.GetSubscription, subID uint64, coordinator contracts.VRFCoordinatorV2) {
-	l.Debug().
+	l.Info().
 		Str("Coordinator", coordinator.Address()).
 		Str("Link Balance", (*commonassets.Link)(subscription.Balance).Link()).
 		Uint64("Subscription ID", subID).
@@ -62,7 +62,7 @@ func LogRandomWordsForcedEvent(
 	vrfOwner contracts.VRFOwner,
 	randomWordsForcedEvent *vrf_owner.VRFOwnerRandomWordsForced,
 ) {
-	l.Debug().
+	l.Info().
 		Str("VRFOwner", vrfOwner.Address()).
 		Uint64("Sub ID", randomWordsForcedEvent.SubId).
 		Str("TX Hash", randomWordsForcedEvent.Raw.TxHash.String()).
