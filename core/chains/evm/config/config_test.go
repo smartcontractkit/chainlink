@@ -480,31 +480,56 @@ func TestNodePoolConfig(t *testing.T) {
 
 func TestClientErrorsConfig(t *testing.T) {
 	t.Parallel()
-	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		id := ubig.New(big.NewInt(rand.Int63()))
-		c.EVM[0] = &toml.EVMConfig{
-			ChainID: id,
-			Chain:   toml.Defaults(id, &toml.Chain{}),
-		}
-	})
-	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
-	assert.Equal(t, "(: |^)nonce too low", cfg.EVM().ClientErrors().NonceTooLow())
-	assert.Equal(t, "(: |^)nonce too high", cfg.EVM().ClientErrors().NonceTooHigh())
-	assert.Equal(t, "(: |^)replacement transaction underpriced",
-		cfg.EVM().ClientErrors().ReplacementTransactionUnderpriced())
-	assert.Equal(t, "(: |^)limit reached", cfg.EVM().ClientErrors().LimitReached())
-	assert.Equal(t, "(: |^)transaction already in mempool",
-		cfg.EVM().ClientErrors().TransactionAlreadyInMempool())
-	assert.Equal(t, "(: |^)terminally underpriced", cfg.EVM().ClientErrors().TerminallyUnderpriced())
-	assert.Equal(t, "(: |^)infufficient Eth", cfg.EVM().ClientErrors().InsufficientEth())
-	assert.Equal(t, "(: |^)tx fee exceeds cap", cfg.EVM().ClientErrors().TxFeeExceedsCap())
-	assert.Equal(t, "(: |^)l2 fee too low", cfg.EVM().ClientErrors().L2FeeTooLow())
-	assert.Equal(t, "(: |^)l2 fee too high", cfg.EVM().ClientErrors().L2FeeTooHigh())
-	assert.Equal(t, "(: |^)l2 full", cfg.EVM().ClientErrors().L2Full())
-	assert.Equal(t, "(: |^)transaction already mined", cfg.EVM().ClientErrors().TransactionAlreadyMined())
-	assert.Equal(t, "(: |^)fatal", cfg.EVM().ClientErrors().Fatal())
-	assert.Equal(t, "(: |^)service unavailable", cfg.EVM().ClientErrors().ServiceUnavailable())
+	t.Run("EVM().NodePool().Errors()", func(t *testing.T) {
+		clientErrorsOverrides := func(c *chainlink.Config, s *chainlink.Secrets) {
+			id := ubig.New(big.NewInt(rand.Int63()))
+			c.EVM[0] = &toml.EVMConfig{
+				ChainID: id,
+				Chain: toml.Defaults(id, &toml.Chain{
+					NodePool: toml.NodePool{
+						Errors: toml.ClientErrors{
+							NonceTooLow:                       ptr[string]("client error nonce too low"),
+							NonceTooHigh:                      ptr[string]("client error nonce too high"),
+							ReplacementTransactionUnderpriced: ptr[string]("client error replacement underpriced"),
+							LimitReached:                      ptr[string]("client error limit reached"),
+							TransactionAlreadyInMempool:       ptr[string]("client error transaction already in mempool"),
+							TerminallyUnderpriced:             ptr[string]("client error terminally underpriced"),
+							InsufficientEth:                   ptr[string]("client error insufficient eth"),
+							TxFeeExceedsCap:                   ptr[string]("client error tx fee exceeds cap"),
+							L2FeeTooLow:                       ptr[string]("client error l2 fee too low"),
+							L2FeeTooHigh:                      ptr[string]("client error l2 fee too high"),
+							L2Full:                            ptr[string]("client error l2 full"),
+							TransactionAlreadyMined:           ptr[string]("client error transaction already mined"),
+							Fatal:                             ptr[string]("client error fatal"),
+							ServiceUnavailable:                ptr[string]("client error service unavailable"),
+						},
+					},
+				}),
+			}
+		}
+
+		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			clientErrorsOverrides(c, s)
+		})
+		cfg := evmtest.NewChainScopedConfig(t, gcfg)
+
+		errors := cfg.EVM().NodePool().Errors()
+		assert.Equal(t, "client error nonce too low", errors.NonceTooLow())
+		assert.Equal(t, "client error nonce too high", errors.NonceTooHigh())
+		assert.Equal(t, "client error replacement underpriced", errors.ReplacementTransactionUnderpriced())
+		assert.Equal(t, "client error limit reached", errors.LimitReached())
+		assert.Equal(t, "client error transaction already in mempool", errors.TransactionAlreadyInMempool())
+		assert.Equal(t, "client error terminally underpriced", errors.TerminallyUnderpriced())
+		assert.Equal(t, "client error insufficient eth", errors.InsufficientEth())
+		assert.Equal(t, "client error tx fee exceeds cap", errors.TxFeeExceedsCap())
+		assert.Equal(t, "client error l2 fee too low", errors.L2FeeTooLow())
+		assert.Equal(t, "client error l2 fee too high", errors.L2FeeTooHigh())
+		assert.Equal(t, "client error l2 full", errors.L2Full())
+		assert.Equal(t, "client error transaction already mined", errors.TransactionAlreadyMined())
+		assert.Equal(t, "client error fatal", errors.Fatal())
+		assert.Equal(t, "client error service unavailable", errors.ServiceUnavailable())
+	})
 }
 
 func ptr[T any](t T) *T { return &t }

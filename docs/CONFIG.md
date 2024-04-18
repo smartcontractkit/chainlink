@@ -1773,20 +1773,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -1874,20 +1874,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -1975,20 +1975,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2076,20 +2076,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2178,20 +2178,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -2279,20 +2279,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2380,20 +2380,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2482,20 +2482,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2583,20 +2583,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2683,20 +2683,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2783,20 +2783,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2884,20 +2884,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2986,20 +2986,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3087,20 +3087,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3188,20 +3188,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3289,20 +3289,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3390,20 +3390,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -3491,20 +3491,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3592,20 +3592,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3693,20 +3693,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3795,20 +3795,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -3896,20 +3896,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -3996,20 +3996,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4097,20 +4097,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4197,20 +4197,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4298,20 +4298,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4399,20 +4399,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4499,20 +4499,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4599,20 +4599,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4700,20 +4700,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4800,20 +4800,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4901,20 +4901,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -5001,20 +5001,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5102,20 +5102,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5203,20 +5203,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -5305,20 +5305,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5406,20 +5406,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5507,20 +5507,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5608,20 +5608,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5709,20 +5709,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5809,20 +5809,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -5909,20 +5909,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -6009,20 +6009,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -6110,20 +6110,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -6211,20 +6211,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -6311,20 +6311,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -6412,20 +6412,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -6513,20 +6513,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -6615,20 +6615,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -6717,20 +6717,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -6818,20 +6818,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -6919,20 +6919,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -7020,20 +7020,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -7121,20 +7121,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -7222,20 +7222,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -7323,20 +7323,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -7424,20 +7424,20 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
 [NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low'
-NonceTooHigh = '(: |^)nonce too high'
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
-LimitReached = '(: |^)limit reached'
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
-TerminallyUnderpriced = '(: |^)terminally underpriced'
-InsufficientEth = '(: |^)infufficient Eth'
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
-L2FeeTooLow = '(: |^)l2 fee too low'
-L2FeeTooHigh = '(: |^)l2 fee too high'
-L2Full = '(: |^)l2 full'
-TransactionAlreadyMined = '(: |^)transaction already mined'
-Fatal = '(: |^)fatal'
-ServiceUnavailable = '(: |^)service unavailable'
+NonceTooLow = ''
+NonceTooHigh = ''
+ReplacementTransactionUnderpriced = ''
+LimitReached = ''
+TransactionAlreadyInMempool = ''
+TerminallyUnderpriced = ''
+InsufficientEth = ''
+TxFeeExceedsCap = ''
+L2FeeTooLow = ''
+L2FeeTooHigh = ''
+L2Full = ''
+TransactionAlreadyMined = ''
+Fatal = ''
+ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -8159,104 +8159,104 @@ Set to 0 to disable.
 ## EVM.NodePool.Errors
 ```toml
 [EVM.NodePool.Errors]
-NonceTooLow = '(: |^)nonce too low' # Default
-NonceTooHigh = '(: |^)nonce too high' # Default
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Default
-LimitReached = '(: |^)limit reached' # Default
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Default
-TerminallyUnderpriced = '(: |^)terminally underpriced' # Default
-InsufficientEth = '(: |^)infufficient Eth' # Default
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Default
-L2FeeTooLow = '(: |^)l2 fee too low' # Default
-L2FeeTooHigh = '(: |^)l2 fee too high' # Default
-L2Full = '(: |^)l2 full' # Default
-TransactionAlreadyMined = '(: |^)transaction already mined' # Default
-Fatal = '(: |^)fatal' # Default
-ServiceUnavailable = '(: |^)service unavailable' # Default
+NonceTooLow = '' # Default
+NonceTooHigh = '' # Default
+ReplacementTransactionUnderpriced = '' # Default
+LimitReached = '' # Default
+TransactionAlreadyInMempool = '' # Default
+TerminallyUnderpriced = '' # Default
+InsufficientEth = '' # Default
+TxFeeExceedsCap = '' # Default
+L2FeeTooLow = '' # Default
+L2FeeTooHigh = '' # Default
+L2Full = '' # Default
+TransactionAlreadyMined = '' # Default
+Fatal = '' # Default
+ServiceUnavailable = '' # Default
 ```
 Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 
 ### NonceTooLow
 ```toml
-NonceTooLow = '(: |^)nonce too low' # Default
+NonceTooLow = '' # Default
 ```
 NonceTooLow is a regex pattern to match against nonce too low errors.
 
 ### NonceTooHigh
 ```toml
-NonceTooHigh = '(: |^)nonce too high' # Default
+NonceTooHigh = '' # Default
 ```
 NonceTooHigh is a regex pattern to match against nonce too high errors.
 
 ### ReplacementTransactionUnderpriced
 ```toml
-ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Default
+ReplacementTransactionUnderpriced = '' # Default
 ```
 ReplacementTransactionUnderpriced is a regex pattern to match against replacement transaction underpriced errors.
 
 ### LimitReached
 ```toml
-LimitReached = '(: |^)limit reached' # Default
+LimitReached = '' # Default
 ```
 LimitReached is a regex pattern to match against limit reached errors.
 
 ### TransactionAlreadyInMempool
 ```toml
-TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Default
+TransactionAlreadyInMempool = '' # Default
 ```
 TransactionAlreadyInMempool is a regex pattern to match against transaction already in mempool errors.
 
 ### TerminallyUnderpriced
 ```toml
-TerminallyUnderpriced = '(: |^)terminally underpriced' # Default
+TerminallyUnderpriced = '' # Default
 ```
 TerminallyUnderpriced is a regex pattern to match against terminally underpriced errors.
 
 ### InsufficientEth
 ```toml
-InsufficientEth = '(: |^)infufficient Eth' # Default
+InsufficientEth = '' # Default
 ```
 InsufficientEth is a regex pattern to match against insufficient eth errors.
 
 ### TxFeeExceedsCap
 ```toml
-TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Default
+TxFeeExceedsCap = '' # Default
 ```
 TxFeeExceedsCap is a regex pattern to match against tx fee exceeds cap errors.
 
 ### L2FeeTooLow
 ```toml
-L2FeeTooLow = '(: |^)l2 fee too low' # Default
+L2FeeTooLow = '' # Default
 ```
 L2FeeTooLow is a regex pattern to match against l2 fee too low errors.
 
 ### L2FeeTooHigh
 ```toml
-L2FeeTooHigh = '(: |^)l2 fee too high' # Default
+L2FeeTooHigh = '' # Default
 ```
 L2FeeTooHigh is a regex pattern to match against l2 fee too high errors.
 
 ### L2Full
 ```toml
-L2Full = '(: |^)l2 full' # Default
+L2Full = '' # Default
 ```
 L2Full is a regex pattern to match against l2 full errors.
 
 ### TransactionAlreadyMined
 ```toml
-TransactionAlreadyMined = '(: |^)transaction already mined' # Default
+TransactionAlreadyMined = '' # Default
 ```
 TransactionAlreadyMined is a regex pattern to match against transaction already mined errors.
 
 ### Fatal
 ```toml
-Fatal = '(: |^)fatal' # Default
+Fatal = '' # Default
 ```
 Fatal is a regex pattern to match against fatal errors.
 
 ### ServiceUnavailable
 ```toml
-ServiceUnavailable = '(: |^)service unavailable' # Default
+ServiceUnavailable = '' # Default
 ```
 ServiceUnavailable is a regex pattern to match against service unavailable errors.
 

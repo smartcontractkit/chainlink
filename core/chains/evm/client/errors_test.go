@@ -105,6 +105,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
 			{"gas price too low", false, "Arbitrum"},
 			{"client error replacement underpriced", true, "tomlConfig"},
+			{"", false, "tomlConfig"},
 		}
 
 		for _, test := range tests {

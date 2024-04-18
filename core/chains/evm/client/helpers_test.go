@@ -86,6 +86,7 @@ type TestNodePoolConfig struct {
 	NodeLeaseDuration              time.Duration
 	NodeIsSyncingEnabledVal        bool
 	NodeFinalizedBlockPollInterval time.Duration
+	NodeErrors                     config.ClientErrors
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
@@ -102,6 +103,10 @@ func (tc TestNodePoolConfig) NodeIsSyncingEnabled() bool {
 
 func (tc TestNodePoolConfig) FinalizedBlockPollInterval() time.Duration {
 	return tc.NodeFinalizedBlockPollInterval
+}
+
+func (tc TestNodePoolConfig) Errors() config.ClientErrors {
+	return tc.NodeErrors
 }
 
 func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeadsThreshold time.Duration, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {

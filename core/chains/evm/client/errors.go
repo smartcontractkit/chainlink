@@ -73,6 +73,9 @@ func (e *ClientErrors) ErrIs(err error, errorTypes ...int) bool {
 		if _, ok := (*e)[errorType]; !ok {
 			return false
 		}
+		if (*e)[errorType].String() == "" {
+			return false
+		}
 		if (*e)[errorType].MatchString(pkgerrors.Cause(err).Error()) {
 			return true
 		}

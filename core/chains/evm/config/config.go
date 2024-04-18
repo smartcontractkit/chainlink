@@ -17,7 +17,6 @@ import (
 type EVM interface {
 	HeadTracker() HeadTracker
 	BalanceMonitor() BalanceMonitor
-	ClientErrors() ClientErrors
 	Transactions() Transactions
 	GasEstimator() GasEstimator
 	OCR() OCR
@@ -160,6 +159,7 @@ type NodePool interface {
 	LeaseDuration() time.Duration
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
+	Errors() ClientErrors
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?
