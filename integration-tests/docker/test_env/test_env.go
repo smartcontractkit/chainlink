@@ -238,26 +238,16 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		}
 	}
 
-	// close EVMClient connections
-	for _, evmClient := range te.evmClients {
-		err := evmClient.Close()
-		return err
-	}
-
-	for _, sethClient := range te.sethClients {
-		sethClient.Client.Close()
-	}
-
-	showCoverageReport := te.TestConfig.GetLoggingConfig().ShowCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowCoverageReport
+	showHTMLCoverageReport := te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport
 	isCI := os.Getenv("CI") != ""
 
-	te.l.Info().Bool("showCoverageReport", showCoverageReport).Str("CI", os.Getenv("CI")).Bool("isCI", isCI).Msg("Checking if coverage report should be shown")
+	te.l.Info().Bool("showCoverageReport", showHTMLCoverageReport).Str("CI", os.Getenv("CI")).Bool("isCI", isCI).Msg("Checking if coverage report should be shown")
 
 	var covHelper *d.NodeCoverageHelper
 
 	testName := strings.ReplaceAll(opts.TestName, "/", "_")
 
-	if showCoverageReport || isCI {
+	if showHTMLCoverageReport || isCI {
 		// Stop all nodes in the chainlink cluster.
 		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
 		err := te.ClCluster.Stop()
@@ -283,7 +273,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		}
 	}
 
-	if showCoverageReport {
+	if showHTMLCoverageReport {
 		path, err := covHelper.SaveMergedHTMLReport()
 		if err != nil {
 			return err
@@ -299,6 +289,16 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		} else {
 			te.l.Info().Str("testName", testName).Str("filePath", covPercentPath).Msg("Chainlink node coverage percentage report saved")
 		}
+	}
+
+	// close EVMClient connections
+	for _, evmClient := range te.evmClients {
+		err := evmClient.Close()
+		return err
+	}
+
+	for _, sethClient := range te.sethClients {
+		sethClient.Client.Close()
 	}
 
 	return nil
