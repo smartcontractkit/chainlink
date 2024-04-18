@@ -798,6 +798,7 @@ jobs:
         continue-on-error: true
 
   show-coverage:
+    if: always()
     needs: [cleanup]
     runs-on: ubuntu-latest
     steps:

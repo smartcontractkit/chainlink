@@ -251,6 +251,8 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	showCoverageReport := te.TestConfig.GetLoggingConfig().ShowCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowCoverageReport
 	isCI := os.Getenv("CI") != ""
 
+	te.l.Info().Bool("showCoverageReport", showCoverageReport).Str("CI", os.Getenv("CI")).Bool("isCI", isCI).Msg("Checking if coverage report should be shown")
+
 	var covHelper *d.NodeCoverageHelper
 
 	testName := strings.ReplaceAll(opts.TestName, "/", "_")
