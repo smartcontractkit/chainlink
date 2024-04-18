@@ -65,7 +65,7 @@ func main() {
 	// Save the coverage percentage to a file
 	filePath := filepath.Join(mergedDir, "percentage.txt")
 	if err := os.WriteFile(filePath, coverageOutput, 0644); err != nil {
-		fmt.Printf("Failed to write coverage percentage to file: %w\n", err)
+		fmt.Printf("Failed to write coverage percentage to file: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Printf("Total coverage based on all tests saved to %s\n", filePath)
