@@ -317,10 +317,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(0)), "Fulfilment count should be 0 since sub is underfunded. Check if the sub is actually funded")
 
 		var subIDsString []uint64
-		for _, subID := range underfundedSubIDs {
-			subIDsString = append(subIDsString, subID)
-		}
-
+		subIDsString = append(subIDsString, underfundedSubIDs...)
 		l.Info().
 			Float64("SubscriptionRefundingAmountLink", *configCopy.VRFv2.General.SubscriptionRefundingAmountLink).
 			Uints64("SubIDs", subIDsString).

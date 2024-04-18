@@ -17,7 +17,7 @@ import (
 )
 
 func LogSubDetails(l zerolog.Logger, subscription vrf_coordinator_v2_5.GetSubscription, subID *big.Int, coordinator contracts.VRFCoordinatorV2_5) {
-	l.Info().
+	l.Debug().
 		Str("Coordinator", coordinator.Address()).
 		Str("Link Balance", (*commonassets.Link)(subscription.Balance).Link()).
 		Str("Native Token Balance", assets.FormatWei(subscription.NativeBalance)).
@@ -33,7 +33,7 @@ func LogRandomnessRequestedEventUpgraded(
 	randomWordsRequestedEvent *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsRequested,
 	isNativeBilling bool,
 ) {
-	l.Info().
+	l.Debug().
 		Str("Coordinator", coordinator.Address()).
 		Bool("Native Billing", isNativeBilling).
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
@@ -52,7 +52,7 @@ func LogRandomWordsFulfilledEventUpgraded(
 	randomWordsFulfilledEvent *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled,
 	isNativeBilling bool,
 ) {
-	l.Info().
+	l.Debug().
 		Str("Coordinator", coordinator.Address()).
 		Bool("Native Billing", isNativeBilling).
 		Str("Total Payment in Juels", randomWordsFulfilledEvent.Payment.String()).
