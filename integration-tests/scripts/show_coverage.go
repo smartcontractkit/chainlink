@@ -13,69 +13,53 @@ import (
 // merges their data into a "merged" directory for each test, and then
 // calculates the overall coverage percentage.
 func main() {
-	// Check if an argument is provided
+	// Check if the user has provided an argument
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: show_coverage [root-directory]")
+		fmt.Println("Usage: go run script.go <searchPattern>")
 		os.Exit(1)
 	}
-	root := os.Args[1] // Use the first command-line argument as the root directory
 
-	// Validate the root directory before proceeding
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		fmt.Printf("No coverage dir found: %s\n", root)
-		os.Exit(0)
-	}
+	// First argument after the program name is the search pattern
+	searchPattern := os.Args[1]
 
-	testDirs := make(map[string][]string)
-
-	// Walk the file system from the root
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() && filepath.Base(path) == "go-coverage" && path != root {
-			// Assuming path structure /var/tmp/go-coverage/TestName/node_X/go-coverage
-			testName := filepath.Dir(filepath.Dir(path)) // This should get the test name directory
-			testDirs[testName] = append(testDirs[testName], path)
-		}
-		return nil
-	})
-
+	// Glob pattern to find all 'merged' directories in artifact folders
+	dirs, err := filepath.Glob(searchPattern)
 	if err != nil {
-		fmt.Println("Error walking the path:", err)
+		fmt.Printf("Failed to find directories: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Iterate over the map and run the merge command for each test
-	for test, dirs := range testDirs {
-		testName := filepath.Base(test)
-
-		// Ensure the merged directory exists
-		mergedDir := filepath.Join(test, "merged")
-		if err := os.MkdirAll(mergedDir, 0755); err != nil {
-			fmt.Printf("Failed to create merged directory %s: %v\n", mergedDir, err)
-			continue
-		}
-
-		// Merge the coverage data from all chainlink nodes
-		dirInput := strings.Join(dirs, ",")
-		mergeCmd := exec.Command("go", "tool", "covdata", "merge", "-o", mergedDir, "-i="+dirInput)
-		mergeCmd.Dir = test
-		fmt.Printf("Merging coverage for %s:\n%s\n", testName, mergeCmd.String())
-		output, err := mergeCmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("Error executing merge command for %s: %v, output: %s\n", test, err, output)
-			os.Exit(1)
-		}
-
-		// Calculate coverage percentage in the merged directory
-		coverageCmd := exec.Command("go", "tool", "covdata", "percent", "-i=merged")
-		coverageCmd.Dir = test
-		coverageOutput, err := coverageCmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("Error calculating coverage for %s: %v, %s\n", test, err, string(coverageOutput))
-			continue
-		}
-		fmt.Printf("Total coverage for %s:\n%s\n%s\n\n", testName, coverageCmd.String(), string(coverageOutput))
+	if len(dirs) == 0 {
+		fmt.Println("No directories found.")
+		return
 	}
+
+	// Join the directory paths for input
+	dirInput := strings.Join(dirs, ",")
+
+	// Ensure the merged directory exists
+	mergedDir := filepath.Join(".covdata", "merged")
+	if err := os.MkdirAll(mergedDir, 0755); err != nil {
+		fmt.Printf("Failed to create merged directory %s: %v\n", mergedDir, err)
+		os.Exit(1)
+	}
+
+	// Merge the coverage data from all chainlink nodes
+	mergeCmd := exec.Command("go", "tool", "covdata", "merge", "-o", mergedDir, "-i="+dirInput)
+	fmt.Printf("Merging coverage for all tests:\n%s\n", mergeCmd.String())
+	output, err := mergeCmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error executing merge command: %v, output: %s\n", err, output)
+		os.Exit(1)
+	}
+
+	// Calculate coverage percentage in the merged directory
+	coverageCmd := exec.Command("go", "tool", "covdata", "percent", "-i=.")
+	coverageCmd.Dir = mergedDir
+	coverageOutput, err := coverageCmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error calculating coverage percentage: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Total coverage:\n%s\n%s\n", coverageCmd.String(), string(coverageOutput))
 }
