@@ -7,14 +7,6 @@ echo " │    Compiling Keystone contracts...           │"
 echo " └──────────────────────────────────────────────┘"
 
 SOLC_VERSION="0.8.19"
-OPTIMIZE_RUNS=1000000
-
-
-SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
-solc-select install $SOLC_VERSION
-solc-select use $SOLC_VERSION
-export SOLC_VERSION=$SOLC_VERSION
 
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
 
