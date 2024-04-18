@@ -308,7 +308,7 @@ fromBlock = %d
 				}))
 				t.Cleanup(servers[s].Close)
 				u, _ := url.Parse(servers[i].URL)
-				require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+				require.NoError(t, apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 					URL:  models.WebURL(*u),
 				}))
@@ -789,7 +789,7 @@ chainID 			= 1337
 			servers[s].Close()
 		})
 		u, _ := url.Parse(servers[i].URL)
-		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
 		}))

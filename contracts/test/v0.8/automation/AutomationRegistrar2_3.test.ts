@@ -232,6 +232,7 @@ describe('AutomationRegistrar2_3', () => {
           priceFeed: await registry.getLinkUSDFeedAddress(),
           fallbackPrice: 200,
           minSpend: minimumRegistrationAmount,
+          decimals: 18,
         },
       ],
     )

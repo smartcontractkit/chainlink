@@ -10,6 +10,14 @@ import {Utils} from "./libraries/Utils.sol";
 contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterface {
   error ReentrantCall();
 
+  /// @notice This error is returned when the data with report is invalid.
+  /// This can happen if the data is shorter than SELECTOR_LENGTH + REPORT_LENGTH.
+  /// @param data the data that was received
+  error InvalidData(bytes data);
+
+  uint256 private constant SELECTOR_LENGTH = 4;
+  uint256 private constant REPORT_LENGTH = 64;
+
   struct HotVars {
     bool reentrancyGuard; // guard against reentrancy
   }
@@ -26,7 +34,9 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     bytes calldata data,
     bytes[] calldata signatures
   ) external nonReentrant returns (bool) {
-    require(data.length > 4 + 64, "invalid data length");
+    if (data.length < SELECTOR_LENGTH + REPORT_LENGTH) {
+      revert InvalidData(data);
+    }
 
     // data is an encoded call with the selector prefixed: (bytes4 selector, bytes report, ...)
     // we are able to partially decode just the first param, since we don't know the rest

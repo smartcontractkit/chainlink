@@ -27,10 +27,11 @@ func setupORM(t *testing.T) (subscriptions.ORM, error) {
 		lggr = logger.TestLogger(t)
 	)
 
-	return subscriptions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
+	return subscriptions.NewORM(db, lggr, testutils.NewAddress())
 }
 
 func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscriptions.StoredSubscription {
+	ctx := testutils.Context(t)
 	storedSubscriptions := make([]subscriptions.StoredSubscription, 0)
 	for i := amount; i > 0; i-- {
 		cs := subscriptions.StoredSubscription{
@@ -45,7 +46,7 @@ func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscr
 			},
 		}
 		storedSubscriptions = append(storedSubscriptions, cs)
-		err := orm.UpsertSubscription(cs)
+		err := orm.UpsertSubscription(ctx, cs)
 		require.NoError(t, err)
 	}
 	return storedSubscriptions
@@ -54,20 +55,22 @@ func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscr
 func TestORM_GetSubscriptions(t *testing.T) {
 	t.Parallel()
 	t.Run("fetch first page", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		storedSubscriptions := seedSubscriptions(t, orm, 2)
-		results, err := orm.GetSubscriptions(0, 1)
+		results, err := orm.GetSubscriptions(ctx, 0, 1)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 		require.Equal(t, storedSubscriptions[1], results[0])
 	})
 
 	t.Run("fetch second page", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		storedSubscriptions := seedSubscriptions(t, orm, 2)
-		results, err := orm.GetSubscriptions(1, 5)
+		results, err := orm.GetSubscriptions(ctx, 1, 5)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 		require.Equal(t, storedSubscriptions[0], results[0])
@@ -78,6 +81,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 	t.Parallel()
 
 	t.Run("create a subscription", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := subscriptions.StoredSubscription{
@@ -91,16 +95,17 @@ func TestORM_UpsertSubscription(t *testing.T) {
 				Flags:          defaultFlags,
 			},
 		}
-		err = orm.UpsertSubscription(expected)
+		err = orm.UpsertSubscription(ctx, expected)
 		require.NoError(t, err)
 
-		results, err := orm.GetSubscriptions(0, 1)
+		results, err := orm.GetSubscriptions(ctx, 0, 1)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 		require.Equal(t, expected, results[0])
 	})
 
 	t.Run("update a subscription", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 
@@ -115,7 +120,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 				Flags:          defaultFlags,
 			},
 		}
-		err = orm.UpsertSubscription(expectedUpdated)
+		err = orm.UpsertSubscription(ctx, expectedUpdated)
 		require.NoError(t, err)
 
 		expectedNotUpdated := subscriptions.StoredSubscription{
@@ -129,15 +134,15 @@ func TestORM_UpsertSubscription(t *testing.T) {
 				Flags:          defaultFlags,
 			},
 		}
-		err = orm.UpsertSubscription(expectedNotUpdated)
+		err = orm.UpsertSubscription(ctx, expectedNotUpdated)
 		require.NoError(t, err)
 
 		// update the balance value
 		expectedUpdated.Balance = big.NewInt(20)
-		err = orm.UpsertSubscription(expectedUpdated)
+		err = orm.UpsertSubscription(ctx, expectedUpdated)
 		require.NoError(t, err)
 
-		results, err := orm.GetSubscriptions(0, 5)
+		results, err := orm.GetSubscriptions(ctx, 0, 5)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(results), "incorrect results length")
 		require.Equal(t, expectedNotUpdated, results[1])
@@ -145,6 +150,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 	})
 
 	t.Run("update a deleted subscription", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 
@@ -159,7 +165,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 				Flags:          defaultFlags,
 			},
 		}
-		err = orm.UpsertSubscription(subscription)
+		err = orm.UpsertSubscription(ctx, subscription)
 		require.NoError(t, err)
 
 		// empty subscription
@@ -172,24 +178,25 @@ func TestORM_UpsertSubscription(t *testing.T) {
 			Flags:          [32]byte{},
 		}
 
-		err = orm.UpsertSubscription(subscription)
+		err = orm.UpsertSubscription(ctx, subscription)
 		require.NoError(t, err)
 
-		results, err := orm.GetSubscriptions(0, 5)
+		results, err := orm.GetSubscriptions(ctx, 0, 5)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 		require.Equal(t, subscription, results[0])
 	})
 
 	t.Run("create a subscription with same id but different router address", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		var (
 			db   = pgtest.NewSqlxDB(t)
 			lggr = logger.TestLogger(t)
 		)
 
-		orm1, err := subscriptions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
+		orm1, err := subscriptions.NewORM(db, lggr, testutils.NewAddress())
 		require.NoError(t, err)
-		orm2, err := subscriptions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
+		orm2, err := subscriptions.NewORM(db, lggr, testutils.NewAddress())
 		require.NoError(t, err)
 
 		subscription := subscriptions.StoredSubscription{
@@ -204,42 +211,43 @@ func TestORM_UpsertSubscription(t *testing.T) {
 			},
 		}
 
-		err = orm1.UpsertSubscription(subscription)
+		err = orm1.UpsertSubscription(ctx, subscription)
 		require.NoError(t, err)
 
 		// should update the existing subscription
 		subscription.Balance = assets.Ether(12).ToInt()
-		err = orm1.UpsertSubscription(subscription)
+		err = orm1.UpsertSubscription(ctx, subscription)
 		require.NoError(t, err)
 
-		results, err := orm1.GetSubscriptions(0, 10)
+		results, err := orm1.GetSubscriptions(ctx, 0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 
 		// should create a new subscription because it comes from a different router contract
-		err = orm2.UpsertSubscription(subscription)
+		err = orm2.UpsertSubscription(ctx, subscription)
 		require.NoError(t, err)
 
-		results, err = orm1.GetSubscriptions(0, 10)
+		results, err = orm1.GetSubscriptions(ctx, 0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 
-		results, err = orm2.GetSubscriptions(0, 10)
+		results, err = orm2.GetSubscriptions(ctx, 0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 	})
 }
 func Test_NewORM(t *testing.T) {
+	t.Parallel()
 	t.Run("OK-create_ORM", func(t *testing.T) {
-		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), testutils.NewAddress())
+		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), testutils.NewAddress())
 		require.NoError(t, err)
 	})
 	t.Run("NOK-create_ORM_with_nil_fields", func(t *testing.T) {
-		_, err := subscriptions.NewORM(nil, nil, nil, common.Address{})
+		_, err := subscriptions.NewORM(nil, nil, common.Address{})
 		require.Error(t, err)
 	})
 	t.Run("NOK-create_ORM_with_empty_address", func(t *testing.T) {
-		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), common.Address{})
+		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), common.Address{})
 		require.Error(t, err)
 	})
 }
