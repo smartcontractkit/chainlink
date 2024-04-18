@@ -1772,22 +1772,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -1872,22 +1856,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -1974,22 +1942,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -2074,22 +2026,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2177,22 +2113,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -2278,22 +2198,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -2378,22 +2282,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2481,22 +2369,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -2582,22 +2454,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '2s'
@@ -2681,22 +2537,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2782,22 +2622,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -2882,22 +2706,6 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -2985,22 +2793,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -3085,22 +2877,6 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3187,22 +2963,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -3287,22 +3047,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3389,22 +3133,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -3489,22 +3217,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3591,22 +3303,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -3691,22 +3387,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -3794,22 +3474,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -3895,22 +3559,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -3994,22 +3642,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4096,22 +3728,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -4195,22 +3811,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4297,22 +3897,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -4398,22 +3982,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -4498,22 +4066,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -4597,22 +4149,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4699,22 +4235,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -4798,22 +4318,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -4900,22 +4404,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -4999,22 +4487,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5101,22 +4573,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -5201,22 +4657,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -5304,22 +4744,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -5404,22 +4828,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5506,22 +4914,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -5606,22 +4998,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -5708,22 +5084,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -5807,22 +5167,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -5908,22 +5252,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -6007,22 +5335,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -6109,22 +5421,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -6210,22 +5506,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -6309,22 +5589,6 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -6411,22 +5675,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -6511,22 +5759,6 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -6614,22 +5846,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -6716,22 +5932,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -6816,22 +6016,6 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -6918,22 +6102,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
@@ -7018,22 +6186,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -7120,22 +6272,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -7220,22 +6356,6 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 1
@@ -7322,22 +6442,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -7422,22 +6526,6 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [OCR]
 ContractConfirmations = 4
@@ -8159,104 +7247,104 @@ Set to 0 to disable.
 ## EVM.NodePool.Errors
 ```toml
 [EVM.NodePool.Errors]
-NonceTooLow = '' # Default
-NonceTooHigh = '' # Default
-ReplacementTransactionUnderpriced = '' # Default
-LimitReached = '' # Default
-TransactionAlreadyInMempool = '' # Default
-TerminallyUnderpriced = '' # Default
-InsufficientEth = '' # Default
-TxFeeExceedsCap = '' # Default
-L2FeeTooLow = '' # Default
-L2FeeTooHigh = '' # Default
-L2Full = '' # Default
-TransactionAlreadyMined = '' # Default
-Fatal = '' # Default
-ServiceUnavailable = '' # Default
+NonceTooLow = '(: |^)nonce too low' # Example
+NonceTooHigh = '(: |^)nonce too high' # Example
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Example
+LimitReached = '(: |^)limit reached' # Example
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
+TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
+InsufficientEth = '(: |^)insufficeint eth' # Example
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
+L2FeeTooLow = '(: |^)l2 fee too low' # Example
+L2FeeTooHigh = '(: |^)l2 fee too high' # Example
+L2Full = '(: |^)l2 full' # Example
+TransactionAlreadyMined = '(: |^)transaction already mined' # Example
+Fatal = '(: |^)fatal' # Example
+ServiceUnavailable = '(: |^)service unavailable' # Example
 ```
 Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 
 ### NonceTooLow
 ```toml
-NonceTooLow = '' # Default
+NonceTooLow = '(: |^)nonce too low' # Example
 ```
 NonceTooLow is a regex pattern to match against nonce too low errors.
 
 ### NonceTooHigh
 ```toml
-NonceTooHigh = '' # Default
+NonceTooHigh = '(: |^)nonce too high' # Example
 ```
 NonceTooHigh is a regex pattern to match against nonce too high errors.
 
 ### ReplacementTransactionUnderpriced
 ```toml
-ReplacementTransactionUnderpriced = '' # Default
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Example
 ```
 ReplacementTransactionUnderpriced is a regex pattern to match against replacement transaction underpriced errors.
 
 ### LimitReached
 ```toml
-LimitReached = '' # Default
+LimitReached = '(: |^)limit reached' # Example
 ```
 LimitReached is a regex pattern to match against limit reached errors.
 
 ### TransactionAlreadyInMempool
 ```toml
-TransactionAlreadyInMempool = '' # Default
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
 ```
 TransactionAlreadyInMempool is a regex pattern to match against transaction already in mempool errors.
 
 ### TerminallyUnderpriced
 ```toml
-TerminallyUnderpriced = '' # Default
+TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
 ```
 TerminallyUnderpriced is a regex pattern to match against terminally underpriced errors.
 
 ### InsufficientEth
 ```toml
-InsufficientEth = '' # Default
+InsufficientEth = '(: |^)insufficeint eth' # Example
 ```
 InsufficientEth is a regex pattern to match against insufficient eth errors.
 
 ### TxFeeExceedsCap
 ```toml
-TxFeeExceedsCap = '' # Default
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
 ```
 TxFeeExceedsCap is a regex pattern to match against tx fee exceeds cap errors.
 
 ### L2FeeTooLow
 ```toml
-L2FeeTooLow = '' # Default
+L2FeeTooLow = '(: |^)l2 fee too low' # Example
 ```
 L2FeeTooLow is a regex pattern to match against l2 fee too low errors.
 
 ### L2FeeTooHigh
 ```toml
-L2FeeTooHigh = '' # Default
+L2FeeTooHigh = '(: |^)l2 fee too high' # Example
 ```
 L2FeeTooHigh is a regex pattern to match against l2 fee too high errors.
 
 ### L2Full
 ```toml
-L2Full = '' # Default
+L2Full = '(: |^)l2 full' # Example
 ```
 L2Full is a regex pattern to match against l2 full errors.
 
 ### TransactionAlreadyMined
 ```toml
-TransactionAlreadyMined = '' # Default
+TransactionAlreadyMined = '(: |^)transaction already mined' # Example
 ```
 TransactionAlreadyMined is a regex pattern to match against transaction already mined errors.
 
 ### Fatal
 ```toml
-Fatal = '' # Default
+Fatal = '(: |^)fatal' # Example
 ```
 Fatal is a regex pattern to match against fatal errors.
 
 ### ServiceUnavailable
 ```toml
-ServiceUnavailable = '' # Default
+ServiceUnavailable = '(: |^)service unavailable' # Example
 ```
 ServiceUnavailable is a regex pattern to match against service unavailable errors.
 

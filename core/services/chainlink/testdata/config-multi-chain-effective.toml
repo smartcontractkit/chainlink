@@ -315,22 +315,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[EVM.NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [EVM.OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -422,22 +406,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[EVM.NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [EVM.OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
@@ -522,22 +490,6 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-
-[EVM.NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
 
 [EVM.OCR]
 ContractConfirmations = 4

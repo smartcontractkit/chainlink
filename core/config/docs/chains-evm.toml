@@ -356,33 +356,33 @@ FinalizedBlockPollInterval = '5s' # Default
 # Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 [EVM.NodePool.Errors]
 # NonceTooLow is a regex pattern to match against nonce too low errors.
-NonceTooLow = '' # Default
+NonceTooLow = '(: |^)nonce too low' # Example
 # NonceTooHigh is a regex pattern to match against nonce too high errors.
-NonceTooHigh = '' # Default
+NonceTooHigh = '(: |^)nonce too high' # Example
 # ReplacementTransactionUnderpriced is a regex pattern to match against replacement transaction underpriced errors.
-ReplacementTransactionUnderpriced = '' # Default
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Example
 # LimitReached is a regex pattern to match against limit reached errors.
-LimitReached = '' # Default
+LimitReached = '(: |^)limit reached' # Example
 # TransactionAlreadyInMempool is a regex pattern to match against transaction already in mempool errors.
-TransactionAlreadyInMempool = '' # Default
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
 # TerminallyUnderpriced is a regex pattern to match against terminally underpriced errors.
-TerminallyUnderpriced = '' # Default
+TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
 # InsufficientEth is a regex pattern to match against insufficient eth errors.
-InsufficientEth = '' # Default
+InsufficientEth = '(: |^)insufficeint eth' # Example
 # TxFeeExceedsCap is a regex pattern to match against tx fee exceeds cap errors.
-TxFeeExceedsCap = '' # Default
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
 # L2FeeTooLow is a regex pattern to match against l2 fee too low errors.
-L2FeeTooLow = '' # Default
+L2FeeTooLow = '(: |^)l2 fee too low' # Example
 # L2FeeTooHigh is a regex pattern to match against l2 fee too high errors.
-L2FeeTooHigh = '' # Default
+L2FeeTooHigh = '(: |^)l2 fee too high' # Example
 # L2Full is a regex pattern to match against l2 full errors.
-L2Full = '' # Default
+L2Full = '(: |^)l2 full' # Example
 # TransactionAlreadyMined is a regex pattern to match against transaction already mined errors.
-TransactionAlreadyMined = '' # Default
+TransactionAlreadyMined = '(: |^)transaction already mined' # Example
 # Fatal is a regex pattern to match against fatal errors.
-Fatal = '' # Default
+Fatal = '(: |^)fatal' # Example
 # ServiceUnavailable is a regex pattern to match against service unavailable errors.
-ServiceUnavailable = '' # Default
+ServiceUnavailable = '(: |^)service unavailable' # Example
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.

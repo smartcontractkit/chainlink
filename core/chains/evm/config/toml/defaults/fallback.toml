@@ -64,22 +64,6 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.Errors]
-NonceTooLow = ''
-NonceTooHigh = ''
-ReplacementTransactionUnderpriced = ''
-LimitReached = ''
-TransactionAlreadyInMempool = ''
-TerminallyUnderpriced = ''
-InsufficientEth = ''
-TxFeeExceedsCap = ''
-L2FeeTooLow = ''
-L2FeeTooHigh = ''
-L2Full = ''
-TransactionAlreadyMined = ''
-Fatal = ''
-ServiceUnavailable = ''
-
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'

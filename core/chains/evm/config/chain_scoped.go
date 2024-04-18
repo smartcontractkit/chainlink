@@ -170,7 +170,7 @@ func (e *EVMConfig) NodePool() NodePool {
 }
 
 func (e *EVMConfig) ClientErrors() ClientErrors {
-	return &clientErrorsConfig{c: e.C.NodePool.Errors}
+	return &clientErrorsConfig{c: *e.C.NodePool.Errors}
 }
 
 func (e *EVMConfig) NodeNoNewHeadsThreshold() time.Duration {

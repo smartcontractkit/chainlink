@@ -703,20 +703,20 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 }
 
 type ClientErrors struct {
-	NonceTooLow                       *string
-	NonceTooHigh                      *string
-	ReplacementTransactionUnderpriced *string
-	LimitReached                      *string
-	TransactionAlreadyInMempool       *string
-	TerminallyUnderpriced             *string
-	InsufficientEth                   *string
-	TxFeeExceedsCap                   *string
-	L2FeeTooLow                       *string
-	L2FeeTooHigh                      *string
-	L2Full                            *string
-	TransactionAlreadyMined           *string
-	Fatal                             *string
-	ServiceUnavailable                *string
+	NonceTooLow                       *string `toml:",omitempty"`
+	NonceTooHigh                      *string `toml:",omitempty"`
+	ReplacementTransactionUnderpriced *string `toml:",omitempty"`
+	LimitReached                      *string `toml:",omitempty"`
+	TransactionAlreadyInMempool       *string `toml:",omitempty"`
+	TerminallyUnderpriced             *string `toml:",omitempty"`
+	InsufficientEth                   *string `toml:",omitempty"`
+	TxFeeExceedsCap                   *string `toml:",omitempty"`
+	L2FeeTooLow                       *string `toml:",omitempty"`
+	L2FeeTooHigh                      *string `toml:",omitempty"`
+	L2Full                            *string `toml:",omitempty"`
+	TransactionAlreadyMined           *string `toml:",omitempty"`
+	Fatal                             *string `toml:",omitempty"`
+	ServiceUnavailable                *string `toml:",omitempty"`
 }
 
 func (r *ClientErrors) setFrom(f *ClientErrors) {
@@ -772,7 +772,7 @@ type NodePool struct {
 	LeaseDuration              *commonconfig.Duration
 	NodeIsSyncingEnabled       *bool
 	FinalizedBlockPollInterval *commonconfig.Duration
-	Errors                     ClientErrors `toml:",omitempty"`
+	Errors                     *ClientErrors `toml:",omitempty"`
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -797,7 +797,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
 	}
-	p.Errors.setFrom(&f.Errors)
+	if f.Errors != nil {
+		p.Errors.setFrom(f.Errors)
+	}
 }
 
 type OCR struct {
