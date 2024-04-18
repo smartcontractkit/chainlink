@@ -476,7 +476,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	orm.On("GetQ").Return(q).Maybe()
 	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			args.Get(0).(*pipeline.Run).ID = 1
+			args.Get(1).(*pipeline.Run).ID = 1
 		}).
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -517,7 +517,7 @@ func Test_PipelineRunner_ExecuteAndInsertFinishedRun_SavingTheSpec(t *testing.T)
 	orm.On("GetQ").Return(q).Maybe()
 	orm.On("InsertFinishedRunWithSpec", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			args.Get(0).(*pipeline.Run).ID = 1
+			args.Get(1).(*pipeline.Run).ID = 1
 		}).
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -642,7 +642,13 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 
 	btORM := bridgesMocks.NewORM(t)
 	btORM.On("FindBridge", mock.Anything, bt.Name).Return(*bt, nil)
+
 	r, orm := newRunner(t, db, btORM, cfg)
+	transactCall := orm.On("Transact", mock.Anything, mock.Anything)
+	transactCall.Run(func(args mock.Arguments) {
+		fn := args[1].(func(orm pipeline.ORM) error)
+		transactCall.ReturnArguments = mock.Arguments{fn(orm)}
+	})
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -673,11 +679,11 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Start a new run
 	run := pipeline.NewRun(spec, pipeline.NewVarsFrom(nil))
 	// we should receive a call to CreateRun because it's contains an async task
-	orm.On("CreateRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		run := args.Get(0).(*pipeline.Run)
+	orm.On("CreateRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(nil).Run(func(args mock.Arguments) {
+		run := args.Get(1).(*pipeline.Run)
 		run.ID = 1 // give it a valid "id"
 	}).Once()
-	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
 	lggr := logger.TestLogger(t)
 	incomplete, err := r.Run(testutils.Context(t), run, lggr, false, nil)
 	require.NoError(t, err)
@@ -687,7 +693,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// TODO: test a pending run that's not marked async=true, that is not allowed
 
 	// Trigger run resumption with no new data
-	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
 	incomplete, err = r.Run(testutils.Context(t), run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
@@ -700,7 +706,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		Valid: true,
 	}
 	// Trigger run resumption
-	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
 	incomplete, err = r.Run(testutils.Context(t), run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
@@ -770,6 +776,11 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	btORM.On("FindBridge", mock.Anything, bt.Name).Return(*bt, nil)
 
 	r, orm := newRunner(t, db, btORM, cfg)
+	transactCall := orm.On("Transact", mock.Anything, mock.Anything)
+	transactCall.Run(func(args mock.Arguments) {
+		fn := args[1].(func(orm pipeline.ORM) error)
+		transactCall.ReturnArguments = mock.Arguments{fn(orm)}
+	})
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -800,13 +811,13 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Start a new run
 	run := pipeline.NewRun(spec, pipeline.NewVarsFrom(nil))
 	// we should receive a call to CreateRun because it's contains an async task
-	orm.On("CreateRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		run := args.Get(0).(*pipeline.Run)
+	orm.On("CreateRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(nil).Run(func(args mock.Arguments) {
+		run := args.Get(1).(*pipeline.Run)
 		run.ID = 1 // give it a valid "id"
 	}).Once()
 	// Simulate updated task run data
-	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(true, nil).Run(func(args mock.Arguments) {
-		run := args.Get(0).(*pipeline.Run)
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(true, nil).Run(func(args mock.Arguments) {
+		run := args.Get(1).(*pipeline.Run)
 		// Now simulate a new result coming in while we were running
 		task := run.ByDotID("ds1")
 		task.Error = null.NewString("", false)
@@ -816,7 +827,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		}
 	}).Once()
 	// StoreRun is called again to store the final result
-	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
 	incomplete, err := r.Run(testutils.Context(t), run, logger.TestLogger(t), false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)

@@ -1,44 +1,34 @@
 {
   "tests": [
     {
-      "name": "TestLogPollerFewFiltersFixedDepth",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerFewFiltersFixedDepth"
     },
     {
-      "name": "TestLogPollerFewFiltersFinalityTag",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerFewFiltersFinalityTag"
     },
     {
-      "name": "TestLogPollerWithChaosFixedDepth",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerWithChaosFixedDepth"
     },
     {
-      "name": "TestLogPollerWithChaosFinalityTag",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerWithChaosFinalityTag"
     },
     {
-      "name": "TestLogPollerWithChaosPostgresFinalityTag",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerWithChaosPostgresFinalityTag"
     },
     {
-      "name": "TestLogPollerWithChaosPostgresFixedDepth",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerWithChaosPostgresFixedDepth"
     },
     {
-      "name": "TestLogPollerReplayFixedDepth",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerReplayFixedDepth"
     },
     {
-      "name": "TestLogPollerReplayFinalityTag",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerReplayFinalityTag"
     },
     {
-      "name": "TestLogPollerManyFiltersFixedDepth",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerManyFiltersFixedDepth"
     },
     {
-      "name": "TestLogPollerManyFiltersFinalityTag",
-      "label": "ubuntu-latest"
+      "name": "TestLogPollerManyFiltersFinalityTag"
     }
   ]
 }
