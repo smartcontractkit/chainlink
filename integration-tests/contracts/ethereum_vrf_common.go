@@ -63,7 +63,7 @@ type RandomWordsFulfilledEventFilter struct {
 type CoordinatorRandomWordsFulfilled struct {
 	RequestId     *big.Int
 	OutputSeed    *big.Int
-	SubId         any
+	SubId         string
 	Payment       *big.Int
 	NativePayment bool
 	Success       bool

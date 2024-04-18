@@ -499,7 +499,7 @@ func (v *EthereumVRFCoordinatorV2_5) WaitForRandomWordsFulfilledEvent(filter Ran
 			return &CoordinatorRandomWordsFulfilled{
 				RequestId:     randomWordsFulfilledEvent.RequestId,
 				OutputSeed:    randomWordsFulfilledEvent.OutputSeed,
-				SubId:         randomWordsFulfilledEvent.SubId,
+				SubId:         randomWordsFulfilledEvent.SubId.String(),
 				Payment:       randomWordsFulfilledEvent.Payment,
 				NativePayment: randomWordsFulfilledEvent.NativePayment,
 				Success:       randomWordsFulfilledEvent.Success,
@@ -970,7 +970,7 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) WaitForRandomWordsFulfille
 			return &CoordinatorRandomWordsFulfilled{
 				RequestId:     randomWordsFulfilledEvent.RequestId,
 				OutputSeed:    randomWordsFulfilledEvent.OutputSeed,
-				SubId:         randomWordsFulfilledEvent.SubId,
+				SubId:         randomWordsFulfilledEvent.SubId.String(),
 				Payment:       randomWordsFulfilledEvent.Payment,
 				NativePayment: randomWordsFulfilledEvent.NativePayment,
 				Success:       randomWordsFulfilledEvent.Success,

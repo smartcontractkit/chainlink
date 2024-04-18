@@ -64,7 +64,7 @@ func LogRandomWordsFulfilledEvent(
 		Str("Coordinator", coordinator.Address()).
 		Str("Total Payment", randomWordsFulfilledEvent.Payment.String()).
 		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
-		Str("Subscription ID", randomWordsFulfilledEvent.SubId.(*big.Int).String()).
+		Str("Subscription ID", randomWordsFulfilledEvent.SubId).
 		Str("Request ID", randomWordsFulfilledEvent.RequestId.String()).
 		Bool("Success", randomWordsFulfilledEvent.Success).
 		Uint64("BlockNumber", randomWordsFulfilledEvent.Raw.BlockNumber).
