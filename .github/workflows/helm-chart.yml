@@ -14,22 +14,12 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Setup yq
-        uses: frenck/action-setup-yq@c4b5be8b4a215c536a41d436757d9feb92836d4f #v1.0.2
-      - name: Add helm repos
-        shell: bash
-        working-directory: charts/chainlink-cluster
-        run: |
-          if [[ -f "./Chart.lock" ]]; then
-            yq --indent 0 '.dependencies | map(["helm", "repo", "add", .name, .repository] | join(" ")) | .[]' "./Chart.lock"  | sh --;
-          fi
       - name: ci-lint-helm-charts
         uses: smartcontractkit/.github/actions/ci-lint-charts@6b08487b176ef7cad086526d0b54ddff6691c044 # ci-lint-charts@0.1.2
         with:
           # chart testing inputs
           chart-testing-extra-args: "--lint-conf=lintconf.yaml"
+          charts-dir: charts/chainlink-cluster
           # grafana inputs
           metrics-job-name: ci-lint-helm-charts
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -39,17 +29,6 @@ jobs:
   ci-kubeconform:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Setup yq
-        uses: frenck/action-setup-yq@c4b5be8b4a215c536a41d436757d9feb92836d4f #v1.0.2
-      - name: Add helm repos
-        shell: bash
-        working-directory: charts/chainlink-cluster
-        run: |
-          if [[ -f "./Chart.lock" ]]; then
-            yq --indent 0 '.dependencies | map(["helm", "repo", "add", .name, .repository] | join(" ")) | .[]' "./Chart.lock"  | sh --;
-          fi
       - name: ci-kubeconform
         uses: smartcontractkit/.github/actions/ci-kubeconform@re-2490/add-ci-kubeform # TODO pin specific version once released
         with:
