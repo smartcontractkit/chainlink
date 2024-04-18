@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {Test, Vm} from "forge-std/Test.sol";
 
 import {KeystoneReceiver} from "./mocks/KeystoneReceiver.sol";
-import {KeystoneForwarder} from "./KeystoneForwarder.sol";
+import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneForwarderTest is Test {
     function setUp() public virtual {}

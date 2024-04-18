@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IForwarder} from "./interfaces/IForwarder.sol";
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {Report} from "./libraries/Report.sol";
 
-contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterface {
+contract KeystoneForwarder is ConfirmedOwner, TypeAndVersionInterface {
     event ReportForwarded(bytes32 indexed workflowExecutionId, address indexed transmitter, bool success);
 
     error ReentrantCall();
@@ -60,7 +60,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
             // TODO: we need to store oracle cluster similar to aggregator then, to validate valid signer list
         }
 
-        ( /* bytes32 workflowId */ , bytes32 workflowExecutionId) = _splitReport(rawReport);
+        ( /* bytes32 workflowId */ , bytes32 workflowExecutionId) = Report.getMetadata(rawReport);
 
         // report was already processed
         if (s_reports[workflowExecutionId] != address(0)) {
@@ -105,20 +105,6 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
         }
 
         return (r, s, v);
-    }
-
-    function _splitReport(bytes memory rawReport)
-        internal
-        pure
-        returns (bytes32 workflowId, bytes32 workflowExecutionId)
-    {
-        assembly {
-            // skip first 32 bytes, contains length of the report
-            workflowId := mload(add(rawReport, 32))
-            workflowExecutionId := mload(add(rawReport, 64))
-        }
-
-        return (workflowId, workflowExecutionId);
     }
 
     /// @inheritdoc TypeAndVersionInterface

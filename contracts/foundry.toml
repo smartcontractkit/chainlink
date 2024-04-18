@@ -55,8 +55,7 @@ solc_version = '0.8.19'
 [profile.keystone]
 solc_version = '0.8.19'
 src = 'src/v0.8/keystone'
-test = 'src/v0.8/keystone'
-match_tests = '**.t.sol'
+test = 'src/v0.8/keystone/test'
 optimizer_runs = 10_000
 
 [profile.operatorforwarder]
