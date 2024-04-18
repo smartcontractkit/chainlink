@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ci-lint-helm-charts
-        uses: smartcontractkit/.github/actions/ci-lint-charts@re-2490/add-ci-kubeform # TODO pin specific version once released
+        uses: smartcontractkit/.github/actions/ci-lint-charts@7fa39741b11e66ed59f8aad786d4b9356c389f3f # ci-lint-charts@0.2.0
         with:
           # chart testing inputs
           chart-testing-extra-args: "--lint-conf=lintconf.yaml"
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ci-kubeconform
-        uses: smartcontractkit/.github/actions/ci-kubeconform@re-2490/add-ci-kubeform # TODO pin specific version once released
+        uses: smartcontractkit/.github/actions/ci-kubeconform@7fa39741b11e66ed59f8aad786d4b9356c389f3f # ci-kubeconform@0.1.0
         with:
           # kubeform inputs
           charts-dir: charts/chainlink-cluster
