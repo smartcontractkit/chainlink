@@ -84,7 +84,7 @@ func TestDoc(t *testing.T) {
 		require.Empty(t, docDefaults.ChainWriter.ForwarderAddress)
 		docDefaults.ChainWriter.FromAddress = nil
 		docDefaults.ChainWriter.ForwarderAddress = nil
-		docDefaults.NodePool.Errors = nil
+		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

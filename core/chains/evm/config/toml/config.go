@@ -720,9 +720,6 @@ type ClientErrors struct {
 }
 
 func (r *ClientErrors) setFrom(f *ClientErrors) bool {
-	if f == nil {
-		return false
-	}
 	if v := f.NonceTooLow; v != nil {
 		r.NonceTooLow = v
 	}
@@ -776,7 +773,7 @@ type NodePool struct {
 	LeaseDuration              *commonconfig.Duration
 	NodeIsSyncingEnabled       *bool
 	FinalizedBlockPollInterval *commonconfig.Duration
-	Errors                     *ClientErrors `toml:",omitempty"`
+	Errors                     ClientErrors `toml:",omitempty"`
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -801,10 +798,7 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
 	}
-	p.Errors = &ClientErrors{}
-	if !p.Errors.setFrom(f.Errors) {
-		p.Errors = nil
-	}
+	p.Errors.setFrom(&f.Errors)
 }
 
 type OCR struct {
