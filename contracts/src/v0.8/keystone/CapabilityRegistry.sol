@@ -15,7 +15,7 @@ struct Capability {
 }
 
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
-  mapping(bytes32 => Capability) public capabilities;
+  mapping(bytes32 => Capability) private s_capabilities;
 
   event CapabilityAdded(bytes32 indexed capabilityId);
 
@@ -25,12 +25,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   function addCapability(Capability calldata capability) external onlyOwner {
     bytes32 capabilityId = getCapabilityID(capability.capabilityType, capability.version);
-    capabilities[capabilityId] = capability;
+    s_capabilities[capabilityId] = capability;
     emit CapabilityAdded(capabilityId);
   }
 
   function getCapability(bytes32 capabilityID) public view returns (Capability memory) {
-    return capabilities[capabilityID];
+    return s_capabilities[capabilityID];
   }
 
   /// @notice This functions returns a Capability ID packed into a bytes32 for cheaper access
