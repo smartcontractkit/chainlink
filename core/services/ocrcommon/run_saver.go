@@ -2,15 +2,16 @@ package ocrcommon
 
 import (
 	"context"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 type Runner interface {
-	InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
+	InsertFinishedRun(ctx context.Context, ds sqlutil.DataSource, run *pipeline.Run, saveSuccessfulTaskRuns bool) error
 }
 
 type RunResultSaver struct {
@@ -19,7 +20,7 @@ type RunResultSaver struct {
 	maxSuccessfulRuns uint64
 	runResults        chan *pipeline.Run
 	pipelineRunner    Runner
-	done              chan struct{}
+	stopCh            services.StopChan
 	logger            logger.Logger
 }
 
@@ -36,7 +37,7 @@ func NewResultRunSaver(pipelineRunner Runner,
 		maxSuccessfulRuns: maxSuccessfulRuns,
 		runResults:        make(chan *pipeline.Run, resultsWriteDepth),
 		pipelineRunner:    pipelineRunner,
-		done:              make(chan struct{}),
+		stopCh:            make(chan struct{}),
 		logger:            logger.Named("RunResultSaver"),
 	}
 }
@@ -55,6 +56,8 @@ func (r *RunResultSaver) Save(run *pipeline.Run) {
 func (r *RunResultSaver) Start(context.Context) error {
 	return r.StartOnce("RunResultSaver", func() error {
 		go func() {
+			ctx, cancel := r.stopCh.NewCtx()
+			defer cancel()
 			for {
 				select {
 				case run := <-r.runResults:
@@ -66,10 +69,10 @@ func (r *RunResultSaver) Start(context.Context) error {
 					r.logger.Tracew("RunSaver: saving job run", "run", run)
 					// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
 					// are produced and the successful TaskRuns do not provide value.
-					if err := r.pipelineRunner.InsertFinishedRun(run, false); err != nil {
+					if err := r.pipelineRunner.InsertFinishedRun(ctx, nil, run, false); err != nil {
 						r.logger.Errorw("error inserting finished results", "err", err)
 					}
-				case <-r.done:
+				case <-r.stopCh:
 					return
 				}
 			}
@@ -80,7 +83,10 @@ func (r *RunResultSaver) Start(context.Context) error {
 
 func (r *RunResultSaver) Close() error {
 	return r.StopOnce("RunResultSaver", func() error {
-		r.done <- struct{}{}
+		close(r.stopCh)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 
 		// In the unlikely event that there are remaining runResults to write,
 		// drain the channel and save them.
@@ -88,7 +94,7 @@ func (r *RunResultSaver) Close() error {
 			select {
 			case run := <-r.runResults:
 				r.logger.Infow("RunSaver: saving job run before exiting", "run", run)
-				if err := r.pipelineRunner.InsertFinishedRun(run, false); err != nil {
+				if err := r.pipelineRunner.InsertFinishedRun(ctx, nil, run, false); err != nil {
 					r.logger.Errorw("error inserting finished results", "err", err)
 				}
 			default:

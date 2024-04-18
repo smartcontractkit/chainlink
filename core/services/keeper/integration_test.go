@@ -175,6 +175,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := testutils.Context(t)
 			g := gomega.NewWithT(t)
 
 			// setup node key
@@ -249,12 +250,12 @@ func TestKeeperEthIntegration(t *testing.T) {
 			korm := keeper.NewORM(db, logger.TestLogger(t))
 
 			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
-			require.NoError(t, app.Start(testutils.Context(t)))
+			require.NoError(t, app.Start(ctx))
 
 			// create job
 			regAddrEIP55 := evmtypes.EIP55AddressFromAddress(regAddr)
 			job := cltest.MustInsertKeeperJob(t, db, korm, nodeAddressEIP55, regAddrEIP55)
-			err = app.JobSpawner().StartService(testutils.Context(t), job)
+			err = app.JobSpawner().StartService(ctx, job)
 			require.NoError(t, err)
 
 			// keeper job is triggered and payload is received
@@ -311,7 +312,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			cltest.AssertRecordEventually(t, app.GetSqlxDB(), &registry, fmt.Sprintf("SELECT * FROM keeper_registries WHERE id = %d", registry.ID), func() bool {
 				return registry.KeeperIndex == -1
 			})
-			runs, err := app.PipelineORM().GetAllRuns()
+			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(t, err)
 			// Since we set grace period to 0, we can have more than 1 pipeline run per perform
 			// This happens in case we start a pipeline run before previous perform tx is committed to chain
@@ -481,6 +482,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 func TestMaxPerformDataSize(t *testing.T) {
 	t.Parallel()
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		maxPerformDataSize := 1000 // Will be set as config override
 		g := gomega.NewWithT(t)
 
@@ -552,12 +554,12 @@ func TestMaxPerformDataSize(t *testing.T) {
 		korm := keeper.NewORM(db, logger.TestLogger(t))
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
-		require.NoError(t, app.Start(testutils.Context(t)))
+		require.NoError(t, app.Start(ctx))
 
 		// create job
 		regAddrEIP55 := evmtypes.EIP55AddressFromAddress(regAddr)
 		job := cltest.MustInsertKeeperJob(t, db, korm, nodeAddressEIP55, regAddrEIP55)
-		err = app.JobSpawner().StartService(testutils.Context(t), job)
+		err = app.JobSpawner().StartService(ctx, job)
 		require.NoError(t, err)
 
 		// keeper job is triggered

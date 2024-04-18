@@ -140,9 +140,6 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnco
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
 	}
 
-	// Tracker currently disabled for BCI-2638; refactor required
-	// resendAddresses = append(resendAddresses, er.tracker.GetAbandonedAddresses()...)
-
 	ageThreshold := er.txConfig.ResendAfterThreshold()
 	maxInFlightTransactions := er.txConfig.MaxInFlight()
 	olderThan := time.Now().Add(-ageThreshold)

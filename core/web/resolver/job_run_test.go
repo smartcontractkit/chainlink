@@ -286,7 +286,7 @@ func TestResolver_RunJob(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), nil)
-				f.Mocks.pipelineORM.On("FindRun", int64(25)).Return(pipeline.Run{
+				f.Mocks.pipelineORM.On("FindRun", mock.Anything, int64(25)).Return(pipeline.Run{
 					ID:             2,
 					PipelineSpecID: 5,
 					CreatedAt:      f.Timestamp(),
@@ -377,7 +377,7 @@ func TestResolver_RunJob(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), nil)
-				f.Mocks.pipelineORM.On("FindRun", int64(25)).Return(pipeline.Run{}, gError)
+				f.Mocks.pipelineORM.On("FindRun", mock.Anything, int64(25)).Return(pipeline.Run{}, gError)
 				f.App.On("PipelineORM").Return(f.Mocks.pipelineORM)
 			},
 			query: mutation,
