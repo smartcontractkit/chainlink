@@ -116,23 +116,25 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   /// @dev Struct to hold the transfer fee configuration for token transfers
   struct TokenTransferFeeConfig {
-    uint32 minFeeUSDCents; // ────╮ Minimum fee to charge per token transfer, multiples of 0.01 USD
-    uint32 maxFeeUSDCents; //     │ Maximum fee to charge per token transfer, multiples of 0.01 USD
-    uint16 deciBps; //            │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
-    uint32 destGasOverhead; //    │ Gas charged to execute the token transfer on the destination chain
-    uint32 destBytesOverhead; //  │ Extra data availability bytes on top of fixed transfer data, including sourceTokenData and offchainData
-    bool isEnabled; // ───────────╯ Whether this token has custom transfer fees
+    uint32 minFeeUSDCents; // ──────────╮ Minimum fee to charge per token transfer, multiples of 0.01 USD
+    uint32 maxFeeUSDCents; //           │ Maximum fee to charge per token transfer, multiples of 0.01 USD
+    uint16 deciBps; //                  │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
+    uint32 destGasOverhead; //          │ Gas charged to execute the token transfer on the destination chain
+    uint32 destBytesOverhead; //        │ Extra data availability bytes on top of fixed transfer data, including sourceTokenData and offchainData
+    bool aggregateRateLimitEnabled; //  │ Whether this transfer token is to be included in Aggregate Rate Limiting
+    bool isEnabled; // ─────────────────╯ Whether this token has custom transfer fees
   }
 
   /// @dev Same as TokenTransferFeeConfig
   /// token included so that an array of these can be passed in to setTokenTransferFeeConfig
   struct TokenTransferFeeConfigArgs {
-    address token; // ────────────╮ Token address
-    uint32 minFeeUSDCents; //     │ Minimum fee to charge per token transfer, multiples of 0.01 USD
-    uint32 maxFeeUSDCents; //     │ Maximum fee to charge per token transfer, multiples of 0.01 USD
-    uint16 deciBps; // ───────────╯ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
-    uint32 destGasOverhead; // ───╮ Gas charged to execute the token transfer on the destination chain
-    uint32 destBytesOverhead; // ─╯ Extra data availability bytes on top of fixed transfer data, including sourceTokenData and offchainData
+    address token; // ──────────────────╮ Token address
+    uint32 minFeeUSDCents; //           │ Minimum fee to charge per token transfer, multiples of 0.01 USD
+    uint32 maxFeeUSDCents; //           │ Maximum fee to charge per token transfer, multiples of 0.01 USD
+    uint16 deciBps; // ─────────────────╯ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
+    uint32 destGasOverhead; // ─────────╮ Gas charged to execute the token transfer on the destination chain
+    uint32 destBytesOverhead; //        │ Extra data availability bytes on top of fixed transfer data, including sourceTokenData and offchainData
+    bool aggregateRateLimitEnabled; // ─╯ Whether this transfer token is to be included in Aggregate Rate Limiting
   }
 
   /// @dev Nop address and weight, used to set the nops and their weights
@@ -273,11 +275,15 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
     // Only check token value if there are tokens
     if (numberOfTokens > 0) {
+      uint256 value;
       for (uint256 i = 0; i < numberOfTokens; ++i) {
         if (message.tokenAmounts[i].amount == 0) revert CannotSendZeroTokens();
+        if (s_tokenTransferFeeConfig[message.tokenAmounts[i].token].aggregateRateLimitEnabled) {
+          value += _getTokenValue(message.tokenAmounts[i], IPriceRegistry(s_dynamicConfig.priceRegistry));
+        }
       }
       // Rate limit on aggregated token value
-      _rateLimitValue(message.tokenAmounts, IPriceRegistry(s_dynamicConfig.priceRegistry));
+      if (value > 0) _rateLimitValue(value);
     }
 
     // Convert feeToken to link if not already in link
@@ -637,7 +643,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   /// @notice Sets the fee configuration for a token
   /// @param feeTokenConfigArgs Array of FeeTokenConfigArgs structs.
-  function setFeeTokenConfig(FeeTokenConfigArgs[] memory feeTokenConfigArgs) external onlyOwnerOrAdmin {
+  function setFeeTokenConfig(FeeTokenConfigArgs[] memory feeTokenConfigArgs) external {
+    _onlyOwnerOrAdmin();
     _setFeeTokenConfig(feeTokenConfigArgs);
   }
 
@@ -671,7 +678,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   function setTokenTransferFeeConfig(
     TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
     address[] memory tokensToUseDefaultFeeConfigs
-  ) external onlyOwnerOrAdmin {
+  ) external {
+    _onlyOwnerOrAdmin();
     _setTokenTransferFeeConfig(tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs);
   }
 
@@ -689,6 +697,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
         deciBps: configArg.deciBps,
         destGasOverhead: configArg.destGasOverhead,
         destBytesOverhead: configArg.destBytesOverhead,
+        aggregateRateLimitEnabled: configArg.aggregateRateLimitEnabled,
         isEnabled: true
       });
     }
@@ -729,7 +738,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   /// @notice Sets the Nops and their weights
   /// @param nopsAndWeights Array of NopAndWeight structs
-  function setNops(NopAndWeight[] calldata nopsAndWeights) external onlyOwnerOrAdmin {
+  function setNops(NopAndWeight[] calldata nopsAndWeights) external {
+    _onlyOwnerOrAdmin();
     _setNops(nopsAndWeights);
   }
 
@@ -807,7 +817,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// The NOP link balance is not withdrawable.
   /// @param feeToken The token to withdraw
   /// @param to The address to send the tokens to
-  function withdrawNonLinkFees(address feeToken, address to) external onlyOwnerOrAdmin {
+  function withdrawNonLinkFees(address feeToken, address to) external {
+    _onlyOwnerOrAdmin();
     if (to == address(0)) revert InvalidWithdrawParams();
 
     // We require the link balance to be settled before allowing withdrawal of non-link fees.
@@ -840,8 +851,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   // ================================================================
 
   /// @dev Require that the sender is the owner or the fee admin
-  modifier onlyOwnerOrAdmin() {
+  /// Not a modifier to save on contract size
+  function _onlyOwnerOrAdmin() internal view {
     if (msg.sender != owner() && msg.sender != s_admin) revert OnlyCallableByOwnerOrAdmin();
-    _;
   }
 }

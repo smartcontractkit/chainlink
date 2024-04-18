@@ -933,6 +933,31 @@ func (offRamp *OffRamp) SetOCR2Config(
 	return offRamp.client.ProcessTransaction(tx)
 }
 
+func (offRamp *OffRamp) UpdateRateLimitTokens(sourceTokens, destTokens []common.Address) error {
+	opts, err := offRamp.client.TransactionOpts(offRamp.client.GetDefaultWallet())
+	if err != nil {
+		return fmt.Errorf("failed to get transaction opts: %w", err)
+	}
+	rateLimitTokens := make([]evm_2_evm_offramp.EVM2EVMOffRampRateLimitToken, len(sourceTokens))
+	for i, sourceToken := range sourceTokens {
+		rateLimitTokens[i] = evm_2_evm_offramp.EVM2EVMOffRampRateLimitToken{
+			SourceToken: sourceToken,
+			DestToken:   destTokens[i],
+		}
+	}
+
+	tx, err := offRamp.Instance.UpdateRateLimitTokens(opts, []evm_2_evm_offramp.EVM2EVMOffRampRateLimitToken{}, rateLimitTokens)
+	if err != nil {
+		return fmt.Errorf("failed to apply rate limit tokens updates: %w", err)
+	}
+	log.Info().
+		Interface("rateLimitToken adds", rateLimitTokens).
+		Str("offRamp", offRamp.Address()).
+		Str(Network, offRamp.client.GetNetworkConfig().Name).
+		Msg("rateLimitTokens set in OffRamp")
+	return offRamp.client.ProcessTransaction(tx)
+}
+
 type MockAggregator struct {
 	client          blockchain.EVMClient
 	Instance        *mock_v3_aggregator_contract.MockV3Aggregator

@@ -11,6 +11,7 @@ Name = 'node-1'
 
 [[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node-2'
+NeedsUpgrade = true
 
 [[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node-3'
@@ -22,6 +23,7 @@ NeedsUpgrade = true
 
 [[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node-5'
+NeedsUpgrade = true
 
 [[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node-6'

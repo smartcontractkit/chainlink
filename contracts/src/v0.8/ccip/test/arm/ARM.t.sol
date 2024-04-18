@@ -24,7 +24,7 @@ contract ConfigCompare is Test {
 }
 
 contract ARM_constructor is ConfigCompare, ARMSetup {
-  function test_Constructor_Success() public {
+  function test_Constructor_Success() public view {
     ARM.Config memory expectedConfig = armConstructorArgs();
     (uint32 actualVersion,, ARM.Config memory actualConfig) = s_arm.getConfigDetails();
     assertEq(actualVersion, 1);

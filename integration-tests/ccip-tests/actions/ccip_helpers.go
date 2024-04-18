@@ -1209,12 +1209,13 @@ func (sourceCCIP *SourceCCIPModule) SetTokenTransferFeeConfig() error {
 			destGasOverhead = 120_000
 		}
 		tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-			Token:             token.ContractAddress,
-			MinFeeUSDCents:    50,           // $0.5
-			MaxFeeUSDCents:    1_000_000_00, // $ 1 million
-			DeciBps:           5_0,          // 5 bps
-			DestGasOverhead:   destGasOverhead,
-			DestBytesOverhead: destByteOverhead,
+			Token:                     token.ContractAddress,
+			MinFeeUSDCents:            50,           // $0.5
+			MaxFeeUSDCents:            1_000_000_00, // $ 1 million
+			DeciBps:                   5_0,          // 5 bps
+			DestGasOverhead:           destGasOverhead,
+			DestBytesOverhead:         destByteOverhead,
+			AggregateRateLimitEnabled: true,
 		})
 	}
 	err := sourceCCIP.OnRamp.SetTokenTransferFeeConfig(tokenTransferFeeConfig)
@@ -1706,6 +1707,25 @@ func (destCCIP *DestCCIPModule) LoadContracts(conf *laneconfig.LaneConfig) {
 	}
 }
 
+func (destCCIP *DestCCIPModule) AddRateLimitTokens(srcTokens, destTokens []*contracts.ERC20Token) error {
+	if srcTokens == nil || destTokens == nil {
+		return fmt.Errorf("source or destination tokens are nil")
+	}
+
+	if len(srcTokens) != len(destTokens) {
+		return fmt.Errorf("source and destination token length mismatch")
+	}
+
+	var sourceTokenAddresses, destTokenAddresses []common.Address
+
+	for i, token := range srcTokens {
+		sourceTokenAddresses = append(sourceTokenAddresses, common.HexToAddress(token.Address()))
+		destTokenAddresses = append(destTokenAddresses, common.HexToAddress(destTokens[i].Address()))
+	}
+
+	return destCCIP.OffRamp.UpdateRateLimitTokens(sourceTokenAddresses, destTokenAddresses)
+}
+
 // DeployContracts deploys all CCIP contracts specific to the destination chain
 func (destCCIP *DestCCIPModule) DeployContracts(
 	sourceCCIP SourceCCIPModule,
@@ -1779,12 +1799,7 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		if destCCIP.Common.ExistingDeployment {
 			return fmt.Errorf("offramp address not provided in lane config")
 		}
-		destCCIP.OffRamp, err = contractDeployer.DeployOffRamp(
-			destCCIP.SourceChainSelector,
-			destChainSelector,
-			destCCIP.CommitStore.EthAddress,
-			sourceCCIP.OnRamp.EthAddress,
-			destCCIP.Common.RateLimiterConfig, *destCCIP.Common.ARMContract)
+		destCCIP.OffRamp, err = contractDeployer.DeployOffRamp(destCCIP.SourceChainSelector, destChainSelector, destCCIP.CommitStore.EthAddress, sourceCCIP.OnRamp.EthAddress, destCCIP.Common.RateLimiterConfig, *destCCIP.Common.ARMContract)
 		if err != nil {
 			return fmt.Errorf("deploying offramp shouldn't fail %w", err)
 		}
@@ -1797,6 +1812,15 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		_, err = destCCIP.Common.Router.AddOffRamp(destCCIP.OffRamp.EthAddress, destCCIP.SourceChainSelector)
 		if err != nil {
 			return fmt.Errorf("setting offramp as fee updater shouldn't fail %w", err)
+		}
+
+		err = destCCIP.AddRateLimitTokens(sourceCCIP.Common.BridgeTokens, destCCIP.Common.BridgeTokens)
+		if err != nil {
+			return fmt.Errorf("setting rate limited tokens shouldn't fail %w", err)
+		}
+		err = destCCIP.Common.ChainClient.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("waiting for events on destination contract shouldn't fail %w", err)
 		}
 
 		err = destCCIP.Common.ChainClient.WaitForEvents()

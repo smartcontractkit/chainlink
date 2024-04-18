@@ -37,21 +37,20 @@ contract AggregateRateLimiter is OwnerIsCreator {
     });
   }
 
-  /// @notice Consumes value from the rate limiter bucket based on the
-  /// token value given. First, calculate the prices
-  function _rateLimitValue(Client.EVMTokenAmount[] memory tokenAmounts, IPriceRegistry priceRegistry) internal {
-    uint256 numberOfTokens = tokenAmounts.length;
-
-    uint256 value = 0;
-    for (uint256 i = 0; i < numberOfTokens; ++i) {
-      // not fetching validated price, as price staleness is not important for value-based rate limiting
-      // we only need to verify price is not 0
-      uint224 pricePerToken = priceRegistry.getTokenPrice(tokenAmounts[i].token).value;
-      if (pricePerToken == 0) revert PriceNotFoundForToken(tokenAmounts[i].token);
-      value += pricePerToken._calcUSDValueFromTokenAmount(tokenAmounts[i].amount);
-    }
-
+  /// @notice Consumes value from the rate limiter bucket based on the token value given.
+  function _rateLimitValue(uint256 value) internal {
     s_rateLimiter._consume(value, address(0));
+  }
+
+  function _getTokenValue(
+    Client.EVMTokenAmount memory tokenAmount,
+    IPriceRegistry priceRegistry
+  ) internal view returns (uint256) {
+    // not fetching validated price, as price staleness is not important for value-based rate limiting
+    // we only need to verify the price is not 0
+    uint224 pricePerToken = priceRegistry.getTokenPrice(tokenAmount.token).value;
+    if (pricePerToken == 0) revert PriceNotFoundForToken(tokenAmount.token);
+    return pricePerToken._calcUSDValueFromTokenAmount(tokenAmount.amount);
   }
 
   /// @notice Gets the token bucket with its values for the block it was requested at.

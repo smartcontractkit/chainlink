@@ -6,7 +6,14 @@ import "../../AggregateRateLimiter.sol";
 contract AggregateRateLimiterHelper is AggregateRateLimiter {
   constructor(RateLimiter.Config memory config) AggregateRateLimiter(config) {}
 
-  function rateLimitValue(Client.EVMTokenAmount[] memory tokenAmounts, IPriceRegistry priceRegistry) public {
-    _rateLimitValue(tokenAmounts, priceRegistry);
+  function rateLimitValue(uint256 value) public {
+    _rateLimitValue(value);
+  }
+
+  function getTokenValue(
+    Client.EVMTokenAmount memory tokenAmount,
+    IPriceRegistry priceRegistry
+  ) public view returns (uint256) {
+    return _getTokenValue(tokenAmount, priceRegistry);
   }
 }

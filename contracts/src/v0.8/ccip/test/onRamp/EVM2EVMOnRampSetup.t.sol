@@ -70,7 +70,8 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
         maxFeeUSDCents: 1000_00, // 1,000 USD
         deciBps: 2_5, // 2.5 bps, or 0.025%
         destGasOverhead: 40_000,
-        destBytesOverhead: 0
+        destBytesOverhead: 0,
+        aggregateRateLimitEnabled: true
       })
     );
     s_tokenTransferFeeConfigArgs.push(
@@ -80,7 +81,8 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
         maxFeeUSDCents: 500_00, // 500 USD
         deciBps: 5_0, // 5 bps, or 0.05%
         destGasOverhead: 10_000,
-        destBytesOverhead: 100
+        destBytesOverhead: 100,
+        aggregateRateLimitEnabled: true
       })
     );
     s_tokenTransferFeeConfigArgs.push(
@@ -90,7 +92,8 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
         maxFeeUSDCents: 2000_00, // 1,000 USD
         deciBps: 10_0, // 10 bps, or 0.1%
         destGasOverhead: 1,
-        destBytesOverhead: 200
+        destBytesOverhead: 200,
+        aggregateRateLimitEnabled: true
       })
     );
 

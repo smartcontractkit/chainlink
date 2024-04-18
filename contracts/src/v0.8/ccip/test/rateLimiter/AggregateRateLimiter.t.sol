@@ -181,15 +181,11 @@ contract AggregateTokenLimiter__rateLimitValue is AggregateTokenLimiterSetup {
     uint256 numberOfTokens = 15;
     uint256 value = (numberOfTokens * TOKEN_PRICE) / 1e18;
 
-    Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
-    tokenAmounts[0].token = TOKEN;
-    tokenAmounts[0].amount = numberOfTokens;
-
     vm.expectEmit();
     emit TokensConsumed(value);
 
     vm.resumeGasMetering();
-    s_rateLimiter.rateLimitValue(tokenAmounts, s_priceRegistry);
+    s_rateLimiter.rateLimitValue(value);
     vm.pauseGasMetering();
 
     // Get the updated bucket status
@@ -203,13 +199,13 @@ contract AggregateTokenLimiter__rateLimitValue is AggregateTokenLimiterSetup {
     vm.expectRevert(
       abi.encodeWithSelector(RateLimiter.AggregateValueRateLimitReached.selector, waitTime, bucket.tokens)
     );
-    s_rateLimiter.rateLimitValue(tokenAmounts, s_priceRegistry);
+    s_rateLimiter.rateLimitValue(value);
 
     // Move the block time forward by 10 so the bucket refills by 10 * rate
     vm.warp(BLOCK_TIME + 1 + waitTime);
 
     // The bucket has filled up enough so we can take out more tokens
-    s_rateLimiter.rateLimitValue(tokenAmounts, s_priceRegistry);
+    s_rateLimiter.rateLimitValue(value);
     bucket = s_rateLimiter.currentRateLimiterState();
     assertEq(bucket.capacity - value + waitTime * s_config.rate - value, bucket.tokens);
     vm.resumeGasMetering();
@@ -217,25 +213,36 @@ contract AggregateTokenLimiter__rateLimitValue is AggregateTokenLimiterSetup {
 
   // Reverts
 
-  function test_UnknownToken_Revert() public {
-    vm.expectRevert(abi.encodeWithSelector(AggregateRateLimiter.PriceNotFoundForToken.selector, address(0)));
-    s_rateLimiter.rateLimitValue(new Client.EVMTokenAmount[](1), s_priceRegistry);
-  }
-
   function test_AggregateValueMaxCapacityExceeded_Revert() public {
     RateLimiter.TokenBucket memory bucket = s_rateLimiter.currentRateLimiterState();
 
-    Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
-    tokenAmounts[0].token = TOKEN;
-    tokenAmounts[0].amount = 100;
+    uint256 numberOfTokens = 100;
+    uint256 value = (numberOfTokens * TOKEN_PRICE) / 1e18;
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        RateLimiter.AggregateValueMaxCapacityExceeded.selector,
-        bucket.capacity,
-        (tokenAmounts[0].amount * TOKEN_PRICE) / 1e18
+        RateLimiter.AggregateValueMaxCapacityExceeded.selector, bucket.capacity, (numberOfTokens * TOKEN_PRICE) / 1e18
       )
     );
-    s_rateLimiter.rateLimitValue(tokenAmounts, s_priceRegistry);
+    s_rateLimiter.rateLimitValue(value);
+  }
+}
+
+/// @notice #_getTokenValue
+contract AggregateTokenLimiter__getTokenValue is AggregateTokenLimiterSetup {
+  function test_GetTokenValue_Success() public view {
+    uint256 numberOfTokens = 10;
+    Client.EVMTokenAmount memory tokenAmount = Client.EVMTokenAmount({token: TOKEN, amount: 10});
+    uint256 value = s_rateLimiter.getTokenValue(tokenAmount, s_priceRegistry);
+    assertEq(value, (numberOfTokens * TOKEN_PRICE) / 1e18);
+  }
+
+  // Reverts
+  function test_NoTokenPrice_Reverts() public {
+    address tokenWithNoPrice = makeAddr("Token with no price");
+    Client.EVMTokenAmount memory tokenAmount = Client.EVMTokenAmount({token: tokenWithNoPrice, amount: 10});
+
+    vm.expectRevert(abi.encodeWithSelector(AggregateRateLimiter.PriceNotFoundForToken.selector, tokenWithNoPrice));
+    s_rateLimiter.getTokenValue(tokenAmount, s_priceRegistry);
   }
 }
