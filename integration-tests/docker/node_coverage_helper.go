@@ -13,10 +13,9 @@ import (
 	tc "github.com/testcontainers/testcontainers-go"
 )
 
-const GO_COVER_DIR = "/var/tmp/go-coverage" // Path to the directory where go-coverage data is stored on the node container
-
 type NodeCoverageHelper struct {
 	Nodes            []tc.Container
+	GoCoverSrcDir    string   // Path to the source directory on the chainlink image with go coverage data
 	NodeCoverageDirs []string // Paths to individual node coverage directories
 	BaseDir          string   // Path to the base directory with all coverage
 	MergedDir        string   // Path to the directory where all coverage will be merged
@@ -24,11 +23,17 @@ type NodeCoverageHelper struct {
 }
 
 func NewNodeCoverageHelper(ctx context.Context, nodes []tc.Container, chainlinkDir, baseDir string) (*NodeCoverageHelper, error) {
+	coverSrcDir := os.Getenv("CHAINLINK_IMAGE_GO_COVER_DIR")
+	if coverSrcDir == "" {
+		coverSrcDir = "/var/tmp/go-coverage" // Default path
+	}
+
 	helper := &NodeCoverageHelper{
-		Nodes:        nodes,
-		BaseDir:      baseDir,
-		MergedDir:    filepath.Join(baseDir, "merged"),
-		ChainlinkDir: chainlinkDir,
+		Nodes:         nodes,
+		GoCoverSrcDir: coverSrcDir,
+		BaseDir:       baseDir,
+		MergedDir:     filepath.Join(baseDir, "merged"),
+		ChainlinkDir:  chainlinkDir,
 	}
 
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
@@ -36,7 +41,7 @@ func NewNodeCoverageHelper(ctx context.Context, nodes []tc.Container, chainlinkD
 	}
 
 	// Copy coverage data from nodes
-	if err := helper.copyCoverageFromNodes(ctx, GO_COVER_DIR); err != nil {
+	if err := helper.copyCoverageFromNodes(ctx); err != nil {
 		return nil, errors.Wrap(err, "failed to copy coverage from nodes during initialization")
 	}
 
@@ -114,7 +119,7 @@ func (c *NodeCoverageHelper) mergeCoverage() error {
 	return nil
 }
 
-func (c *NodeCoverageHelper) copyCoverageFromNodes(ctx context.Context, srcPath string) error {
+func (c *NodeCoverageHelper) copyCoverageFromNodes(ctx context.Context) error {
 	var wg sync.WaitGroup
 	errorsChan := make(chan error, len(c.Nodes))
 
@@ -127,7 +132,7 @@ func (c *NodeCoverageHelper) copyCoverageFromNodes(ctx context.Context, srcPath 
 				errorsChan <- fmt.Errorf("failed to create directory for node %d: %w", id, err)
 				return
 			}
-			err := copyFolderFromContainerUsingDockerCP(ctx, n.GetContainerID(), srcPath, finalDestPath)
+			err := copyFolderFromContainerUsingDockerCP(ctx, n.GetContainerID(), c.GoCoverSrcDir, finalDestPath)
 			if err != nil {
 				errorsChan <- fmt.Errorf("failed to copy folder from container for node %d: %w", id, err)
 				return

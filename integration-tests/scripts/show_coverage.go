@@ -31,7 +31,7 @@ func main() {
 		return
 	}
 
-	fmt.Printf("Found directories: %v\n", dirs)
+	fmt.Printf("Found directories with test coverage data: %v\n", dirs)
 
 	// Join the directory paths for input
 	dirInput := strings.Join(dirs, ",")
@@ -45,7 +45,7 @@ func main() {
 
 	// Merge the coverage data from all chainlink nodes
 	mergeCmd := exec.Command("go", "tool", "covdata", "merge", "-o", mergedDir, "-i="+dirInput)
-	fmt.Printf("Merging coverage for all tests:\n%s\n", mergeCmd.String())
+	fmt.Printf("Merging coverage data for all tests:\n%s\n", mergeCmd.String())
 	output, err := mergeCmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("Error executing merge command: %v, output: %s\n", err, output)
@@ -55,20 +55,24 @@ func main() {
 	// Calculate coverage percentage in the merged directory
 	coverageCmd := exec.Command("go", "tool", "covdata", "percent", "-i=.")
 	coverageCmd.Dir = mergedDir
+	fmt.Printf("Calculate total coverage for on all tests: %s\n", coverageCmd.String())
 	coverageOutput, err := coverageCmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("Error calculating coverage percentage: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Ran command to calculate total coverage based on all tests: %s\n", coverageCmd.String())
 
 	// Save the coverage percentage to a file
-	filePath := filepath.Join(mergedDir, "percentage.txt")
+	filePath, err := filepath.Abs(filepath.Join(mergedDir, "percentage.txt"))
+	if err != nil {
+		fmt.Printf("Error obtaining absolute path: %s\n", err)
+		os.Exit(1)
+	}
 	if err := os.WriteFile(filePath, coverageOutput, 0600); err != nil {
 		fmt.Printf("Failed to write coverage percentage to file: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Total coverage based on all tests saved to %s\n", filePath)
+	fmt.Printf("Total coverage for all tests saved to %s\n", filePath)
 
-	fmt.Printf("Total coverage based on all tests:\n%s\n%s\n", coverageCmd.String(), string(coverageOutput))
+	fmt.Printf("Total coverage for all tests: %s\n%s\n", coverageCmd.String(), string(coverageOutput))
 }
