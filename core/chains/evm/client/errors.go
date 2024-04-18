@@ -88,7 +88,7 @@ var geth = ClientErrors{
 	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),
 	NonceTooHigh:                      regexp.MustCompile(`(: |^)nonce too high$`),
 	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
-	TransactionAlreadyInMempool:       regexp.MustCompile(`(?i)(known transaction|already known)`),
+	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
 	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
 	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
 	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
@@ -134,14 +134,15 @@ var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden 
 var arbitrum = ClientErrors{
 	// TODO: Arbitrum returns this in case of low or high nonce. Update this when Arbitrum fix it
 	// https://app.shortcut.com/chainlinklabs/story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
-	NonceTooLow:           regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
-	NonceTooHigh:          regexp.MustCompile(`(: |^)nonce too high(:|$)`),
-	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
-	InsufficientEth:       regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
-	Fatal:                 arbitrumFatal,
-	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
-	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
-	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
+	NonceTooLow:                 regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
+	NonceTooHigh:                regexp.MustCompile(`(: |^)nonce too high(:|$)`),
+	TerminallyUnderpriced:       regexp.MustCompile(`(: |^)gas price too low$`),
+	InsufficientEth:             regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
+	Fatal:                       arbitrumFatal,
+	L2FeeTooLow:                 regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
+	L2Full:                      regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
+	ServiceUnavailable:          regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
+	TransactionAlreadyInMempool: regexp.MustCompile(`(?i)(already known)`),
 }
 
 var celo = ClientErrors{
