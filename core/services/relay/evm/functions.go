@@ -182,7 +182,7 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
 
-	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, relayConfig.DefaultTransactionQueueDepth, relayConfig.DefaultQueryTimeout)
+	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, relayConfig.DefaultTransactionQueueDepth)
 
 	var checker txm.TransmitCheckerSpec
 	if relayConfig.SimulateTransactions {

@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -82,10 +81,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job)                                     {}
-func (d *Delegate) AfterJobCreated(spec job.Job)                                      {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job)                                     {}
-func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(spec job.Job)              {}
+func (d *Delegate) AfterJobCreated(spec job.Job)               {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)              {}
+func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec returns the OCR services that need to run for this job
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
@@ -121,7 +120,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrDB := NewDB(d.db, concreteSpec.ID, lggr, d.cfg.Database())
+	ocrDB := NewDB(d.db, concreteSpec.ID, lggr)
 
 	tracker := NewOCRContractTracker(
 		contract,
@@ -134,7 +133,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		d.db,
 		ocrDB,
 		chain.Config().EVM(),
-		d.cfg.Database(),
 		chain.HeadBroadcaster(),
 		d.mailMon,
 	)
@@ -198,7 +196,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, d.cfg.OCR().DefaultTransactionQueueDepth(), d.cfg.Database().DefaultQueryTimeout())
+		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, d.cfg.OCR().DefaultTransactionQueueDepth())
 
 		var checker txmgr.TransmitCheckerSpec
 		if d.cfg.OCR().SimulateTransactions() {

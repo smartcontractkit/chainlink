@@ -1114,7 +1114,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 			t.Run("with erroring callback bails out", func(t *testing.T) {
 				require.NoError(t, txStore.InsertTx(ctx, &etx))
-				fn := func(id uuid.UUID, result interface{}, err error) error {
+				fn := func(ctx context.Context, id uuid.UUID, result interface{}, err error) error {
 					return errors.New("something exploded in the callback")
 				}
 
@@ -1131,7 +1131,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			})
 
 			t.Run("calls resume with error", func(t *testing.T) {
-				fn := func(id uuid.UUID, result interface{}, err error) error {
+				fn := func(ctx context.Context, id uuid.UUID, result interface{}, err error) error {
 					require.Equal(t, id, tr.ID)
 					require.Nil(t, result)
 					require.Error(t, err)

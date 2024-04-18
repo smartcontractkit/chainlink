@@ -410,7 +410,8 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	}
 
 	t.Run("saves latest round requested", func(t *testing.T) {
-		err := odb.SaveLatestRoundRequested(sqlDB, rr)
+		ctx := testutils.Context(t)
+		err := odb.SaveLatestRoundRequested(ctx, sqlDB, rr)
 		require.NoError(t, err)
 
 		rawLog.Index = 42
@@ -424,17 +425,18 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 			Raw:          rawLog,
 		}
 
-		err = odb.SaveLatestRoundRequested(sqlDB, rr)
+		err = odb.SaveLatestRoundRequested(ctx, sqlDB, rr)
 		require.NoError(t, err)
 	})
 
 	t.Run("loads latest round requested", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		// There is no round for db2
-		lrr, err := odb2.LoadLatestRoundRequested()
+		lrr, err := odb2.LoadLatestRoundRequested(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, int(lrr.Epoch))
 
-		lrr, err = odb.LoadLatestRoundRequested()
+		lrr, err = odb.LoadLatestRoundRequested(ctx)
 		require.NoError(t, err)
 
 		assert.Equal(t, rr, lrr)

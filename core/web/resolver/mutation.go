@@ -1162,7 +1162,7 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	plnRun, err := r.App.PipelineORM().FindRun(jobRunID)
+	plnRun, err := r.App.PipelineORM().FindRun(ctx, jobRunID)
 	if err != nil {
 		return nil, err
 	}

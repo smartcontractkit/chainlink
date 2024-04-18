@@ -45,6 +45,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
 				c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
@@ -75,7 +76,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			}
 			var runs []pipeline.Run
 			gomega.NewWithT(t).Eventually(func() bool {
-				runs, err = app.PipelineORM().GetAllRuns()
+				runs, err = app.PipelineORM().GetAllRuns(ctx)
 				require.NoError(t, err)
 				// It possible that we send the test request
 				// before the Job spawner has started the vrf services, which is fine
@@ -128,6 +129,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 func TestIntegration_VRF_WithBHS(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 		c.EVM[0].BlockBackfillDepth = ptr[uint32](500)
@@ -196,7 +198,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	var runs []pipeline.Run
 	gomega.NewWithT(t).Eventually(func() bool {
-		runs, err = app.PipelineORM().GetAllRuns()
+		runs, err = app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		cu.Backend.Commit()
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
