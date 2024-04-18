@@ -136,7 +136,7 @@ func TestVRFv2Plus(t *testing.T) {
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
-		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		require.Equal(t, *configCopy.VRFv2Plus.General.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
@@ -198,7 +198,7 @@ func TestVRFv2Plus(t *testing.T) {
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
-		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		require.Equal(t, *testConfig.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
@@ -939,7 +939,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			coordinatorAddressInConsumerAfterMigration, err := consumer.GetCoordinator(testcontext.Get(t))
 			require.NoError(t, err, "error getting Coordinator from Consumer contract")
 			require.Equal(t, newCoordinator.Address(), coordinatorAddressInConsumerAfterMigration.String())
-			l.Debug().
+			l.Info().
 				Str("Consumer", consumer.Address()).
 				Str("Coordinator", coordinatorAddressInConsumerAfterMigration.String()).
 				Msg("Coordinator Address in Consumer After Migration")
@@ -1123,7 +1123,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		coordinatorAddressInConsumerAfterMigration, err := wrapperContracts.VRFV2PlusWrapper.Coordinator(testcontext.Get(t))
 		require.NoError(t, err, "error getting Coordinator from Consumer contract- VRFV2PlusWrapper")
 		require.Equal(t, newCoordinator.Address(), coordinatorAddressInConsumerAfterMigration.String())
-		l.Debug().
+		l.Info().
 			Str("Consumer-VRFV2PlusWrapper", wrapperContracts.VRFV2PlusWrapper.Address()).
 			Str("Coordinator", coordinatorAddressInConsumerAfterMigration.String()).
 			Msg("Coordinator Address in VRFV2PlusWrapper After Migration")
@@ -1318,7 +1318,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
-		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		randRequestBlockHash, err := vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
 		require.NoError(t, err, "error getting blockhash for a blocknumber which was stored in BHS contract")
@@ -1385,6 +1385,9 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 		err = evmClient.WaitForEvents()
 		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
+		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
+		require.Equal(t, 0, metrics.RequestCount.Cmp(big.NewInt(1)))
+		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(0)))
 
 		var clNodeTxs *client.TransactionsData
 		var txHash string
@@ -1392,7 +1395,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		gom.Eventually(func(g gomega.Gomega) {
 			clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
-			l.Debug().Int("Number of TXs", len(clNodeTxs.Data)).Msg("BHS Node txs")
+			l.Info().Int("Number of TXs", len(clNodeTxs.Data)).Msg("BHS Node txs")
 			g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically("==", 1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
 			txHash = clNodeTxs.Data[0].Attributes.Hash
 		}, "2m", "1s").Should(gomega.Succeed())
@@ -1556,7 +1559,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
-		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		clNodeTxs, _, err := nodeTypeToNodeMap[vrfcommon.BHF].CLNode.API.ReadTransactions()
 		require.NoError(t, err, "error fetching txns from BHF node")
