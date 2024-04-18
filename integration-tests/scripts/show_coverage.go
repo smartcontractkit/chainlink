@@ -8,10 +8,7 @@ import (
 	"strings"
 )
 
-// main manages the process of combining coverage data for Chainlink nodes.
-// It identifies "go-coverage" directories within a given root directory,
-// merges their data into a "merged" directory for each test, and then
-// calculates the overall coverage percentage.
+// main manages the process of combining coverage data for all tests
 func main() {
 	// Check if the user has provided an argument
 	if len(os.Args) < 2 {

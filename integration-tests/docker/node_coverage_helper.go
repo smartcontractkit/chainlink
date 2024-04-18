@@ -16,11 +16,11 @@ import (
 const GO_COVER_DIR = "/var/tmp/go-coverage" // Path to the directory where go-coverage data is stored on the node container
 
 type NodeCoverageHelper struct {
-	Nodes         []tc.Container
-	CoveragePaths []string // Paths to individual node coverage directories
-	BaseDir       string   // Path to the base directory with all coverage
-	MergedDir     string   // Path to the directory where all coverage will be merged
-	ChainlinkDir  string   // Path to the root chainlink directory
+	Nodes            []tc.Container
+	NodeCoverageDirs []string // Paths to individual node coverage directories
+	BaseDir          string   // Path to the base directory with all coverage
+	MergedDir        string   // Path to the directory where all coverage will be merged
+	ChainlinkDir     string   // Path to the root chainlink directory
 }
 
 func NewNodeCoverageHelper(ctx context.Context, nodes []tc.Container, chainlinkDir, baseDir string) (*NodeCoverageHelper, error) {
@@ -93,7 +93,8 @@ func (c *NodeCoverageHelper) mergeCoverage() error {
 		return fmt.Errorf("failed to create merged directory: %w", err)
 	}
 
-	dirInput := strings.Join(c.CoveragePaths, ",")
+	// Merge the coverage data from all chainlink nodes
+	dirInput := strings.Join(c.NodeCoverageDirs, ",")
 	// #nosec G204
 	mergeCmd := exec.Command("go", "tool", "covdata", "merge", "-o", c.MergedDir, "-i="+dirInput)
 	mergeCmd.Dir = filepath.Dir(c.MergedDir)
@@ -101,6 +102,16 @@ func (c *NodeCoverageHelper) mergeCoverage() error {
 	if err != nil {
 		return fmt.Errorf("error executing merge command: %w, output: %s", err, string(output))
 	}
+
+	// Remove the coverage dirs after merging
+	for _, dir := range c.NodeCoverageDirs {
+		if err := os.RemoveAll(dir); err != nil {
+			return fmt.Errorf("failed to remove directory %s: %w", dir, err)
+		}
+		fmt.Printf("Removed directory %s successfully\n", dir)
+	}
+	c.NodeCoverageDirs = []string{} // Reset the coverage paths after merging
+
 	return nil
 }
 
@@ -123,7 +134,7 @@ func (c *NodeCoverageHelper) copyCoverageFromNodes(ctx context.Context, srcPath 
 				return
 			}
 			finalDestPath = filepath.Join(finalDestPath, "go-coverage") // Assuming path structure /var/tmp/go-coverage/TestName/node_X/go-coverage
-			c.CoveragePaths = append(c.CoveragePaths, finalDestPath)
+			c.NodeCoverageDirs = append(c.NodeCoverageDirs, finalDestPath)
 		}(node, i)
 	}
 
