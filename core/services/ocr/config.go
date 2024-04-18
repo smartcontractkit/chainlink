@@ -10,7 +10,6 @@ import (
 
 // Config contains OCR configurations for a job.
 type Config interface {
-	Database() config.Database
 	Insecure() config.Insecure
 	JobPipeline() config.JobPipeline
 	OCR() config.OCR
