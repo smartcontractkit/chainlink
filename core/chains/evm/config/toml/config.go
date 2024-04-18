@@ -719,7 +719,10 @@ type ClientErrors struct {
 	ServiceUnavailable                *string `toml:",omitempty"`
 }
 
-func (r *ClientErrors) setFrom(f *ClientErrors) {
+func (r *ClientErrors) setFrom(f *ClientErrors) bool {
+	if f == nil {
+		return false
+	}
 	if v := f.NonceTooLow; v != nil {
 		r.NonceTooLow = v
 	}
@@ -762,6 +765,7 @@ func (r *ClientErrors) setFrom(f *ClientErrors) {
 	if v := f.ServiceUnavailable; v != nil {
 		r.ServiceUnavailable = v
 	}
+	return true
 }
 
 type NodePool struct {
@@ -797,8 +801,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
 	}
-	if f.Errors != nil {
-		p.Errors.setFrom(f.Errors)
+	p.Errors = &ClientErrors{}
+	if !p.Errors.setFrom(f.Errors) {
+		p.Errors = nil
 	}
 }
 
