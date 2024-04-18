@@ -1,3 +1,4 @@
 GETH_VERSION: 1.13.8
-forwarder: ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.bin 55c1700115670da79b3a558d0d987b9f5f1d37bad79a2d6f81d270043dd1fea9
-ocr3_capability: ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.abi ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.bin 9dcbdf55bd5729ba266148da3f17733eb592c871c2108ccca546618628fd9ad2
+forwarder: ../../../contracts/solc/v0.8.19/keystone/KeystoneForwarder.sol/KeystoneForwarder.abi.json ../../../contracts/solc/v0.8.19/keystone/KeystoneForwarder.sol/KeystoneForwarder.bin 22ac736927f98f4c3e56acdec731221b0d8ed8db4fcd7adca68be3fd96246304
+keystone_forwarder: ../../../contracts/solc/v0.8.19/keystone/KeystoneForwarder.sol/KeystoneForwarder.abi.json ../../../contracts/solc/v0.8.19/keystone/KeystoneForwarder.sol/KeystoneForwarder.bin 22ac736927f98f4c3e56acdec731221b0d8ed8db4fcd7adca68be3fd96246304
+ocr3_capability: ../../../contracts/solc/v0.8.19/keystone/OCR3Capability.sol/OCR3Capability.abi.json ../../../contracts/solc/v0.8.19/keystone/OCR3Capability.sol/OCR3Capability.bin 8cfe1d7ab18bfd1b1bbdf5f010a71a9320debb7f9b7580019629295edb0f84fe
