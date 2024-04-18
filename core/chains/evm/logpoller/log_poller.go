@@ -1381,7 +1381,7 @@ func (lp *logPoller) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
 
 		// canceled search
 		if ctx.Err() != nil {
-			err = ctx.Err()
+			err = fmt.Errorf("aborted, FindLCA request cancelled: %w", ctx.Err())
 			return notFound
 		}
 		iBlockNumber := latest.BlockNumber - int64(i)
@@ -1395,7 +1395,7 @@ func (lp *logPoller) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
 		}
 
 		if dbBlock == nil {
-			err = fmt.Errorf("expected block to exist for blockNumber: %d", iBlockNumber)
+			err = fmt.Errorf("expected block to exist with blockNumber >= %d as observed block with number %d", iBlockNumber, latest.BlockNumber)
 			return notFound
 		}
 
@@ -1403,23 +1403,18 @@ func (lp *logPoller) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
 			dbBlock.BlockNumber, dbBlock.BlockHash)
 		var chainBlock *evmtypes.Head
 		chainBlock, err = lp.ec.HeadByHash(ctx, dbBlock.BlockHash)
+		// our block in DB does not exist on chain
+		if (chainBlock == nil && err == nil) || errors.Is(err, ethereum.NotFound) {
+			err = nil
+			return notFound
+		}
 		if err != nil {
-			// our block in DB does not exist on chain
-			if errors.Is(err, ethereum.NotFound) {
-				err = nil
-				return notFound
-			}
 			err = fmt.Errorf("failed to get block %s from RPC: %w", dbBlock.BlockHash, err)
 			return notFound
 		}
 
-		// our block in DB does not exist on chain
-		if chainBlock == nil {
-			return notFound
-		}
-
 		if chainBlock.BlockNumber() != dbBlock.BlockNumber {
-			err = fmt.Errorf("expected block numbers (db: %d, chain: %d) to match, if block hashes match "+
+			err = fmt.Errorf("expected block numbers to match (db: %d, chain: %d), if block hashes match "+
 				"(db: %s, chain: %s)", dbBlock.BlockNumber, chainBlock.BlockNumber(), dbBlock.BlockHash, chainBlock.Hash)
 			return notFound
 		}
