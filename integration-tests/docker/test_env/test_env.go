@@ -248,11 +248,13 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		sethClient.Client.Close()
 	}
 
-	showCoverageReport := te.TestConfig.GetLoggingConfig().ShowCoverageReport
-	// showCoverageReport := true
+	// showCoverageReport := te.TestConfig.GetLoggingConfig().ShowCoverageReport
+	showCoverageReport := true
 	isCI := os.Getenv("CI") != ""
 
 	var covHelper *d.NodeCoverageHelper
+
+	testName := strings.ReplaceAll(opts.TestName, "/", "_")
 
 	if showCoverageReport || isCI {
 		// Stop all nodes in the chainlink cluster.
@@ -267,12 +269,14 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 			return err
 		}
 
+		baseDir := filepath.Join(clDir, ".covdata", testName)
+
 		var containers []tc.Container
 		for _, node := range te.ClCluster.Nodes {
 			containers = append(containers, node.Container)
 		}
 
-		covHelper, err = d.NewNodeCoverageHelper(context.Background(), containers, clDir)
+		covHelper, err = d.NewNodeCoverageHelper(context.Background(), containers, clDir, baseDir)
 		if err != nil {
 			return err
 		}
@@ -288,8 +292,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 
 	if isCI {
 		// Save coverage percentage to a file to show in the CI
-		testName := strings.ReplaceAll(opts.TestName, "/", "_")
-		covPercentPath, err := covHelper.SaveMergedCoveragePercentage(testName)
+		covPercentPath, err := covHelper.SaveMergedCoveragePercentage()
 		if err != nil {
 			te.l.Error().Err(err).Str("testName", testName).Msg("Failed to save coverage percentage for test")
 		} else {

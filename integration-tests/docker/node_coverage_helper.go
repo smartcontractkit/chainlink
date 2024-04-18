@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	tc "github.com/testcontainers/testcontainers-go"
 )
@@ -19,17 +18,22 @@ const GO_COVER_DIR = "/var/tmp/go-coverage" // Path to the directory where go-co
 type NodeCoverageHelper struct {
 	Nodes         []tc.Container
 	CoveragePaths []string // Paths to individual node coverage directories
+	BaseDir       string   // Path to the base directory with all coverage
 	MergedDir     string   // Path to the directory where all coverage will be merged
 	ChainlinkDir  string   // Path to the root chainlink directory
 }
 
-func NewNodeCoverageHelper(ctx context.Context, nodes []tc.Container, chainlinkDir string) (*NodeCoverageHelper, error) {
-	baseDir := filepath.Join(os.TempDir(), "node_coverage")
+func NewNodeCoverageHelper(ctx context.Context, nodes []tc.Container, chainlinkDir, baseDir string) (*NodeCoverageHelper, error) {
 	mergedDir := filepath.Join(baseDir, "merged")
 	helper := &NodeCoverageHelper{
 		Nodes:        nodes,
+		BaseDir:      baseDir,
 		MergedDir:    mergedDir,
 		ChainlinkDir: chainlinkDir,
+	}
+
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		return nil, errors.Wrap(err, "failed to create base directory for node coverage")
 	}
 
 	// Copy coverage data from nodes
@@ -53,15 +57,8 @@ func (c *NodeCoverageHelper) SaveMergedHTMLReport() (string, error) {
 		return "", errors.Wrapf(err, "failed to generate textual coverage report: %s", string(txtOutput))
 	}
 
-	// Prepare the directory for the HTML report
-	reportDir := filepath.Join(c.ChainlinkDir, ".covdata", "html")
-	if err := os.MkdirAll(reportDir, 0755); err != nil {
-		return "", errors.Wrap(err, "failed to create directory for HTML report")
-	}
-
 	// Generate the HTML coverage report
-	htmlFileName := fmt.Sprintf("coverage_%s.html", uuid.NewString())
-	htmlFilePath := filepath.Join(reportDir, htmlFileName)
+	htmlFilePath := filepath.Join(c.BaseDir, "coverage.html")
 	// #nosec G204
 	htmlCommand := exec.Command("go", "tool", "cover", "-html="+filepath.Join(c.MergedDir, "cov.txt"), "-o="+htmlFilePath)
 	htmlCommand.Dir = c.ChainlinkDir
@@ -72,19 +69,15 @@ func (c *NodeCoverageHelper) SaveMergedHTMLReport() (string, error) {
 	return htmlFilePath, nil
 }
 
-func (c *NodeCoverageHelper) SaveMergedCoveragePercentage(filename string) (string, error) {
-	reportDir := filepath.Join(c.ChainlinkDir, ".covdata", "percentage")
-	if err := os.MkdirAll(reportDir, 0755); err != nil {
-		return "", errors.Wrap(err, "failed to create directory for coverage percentage report")
-	}
-	filePath := filepath.Join(reportDir, filename)
+func (c *NodeCoverageHelper) SaveMergedCoveragePercentage() (string, error) {
+	filePath := filepath.Join(c.BaseDir, "percentage.txt")
 
 	// Calculate coverage percentage from the merged data
-	percentCmd := exec.Command("go", "tool", "covdata", "percent", "-i=merged")
+	percentCmd := exec.Command("go", "tool", "covdata", "percent", "-i=.")
 	percentCmd.Dir = c.MergedDir // Ensure the command runs in the directory with the merged data
 	output, err := percentCmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to get merged coverage percentage: %w, output: %s", err, string(output))
+		return "", fmt.Errorf("failed to get merged coverage percentage report: %w, output: %s", err, string(output))
 	}
 
 	// Save the cmd output to a file
@@ -112,11 +105,6 @@ func (c *NodeCoverageHelper) mergeCoverage() error {
 }
 
 func (c *NodeCoverageHelper) copyCoverageFromNodes(ctx context.Context, srcPath string) error {
-	baseDir := filepath.Join(os.TempDir(), "node_coverage")
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		return errors.Wrap(err, "failed to create base directory for node coverage")
-	}
-
 	var wg sync.WaitGroup
 	errorsChan := make(chan error, len(c.Nodes))
 
@@ -124,7 +112,7 @@ func (c *NodeCoverageHelper) copyCoverageFromNodes(ctx context.Context, srcPath 
 		wg.Add(1)
 		go func(n tc.Container, id int) {
 			defer wg.Done()
-			finalDestPath := filepath.Join(baseDir, fmt.Sprintf("node_%d", id))
+			finalDestPath := filepath.Join(c.BaseDir, fmt.Sprintf("node_%d", id))
 			if err := os.MkdirAll(finalDestPath, 0755); err != nil {
 				errorsChan <- fmt.Errorf("failed to create directory for node %d: %w", id, err)
 				return
