@@ -25,7 +25,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.3
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240415164156-8872a8f311cb
-	github.com/smartcontractkit/chainlink-testing-framework v1.28.3
+	github.com/smartcontractkit/chainlink-testing-framework v1.28.4-0.20240418125752-0b1749f286b2
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20240222010609-cd67d123c772
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240326191951-2bbe9382d052
@@ -502,4 +502,6 @@ replace (
 
 	// type func(a Label, b Label) bool of func(a, b Label) bool {…} does not match inferred type func(a Label, b Label) int for func(a E, b E) int
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.47.2-0.20231010075449-4b9c19fe5510
+
+// github.com/smartcontractkit/chainlink-testing-framework => /Users/lukasz/Documents/smartcontractkit/chainlink-testing-framework
 )

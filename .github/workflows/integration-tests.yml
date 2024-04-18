@@ -395,8 +395,13 @@ jobs:
           QA_KUBECONFIG: ""
           should_tidy: "false"
 
-      - name: Show Go Coverage
-        run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
+      - name: Upload First Folder as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          path: .covdata/percentage/merged
+
+      # - name: Show Go Coverage
+      #   run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
 
       - name: Print failed test summary
         if: always()
@@ -470,7 +475,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639 # v2.3.11
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -695,8 +700,10 @@ jobs:
           QA_KUBECONFIG: ""
           should_tidy: "false"
 
-      - name: Show Go Coverage
-        run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
+      - name: Upload First Folder as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          path: .covdata/percentage/merged
 
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
@@ -790,6 +797,20 @@ jobs:
           this-job-name: Clean up integration environment deployments
         continue-on-error: true
 
+  show-coverage:
+    needs: [cleanup]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v3
+      - name: List files in the workspace
+        run: ls -R
+
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
   eth-smoke-go-mod-cache:
@@ -862,7 +883,7 @@ jobs:
           upgradeImage: ${{ env.UPGRADE_IMAGE }}
           upgradeVersion: ${{ env.UPGRADE_VERSION }}
       - name: Run Migration Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639 # v2.3.11
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -1162,7 +1183,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639 # v2.3.11
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
