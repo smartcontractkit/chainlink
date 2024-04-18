@@ -24,11 +24,10 @@ type NodeCoverageHelper struct {
 }
 
 func NewNodeCoverageHelper(ctx context.Context, nodes []tc.Container, chainlinkDir, baseDir string) (*NodeCoverageHelper, error) {
-	mergedDir := filepath.Join(baseDir, "merged")
 	helper := &NodeCoverageHelper{
 		Nodes:        nodes,
 		BaseDir:      baseDir,
-		MergedDir:    mergedDir,
+		MergedDir:    filepath.Join(baseDir, "merged"),
 		ChainlinkDir: chainlinkDir,
 	}
 

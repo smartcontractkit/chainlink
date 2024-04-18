@@ -399,6 +399,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           path: .covdata
+          retention-days: 1
 
       # - name: Show Go Coverage
       #   run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
@@ -704,6 +705,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           path: .covdata
+          retention-days: 1
 
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
