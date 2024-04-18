@@ -304,7 +304,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       // Assert update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        93015,
+        93129,
         gasUsedDeviation,
       )
     })
@@ -341,7 +341,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28523,
+          28654,
           gasUsedDeviation,
         )
       })

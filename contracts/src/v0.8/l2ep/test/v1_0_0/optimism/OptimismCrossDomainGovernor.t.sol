@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {OptimismCrossDomainGovernor} from "../../../dev/optimism/OptimismCrossDomainGovernor.sol";
 import {MockOVMCrossDomainMessenger} from "../../mocks/optimism/MockOVMCrossDomainMessenger.sol";
+import {CrossDomainGovernor} from "../../../dev/CrossDomainGovernor.sol";
 import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -187,7 +188,7 @@ contract OptimismCrossDomainGovernor_ForwardDelegate is OptimismCrossDomainGover
     s_mockOptimismCrossDomainMessenger.sendMessage(
       address(s_optimismCrossDomainGovernor), // target
       abi.encodeWithSelector(
-        OptimismCrossDomainGovernor.forwardDelegate.selector,
+        CrossDomainGovernor.forwardDelegate.selector,
         address(s_greeter),
         abi.encodeWithSelector(Greeter.triggerRevert.selector)
       ), // message

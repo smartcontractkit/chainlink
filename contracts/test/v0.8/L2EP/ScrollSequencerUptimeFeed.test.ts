@@ -302,7 +302,7 @@ describe('ScrollSequencerUptimeFeed', () => {
       // Assert no update
       expect(await scrollUptimeFeed.latestAnswer()).to.equal(0)
       expect(noUpdateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        38594,
+        38705,
         gasUsedDeviation,
       )
 
@@ -315,7 +315,7 @@ describe('ScrollSequencerUptimeFeed', () => {
       // Assert update
       expect(await scrollUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        58458,
+        58590,
         gasUsedDeviation,
       )
     })
@@ -337,7 +337,7 @@ describe('ScrollSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30952,
+          31144,
           gasUsedDeviation,
         )
       })
@@ -350,7 +350,7 @@ describe('ScrollSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28523,
+          28628,
           gasUsedDeviation,
         )
       })
@@ -389,7 +389,7 @@ describe('ScrollSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28145,
+          28186,
           gasUsedDeviation,
         )
       })
@@ -402,7 +402,7 @@ describe('ScrollSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30682,
+          30809,
           gasUsedDeviation,
         )
       })
@@ -415,7 +415,7 @@ describe('ScrollSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30570,
+          30697,
           gasUsedDeviation,
         )
       })

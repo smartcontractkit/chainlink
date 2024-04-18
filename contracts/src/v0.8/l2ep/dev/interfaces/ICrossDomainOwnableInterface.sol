@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.19;
 
-/// @title CrossDomainOwnableInterface - A contract with helpers for cross-domain contract ownership
-interface CrossDomainOwnableInterface {
+/// @title ICrossDomainOwnableInterface - A contract with helpers for cross-domain contract ownership
+interface ICrossDomainOwnableInterface {
   event L1OwnershipTransferRequested(address indexed from, address indexed to);
 
   event L1OwnershipTransferred(address indexed from, address indexed to);

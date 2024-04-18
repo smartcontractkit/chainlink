@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {MockScrollL1CrossDomainMessenger} from "../../mocks/scroll/MockScrollL1CrossDomainMessenger.sol";
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2CrossDomainMessenger.sol";
 import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
+import {SequencerUptimeFeed} from "../../../dev/SequencerUptimeFeed.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -65,7 +66,7 @@ contract ScrollSequencerUptimeFeed_UpdateStatus is ScrollSequencerUptimeFeedTest
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(ScrollSequencerUptimeFeed.InvalidSender.selector);
+    vm.expectRevert(SequencerUptimeFeed.InvalidSender.selector);
     s_scrollSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -78,7 +79,7 @@ contract ScrollSequencerUptimeFeed_UpdateStatus is ScrollSequencerUptimeFeedTest
     s_mockScrollL2CrossDomainMessenger.setSender(s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(ScrollSequencerUptimeFeed.InvalidSender.selector);
+    vm.expectRevert(SequencerUptimeFeed.InvalidSender.selector);
     s_scrollSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -261,7 +262,7 @@ contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptim
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(ScrollSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(SequencerUptimeFeed.NoDataPresent.selector);
     s_scrollSequencerUptimeFeed.getRoundData(2);
   }
 
@@ -271,7 +272,7 @@ contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptim
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(ScrollSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(SequencerUptimeFeed.NoDataPresent.selector);
     s_scrollSequencerUptimeFeed.getAnswer(2);
   }
 
@@ -281,7 +282,7 @@ contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptim
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(ScrollSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(SequencerUptimeFeed.NoDataPresent.selector);
     s_scrollSequencerUptimeFeed.getTimestamp(2);
   }
 }
@@ -340,7 +341,7 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
     uint256 gasFinal;
 
     // measures gas used for no update
-    expectedGasUsed = 10197; // NOTE: used to be 38594 in hardhat tests
+    expectedGasUsed = 10306;
     gasStart = gasleft();
     s_scrollSequencerUptimeFeed.updateStatus(false, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -348,7 +349,7 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
 
     // measures gas used for update
-    expectedGasUsed = 31644; // NOTE: used to be 58458 in hardhat tests
+    expectedGasUsed = 31776;
     gasStart = gasleft();
     s_scrollSequencerUptimeFeed.updateStatus(true, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -365,7 +366,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4504; // NOTE: used to be 30952 in hardhat tesst
+    uint256 expectedGasUsed = 4635;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -389,7 +390,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 2154; // NOTE: used to be 28523 in hardhat tests
+    uint256 expectedGasUsed = 2283;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -413,7 +414,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1566; // NOTE: used to be 28229 in hardhat tests
+    uint256 expectedGasUsed = 1695;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -437,7 +438,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1459; // NOTE: used to be 28129 in hardhat tests
+    uint256 expectedGasUsed = 1588;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -461,7 +462,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1470; // NOTE: used to be 28145 in hardhat tests
+    uint256 expectedGasUsed = 1599;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -485,7 +486,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 3929; // NOTE: used to be 30682 in hardhat tests
+    uint256 expectedGasUsed = 4059;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -509,7 +510,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 3817; // NOTE: used to be 30570 in hardhat tests
+    uint256 expectedGasUsed = 3958;
     uint256 gasStart;
     uint256 gasFinal;
 
