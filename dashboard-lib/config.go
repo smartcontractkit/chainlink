@@ -8,6 +8,7 @@ import (
 )
 
 type EnvConfig struct {
+	DashboardName            string
 	Platform                 string
 	GrafanaURL               string
 	GrafanaToken             string
@@ -74,6 +75,7 @@ func ReadEnvDeployOpts() EnvConfig {
 		}
 	}
 	return EnvConfig{
+		DashboardName:            name,
 		GrafanaURL:               grafanaURL,
 		GrafanaToken:             grafanaToken,
 		GrafanaBasicAuthUser:     user,

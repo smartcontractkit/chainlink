@@ -123,40 +123,15 @@ We are using [Grabana](https://github.com/K-Phoen/grabana) lib to create dashboa
 You can also select dashboard platform in `INFRA_PLATFORM` either `kubernetes` or `docker`
 
 ```
-export LOKI_TENANT_ID=promtail
-export LOKI_URL=...
 export GRAFANA_URL=...
 export GRAFANA_TOKEN=...
 export PROMETHEUS_DATA_SOURCE_NAME=Thanos
 export LOKI_DATA_SOURCE_NAME=Loki
 export INFRA_PLATFORM=kubernetes
 export GRAFANA_FOLDER=CRIB
-export DASHBOARD_NAME=CCIP-Cluster-Load
+export DASHBOARD_NAME=CCIP-Cluster-Load-Test
 
 devspace run dashboard_deploy
 ```
 
-Open Grafana folder `DashboardCoreDebug` and find dashboard `ChainlinkClusterDebug`
-
-# Testing
-
-Deploy your dashboard and run soak/load [tests](../../integration-tests/load/), check [README](../../integration-tests/README.md) for further explanations
-
-```
-devspace run dashboard_deploy
-devspace run workload
-devspace run dashboard_test
-```
-
-# Local Testing
-
-Go to [dashboard-lib](../dashboard-lib) and link the modules locally
-
-```
-cd dashboard
-pnpm link --global
-cd charts/chainlink-cluster/dashboard/tests
-pnpm link --global dashboard-tests
-```
-
-Then run the tests with commands mentioned above
+Open Grafana folder `CRIB` and find dashboard `CCIP-Cluster-Load-Test`
