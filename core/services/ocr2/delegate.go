@@ -1692,11 +1692,7 @@ func (d *Delegate) newServicesOCR2Functions(
 func (d *Delegate) relayConfigsWithDefaults(jb job.Job) types.RelayArgs {
 	spec := jb.OCR2OracleSpec
 
-	_, ok := spec.RelayConfig["defaultQueryTimeout"]
-	if !ok {
-		spec.RelayConfig["defaultQueryTimeout"] = d.cfg.Database().DefaultQueryTimeout()
-	}
-	_, ok = spec.RelayConfig["defaultTransactionQueueDepth"]
+	_, ok := spec.RelayConfig["defaultTransactionQueueDepth"]
 	if !ok {
 		spec.RelayConfig["defaultTransactionQueueDepth"] = d.cfg.OCR2().DefaultTransactionQueueDepth()
 	}
