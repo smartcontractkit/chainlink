@@ -1371,11 +1371,17 @@ func (lp *logPoller) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
 	// `sort.Find` expects slice of following format s = [1, 0, -1] and returns smallest index i for which s[i] = 0.
 	// To utilise `sort.Find` we represent range of blocks as slice [latestBlock, latestBlock-1, ..., olderBlock+1, oldestBlock]
 	// and return 1 if DB block was reorged or 0 if it's still present on chain.
-	lcaI, found := sort.Find(int(latest.BlockNumber-oldest.BlockNumber), func(i int) int {
-		const notFound = -1
+	lcaI, found := sort.Find(int(latest.BlockNumber-oldest.BlockNumber)+1, func(i int) int {
+		const notFound = 1
 		const found = 0
 		// if there is an error - stop the search
 		if err != nil {
+			return notFound
+		}
+
+		// canceled search
+		if ctx.Err() != nil {
+			err = ctx.Err()
 			return notFound
 		}
 		iBlockNumber := latest.BlockNumber - int64(i)
@@ -1393,14 +1399,21 @@ func (lp *logPoller) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
 			return notFound
 		}
 
+		lp.lggr.Debugf("Looking for matching block on chain blockNumber: %d blockHash: %s",
+			dbBlock.BlockNumber, dbBlock.BlockHash)
 		var chainBlock *evmtypes.Head
 		chainBlock, err = lp.ec.HeadByHash(ctx, dbBlock.BlockHash)
 		if err != nil {
+			// our block in DB does not exist on chain
+			if errors.Is(err, ethereum.NotFound) {
+				err = nil
+				return notFound
+			}
 			err = fmt.Errorf("failed to get block %s from RPC: %w", dbBlock.BlockHash, err)
 			return notFound
 		}
 
-		// our block in DB does not exist on chain. Return 1 to move Find to the right part of the slice
+		// our block in DB does not exist on chain
 		if chainBlock == nil {
 			return notFound
 		}
