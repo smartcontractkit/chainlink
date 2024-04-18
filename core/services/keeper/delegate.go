@@ -19,7 +19,6 @@ import (
 var _ job.Delegate = (*Delegate)(nil)
 
 type DelegateConfig interface {
-	Database() config.Database
 	Keeper() config.Keeper
 }
 

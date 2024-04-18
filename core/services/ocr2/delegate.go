@@ -1570,12 +1570,17 @@ func (d *Delegate) newServicesOCR2Functions(
 	if err != nil {
 		return nil, fmt.Errorf("functions services: failed to get chain %s: %w", rid.ChainID, err)
 	}
-	rargs := d.relayConfigsWithDefaults(jb)
 	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(
 			ctx,
 			chain,
-			rargs,
+			types.RelayArgs{
+				ExternalJobID: jb.ExternalJobID,
+				JobID:         jb.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
+				New:           d.isNewlyCreatedJob,
+			},
 			types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1689,25 +1694,16 @@ func (d *Delegate) newServicesOCR2Functions(
 	return append([]job.ServiceCtx{functionsProvider, thresholdProvider, s4Provider}, functionsServices...), nil
 }
 
-func (d *Delegate) relayConfigsWithDefaults(jb job.Job) types.RelayArgs {
-	spec := jb.OCR2OracleSpec
-
-	_, ok := spec.RelayConfig["defaultTransactionQueueDepth"]
+func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) []byte {
+	_, ok := relayConfig["defaultTransactionQueueDepth"]
 	if !ok {
-		spec.RelayConfig["defaultTransactionQueueDepth"] = d.cfg.OCR2().DefaultTransactionQueueDepth()
+		relayConfig["defaultTransactionQueueDepth"] = d.cfg.OCR2().DefaultTransactionQueueDepth()
 	}
-	_, ok = spec.RelayConfig["simulateTransactions"]
+	_, ok = relayConfig["simulateTransactions"]
 	if !ok {
-		spec.RelayConfig["simulateTransactions"] = d.cfg.OCR2().SimulateTransactions()
+		relayConfig["simulateTransactions"] = d.cfg.OCR2().SimulateTransactions()
 	}
-
-	return types.RelayArgs{
-		ExternalJobID: jb.ExternalJobID,
-		JobID:         jb.ID,
-		ContractID:    spec.ContractID,
-		RelayConfig:   spec.RelayConfig.Bytes(),
-		New:           d.isNewlyCreatedJob,
-	}
+	return relayConfig.Bytes()
 }
 
 // errorLog implements [loop.ErrorLog]
