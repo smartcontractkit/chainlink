@@ -816,7 +816,7 @@ jobs:
       - name: List artifact dir
         run: ls -R ${{ github.workspace }}/artifact
       - name: Show Go Coverage
-        run: go run ./integration-tests/scripts/show_coverage.go ${{ github.workspace }}/artifact/*/merged
+        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/artifact*/*/merged"
 
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
