@@ -9,13 +9,9 @@ on:
 jobs:
   ci-lint-helm-charts:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-      actions: read
     steps:
       - name: ci-lint-helm-charts
-        uses: smartcontractkit/.github/actions/ci-lint-charts@6b08487b176ef7cad086526d0b54ddff6691c044 # ci-lint-charts@0.1.2
+        uses: smartcontractkit/.github/actions/ci-lint-charts@re-2490/add-ci-kubeform # TODO pin specific version once released
         with:
           # chart testing inputs
           chart-testing-extra-args: "--lint-conf=lintconf.yaml"
