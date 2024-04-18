@@ -308,12 +308,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var (
-		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(sqlxDB)
-		mercuryORM     = mercury.NewORM(sqlxDB, globalLogger, cfg.Database())
+		mercuryORM     = mercury.NewORM(opts.DB)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(sqlxDB, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(sqlxDB, globalLogger)
+		txmORM         = txmgr.NewTxStore(opts.DB, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
@@ -346,7 +346,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineORM,
 				legacyEVMChains,
 				globalLogger,
-				cfg.Database(),
 				mailMon),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
@@ -437,6 +436,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			sqlxDB,
+			opts.DB,
 			jobORM,
 			bridgeORM,
 			mercuryORM,
@@ -828,7 +828,7 @@ func (app *ChainlinkApplication) ResumeJobV2(
 	taskID uuid.UUID,
 	result pipeline.Result,
 ) error {
-	return app.pipelineRunner.ResumeRun(taskID, result.Value, result.Error)
+	return app.pipelineRunner.ResumeRun(ctx, taskID, result.Value, result.Error)
 }
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {

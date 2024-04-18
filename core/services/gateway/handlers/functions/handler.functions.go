@@ -114,7 +114,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err2
 		}
 
-		orm, err2 := fallow.NewORM(db, lggr, qcfg, cfg.OnchainAllowlist.ContractAddress)
+		orm, err2 := fallow.NewORM(db, lggr, cfg.OnchainAllowlist.ContractAddress)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -143,7 +143,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err2
 		}
 
-		orm, err2 := fsub.NewORM(db, lggr, qcfg, cfg.OnchainSubscriptions.ContractAddress)
+		orm, err2 := fsub.NewORM(db, lggr, cfg.OnchainSubscriptions.ContractAddress)
 		if err2 != nil {
 			return nil, err2
 		}

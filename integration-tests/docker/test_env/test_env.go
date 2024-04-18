@@ -37,6 +37,7 @@ type CLClusterTestEnv struct {
 	Cfg           *TestEnvConfig
 	DockerNetwork *tc.DockerNetwork
 	LogStream     *logstream.LogStream
+	TestConfig    core_testconfig.GlobalTestConfig
 
 	/* components */
 	ClCluster              *ClCluster
@@ -208,7 +209,7 @@ type CleanupOpts struct {
 func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	te.l.Info().Msg("Cleaning up test environment")
 
-	runIdErr := runid.RemoveLocalRunId()
+	runIdErr := runid.RemoveLocalRunId(te.TestConfig.GetLoggingConfig().RunId)
 	if runIdErr != nil {
 		te.l.Warn().Msgf("Failed to remove .run.id file due to: %s (not a big deal, you can still remove it manually)", runIdErr.Error())
 	}
