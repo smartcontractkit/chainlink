@@ -223,7 +223,7 @@ func TestAutomationReorg(t *testing.T) {
 			} else {
 				err = registry.SetConfigTypeSafe(ocrConfig)
 			}
-			require.NoError(t, err, "Registry config should be be set successfully")
+			require.NoError(t, err, "Registry config should be set successfully")
 			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
 			// Use the name to determine if this is a log trigger or not

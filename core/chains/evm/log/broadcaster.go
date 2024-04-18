@@ -445,7 +445,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			// The eth node connection was terminated so we need to backfill after resubscribing.
 			lggr := b.logger
 			// Do we have logs in the pool?
-			// They are are invalid, since we may have missed 'removed' logs.
+			// They are invalid, since we may have missed 'removed' logs.
 			if blockNum := b.invalidatePool(); blockNum > 0 {
 				lggr = logger.With(lggr, "blockNumber", blockNum)
 			}

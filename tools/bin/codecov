@@ -1552,7 +1552,7 @@ then
         if [ "$report_len" -ne 0 ];
         then
           say "    ${g}+${x} $file ${e}bytes=$(echo "$report_len" | tr -d ' ')${x}"
-          # append to to upload
+          # append to upload
           _filename=$(basename "$file")
           if [ "${_filename##*.}" = 'gcov' ];
           then

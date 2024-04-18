@@ -287,7 +287,7 @@ func TestAutomationChaos(t *testing.T) {
 					} else {
 						err = registry.SetConfigTypeSafe(ocrConfig)
 					}
-					require.NoError(t, err, "Registry config should be be set successfully")
+					require.NoError(t, err, "Registry config should be set successfully")
 					require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
 					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
