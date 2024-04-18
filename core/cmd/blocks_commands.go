@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 
@@ -40,18 +39,6 @@ func initBlocksSubCmds(s *Shell) []cli.Command {
 		{
 			Name:   "find_lca",
 			Usage:  "Find last common block stored in DB and on chain",
-			Action: s.FindLCA,
-			Flags: []cli.Flag{
-				cli.Int64Flag{
-					Name:     "evm-chain-id",
-					Usage:    "Chain ID of the EVM-based blockchain",
-					Required: true,
-				},
-			},
-		},
-		{
-			Name:   "remove_blocks",
-			Usage:  "Remove specified blocks and corresponding data from the database",
 			Action: s.FindLCA,
 			Flags: []cli.Flag{
 				cli.Int64Flag{
@@ -145,42 +132,4 @@ func (s *Shell) FindLCA(c *cli.Context) (err error) {
 	}()
 
 	return s.renderAPIResponse(resp, &LCAPresenter{}, "Last Common Ancestor")
-}
-
-// RemoveBlocksAfter - removes blocks after the specified blocks number
-func (s *Shell) RemoveBlocksAfter(c *cli.Context) (err error) {
-	start := c.Int64("start")
-	if start <= 0 {
-		return s.errorOut(errors.New("Must pass a positive value in '--start' parameter"))
-	}
-
-	v := url.Values{}
-	if c.IsSet("evm-chain-id") {
-		v.Add("evmChainID", fmt.Sprintf("%d", c.Int64("evm-chain-id")))
-	}
-	resp, err := s.HTTP.Get(s.ctx(),
-		fmt.Sprintf(
-			"/v2/remove_blocks_after/%d?%s",
-			start,
-			v.Encode(),
-		))
-	if err != nil {
-		return s.errorOut(err)
-	}
-
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	b, err := parseResponse(resp)
-	if err != nil {
-		return s.errorOut(err)
-	}
-
-	if resp.StatusCode == http.StatusNoContent {
-		println("Removed blocks successfully")
-	}
-	return s.errorOut(fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(b)))
 }

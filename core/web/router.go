@@ -294,8 +294,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/replay_from_block/:number", auth.RequiresRunRole(rc.ReplayFromBlock))
 		lcaC := LCAController{app}
 		authv2.GET("/find_lca", auth.RequiresRunRole(lcaC.FindLCA))
-		recoverLogPoller := RemoveBlocksController{app}
-		authv2.POST("/remove_blocks_after/:start", auth.RequiresRunRole(recoverLogPoller.RemoveBlocks))
 
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)
