@@ -120,8 +120,8 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		require.NoError(t, err, "error getting subscription information for subscription %s", subID.String())
 		vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
 	}
-	subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
-	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
+	subIDsForCancellingAfterTest = subIDs
+	l.Info().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 
 	vrfContracts.VRFV2PlusConsumer = consumers
 	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
@@ -270,7 +270,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 			require.NoError(t, err, "error getting subscription information for subscription %s", subID.String())
 			vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
 		}
-		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, underfundedSubIDs...)
+		subIDsForCancellingAfterTest = underfundedSubIDs
 		l.Debug().Int("Number of Subs", len(underfundedSubIDs)).Msg("Subs involved in the test")
 		vrfContracts.VRFV2PlusConsumer = consumers
 		require.Len(t, vrfContracts.VRFV2PlusConsumer, 1, "only one consumer should be created for Load Test")

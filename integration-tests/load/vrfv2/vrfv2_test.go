@@ -121,7 +121,7 @@ func TestVRFV2Performance(t *testing.T) {
 		require.NoError(t, err, "error getting subscription information for subscription %d", subID)
 		vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
 	}
-	subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
+	subIDsForCancellingAfterTest = subIDs
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 
 	vrfContracts.VRFV2Consumers = consumers
@@ -269,7 +269,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 			require.NoError(t, err, "error getting subscription information for subscription %d", subID)
 			vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
 		}
-		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, underfundedSubIDs...)
+		subIDsForCancellingAfterTest = underfundedSubIDs
 		l.Debug().Int("Number of Subs", len(underfundedSubIDs)).Msg("Subs involved in the test")
 		vrfContracts.VRFV2Consumers = consumers
 		require.Len(t, vrfContracts.VRFV2Consumers, 1, "only one consumer should be created for Load Test")
