@@ -61,5 +61,5 @@ func main() {
 		fmt.Printf("Error calculating coverage percentage: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Total coverage:\n%s\n%s\n", coverageCmd.String(), string(coverageOutput))
+	fmt.Printf("Total coverage based on all tests:\n%s\n%s\n", coverageCmd.String(), string(coverageOutput))
 }
