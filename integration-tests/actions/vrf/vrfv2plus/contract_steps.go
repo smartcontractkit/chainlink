@@ -681,15 +681,12 @@ func SetupNewConsumersAndSubs(
 ) ([]contracts.VRFv2PlusLoadTestConsumer, []*big.Int, error) {
 	consumers, err := DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, consumerContractsAmount)
 	if err != nil {
-		if err != nil {
-			return nil, nil, fmt.Errorf("err: %w", err)
-		}
+		return nil, nil, fmt.Errorf("err: %w", err)
 	}
 	evmClient, err := env.GetEVMClient(chainID)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	err = evmClient.WaitForEvents()
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, err: %w", vrfcommon.ErrWaitTXsComplete, err)
