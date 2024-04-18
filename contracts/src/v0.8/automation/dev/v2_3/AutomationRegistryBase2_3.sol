@@ -11,7 +11,7 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 
@@ -1085,9 +1085,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       IERC20 token = billingTokens[i];
       BillingConfig memory config = billingConfigs[i];
 
-      // most ERC20 tokens are 18 decimals, we support tokens with up to 24 decimals
-      // priceFeed must be 8 decimals
-      if (config.decimals > 24 || config.priceFeed.decimals() != 8) {
+      // most ERC20 tokens are 18 decimals, priceFeed must be 8 decimals
+      if (config.decimals != token.decimals() || config.priceFeed.decimals() != 8) {
         revert InvalidToken();
       }
 

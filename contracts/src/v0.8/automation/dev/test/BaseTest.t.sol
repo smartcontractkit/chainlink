@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
+import {ERC20Mock6Decimals} from "../../mocks/ERC20Mock6Decimals.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {UpkeepTranscoder5_0 as Transcoder} from "../v2_3/UpkeepTranscoder5_0.sol";
@@ -16,7 +17,7 @@ import {AutomationRegistryLogicC2_3} from "../v2_3/AutomationRegistryLogicC2_3.s
 import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 import {WETH9} from "./WETH9.sol";
@@ -40,7 +41,7 @@ contract BaseTest is Test {
 
   // contracts
   LinkToken internal linkToken;
-  ERC20Mock internal usdToken6;
+  ERC20Mock6Decimals internal usdToken6;
   ERC20Mock internal usdToken18;
   WETH9 internal weth;
   MockV3Aggregator internal LINK_USD_FEED;
@@ -75,7 +76,7 @@ contract BaseTest is Test {
     linkToken = new LinkToken();
     linkToken.grantMintRole(OWNER);
     usdToken18 = new ERC20Mock("MOCK_ERC20_18Decimals", "MOCK_ERC20_18Decimals", OWNER, 0);
-    usdToken6 = new ERC20Mock("MOCK_ERC20_6Decimals", "MOCK_ERC20_6Decimals", OWNER, 0);
+    usdToken6 = new ERC20Mock6Decimals("MOCK_ERC20_6Decimals", "MOCK_ERC20_6Decimals", OWNER, 0);
     weth = new WETH9();
 
     LINK_USD_FEED = new MockV3Aggregator(8, 2_000_000_000); // $20

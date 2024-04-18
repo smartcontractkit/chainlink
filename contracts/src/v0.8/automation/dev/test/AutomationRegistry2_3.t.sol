@@ -7,7 +7,7 @@ import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryB
 import {AutomationRegistrar2_3 as Registrar} from "../v2_3/AutomationRegistrar2_3.sol";
 import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistry2_3.t.sol
@@ -358,7 +358,7 @@ contract SetConfig is SetUp {
     (uint32 configCount, uint32 blockNumber, ) = registry.latestConfigDetails();
     assertEq(configCount, 1);
 
-    address billingTokenAddress = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress = address(usdToken18);
     address[] memory billingTokens = new address[](1);
     billingTokens[0] = billingTokenAddress;
 
@@ -429,8 +429,8 @@ contract SetConfig is SetUp {
     (uint32 configCount, , ) = registry.latestConfigDetails();
     assertEq(configCount, 1);
 
-    address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
-    address billingTokenAddress2 = address(0x1111111111111111111111111111111111111112);
+    address billingTokenAddress1 = address(linkToken);
+    address billingTokenAddress2 = address(usdToken18);
     address[] memory billingTokens = new address[](2);
     billingTokens[0] = billingTokenAddress1;
     billingTokens[1] = billingTokenAddress2;
@@ -493,7 +493,7 @@ contract SetConfig is SetUp {
     assertEq(configCount, 1);
 
     // BillingConfig1
-    address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress1 = address(usdToken18);
     address[] memory billingTokens1 = new address[](1);
     billingTokens1[0] = billingTokenAddress1;
 
@@ -510,7 +510,7 @@ contract SetConfig is SetUp {
     bytes memory onchainConfigBytesWithBilling1 = abi.encode(cfg, billingTokens1, billingConfigs1);
 
     // BillingConfig2
-    address billingTokenAddress2 = address(0x1111111111111111111111111111111111111112);
+    address billingTokenAddress2 = address(usdToken18);
     address[] memory billingTokens2 = new address[](1);
     billingTokens2[0] = billingTokenAddress2;
 
@@ -567,8 +567,8 @@ contract SetConfig is SetUp {
     (uint32 configCount, , ) = registry.latestConfigDetails();
     assertEq(configCount, 1);
 
-    address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
-    address billingTokenAddress2 = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress1 = address(linkToken);
+    address billingTokenAddress2 = address(linkToken);
     address[] memory billingTokens = new address[](2);
     billingTokens[0] = billingTokenAddress1;
     billingTokens[1] = billingTokenAddress2;
@@ -635,13 +635,40 @@ contract SetConfig is SetUp {
     );
   }
 
+  function testSetConfigRevertDueToInvalidDecimals() public {
+    address[] memory billingTokens = new address[](1);
+    billingTokens[0] = address(linkToken);
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000,
+      priceFeed: address(USDTOKEN_USD_FEED),
+      fallbackPrice: 2_000_000_000, // $20
+      minSpend: 100_000,
+      decimals: 6 // link token should have 18 decimals
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidToken.selector));
+    registry.setConfigTypeSafe(
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes,
+      billingTokens,
+      billingConfigs
+    );
+  }
+
   function testSetConfigWithNewTransmittersSuccess() public {
     registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
     (uint32 configCount, uint32 blockNumber, ) = registry.latestConfigDetails();
     assertEq(configCount, 0);
 
-    address billingTokenAddress = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress = address(usdToken18);
     address[] memory billingTokens = new address[](1);
     billingTokens[0] = billingTokenAddress;
 
