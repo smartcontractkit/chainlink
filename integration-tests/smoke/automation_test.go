@@ -1060,9 +1060,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
@@ -1076,7 +1074,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 				a.Registry,
 				a.Registrar,
 				a.LinkToken,
-				defaultAmountOfUpkeeps,
+				1,
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
 				10000,   // How many blocks this upkeep will be eligible from first upkeep block
@@ -1142,7 +1140,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			}, "4m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
-			l.Info().Msg("Increasing check gas limit for upkeeps")
+			l.Info().Msg("Increasing check gas to burn for upkeeps")
 			for i := 0; i < len(upkeepIDs); i++ {
 				err = consumersPerformance[i].SetCheckGasToBurn(testcontext.Get(t), big.NewInt(3000000))
 				require.NoError(t, err, "Check gas burn should be set successfully on consumer")
