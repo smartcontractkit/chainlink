@@ -196,7 +196,7 @@ func (v *EthereumVRFCoordinatorV2_5) GetSubscription(ctx context.Context, subID 
 	}
 	return Subscription{
 		Balance:       subscription.Balance,
-		NativeBalance: nil,
+		NativeBalance: subscription.NativeBalance,
 		SubOwner:      subscription.SubOwner,
 		Consumers:     subscription.Consumers,
 		ReqCount:      subscription.ReqCount,

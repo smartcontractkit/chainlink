@@ -19,14 +19,16 @@ func LogSubDetails(
 	subID string,
 	coordinator contracts.Coordinator,
 ) {
-	l.Info().
+	log := l.Info().
 		Str("Coordinator", coordinator.Address()).
 		Str("Link Balance", (*commonassets.Link)(subscription.Balance).Link()).
-		Str("Native Token Balance", assets.FormatWei(subscription.NativeBalance)).
 		Str("Subscription ID", subID).
 		Str("Subscription Owner", subscription.SubOwner.String()).
-		Interface("Subscription Consumers", subscription.Consumers).
-		Msg("Subscription Data")
+		Interface("Subscription Consumers", subscription.Consumers)
+	if subscription.NativeBalance != nil {
+		log = log.Str("Native Token Balance", assets.FormatWei(subscription.NativeBalance))
+	}
+	log.Msg("Subscription Data")
 }
 
 func LogRandomnessRequestedEvent(
