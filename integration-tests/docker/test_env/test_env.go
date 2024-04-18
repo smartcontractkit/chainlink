@@ -248,8 +248,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		sethClient.Client.Close()
 	}
 
-	// showCoverageReport := te.TestConfig.GetLoggingConfig().ShowCoverageReport
-	showCoverageReport := true
+	showCoverageReport := te.TestConfig.GetLoggingConfig().ShowCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowCoverageReport
 	isCI := os.Getenv("CI") != ""
 
 	var covHelper *d.NodeCoverageHelper
@@ -287,7 +286,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		if err != nil {
 			return err
 		}
-		te.l.Info().Msgf("Chainlink node coverage report for %s saved to: %s", opts.TestName, path)
+		te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage html report saved")
 	}
 
 	if isCI {
@@ -296,7 +295,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		if err != nil {
 			te.l.Error().Err(err).Str("testName", testName).Msg("Failed to save coverage percentage for test")
 		} else {
-			te.l.Info().Str("testName", testName).Str("filePath", covPercentPath).Msg("Chainlink node coverage percentage saved")
+			te.l.Info().Str("testName", testName).Str("filePath", covPercentPath).Msg("Chainlink node coverage percentage report saved")
 		}
 	}
 

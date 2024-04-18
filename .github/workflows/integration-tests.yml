@@ -398,7 +398,7 @@ jobs:
       - name: Upload First Folder as Artifact
         uses: actions/upload-artifact@v3
         with:
-          path: .covdata/percentage/merged
+          path: .covdata
 
       # - name: Show Go Coverage
       #   run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
@@ -703,7 +703,7 @@ jobs:
       - name: Upload First Folder as Artifact
         uses: actions/upload-artifact@v3
         with:
-          path: .covdata/percentage/merged
+          path: .covdata
 
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
