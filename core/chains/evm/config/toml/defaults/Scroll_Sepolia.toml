@@ -20,3 +20,7 @@ BlockHistorySize = 0
 
 [HeadTracker]
 HistoryDepth = 50
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = true
+AutoPurgeDetectionApiUrl = https://sepolia-venus.scroll.io

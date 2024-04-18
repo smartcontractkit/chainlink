@@ -821,6 +821,36 @@ func (_m *EvmTxStore) FindTxsRequiringResubmissionDueToInsufficientFunds(ctx con
 	return r0, r1
 }
 
+// FindUnconfirmedTxsByFromAddresses provides a mock function with given fields: ctx, addresses, chainID
+func (_m *EvmTxStore) FindUnconfirmedTxsByFromAddresses(ctx context.Context, addresses []common.Address, chainID *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, addresses, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindUnconfirmedTxsByFromAddresses")
+	}
+
+	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, addresses, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, *big.Int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, addresses, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, addresses, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAbandonedTransactionsByBatch provides a mock function with given fields: ctx, chainID, enabledAddrs, offset, limit
 func (_m *EvmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainID *big.Int, enabledAddrs []common.Address, offset uint, limit uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, chainID, enabledAddrs, offset, limit)

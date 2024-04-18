@@ -411,6 +411,8 @@ type Transactions struct {
 	ReaperInterval       *commonconfig.Duration
 	ReaperThreshold      *commonconfig.Duration
 	ResendAfterThreshold *commonconfig.Duration
+
+	AutoPurgeConfig AutoPurgeConfig `toml:",omitempty"`
 }
 
 func (t *Transactions) setFrom(f *Transactions) {
@@ -431,6 +433,50 @@ func (t *Transactions) setFrom(f *Transactions) {
 	}
 	if v := f.ResendAfterThreshold; v != nil {
 		t.ResendAfterThreshold = v
+	}
+	t.AutoPurgeConfig.setFrom(&f.AutoPurgeConfig)
+}
+
+type AutoPurgeConfig struct {
+	AutoPurgeStuckTxs        *bool
+	AutoPurgeThreshold       *uint32
+	AutoPurgeMinAttempts     *uint32
+	AutoPurgeDetectionApiUrl *url.URL
+}
+
+func (n *AutoPurgeConfig) ValidateConfig() (err error) {
+	if n.AutoPurgeStuckTxs == nil || !*n.AutoPurgeStuckTxs {
+		return nil
+	}
+	if n.AutoPurgeDetectionApiUrl != nil && n.AutoPurgeDetectionApiUrl.String() != "" {
+		switch n.AutoPurgeDetectionApiUrl.Scheme {
+		case "http", "https":
+			return nil
+		default:
+			return commonconfig.ErrInvalid{Name: "AutoPurgeDetectionApiUrl", Value: n.AutoPurgeDetectionApiUrl.Scheme, Msg: "must be http or https"}
+		}
+	}
+	if *n.AutoPurgeThreshold == 0 {
+		return commonconfig.ErrInvalid{Name: "AutoPurgeThreshold", Value: *n.AutoPurgeThreshold, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"}
+	}
+	if *n.AutoPurgeMinAttempts == 0 {
+		return commonconfig.ErrInvalid{Name: "AutoPurgeMinAttempts", Value: *n.AutoPurgeMinAttempts, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"}
+	}
+	return nil
+}
+
+func (t *AutoPurgeConfig) setFrom(f *AutoPurgeConfig) {
+	if v := f.AutoPurgeStuckTxs; v != nil {
+		t.AutoPurgeStuckTxs = v
+	}
+	if v := f.AutoPurgeThreshold; v != nil {
+		t.AutoPurgeThreshold = v
+	}
+	if v := f.AutoPurgeMinAttempts; v != nil {
+		t.AutoPurgeMinAttempts = v
+	}
+	if v := f.AutoPurgeDetectionApiUrl; v != nil {
+		t.AutoPurgeDetectionApiUrl = v
 	}
 }
 

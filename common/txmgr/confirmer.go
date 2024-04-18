@@ -122,12 +122,13 @@ type Confirmer[
 	lggr    logger.SugaredLogger
 	client  txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	resumeCallback ResumeCallback
-	chainConfig    txmgrtypes.ConfirmerChainConfig
-	feeConfig      txmgrtypes.ConfirmerFeeConfig
-	txConfig       txmgrtypes.ConfirmerTransactionsConfig
-	dbConfig       txmgrtypes.ConfirmerDatabaseConfig
-	chainID        CHAIN_ID
+	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	resumeCallback  ResumeCallback
+	chainConfig     txmgrtypes.ConfirmerChainConfig
+	feeConfig       txmgrtypes.ConfirmerFeeConfig
+	txConfig        txmgrtypes.ConfirmerTransactionsConfig
+	dbConfig        txmgrtypes.ConfirmerDatabaseConfig
+	chainID         CHAIN_ID
 
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
@@ -163,6 +164,7 @@ func NewConfirmer[
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
+	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -179,6 +181,7 @@ func NewConfirmer[
 		ks:               keystore,
 		mb:               mailbox.NewSingle[HEAD](),
 		isReceiptNil:     isReceiptNil,
+		stuckTxDetector:  stuckTxDetector,
 	}
 }
 
@@ -295,6 +298,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	}
 
 	ec.lggr.Debugw("Finished CheckForReceipts", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
+	mark = time.Now()
+
+	if err := ec.ProcessStuckTransactions(ctx, head.BlockNumber()); err != nil {
+		return fmt.Errorf("ProcessStuckTransactions failed: %w", err)
+	}
+
+	ec.lggr.Debugw("Finished ProcessStuckTransactions", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
 	if err := ec.RebroadcastWhereNecessary(ctx, head.BlockNumber()); err != nil {
@@ -433,6 +443,23 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 		return fmt.Errorf("unable to confirm buried unconfirmed txes': %w", err)
 	}
 	return nil
+}
+
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessStuckTransactions(ctx context.Context, blockNum int64) error {
+	// Use the stuck tx detector to find all tx stuck for each enabled address
+	stuckTxs, err := ec.stuckTxDetector.DetectStuckTransactions(ctx, ec.enabledAddresses, blockNum)
+	if err != nil {
+		return fmt.Errorf("failed to detect stuck transactions: %w", err)
+	}
+	if len(stuckTxs) == 0 {
+		return nil
+	}
+
+	errors := []error{}
+	for _, tx := range stuckTxs {
+		// TODO: Handle sending empty transactions and marking them as purge attempts
+	}
+	return multierr.Combine(errors...)
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) separateLikelyConfirmedAttempts(from ADDR, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], minedSequence SEQ) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {

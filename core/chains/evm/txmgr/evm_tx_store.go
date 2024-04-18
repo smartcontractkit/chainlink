@@ -47,7 +47,7 @@ type EvmTxStore interface {
 	TxStoreWebApi
 }
 
-// TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers and readers
+// TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers, readers, or evm specific components
 type TxStoreWebApi interface {
 	FindTxAttemptConfirmedByTxIDs(ctx context.Context, ids []int64) ([]TxAttempt, error)
 	FindTxByHash(ctx context.Context, hash common.Hash) (*Tx, error)
@@ -56,6 +56,7 @@ type TxStoreWebApi interface {
 	TransactionsWithAttempts(ctx context.Context, offset, limit int) ([]Tx, int, error)
 	FindTxAttempt(ctx context.Context, hash common.Hash) (*TxAttempt, error)
 	FindTxWithAttempts(ctx context.Context, etxID int64) (etx Tx, err error)
+	FindUnconfirmedTxsByFromAddresses(ctx context.Context, addresses []common.Address, chainID *big.Int) (txs []Tx, err error)
 }
 
 type TestEvmTxStore interface {
@@ -285,6 +286,7 @@ type DbEthTxAttempt struct {
 	TxType                  int
 	GasTipCap               *assets.Wei
 	GasFeeCap               *assets.Wei
+	IsPurgeAttempt			bool
 }
 
 func (db *DbEthTxAttempt) FromTxAttempt(attempt *TxAttempt) {
@@ -299,6 +301,7 @@ func (db *DbEthTxAttempt) FromTxAttempt(attempt *TxAttempt) {
 	db.TxType = attempt.TxType
 	db.GasTipCap = attempt.TxFee.DynamicTipCap
 	db.GasFeeCap = attempt.TxFee.DynamicFeeCap
+	db.IsPurgeAttempt = attempt.IsPurgeAttempt
 
 	// handle state naming difference between generic + EVM
 	if attempt.State == txmgrtypes.TxAttemptInsufficientFunds {
@@ -330,6 +333,7 @@ func (db DbEthTxAttempt) ToTxAttempt(attempt *TxAttempt) {
 		DynamicTipCap: db.GasTipCap,
 		DynamicFeeCap: db.GasFeeCap,
 	}
+	attempt.IsPurgeAttempt = db.IsPurgeAttempt
 }
 
 func dbEthTxAttemptsToEthTxAttempts(dbEthTxAttempt []DbEthTxAttempt) []TxAttempt {
@@ -355,8 +359,8 @@ func NewTxStore(
 }
 
 const insertIntoEthTxAttemptsQuery = `
-INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
-VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
+INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap, is_purge_attempt)
+VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap, :is_purge_attempt)
 RETURNING *;
 `
 
@@ -820,6 +824,34 @@ ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas
 		attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
 		err = orm.preloadTxesAtomic(ctx, attempts)
 		return pkgerrors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load evm.txes")
+	})
+	return
+}
+
+// Returns the latest attempt for the lowest nonce unconfirmed transaction in the DB if it is not marked as insufficient eth or for purge already
+func (o *evmTxStore) FindUnconfirmedTxsByFromAddresses(ctx context.Context, addresses []common.Address, chainID *big.Int) (txs []Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	addressesStr := make([]string, len(addresses))
+	for _, addr := range addresses {
+		addressesStr = append(addressesStr, addr.String())
+	}
+	err = o.Transaction(ctx, true, func(orm *evmTxStore) error {
+		var dbTxs []DbEthTx
+		err = orm.q.SelectContext(ctx, &dbTxs, `
+SELECT evm.txes.* FROM evm.txes
+WHERE evm.txes.state = 'unconfirmed' AND evm.txes.from_address = ANY($1) AND evm.txes.evm_chain_id = $2
+`, pq.Array(addressesStr), chainID.String())
+		if err != nil {
+			return fmt.Errorf("FindTxAttemptsForPurge failed to load evm.tx_attempts: %w", err)
+		}
+		if len(dbTxs) == 0 {
+			return nil
+		}
+		txs := dbEthTxsToEvmEthTxs(dbTxs)
+		err = orm.preloadTxAttempts(ctx, txs)
+		return pkgerrors.Wrap(err, "FindTxAttemptsForPurge failed to load evm.txes")
 	})
 	return
 }

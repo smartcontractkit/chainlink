@@ -45,7 +45,7 @@ func NewTxm(
 	}
 	checker := &CheckerFactory{Client: client}
 	// create tx attempt builder
-	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
+	txAttemptBuilder := NewEvmTxAttemptBuilder(*chainConfig.ChainID(), fCfg, keyStore, estimator)
 	txStore := NewTxStore(sqlxDB, lggr)
 	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config
 	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
@@ -53,7 +53,8 @@ func NewTxm(
 	chainID := txmClient.ConfiguredChainID()
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
-	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
+	stuckTxDetector := NewStuckTxDetector(txmCfg, txConfig.AutoPurgeConfig(), estimator, txStore)
+	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
 		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
@@ -111,8 +112,9 @@ func NewEvmConfirmer(
 	keystore KeyStore,
 	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
+	stuckTxDetector StuckTxDetector,
 ) *Confirmer {
-	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
+	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil }, stuckTxDetector)
 }
 
 // NewEvmTracker instantiates a new EVM tracker for abandoned transactions
