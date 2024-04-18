@@ -355,8 +355,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       offchainConfig
     );
 
-    for (uint256 idx = 0; idx < s_registrars.length(); idx++) {
-      s_registrars.remove(s_registrars.at(idx));
+    for (uint256 idx = s_registrars.length(); idx > 0; idx--) {
+      s_registrars.remove(s_registrars.at(idx - 1));
     }
 
     for (uint256 idx = 0; idx < onchainConfig.registrars.length; idx++) {

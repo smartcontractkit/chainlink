@@ -521,7 +521,7 @@ contract SetConfig is SetUp {
       offchainConfigBytes
     );
 
-    (, IAutomationV21PlusCommon.OnchainConfigLegacy memory onchainConfig1, , ,) = registry.getState();
+    (, IAutomationV21PlusCommon.OnchainConfigLegacy memory onchainConfig1, , , ) = registry.getState();
     assertEq(onchainConfig1.registrars.length, 2);
 
     // BillingConfig2
@@ -546,23 +546,23 @@ contract SetConfig is SetUp {
 
     // new onchain config with 3 new registrars, all other fields stay the same as the default
     AutomationRegistryBase2_3.OnchainConfig memory cfg2 = AutomationRegistryBase2_3.OnchainConfig({
-        checkGasLimit: 5_000_000,
-        stalenessSeconds: 90_000,
-        gasCeilingMultiplier: 0,
-        maxPerformGas: 10_000_000,
-        maxCheckDataSize: 5_000,
-        maxPerformDataSize: 5_000,
-        maxRevertDataSize: 5_000,
-        fallbackGasPrice: 20_000_000_000,
-        fallbackLinkPrice: 2_000_000_000, // $20
-        fallbackNativePrice: 400_000_000_000, // $4,000
-        transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-        registrars: newRegistrars,
-        upkeepPrivilegeManager: PRIVILEGE_MANAGER,
-        chainModule: module,
-        reorgProtectionEnabled: true,
-        financeAdmin: FINANCE_ADMIN
-      });
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 0,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: newRegistrars,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
+      chainModule: module,
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN
+    });
 
     // the second time uses the new onchain config with 3 new registrars and also new billing tokens/configs
     bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg2, billingTokens2, billingConfigs2);
@@ -577,9 +577,18 @@ contract SetConfig is SetUp {
       offchainConfigBytes
     );
 
-    (, IAutomationV21PlusCommon.OnchainConfigLegacy memory onchainConfig2, address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
+    (
+      ,
+      IAutomationV21PlusCommon.OnchainConfigLegacy memory onchainConfig2,
+      address[] memory signers,
+      address[] memory transmitters,
+      uint8 f
+    ) = registry.getState();
 
     assertEq(onchainConfig2.registrars.length, 3);
+    for (uint256 i = 0; i < newRegistrars.length; i++) {
+      assertEq(newRegistrars[i], onchainConfig2.registrars[i]);
+    }
     assertEq(signers, SIGNERS);
     assertEq(transmitters, TRANSMITTERS);
     assertEq(f, F);

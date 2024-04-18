@@ -185,8 +185,8 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
       s_transmitters[deactivatedAddr].balance = 0;
     }
 
-    for (uint256 idx = 0; idx < s_deactivatedTransmitters.length(); idx++) {
-      s_deactivatedTransmitters.remove(s_deactivatedTransmitters.at(idx));
+    for (uint256 idx = s_deactivatedTransmitters.length(); idx > 0; idx--) {
+      s_deactivatedTransmitters.remove(s_deactivatedTransmitters.at(idx - 1));
     }
 
     emit NOPsSettledOffchain(payees, payments);
