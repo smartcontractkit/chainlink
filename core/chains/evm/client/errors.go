@@ -30,7 +30,10 @@ func (s *SendError) Error() string {
 // Fatal indicates whether the error should be considered fatal or not
 // Fatal errors mean that no matter how many times the send is retried, no node
 // will ever accept it
-func (s *SendError) Fatal() bool {
+func (s *SendError) Fatal(configErrors *ClientErrors) bool {
+	if configErrors != nil && configErrors.ErrIs(s.err, Fatal) {
+		return true
+	}
 	return s != nil && s.fatal
 }
 
@@ -59,15 +62,7 @@ const (
 	OutOfCounters
 )
 
-type ClientErrors struct {
-	errorMap map[int]*regexp.Regexp
-}
-
-func NewClientErrors(errors map[int]*regexp.Regexp) *ClientErrors {
-	return &ClientErrors{
-		errorMap: errors,
-	}
-}
+type ClientErrors map[int]*regexp.Regexp
 
 // ErrIs returns true if err matches any provided error types
 func (e *ClientErrors) ErrIs(err error, errorTypes ...int) bool {
@@ -75,10 +70,10 @@ func (e *ClientErrors) ErrIs(err error, errorTypes ...int) bool {
 		return false
 	}
 	for _, errorType := range errorTypes {
-		if _, ok := e.errorMap[errorType]; !ok {
+		if _, ok := (*e)[errorType]; !ok {
 			return false
 		}
-		if e.errorMap[errorType].MatchString(pkgerrors.Cause(err).Error()) {
+		if (*e)[errorType].MatchString(pkgerrors.Cause(err).Error()) {
 			return true
 		}
 	}
@@ -88,7 +83,7 @@ func (e *ClientErrors) ErrIs(err error, errorTypes ...int) bool {
 // Parity
 // See: https://github.com/openethereum/openethereum/blob/master/rpc/src/v1/helpers/errors.rs#L420
 var parFatal = regexp.MustCompile(`^Transaction gas is too low. There is not enough gas to cover minimal cost of the transaction|^Transaction cost exceeds current gas limit. Limit:|^Invalid signature|Recipient is banned in local queue.|Supplied gas is beyond limit|Sender is banned in local queue|Code is banned in local queue|Transaction is not permitted|Transaction is too big, see chain specification for the limit|^Invalid RLP data`)
-var parity = NewClientErrors(map[int]*regexp.Regexp{
+var parity = ClientErrors{
 	NonceTooLow:                       regexp.MustCompile("^Transaction nonce is too low. Try incrementing the nonce."),
 	ReplacementTransactionUnderpriced: regexp.MustCompile("^Transaction gas price .+is too low. There is another transaction with same nonce in the queue"),
 	LimitReached:                      regexp.MustCompile("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."),
@@ -96,12 +91,12 @@ var parity = NewClientErrors(map[int]*regexp.Regexp{
 	TerminallyUnderpriced:             regexp.MustCompile("^Transaction gas price is too low. It does not satisfy your node's minimal gas price"),
 	InsufficientEth:                   regexp.MustCompile("^(Insufficient funds. The account you tried to send transaction from does not have enough funds.|Insufficient balance for transaction.)"),
 	Fatal:                             parFatal,
-})
+}
 
 // Geth
 // See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
 var gethFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low)$`)
-var geth = NewClientErrors(map[int]*regexp.Regexp{
+var geth = ClientErrors{
 	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),
 	NonceTooHigh:                      regexp.MustCompile(`(: |^)nonce too high$`),
 	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
@@ -110,12 +105,12 @@ var geth = NewClientErrors(map[int]*regexp.Regexp{
 	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
 	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
 	Fatal:                             gethFatal,
-})
+}
 
 // Besu
 // See: https://github.com/hyperledger/besu/blob/81f25e15f9891787829b532f2fb38c8c43fd6b2e/ethereum/api/src/main/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/response/JsonRpcError.java
 var besuFatal = regexp.MustCompile(`^(Intrinsic gas exceeds gas limit|Transaction gas limit exceeds block gas limit|Invalid signature)$`)
-var besu = NewClientErrors(map[int]*regexp.Regexp{
+var besu = ClientErrors{
 	NonceTooLow:                       regexp.MustCompile(`^Nonce too low$`),
 	ReplacementTransactionUnderpriced: regexp.MustCompile(`^Replacement transaction underpriced$`),
 	TransactionAlreadyInMempool:       regexp.MustCompile(`^Known transaction$`),
@@ -123,7 +118,7 @@ var besu = NewClientErrors(map[int]*regexp.Regexp{
 	InsufficientEth:                   regexp.MustCompile(`^Upfront cost exceeds account balance$`),
 	TxFeeExceedsCap:                   regexp.MustCompile(`^Transaction fee cap exceeded$`),
 	Fatal:                             besuFatal,
-})
+}
 
 // Erigon
 // See:
@@ -133,7 +128,7 @@ var besu = NewClientErrors(map[int]*regexp.Regexp{
 //
 // Note: some error definitions are unused, many errors are created inline.
 var erigonFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low)$`)
-var erigon = NewClientErrors(map[int]*regexp.Regexp{
+var erigon = ClientErrors{
 	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),
 	NonceTooHigh:                      regexp.MustCompile(`(: |^)nonce too high$`),
 	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
@@ -142,13 +137,13 @@ var erigon = NewClientErrors(map[int]*regexp.Regexp{
 	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
 	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
 	Fatal:                             erigonFatal,
-})
+}
 
 // Arbitrum
 // https://github.com/OffchainLabs/arbitrum/blob/cac30586bc10ecc1ae73e93de517c90984677fdb/packages/arb-evm/evm/result.go#L158
 // nitro: https://github.com/OffchainLabs/go-ethereum/blob/master/core/state_transition.go
 var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address)$|(: |^)(execution reverted)(:|$)`)
-var arbitrum = NewClientErrors(map[int]*regexp.Regexp{
+var arbitrum = ClientErrors{
 	// TODO: Arbitrum returns this in case of low or high nonce. Update this when Arbitrum fix it
 	// https://app.shortcut.com/chainlinklabs/story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
 	NonceTooLow:           regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
@@ -159,33 +154,33 @@ var arbitrum = NewClientErrors(map[int]*regexp.Regexp{
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
 	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
-})
+}
 
-var celo = NewClientErrors(map[int]*regexp.Regexp{
+var celo = ClientErrors{
 	TxFeeExceedsCap:       regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ of currency celo\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gasprice is less than gas price minimum floor`),
 	InsufficientEth:       regexp.MustCompile(`(: |^)insufficient funds for gas \* price \+ value \+ gatewayFee$`),
 	LimitReached:          regexp.MustCompile(`(: |^)txpool is full`),
-})
+}
 
-var metis = NewClientErrors(map[int]*regexp.Regexp{
+var metis = ClientErrors{
 	L2FeeTooLow: regexp.MustCompile(`(: |^)gas price too low: \d+ wei, use at least tx.gasPrice = \d+ wei$`),
-})
+}
 
 // Substrate (Moonriver)
-var substrate = NewClientErrors(map[int]*regexp.Regexp{
+var substrate = ClientErrors{
 	NonceTooLow:                 regexp.MustCompile(`(: |^)Pool\(Stale\)$`),
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)Pool\(AlreadyImported\)$`),
-})
+}
 
-var avalanche = NewClientErrors(map[int]*regexp.Regexp{
+var avalanche = ClientErrors{
 	NonceTooLow: regexp.MustCompile(`(: |^)nonce too low: address 0x[0-9a-fA-F]{40} current nonce \([\d]+\) > tx nonce \([\d]+\)$`),
-})
+}
 
 // Klaytn
 // https://github.com/klaytn/klaytn/blob/dev/blockchain/error.go
 // https://github.com/klaytn/klaytn/blob/dev/blockchain/tx_pool.go
-var klaytn = NewClientErrors(map[int]*regexp.Regexp{
+var klaytn = ClientErrors{
 	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),                                                                                    // retry with an increased nonce
 	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(known transaction)`),                                                                               // don't send the tx again. The exactly same tx is already in the mempool
 	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$|there is another tx which has the same nonce in the tx pool$`), // retry with an increased gasPrice or maxFeePerGas. This error happened when there is another tx having higher gasPrice or maxFeePerGas exist in the mempool
@@ -194,13 +189,13 @@ var klaytn = NewClientErrors(map[int]*regexp.Regexp{
 	InsufficientEth:                   regexp.MustCompile(`(: |^)insufficient funds`),                                                                                // stop to send a tx. The sender address doesn't have enough KLAY
 	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)(invalid gas fee cap|max fee per gas higher than max priority fee per gas)`),                        // retry with a valid gasPrice, maxFeePerGas, or maxPriorityFeePerGas. The new value can get from the return of `eth_gasPrice`
 	Fatal:                             gethFatal,
-})
+}
 
 // Nethermind
 // All errors: https://github.com/NethermindEth/nethermind/blob/master/src/Nethermind/Nethermind.TxPool/AcceptTxResult.cs
 // All filters: https://github.com/NethermindEth/nethermind/tree/9b68ec048c65f4b44fb863164c0dec3f7780d820/src/Nethermind/Nethermind.TxPool/Filters
 var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid(, transaction Hash is null)?|Int256Overflow|FailedToResolveSender|GasLimitExceeded(, Gas limit: \d+, gas limit of rejected tx: \d+)?)$`)
-var nethermind = NewClientErrors(map[int]*regexp.Regexp{
+var nethermind = ClientErrors{
 	// OldNonce: The EOA (externally owned account) that signed this transaction (sender) has already signed and executed a transaction with the same nonce.
 	NonceTooLow:  regexp.MustCompile(`(: |^)OldNonce(, Current nonce: \d+, nonce of rejected tx: \d+)?$`),
 	NonceTooHigh: regexp.MustCompile(`(: |^)NonceGap(, Future nonce. Expected nonce: \d+)?$`),
@@ -219,17 +214,17 @@ var nethermind = NewClientErrors(map[int]*regexp.Regexp{
 	InsufficientEth:    regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+|, Balance is \d+ less than sending value \+ gas \d+)?$`),
 	ServiceUnavailable: regexp.MustCompile(`(: |^)503 Service Unavailable: [\s\S]*$`),
 	Fatal:              nethermindFatal,
-})
+}
 
 // Harmony
 // https://github.com/harmony-one/harmony/blob/main/core/tx_pool.go#L49
 var harmonyFatal = regexp.MustCompile("(: |^)(invalid shard|staking message does not match directive message|`from` address of transaction in blacklist|`to` address of transaction in blacklist)$")
-var harmony = NewClientErrors(map[int]*regexp.Regexp{
+var harmony = ClientErrors{
 	TransactionAlreadyMined: regexp.MustCompile(`(: |^)transaction already finalized$`),
 	Fatal:                   harmonyFatal,
-})
+}
 
-var zkSync = NewClientErrors(map[int]*regexp.Regexp{
+var zkSync = ClientErrors{
 	NonceTooLow:           regexp.MustCompile(`(?:: |^)nonce too low\..+actual: \d*$`),
 	NonceTooHigh:          regexp.MustCompile(`(?:: |^)nonce too high\..+actual: \d*$`),
 	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)(max fee per gas less than block base fee|virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price)$`),
@@ -244,20 +239,20 @@ var zkSync = NewClientErrors(map[int]*regexp.Regexp{
 	// oversized data 								- data too large
 	Fatal:                       regexp.MustCompile(`(?:: |^)(?:exceeds block gas limit|intrinsic gas too low|Not enough gas for transaction validation|Failed to pay the fee to the operator|Error function_selector = 0x, data = 0x|invalid sender. can't start a transaction from a non-account|max(?: priority)? fee per (?:gas|pubdata byte) higher than 2\^64-1|oversized data. max: \d+; actual: \d+)$`),
 	TransactionAlreadyInMempool: regexp.MustCompile(`known transaction. transaction with hash .* is already in the system`),
-})
+}
 
-var zkEvm = NewClientErrors(map[int]*regexp.Regexp{
+var zkEvm = ClientErrors{
 	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
-})
+}
 
-var clients = []*ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
 	if errsRegex == nil {
-		return NewClientErrors(nil)
+		return &ClientErrors{}
 	}
-	return NewClientErrors(map[int]*regexp.Regexp{
+	return &ClientErrors{
 		NonceTooLow:                       regexp.MustCompile(errsRegex.NonceTooLow()),
 		NonceTooHigh:                      regexp.MustCompile(errsRegex.NonceTooHigh()),
 		ReplacementTransactionUnderpriced: regexp.MustCompile(errsRegex.ReplacementTransactionUnderpriced()),
@@ -272,12 +267,15 @@ func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
 		TransactionAlreadyMined:           regexp.MustCompile(errsRegex.TransactionAlreadyMined()),
 		Fatal:                             regexp.MustCompile(errsRegex.Fatal()),
 		ServiceUnavailable:                regexp.MustCompile(errsRegex.ServiceUnavailable()),
-	})
+	}
 }
 
-func (s *SendError) is(errorType int) bool {
+func (s *SendError) is(errorType int, configErrors *ClientErrors) bool {
 	if s == nil || s.err == nil {
 		return false
+	}
+	if configErrors != nil && configErrors.ErrIs(s.err, errorType) {
+		return true
 	}
 	for _, client := range clients {
 		if client.ErrIs(s.err, errorType) {
@@ -288,72 +286,72 @@ func (s *SendError) is(errorType int) bool {
 }
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
-func (s *SendError) IsReplacementUnderpriced() bool {
-	return s.is(ReplacementTransactionUnderpriced)
+func (s *SendError) IsReplacementUnderpriced(configErrors *ClientErrors) bool {
+	return s.is(ReplacementTransactionUnderpriced, configErrors)
 }
 
-func (s *SendError) IsNonceTooLowError() bool {
-	return s.is(NonceTooLow)
+func (s *SendError) IsNonceTooLowError(configErrors *ClientErrors) bool {
+	return s.is(NonceTooLow, configErrors)
 }
 
-func (s *SendError) IsNonceTooHighError() bool {
-	return s.is(NonceTooHigh)
+func (s *SendError) IsNonceTooHighError(configErrors *ClientErrors) bool {
+	return s.is(NonceTooHigh, configErrors)
 }
 
 // IsTransactionAlreadyMined - Harmony returns this error if the transaction has already been mined
-func (s *SendError) IsTransactionAlreadyMined() bool {
-	return s.is(TransactionAlreadyMined)
+func (s *SendError) IsTransactionAlreadyMined(configErrors *ClientErrors) bool {
+	return s.is(TransactionAlreadyMined, configErrors)
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
-func (s *SendError) IsTransactionAlreadyInMempool() bool {
-	return s.is(TransactionAlreadyInMempool)
+func (s *SendError) IsTransactionAlreadyInMempool(configErrors *ClientErrors) bool {
+	return s.is(TransactionAlreadyInMempool, configErrors)
 }
 
 // IsTerminallyUnderpriced indicates that this transaction is so far underpriced the node won't even accept it in the first place
-func (s *SendError) IsTerminallyUnderpriced() bool {
-	return s.is(TerminallyUnderpriced)
+func (s *SendError) IsTerminallyUnderpriced(configErrors *ClientErrors) bool {
+	return s.is(TerminallyUnderpriced, configErrors)
 }
 
-func (s *SendError) IsTemporarilyUnderpriced() bool {
-	return s.is(LimitReached)
+func (s *SendError) IsTemporarilyUnderpriced(configErrors *ClientErrors) bool {
+	return s.is(LimitReached, configErrors)
 }
 
-func (s *SendError) IsInsufficientEth() bool {
-	return s.is(InsufficientEth)
+func (s *SendError) IsInsufficientEth(configErrors *ClientErrors) bool {
+	return s.is(InsufficientEth, configErrors)
 }
 
 // IsTxFeeExceedsCap returns true if the transaction and gas price are combined in
 // some way that makes the total transaction too expensive for the eth node to
 // accept at all. No amount of retrying at this or higher gas prices can ever
 // succeed.
-func (s *SendError) IsTxFeeExceedsCap() bool {
-	return s.is(TxFeeExceedsCap)
+func (s *SendError) IsTxFeeExceedsCap(configErrors *ClientErrors) bool {
+	return s.is(TxFeeExceedsCap, configErrors)
 }
 
 // L2FeeTooLow is an l2-specific error returned when total fee is too low
-func (s *SendError) L2FeeTooLow() bool {
-	return s.is(L2FeeTooLow)
+func (s *SendError) L2FeeTooLow(configErrors *ClientErrors) bool {
+	return s.is(L2FeeTooLow, configErrors)
 }
 
 // IsL2FeeTooHigh is an l2-specific error returned when total fee is too high
-func (s *SendError) IsL2FeeTooHigh() bool {
-	return s.is(L2FeeTooHigh)
+func (s *SendError) IsL2FeeTooHigh(configErrors *ClientErrors) bool {
+	return s.is(L2FeeTooHigh, configErrors)
 }
 
 // IsL2Full is an l2-specific error returned when the queue or mempool is full.
-func (s *SendError) IsL2Full() bool {
-	return s.is(L2Full)
+func (s *SendError) IsL2Full(configErrors *ClientErrors) bool {
+	return s.is(L2Full, configErrors)
 }
 
 // IsServiceUnavailable indicates if the error was caused by a service being unavailable
-func (s *SendError) IsServiceUnavailable() bool {
-	return s.is(ServiceUnavailable)
+func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
+	return s.is(ServiceUnavailable, configErrors)
 }
 
 // IsOutOfCounters is a zk chain specific error returned if the transaction is too complex to prove on zk circuits
-func (s *SendError) IsOutOfCounters() bool {
-	return s.is(OutOfCounters)
+func (s *SendError) IsOutOfCounters(configErrors *ClientErrors) bool {
+	return s.is(OutOfCounters, configErrors)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -407,10 +405,10 @@ func isFatalSendError(err error) bool {
 	str := pkgerrors.Cause(err).Error()
 
 	for _, client := range clients {
-		if _, ok := client.errorMap[Fatal]; !ok {
+		if _, ok := client[Fatal]; !ok {
 			continue
 		}
-		if client.errorMap[Fatal].MatchString(str) {
+		if client[Fatal].MatchString(str) {
 			return true
 		}
 	}
@@ -489,19 +487,18 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 
 	configErrors := ClientErrorRegexes(clientErrors)
 
-	if sendError.Fatal() || configErrors.ErrIs(sendError, Fatal) {
+	if sendError.Fatal(configErrors) {
 		lggr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return commonclient.Fatal
 	}
-	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() ||
-		configErrors.ErrIs(sendError, NonceTooLow, TransactionAlreadyMined) {
+	if sendError.IsNonceTooLowError(configErrors) || sendError.IsTransactionAlreadyMined(configErrors) {
 		lggr.Debugw(fmt.Sprintf("Transaction already confirmed for this nonce: %d", tx.Nonce()), "err", sendError, "etx", tx)
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.
 		return commonclient.TransactionAlreadyKnown
 	}
-	if sendError.IsReplacementUnderpriced() || configErrors.ErrIs(sendError, ReplacementTransactionUnderpriced) {
+	if sendError.IsReplacementUnderpriced(configErrors) {
 		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %x. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
 			tx.Hash()), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap, "err", sendError, "etx", tx)
@@ -509,20 +506,19 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 		// Assume success and hand off to the next cycle.
 		return commonclient.Successful
 	}
-	if sendError.IsTransactionAlreadyInMempool() || configErrors.ErrIs(sendError, TransactionAlreadyInMempool) {
+	if sendError.IsTransactionAlreadyInMempool(configErrors) {
 		lggr.Debugw("Transaction already in mempool", "etx", tx, "err", sendError)
 		return commonclient.Successful
 	}
-	if sendError.IsTemporarilyUnderpriced() || configErrors.ErrIs(sendError, LimitReached) {
+	if sendError.IsTemporarilyUnderpriced(configErrors) {
 		lggr.Infow("Transaction temporarily underpriced", "err", sendError)
 		return commonclient.Successful
 	}
-	if sendError.IsTerminallyUnderpriced() || configErrors.ErrIs(sendError, TerminallyUnderpriced) {
+	if sendError.IsTerminallyUnderpriced(configErrors) {
 		lggr.Errorw("Transaction terminally underpriced", "etx", tx, "err", sendError)
 		return commonclient.Underpriced
 	}
-	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() ||
-		configErrors.ErrIs(sendError, L2FeeTooLow, L2FeeTooHigh, L2Full) {
+	if sendError.L2FeeTooLow(configErrors) || sendError.IsL2FeeTooHigh(configErrors) || sendError.IsL2Full(configErrors) {
 		if isL2 {
 			lggr.Errorw("Transaction fee out of range", "err", sendError, "etx", tx)
 			return commonclient.FeeOutOfValidRange
@@ -530,21 +526,21 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 		lggr.Errorw("this error type only handled for L2s", "err", sendError, "etx", tx)
 		return commonclient.Unsupported
 	}
-	if sendError.IsNonceTooHighError() || configErrors.ErrIs(sendError, NonceTooHigh) {
+	if sendError.IsNonceTooHighError(configErrors) {
 		// This error occurs when the tx nonce is greater than current_nonce + tx_count_in_mempool,
 		// instead of keeping the tx in mempool. This can happen if previous transactions haven't
 		// reached the client yet. The correct thing to do is to mark it as retryable.
 		lggr.Warnw("Transaction has a nonce gap.", "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
-	if sendError.IsInsufficientEth() || configErrors.ErrIs(sendError, InsufficientEth) {
+	if sendError.IsInsufficientEth(configErrors) {
 		lggr.Criticalw(fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
 		), "err", sendError, "etx", tx)
 		return commonclient.InsufficientFunds
 	}
-	if sendError.IsServiceUnavailable() || configErrors.ErrIs(sendError, ServiceUnavailable) {
+	if sendError.IsServiceUnavailable(configErrors) {
 		lggr.Errorw(fmt.Sprintf("service unavailable while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
@@ -556,7 +552,7 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 		lggr.Errorw(fmt.Sprintf("context was canceled while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
-	if sendError.IsTxFeeExceedsCap() || configErrors.ErrIs(sendError, TxFeeExceedsCap) {
+	if sendError.IsTxFeeExceedsCap(configErrors) {
 		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"etx", tx,
 			"err", sendError,

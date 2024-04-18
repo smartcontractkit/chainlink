@@ -37,50 +37,23 @@ type TestClientErrors struct {
 }
 
 func NewTestClientErrors() TestClientErrors {
-	clientErrors := TestClientErrors{}
-	clientErrors.SetNonceTooLow("client error nonce too low")
-	clientErrors.SetNonceTooHigh("client error nonce too high")
-	clientErrors.SetReplacementTransactionUnderpriced("client error replacement underpriced")
-	clientErrors.SetLimitReached("client error limit reached")
-	clientErrors.SetTransactionAlreadyInMempool("client error transaction already in mempool")
-	clientErrors.SetTerminallyUnderpriced("client error terminally underpriced")
-	clientErrors.SetInsufficientEth("client error insufficient eth")
-	clientErrors.SetTxFeeExceedsCap("client error tx fee exceeds cap")
-	clientErrors.SetL2FeeTooLow("client error l2 fee too low")
-	clientErrors.SetL2FeeTooHigh("client error l2 fee too high")
-	clientErrors.SetL2Full("client error l2 full")
-	clientErrors.SetTransactionAlreadyMined("client error transaction already mined")
-	clientErrors.SetFatal("client error fatal")
-	clientErrors.SetServiceUnavailable("client error service unavailable")
-	return clientErrors
+	return TestClientErrors{
+		nonceTooLow:                       "client error nonce too low",
+		nonceTooHigh:                      "client error nonce too high",
+		replacementTransactionUnderpriced: "client error replacement underpriced",
+		limitReached:                      "client error limit reached",
+		transactionAlreadyInMempool:       "client error transaction already in mempool",
+		terminallyUnderpriced:             "client error terminally underpriced",
+		insufficientEth:                   "client error insufficient eth",
+		txFeeExceedsCap:                   "client error tx fee exceeds cap",
+		l2FeeTooLow:                       "client error l2 fee too low",
+		l2FeeTooHigh:                      "client error l2 fee too high",
+		l2Full:                            "client error l2 full",
+		transactionAlreadyMined:           "client error transaction already mined",
+		fatal:                             "client error fatal",
+		serviceUnavailable:                "client error service unavailable",
+	}
 }
-
-func (c *TestClientErrors) SetNonceTooLow(s string)  { c.nonceTooLow = s }
-func (c *TestClientErrors) SetNonceTooHigh(s string) { c.nonceTooHigh = s }
-
-func (c *TestClientErrors) SetReplacementTransactionUnderpriced(s string) {
-	c.replacementTransactionUnderpriced = s
-}
-
-func (c *TestClientErrors) SetLimitReached(s string) { c.limitReached = s }
-
-func (c *TestClientErrors) SetTransactionAlreadyInMempool(s string) {
-	c.transactionAlreadyInMempool = s
-}
-
-func (c *TestClientErrors) SetTerminallyUnderpriced(s string) { c.terminallyUnderpriced = s }
-func (c *TestClientErrors) SetInsufficientEth(s string)       { c.insufficientEth = s }
-func (c *TestClientErrors) SetTxFeeExceedsCap(s string)       { c.txFeeExceedsCap = s }
-func (c *TestClientErrors) SetL2FeeTooLow(s string)           { c.l2FeeTooLow = s }
-func (c *TestClientErrors) SetL2FeeTooHigh(s string)          { c.l2FeeTooHigh = s }
-func (c *TestClientErrors) SetL2Full(s string)                { c.l2Full = s }
-
-func (c *TestClientErrors) SetTransactionAlreadyMined(s string) {
-	c.transactionAlreadyMined = s
-}
-
-func (c *TestClientErrors) SetFatal(s string)              { c.fatal = s }
-func (c *TestClientErrors) SetServiceUnavailable(s string) { c.serviceUnavailable = s }
 
 func (c *TestClientErrors) NonceTooLow() string  { return c.nonceTooLow }
 func (c *TestClientErrors) NonceTooHigh() string { return c.nonceTooHigh }
