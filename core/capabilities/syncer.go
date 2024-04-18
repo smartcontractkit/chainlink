@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -23,7 +23,7 @@ import (
 
 type registrySyncer struct {
 	peerWrapper p2ptypes.PeerWrapper
-	registry    types.CapabilitiesRegistry
+	registry    core.CapabilitiesRegistry
 	dispatcher  remotetypes.Dispatcher
 	subServices []services.Service
 	lggr        logger.Logger
@@ -46,7 +46,7 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 }
 
 // RegistrySyncer updates local Registry to match its onchain counterpart
-func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry types.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger) *registrySyncer {
+func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger) *registrySyncer {
 	return &registrySyncer{
 		peerWrapper: peerWrapper,
 		registry:    registry,
