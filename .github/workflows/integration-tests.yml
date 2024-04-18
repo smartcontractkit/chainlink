@@ -394,14 +394,11 @@ jobs:
           QA_KUBECONFIG: ""
           should_tidy: "false"
 
-      - name: Upload First Folder as Artifact
+      - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
         with:
           path: .covdata
           retention-days: 1
-
-      # - name: Show Go Coverage
-      #   run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
 
       - name: Print failed test summary
         if: always()
@@ -495,6 +492,12 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
           should_tidy: "false"
+
+      - name: Upload Coverage Data
+        uses: actions/upload-artifact@v3
+        with:
+          path: .covdata
+          retention-days: 1          
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -699,7 +702,7 @@ jobs:
           QA_KUBECONFIG: ""
           should_tidy: "false"
 
-      - name: Upload First Folder as Artifact
+      - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
         with:
           path: .covdata
