@@ -283,14 +283,19 @@ func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
 			return err
 		}
 
-		baseDir := filepath.Join(clDir, ".covdata", testName)
+		var coverageRootDir string
+		if os.Getenv("GO_COVERAGE_DEST_DIR") != "" {
+			coverageRootDir = filepath.Join(clDir, os.Getenv("GO_COVERAGE_DEST_DIR"), testName)
+		} else {
+			coverageRootDir = filepath.Join(clDir, ".covdata", testName)
+		}
 
 		var containers []tc.Container
 		for _, node := range te.ClCluster.Nodes {
 			containers = append(containers, node.Container)
 		}
 
-		covHelper, err = d.NewNodeCoverageHelper(context.Background(), containers, clDir, baseDir)
+		covHelper, err = d.NewNodeCoverageHelper(context.Background(), containers, clDir, coverageRootDir)
 		if err != nil {
 			return err
 		}

@@ -17,13 +17,13 @@ type NodeCoverageHelper struct {
 	Nodes            []tc.Container
 	GoCoverSrcDir    string   // Path to the source directory on the chainlink image with go coverage data
 	NodeCoverageDirs []string // Paths to individual node coverage directories
-	BaseDir          string   // Path to the base directory with all coverage
+	CoverageDir      string   // Path to the base directory with all coverage
 	MergedDir        string   // Path to the directory where all coverage will be merged
 	ChainlinkDir     string   // Path to the root chainlink directory
 }
 
-func NewNodeCoverageHelper(ctx context.Context, nodes []tc.Container, chainlinkDir, baseDir string) (*NodeCoverageHelper, error) {
-	coverSrcDir := os.Getenv("CHAINLINK_IMAGE_GO_COVER_DIR")
+func NewNodeCoverageHelper(ctx context.Context, nodes []tc.Container, chainlinkDir, coverageDir string) (*NodeCoverageHelper, error) {
+	coverSrcDir := os.Getenv("GO_COVERAGE_SRC_DIR")
 	if coverSrcDir == "" {
 		coverSrcDir = "/var/tmp/go-coverage" // Default path
 	}
@@ -31,12 +31,12 @@ func NewNodeCoverageHelper(ctx context.Context, nodes []tc.Container, chainlinkD
 	helper := &NodeCoverageHelper{
 		Nodes:         nodes,
 		GoCoverSrcDir: coverSrcDir,
-		BaseDir:       baseDir,
-		MergedDir:     filepath.Join(baseDir, "merged"),
+		CoverageDir:   coverageDir,
+		MergedDir:     filepath.Join(coverageDir, "merged"),
 		ChainlinkDir:  chainlinkDir,
 	}
 
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	if err := os.MkdirAll(coverageDir, 0755); err != nil {
 		return nil, errors.Wrap(err, "failed to create base directory for node coverage")
 	}
 
@@ -62,7 +62,7 @@ func (c *NodeCoverageHelper) SaveMergedHTMLReport() (string, error) {
 	}
 
 	// Generate the HTML coverage report
-	htmlFilePath := filepath.Join(c.BaseDir, "coverage.html")
+	htmlFilePath := filepath.Join(c.CoverageDir, "coverage.html")
 	// #nosec G204
 	htmlCommand := exec.Command("go", "tool", "cover", "-html="+filepath.Join(c.MergedDir, "cov.txt"), "-o="+htmlFilePath)
 	htmlCommand.Dir = c.ChainlinkDir
@@ -74,7 +74,7 @@ func (c *NodeCoverageHelper) SaveMergedHTMLReport() (string, error) {
 }
 
 func (c *NodeCoverageHelper) SaveMergedCoveragePercentage() (string, error) {
-	filePath := filepath.Join(c.BaseDir, "percentage.txt")
+	filePath := filepath.Join(c.CoverageDir, "percentage.txt")
 
 	// Calculate coverage percentage from the merged data
 	percentCmd := exec.Command("go", "tool", "covdata", "percent", "-i=.")
@@ -126,7 +126,7 @@ func (c *NodeCoverageHelper) copyCoverageFromNodes(ctx context.Context) error {
 		wg.Add(1)
 		go func(n tc.Container, id int) {
 			defer wg.Done()
-			finalDestPath := filepath.Join(c.BaseDir, fmt.Sprintf("node_%d", id))
+			finalDestPath := filepath.Join(c.CoverageDir, fmt.Sprintf("node_%d", id))
 			if err := os.MkdirAll(finalDestPath, 0755); err != nil {
 				errorsChan <- fmt.Errorf("failed to create directory for node %d: %w", id, err)
 				return

@@ -74,5 +74,5 @@ func main() {
 	}
 	fmt.Printf("Total coverage for all tests saved to %s\n", filePath)
 
-	fmt.Printf("Total coverage for all tests: %s\n%s\n", coverageCmd.String(), string(coverageOutput))
+	fmt.Printf("Total coverage for all tests:\n%s\n", string(coverageOutput))
 }
