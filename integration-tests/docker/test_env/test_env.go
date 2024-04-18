@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -26,6 +28,7 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
 	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -235,6 +238,11 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		}
 	}
 
+	err := te.handleNodeCoverageReports(opts.TestName)
+	if err != nil {
+		te.l.Error().Err(err).Msg("Error handling node coverage reports")
+	}
+
 	// close EVMClient connections
 	for _, evmClient := range te.evmClients {
 		err := evmClient.Close()
@@ -245,11 +253,24 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		sethClient.Client.Close()
 	}
 
-	covSrcDir := os.Getenv("GO_COVERAGE_SRC_DIR")
-	covDestDir := os.Getenv("GO_COVERAGE_DEST_DIR")
-	shouldCheckCoverage := covSrcDir != "" && covDestDir != ""
+	return nil
+}
 
-	if shouldCheckCoverage {
+// handleNodeCoverageReports handles the coverage reports for the chainlink nodes
+func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
+	testName = strings.ReplaceAll(testName, "/", "_")
+	showHTMLCoverageReport := te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport
+	isCI := os.Getenv("CI") != ""
+
+	te.l.Info().
+		Bool("showCoverageReportFlag", showHTMLCoverageReport).
+		Bool("isCI", isCI).
+		Bool("show", showHTMLCoverageReport || isCI).
+		Msg("Checking if coverage report should be shown")
+
+	var covHelper *d.NodeCoverageHelper
+
+	if showHTMLCoverageReport || isCI {
 		// Stop all nodes in the chainlink cluster.
 		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
 		err := te.ClCluster.Stop()
@@ -257,18 +278,61 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 			return err
 		}
 
-		// Get go coverage profiles from node containers and save them to a local folder
-		testName := strings.ReplaceAll(opts.TestName, "/", "_")
-		finalCovDestDir := fmt.Sprintf("%s/%s", covDestDir, testName)
-		err = te.ClCluster.CopyFolderFromNodes(context.Background(), covSrcDir, finalCovDestDir)
+		clDir, err := getChainlinkDir()
 		if err != nil {
-			te.l.Error().Err(err).Str("srcDir", covSrcDir).Str("destDir", finalCovDestDir).Msg("Failed to copy test coverage files from nodes")
+			return err
+		}
+
+		var coverageRootDir string
+		if os.Getenv("GO_COVERAGE_DEST_DIR") != "" {
+			coverageRootDir = filepath.Join(clDir, os.Getenv("GO_COVERAGE_DEST_DIR"), testName)
 		} else {
-			te.l.Info().Str("srcDir", covSrcDir).Str("destDir", finalCovDestDir).Msg("Chainlink node coverage files saved")
+			coverageRootDir = filepath.Join(clDir, ".covdata", testName)
+		}
+
+		var containers []tc.Container
+		for _, node := range te.ClCluster.Nodes {
+			containers = append(containers, node.Container)
+		}
+
+		covHelper, err = d.NewNodeCoverageHelper(context.Background(), containers, clDir, coverageRootDir)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Show html coverage report when flag is set (local runs)
+	if showHTMLCoverageReport {
+		path, err := covHelper.SaveMergedHTMLReport()
+		if err != nil {
+			return err
+		}
+		te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage html report saved")
+	}
+
+	// Save percentage coverage report when running in CI
+	if isCI {
+		// Save coverage percentage to a file to show in the CI
+		path, err := covHelper.SaveMergedCoveragePercentage()
+		if err != nil {
+			te.l.Error().Err(err).Str("testName", testName).Msg("Failed to save coverage percentage for test")
+		} else {
+			te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage percentage report saved")
 		}
 	}
 
 	return nil
+}
+
+// getChainlinkDir returns the path to the chainlink directory
+func getChainlinkDir() (string, error) {
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		return "", fmt.Errorf("cannot determine the path of the calling file")
+	}
+	dir := filepath.Dir(filename)
+	chainlinkDir := filepath.Clean(filepath.Join(dir, "../../.."))
+	return chainlinkDir, nil
 }
 
 func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {

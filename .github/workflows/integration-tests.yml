@@ -372,7 +372,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@be4b0f4b2e3bb5f9e56255f19e5a4809c515f954
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -386,17 +386,20 @@ jobs:
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
-          go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: /var/tmp/go-coverage
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
           should_tidy: "false"
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: .covdata
 
-      - name: Show Go Coverage
-        run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
+      - name: Upload Coverage Data
+        uses: actions/upload-artifact@v3
+        with:
+          path: .covdata
+          retention-days: 1
 
       - name: Print failed test summary
         if: always()
@@ -490,6 +493,14 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
           should_tidy: "false"
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: .covdata
+
+      - name: Upload Coverage Data
+        uses: actions/upload-artifact@v3
+        with:
+          path: .covdata
+          retention-days: 1          
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -672,9 +683,9 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@be4b0f4b2e3bb5f9e56255f19e5a4809c515f954
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -onlyerrors=false
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ inputs.evm-ref || github.sha }}${{ matrix.product.tag_suffix }}
@@ -686,17 +697,20 @@ jobs:
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
-          go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: /var/tmp/go-coverage
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
           should_tidy: "false"
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: .covdata
 
-      - name: Show Go Coverage
-        run: go run ./integration-tests/scripts/show_coverage.go /var/tmp/go-coverage
+      - name: Upload Coverage Data
+        uses: actions/upload-artifact@v3
+        with:
+          path: .covdata
+          retention-days: 1
 
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
@@ -790,6 +804,22 @@ jobs:
           this-job-name: Clean up integration environment deployments
         continue-on-error: true
 
+  show-coverage:
+    name: Show Chainlink Node Go Coverage
+    if: always()
+    needs: [cleanup]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v3
+      - name: Show Coverage
+        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/artifact*/*/merged"
+
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
   eth-smoke-go-mod-cache:
@@ -880,6 +910,14 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: .covdata
+      - name: Upload Coverage Data
+        uses: actions/upload-artifact@v3
+        with:
+          path: .covdata
+          retention-days: 1          
+
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -1180,4 +1218,12 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
           run_setup: false
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: .covdata          
+
+      - name: Upload Coverage Data
+        uses: actions/upload-artifact@v3
+        with:
+          path: .covdata
+          retention-days: 1          
 
