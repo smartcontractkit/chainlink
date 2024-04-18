@@ -238,14 +238,37 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		}
 	}
 
+	err := te.handleNodeCoverageReports(opts.TestName)
+	if err != nil {
+		te.l.Error().Err(err).Msg("Error handling node coverage reports")
+	}
+
+	// close EVMClient connections
+	for _, evmClient := range te.evmClients {
+		err := evmClient.Close()
+		return err
+	}
+
+	for _, sethClient := range te.sethClients {
+		sethClient.Client.Close()
+	}
+
+	return nil
+}
+
+// handleNodeCoverageReports handles the coverage reports for the chainlink nodes
+func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
+	testName = strings.ReplaceAll(testName, "/", "_")
 	showHTMLCoverageReport := te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport
 	isCI := os.Getenv("CI") != ""
 
-	te.l.Info().Bool("showCoverageReport", showHTMLCoverageReport).Str("CI", os.Getenv("CI")).Bool("isCI", isCI).Msg("Checking if coverage report should be shown")
+	te.l.Info().
+		Bool("showCoverageReportFlag", showHTMLCoverageReport).
+		Bool("isCI", isCI).
+		Bool("show", showHTMLCoverageReport || isCI).
+		Msg("Checking if coverage report should be shown")
 
 	var covHelper *d.NodeCoverageHelper
-
-	testName := strings.ReplaceAll(opts.TestName, "/", "_")
 
 	if showHTMLCoverageReport || isCI {
 		// Stop all nodes in the chainlink cluster.
@@ -273,6 +296,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		}
 	}
 
+	// Show html coverage report when flag is set (local runs)
 	if showHTMLCoverageReport {
 		path, err := covHelper.SaveMergedHTMLReport()
 		if err != nil {
@@ -281,24 +305,15 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage html report saved")
 	}
 
+	// Save percentage coverage report when running in CI
 	if isCI {
 		// Save coverage percentage to a file to show in the CI
-		covPercentPath, err := covHelper.SaveMergedCoveragePercentage()
+		path, err := covHelper.SaveMergedCoveragePercentage()
 		if err != nil {
 			te.l.Error().Err(err).Str("testName", testName).Msg("Failed to save coverage percentage for test")
 		} else {
-			te.l.Info().Str("testName", testName).Str("filePath", covPercentPath).Msg("Chainlink node coverage percentage report saved")
+			te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage percentage report saved")
 		}
-	}
-
-	// close EVMClient connections
-	for _, evmClient := range te.evmClients {
-		err := evmClient.Close()
-		return err
-	}
-
-	for _, sethClient := range te.sethClients {
-		sethClient.Client.Close()
 	}
 
 	return nil
