@@ -60,5 +60,15 @@ func main() {
 		fmt.Printf("Error calculating coverage percentage: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Printf("Ran command to calculate total coverage based on all tests: %s\n", coverageCmd.String())
+
+	// Save the coverage percentage to a file
+	filePath := filepath.Join(mergedDir, "percentage.txt")
+	if err := os.WriteFile(filePath, coverageOutput, 0644); err != nil {
+		fmt.Printf("Failed to write coverage percentage to file: %w\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Total coverage based on all tests saved to %s\n", filePath)
+
 	fmt.Printf("Total coverage based on all tests:\n%s\n%s\n", coverageCmd.String(), string(coverageOutput))
 }
