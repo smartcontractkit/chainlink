@@ -4,9 +4,12 @@ set -e
 owner=smartcontractkit
 repo=operator-ui
 fullRepo=${owner}/${repo}
-gitRoot="$(dirname -- "$0")/../"
-cd "$gitRoot/operator_ui"
-unpack_dir="$gitRoot/core/web/assets"
+
+SCRIPT_DIR="$(readlink -f $(dirname "$0"))"
+cd "$SCRIPT_DIR"
+
+ROOT_DIR="$(dirname $SCRIPT_DIR)"
+unpack_dir="$ROOT_DIR/core/web/assets"
 tag=$(cat TAG)
 # Remove the version prefix "v"
 strippedTag="${tag:1}"
