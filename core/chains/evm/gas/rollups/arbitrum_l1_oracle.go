@@ -25,7 +25,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-//go:generate mockery --quiet --name ArbL1GasOracle --output ./mocks/ --case=underscore --structname ArbL1GasOracle
 type ArbL1GasOracle interface {
 	L1Oracle
 	GetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error)
