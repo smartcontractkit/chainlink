@@ -569,7 +569,7 @@ func RequestRandomness(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRequestRandomness, err)
 	}
-	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, false)
 
 	return randomWordsRequestedEvent, err
 }
@@ -604,7 +604,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRequestRandomness, err)
 	}
 
-	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, false)
 
 	errorChannel := make(chan error)
 	configSetEventChannel := make(chan *contracts.CoordinatorConfigSet)
@@ -659,9 +659,9 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 			return nil, nil, nil, err
 		case configSetEvent = <-configSetEventChannel:
 		case randomWordsFulfilledEvent = <-randWordsFulfilledEventChannel:
-			LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
+			vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, false)
 		case randomWordsForcedEvent = <-randWordsForcedEventChannel:
-			LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
+			vrfcommon.LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
 		case <-time.After(randomWordsFulfilledEventTimeout):
 			err = fmt.Errorf("timeout waiting for ConfigSet, RandomWordsFulfilled and RandomWordsForced events")
 		}
@@ -684,7 +684,7 @@ func WaitRandomWordsFulfilledEvent(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitRandomWordsFulfilledEvent, err)
 	}
-	LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
+	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, false)
 	return randomWordsFulfilledEvent, err
 }
 

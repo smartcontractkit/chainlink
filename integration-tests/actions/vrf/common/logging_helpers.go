@@ -9,6 +9,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 )
 
@@ -109,4 +110,18 @@ func LogFulfillmentDetailsNativeBilling(
 		Str("FulfilmentBlockNumber", consumerStatus.FulfilmentBlockNumber.String()).
 		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
 		Msg("Random Words Request Fulfilment Details For Native Billing")
+}
+
+func LogRandomWordsForcedEvent(
+	l zerolog.Logger,
+	vrfOwner contracts.VRFOwner,
+	randomWordsForcedEvent *vrf_owner.VRFOwnerRandomWordsForced,
+) {
+	l.Debug().
+		Str("VRFOwner", vrfOwner.Address()).
+		Uint64("Sub ID", randomWordsForcedEvent.SubId).
+		Str("TX Hash", randomWordsForcedEvent.Raw.TxHash.String()).
+		Str("Request ID", randomWordsForcedEvent.RequestId.String()).
+		Str("Sender", randomWordsForcedEvent.Sender.String()).
+		Msg("RandomWordsForced Event (TX metadata)")
 }

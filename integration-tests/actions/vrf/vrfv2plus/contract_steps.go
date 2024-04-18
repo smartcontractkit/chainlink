@@ -362,7 +362,7 @@ func RequestRandomness(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRequestRandomness, err)
 	}
-	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
 
 	return randomWordsRequestedEvent, err
 }
@@ -503,7 +503,7 @@ func WrapperRequestRandomness(consumer contracts.VRFv2PlusWrapperLoadTestConsume
 			return nil, "", fmt.Errorf("%s, err %w", ErrRequestRandomnessDirectFundingLinkPayment, err)
 		}
 	}
-	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
 	wrapperAddress, err := consumer.GetWrapper(context.Background())
 	if err != nil {
 		return nil, "", fmt.Errorf("error getting wrapper address, err: %w", err)
@@ -535,34 +535,6 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	)
 }
 
-//func DirectFundingRequestRandomnessAndWaitForFulfillmentUpgraded(
-//	consumer contracts.VRFv2PlusWrapperLoadTestConsumer,
-//	coordinator contracts.Coordinator,
-//	vrfKeyData *vrfcommon.VRFKeyData,
-//	subID *big.Int,
-//	isNativeBilling bool,
-//	config *vrfv2plus_config.General,
-//	l zerolog.Logger,
-//) (*contracts.CoordinatorRandomWordsFulfilled, error) {
-//	randomWordsRequestedEvent, _, err := WrapperRequestRandomness(
-//		consumer,
-//		coordinator,
-//		vrfKeyData,
-//		subID,
-//		isNativeBilling, config, l)
-//	if err != nil {
-//		return nil, fmt.Errorf("error getting wrapper address, err: %w", err)
-//	}
-//	return WaitForRandomWordsFulfilledEventUpgraded(
-//		coordinator,
-//		randomWordsRequestedEvent.RequestId,
-//		subID,
-//		isNativeBilling,
-//		config.RandomWordsFulfilledEventTimeout.Duration,
-//		l,
-//	)
-//}
-
 func WaitRandomWordsFulfilledEvent(
 	coordinator contracts.Coordinator,
 	requestId *big.Int,
@@ -582,31 +554,9 @@ func WaitRandomWordsFulfilledEvent(
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitRandomWordsFulfilledEvent, err)
 	}
 
-	LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, isNativeBilling)
+	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, isNativeBilling)
 	return randomWordsFulfilledEvent, err
 }
-
-//func WaitForRandomWordsFulfilledEventUpgraded(
-//	coordinator contracts.Coordinator,
-//	requestId *big.Int,
-//	subID *big.Int,
-//	isNativeBilling bool,
-//	randomWordsFulfilledEventTimeout time.Duration,
-//	l zerolog.Logger,
-//) (*contracts.CoordinatorRandomWordsFulfilled, error) {
-//	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
-//		contracts.RandomWordsFulfilledEventFilter{
-//			SubIDs:     []*big.Int{subID},
-//			RequestIds: []*big.Int{requestId},
-//			Timeout:    randomWordsFulfilledEventTimeout,
-//		},
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitRandomWordsFulfilledEvent, err)
-//	}
-//	LogRandomWordsFulfilledEventUpgraded(l, coordinator, randomWordsFulfilledEvent, isNativeBilling)
-//	return randomWordsFulfilledEvent, err
-//}
 
 func DeployVRFV2PlusWrapperConsumers(contractDeployer contracts.ContractDeployer, vrfV2PlusWrapper contracts.VRFV2PlusWrapper, consumerContractsAmount int) ([]contracts.VRFv2PlusWrapperLoadTestConsumer, error) {
 	var consumers []contracts.VRFv2PlusWrapperLoadTestConsumer
