@@ -346,12 +346,13 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 			{
-				Token:             c.Source.LinkToken.Address(),
-				MinFeeUSDCents:    50,           // $0.5
-				MaxFeeUSDCents:    1_000_000_00, // $ 1 million
-				DeciBps:           5_0,          // 5 bps
-				DestGasOverhead:   34_000,
-				DestBytesOverhead: 0,
+				Token:                     c.Source.LinkToken.Address(),
+				MinFeeUSDCents:            50,           // $0.5
+				MaxFeeUSDCents:            1_000_000_00, // $ 1 million
+				DeciBps:                   5_0,          // 5 bps
+				DestGasOverhead:           34_000,
+				DestBytesOverhead:         0,
+				AggregateRateLimitEnabled: true,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},
@@ -1058,12 +1059,13 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 			{
-				Token:             sourceLinkTokenAddress,
-				MinFeeUSDCents:    50,           // $0.5
-				MaxFeeUSDCents:    1_000_000_00, // $ 1 million
-				DeciBps:           5_0,          // 5 bps
-				DestGasOverhead:   34_000,
-				DestBytesOverhead: 0,
+				Token:                     sourceLinkTokenAddress,
+				MinFeeUSDCents:            50,           // $0.5
+				MaxFeeUSDCents:            1_000_000_00, // $ 1 million
+				DeciBps:                   5_0,          // 5 bps
+				DestGasOverhead:           34_000,
+				DestBytesOverhead:         0,
+				AggregateRateLimitEnabled: true,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},

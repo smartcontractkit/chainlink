@@ -841,10 +841,13 @@ func getTokensPrices(ctx context.Context, priceRegistry ccipdata.PriceRegistryRe
 	}
 
 	for i, token := range tokens {
-		// Prices can be zero, as we only need prices for tokens that are part of the aggregate rate limiter.
-		// TODO CCIP-1986: check against a list of tokens that DO need prices in the offRamp and error if a price is missing.
+		// price of a token can never be zero
 		if fetchedPrices[i].Value.BitLen() == 0 {
-			continue
+			priceRegistryAddress, err := priceRegistry.Address(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("get price registry address: %w", err)
+			}
+			return nil, fmt.Errorf("price of token %s is zero (price registry=%s)", token, priceRegistryAddress)
 		}
 
 		// price registry should not report different price for the same token

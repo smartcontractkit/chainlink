@@ -33,18 +33,6 @@ type BackfillArgs struct {
 	SourceStartBlock, DestStartBlock uint64
 }
 
-// GetChainTokens returns union of all tokens supported on the destination chain, including fee tokens from the provided price registry
-// and the bridgeable tokens from all the offRamps living on the chain.
-func GetSortedChainTokens(ctx context.Context, offRamps []ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader) (chainTokens []cciptypes.Address, err error) {
-	destFeeTokens, destBridgeableTokens, err := getTokensWithBatchLimit(ctx, offRamps, priceRegistry, offRampBatchSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("get tokens with batch limit: %w", err)
-	}
-	// fee token can overlap with bridgeable tokens
-	// we need to dedup them to arrive at chain token set
-	return flattenedAndSortedChainTokens(destFeeTokens, destBridgeableTokens), nil
-}
-
 // GetFilteredSortedChainTokens returns union of all tokens supported on the destination chain, including fee tokens from the provided price registry
 // and the bridgeable tokens from all the offRamps living on the chain. Bridgeable tokens are only included if they are configured on the pricegetter
 // Fee tokens are not filtered as they must always be priced
