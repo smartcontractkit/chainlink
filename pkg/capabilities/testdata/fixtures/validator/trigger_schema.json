@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartcontractkit/chainlink/capabilities/root",
+  "properties": {
+    "config": {
+      "properties": {
+        "foo": {
+          "properties": {
+            "Underlying": {
+              "items": true,
+              "type": "array"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "Underlying"
+          ]
+        },
+        "bar": {
+          "type": "integer"
+        },
+        "bonk": {
+          "properties": {
+            "Underlying": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "Underlying"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "foo",
+        "bar",
+        "bonk"
+      ]
+    },
+    "outputs": {
+      "properties": {
+        "quux": {
+          "type": "string"
+        },
+        "corge": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "quux",
+        "corge"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "config",
+    "outputs"
+  ]
+}

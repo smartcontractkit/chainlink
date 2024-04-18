@@ -106,6 +106,13 @@ type CallbackExecutable interface {
 	Execute(ctx context.Context, callback chan<- CapabilityResponse, request CapabilityRequest) error
 }
 
+type Validatable interface {
+	// ValidateSchema returns the JSON schema for the capability.
+	//
+	// This schema includes the configuration, input and output schemas.
+	Schema() (string, error)
+}
+
 // BaseCapability interface needs to be implemented by all capability types.
 // Capability interfaces are intentionally duplicated to allow for an easy change
 // or extension in the future.
