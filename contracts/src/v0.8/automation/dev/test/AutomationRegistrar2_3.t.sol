@@ -51,8 +51,8 @@ contract RegisterUpkeep is SetUp {
   function testUSDToken_autoApproveOff_happy() external {
     vm.startPrank(UPKEEP_ADMIN);
 
-    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(usdToken));
-    usdToken.approve(address(registrar), amount);
+    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(usdToken18));
+    usdToken18.approve(address(registrar), amount);
 
     registrar.registerUpkeep(
       AutomationRegistrar2_3.RegistrationParams({
@@ -61,7 +61,7 @@ contract RegisterUpkeep is SetUp {
         adminAddress: UPKEEP_ADMIN,
         gasLimit: 10_000,
         triggerType: 0,
-        billingToken: usdToken,
+        billingToken: usdToken18,
         name: "foobar",
         encryptedEmail: "",
         checkData: bytes("check data"),
@@ -70,7 +70,7 @@ contract RegisterUpkeep is SetUp {
       })
     );
 
-    assertEq(usdToken.balanceOf(address(registrar)), amount);
+    assertEq(usdToken18.balanceOf(address(registrar)), amount);
     assertEq(registry.getNumUpkeeps(), 0);
   }
 
@@ -106,8 +106,8 @@ contract RegisterUpkeep is SetUp {
     registrar.setTriggerConfig(0, AutomationRegistrar2_3.AutoApproveType.ENABLED_ALL, 1000);
 
     vm.startPrank(UPKEEP_ADMIN);
-    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(usdToken));
-    usdToken.approve(address(registrar), amount);
+    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(usdToken18));
+    usdToken18.approve(address(registrar), amount);
 
     registrar.registerUpkeep(
       AutomationRegistrar2_3.RegistrationParams({
@@ -116,7 +116,7 @@ contract RegisterUpkeep is SetUp {
         adminAddress: UPKEEP_ADMIN,
         gasLimit: 10_000,
         triggerType: 0,
-        billingToken: usdToken,
+        billingToken: usdToken18,
         name: "foobar",
         encryptedEmail: "",
         checkData: bytes("check data"),
@@ -125,8 +125,8 @@ contract RegisterUpkeep is SetUp {
       })
     );
 
-    assertEq(usdToken.balanceOf(address(registrar)), 0);
-    assertEq(usdToken.balanceOf(address(registry)), amount);
+    assertEq(usdToken18.balanceOf(address(registrar)), 0);
+    assertEq(usdToken18.balanceOf(address(registry)), amount);
     assertEq(registry.getNumUpkeeps(), 1);
   }
 
