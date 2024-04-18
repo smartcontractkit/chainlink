@@ -291,6 +291,7 @@ func setupFullDBWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 }
 
 func TestFluxMonitor_PollIfEligible(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name              string
 		eligible          bool
@@ -499,6 +500,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 // If the roundState method is unable to communicate with the contract (possibly due to
 // incorrect address) then the pollIfEligible method should create a JobErr record
 func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
+	t.Parallel()
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
@@ -529,6 +531,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 }
 
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
+	t.Parallel()
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
@@ -728,6 +731,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 }
 
 func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	testCases := []struct {
@@ -904,6 +908,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
+	t.Parallel()
 	db, nodeAddr := setupFullDBWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
@@ -1173,6 +1178,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	db, nodeAddr := setupStoreWithKey(t)
@@ -1234,6 +1240,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	db, nodeAddr := setupStoreWithKey(t)
@@ -1433,6 +1440,7 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 }
 
 func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
+	t.Parallel()
 	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
 		db, nodeAddr := setupStoreWithKey(t)
 		oracles := []common.Address{nodeAddr, testutils.NewAddress()}

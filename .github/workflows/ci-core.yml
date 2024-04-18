@@ -107,6 +107,8 @@ jobs:
       - name: Setup Go
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
+      - name: Run short tests
+        run: go test -short ./...
       - name: Setup Solana
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-solana
