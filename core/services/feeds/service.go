@@ -1191,7 +1191,7 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 	}, nil
 }
 
-// newFMConfigMsg generates a FMConfig protobuf message. Flux Monitor does not
+// newFluxMonitorConfigMsg generates a FMConfig protobuf message. Flux Monitor does not
 // have any configuration but this is here for consistency.
 func (*service) newFluxMonitorConfigMsg(cfg FluxMonitorConfig) *pb.FluxMonitorConfig {
 	return &pb.FluxMonitorConfig{Enabled: cfg.Enabled}
