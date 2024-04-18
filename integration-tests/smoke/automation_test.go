@@ -140,6 +140,8 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				isMercury,
 			)
 
+			// Do it in two separate loops, so we don't end up setting up one upkeep, but starting the consumer for another one
+			// since we cannot be sure that consumers and upkeeps at the same index are related
 			if isMercury {
 				for i := 0; i < len(upkeepIDs); i++ {
 					// Set privilege config to enable mercury
@@ -184,21 +186,17 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			})
 
 			// TODO Tune this timeout window after stress testing
+			l.Info().Msg("Waiting 10m for all upkeeps to perform at least 1 upkeep")
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters
-				allPerformed := true
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(testcontext.Get(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
 					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
-					if counter.Int64() < int64(expect) {
-						allPerformed = false
-					}
-					// g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
-					// 	"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
-				g.Expect(allPerformed).Should(gomega.BeTrue(), "Expected all upkeeps to be performed at least 5 times")
 			}, "10m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
@@ -461,9 +459,7 @@ func TestAutomationAddFunds(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
@@ -551,9 +547,8 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
@@ -768,9 +763,8 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			l := logging.GetTestLogger(t)
 
 			config, err := tc.GetConfig("Smoke", tc.Automation)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
@@ -858,9 +852,8 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
@@ -1074,7 +1067,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 				a.Registry,
 				a.Registrar,
 				a.LinkToken,
-				1,
+				1, // It was impossible to investigate, why with multiple outputs it fails ONLY in CI and only for 2.1 and 2.2 versions
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
 				10000,   // How many blocks this upkeep will be eligible from first upkeep block
@@ -1124,19 +1117,14 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			// Upkeep should now start performing
 			l.Info().Msg("Waiting for 4m for all contracts to perform at least one upkeep after gas limit increase")
 			gom.Eventually(func(g gomega.Gomega) {
-				allPerformed := true
 				for i := 0; i < len(upkeepIDs); i++ {
 					cnt, err := consumersPerformance[i].GetUpkeepCount(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
 					l.Info().Int("Upkeep index", i).Int64("Upkeep counter", cnt.Int64()).Msg("Number of upkeeps performed")
-					if cnt.Int64() == 0 {
-						allPerformed = false
-					}
-					// g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", int64(0)),
-					// 	"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
-					// )
+					g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", int64(0)),
+						"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
+					)
 				}
-				g.Expect(allPerformed).Should(gomega.BeTrue(), "All upkeeps should have performed at least once")
 			}, "4m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
@@ -1230,9 +1218,7 @@ func TestUpdateCheckData(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,

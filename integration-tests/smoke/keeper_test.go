@@ -92,9 +92,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Keeper)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
@@ -167,9 +165,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Keeper)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
@@ -282,9 +278,7 @@ func TestKeeperSimulation(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Keeper)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumersPerformance, upkeepIDs := actions_seth.DeployPerformanceKeeperContracts(
@@ -355,9 +349,8 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Keeper)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumersPerformance, upkeepIDs := actions_seth.DeployPerformanceKeeperContracts(
 				t,
@@ -485,9 +478,8 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Keeper)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, registrar, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
@@ -575,9 +567,8 @@ func TestKeeperAddFunds(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Keeper)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
@@ -643,9 +634,8 @@ func TestKeeperRemove(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Keeper)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
@@ -720,9 +710,8 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Keeper)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
@@ -874,9 +863,8 @@ func TestKeeperNodeDown(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Keeper)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to get config")
+
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
@@ -977,9 +965,8 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 	config, err := tc.GetConfig("Smoke", tc.Keeper)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Failed to get config")
+
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 	registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 		t,
@@ -1062,9 +1049,8 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 	config, err := tc.GetConfig("Smoke", tc.Keeper)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Failed to get config")
+
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 	registry, _, performDataChecker, upkeepIDs := actions_seth.DeployPerformDataCheckerContracts(
 		t,
@@ -1163,9 +1149,7 @@ func TestKeeperJobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	registryVersion := ethereum.RegistryVersion_1_3
 	config, err := tc.GetConfig("Smoke", tc.Keeper)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Failed to get config")
 
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 	registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
