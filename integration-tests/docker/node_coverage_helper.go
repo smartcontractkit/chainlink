@@ -112,7 +112,6 @@ func (c *NodeCoverageHelper) mergeCoverage() error {
 		if err := os.RemoveAll(dir); err != nil {
 			return fmt.Errorf("failed to remove directory %s: %w", dir, err)
 		}
-		fmt.Printf("Removed directory %s successfully\n", dir)
 	}
 	c.NodeCoverageDirs = []string{} // Reset the coverage paths after merging
 

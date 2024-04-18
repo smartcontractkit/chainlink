@@ -801,6 +801,7 @@ jobs:
         continue-on-error: true
 
   show-coverage:
+    name: Show Chainlink Node Go Coverage
     if: always()
     needs: [cleanup]
     runs-on: ubuntu-latest
@@ -814,9 +815,7 @@ jobs:
         uses: actions/download-artifact@v3
       - name: List files in the workspace
         run: ls -R
-      - name: List artifact dir
-        run: ls -R ${{ github.workspace }}/artifact
-      - name: Show Go Coverage
+      - name: Show Coverage
         run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/artifact*/*/merged"
 
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
