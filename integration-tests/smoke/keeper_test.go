@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -95,6 +96,10 @@ func TestKeeperBasicSmoke(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -105,11 +110,26 @@ func TestKeeperBasicSmoke(t *testing.T) {
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
+
+			t.Cleanup(func() {
+				if t.Failed() {
+					eb, err := chainClient.Client.BlockNumber(context.Background())
+					require.NoError(t, err, "Failed to get end block")
+
+					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
+					require.NoError(t, err, "Failed to get staleness data")
+					if stale > 0 || reverted > 0 {
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					} else {
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					}
+				}
+			})
 
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) error {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 				for i := 0; i < len(upkeepIDs); i++ {
@@ -168,6 +188,10 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -178,13 +202,28 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
 
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				if t.Failed() {
+					eb, err := chainClient.Client.BlockNumber(context.Background())
+					require.NoError(t, err, "Failed to get end block")
+
+					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
+					require.NoError(t, err, "Failed to get staleness data")
+					if stale > 0 || reverted > 0 {
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					} else {
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					}
+				}
+			})
+
 			keepersPerformed := make(map[*big.Int][]string, 0)
 
+			gom := gomega.NewGomegaWithT(t)
 			// Wait for upkeep to be performed twice by different keepers (buddies)
 			l.Info().Msg("Waiting for 1m for upkeeps to be performed by different keepers")
 			gom.Eventually(func(g gomega.Gomega) {
@@ -281,6 +320,10 @@ func TestKeeperSimulation(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumersPerformance, upkeepIDs := actions_seth.DeployPerformanceKeeperContracts(
 				t,
 				chainClient,
@@ -295,14 +338,29 @@ func TestKeeperSimulation(t *testing.T) {
 				100000,  // How much gas should be burned on checkUpkeep() calls
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
 			)
-			gom := gomega.NewGomegaWithT(t)
 
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				if t.Failed() {
+					eb, err := chainClient.Client.BlockNumber(context.Background())
+					require.NoError(t, err, "Failed to get end block")
+
+					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
+					require.NoError(t, err, "Failed to get staleness data")
+					if stale > 0 || reverted > 0 {
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					} else {
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					}
+				}
+			})
+
 			consumerPerformance := consumersPerformance[0]
 			upkeepID := upkeepIDs[0]
 
+			gom := gomega.NewGomegaWithT(t)
 			// Initially performGas is set high, so performUpkeep reverts and no upkeep should be performed
 			gom.Consistently(func(g gomega.Gomega) {
 				// Consumer count should remain at 0
@@ -352,6 +410,10 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumersPerformance, upkeepIDs := actions_seth.DeployPerformanceKeeperContracts(
 				t,
 				chainClient,
@@ -366,11 +428,26 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 				100000,  // How much gas should be burned on checkUpkeep() calls
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
 			)
-			gom := gomega.NewGomegaWithT(t)
 
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				if t.Failed() {
+					eb, err := chainClient.Client.BlockNumber(context.Background())
+					require.NoError(t, err, "Failed to get end block")
+
+					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
+					require.NoError(t, err, "Failed to get staleness data")
+					if stale > 0 || reverted > 0 {
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					} else {
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					}
+				}
+			})
+
+			gom := gomega.NewGomegaWithT(t)
 			// Initially performGas is set higher than defaultUpkeepGasLimit, so no upkeep should be performed
 			l.Info().Msg("Waiting for 1m for upkeeps to be performed")
 			gom.Consistently(func(g gomega.Gomega) {
@@ -481,6 +558,10 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, registrar, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -491,13 +572,27 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
-
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				if t.Failed() {
+					eb, err := chainClient.Client.BlockNumber(context.Background())
+					require.NoError(t, err, "Failed to get end block")
+
+					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
+					require.NoError(t, err, "Failed to get staleness data")
+					if stale > 0 || reverted > 0 {
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					} else {
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					}
+				}
+			})
+
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 
+			gom := gomega.NewGomegaWithT(t)
 			// Observe that the upkeeps which are initially registered are performing and
 			// store the value of their initial counters in order to compare later on that the value increased.
 			gom.Eventually(func(g gomega.Gomega) error {
@@ -570,6 +665,10 @@ func TestKeeperAddFunds(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -580,12 +679,27 @@ func TestKeeperAddFunds(t *testing.T) {
 				chainClient,
 				big.NewInt(1),
 			)
-			gom := gomega.NewGomegaWithT(t)
 
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				if t.Failed() {
+					eb, err := chainClient.Client.BlockNumber(context.Background())
+					require.NoError(t, err, "Failed to get end block")
+
+					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
+					require.NoError(t, err, "Failed to get staleness data")
+					if stale > 0 || reverted > 0 {
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					} else {
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					}
+				}
+			})
+
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
+			gom := gomega.NewGomegaWithT(t)
 			l.Info().Msg("Waiting for 1m to make sure no upkeeps are performed")
 			gom.Consistently(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
@@ -637,6 +751,10 @@ func TestKeeperRemove(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -647,12 +765,28 @@ func TestKeeperRemove(t *testing.T) {
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
 
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				if t.Failed() {
+					eb, err := chainClient.Client.BlockNumber(context.Background())
+					require.NoError(t, err, "Failed to get end block")
+
+					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
+					require.NoError(t, err, "Failed to get staleness data")
+					if stale > 0 || reverted > 0 {
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					} else {
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					}
+				}
+			})
+
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
+
+			gom := gomega.NewGomegaWithT(t)
 			// Make sure the upkeeps are running before we remove a keeper
 			gom.Eventually(func(g gomega.Gomega) error {
 				for upkeepID := 0; upkeepID < len(upkeepIDs); upkeepID++ {
@@ -713,6 +847,10 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -727,6 +865,21 @@ func TestKeeperPauseRegistry(t *testing.T) {
 
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 			require.NoError(t, err, "Error creating keeper jobs")
+
+			t.Cleanup(func() {
+				if t.Failed() {
+					eb, err := chainClient.Client.BlockNumber(context.Background())
+					require.NoError(t, err, "Failed to get end block")
+
+					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
+					require.NoError(t, err, "Failed to get staleness data")
+					if stale > 0 || reverted > 0 {
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					} else {
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					}
+				}
+			})
 
 			// Observe that the upkeeps which are initially registered are performing
 			gom.Eventually(func(g gomega.Gomega) error {
@@ -771,6 +924,10 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	config, err := tc.GetConfig("Smoke", tc.Keeper)
 	require.NoError(t, err, "Error getting config")
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+	sb, err := chainClient.Client.BlockNumber(context.Background())
+	require.NoError(t, err, "Failed to get start block")
+
 	registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_2,
@@ -781,10 +938,24 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 		chainClient,
 		big.NewInt(keeperDefaultLinkFunds),
 	)
-	gom := gomega.NewGomegaWithT(t)
 
 	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 	require.NoError(t, err, "Error creating keeper jobs")
+
+	t.Cleanup(func() {
+		if t.Failed() {
+			eb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get end block")
+
+			total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, ethereum.RegistryVersion_1_2)
+			require.NoError(t, err, "Failed to get staleness data")
+			if stale > 0 || reverted > 0 {
+				l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			} else {
+				l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			}
+		}
+	})
 
 	// Deploy the second registry, second registrar, and the same number of upkeeps as the first one
 	secondRegistry, _, _, _ := actions_seth.DeployKeeperContracts(
@@ -806,6 +977,8 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	require.NoError(t, err, "Error setting bidirectional permissions for first registry")
 	err = secondRegistry.SetMigrationPermissions(common.HexToAddress(registry.Address()), 3)
 	require.NoError(t, err, "Error setting bidirectional permissions for second registry")
+
+	gom := gomega.NewGomegaWithT(t)
 
 	// Check that the first upkeep from the first registry is performing (before being migrated)
 	l.Info().Msg("Waiting for 1m for upkeeps to be performed before migration")
@@ -866,6 +1039,10 @@ func TestKeeperNodeDown(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -876,13 +1053,28 @@ func TestKeeperNodeDown(t *testing.T) {
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
 
 			jobs, err := actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				if t.Failed() {
+					eb, err := chainClient.Client.BlockNumber(context.Background())
+					require.NoError(t, err, "Failed to get end block")
+
+					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
+					require.NoError(t, err, "Failed to get staleness data")
+					if stale > 0 || reverted > 0 {
+						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					} else {
+						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+					}
+				}
+			})
+
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 
+			gom := gomega.NewGomegaWithT(t)
 			// Watch upkeeps being performed and store their counters in order to compare them later in the test
 			gom.Eventually(func(g gomega.Gomega) error {
 				for i := 0; i < len(upkeepIDs); i++ {
@@ -968,6 +1160,10 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	require.NoError(t, err, "Failed to get config")
 
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+	sb, err := chainClient.Client.BlockNumber(context.Background())
+	require.NoError(t, err, "Failed to get start block")
+
 	registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_3,
@@ -978,11 +1174,26 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 		chainClient,
 		big.NewInt(keeperDefaultLinkFunds),
 	)
-	gom := gomega.NewGomegaWithT(t)
 
 	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 	require.NoError(t, err, "Error creating keeper jobs")
 
+	t.Cleanup(func() {
+		if t.Failed() {
+			eb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get end block")
+
+			total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, ethereum.RegistryVersion_1_3)
+			require.NoError(t, err, "Failed to get staleness data")
+			if stale > 0 || reverted > 0 {
+				l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			} else {
+				l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			}
+		}
+	})
+
+	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) error {
 		// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5
 		for i := 0; i < len(upkeepIDs); i++ {
@@ -1052,6 +1263,10 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 	require.NoError(t, err, "Failed to get config")
 
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+	sb, err := chainClient.Client.BlockNumber(context.Background())
+	require.NoError(t, err, "Failed to get start block")
+
 	registry, _, performDataChecker, upkeepIDs := actions_seth.DeployPerformDataCheckerContracts(
 		t,
 		chainClient,
@@ -1063,11 +1278,26 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 		big.NewInt(keeperDefaultLinkFunds),
 		[]byte(keeperExpectedData),
 	)
-	gom := gomega.NewGomegaWithT(t)
 
 	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
 	require.NoError(t, err, "Error creating keeper jobs")
 
+	t.Cleanup(func() {
+		if t.Failed() {
+			eb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get end block")
+
+			total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, ethereum.RegistryVersion_1_3)
+			require.NoError(t, err, "Failed to get staleness data")
+			if stale > 0 || reverted > 0 {
+				l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			} else {
+				l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			}
+		}
+	})
+
+	gom := gomega.NewGomegaWithT(t)
 	gom.Consistently(func(g gomega.Gomega) {
 		// expect the counter to remain 0 because perform data does not match
 		for i := 0; i < len(upkeepIDs); i++ {
