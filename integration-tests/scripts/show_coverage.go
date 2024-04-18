@@ -31,6 +31,8 @@ func main() {
 		return
 	}
 
+	fmt.Printf("Found directories: %v\n", dirs)
+
 	// Join the directory paths for input
 	dirInput := strings.Join(dirs, ",")
 
