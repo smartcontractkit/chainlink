@@ -185,16 +185,22 @@ func (v *EthereumVRFCoordinatorV2_5) ParseRandomWordsRequested(log types.Log) (*
 	return coordinatorRandomWordsRequested, nil
 }
 
-func (v *EthereumVRFCoordinatorV2_5) GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2_5.GetSubscription, error) {
+func (v *EthereumVRFCoordinatorV2_5) GetSubscription(ctx context.Context, subID *big.Int) (Subscription, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}
 	subscription, err := v.coordinator.GetSubscription(opts, subID)
 	if err != nil {
-		return vrf_coordinator_v2_5.GetSubscription{}, err
+		return Subscription{}, err
 	}
-	return subscription, nil
+	return Subscription{
+		Balance:       subscription.Balance,
+		NativeBalance: nil,
+		SubOwner:      subscription.SubOwner,
+		Consumers:     subscription.Consumers,
+		ReqCount:      subscription.ReqCount,
+	}, nil
 }
 
 func (v *EthereumVRFCoordinatorV2_5) GetLinkTotalBalance(ctx context.Context) (*big.Int, error) {

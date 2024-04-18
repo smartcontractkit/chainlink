@@ -3,6 +3,7 @@ package smoke
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -97,7 +98,7 @@ func TestVRFv2Basic(t *testing.T) {
 		subIDForRequestRandomness := subIDsForRequestRandomness[0]
 		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForRequestRandomness)
 		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscription, subIDForRequestRandomness, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subIDForRequestRandomness, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForRequestRandomness...)
 
 		subBalanceBeforeRequest := subscription.Balance
@@ -153,7 +154,7 @@ func TestVRFv2Basic(t *testing.T) {
 		subIDForJobRuns := subIDsForJobRuns[0]
 		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForJobRuns)
 		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscription, subIDForJobRuns, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subIDForJobRuns, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForJobRuns...)
 
 		jobRunsBeforeTest, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
@@ -277,7 +278,7 @@ func TestVRFv2Basic(t *testing.T) {
 		subIDForOracleWithdraw := subIDsForOracleWithDraw[0]
 		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForOracleWithdraw)
 		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscription, subIDForOracleWithdraw, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subIDForOracleWithdraw, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForOracleWithDraw...)
 
 		fulfilledEventLink, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
@@ -338,7 +339,7 @@ func TestVRFv2Basic(t *testing.T) {
 		subIDForCancelling := subIDsForCancelling[0]
 		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForCancelling)
 		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscription, subIDForCancelling, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subIDForCancelling, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForCancelling...)
 
 		testWalletAddress, err := actions.GenerateWallet()
@@ -424,7 +425,7 @@ func TestVRFv2Basic(t *testing.T) {
 		subIDForOwnerCancelling := subIDsForOwnerCancelling[0]
 		subscriptionForCancelling, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForOwnerCancelling)
 		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscriptionForCancelling, subIDForOwnerCancelling, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscriptionForCancelling, strconv.FormatUint(subIDForOwnerCancelling, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForOwnerCancelling...)
 
 		// No GetActiveSubscriptionIds function available - skipping check
@@ -591,7 +592,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		subIDForMultipleSendingKeys := subIDsForMultipleSendingKeys[0]
 		subscriptionForMultipleSendingKeys, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForMultipleSendingKeys)
 		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscriptionForMultipleSendingKeys, subIDForMultipleSendingKeys, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscriptionForMultipleSendingKeys, strconv.FormatUint(subIDForMultipleSendingKeys, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForMultipleSendingKeys...)
 
 		txKeys, _, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.ReadTxKeys("evm")
@@ -699,7 +700,7 @@ func TestVRFOwner(t *testing.T) {
 		subIDForForceFulfill := subIDsForForceFulfill[0]
 		subscriptionForMultipleSendingKeys, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForForceFulfill)
 		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscriptionForMultipleSendingKeys, subIDForForceFulfill, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscriptionForMultipleSendingKeys, strconv.FormatUint(subIDForForceFulfill, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForForceFulfill...)
 
 		vrfCoordinatorOwner, err := vrfContracts.CoordinatorV2.GetOwner(testcontext.Get(t))
@@ -851,7 +852,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		subIDForBHS := subIDsForBHS[0]
 		subscriptionForBHS, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForBHS)
 		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscriptionForBHS, subIDForBHS, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscriptionForBHS, strconv.FormatUint(subIDForBHS, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForBHS...)
 
 		randomWordsRequestedEvent, err := vrfv2.RequestRandomness(
@@ -868,7 +869,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness")
 
-		vrfv2.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2, randomWordsRequestedEvent)
+		vrfcommon.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2, randomWordsRequestedEvent, false)
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -885,7 +886,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			},
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
-		vrfv2.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2, randomWordsFulfilledEvent)
+		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2, randomWordsFulfilledEvent, false)
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
@@ -912,7 +913,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		subIDForBHS := subIDsForBHS[0]
 		subscriptionForBHS, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForBHS)
 		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscriptionForBHS, subIDForBHS, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscriptionForBHS, strconv.FormatUint(subIDForBHS, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForBHS...)
 
 		randomWordsRequestedEvent, err := vrfv2.RequestRandomness(

@@ -2,6 +2,7 @@ package loadvrfv2
 
 import (
 	"math/big"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -126,7 +127,7 @@ func TestVRFV2Performance(t *testing.T) {
 	for _, subID := range subIDs {
 		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
 		require.NoError(t, err, "error getting subscription information for subscription %d", subID)
-		vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subID, 10), vrfContracts.CoordinatorV2)
 	}
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
@@ -264,7 +265,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 	for _, subID := range subIDs {
 		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
 		require.NoError(t, err, "error getting subscription information for subscription %d", subID)
-		vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subID, 10), vrfContracts.CoordinatorV2)
 	}
 
 	t.Run("vrfv2 and bhs performance test", func(t *testing.T) {

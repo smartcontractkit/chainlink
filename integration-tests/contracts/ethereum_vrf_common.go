@@ -19,6 +19,14 @@ type Coordinator interface {
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
 }
 
+type Subscription struct {
+	Balance       *big.Int
+	NativeBalance *big.Int
+	ReqCount      uint64
+	SubOwner      common.Address
+	Consumers     []common.Address
+}
+
 type CoordinatorConfigSet struct {
 	MinimumRequestConfirmations       uint16
 	MaxGasLimit                       uint32

@@ -249,16 +249,22 @@ func (v *EthereumVRFCoordinatorV2) HashOfKey(ctx context.Context, pubKey [2]*big
 	return hash, nil
 }
 
-func (v *EthereumVRFCoordinatorV2) GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error) {
+func (v *EthereumVRFCoordinatorV2) GetSubscription(ctx context.Context, subID uint64) (Subscription, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}
 	subscription, err := v.coordinator.GetSubscription(opts, subID)
 	if err != nil {
-		return vrf_coordinator_v2.GetSubscription{}, err
+		return Subscription{}, err
 	}
-	return subscription, nil
+	return Subscription{
+		Balance:       subscription.Balance,
+		NativeBalance: nil,
+		SubOwner:      subscription.Owner,
+		Consumers:     subscription.Consumers,
+		ReqCount:      subscription.ReqCount,
+	}, nil
 }
 
 func (v *EthereumVRFCoordinatorV2) GetOwner(ctx context.Context) (common.Address, error) {

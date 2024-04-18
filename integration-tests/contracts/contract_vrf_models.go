@@ -60,7 +60,7 @@ type VRFCoordinatorV2 interface {
 	CreateSubscription() (*types.Transaction, error)
 	AddConsumer(subId uint64, consumerAddress string) error
 	Address() string
-	GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error)
+	GetSubscription(ctx context.Context, subID uint64) (Subscription, error)
 	GetOwner(ctx context.Context) (common.Address, error)
 	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
 	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
@@ -109,7 +109,7 @@ type VRFCoordinatorV2_5 interface {
 	FundSubscriptionWithNative(subId *big.Int, nativeTokenAmount *big.Int) error
 	Address() string
 	PendingRequestsExist(ctx context.Context, subID *big.Int) (bool, error)
-	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2_5.GetSubscription, error)
+	GetSubscription(ctx context.Context, subID *big.Int) (Subscription, error)
 	OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error)
 	CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error)
 	Withdraw(recipient common.Address) error
