@@ -75,14 +75,15 @@ func (g *relayGetter) Get(id relay.ID) (loop.Relayer, error) {
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
-	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
-	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(ctx, cltest.DefaultP2PKey))
+	require.NoError(t, keyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key))
 
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})

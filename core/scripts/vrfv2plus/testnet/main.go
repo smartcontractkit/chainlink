@@ -45,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -56,6 +55,7 @@ var (
 )
 
 func main() {
+	ctx := context.Background()
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
@@ -196,8 +196,8 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pg.NewQConfig(false))
-		err = keyStore.Unlock(*keystorePassword)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
 		k, err := keyStore.VRF().Get(*pubKeyHex)
@@ -292,8 +292,8 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pg.NewQConfig(false))
-		err = keyStore.Unlock(*keystorePassword)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
 		k, err := keyStore.VRF().Get(*pubKeyHex)
