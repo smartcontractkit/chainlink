@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -198,7 +199,7 @@ func TestResolver_CreateVRFKey(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.vrf.On("Create").Return(fakeKey, nil)
+				f.Mocks.vrf.On("Create", mock.Anything).Return(fakeKey, nil)
 				f.Mocks.keystore.On("VRF").Return(f.Mocks.vrf)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -261,7 +262,7 @@ func TestResolver_DeleteVRFKey(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.vrf.On("Delete", fakeKey.PublicKey.String()).Return(fakeKey, nil)
+				f.Mocks.vrf.On("Delete", mock.Anything, fakeKey.PublicKey.String()).Return(fakeKey, nil)
 				f.Mocks.keystore.On("VRF").Return(f.Mocks.vrf)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -274,7 +275,7 @@ func TestResolver_DeleteVRFKey(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.vrf.
-					On("Delete", fakeKey.PublicKey.String()).
+					On("Delete", mock.Anything, fakeKey.PublicKey.String()).
 					Return(vrfkey.KeyV2{}, errors.Wrapf(
 						keystore.ErrMissingVRFKey,
 						"unable to find VRF key with id %s",

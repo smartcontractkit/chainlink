@@ -77,6 +77,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			ta, client := setupJobsControllerTests(t)
 
 			var address types.EIP55Address
@@ -87,7 +88,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 				address = cltest.NewEIP55Address()
 			}
 
-			require.NoError(t, ta.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+			require.NoError(t, ta.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, tc.kb)
 			body, _ := json.Marshal(web.CreateJobRequest{
@@ -104,8 +105,9 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 }
 
 func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
+	ctx := testutils.Context(t)
 	app, client := setupJobsControllerTests(t)
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 	n := 10
 
@@ -137,9 +139,10 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 }
 
 func TestJobController_Create_HappyPath(t *testing.T) {
+	ctx := testutils.Context(t)
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig().Database())
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 	var pks []vrfkey.KeyV2
 	var k []p2pkey.KeyV2
 	{
@@ -477,7 +480,6 @@ targets:
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, app.Stop()) })
 
 	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
@@ -608,6 +610,7 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 }
 
 func TestJobsController_Update_HappyPath(t *testing.T) {
+	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
 		c.P2P.V2.Enabled = ptr(true)
@@ -616,7 +619,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
@@ -680,7 +683,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(ctx))
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
@@ -766,11 +769,12 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	})
 	ec := setupEthClientForControllerTests(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.Start(ctx))
 
 	client := app.NewHTTPClient(nil)
 	vrfKeyStore := app.GetKeyStore().VRF()
-	_, err := vrfKeyStore.Create()
+	_, err := vrfKeyStore.Create(ctx)
 	require.NoError(t, err)
 	return app, client
 }
@@ -793,7 +797,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(ctx))
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})

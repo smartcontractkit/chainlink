@@ -233,7 +233,8 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 }
 
 func createVRFJobRegisterKey(t *testing.T, u vrftesthelpers.CoordinatorUniverse, app *cltest.TestApplication, incomingConfs int) (job.Job, vrfkey.KeyV2) {
-	vrfKey, err := app.KeyStore.VRF().Create()
+	ctx := testutils.Context(t)
+	vrfKey, err := app.KeyStore.VRF().Create(ctx)
 	require.NoError(t, err)
 
 	jid := uuid.MustParse("96a8a26f-d426-4784-8d8f-fb387d4d8345")
