@@ -51,7 +51,11 @@ var _ commoncap.TriggerCapability = &triggerSubscriber{}
 var _ types.Receiver = &triggerSubscriber{}
 var _ services.Service = &triggerSubscriber{}
 
-func NewTriggerSubscriber(config types.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo types.DON, localDonInfo types.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
+// TODO makes this configurable with a default
+const defaultSendChannelBufferSize = 1000
+
+func NewTriggerSubscriber(config types.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo types.DON, localDonInfo types.DON,
+	dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
 	if aggregator == nil {
 		lggr.Warnw("no aggregator provided, using default MODE aggregator", "capabilityId", capInfo.ID)
 		aggregator = NewDefaultModeAggregator(uint32(capDonInfo.F + 1))
@@ -88,22 +92,25 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return s.capInfo, nil
 }
 
-func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, callback chan<- commoncap.CapabilityResponse, request commoncap.CapabilityRequest) error {
+func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	rawRequest, err := pb.MarshalCapabilityRequest(request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if request.Metadata.WorkflowID == "" {
-		return errors.New("empty workflowID")
+		return nil, errors.New("empty workflowID")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	callback := make(chan commoncap.CapabilityResponse, defaultSendChannelBufferSize)
 	s.registeredWorkflows[request.Metadata.WorkflowID] = &subRegState{
 		callback:   callback,
 		rawRequest: rawRequest,
 	}
+
 	s.lggr.Infow("RegisterTrigger called", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
-	return nil
+	return callback, nil
 }
 
 func (s *triggerSubscriber) registrationLoop() {
@@ -141,6 +148,8 @@ func (s *triggerSubscriber) registrationLoop() {
 func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.CapabilityRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	close(s.registeredWorkflows[request.Metadata.WorkflowID].callback)
 	delete(s.registeredWorkflows, request.Metadata.WorkflowID)
 	// Registrations will quickly expire on all remote nodes.
 	// Alternatively, we could send UnregisterTrigger messages right away.
