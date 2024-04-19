@@ -263,8 +263,6 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	log2 := blocks.LogOnBlockNum(log2Block, contract2.Address())
 	logs := []types.Log{log1, log2}
 
-	contract1.On("ParseLog", log1).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil)
-	contract2.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
 	t.Run("pool two logs from subscription, then shut down", func(t *testing.T) {
 		helper := newBroadcasterHelper(t, 0, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
@@ -295,6 +293,8 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
 		orm := log.NewORM(helper.db, cltest.FixtureChainID)
+		contract1.On("ParseLog", log1).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil)
+		contract2.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener.SkipMarkingConsumed(true)
