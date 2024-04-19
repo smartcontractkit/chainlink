@@ -197,7 +197,6 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 
 // CountUnstartedTransactions returns the number of unstarted transactions for a given address.
 // Unstarted transactions are transactions that have not been broadcast yet.
-// NOTE(jtw): used to calculate total inflight transactions
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountUnstartedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (uint32, error) {
 	if ms.chainID.String() != chainID.String() {
 		panic("invalid chain ID")
@@ -334,8 +333,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 ) {
 	return ms.persistentTxStore.FindTxAttemptsConfirmedMissingReceipt(ctx, chainID)
 
-	// TODO: THE SORTING OF GAS PRICE AND GAS TIP CAP IS NOT IMPLEMENTED CORRECTLY. NEED TO FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
-	// THIS WORK WILL NEED TO BE DONE IN A SEPARATE PR WHICH CHANGES THE FEE GENERIC
+	// TODO(BCI-3115)
 	/*
 		if ms.chainID.String() != chainID.String() {
 			panic("invalid chain ID")
@@ -355,7 +353,6 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 			attempts = append(attempts, as.findTxAttempts(states, txFilter, txAttemptFilter)...)
 		}
 		// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
-		// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
 		slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
 			aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
 			if aSequence == nil || bSequence == nil {
@@ -410,8 +407,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 ) {
 	return ms.persistentTxStore.FindTxAttemptsRequiringReceiptFetch(ctx, chainID)
 
-	// TODO: THE SORTING OF GAS PRICE AND GAS TIP CAP IS NOT IMPLEMENTED CORRECTLY. NEED TO FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
-	// THIS WORK WILL NEED TO BE DONE IN A SEPARATE PR WHICH CHANGES THE FEE GENERIC
+	// TODO(BCI-3115)
 	/*
 		if ms.chainID.String() != chainID.String() {
 			panic("invalid chain ID")
@@ -431,7 +427,6 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 			attempts = append(attempts, as.findTxAttempts(states, txFilterFn, txAttemptFilterFn)...)
 		}
 		// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
-		// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
 		slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
 			aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
 			if aSequence == nil || bSequence == nil {
@@ -766,8 +761,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringResend(ctx context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID CHAIN_ID, address ADDR) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	return ms.persistentTxStore.FindTxAttemptsRequiringResend(ctx, olderThan, maxInFlightTransactions, chainID, address)
 
-	// TODO: THE SORTING OF GAS PRICE AND GAS TIP CAP IS NOT IMPLEMENTED CORRECTLY. NEED TO FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
-	// THIS WORK WILL NEED TO BE DONE IN A SEPARATE PR WHICH CHANGES THE FEE GENERIC
+	// TODO(BCI-3115)
 	/*
 		if ms.chainID.String() != chainID.String() {
 			panic("invalid chain ID")
@@ -792,7 +786,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
 		attempts := as.findTxAttempts(states, txFilter, txAttemptFilter)
 		// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
-		// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+		// TODO(BCI-3115)
 		slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
 			aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
 			if aSequence == nil || bSequence == nil {
