@@ -118,7 +118,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	for _, subID := range subIDs {
 		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 		require.NoError(t, err, "error getting subscription information for subscription %s", subID.String())
-		vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
+		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 	}
 	subIDsForCancellingAfterTest = subIDs
 	l.Info().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
@@ -268,7 +268,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		for _, subID := range underfundedSubIDs {
 			subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 			require.NoError(t, err, "error getting subscription information for subscription %s", subID.String())
-			vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
+			vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 		}
 		subIDsForCancellingAfterTest = underfundedSubIDs
 		l.Debug().Int("Number of Subs", len(underfundedSubIDs)).Msg("Subs involved in the test")
