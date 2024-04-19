@@ -134,7 +134,6 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 		"numBlocksToReplay", numBlocksToReplay,
 		"replayStartBlock", replayStartBlock,
 		"requestTimeout", lsn.job.VRFSpec.RequestTimeout,
-		"finalizedLatestBlock", latestBlock.FinalizedBlockNumber,
 	)
 	err = lp.Replay(ctx, replayStartBlock)
 	if err != nil {
