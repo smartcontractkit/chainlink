@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ci-kubeconform
-        uses: smartcontractkit/.github/actions/ci-kubeconform@7fa39741b11e66ed59f8aad786d4b9356c389f3f # ci-kubeconform@0.1.0
+        uses: smartcontractkit/.github/actions/ci-kubeconform@1ae8a9a984814c4daf50aa96f03be2cba0ef3fec # ci-kubeconform@0.2.0
         with:
           # kubeform inputs
           charts-dir: charts/chainlink-cluster
