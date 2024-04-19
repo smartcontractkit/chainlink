@@ -91,12 +91,8 @@ jobs:
               -l "app=${K8S_NAMESPACE}" \
               -o custom-columns=:metadata.name --no-headers)
 
-          IFS=$'\n' read -r -d '' -a deployment_names_arr <<< "$deployment_node_names" || :
-          for name in "${deployment_names_arr[@]}"; do
-              echo "Restarting deployment: $name"
-              kubectl --namespace "${K8S_NAMESPACE}" \
-                  rollout restart "deployment/${name}"
-          done
+          echo "Restarting deployments: $deployment_node_names"
+          kubectl rollout restart deployment $deployment_node_names --namespace "${K8S_NAMESPACE}"
 
       - name: Collect Metrics
         if: always()

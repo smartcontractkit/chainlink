@@ -218,7 +218,8 @@ func WrapperDeploy(
 func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
-	wrapperGasOverhead, coordinatorGasOverhead uint,
+	wrapperGasOverhead uint,
+	coordinatorGasOverhead, coordinatorGasOverheadPerWord uint,
 	nativePremiumPercentage, linkPremiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
@@ -234,6 +235,7 @@ func WrapperConfigure(
 		e.Owner,
 		uint32(wrapperGasOverhead),
 		uint32(coordinatorGasOverhead),
+		uint16(coordinatorGasOverheadPerWord),
 		uint8(nativePremiumPercentage),
 		uint8(linkPremiumPercentage),
 		common.HexToHash(keyHash),

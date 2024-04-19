@@ -1,14 +1,15 @@
 package keeper
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
 
-func (rs *RegistrySynchronizer) ExportedFullSync() {
-	rs.fullSync()
+func (rs *RegistrySynchronizer) ExportedFullSync(ctx context.Context) {
+	rs.fullSync(ctx)
 }
 
 func (rw *RegistryWrapper) GetUpkeepIdFromRawRegistrationLog(rawLog types.Log) (*big.Int, error) {

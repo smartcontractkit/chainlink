@@ -27,6 +27,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
@@ -109,7 +110,8 @@ type RelayGetter interface {
 	Get(id relay.ID) (loop.Relayer, error)
 }
 type Delegate struct {
-	db                    *sqlx.DB
+	db                    *sqlx.DB // legacy: prefer to use ds instead
+	ds                    sqlutil.DataSource
 	jobORM                job.ORM
 	bridgeORM             bridges.ORM
 	mercuryORM            evmmercury.ORM
@@ -223,6 +225,7 @@ var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
 	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	jobORM job.ORM,
 	bridgeORM bridges.ORM,
 	mercuryORM evmmercury.ORM,
@@ -243,6 +246,7 @@ func NewDelegate(
 ) *Delegate {
 	return &Delegate{
 		db:                    db,
+		ds:                    ds,
 		jobORM:                jobORM,
 		bridgeORM:             bridgeORM,
 		mercuryORM:            mercuryORM,
@@ -274,7 +278,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
-func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) error {
+func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 	// If the job spec is malformed in any way, we report the error but return nil so that
 	//  the job deletion itself isn't blocked.
 
@@ -291,13 +295,13 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) er
 	}
 	// we only have clean to do for the EVM
 	if rid.Network == relay.EVM {
-		return d.cleanupEVM(ctx, jb, q, rid)
+		return d.cleanupEVM(ctx, jb, rid)
 	}
 	return nil
 }
 
 // cleanupEVM is a helper for clean up EVM specific state when a job is deleted
-func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, q pg.Queryer, relayID relay.ID) error {
+func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID relay.ID) error {
 	//  If UnregisterFilter returns an
 	//  error, that means it failed to remove a valid active filter from the db.  We do abort the job deletion
 	//  in that case, since it should be easy for the user to retry and will avoid leaving the db in
@@ -1669,8 +1673,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		Job:               jb,
 		JobORM:            d.jobORM,
 		BridgeORM:         d.bridgeORM,
-		QConfig:           d.cfg.Database(),
-		DB:                d.db,
+		DS:                d.ds,
 		Chain:             chain,
 		ContractID:        spec.ContractID,
 		Logger:            lggr,
