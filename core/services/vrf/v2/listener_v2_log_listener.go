@@ -129,8 +129,14 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	}()
 
 	numBlocksToReplay := numReplayBlocks(lsn.job.VRFSpec.RequestTimeout, lsn.chain.ID())
-	ll.Debugw("running replay on log poller")
-	err = lp.Replay(ctx, mathutil.Max(latestBlock.FinalizedBlockNumber-numBlocksToReplay, 1))
+	replayStartBlock := mathutil.Max(latestBlock.FinalizedBlockNumber-numBlocksToReplay, 1)
+	ll.Debugw("running replay on log poller",
+		"numBlocksToReplay", numBlocksToReplay,
+		"replayStartBlock", replayStartBlock,
+		"requestTimeout", lsn.job.VRFSpec.RequestTimeout,
+		"finalizedLatestBlock", latestBlock.FinalizedBlockNumber,
+	)
+	err = lp.Replay(ctx, replayStartBlock)
 	if err != nil {
 		return 0, fmt.Errorf("LogPoller.Replay: %w", err)
 	}
