@@ -401,6 +401,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
+	spec.RelayConfig = d.relayConfigsWithDefaults(spec.RelayConfig)
 
 	ocrDB := NewDB(d.db, spec.ID, 0, lggr, d.cfg.Database())
 	if d.peerWrapper == nil {
@@ -578,7 +579,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		JobID:         spec.ID,
 		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
-		RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
+		RelayConfig:   spec.RelayConfig.Bytes(),
 		ProviderType:  pCfg.ProviderType,
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
@@ -755,7 +756,7 @@ func (d *Delegate) newServicesMercury(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
+			RelayConfig:   spec.RelayConfig.Bytes(),
 			ProviderType:  string(spec.PluginType),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
@@ -974,7 +975,7 @@ func (d *Delegate) newServicesMedian(
 		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
 	}
 
-	medianServices, err2 := median.NewMedianServices(ctx, jb, d.relayConfigsWithDefaults(jb.OCR2OracleSpec.RelayConfig), d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
+	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
@@ -1015,7 +1016,7 @@ func (d *Delegate) newServicesDKG(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
+			RelayConfig:   spec.RelayConfig.Bytes(),
 		}, types.PluginArgs{
 			TransmitterID: spec.TransmitterID.String,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1101,7 +1102,7 @@ func (d *Delegate) newServicesOCR2VRF(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
+			RelayConfig:   spec.RelayConfig.Bytes(),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1115,7 +1116,7 @@ func (d *Delegate) newServicesOCR2VRF(
 			ExternalJobID: jb.ExternalJobID,
 			JobID:         jb.ID,
 			ContractID:    cfg.DKGContractAddress,
-			RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
+			RelayConfig:   spec.RelayConfig.Bytes(),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1304,7 +1305,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 			JobID:              jb.ID,
 			ContractID:         spec.ContractID,
 			New:                d.isNewlyCreatedJob,
-			RelayConfig:        d.relayConfigsWithDefaults(spec.RelayConfig),
+			RelayConfig:        spec.RelayConfig.Bytes(),
 			ProviderType:       string(spec.PluginType),
 			MercuryCredentials: mc,
 		}, types.PluginArgs{
@@ -1578,7 +1579,7 @@ func (d *Delegate) newServicesOCR2Functions(
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         jb.ID,
 				ContractID:    spec.ContractID,
-				RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
+				RelayConfig:   spec.RelayConfig.Bytes(),
 				New:           d.isNewlyCreatedJob,
 			},
 			types.PluginArgs{
@@ -1694,7 +1695,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	return append([]job.ServiceCtx{functionsProvider, thresholdProvider, s4Provider}, functionsServices...), nil
 }
 
-func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) []byte {
+func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) job.JSONConfig {
 	_, ok := relayConfig["defaultTransactionQueueDepth"]
 	if !ok {
 		relayConfig["defaultTransactionQueueDepth"] = d.cfg.OCR2().DefaultTransactionQueueDepth()
@@ -1703,7 +1704,7 @@ func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) []byte {
 	if !ok {
 		relayConfig["simulateTransactions"] = d.cfg.OCR2().SimulateTransactions()
 	}
-	return relayConfig.Bytes()
+	return relayConfig
 }
 
 // errorLog implements [loop.ErrorLog]

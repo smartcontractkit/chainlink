@@ -54,7 +54,6 @@ func (m *medianConfig) JobPipelineResultWriteQueueDepth() uint64 {
 
 func NewMedianServices(ctx context.Context,
 	jb job.Job,
-	relayConfig []byte,
 	isNewlyCreatedJob bool,
 	relayer loop.Relayer,
 	kvStore job.KVStore,
@@ -89,7 +88,7 @@ func NewMedianServices(ctx context.Context,
 		JobID:         jb.ID,
 		ContractID:    spec.ContractID,
 		New:           isNewlyCreatedJob,
-		RelayConfig:   relayConfig,
+		RelayConfig:   spec.RelayConfig.Bytes(),
 		ProviderType:  string(spec.PluginType),
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
