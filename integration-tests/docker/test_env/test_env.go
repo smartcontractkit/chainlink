@@ -285,7 +285,7 @@ func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
 
 		var coverageRootDir string
 		if os.Getenv("GO_COVERAGE_DEST_DIR") != "" {
-			coverageRootDir = filepath.Join(clDir, os.Getenv("GO_COVERAGE_DEST_DIR"), testName)
+			coverageRootDir = filepath.Join(os.Getenv("GO_COVERAGE_DEST_DIR"), testName)
 		} else {
 			coverageRootDir = filepath.Join(clDir, ".covdata", testName)
 		}
