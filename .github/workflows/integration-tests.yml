@@ -398,6 +398,7 @@ jobs:
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
         with:
+          name: covdata
           path: .covdata
           retention-days: 1
 
@@ -499,6 +500,7 @@ jobs:
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
         with:
+          name: covdata
           path: .covdata
           retention-days: 1          
 
@@ -709,6 +711,7 @@ jobs:
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
         with:
+          name: covdata
           path: .covdata
           retention-days: 1
 
@@ -817,8 +820,10 @@ jobs:
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Download All Artifacts
         uses: actions/download-artifact@v3
+        with:
+          name: covdata
       - name: Show Coverage
-        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/artifact*/*/merged"
+        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/covdata*/*/merged"
 
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
@@ -915,6 +920,7 @@ jobs:
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
         with:
+          name: covdata
           path: .covdata
           retention-days: 1          
 
@@ -1224,6 +1230,7 @@ jobs:
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
         with:
+          name: covdata
           path: .covdata
           retention-days: 1          
 
