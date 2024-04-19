@@ -57,12 +57,12 @@ func NewStuckTxDetector(lggr logger.Logger, chainCfg stuckTxDetectorChainConfig,
 	// TODO: ensure to initialize client with the usual security standards
 	// TODO: Load purgeBlockNumMap with some DB state or confirm rate limit is not needed on first purge after restart
 	return &stuckTxDetector{
-		lggr:         lggr,
-		chainCfg:     chainCfg,
-		cfg:          cfg,
-		gasEstimator: gasEstimator,
-		txStore:      txStore,
-		httpClient:   &http.Client{},
+		lggr:             lggr,
+		chainCfg:         chainCfg,
+		cfg:              cfg,
+		gasEstimator:     gasEstimator,
+		txStore:          txStore,
+		httpClient:       &http.Client{},
 		purgeBlockNumMap: make(map[common.Address]int64),
 	}
 }

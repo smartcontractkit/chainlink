@@ -636,7 +636,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config().EVM())
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, chain.Config().EVM(), chain.Config().EVM().Transactions().AutoPurgeConfig(), nil, orm)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, chain.Config().EVM(), chain.Config().EVM().Transactions().AutoPurge(), nil, orm)
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, feeCfg, chain.Config().EVM().Transactions(), chain.Config().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector)
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)

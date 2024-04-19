@@ -1731,6 +1731,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -1815,6 +1818,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -1901,6 +1907,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -1985,6 +1994,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2072,6 +2084,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -2157,6 +2172,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -2241,6 +2259,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2328,6 +2349,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -2413,6 +2437,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -2496,6 +2523,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2581,6 +2611,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -2665,6 +2698,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2752,6 +2788,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -2836,6 +2875,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2922,6 +2964,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -3006,6 +3051,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3092,6 +3140,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -3176,6 +3227,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3262,6 +3316,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -3346,6 +3403,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3433,6 +3493,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -3518,6 +3581,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -3601,6 +3667,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3687,6 +3756,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -3770,6 +3842,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3856,6 +3931,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -3941,6 +4019,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -4025,6 +4106,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '0s'
 ResendAfterThreshold = '0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -4108,6 +4192,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4194,6 +4281,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -4277,6 +4367,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4363,6 +4456,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -4446,6 +4542,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4532,6 +4631,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -4616,6 +4718,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4703,6 +4808,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -4787,6 +4895,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4873,6 +4984,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -4957,6 +5071,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5043,6 +5160,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -5126,6 +5246,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5211,6 +5334,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -5294,6 +5420,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5380,6 +5509,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -5465,6 +5597,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -5548,6 +5683,9 @@ MaxQueued = 5000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5634,6 +5772,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -5718,6 +5859,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5805,6 +5949,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -5891,6 +6038,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -5975,6 +6125,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6061,6 +6214,10 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = true
+AutoPurgeDetectionApiUrl = 'https://sepolia-venus.scroll.io'
+
 [BalanceMonitor]
 Enabled = true
 
@@ -6145,6 +6302,10 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = true
+AutoPurgeDetectionApiUrl = 'https://venus.scroll.io'
 
 [BalanceMonitor]
 Enabled = true
@@ -6231,6 +6392,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -6315,6 +6479,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6401,6 +6568,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -6485,6 +6655,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
 
 [BalanceMonitor]
 Enabled = true

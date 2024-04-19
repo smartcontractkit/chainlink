@@ -53,7 +53,7 @@ func NewTxm(
 	chainID := txmClient.ConfiguredChainID()
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
-	stuckTxDetector := NewStuckTxDetector(lggr, txmCfg, txConfig.AutoPurgeConfig(), estimator, txStore)
+	stuckTxDetector := NewStuckTxDetector(lggr, txmCfg, txConfig.AutoPurge(), estimator, txStore)
 	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {

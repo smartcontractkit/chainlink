@@ -91,9 +91,13 @@ func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx Tx, prev
 func (c *evmTxAttemptBuilder) NewPurgeTxAttempt(ctx context.Context, etx Tx, lggr logger.Logger) (attempt TxAttempt, err error) {
 	gasLimit := c.feeConfig.LimitDefault()
 	previousAttempt := etx.TxAttempts[0]
-	previousFee := previousAttempt.TxFee
-	// TODO: Increase gas price to avoid replacement transaction underpriced error
-	attempt, _, err = c.NewCustomTxAttempt(ctx, etx, previousFee, gasLimit, previousAttempt.TxType, lggr)
+	keySpecificMaxGasPriceWei := c.feeConfig.PriceMaxKey(etx.FromAddress)
+	// TODO: Confirm if bump is needed. Either we could have a separate config or a hardcoded 10% to minimize the replacement fee
+	bumpedFee, _, err := c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.TxFee, etx.FeeLimit, keySpecificMaxGasPriceWei, newEvmPriorAttempts(etx.TxAttempts))
+	if err != nil {
+		return attempt, fmt.Errorf("failed to bump previous fee to use for the purge attempt: %w", err)
+	}
+	attempt, _, err = c.NewCustomTxAttempt(ctx, etx, bumpedFee, gasLimit, previousAttempt.TxType, lggr)
 	if err != nil {
 		return attempt, fmt.Errorf("failed to create purge attempt: %w", err)
 	}

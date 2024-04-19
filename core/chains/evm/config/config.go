@@ -85,7 +85,7 @@ type Transactions interface {
 	ReaperThreshold() time.Duration
 	MaxInFlight() uint32
 	MaxQueued() uint64
-	AutoPurgeConfig() AutoPurgeConfig
+	AutoPurge() AutoPurgeConfig
 }
 
 type AutoPurgeConfig interface {
