@@ -43,6 +43,10 @@ ephemeral_addresses_number = 0
 # That's because the one we are about to send would get queued, possibly for a very long time
 pending_nonce_protection_enabled = false
 
+# when enabled when creating a new Seth client we will send 10k wei from root address to root address
+# to make sure transaction can be submited and mined
+check_rpc_health_on_start = false
+
 [Seth.nonce_manager]
 key_sync_rate_limit_per_sec = 10
 key_sync_timeout = "2s"
