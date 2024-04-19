@@ -419,41 +419,28 @@ func (lsn *listenerV2) handleRequested(requested []RandomWordsRequested, request
 func numReplayBlocks(requestTimeout time.Duration, chainID *big.Int) int64 {
 	var timeoutSeconds = int64(requestTimeout.Seconds())
 	switch chainID.String() {
-	case "1": // eth mainnet
-	case "3": // eth ropsten
-	case "4": // eth rinkeby
-	case "5": // eth goerli
-	case "11155111": // eth sepolia
+	case "1", "3", "4", "5", "11155111": // eth mainnet, robsten, rinkeby, goerli, sepolia
 		// block time is 12s
 		return timeoutSeconds / 12
-	case "137": // polygon mainnet
-	case "80001": // polygon mumbai
+	case "137", "80001", "80002": // polygon mainnet, polygon mumbai, amoy
 		// block time is 2s
 		return timeoutSeconds / 2
-	case "56": // bsc mainnet
-	case "97": // bsc testnet
+	case "56", "97": // bsc mainnet, testnet
 		// block time is 2s
 		return timeoutSeconds / 2
-	case "43114": // avalanche mainnet
-	case "43113": // avalanche fuji
+	case "43114", "43113": // avalanche mainnet, fuji
 		// block time is 1s
 		return timeoutSeconds
-	case "250": // fantom mainnet
-	case "4002": // fantom testnet
+	case "250", "4002": // fantom mainnet, fantom testnet
 		// block time is 1s
 		return timeoutSeconds
-	case "42161": // arbitrum mainnet
-	case "421613": // arbitrum goerli
-	case "421614": // arbitrum sepolia
+	case "42161", "421613", "421614": // arbitrum mainnet, arbitrum goerli, arbitrum sepolia
 		// block time is 0.25s in the worst case
 		return timeoutSeconds * 4
-	case "10": // optimism mainnet
-	case "69": // optimism kovan
-	case "420": // optimism goerli
-	case "11155420": // optimism sepolia
-	case "8453": // base mainnet
-	case "84531": // base goerli
-	case "84532": // base sepolia
+	case "10", "69", "420", "11155420": // optimism mainnet, optimism kovan, optimism goerli, optimism sepolia
+		// block time is 2s
+		return timeoutSeconds / 2
+	case "8453", "84531", "84532": // base mainnet, base goerli, base sepolia
 		// block time is 2s
 		return timeoutSeconds / 2
 	default:

@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -74,6 +75,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
+	marshalledJob, err := json.MarshalIndent(jb.VRFSpec, "", " ")
+	if err != nil {
+		return nil, err
+	}
+	d.lggr.Debugw("Creating services for job spec", "job", string(marshalledJob))
 	pl, err := jb.PipelineSpec.ParsePipeline()
 	if err != nil {
 		return nil, err
