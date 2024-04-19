@@ -36,6 +36,7 @@ type feeConfig struct {
 	tipCapMin          *assets.Wei
 	priceMin           *assets.Wei
 	priceMax           *assets.Wei
+	limitDefault       uint64
 }
 
 func newFeeConfig() *feeConfig {
@@ -50,6 +51,7 @@ func (g *feeConfig) EIP1559DynamicFees() bool                        { return g.
 func (g *feeConfig) TipCapMin() *assets.Wei                          { return g.tipCapMin }
 func (g *feeConfig) PriceMin() *assets.Wei                           { return g.priceMin }
 func (g *feeConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei { return g.priceMax }
+func (g *feeConfig) LimitDefault() uint64                            { return g.limitDefault }
 
 func TestTxm_SignTx(t *testing.T) {
 	t.Parallel()

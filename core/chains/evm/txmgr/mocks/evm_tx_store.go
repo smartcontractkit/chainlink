@@ -1219,6 +1219,24 @@ func (_m *EvmTxStore) SaveInsufficientFundsAttempt(ctx context.Context, timeout 
 	return r0
 }
 
+// SavePurgedReceipts provides a mock function with given fields: ctx, r, errorMsg, chainID
+func (_m *EvmTxStore) SavePurgedReceipts(ctx context.Context, r []*evmtypes.Receipt, errorMsg string, chainID *big.Int) error {
+	ret := _m.Called(ctx, r, errorMsg, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SavePurgedReceipts")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, string, *big.Int) error); ok {
+		r0 = rf(ctx, r, errorMsg, chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SaveReplacementInProgressAttempt provides a mock function with given fields: ctx, oldAttempt, replacementAttempt
 func (_m *EvmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldAttempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], replacementAttempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, oldAttempt, replacementAttempt)

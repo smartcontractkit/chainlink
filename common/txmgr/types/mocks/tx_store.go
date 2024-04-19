@@ -1068,6 +1068,24 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInsuffi
 	return r0
 }
 
+// SavePurgedReceipts provides a mock function with given fields: ctx, r, errorMsg, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SavePurgedReceipts(ctx context.Context, r []R, errorMsg string, chainID CHAIN_ID) error {
+	ret := _m.Called(ctx, r, errorMsg, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SavePurgedReceipts")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []R, string, CHAIN_ID) error); ok {
+		r0 = rf(ctx, r, errorMsg, chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SaveReplacementInProgressAttempt provides a mock function with given fields: ctx, oldAttempt, replacementAttempt
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveReplacementInProgressAttempt(ctx context.Context, oldAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	ret := _m.Called(ctx, oldAttempt, replacementAttempt)

@@ -37,6 +37,7 @@ type evmTxAttemptBuilderFeeConfig interface {
 	TipCapMin() *assets.Wei
 	PriceMin() *assets.Wei
 	PriceMaxKey(common.Address) *assets.Wei
+	LimitDefault() uint64
 }
 
 func NewEvmTxAttemptBuilder(chainID big.Int, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
@@ -75,9 +76,29 @@ func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx Tx, prev
 	if err != nil {
 		return attempt, bumpedFee, bumpedFeeLimit, true, pkgerrors.Wrap(err, "failed to bump fee") // estimator errors are retryable
 	}
-
+	// If transaction's previous attempt is marked for purge, ensure the new bumped attempt also sends empty payload
+	if previousAttempt.IsPurgeAttempt {
+		etx.EncodedPayload = []byte{}
+	}
 	attempt, retryable, err = c.NewCustomTxAttempt(ctx, etx, bumpedFee, bumpedFeeLimit, previousAttempt.TxType, lggr)
+	// If transaction's previous attempt is marked for purge, ensure the new bumped attempt is also marked for purge
+	if previousAttempt.IsPurgeAttempt {
+		attempt.IsPurgeAttempt = true
+	}
 	return attempt, bumpedFee, bumpedFeeLimit, retryable, err
+}
+
+func (c *evmTxAttemptBuilder) NewPurgeTxAttempt(ctx context.Context, etx Tx, lggr logger.Logger) (attempt TxAttempt, err error) {
+	gasLimit := c.feeConfig.LimitDefault()
+	previousAttempt := etx.TxAttempts[0]
+	previousFee := previousAttempt.TxFee
+	// TODO: Increase gas price to avoid replacement transaction underpriced error
+	attempt, _, err = c.NewCustomTxAttempt(ctx, etx, previousFee, gasLimit, previousAttempt.TxType, lggr)
+	if err != nil {
+		return attempt, fmt.Errorf("failed to create purge attempt: %w", err)
+	}
+	attempt.IsPurgeAttempt = true
+	return attempt, nil
 }
 
 // NewCustomTxAttempt is the lowest level func where the fee parameters + tx type must be passed in

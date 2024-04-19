@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -40,6 +41,7 @@ type stuckTxDetectorConfig interface {
 }
 
 type stuckTxDetector struct {
+	lggr     logger.Logger
 	chainCfg stuckTxDetectorChainConfig
 	cfg      stuckTxDetectorConfig
 
@@ -51,23 +53,27 @@ type stuckTxDetector struct {
 	purgeBlockNumMap  map[common.Address]int64 // Tracks the last block num a tx was purged for each from address if the PurgeOverflowTxs feature is enabled
 }
 
-func NewStuckTxDetector(chainCfg stuckTxDetectorChainConfig, cfg stuckTxDetectorConfig, gasEstimator stuckTxDetectorGasEstimator, txStore stuckTxDetectorTxStore) *stuckTxDetector {
+func NewStuckTxDetector(lggr logger.Logger, chainCfg stuckTxDetectorChainConfig, cfg stuckTxDetectorConfig, gasEstimator stuckTxDetectorGasEstimator, txStore stuckTxDetectorTxStore) *stuckTxDetector {
 	// TODO: ensure to initialize client with the usual security standards
+	// TODO: Load purgeBlockNumMap with some DB state or confirm rate limit is not needed on first purge after restart
 	return &stuckTxDetector{
+		lggr:         lggr,
 		chainCfg:     chainCfg,
 		cfg:          cfg,
 		gasEstimator: gasEstimator,
 		txStore:      txStore,
 		httpClient:   &http.Client{},
+		purgeBlockNumMap: make(map[common.Address]int64),
 	}
 }
 
+// If the AutoPurgeStuckTxs feature is enabled, finds terminally stuck transactions
+// Uses a chain specific method for detection, or if one does not exist, applies a general heuristic
 func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAddresses []common.Address, blockNum int64) ([]Tx, error) {
-	// Only process stuck transactions is the AutoPurgeStuckTxs feature is enabled
 	if !d.cfg.AutoPurgeStuckTxs() {
 		return nil, nil
 	}
-	txs, err := d.findPotentialStuckTxs(ctx, enabledAddresses)
+	txs, err := d.FindPotentialStuckTxs(ctx, enabledAddresses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find potential stuck transactions: %w", err)
 	}
@@ -76,15 +82,25 @@ func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAd
 		return nil, nil
 	}
 
+	var stuckTxs []Tx
 	switch d.chainCfg.ChainType() {
 	case config.ChainScroll:
-		return d.detectStuckTransactionsScroll(ctx, txs)
+		stuckTxs, err = d.detectStuckTransactionsScroll(ctx, txs)
 	default:
-		return d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
+		stuckTxs, err = d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
 	}
+
+	for _, stuckTx := range stuckTxs {
+		lggr := stuckTx.GetLogger(d.lggr)
+		lggr.Errorw("marking transaction as terminally stuck", "etx", stuckTx)
+	}
+
+	return stuckTxs, err
 }
 
-func (d *stuckTxDetector) findPotentialStuckTxs(ctx context.Context, enabledAddresses []common.Address) ([]Tx, error) {
+// Finds the lowest nonce Unconfirmed transaction for each enabled address
+// Only the earliest transaction can be considered terminally stuck. All others may be valid and just stuck behind the nonce
+func (d *stuckTxDetector) FindPotentialStuckTxs(ctx context.Context, enabledAddresses []common.Address) ([]Tx, error) {
 	// Loads attempts within tx
 	txes, err := d.txStore.FindUnconfirmedTxsByFromAddresses(ctx, enabledAddresses, d.chainCfg.ChainID())
 	if err != nil {
@@ -92,7 +108,6 @@ func (d *stuckTxDetector) findPotentialStuckTxs(ctx context.Context, enabledAddr
 	}
 
 	// Stores the lowest nonce tx found in the query results for each from address
-	// We only want to consider the earliest tx for purging. All others may be valid and just stuck behind the nonce
 	lowestNonceTxMap := make(map[common.Address]Tx)
 	for _, tx := range txes {
 		if _, ok := lowestNonceTxMap[tx.FromAddress]; !ok {
@@ -102,9 +117,13 @@ func (d *stuckTxDetector) findPotentialStuckTxs(ctx context.Context, enabledAddr
 		}
 	}
 
+	// Build list of potentially stuck tx but exclude any that are already marked for purge
 	var stuckTxs []Tx
 	for _, tx := range lowestNonceTxMap {
-		stuckTxs = append(stuckTxs, tx)
+		// Attempts are loaded newest to oldest so one marked for purge will always be first
+		if len(tx.TxAttempts) > 0 && !tx.TxAttempts[0].IsPurgeAttempt {
+			stuckTxs = append(stuckTxs, tx)
+		}
 	}
 
 	return stuckTxs, nil
@@ -216,12 +235,14 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 		return nil, fmt.Errorf("failed to marshal json request %v for custom endpoint: %w", request, err)
 	}
 
+	// Build http post request
 	url := fmt.Sprintf("%s/v1/sequencer/tx/skipped", d.cfg.AutoPurgeDetectionApiUrl())
 	bodyReader := bytes.NewReader(jsonReq)
 	postReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make new request with context: %w", err)
 	}
+	// Send request
 	resp, err := d.httpClient.Do(postReq)
 	if err != nil {
 		return nil, fmt.Errorf("request to scroll's custom endpoint failed: %w", err)
@@ -230,6 +251,7 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("request failed with status %d", resp.StatusCode)
 	}
+	// Decode the response into expected type
 	scrollResp := new(scrollResponse)
 	err = json.NewDecoder(resp.Body).Decode(scrollResp)
 	if err != nil {
@@ -239,6 +261,7 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 		return nil, fmt.Errorf("scroll's custom endpoint returned an error with code: %d, message: %s", scrollResp.Errcode, scrollResp.Errmsg)
 	}
 
+	// Return all transactions marked with status 1 signaling they have been skipped due to overflow
 	var stuckTx []Tx
 	for hash, status := range scrollResp.Data {
 		if status == 1 {
@@ -254,4 +277,14 @@ func (d *stuckTxDetector) SetPurgeBlockNum(fromAddress common.Address, blockNum 
 	d.purgeBlockNumLock.Lock()
 	defer d.purgeBlockNumLock.Unlock()
 	d.purgeBlockNumMap[fromAddress] = blockNum
+}
+
+// TODO: Find better place to store error messages so they can be served through tx status function for product teams
+func (d *stuckTxDetector) StuckTxFatalError() string {
+	switch d.chainCfg.ChainType() {
+	case config.ChainScroll:
+		return "transaction skipped due to ZK overflow"
+	default:
+		return "purged terminally stuck transaction"
+	}
 }
