@@ -36,6 +36,7 @@ answer;
 `
 
 func TestAdapter_Integration(t *testing.T) {
+	testutils.SkipShortDB(t)
 	logger := logger.TestLogger(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	url := cfg.Database().URL()

@@ -116,6 +116,7 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -288,6 +289,7 @@ func mockTarget() *mockCapability {
 }
 
 func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -388,6 +390,7 @@ func mockAction() (*mockCapability, values.Value) {
 }
 
 func TestEngine_MultiStepDependencies(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 

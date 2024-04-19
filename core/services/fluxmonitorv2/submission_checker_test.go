@@ -11,6 +11,7 @@ import (
 )
 
 func TestSubmissionChecker_IsValid(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name   string
 		answer decimal.Decimal
