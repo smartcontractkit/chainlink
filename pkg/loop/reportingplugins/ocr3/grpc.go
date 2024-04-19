@@ -101,11 +101,9 @@ func (g *GRPCService[T]) GRPCClient(_ context.Context, broker *plugin.GRPCBroker
 }
 
 func (g *GRPCService[T]) ClientConfig() *plugin.ClientConfig {
-	return &plugin.ClientConfig{
-		HandshakeConfig:  reportingplugins.ReportingPluginHandshakeConfig(),
-		Plugins:          map[string]plugin.Plugin{reportingplugins.PluginServiceName: g},
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-		GRPCDialOptions:  g.BrokerConfig.DialOpts,
-		Logger:           loop.HCLogLogger(g.BrokerConfig.Logger),
+	c := &plugin.ClientConfig{
+		HandshakeConfig: reportingplugins.ReportingPluginHandshakeConfig(),
+		Plugins:         map[string]plugin.Plugin{reportingplugins.PluginServiceName: g},
 	}
+	return loop.ManagedGRPCClientConfig(c, g.BrokerConfig)
 }

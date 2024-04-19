@@ -110,13 +110,11 @@ func (g *GRPCService[T]) GRPCClient(_ context.Context, broker *plugin.GRPCBroker
 }
 
 func (g *GRPCService[T]) ClientConfig() *plugin.ClientConfig {
-	return &plugin.ClientConfig{
-		HandshakeConfig:  ReportingPluginHandshakeConfig(),
-		Plugins:          map[string]plugin.Plugin{PluginServiceName: g},
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-		GRPCDialOptions:  g.BrokerConfig.DialOpts,
-		Logger:           loop.HCLogLogger(g.BrokerConfig.Logger),
+	c := &plugin.ClientConfig{
+		HandshakeConfig: ReportingPluginHandshakeConfig(),
+		Plugins:         map[string]plugin.Plugin{PluginServiceName: g},
 	}
+	return loop.ManagedGRPCClientConfig(c, g.BrokerConfig)
 }
 
 // These implement `ConnToProvider` and return the conn wrapped as

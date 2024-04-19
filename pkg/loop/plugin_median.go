@@ -56,11 +56,9 @@ func (p *GRPCPluginMedian) GRPCClient(_ context.Context, broker *plugin.GRPCBrok
 }
 
 func (p *GRPCPluginMedian) ClientConfig() *plugin.ClientConfig {
-	return &plugin.ClientConfig{
-		HandshakeConfig:  PluginMedianHandshakeConfig(),
-		Plugins:          map[string]plugin.Plugin{PluginMedianName: p},
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-		GRPCDialOptions:  p.DialOpts,
-		Logger:           HCLogLogger(p.Logger),
+	c := &plugin.ClientConfig{
+		HandshakeConfig: PluginMedianHandshakeConfig(),
+		Plugins:         map[string]plugin.Plugin{PluginMedianName: p},
 	}
+	return ManagedGRPCClientConfig(c, p.BrokerConfig)
 }

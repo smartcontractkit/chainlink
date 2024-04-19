@@ -52,13 +52,11 @@ func (p *ExecutionLoop) GRPCClient(_ context.Context, broker *plugin.GRPCBroker,
 }
 
 func (p *ExecutionLoop) ClientConfig() *plugin.ClientConfig {
-	return &plugin.ClientConfig{
-		HandshakeConfig:  PluginCCIPExecutionHandshakeConfig(),
-		Plugins:          map[string]plugin.Plugin{CCIPExecutionLOOPName: p},
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-		GRPCDialOptions:  p.DialOpts,
-		Logger:           HCLogLogger(p.Logger),
+	clientConfig := &plugin.ClientConfig{
+		HandshakeConfig: PluginCCIPExecutionHandshakeConfig(),
+		Plugins:         map[string]plugin.Plugin{CCIPExecutionLOOPName: p},
 	}
+	return ManagedGRPCClientConfig(clientConfig, p.BrokerConfig)
 }
 
 var _ ocrtypes.ReportingPluginFactory = (*ExecutionFactoryService)(nil)

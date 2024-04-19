@@ -6,8 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/go-plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func TestEnvConfig_parse(t *testing.T) {
@@ -130,4 +134,28 @@ func TestEnvConfig_AsCmdEnv(t *testing.T) {
 	assert.Equal(t, "0.1", got[envTracingSamplingRatio])
 	assert.Equal(t, "some/path", got[envTracingTLSCertPath])
 	assert.Equal(t, "value", got[envTracingAttribute+"key"])
+}
+
+func TestManagedGRPCClientConfig(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns a new client config with the provided broker config", func(t *testing.T) {
+		t.Parallel()
+
+		brokerConfig := BrokerConfig{
+			Logger: logger.Test(t),
+			GRPCOpts: GRPCOpts{
+				DialOpts: []grpc.DialOption{
+					grpc.WithNoProxy(), // any grpc.DialOption will do
+				},
+			},
+		}
+
+		clientConfig := ManagedGRPCClientConfig(&plugin.ClientConfig{}, brokerConfig)
+
+		assert.NotNil(t, clientConfig.Logger)
+		assert.Equal(t, []plugin.Protocol{plugin.ProtocolGRPC}, clientConfig.AllowedProtocols)
+		assert.Equal(t, brokerConfig.GRPCOpts.DialOpts, clientConfig.GRPCDialOptions)
+		assert.True(t, clientConfig.Managed)
+	})
 }

@@ -60,11 +60,9 @@ func (p *GRPCPluginRelayer) GRPCClient(_ context.Context, broker *plugin.GRPCBro
 }
 
 func (p *GRPCPluginRelayer) ClientConfig() *plugin.ClientConfig {
-	return &plugin.ClientConfig{
-		HandshakeConfig:  PluginRelayerHandshakeConfig(),
-		Plugins:          map[string]plugin.Plugin{PluginRelayerName: p},
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-		GRPCDialOptions:  p.DialOpts,
-		Logger:           HCLogLogger(p.Logger),
+	c := &plugin.ClientConfig{
+		HandshakeConfig: PluginRelayerHandshakeConfig(),
+		Plugins:         map[string]plugin.Plugin{PluginRelayerName: p},
 	}
+	return ManagedGRPCClientConfig(c, p.BrokerConfig)
 }

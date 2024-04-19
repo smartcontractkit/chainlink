@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/hashicorp/go-plugin"
 )
 
 const (
@@ -86,6 +88,18 @@ func (e *EnvConfig) parse() error {
 		e.TracingTLSCertPath = getTLSCertPath()
 	}
 	return nil
+}
+
+// ManagedGRPCClientConfig return a Managed plugin and set grpc config values from the BrokerConfig.
+// Note: managed plugins shutdown when the parent process exits. We may want to change this behavior in the future
+// to enable host process restarts without restarting the plugin. To do that we would also need
+// supply the appropriate ReattachConfig to the plugin.ClientConfig.
+func ManagedGRPCClientConfig(clientConfig *plugin.ClientConfig, c BrokerConfig) *plugin.ClientConfig {
+	clientConfig.AllowedProtocols = []plugin.Protocol{plugin.ProtocolGRPC}
+	clientConfig.GRPCDialOptions = c.DialOpts
+	clientConfig.Logger = HCLogLogger(c.Logger)
+	clientConfig.Managed = true
+	return clientConfig
 }
 
 // isTracingEnabled parses and validates the TRACING_ENABLED environment variable.

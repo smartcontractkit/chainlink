@@ -46,11 +46,9 @@ func (p *GRPCPluginMercury) GRPCClient(_ context.Context, broker *plugin.GRPCBro
 }
 
 func (p *GRPCPluginMercury) ClientConfig() *plugin.ClientConfig {
-	return &plugin.ClientConfig{
-		HandshakeConfig:  PluginMercuryHandshakeConfig(),
-		Plugins:          map[string]plugin.Plugin{PluginMercuryName: p},
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-		GRPCDialOptions:  p.DialOpts,
-		Logger:           HCLogLogger(p.Logger),
+	c := &plugin.ClientConfig{
+		HandshakeConfig: PluginMercuryHandshakeConfig(),
+		Plugins:         map[string]plugin.Plugin{PluginMercuryName: p},
 	}
+	return ManagedGRPCClientConfig(c, p.BrokerConfig)
 }
