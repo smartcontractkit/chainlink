@@ -38,7 +38,7 @@ func initBlocksSubCmds(s *Shell) []cli.Command {
 		},
 		{
 			Name:   "find_lca",
-			Usage:  "Find last common block stored in DB and on chain",
+			Usage:  "Find latest common block stored in DB and on chain",
 			Action: s.FindLCA,
 			Flags: []cli.Flag{
 				cli.Int64Flag{

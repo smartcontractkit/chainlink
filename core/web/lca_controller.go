@@ -20,7 +20,6 @@ type LCAController struct {
 //
 //	"<application>/v2/find_lca"
 func (bdc *LCAController) FindLCA(c *gin.Context) {
-	println("find_lca get chain")
 	chain, err := getChain(bdc.App.GetRelayers().LegacyEVMChains(), c.Query("evmChainID"))
 	if err != nil {
 		if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
@@ -32,21 +31,16 @@ func (bdc *LCAController) FindLCA(c *gin.Context) {
 	}
 	chainID := chain.ID()
 
-	println("find_lca got chain")
 	lca, err := bdc.App.FindLCA(c.Request.Context(), chainID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	println("find_lca found")
-
 	if lca == nil {
 		jsonAPIError(c, http.StatusNotFound, fmt.Errorf("failed to find last common ancestor"))
 		return
 	}
-
-	println("find_lca found not nil")
 
 	response := LCAResponse{
 		BlockNumber: lca.BlockNumber,
@@ -55,7 +49,6 @@ func (bdc *LCAController) FindLCA(c *gin.Context) {
 	}
 	jsonAPIResponse(c, &response, "response")
 
-	println("find_lca rendered: " + lca.BlockHash.String())
 }
 
 type LCAResponse struct {
