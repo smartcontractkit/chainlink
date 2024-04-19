@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartcontractkit/chainlink/capabilities/on-demand-trigger/root",
+  "properties": {
+    "config": {
+      "properties": {},
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "outputs": {
+      "properties": {
+        "Value": true,
+        "Err": true
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "Value",
+        "Err"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "config",
+    "outputs"
+  ],
+  "description": "An example on-demand trigger."
+}

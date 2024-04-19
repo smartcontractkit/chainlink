@@ -1,0 +1,6 @@
+config: {}
+output:
+  Err:  
+  Value: "hello"
+
+# yaml-language-server: $schema=./schema.json

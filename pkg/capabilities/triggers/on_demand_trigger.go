@@ -18,8 +18,11 @@ var info = capabilities.MustNewCapabilityInfo(
 
 type workflowID string
 
+type onDemandTriggerConfig struct{}
+
 type OnDemand struct {
 	log logger.Logger
+	capabilities.Validator[onDemandTriggerConfig, any, capabilities.CapabilityResponse]
 	capabilities.CapabilityInfo
 	chans map[workflowID]chan<- capabilities.CapabilityResponse
 	mu    sync.Mutex
@@ -27,12 +30,21 @@ type OnDemand struct {
 
 var _ capabilities.TriggerCapability = (*OnDemand)(nil)
 
+// Somewhat useless usage of validator, since
+// the types we're validating against are essentially `any`.
+//
+// Leaving it in for completeness sake.
+//
+// Consider looking at MercuryTrigger for a more complete example.
+var onDemandValidator = capabilities.NewValidator[onDemandTriggerConfig, any, capabilities.CapabilityResponse](capabilities.ValidatorArgs{Info: info})
+
 // NewOnDemand creates a new on-demand trigger. The sendChannelBufferSize should be sized to ensure each client has sufficient
 // time to process events, once this buffer is full new events for the client will be dropped.
 func NewOnDemand(log logger.Logger) *OnDemand {
 	return &OnDemand{
 		log:            log,
 		CapabilityInfo: info,
+		Validator:      onDemandValidator,
 		chans:          map[workflowID]chan<- capabilities.CapabilityResponse{},
 	}
 }
