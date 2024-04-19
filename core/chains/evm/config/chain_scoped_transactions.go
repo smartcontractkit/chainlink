@@ -35,8 +35,8 @@ func (t *transactionsConfig) MaxQueued() uint64 {
 	return uint64(*t.c.MaxQueued)
 }
 
-func (g *transactionsConfig) AutoPurgeConfig() AutoPurgeConfig {
-	return &autoPurgeConfig{c: g.c.AutoPurgeConfig}
+func (t *transactionsConfig) AutoPurgeConfig() AutoPurgeConfig {
+	return &autoPurgeConfig{c: t.c.AutoPurgeConfig}
 }
 
 type autoPurgeConfig struct {

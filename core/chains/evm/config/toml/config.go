@@ -444,39 +444,39 @@ type AutoPurgeConfig struct {
 	AutoPurgeDetectionApiUrl *url.URL
 }
 
-func (n *AutoPurgeConfig) ValidateConfig() (err error) {
-	if n.AutoPurgeStuckTxs == nil || !*n.AutoPurgeStuckTxs {
+func (a *AutoPurgeConfig) ValidateConfig() (err error) {
+	if a.AutoPurgeStuckTxs == nil || !*a.AutoPurgeStuckTxs {
 		return nil
 	}
-	if n.AutoPurgeDetectionApiUrl != nil && n.AutoPurgeDetectionApiUrl.String() != "" {
-		switch n.AutoPurgeDetectionApiUrl.Scheme {
+	if a.AutoPurgeDetectionApiUrl != nil && a.AutoPurgeDetectionApiUrl.String() != "" {
+		switch a.AutoPurgeDetectionApiUrl.Scheme {
 		case "http", "https":
 			return nil
 		default:
-			return commonconfig.ErrInvalid{Name: "AutoPurgeDetectionApiUrl", Value: n.AutoPurgeDetectionApiUrl.Scheme, Msg: "must be http or https"}
+			return commonconfig.ErrInvalid{Name: "AutoPurgeDetectionApiUrl", Value: a.AutoPurgeDetectionApiUrl.Scheme, Msg: "must be http or https"}
 		}
 	}
-	if *n.AutoPurgeThreshold == 0 {
-		return commonconfig.ErrInvalid{Name: "AutoPurgeThreshold", Value: *n.AutoPurgeThreshold, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"}
+	if *a.AutoPurgeThreshold == 0 {
+		return commonconfig.ErrInvalid{Name: "AutoPurgeThreshold", Value: *a.AutoPurgeThreshold, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"}
 	}
-	if *n.AutoPurgeMinAttempts == 0 {
-		return commonconfig.ErrInvalid{Name: "AutoPurgeMinAttempts", Value: *n.AutoPurgeMinAttempts, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"}
+	if *a.AutoPurgeMinAttempts == 0 {
+		return commonconfig.ErrInvalid{Name: "AutoPurgeMinAttempts", Value: *a.AutoPurgeMinAttempts, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"}
 	}
 	return nil
 }
 
-func (t *AutoPurgeConfig) setFrom(f *AutoPurgeConfig) {
+func (a *AutoPurgeConfig) setFrom(f *AutoPurgeConfig) {
 	if v := f.AutoPurgeStuckTxs; v != nil {
-		t.AutoPurgeStuckTxs = v
+		a.AutoPurgeStuckTxs = v
 	}
 	if v := f.AutoPurgeThreshold; v != nil {
-		t.AutoPurgeThreshold = v
+		a.AutoPurgeThreshold = v
 	}
 	if v := f.AutoPurgeMinAttempts; v != nil {
-		t.AutoPurgeMinAttempts = v
+		a.AutoPurgeMinAttempts = v
 	}
 	if v := f.AutoPurgeDetectionApiUrl; v != nil {
-		t.AutoPurgeDetectionApiUrl = v
+		a.AutoPurgeDetectionApiUrl = v
 	}
 }
 

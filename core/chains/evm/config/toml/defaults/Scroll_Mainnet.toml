@@ -23,4 +23,4 @@ HistoryDepth = 50
 
 [Transactions.AutoPurge]
 AutoPurgeStuckTxs = true
-AutoPurgeDetectionApiUrl = https://venus.scroll.io
+AutoPurgeDetectionApiUrl = 'https://venus.scroll.io'
