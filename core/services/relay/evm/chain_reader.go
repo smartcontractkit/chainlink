@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -301,13 +302,13 @@ func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.
 func (e *eventBinding) remapFilter(filter query.KeyFilter) (remappedFilter query.KeyFilter, err error) {
 	addEventSigFilter := false
 	for _, expression := range filter.Expressions {
-		remappedExpression, hasComparerPrimitive, err := e.remapExpression(filter.Key, expression)
+		remappedExpression, hasComparatorPrimitive, err := e.remapExpression(filter.Key, expression)
 		if err != nil {
 			return query.KeyFilter{}, err
 		}
 		remappedFilter.Expressions = append(remappedFilter.Expressions, remappedExpression)
-		// comparer primitive maps to event by topic or event by evm data word filters, which means that event sig filter is not needed
-		addEventSigFilter = addEventSigFilter != hasComparerPrimitive
+		// comparator primitive maps to event by topic or event by evm data word filters, which means that event sig filter is not needed
+		addEventSigFilter = addEventSigFilter != hasComparatorPrimitive
 	}
 
 	if addEventSigFilter {
@@ -334,14 +335,14 @@ func (e *eventBinding) remapExpression(key string, expression query.Expression) 
 
 	// remap chain agnostic primitives to chain specific
 	switch primitive := expression.Primitive.(type) {
-	case *query.ConfirmationsPrimitive:
+	case *primitives.Confirmations:
 		remappedExpression, err = NewFinalityFilter(primitive)
 		return remappedExpression, hasComparerPrimitive, err
-	case *query.ComparerPrimitive:
+	case *primitives.Comparator:
 		if val, ok := e.eventDataWords[primitive.Name]; ok {
-			return NewEventByWordFilter(e.hash, val, primitive.ValueComparers), true, nil
+			return NewEventByWordFilter(e.hash, val, primitive.ValueComparators), true, nil
 		}
-		return NewEventByTopicFilter(e.hash, e.topicsInfo[key].topicIndex, primitive.ValueComparers), true, nil
+		return NewEventByTopicFilter(e.hash, e.topicsInfo[key].topicIndex, primitive.ValueComparators), true, nil
 	default:
 		return expression, hasComparerPrimitive, nil
 	}

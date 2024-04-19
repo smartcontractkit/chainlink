@@ -3,29 +3,29 @@ package evm
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 )
 
-// PgDSLParser is a visitor that builds a postgres query and arguments from a commontypes.QueryFilter
+// PgDSLParser is a visitor that builds a postgres query and arguments from a query.KeyFilter
 type PgDSLParser struct {
 	//TODO implement psql parser
 }
 
-var _ query.Visitor = (*PgDSLParser)(nil)
+var _ primitives.Visitor = (*PgDSLParser)(nil)
 
 func NewPgParser(evmChainID *big.Int) *PgDSLParser {
 	return &PgDSLParser{}
 }
 
-func (v *PgDSLParser) ComparerPrimitive(_ query.ComparerPrimitive) {}
+func (v *PgDSLParser) Comparator(_ primitives.Comparator) {}
 
-func (v *PgDSLParser) BlockPrimitive(_ query.BlockPrimitive) {}
+func (v *PgDSLParser) Block(_ primitives.Block) {}
 
-func (v *PgDSLParser) ConfirmationPrimitive(_ query.ConfirmationsPrimitive) {}
+func (v *PgDSLParser) Confirmations(_ primitives.Confirmations) {}
 
-func (v *PgDSLParser) TimestampPrimitive(_ query.TimestampPrimitive) {}
+func (v *PgDSLParser) Timestamp(_ primitives.Timestamp) {}
 
-func (v *PgDSLParser) TxHashPrimitives(_ query.TxHashPrimitive) {}
+func (v *PgDSLParser) TxHash(_ primitives.TxHash) {}
 
 func (v *PgDSLParser) VisitEventTopicsByValueFilter(_ *EventByTopicFilter) {}
 
