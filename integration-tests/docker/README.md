@@ -41,6 +41,8 @@ To acquire test coverage data for end-to-end (E2E) tests on the Chainlink Node, 
     show_html_coverage_report=true
     ```
 
-After the tests are complete, the coverage report will be generated in HTML format. 
-
+After the tests are complete, the coverage report will be generated in HTML format. Example: `~/Downloads/go-coverage/TestOCRv2Basic_plugins-chain-reader/coverage.html`
+```
+    log.go:43: 16:29:46.73 INF Chainlink node coverage html report saved filePath=~/Downloads/go-coverage/TestOCRv2Basic_plugins-chain-reader/coverage.html
+```
 
