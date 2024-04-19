@@ -6,7 +6,7 @@ go 1.21.7
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
 require (
-	github.com/docker/docker v24.0.7+incompatible
+	github.com/docker/docker v24.0.9+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/google/go-cmp v0.6.0
