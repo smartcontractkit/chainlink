@@ -393,7 +393,7 @@ jobs:
           QA_KUBECONFIG: ""
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: .covdata
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
@@ -495,7 +495,7 @@ jobs:
           QA_KUBECONFIG: ""
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: .covdata
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
@@ -706,7 +706,7 @@ jobs:
           QA_KUBECONFIG: ""
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: .covdata
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
@@ -917,7 +917,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: .covdata
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
         with:
@@ -1226,7 +1226,7 @@ jobs:
           QA_KUBECONFIG: ""
           run_setup: false
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: .covdata          
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata          
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v3
