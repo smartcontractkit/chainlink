@@ -85,6 +85,11 @@ func TestDoc(t *testing.T) {
 		docDefaults.ChainWriter.FromAddress = nil
 		docDefaults.ChainWriter.ForwarderAddress = nil
 
+		// Transactions.AutoPurge configs are only set if the feature is enabled
+		docDefaults.Transactions.AutoPurge.AutoPurgeDetectionApiUrl = nil
+		docDefaults.Transactions.AutoPurge.AutoPurgeThreshold = nil
+		docDefaults.Transactions.AutoPurge.AutoPurgeMinAttempts = nil
+
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})
 
