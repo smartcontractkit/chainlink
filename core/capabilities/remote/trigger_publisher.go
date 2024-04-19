@@ -41,7 +41,7 @@ type registrationKey struct {
 }
 
 type pubRegState struct {
-	callback chan<- commoncap.CapabilityResponse
+	callback <-chan commoncap.CapabilityResponse
 	request  commoncap.CapabilityRequest
 }
 
@@ -112,9 +112,8 @@ func (p *triggerPublisher) Receive(msg *types.MessageBody) {
 			p.lggr.Errorw("failed to unmarshal request", "capabilityId", p.capInfo.ID, "err", err)
 			return
 		}
-		callbackCh := make(chan commoncap.CapabilityResponse)
 		ctx, cancel := p.stopCh.NewCtx()
-		err = p.underlying.RegisterTrigger(ctx, callbackCh, unmarshaled)
+		callbackCh, err := p.underlying.RegisterTrigger(ctx, unmarshaled)
 		cancel()
 		if err == nil {
 			p.registrations[key] = &pubRegState{
@@ -153,7 +152,6 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 					cancel()
 					p.lggr.Infow("unregistered trigger", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonId, "workflowId", key.workflowId, "err", err)
 					// after calling UnregisterTrigger, the underlying trigger will not send any more events to the channel
-					close(req.callback)
 					delete(p.registrations, key)
 					p.messageCache.Delete(key)
 				}
@@ -163,7 +161,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 	}
 }
 
-func (p *triggerPublisher) triggerEventLoop(callbackCh chan commoncap.CapabilityResponse, key registrationKey) {
+func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.CapabilityResponse, key registrationKey) {
 	defer p.wg.Done()
 	for {
 		select {
