@@ -1595,8 +1595,8 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) logDetails() {
 	defer o.metricsReporter.ReportMutex.Unlock()
 }
 
-// KeeperConsumerBenchmarkRoundConfirmer is a header subscription that awaits for a round of upkeeps
-type KeeperConsumerBenchmarkRoundConfirmer struct {
+// LegacyKeeperConsumerBenchmarkRoundConfirmer is a header subscription that awaits for a round of upkeeps
+type LegacyKeeperConsumerBenchmarkRoundConfirmer struct {
 	instance AutomationConsumerBenchmark
 	registry KeeperRegistry
 	upkeepID *big.Int
@@ -1623,9 +1623,9 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 	l                       zerolog.Logger
 }
 
-// NewKeeperConsumerBenchmarkRoundConfirmer provides a new instance of a KeeperConsumerBenchmarkRoundConfirmer
+// NewLegacyKeeperConsumerBenchmarkRoundConfirmer provides a new instance of a LegacyKeeperConsumerBenchmarkRoundConfirmer
 // Used to track and log benchmark test results for keepers
-func NewKeeperConsumerBenchmarkRoundConfirmer(
+func NewLegacyKeeperConsumerBenchmarkRoundConfirmer(
 	contract AutomationConsumerBenchmark,
 	registry KeeperRegistry,
 	upkeepID *big.Int,
@@ -1635,9 +1635,9 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	upkeepIndex int64,
 	firstEligibleBuffer int64,
 	logger zerolog.Logger,
-) *KeeperConsumerBenchmarkRoundConfirmer {
+) *LegacyKeeperConsumerBenchmarkRoundConfirmer {
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	return &KeeperConsumerBenchmarkRoundConfirmer{
+	return &LegacyKeeperConsumerBenchmarkRoundConfirmer{
 		instance:                contract,
 		registry:                registry,
 		upkeepID:                upkeepID,
@@ -1661,7 +1661,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 }
 
 // ReceiveHeader will query the latest Keeper round and check to see whether the round has confirmed
-func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blockchain.NodeHeader) error {
+func (o *LegacyKeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blockchain.NodeHeader) error {
 	if receivedHeader.Number.Uint64() <= o.lastBlockNum { // Uncle / reorg we won't count
 		return nil
 	}
@@ -1765,7 +1765,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 }
 
 // Wait is a blocking function that will wait until the round has confirmed, and timeout if the deadline has passed
-func (o *KeeperConsumerBenchmarkRoundConfirmer) Wait() error {
+func (o *LegacyKeeperConsumerBenchmarkRoundConfirmer) Wait() error {
 	defer func() { o.complete = true }()
 	for {
 		select {
@@ -1779,11 +1779,11 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) Wait() error {
 	}
 }
 
-func (o *KeeperConsumerBenchmarkRoundConfirmer) Complete() bool {
+func (o *LegacyKeeperConsumerBenchmarkRoundConfirmer) Complete() bool {
 	return o.complete
 }
 
-func (o *KeeperConsumerBenchmarkRoundConfirmer) logDetails() {
+func (o *LegacyKeeperConsumerBenchmarkRoundConfirmer) logDetails() {
 	report := testreporters.KeeperBenchmarkTestReport{
 		ContractAddress:       o.instance.Address(),
 		TotalEligibleCount:    o.countEligible,

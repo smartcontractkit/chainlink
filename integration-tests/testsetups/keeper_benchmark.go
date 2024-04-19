@@ -2,12 +2,12 @@ package testsetups
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
@@ -225,7 +225,6 @@ func (k *KeeperBenchmarkTest) Run() {
 	nodesWithoutBootstrap := k.chainlinkNodes[1:]
 
 	for rIndex := range k.keeperRegistries {
-
 		var txKeyId = rIndex
 		if inputs.ForceSingleTxnKey {
 			txKeyId = 0
@@ -253,217 +252,100 @@ func (k *KeeperBenchmarkTest) Run() {
 		}
 	}
 
-	type roundsObservationData struct {
-		instance                contracts.AutomationConsumerBenchmark
-		registry                contracts.KeeperRegistry
-		metricsReporter         *testreporters.KeeperBenchmarkTestReporter
-		upkeepID                *big.Int
-		upkeepIndex             int64
-		upkeepCount             int
-		upkeepSLA               int64
-		countMissed             uint64
-		firstBlockNum           uint64
-		lastBlockNumber         uint64
-		countEligible           uint64
-		allCheckDelays          []int64
-		blocksSinceEligible     int64
-		blocksSinceSubscription uint64
-		firstEligibleBuffer     int64
-		blockRange              int64
-	}
-
-	// observeRunds queries the upkpeep contract for the upkeep count and checks if the upkeep is eligible
-	var observeRunds = func(r *roundsObservationData) (bool, error) {
-		lastBlock, err := k.chainClient.Client.BlockNumber(context.Background())
-		if err != nil {
-			return false, err
-		}
-
-		if r.firstBlockNum == 0 {
-			r.firstBlockNum = lastBlock
-		}
-
-		blockDiff := lastBlock - r.lastBlockNumber
-
-		if blockDiff <= 0 { // Uncle / reorg we won't count / no new block since last check
-			k.log.Debug().Int64("Upkeep index", r.upkeepIndex).Msg("No new block found")
-			return false, nil
-		}
-
-		r.blocksSinceSubscription = lastBlock - r.firstBlockNum
-		r.lastBlockNumber = lastBlock
-
-		upkeepCount, err := r.instance.GetUpkeepCount(context.Background(), big.NewInt(r.upkeepIndex))
-		if err != nil {
-			return false, err
-		}
-
-		if upkeepCount == nil {
-			return false, fmt.Errorf("upkeep count returned by upkeepID %s was nil", r.upkeepID.String())
-		}
-
-		if int(upkeepCount.Int64()) > r.upkeepCount {
-			if (int(upkeepCount.Int64()) - r.upkeepCount) > int(blockDiff) {
-				return false, errors.New("upkeep count increased by more than 1 in a single block")
-			}
-
-			k.log.Info().
-				Uint64("Block_Number", lastBlock).
-				Str("Upkeep_ID", r.upkeepID.String()).
-				Str("Contract_Address", r.instance.Address()).
-				Int64("Upkeep_Count", upkeepCount.Int64()).
-				Int64("Blocks_since_eligible", r.blocksSinceEligible).
-				Str("Registry_Address", r.registry.Address()).
-				Msg("Upkeep Performed")
-
-			if r.blocksSinceEligible > r.upkeepSLA {
-				k.log.Warn().
-					Uint64("Block_Number", lastBlock).
-					Str("Upkeep_ID", r.upkeepID.String()).
-					Str("Contract_Address", r.instance.Address()).
-					Int64("Blocks_since_eligible", r.blocksSinceEligible).
-					Str("Registry_Address", r.registry.Address()).
-					Msg("Upkeep Missed SLA")
-				r.countMissed = blockDiff
-			}
-
-			r.allCheckDelays = append(r.allCheckDelays, r.blocksSinceEligible)
-			r.upkeepCount = int(upkeepCount.Int64())
-			r.blocksSinceEligible = 0
-		}
-
-		isEligible, err := r.instance.CheckEligible(context.Background(), big.NewInt(r.upkeepIndex), big.NewInt(r.blockRange), big.NewInt(r.firstEligibleBuffer))
-		if err != nil {
-			return false, pkgerrors.Wrapf(err, "failed to check upkeep eligibility for upkeepID %s", r.upkeepID.String())
-		}
-
-		if isEligible {
-			if r.blocksSinceEligible == 0 {
-				// First time this upkeep became eligible
-				r.countEligible = blockDiff
-				k.log.Info().
-					Uint64("Block_Number", lastBlock).
-					Str("Upkeep_ID", r.upkeepID.String()).
-					Str("Contract_Address", r.instance.Address()).
-					Str("Registry_Address", r.registry.Address()).
-					Msg("Upkeep Now Eligible")
-			}
-			r.blocksSinceEligible = int64(blockDiff)
-		}
-
-		k.log.Info().
-			Str("Upkeep_ID", r.upkeepID.String()).
-			Int64("Block range", r.blockRange).
-			Uint64("blocksSinceSubscription", r.blocksSinceSubscription).
-			Int64("Blocks left", r.blockRange-int64(r.blocksSinceSubscription)).
-			Int64("Block difference (first-current)", int64(r.lastBlockNumber-r.firstBlockNum)).
-			Msg("Checking upkeep")
-
-		if (int64(r.blocksSinceSubscription) >= r.blockRange) || (int64(r.lastBlockNumber-r.firstBlockNum) >= r.blockRange) {
-			if r.blocksSinceEligible > 0 {
-				if r.blocksSinceEligible > r.upkeepSLA {
-					k.log.Warn().
-						Uint64("Block_Number", lastBlock).
-						Str("Upkeep_ID", r.upkeepID.String()).
-						Str("Contract_Address", r.instance.Address()).
-						Int64("Blocks_since_eligible", r.blocksSinceEligible).
-						Str("Registry_Address", r.registry.Address()).
-						Msg("Upkeep remained eligible at end of test and missed SLA")
-					r.countMissed = blockDiff
-				} else {
-					k.log.Info().
-						Uint64("Block_Number", lastBlock).
-						Str("Upkeep_ID", r.upkeepID.String()).
-						Str("Contract_Address", r.instance.Address()).
-						Int64("Upkeep_Count", upkeepCount.Int64()).
-						Int64("Blocks_since_eligible", r.blocksSinceEligible).
-						Str("Registry_Address", r.registry.Address()).
-						Msg("Upkeep remained eligible at end of test and was within SLA")
-				}
-				r.allCheckDelays = append(r.allCheckDelays, r.blocksSinceEligible)
-			}
-
-			k.log.Info().
-				Uint64("Block_Number", lastBlock).
-				Str("Upkeep_ID", r.upkeepID.String()).
-				Str("Contract_Address", r.instance.Address()).
-				Int64("Upkeeps_Performed", upkeepCount.Int64()).
-				Uint64("Total_Blocks_Watched", r.blocksSinceSubscription).
-				Str("Registry_Address", r.registry.Address()).
-				Msg("Finished Watching for Upkeeps")
-
-			report := testreporters.KeeperBenchmarkTestReport{
-				ContractAddress:       r.instance.Address(),
-				TotalEligibleCount:    int64(r.countEligible),
-				TotalSLAMissedUpkeeps: int64(r.countMissed),
-				TotalPerformedUpkeeps: int64(r.upkeepCount),
-				AllCheckDelays:        r.allCheckDelays,
-				RegistryAddress:       r.registry.Address(),
-			}
-			r.metricsReporter.ReportMutex.Lock()
-			defer r.metricsReporter.ReportMutex.Unlock()
-			r.metricsReporter.Reports = append(r.metricsReporter.Reports, report)
-
-			return true, nil
-		}
-
-		return false, nil
-	}
-
-	errgroup, errCtx := errgroup.WithContext(context.Background())
-
 	effectiveBlockRange := inputs.Upkeeps.BlockRange + inputs.UpkeepSLA
 	k.log.Info().Msgf("Waiting for %d blocks for all upkeeps to be performed", inputs.Upkeeps.BlockRange+inputs.UpkeepSLA)
-	timeout := effectiveBlockRange * u.BlockInterval * int64(time.Second)
+	timeout := effectiveBlockRange * 3 * int64(time.Second)
 	timeout = int64(float64(timeout) * 1.1)
 	timeoutDuration := time.Duration(timeout)
 
-	// for each upkeep launch a gouroitine that will observe it every 1 second
-	// once first error is encountered all other goroutines are cancelled
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(timeoutDuration))
+	defer cancel()
+	errgroup, errCtx := errgroup.WithContext(ctx)
+
+	var startedObservations = atomic.Int32{}
+	var finishedObservations = atomic.Int32{}
+
 	for rIndex := range k.keeperRegistries {
+		// headerCh := make(chan *types.Header, len(k.upkeepIDs[rIndex]))
 		for index, upkeepID := range k.upkeepIDs[rIndex] {
+			upkeepIDCopy := upkeepID
 			registryIndex := rIndex
 			upkeepIndex := int64(index)
-			upkeepIDtoUse := upkeepID
-
 			errgroup.Go(func() error {
-				roundObserver := roundsObservationData{
-					instance:            k.keeperConsumerContracts[registryIndex],
-					registry:            k.keeperRegistries[registryIndex],
-					upkeepID:            upkeepIDtoUse,
-					blockRange:          inputs.Upkeeps.BlockRange + inputs.UpkeepSLA,
-					upkeepSLA:           inputs.UpkeepSLA,
-					upkeepIndex:         upkeepIndex,
-					firstEligibleBuffer: inputs.Upkeeps.FirstEligibleBuffer,
-					metricsReporter:     &k.TestReporter,
+				startedObservations.Add(1)
+				k.log.Info().Str("UpkeepID", upkeepIDCopy.String()).Msg("Starting upkeep observation")
+
+				// doneCh := make(chan struct{})
+				confirmer := contracts.NewKeeperConsumerBenchmarkkUpkeepObserver(
+					k.keeperConsumerContracts[registryIndex],
+					k.keeperRegistries[registryIndex],
+					upkeepIDCopy,
+					inputs.Upkeeps.BlockRange+inputs.UpkeepSLA,
+					inputs.UpkeepSLA,
+					&k.TestReporter,
+					upkeepIndex,
+					inputs.Upkeeps.FirstEligibleBuffer,
+					k.log,
+					// doneCh,
+				)
+
+				k.log.Debug().Str("UpkeepID", upkeepIDCopy.String()).Msg("Subscribing to new headers for upkeep observation")
+				headerCh := make(chan *types.Header)
+				sub, err := k.chainClient.Client.SubscribeNewHead(context.Background(), headerCh)
+				if err != nil {
+					return err
 				}
 
-				testContext, testCancel := context.WithTimeout(context.Background(), timeoutDuration)
-				defer testCancel()
-
-				ticker := time.NewTicker(time.Second * 1)
 				for {
 					select {
-					case <-testContext.Done():
-						ticker.Stop()
-						return fmt.Errorf("failed to observe desired block range for upkeep %s before timeout", upkeepIDtoUse.String())
-					case <-ticker.C:
-						done, err := observeRunds(&roundObserver)
-						if err != nil {
-							return err
-						}
-						if done {
-							return nil
-						}
-					case <-errCtx.Done():
-						// cancel because of other goroutines errored
+					case subscriptionErr := <-sub.Err(): // header listening failed for the upkeep, exit
+						return errors.Wrapf(subscriptionErr, "listening for new headers for upkeep %s failed. Exiting", upkeepIDCopy.String())
+					case <-errCtx.Done(): //one of goroutines errored, shut down gracefully
+						k.log.Error().Err(errCtx.Err()).Str("UpkeepID", upkeepIDCopy.String()).Msg("Stopping obervations due to error in one of the goroutines")
+						sub.Unsubscribe()
 						return nil
-					}
+					case <-ctx.Done(): // timeout, abandon ship!
+						k.log.Error().Str("UpkeepID", upkeepIDCopy.String()).Msg("Stopping obervations due to timeout")
+						sub.Unsubscribe()
+						return fmt.Errorf("failed to observe desired block range for upkeep %s before timeout", upkeepIDCopy.String())
+					case header := <-headerCh: // new block, check if upkeep was performed
+						finished, headerErr := confirmer.ReceiveHeader(header)
+						if headerErr != nil {
+							return headerErr
+						}
+						if finished { // observations should be completed as we are beyond block range
+							finishedObservations.Add(1)
+							k.log.Info().Str("Done/Total", fmt.Sprintf("%d/%d", finishedObservations.Load(), startedObservations.Load())).Str("UpkeepID", upkeepIDCopy.String()).Msg("Upkeep observation completed")
 
+							sub.Unsubscribe()
+							if confirmer.Complete() {
+								confirmer.LogDetails()
+								return nil
+							}
+							return fmt.Errorf("confimer has finished, but without completing observation, this should never happen. UpkdeepID: %s", upkeepIDCopy.String())
+						}
+					}
 				}
 			})
 		}
 	}
+
+	// Progress log for visibility
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				k.log.Warn().Str("Done/Total", fmt.Sprintf("%d/%d", finishedObservations.Load(), startedObservations.Load())).Msg("Upkeep observation progress")
+				if finishedObservations.Load() == startedObservations.Load() {
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	if err := errgroup.Wait(); err != nil {
 		k.t.Fatalf("errored when waiting for upkeeps: %v", err)
