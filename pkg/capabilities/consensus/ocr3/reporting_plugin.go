@@ -19,7 +19,7 @@ import (
 var _ ocr3types.ReportingPlugin[[]byte] = (*reportingPlugin)(nil)
 
 type capabilityIface interface {
-	transmitResponse(ctx context.Context, resp *response) error
+	transmitResponse(ctx context.Context, resp *outputs) error
 	getAggregator(workflowID string) (pbtypes.Aggregator, error)
 	getEncoder(workflowID string) (pbtypes.Encoder, error)
 }
@@ -289,7 +289,7 @@ func (r *reportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr 
 	}
 
 	r.lggr.Debugw("ShouldAcceptAttestedReport transmitting", "shouldReport", info.ShouldReport, "len", len(rwi.Report))
-	err = r.r.transmitResponse(ctx, &response{
+	err = r.r.transmitResponse(ctx, &outputs{
 		CapabilityResponse: capabilities.CapabilityResponse{
 			Value: v,
 		},

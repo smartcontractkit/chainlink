@@ -126,12 +126,12 @@ func TestReportingPlugin_Observation_NoResults(t *testing.T) {
 }
 
 type mockCapability struct {
-	gotResponse *response
+	gotResponse *outputs
 	aggregator  *aggregator
 	encoder     *enc
 }
 
-func (mc *mockCapability) transmitResponse(ctx context.Context, resp *response) error {
+func (mc *mockCapability) transmitResponse(ctx context.Context, resp *outputs) error {
 	mc.gotResponse = resp
 	return nil
 }

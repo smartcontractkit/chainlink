@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/mitchellh/mapstructure"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
@@ -15,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 const (
@@ -32,6 +30,8 @@ var info = capabilities.MustNewCapabilityInfo(
 type capability struct {
 	services.StateMachine
 	capabilities.CapabilityInfo
+	capabilities.Validator[config, inputs, outputs]
+
 	store  *store
 	stopCh services.StopChan
 	wg     sync.WaitGroup
@@ -45,15 +45,18 @@ type capability struct {
 	encoderFactory EncoderFactory
 	encoders       map[string]types.Encoder
 
-	transmitCh chan *response
+	transmitCh chan *outputs
 	newTimerCh chan *request
 }
 
 var _ capabilityIface = (*capability)(nil)
+var _ capabilities.ConsensusCapability = (*capability)(nil)
+var ocr3CapabilityValidator = capabilities.NewValidator[config, inputs, outputs](capabilities.ValidatorArgs{Info: info})
 
 func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration, encoderFactory EncoderFactory, lggr logger.Logger) *capability {
 	o := &capability{
 		CapabilityInfo: info,
+		Validator:      ocr3CapabilityValidator,
 		store:          s,
 		clock:          clock,
 		requestTimeout: requestTimeout,
@@ -63,7 +66,7 @@ func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration
 		aggregators:    map[string]types.Aggregator{},
 		encoders:       map[string]types.Encoder{},
 
-		transmitCh: make(chan *response),
+		transmitCh: make(chan *outputs),
 		newTimerCh: make(chan *request),
 	}
 	return o
@@ -91,23 +94,8 @@ func (o *capability) HealthReport() map[string]error {
 	return map[string]error{o.Name(): o.Healthy()}
 }
 
-type workflowConfig struct {
-	AggregationMethod string      `mapstructure:"aggregation_method"`
-	AggregationConfig *values.Map `mapstructure:"aggregation_config"`
-	Encoder           string      `mapstructure:"encoder"`
-	EncoderConfig     *values.Map `mapstructure:"encoder_config"`
-}
-
-func newWorkflowConfig() *workflowConfig {
-	return &workflowConfig{
-		EncoderConfig:     values.EmptyMap(),
-		AggregationConfig: values.EmptyMap(),
-	}
-}
-
 func (o *capability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
-	c := newWorkflowConfig()
-	err := request.Config.UnwrapTo(c)
+	c, err := o.ValidateConfig(request.Config)
 	if err != nil {
 		return err
 	}
@@ -158,17 +146,41 @@ func (o *capability) UnregisterFromWorkflow(ctx context.Context, request capabil
 	return nil
 }
 
-func (o *capability) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, request capabilities.CapabilityRequest) error {
+func (o *capability) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, r capabilities.CapabilityRequest) error {
 	// Receives and stores an observation to do consensus on
 	// Receives an aggregation method; at this point the method has been validated
 	// Returns the consensus result over a channel
-	r, err := o.unmarshalRequest(ctx, request, callback)
+	inputs, err := o.ValidateInputs(r.Inputs)
 	if err != nil {
 		return err
 	}
+
+	return o.queueRequestForProcessing(ctx, r.Metadata, inputs, callback)
+}
+
+// queueRequestForProcessing queues a request for processing by the worker
+// goroutine by adding the request to its store.
+//
+// When a request is queued, a timer is started to ensure that the request does not exceed its expiry time.
+func (o *capability) queueRequestForProcessing(
+	ctx context.Context,
+	metadata capabilities.RequestMetadata,
+	i *inputs,
+	callback chan<- capabilities.CapabilityResponse,
+) error {
+	r := &request{
+		// TODO: set correct context
+		RequestCtx:          context.Background(),
+		CallbackCh:          callback,
+		WorkflowExecutionID: metadata.WorkflowExecutionID,
+		WorkflowID:          metadata.WorkflowID,
+		Observations:        i.Observations,
+		ExpiresAt:           o.clock.Now().Add(o.requestTimeout),
+	}
+
 	o.lggr.Debugw("Execute - adding to store", "workflowID", r.WorkflowID, "workflowExecutionID", r.WorkflowExecutionID, "observations", r.Observations)
 
-	err = o.store.add(ctx, r)
+	err := o.store.add(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -195,16 +207,16 @@ func (o *capability) worker() {
 	}
 }
 
-func (o *capability) handleTransmitMsg(ctx context.Context, resp *response) {
+func (o *capability) handleTransmitMsg(ctx context.Context, resp *outputs) {
 	req, wasPresent := o.store.evict(ctx, resp.WorkflowExecutionID)
 	if !wasPresent {
 		return
 	}
 
 	select {
+	// This should only happen if the client has closed the upstream context.
+	// In this case, the request is cancelled and we shouldn't transmit.
 	case <-req.RequestCtx.Done():
-		// This should only happen if the client has closed the upstream context.
-		// In this case, the request is cancelled and we shouldn't transmit.
 	case req.CallbackCh <- resp.CapabilityResponse:
 		close(req.CallbackCh)
 	}
@@ -221,7 +233,7 @@ func (o *capability) expiryTimer(ctx context.Context, r *request) {
 	case <-ctx.Done():
 		return
 	case <-tr.Chan():
-		resp := &response{
+		resp := &outputs{
 			WorkflowExecutionID: r.WorkflowExecutionID,
 			CapabilityResponse: capabilities.CapabilityResponse{
 				Err:   fmt.Errorf("timeout exceeded: could not process request before expiry %s", r.WorkflowExecutionID),
@@ -233,45 +245,7 @@ func (o *capability) expiryTimer(ctx context.Context, r *request) {
 	}
 }
 
-func (o *capability) transmitResponse(ctx context.Context, resp *response) error {
+func (o *capability) transmitResponse(ctx context.Context, resp *outputs) error {
 	o.transmitCh <- resp
 	return nil
-}
-
-func (o *capability) unmarshalRequest(ctx context.Context, r capabilities.CapabilityRequest, callback chan<- capabilities.CapabilityResponse) (*request, error) {
-	valuesMap, err := r.Inputs.Unwrap()
-	if err != nil {
-		return nil, err
-	}
-
-	obsList, ok := r.Inputs.Underlying["observations"].(*values.List)
-	if !ok {
-		return nil, fmt.Errorf("observations must be a list")
-	}
-
-	expiresAt := o.clock.Now().Add(o.requestTimeout)
-	req := &request{
-		RequestCtx:          context.Background(), // TODO: set correct context
-		CallbackCh:          callback,
-		WorkflowExecutionID: r.Metadata.WorkflowExecutionID,
-		WorkflowID:          r.Metadata.WorkflowID,
-		Observations:        obsList,
-		ExpiresAt:           expiresAt,
-	}
-	err = mapstructure.Decode(valuesMap, req)
-	if err != nil {
-		return nil, err
-	}
-
-	configMap, err := r.Config.Unwrap()
-	if err != nil {
-		return nil, err
-	}
-
-	err = mapstructure.Decode(configMap, req)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, err
 }

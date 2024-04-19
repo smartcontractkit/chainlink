@@ -1,0 +1,21 @@
+config:
+  aggregation_method:  data_feeds_2_0
+  aggregation_config:
+    Underlying: {}
+      
+  encoder: ""
+  encoder_config:
+    Underlying: {}
+      
+inputs:
+  observations:
+    Underlying:
+      -
+
+outputs:
+  WorkflowExecutionID:  ""
+  Value:
+  Err:
+ 
+
+# yaml-language-server: $schema=./schema.json

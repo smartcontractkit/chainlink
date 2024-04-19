@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartcontractkit/chainlink/capabilities/offchain_reporting/root",
+  "properties": {
+    "config": {
+      "properties": {
+        "aggregation_method": {
+          "type": "string",
+          "enum": [
+            "data_feeds_2_0"
+          ]
+        },
+        "aggregation_config": {
+          "properties": {
+            "Underlying": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "Underlying"
+          ]
+        },
+        "encoder": {
+          "type": "string"
+        },
+        "encoder_config": {
+          "properties": {
+            "Underlying": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "Underlying"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "aggregation_method",
+        "aggregation_config",
+        "encoder",
+        "encoder_config"
+      ]
+    },
+    "inputs": {
+      "properties": {
+        "observations": {
+          "properties": {
+            "Underlying": {
+              "items": true,
+              "type": "array"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "Underlying"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "observations"
+      ]
+    },
+    "outputs": {
+      "properties": {
+        "WorkflowExecutionID": {
+          "type": "string"
+        },
+        "Value": true,
+        "Err": true
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "WorkflowExecutionID",
+        "Value",
+        "Err"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "config",
+    "inputs",
+    "outputs"
+  ],
+  "description": "OCR3 consensus exposed as a capability."
+}
