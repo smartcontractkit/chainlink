@@ -460,13 +460,10 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		}
 
 		for i := 0; i < len(tx.TxAttempts); i++ {
-			if len(tx.TxAttempts[i].Receipts) == 0 {
+			if len(tx.TxAttempts[i].Receipts) == 0 || !tx.PipelineTaskRunID.Valid || !tx.SignalCallback || tx.CallbackCompleted {
 				continue
 			}
 
-			if !tx.PipelineTaskRunID.Valid || !tx.SignalCallback || tx.CallbackCompleted {
-				continue
-			}
 			receipt := tx.TxAttempts[i].Receipts[0]
 			minConfirmations := int64(tx.MinConfirmations.Uint32)
 			if receipt.GetBlockNumber() != nil &&
@@ -1053,11 +1050,8 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadT
 		return nil
 	}
 
-	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return tx.ID == etx.ID
-	}
 	txAttempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	for _, tx := range as.findTxs(nil, filter, etx.ID) {
+	if tx := as.findTxByID(etx.ID); tx != nil {
 		for _, txAttempt := range tx.TxAttempts {
 			txAttempts = append(txAttempts, ms.deepCopyTxAttempt(*etx, txAttempt))
 		}

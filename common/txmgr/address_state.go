@@ -302,6 +302,15 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	return txAttempts
 }
 
+// findTxByID returns the transaction with the given ID.
+// If no transaction is found, nil is returned.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTxByID(txID int64) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+
+	return as.allTxs[txID]
+}
+
 // findTxs returns all transactions that match the given filters.
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions are considered.
