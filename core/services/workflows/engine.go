@@ -219,7 +219,12 @@ func (e *Engine) loop(ctx context.Context) {
 		case <-ctx.Done():
 			e.logger.Debugw("shutting down loop")
 			return
-		case resp := <-e.triggerEvents:
+		case resp, isOpen := <-e.triggerEvents:
+			if !isOpen {
+				e.logger.Errorf("trigger events channel is no longer open, skipping")
+				continue
+			}
+
 			if resp.Err != nil {
 				e.logger.Errorf("trigger event was an error; not executing", resp.Err)
 				continue
