@@ -419,28 +419,52 @@ func (lsn *listenerV2) handleRequested(requested []RandomWordsRequested, request
 func numReplayBlocks(requestTimeout time.Duration, chainID *big.Int) int64 {
 	var timeoutSeconds = int64(requestTimeout.Seconds())
 	switch chainID.String() {
-	case "1", "3", "4", "5", "11155111": // eth mainnet, robsten, rinkeby, goerli, sepolia
+	case
+		"1",        // eth mainnet
+		"3",        // eth robsten
+		"4",        // eth rinkeby
+		"5",        // eth goerli
+		"11155111": // eth sepolia
 		// block time is 12s
 		return timeoutSeconds / 12
-	case "137", "80001", "80002": // polygon mainnet, polygon mumbai, amoy
+	case
+		"137",   // polygon mainnet
+		"80001", // polygon mumbai
+		"80002": // polygon amoy
 		// block time is 2s
 		return timeoutSeconds / 2
-	case "56", "97": // bsc mainnet, testnet
+	case
+		"56", // bsc mainnet
+		"97": // bsc testnet
 		// block time is 2s
 		return timeoutSeconds / 2
-	case "43114", "43113": // avalanche mainnet, fuji
+	case
+		"43114", // avalanche mainnet
+		"43113": // avalanche fuji
 		// block time is 1s
 		return timeoutSeconds
-	case "250", "4002": // fantom mainnet, fantom testnet
+	case
+		"250",  // fantom mainnet
+		"4002": // fantom testnet
 		// block time is 1s
 		return timeoutSeconds
-	case "42161", "421613", "421614": // arbitrum mainnet, arbitrum goerli, arbitrum sepolia
+	case
+		"42161",  // arbitrum mainnet
+		"421613", // arbitrum goerli
+		"421614": // arbitrum sepolia
 		// block time is 0.25s in the worst case
 		return timeoutSeconds * 4
-	case "10", "69", "420", "11155420": // optimism mainnet, optimism kovan, optimism goerli, optimism sepolia
+	case
+		"10",       // optimism mainnet
+		"69",       // optimism kovan
+		"420",      // optimism goerli
+		"11155420": // optimism sepolia
 		// block time is 2s
 		return timeoutSeconds / 2
-	case "8453", "84531", "84532": // base mainnet, base goerli, base sepolia
+	case
+		"8453",  // base mainnet
+		"84531", // base goerli
+		"84532": // base sepolia
 		// block time is 2s
 		return timeoutSeconds / 2
 	default:
