@@ -2,6 +2,7 @@ package loadvrfv2
 
 import (
 	"math/big"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -119,7 +120,7 @@ func TestVRFV2Performance(t *testing.T) {
 	for _, subID := range subIDs {
 		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
 		require.NoError(t, err, "error getting subscription information for subscription %d", subID)
-		vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subID, 10), vrfContracts.CoordinatorV2)
 	}
 	subIDsForCancellingAfterTest = subIDs
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
@@ -267,7 +268,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		for _, subID := range underfundedSubIDs {
 			subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
 			require.NoError(t, err, "error getting subscription information for subscription %d", subID)
-			vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
+			vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subID, 10), vrfContracts.CoordinatorV2)
 		}
 		subIDsForCancellingAfterTest = underfundedSubIDs
 		l.Debug().Int("Number of Subs", len(underfundedSubIDs)).Msg("Subs involved in the test")
