@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var info = capabilities.MustNewCapabilityInfo(
@@ -18,6 +19,7 @@ var info = capabilities.MustNewCapabilityInfo(
 type workflowID string
 
 type OnDemand struct {
+	log logger.Logger
 	capabilities.CapabilityInfo
 	chans map[workflowID]chan<- capabilities.CapabilityResponse
 	mu    sync.Mutex
@@ -25,43 +27,56 @@ type OnDemand struct {
 
 var _ capabilities.TriggerCapability = (*OnDemand)(nil)
 
-func NewOnDemand() *OnDemand {
+// NewOnDemand creates a new on-demand trigger. The sendChannelBufferSize should be sized to ensure each client has sufficient
+// time to process events, once this buffer is full new events for the client will be dropped.
+func NewOnDemand(log logger.Logger) *OnDemand {
 	return &OnDemand{
+		log:            log,
 		CapabilityInfo: info,
 		chans:          map[workflowID]chan<- capabilities.CapabilityResponse{},
 	}
 }
 
-func (o *OnDemand) FanOutEvent(ctx context.Context, event capabilities.CapabilityResponse) error {
+func (o *OnDemand) FanOutEvent(ctx context.Context, response capabilities.CapabilityResponse) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	for _, ch := range o.chans {
-		ch <- event
+	for workFlowID, ch := range o.chans {
+		select {
+		case ch <- response:
+		default:
+			o.log.Warn("dropping event for workflowId %s due to slow consumer", workFlowID)
+		}
 	}
 	return nil
 }
 
-// Execute executes the on-demand trigger.
+// SendEvent sends an event to a specific workflowId. If the workflowId is not registered an error is returned.
 func (o *OnDemand) SendEvent(ctx context.Context, wid string, event capabilities.CapabilityResponse) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+
 	ch, ok := o.chans[workflowID(wid)]
 	if !ok {
 		return fmt.Errorf("no registration for %s", wid)
 	}
 
-	ch <- event
+	select {
+	case ch <- event:
+	default:
+		return fmt.Errorf("event for workflowId %s not sent as send buffer is full", wid)
+	}
+
 	return nil
 }
 
-func (o *OnDemand) RegisterTrigger(ctx context.Context, callback chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
+func (o *OnDemand) RegisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	wid := req.Metadata.WorkflowID
-
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	o.chans[workflowID(wid)] = callback
-	return nil
+	ch := make(chan capabilities.CapabilityResponse, defaultSendChannelBufferSize)
+	o.chans[workflowID(wid)] = ch
+	return ch, nil
 }
 
 func (o *OnDemand) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {

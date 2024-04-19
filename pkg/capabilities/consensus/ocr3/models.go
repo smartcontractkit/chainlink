@@ -30,7 +30,7 @@ type request struct {
 
 	// CallbackCh is a channel to send a response back to the requester
 	// after the request has been processed or timed out.
-	CallbackCh chan<- capabilities.CapabilityResponse
+	CallbackCh chan capabilities.CapabilityResponse
 	RequestCtx context.Context
 
 	WorkflowExecutionID string

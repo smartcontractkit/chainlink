@@ -103,7 +103,7 @@ type CallbackExecutable interface {
 	// Request specific configuration is passed in via the request parameter.
 	// A successful response must always return a value. An error is assumed otherwise.
 	// The intent is to make the API explicit.
-	Execute(ctx context.Context, callback chan<- CapabilityResponse, request CapabilityRequest) error
+	Execute(ctx context.Context, request CapabilityRequest) (<-chan CapabilityResponse, error)
 }
 
 type Validatable interface {
@@ -121,7 +121,7 @@ type BaseCapability interface {
 }
 
 type TriggerExecutable interface {
-	RegisterTrigger(ctx context.Context, callback chan<- CapabilityResponse, request CapabilityRequest) error
+	RegisterTrigger(ctx context.Context, request CapabilityRequest) (<-chan CapabilityResponse, error)
 	UnregisterTrigger(ctx context.Context, request CapabilityRequest) error
 }
 
@@ -224,22 +224,20 @@ func MustNewCapabilityInfo(
 // TODO: this timeout was largely picked arbitrarily.
 // Consider what a realistic/desirable value should be.
 // See: https://smartcontract-it.atlassian.net/jira/software/c/projects/KS/boards/182
-var defaultExecuteTimeout = 60 * time.Second
+var maximumExecuteTimeout = 60 * time.Second
 
 // ExecuteSync executes a capability synchronously.
 // We are not handling a case where a capability panics and crashes.
 // There is default timeout of 10 seconds. If a capability takes longer than
 // that then it should be executed asynchronously.
 func ExecuteSync(ctx context.Context, c CallbackExecutable, request CapabilityRequest) (*values.List, error) {
-	ctxWithT, cancel := context.WithTimeout(ctx, defaultExecuteTimeout)
+	ctxWithT, cancel := context.WithTimeout(ctx, maximumExecuteTimeout)
 	defer cancel()
 
-	responseCh := make(chan CapabilityResponse)
-	setupCh := make(chan error)
-
-	go func(innerCtx context.Context, innerC CallbackExecutable, innerReq CapabilityRequest, innerCallback chan CapabilityResponse, errCh chan error) {
-		setupCh <- innerC.Execute(innerCtx, innerCallback, innerReq)
-	}(ctxWithT, c, request, responseCh, setupCh)
+	responseCh, err := c.Execute(ctxWithT, request)
+	if err != nil {
+		return nil, fmt.Errorf("error executing capability: %w", err)
+	}
 
 	vs := make([]values.Value, 0)
 outerLoop:
@@ -257,15 +255,9 @@ outerLoop:
 			}
 
 			vs = append(vs, response.Value)
-
-		// Timeout when a capability panics, crashes, and does not close the channel.
+		// Timeout when a capability exceeds maximum permitted execution time or the caller cancels the context and does not close the channel.
 		case <-ctxWithT.Done():
-			return nil, fmt.Errorf("context timed out after %f seconds", defaultExecuteTimeout.Seconds())
-		case setupErr := <-setupCh:
-			// Something went wrong when setting up the capability, return that error here.
-			if setupErr != nil {
-				return nil, setupErr
-			}
+			return nil, fmt.Errorf("context timed out after %f seconds", maximumExecuteTimeout.Seconds())
 		}
 	}
 

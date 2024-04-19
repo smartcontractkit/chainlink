@@ -2,9 +2,7 @@ package capability
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"sync"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -184,52 +182,52 @@ type triggerExecutableServer struct {
 	*net.BrokerExt
 
 	impl capabilities.TriggerExecutable
-
-	cancelFuncs map[string]func()
 }
 
 func newTriggerExecutableServer(brokerExt *net.BrokerExt, impl capabilities.TriggerExecutable) *triggerExecutableServer {
 	return &triggerExecutableServer{
-		impl:        impl,
-		BrokerExt:   brokerExt,
-		cancelFuncs: map[string]func(){},
+		impl:      impl,
+		BrokerExt: brokerExt,
 	}
 }
 
 var _ capabilitiespb.TriggerExecutableServer = (*triggerExecutableServer)(nil)
 
-func (t *triggerExecutableServer) RegisterTrigger(ctx context.Context, request *capabilitiespb.RegisterTriggerRequest) (*emptypb.Empty, error) {
-	ch := make(chan capabilities.CapabilityResponse)
-
-	conn, err := t.Dial(request.CallbackId)
+func (t *triggerExecutableServer) RegisterTrigger(request *capabilitiespb.CapabilityRequest,
+	server capabilitiespb.TriggerExecutable_RegisterTriggerServer) error {
+	req := pb.CapabilityRequestFromProto(request)
+	responseCh, err := t.impl.RegisterTrigger(server.Context(), req)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("error registering trigger: %w", err)
 	}
 
-	connCtx, connCancel := context.WithCancel(context.Background())
-	go callbackIssuer(connCtx, capabilitiespb.NewCallbackClient(conn), ch, t.Logger)
+	defer func() {
+		// Always attempt to unregister the trigger to ensure any related resources are cleaned up
+		err = t.impl.UnregisterTrigger(server.Context(), req)
+		if err != nil {
+			t.Logger.Error("error unregistering trigger", "err", err)
+		}
+	}()
 
-	req := pb.CapabilityRequestFromProto(request.CapabilityRequest)
-	err = t.impl.RegisterTrigger(ctx, ch, req)
-	if err != nil {
-		connCancel()
-		return nil, err
+	for {
+		select {
+		case <-server.Context().Done():
+			return nil
+		case resp, ok := <-responseCh:
+			if !ok {
+				return nil
+			}
+
+			if err = server.Send(pb.CapabilityResponseToProto(resp)); err != nil {
+				return fmt.Errorf("error sending response for trigger %s: %w", request, err)
+			}
+		}
 	}
-
-	t.cancelFuncs[request.CapabilityRequest.Metadata.WorkflowId] = connCancel
-	return &emptypb.Empty{}, nil
 }
 
-func (t *triggerExecutableServer) UnregisterTrigger(ctx context.Context, request *capabilitiespb.UnregisterTriggerRequest) (*emptypb.Empty, error) {
-	req := pb.CapabilityRequestFromProto(request.CapabilityRequest)
-	err := t.impl.UnregisterTrigger(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	cancelFunc := t.cancelFuncs[request.CapabilityRequest.Metadata.WorkflowId]
-	if cancelFunc != nil {
-		cancelFunc()
+func (t *triggerExecutableServer) UnregisterTrigger(ctx context.Context, request *capabilitiespb.CapabilityRequest) (*emptypb.Empty, error) {
+	if err := t.impl.UnregisterTrigger(ctx, pb.CapabilityRequestFromProto(request)); err != nil {
+		return nil, fmt.Errorf("error unregistering trigger: %w", err)
 	}
 
 	return &emptypb.Empty{}, nil
@@ -240,32 +238,17 @@ type triggerExecutableClient struct {
 	*net.BrokerExt
 }
 
-var _ capabilities.TriggerExecutable = (*triggerExecutableClient)(nil)
-
-func (t *triggerExecutableClient) RegisterTrigger(ctx context.Context, callback chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
-	cid, res, err := t.ServeNew("Callback", func(s *grpc.Server) {
-		capabilitiespb.RegisterCallbackServer(s, newCallbackServer(callback))
-	})
+func (t *triggerExecutableClient) RegisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	responseStream, err := t.grpc.RegisterTrigger(ctx, pb.CapabilityRequestToProto(req))
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("error registering trigger: %w", err)
 	}
 
-	r := &capabilitiespb.RegisterTriggerRequest{
-		CallbackId:        cid,
-		CapabilityRequest: pb.CapabilityRequestToProto(req),
-	}
-	_, err = t.grpc.RegisterTrigger(ctx, r)
-	if err != nil {
-		t.CloseAll(res)
-	}
-	return err
+	return forwardResponsesToChannel(ctx, t.Logger, req, responseStream.Recv)
 }
 
 func (t *triggerExecutableClient) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {
-	r := &capabilitiespb.UnregisterTriggerRequest{
-		CapabilityRequest: pb.CapabilityRequestToProto(req),
-	}
-	_, err := t.grpc.UnregisterTrigger(ctx, r)
+	_, err := t.grpc.UnregisterTrigger(ctx, pb.CapabilityRequestToProto(req))
 	return err
 }
 
@@ -316,26 +299,19 @@ func (c *callbackExecutableServer) UnregisterFromWorkflow(ctx context.Context, r
 	return &emptypb.Empty{}, err
 }
 
-func (c *callbackExecutableServer) Execute(ctx context.Context, req *capabilitiespb.ExecuteRequest) (*emptypb.Empty, error) {
-	ch := make(chan capabilities.CapabilityResponse)
-
-	conn, err := c.Dial(req.CallbackId)
+func (c *callbackExecutableServer) Execute(req *capabilitiespb.CapabilityRequest, server capabilitiespb.CallbackExecutable_ExecuteServer) error {
+	responseCh, err := c.impl.Execute(server.Context(), pb.CapabilityRequestFromProto(req))
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("error executing capability request: %w", err)
 	}
 
-	connCtx, connCancel := context.WithCancel(context.Background())
-	go callbackIssuer(connCtx, capabilitiespb.NewCallbackClient(conn), ch, c.Logger)
-
-	r := pb.CapabilityRequestFromProto(req.CapabilityRequest)
-	err = c.impl.Execute(ctx, ch, r)
-	if err != nil {
-		connCancel()
-		return nil, err
+	for resp := range responseCh {
+		if err = server.Send(pb.CapabilityResponseToProto(resp)); err != nil {
+			return fmt.Errorf("error sending response for execute request %s: %w", req, err)
+		}
 	}
 
-	c.cancelFuncs[req.CapabilityRequest.Metadata.WorkflowId] = connCancel
-	return &emptypb.Empty{}, nil
+	return nil
 }
 
 type callbackExecutableClient struct {
@@ -352,24 +328,13 @@ func newCallbackExecutableClient(brokerExt *net.BrokerExt, conn *grpc.ClientConn
 
 var _ capabilities.CallbackExecutable = (*callbackExecutableClient)(nil)
 
-func (c *callbackExecutableClient) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
-	cid, res, err := c.ServeNew("Callback", func(s *grpc.Server) {
-		capabilitiespb.RegisterCallbackServer(s, newCallbackServer(callback))
-	})
+func (c *callbackExecutableClient) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	responseStream, err := c.grpc.Execute(ctx, pb.CapabilityRequestToProto(req))
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("error executing capability request: %w", err)
 	}
 
-	r := &capabilitiespb.ExecuteRequest{
-		CallbackId:        cid,
-		CapabilityRequest: pb.CapabilityRequestToProto(req),
-	}
-
-	_, err = c.grpc.Execute(ctx, r)
-	if err != nil {
-		c.CloseAll(res)
-	}
-	return err
+	return forwardResponsesToChannel(ctx, c.Logger, req, responseStream.Recv)
 }
 
 func (c *callbackExecutableClient) UnregisterFromWorkflow(ctx context.Context, req capabilities.UnregisterFromWorkflowRequest) error {
@@ -406,55 +371,25 @@ func (c *callbackExecutableClient) RegisterToWorkflow(ctx context.Context, req c
 	return err
 }
 
-type callbackServer struct {
-	capabilitiespb.UnimplementedCallbackServer
-	ch chan<- capabilities.CapabilityResponse
+func forwardResponsesToChannel(ctx context.Context, logger logger.Logger, req capabilities.CapabilityRequest, receive func() (*capabilitiespb.CapabilityResponse, error)) (<-chan capabilities.CapabilityResponse, error) {
+	responseCh := make(chan capabilities.CapabilityResponse)
 
-	isClosed bool
-	mu       sync.RWMutex
-}
-
-func newCallbackServer(ch chan<- capabilities.CapabilityResponse) *callbackServer {
-	return &callbackServer{ch: ch}
-}
-
-func (c *callbackServer) SendResponse(ctx context.Context, resp *capabilitiespb.CapabilityResponse) (*emptypb.Empty, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.isClosed {
-		return nil, errors.New("cannot send response: the underlying channel has been closed")
-	}
-	c.ch <- pb.CapabilityResponseFromProto(resp)
-	return &emptypb.Empty{}, nil
-}
-
-func (c *callbackServer) CloseCallback(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	close(c.ch)
-	c.isClosed = true
-	return &emptypb.Empty{}, nil
-}
-
-func callbackIssuer(ctx context.Context, client capabilitiespb.CallbackClient, callbackChannel chan capabilities.CapabilityResponse, logger logger.Logger) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case resp, isOpen := <-callbackChannel:
-			if !isOpen {
-				_, err := client.CloseCallback(ctx, &emptypb.Empty{})
-				if err != nil {
-					logger.Error("could not close upstream callback", err)
-				}
+	go func() {
+		defer close(responseCh)
+		for {
+			response, err := receive()
+			if err != nil {
+				logger.Error("error when receiving capability response for request", "request", req, "err", err)
 				return
 			}
 
-			cr := pb.CapabilityResponseToProto(resp)
-			_, err := client.SendResponse(ctx, cr)
-			if err != nil {
-				logger.Error("error sending callback response", err)
+			select {
+			case responseCh <- pb.CapabilityResponseFromProto(response):
+			case <-ctx.Done():
+				return
 			}
 		}
-	}
+	}()
+
+	return responseCh, nil
 }

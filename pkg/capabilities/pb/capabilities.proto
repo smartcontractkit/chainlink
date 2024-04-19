@@ -37,28 +37,14 @@ message CapabilityRequest {
   values.Value inputs = 3;
 }
 
-message RegisterTriggerRequest {
-  uint32 callback_id = 1;
-  CapabilityRequest capability_request = 2;
-}
-
-message UnregisterTriggerRequest {
-  CapabilityRequest capability_request = 1;
-}
-
 service TriggerExecutable {
-  rpc RegisterTrigger (RegisterTriggerRequest) returns (google.protobuf.Empty) {}
-  rpc UnregisterTrigger (UnregisterTriggerRequest) returns (google.protobuf.Empty) {}
+  rpc RegisterTrigger (CapabilityRequest) returns (stream CapabilityResponse) {}
+  rpc UnregisterTrigger (CapabilityRequest) returns (google.protobuf.Empty) {}
 }
 
 message CapabilityResponse {
   values.Value value = 1;
   string error = 2;
-}
-
-service Callback {
-  rpc SendResponse(CapabilityResponse) returns (google.protobuf.Empty) {}
-  rpc CloseCallback(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 message RegistrationMetadata {
@@ -75,13 +61,8 @@ message UnregisterFromWorkflowRequest {
   values.Value config = 2;
 }
 
-message ExecuteRequest {
-  uint32 callback_id = 1;
-  CapabilityRequest capability_request = 2;
-}
-
 service CallbackExecutable {
   rpc RegisterToWorkflow (RegisterToWorkflowRequest) returns (google.protobuf.Empty) {}
   rpc UnregisterFromWorkflow (UnregisterFromWorkflowRequest) returns (google.protobuf.Empty) {}
-  rpc Execute (ExecuteRequest) returns (google.protobuf.Empty) {}
+  rpc Execute(CapabilityRequest) returns (stream CapabilityResponse) {}
 }

@@ -24,6 +24,9 @@ var mercuryInfo = capabilities.MustNewCapabilityInfo(
 
 const defaultTickerResolutionMs = 1000
 
+// TODO pending capabilities configuration implementation - this should be configurable with a sensible default
+const defaultSendChannelBufferSize = 1000
+
 // This Trigger Service allows for the registration and deregistration of triggers. You can also send reports to the service.
 type MercuryTriggerService struct {
 	capabilities.CapabilityInfo
@@ -79,7 +82,7 @@ func (o *MercuryTriggerService) ProcessReport(reports []mercury.FeedReport) erro
 	return nil
 }
 
-func (o *MercuryTriggerService) RegisterTrigger(ctx context.Context, callback chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
+func (o *MercuryTriggerService) RegisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	wid := req.Metadata.WorkflowID
 
 	o.mu.Lock()
@@ -87,46 +90,47 @@ func (o *MercuryTriggerService) RegisterTrigger(ctx context.Context, callback ch
 
 	triggerID, err := o.GetTriggerID(req, wid)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// If triggerId is already registered, return an error
 	if _, ok := o.subscribers[triggerID]; ok {
-		return fmt.Errorf("triggerId %s already registered", triggerID)
+		return nil, fmt.Errorf("triggerId %s already registered", triggerID)
 	}
 
 	cfg := subscriberConfig{}
 	err = req.Config.UnwrapTo(&cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	feedIDs := []mercury.FeedID{}
 	for _, feedID := range cfg.FeedIds {
 		mfid, err := mercury.NewFeedID(feedID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		feedIDs = append(feedIDs, mfid)
 	}
 
 	if len(feedIDs) == 0 {
-		return errors.New("no feedIDs to register")
+		return nil, errors.New("no feedIDs to register")
 	}
 	if cfg.MaxFrequencyMs <= 0 {
-		return errors.New("MaxFrequencyMs must be greater than 0")
+		return nil, errors.New("MaxFrequencyMs must be greater than 0")
 	}
 	if int64(cfg.MaxFrequencyMs)%o.tickerResolutionMs != 0 {
-		return fmt.Errorf("MaxFrequencyMs must be a multiple of %d", o.tickerResolutionMs)
+		return nil, fmt.Errorf("MaxFrequencyMs must be a multiple of %d", o.tickerResolutionMs)
 	}
 
+	ch := make(chan capabilities.CapabilityResponse, defaultSendChannelBufferSize)
 	o.subscribers[triggerID] =
 		&subscriber{
-			ch:         callback,
+			ch:         ch,
 			workflowID: wid,
 			config:     cfg,
 		}
-	return nil
+	return ch, nil
 }
 
 func (o *MercuryTriggerService) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {

@@ -64,22 +64,24 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 type mockCapabilityWithExecute struct {
 	CallbackExecutable
 	CapabilityInfo
-	ExecuteFn func(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error
+	ExecuteFn func(ctx context.Context, req CapabilityRequest) (<-chan CapabilityResponse, error)
 }
 
-func (m *mockCapabilityWithExecute) Execute(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error {
-	return m.ExecuteFn(ctx, callback, req)
+func (m *mockCapabilityWithExecute) Execute(ctx context.Context, req CapabilityRequest) (<-chan CapabilityResponse, error) {
+	return m.ExecuteFn(ctx, req)
 }
 
 func Test_ExecuteSyncReturnSingleValue(t *testing.T) {
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error {
+		ExecuteFn: func(ctx context.Context, req CapabilityRequest) (<-chan CapabilityResponse, error) {
+			ch := make(chan CapabilityResponse, 10)
+
 			val := values.NewString("hello")
-			callback <- CapabilityResponse{val, nil}
+			ch <- CapabilityResponse{val, nil}
 
-			close(callback)
+			close(ch)
 
-			return nil
+			return ch, nil
 		},
 	}
 	req := CapabilityRequest{}
@@ -93,14 +95,16 @@ func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
 	es := values.NewString("hello")
 	expectedList := []values.Value{es, es, es}
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error {
-			callback <- CapabilityResponse{es, nil}
-			callback <- CapabilityResponse{es, nil}
-			callback <- CapabilityResponse{es, nil}
+		ExecuteFn: func(ctx context.Context, req CapabilityRequest) (<-chan CapabilityResponse, error) {
+			ch := make(chan CapabilityResponse, 10)
 
-			close(callback)
+			ch <- CapabilityResponse{es, nil}
+			ch <- CapabilityResponse{es, nil}
+			ch <- CapabilityResponse{es, nil}
 
-			return nil
+			close(ch)
+
+			return ch, nil
 		},
 	}
 	req := CapabilityRequest{}
@@ -113,8 +117,8 @@ func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
 func Test_ExecuteSyncCapabilitySetupErrors(t *testing.T) {
 	expectedErr := errors.New("something went wrong during setup")
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error {
-			return expectedErr
+		ExecuteFn: func(ctx context.Context, req CapabilityRequest) (<-chan CapabilityResponse, error) {
+			return nil, expectedErr
 		},
 	}
 	req := CapabilityRequest{}
@@ -130,8 +134,9 @@ func Test_ExecuteSyncTimeout(t *testing.T) {
 	cancel()
 
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error {
-			return nil
+		ExecuteFn: func(ctx context.Context, req CapabilityRequest) (<-chan CapabilityResponse, error) {
+			ch := make(chan CapabilityResponse, 10)
+			return ch, nil
 		},
 	}
 	req := CapabilityRequest{}
@@ -144,12 +149,14 @@ func Test_ExecuteSyncTimeout(t *testing.T) {
 func Test_ExecuteSyncCapabilityErrors(t *testing.T) {
 	expectedErr := errors.New("something went wrong during execution")
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error {
-			callback <- CapabilityResponse{nil, expectedErr}
+		ExecuteFn: func(ctx context.Context, req CapabilityRequest) (<-chan CapabilityResponse, error) {
+			ch := make(chan CapabilityResponse, 10)
 
-			close(callback)
+			ch <- CapabilityResponse{nil, expectedErr}
 
-			return nil
+			close(ch)
+
+			return ch, nil
 		},
 	}
 	req := CapabilityRequest{}
@@ -161,9 +168,10 @@ func Test_ExecuteSyncCapabilityErrors(t *testing.T) {
 
 func Test_ExecuteSyncDoesNotReturnValues(t *testing.T) {
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error {
-			close(callback)
-			return nil
+		ExecuteFn: func(ctx context.Context, req CapabilityRequest) (<-chan CapabilityResponse, error) {
+			ch := make(chan CapabilityResponse, 10)
+			close(ch)
+			return ch, nil
 		},
 	}
 	req := CapabilityRequest{}

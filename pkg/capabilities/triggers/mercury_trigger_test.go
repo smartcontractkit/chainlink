@@ -25,9 +25,11 @@ func registerTrigger(
 	feedIDs []string,
 	triggerID string,
 ) (
-	triggerEventsCh chan capabilities.CapabilityResponse,
-	unregisterRequest capabilities.CapabilityRequest,
+	<-chan capabilities.CapabilityResponse,
+	capabilities.CapabilityRequest,
 ) {
+
+	var unregisterRequest capabilities.CapabilityRequest
 
 	inputs, err := values.NewMap(map[string]interface{}{
 		"triggerId": triggerID,
@@ -48,8 +50,8 @@ func registerTrigger(
 		Inputs:   inputs,
 		Config:   config,
 	}
-	triggerEventsCh = make(chan capabilities.CapabilityResponse, 1000)
-	require.NoError(t, ts.RegisterTrigger(ctx, triggerEventsCh, registerRequest))
+	triggerEventsCh, err := ts.RegisterTrigger(ctx, registerRequest)
+	require.NoError(t, err)
 
 	unregisterRequest = capabilities.CapabilityRequest{
 		Metadata: requestMetadata,
@@ -240,8 +242,8 @@ func TestMercuryTrigger_RegisterTriggerErrors(t *testing.T) {
 		Config: configWrapped,
 		Inputs: inputsWrapped,
 	}
-	callback := make(chan capabilities.CapabilityResponse)
-	require.Error(t, ts.RegisterTrigger(ctx, callback, cr))
+	_, err = ts.RegisterTrigger(ctx, cr)
+	require.Error(t, err)
 
 	cm = map[string]interface{}{
 		"feedIds":        []string{feedOne},
@@ -250,7 +252,8 @@ func TestMercuryTrigger_RegisterTriggerErrors(t *testing.T) {
 	configWrapped, err = values.NewMap(cm)
 	require.NoError(t, err)
 	cr.Config = configWrapped
-	require.Error(t, ts.RegisterTrigger(ctx, callback, cr))
+	_, err = ts.RegisterTrigger(ctx, cr)
+	require.Error(t, err)
 
 	cm = map[string]interface{}{
 		"feedIds":        []string{},
@@ -259,7 +262,8 @@ func TestMercuryTrigger_RegisterTriggerErrors(t *testing.T) {
 	configWrapped, err = values.NewMap(cm)
 	require.NoError(t, err)
 	cr.Config = configWrapped
-	require.Error(t, ts.RegisterTrigger(ctx, callback, cr))
+	_, err = ts.RegisterTrigger(ctx, cr)
+	require.Error(t, err)
 
 	require.NoError(t, ts.Close())
 }

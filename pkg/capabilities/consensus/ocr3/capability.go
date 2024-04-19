@@ -47,13 +47,16 @@ type capability struct {
 
 	transmitCh chan *outputs
 	newTimerCh chan *request
+
+	callbackChannelBufferSize int
 }
 
 var _ capabilityIface = (*capability)(nil)
 var _ capabilities.ConsensusCapability = (*capability)(nil)
 var ocr3CapabilityValidator = capabilities.NewValidator[config, inputs, outputs](capabilities.ValidatorArgs{Info: info})
 
-func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration, encoderFactory EncoderFactory, lggr logger.Logger) *capability {
+func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration, encoderFactory EncoderFactory, lggr logger.Logger,
+	callbackChannelBufferSize int) *capability {
 	o := &capability{
 		CapabilityInfo: info,
 		Validator:      ocr3CapabilityValidator,
@@ -68,6 +71,8 @@ func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration
 
 		transmitCh: make(chan *outputs),
 		newTimerCh: make(chan *request),
+
+		callbackChannelBufferSize: callbackChannelBufferSize,
 	}
 	return o
 }
@@ -146,16 +151,16 @@ func (o *capability) UnregisterFromWorkflow(ctx context.Context, request capabil
 	return nil
 }
 
-func (o *capability) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, r capabilities.CapabilityRequest) error {
+func (o *capability) Execute(ctx context.Context, r capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	// Receives and stores an observation to do consensus on
 	// Receives an aggregation method; at this point the method has been validated
 	// Returns the consensus result over a channel
 	inputs, err := o.ValidateInputs(r.Inputs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return o.queueRequestForProcessing(ctx, r.Metadata, inputs, callback)
+	return o.queueRequestForProcessing(ctx, r.Metadata, inputs)
 }
 
 // queueRequestForProcessing queues a request for processing by the worker
@@ -165,13 +170,12 @@ func (o *capability) Execute(ctx context.Context, callback chan<- capabilities.C
 func (o *capability) queueRequestForProcessing(
 	ctx context.Context,
 	metadata capabilities.RequestMetadata,
-	i *inputs,
-	callback chan<- capabilities.CapabilityResponse,
-) error {
+	i *inputs) (<-chan capabilities.CapabilityResponse, error) {
+	callbackCh := make(chan capabilities.CapabilityResponse, o.callbackChannelBufferSize)
 	r := &request{
 		// TODO: set correct context
 		RequestCtx:          context.Background(),
-		CallbackCh:          callback,
+		CallbackCh:          callbackCh,
 		WorkflowExecutionID: metadata.WorkflowExecutionID,
 		WorkflowID:          metadata.WorkflowID,
 		Observations:        i.Observations,
@@ -182,11 +186,11 @@ func (o *capability) queueRequestForProcessing(
 
 	err := o.store.add(ctx, r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	o.newTimerCh <- r
-	return nil
+	return callbackCh, nil
 }
 
 func (o *capability) worker() {

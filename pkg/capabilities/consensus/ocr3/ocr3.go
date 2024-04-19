@@ -25,6 +25,7 @@ type Config struct {
 	BatchSize      int
 	Logger         logger.Logger
 	EncoderFactory EncoderFactory
+	SendBufferSize int
 
 	store      *store
 	capability *capability
@@ -32,8 +33,9 @@ type Config struct {
 }
 
 const (
-	defaultRequestExpiry time.Duration = 1 * time.Hour
-	defaultBatchSize                   = 1000
+	defaultRequestExpiry  time.Duration = 1 * time.Hour
+	defaultBatchSize                    = 1000
+	defaultSendBufferSize               = 10
 )
 
 type EncoderFactory func(config *values.Map) (types.Encoder, error)
@@ -48,6 +50,10 @@ func NewOCR3(config Config) *Capability {
 		config.BatchSize = defaultBatchSize
 	}
 
+	if config.SendBufferSize == 0 {
+		config.SendBufferSize = defaultSendBufferSize
+	}
+
 	if config.clock == nil {
 		config.clock = clockwork.NewRealClock()
 	}
@@ -57,7 +63,8 @@ func NewOCR3(config Config) *Capability {
 	}
 
 	if config.capability == nil {
-		ci := newCapability(config.store, config.clock, *config.RequestTimeout, config.EncoderFactory, config.Logger)
+		ci := newCapability(config.store, config.clock, *config.RequestTimeout, config.EncoderFactory, config.Logger,
+			config.SendBufferSize)
 		config.capability = ci
 	}
 

@@ -6,8 +6,9 @@ import (
 	"sort"
 
 	"github.com/shopspring/decimal"
-	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
 	"google.golang.org/protobuf/proto"
+
+	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
@@ -101,13 +102,13 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 	}
 
 	reportsNeedingUpdate := []any{} // [][]byte
-	allIds := []string{}
+	allIDs := []string{}
 	for feedID := range currentState.FeedInfo {
-		allIds = append(allIds, feedID)
+		allIDs = append(allIDs, feedID)
 	}
 	// ensure deterministic order of reportsNeedingUpdate
-	sort.Slice(allIds, func(i, j int) bool { return allIds[i] < allIds[j] })
-	for _, feedID := range allIds {
+	sort.Slice(allIDs, func(i, j int) bool { return allIDs[i] < allIDs[j] })
+	for _, feedID := range allIDs {
 		previousReportInfo := currentState.FeedInfo[feedID]
 		feedID, err := mercury.NewFeedID(feedID)
 		if err != nil {

@@ -398,9 +398,8 @@ func pbRegisterCapability(s *grpc.Server, b *net.BrokerExt, impl capabilities.Ba
 	case capabilities.CapabilityTypeTrigger:
 		i, _ := impl.(capabilities.TriggerCapability)
 		capabilitiespb.RegisterTriggerExecutableServer(s, &triggerExecutableServer{
-			BrokerExt:   b,
-			impl:        i,
-			cancelFuncs: map[string]func(){},
+			BrokerExt: b,
+			impl:      i,
 		})
 	case capabilities.CapabilityTypeAction:
 		i, _ := impl.(capabilities.ActionCapability)
