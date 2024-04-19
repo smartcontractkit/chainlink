@@ -591,12 +591,16 @@ func SetupVRFV2PlusContracts(
 	vrfContracts.MockETHLINKFeed = mockNativeLINKFeed
 
 	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2Plus.Address()).Msg("Setting Coordinator Config")
+	fallbackWeiPerUnitLink, ok := new(big.Int).SetString(*configGeneral.FallbackWeiPerUnitLink, 10)
+	if !ok {
+		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrSetVRFCoordinatorConfig, "failed to parse fallbackWeiPerUnitLink")
+	}
 	err = vrfContracts.CoordinatorV2Plus.SetConfig(
 		*configGeneral.MinimumConfirmations,
 		*configGeneral.MaxGasLimitCoordinatorConfig,
 		*configGeneral.StalenessSeconds,
 		*configGeneral.GasAfterPaymentCalculation,
-		big.NewInt(*configGeneral.FallbackWeiPerUnitLink),
+		fallbackWeiPerUnitLink,
 		*configGeneral.FulfillmentFlatFeeNativePPM,
 		*configGeneral.FulfillmentFlatFeeLinkDiscountPPM,
 		*configGeneral.NativePremiumPercentage,

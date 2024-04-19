@@ -292,19 +292,23 @@ func SetupVRFV2PlusWrapperEnvironment(
 		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 
+	fallbackWeiPerUnitLink, ok := new(big.Int).SetString(*vrfv2PlusConfig.FallbackWeiPerUnitLink, 10)
+	if !ok {
+		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrSetVRFCoordinatorConfig, "failed to parse fallbackWeiPerUnitLink")
+	}
 	err = wrapperContracts.VRFV2PlusWrapper.SetConfig(
 		*vrfv2PlusConfig.WrapperGasOverhead,
 		*vrfv2PlusConfig.CoordinatorGasOverhead,
 		*vrfv2PlusConfig.CoordinatorGasOverheadPerWord,
-		//todo - introduce separate config for Wrapper Premium Percentage
-		*vrfv2PlusConfig.NativePremiumPercentage,
-		*vrfv2PlusConfig.LinkPremiumPercentage,
+		*vrfv2PlusConfig.WrapperNativePremiumPercentage,
+		*vrfv2PlusConfig.WrapperLinkPremiumPercentage,
 		keyHash,
 		*vrfv2PlusConfig.WrapperMaxNumberOfWords,
 		*vrfv2PlusConfig.StalenessSeconds,
-		big.NewInt(*vrfv2PlusConfig.FallbackWeiPerUnitLink),
-		*vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
+		fallbackWeiPerUnitLink,
+		//todo - introduce separate config for Wrapper Premium Percentage
 		*vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
+		*vrfv2PlusConfig.FulfillmentFlatFeeLinkDiscountPPM,
 	)
 	if err != nil {
 		return nil, nil, err

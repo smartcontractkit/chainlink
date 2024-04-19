@@ -45,10 +45,14 @@ type General struct {
 	SubscriptionFundingAmountNative   *float64 `toml:"subscription_funding_amount_native"`     // Amount of LINK to fund the subscription with
 	SubscriptionRefundingAmountNative *float64 `toml:"subscription_refunding_amount_native"`   // Amount of LINK to fund the subscription with
 	FulfillmentFlatFeeNativePPM       *uint32  `toml:"fulfillment_flat_fee_native_ppm"`        // Flat fee in ppm for native currency for the VRF Coordinator config
-	FulfillmentFlatFeeLinkPPM         *uint32  `toml:"fulfillment_flat_fee_link_ppm"`          // Flat fee in ppm for LINK for the VRF Coordinator config
 	FulfillmentFlatFeeLinkDiscountPPM *uint32  `toml:"fulfillment_flat_fee_link_discount_ppm"` // Flat fee discount in ppm for LINK for the VRF Coordinator config
 	NativePremiumPercentage           *uint8   `toml:"native_premium_percentage"`              // Native Premium Percentage
 	LinkPremiumPercentage             *uint8   `toml:"link_premium_percentage"`                // LINK Premium Percentage
+
+	//Wrapper config
+	CoordinatorGasOverheadPerWord  *uint16 `toml:"coordinator_gas_overhead_per_word"`
+	WrapperNativePremiumPercentage *uint8  `toml:"wrapper_native_premium_percentage"`
+	WrapperLinkPremiumPercentage   *uint8  `toml:"wrapper_link_premium_percentage"`
 }
 
 func (c *General) Validate() error {
@@ -67,9 +71,6 @@ func (c *General) Validate() error {
 	if c.FulfillmentFlatFeeNativePPM == nil {
 		return errors.New("fulfillment_flat_fee_native_ppm must not be nil")
 	}
-	if c.FulfillmentFlatFeeLinkPPM == nil {
-		return errors.New("fulfillment_flat_fee_link_ppm must not be nil")
-	}
 	if c.FulfillmentFlatFeeLinkDiscountPPM == nil {
 		return errors.New("fulfillment_flat_fee_link_discount_ppm must not be nil")
 	}
@@ -78,6 +79,15 @@ func (c *General) Validate() error {
 	}
 	if c.LinkPremiumPercentage == nil {
 		return errors.New("link_premium_percentage must not be nil")
+	}
+	if c.CoordinatorGasOverheadPerWord == nil {
+		return errors.New("coordinator_gas_overhead_per_word must not be nil")
+	}
+	if c.WrapperNativePremiumPercentage == nil {
+		return errors.New("wrapper_native_premium_percentage must not be nil")
+	}
+	if c.WrapperLinkPremiumPercentage == nil {
+		return errors.New("wrapper_link_premium_percentage must not be nil")
 	}
 	return nil
 }
