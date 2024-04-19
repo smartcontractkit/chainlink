@@ -54,6 +54,9 @@ ChainID = '1'
 ChainType = 'Foo'
 FinalityDepth = 32
 
+[EVM.Transactions.AutoPurge]
+AutoPurgeStuckTxs = true
+
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 BumpThreshold = 0

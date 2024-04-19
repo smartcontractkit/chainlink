@@ -567,6 +567,9 @@ func TestConfig_Marshal(t *testing.T) {
 					ReaperThreshold:      &minute,
 					ResendAfterThreshold: &hour,
 					ForwardersEnabled:    ptr(true),
+					AutoPurge: evmcfg.AutoPurgeConfig{
+						AutoPurgeStuckTxs: ptr(false),
+					},
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
@@ -968,6 +971,9 @@ ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
 
+[EVM.Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 
@@ -1177,6 +1183,15 @@ func TestConfig_full(t *testing.T) {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
 			}
 		}
+		if got.EVM[c].Transactions.AutoPurge.AutoPurgeThreshold == nil {
+			got.EVM[c].Transactions.AutoPurge.AutoPurgeThreshold = ptr(uint32(0))
+		}
+		if got.EVM[c].Transactions.AutoPurge.AutoPurgeMinAttempts == nil {
+			got.EVM[c].Transactions.AutoPurge.AutoPurgeMinAttempts = ptr(uint32(0))
+		}
+		if got.EVM[c].Transactions.AutoPurge.AutoPurgeDetectionApiUrl == nil {
+			got.EVM[c].Transactions.AutoPurge.AutoPurgeDetectionApiUrl = new(commoncfg.URL)
+		}
 	}
 
 	cfgtest.AssertFieldsNotNil(t, got)
@@ -1221,11 +1236,14 @@ func TestConfig_Validate(t *testing.T) {
 					- WSURL: missing: required for primary nodes
 					- HTTPURL: missing: required for all nodes
 				- 1.HTTPURL: missing: required for all nodes
-		- 1: 6 errors:
+		- 1: 7 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
 			- ChainType: invalid value (Foo): must be one of arbitrum, celo, gnosis, kroma, metis, optimismBedrock, scroll, wemix, zksync or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
+			- Transactions.AutoPurge: 2 errors:
+					- AutoPurgeThreshold: missing: needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set
+					- AutoPurgeMinAttempts: missing: needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault

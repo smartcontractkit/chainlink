@@ -287,6 +287,9 @@ ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
 
+[EVM.Transactions.AutoPurge]
+AutoPurgeStuckTxs = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 

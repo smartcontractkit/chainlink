@@ -6947,6 +6947,40 @@ ResendAfterThreshold = '1m' # Default
 ```
 ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
 
+## EVM.Transactions.AutoPurge
+```toml
+[EVM.Transactions.AutoPurge]
+AutoPurgeStuckTxs = false # Default
+AutoPurgeDetectionApiUrl = 'https://venus.scroll.io' # Example
+AutoPurgeThreshold = 5 # Example
+AutoPurgeMinAttempts = 3 # Example
+```
+
+
+### AutoPurgeStuckTxs
+```toml
+AutoPurgeStuckTxs = false # Default
+```
+AutoPurgeStuckTxs enables or disables automatically purging transactions that have been idenitified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
+
+### AutoPurgeDetectionApiUrl
+```toml
+AutoPurgeDetectionApiUrl = 'https://venus.scroll.io' # Example
+```
+AutoPurgeDetectionApiUrl configures the base url of a custom endpoint used to identify terminally stuck transactions.
+
+### AutoPurgeThreshold
+```toml
+AutoPurgeThreshold = 5 # Example
+```
+AutoPurgeThreshold configures the number of blocks a transaction has to remain unconfirmed before it is evaluated for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain.
+
+### AutoPurgeMinAttempts
+```toml
+AutoPurgeMinAttempts = 3 # Example
+```
+AutoPurgeMinAttempts cnofigures the minimum number of broadcasted attempts a transaction has to have before it is evaluated further for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain.
+
 ## EVM.BalanceMonitor
 ```toml
 [EVM.BalanceMonitor]

@@ -1,6 +1,8 @@
 package txmgr
 
 import (
+	"math/big"
+	"net/url"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func ptr[T any](t T) *T { return &t }
@@ -42,21 +45,27 @@ func (d *TestDatabaseConfig) Listener() config.Listener {
 
 type TestEvmConfig struct {
 	evmconfig.EVM
-	MaxInFlight          uint32
-	ReaperInterval       time.Duration
-	ReaperThreshold      time.Duration
-	ResendAfterThreshold time.Duration
-	BumpThreshold        uint64
-	MaxQueued            uint64
+	MaxInFlight              uint32
+	ReaperInterval           time.Duration
+	ReaperThreshold          time.Duration
+	ResendAfterThreshold     time.Duration
+	BumpThreshold            uint64
+	MaxQueued                uint64
+	AutoPurgeStuckTxs        bool
+	AutoPurgeThreshold       uint32
+	AutoPurgeMinAttempts     uint32
+	AutoPurgeDetectionApiUrl *url.URL
 }
 
 func (e *TestEvmConfig) Transactions() evmconfig.Transactions {
-	return &transactionsConfig{e: e}
+	return &transactionsConfig{e: e, autoPurge: &autoPurgeConfig{}}
 }
 
 func (e *TestEvmConfig) NonceAutoSync() bool { return true }
 
 func (e *TestEvmConfig) FinalityDepth() uint32 { return 42 }
+
+func (e *TestEvmConfig) ChainID() *big.Int { return testutils.FixtureChainID }
 
 type TestGasEstimatorConfig struct {
 	bumpThreshold uint64
@@ -115,15 +124,24 @@ func (b *TestBlockHistoryConfig) TransactionPercentile() uint16     { return 42 
 
 type transactionsConfig struct {
 	evmconfig.Transactions
-	e *TestEvmConfig
+	e         *TestEvmConfig
+	autoPurge evmconfig.AutoPurgeConfig
 }
 
-func (*transactionsConfig) ForwardersEnabled() bool               { return true }
-func (t *transactionsConfig) MaxInFlight() uint32                 { return t.e.MaxInFlight }
-func (t *transactionsConfig) MaxQueued() uint64                   { return t.e.MaxQueued }
-func (t *transactionsConfig) ReaperInterval() time.Duration       { return t.e.ReaperInterval }
-func (t *transactionsConfig) ReaperThreshold() time.Duration      { return t.e.ReaperThreshold }
-func (t *transactionsConfig) ResendAfterThreshold() time.Duration { return t.e.ResendAfterThreshold }
+func (*transactionsConfig) ForwardersEnabled() bool                { return true }
+func (t *transactionsConfig) MaxInFlight() uint32                  { return t.e.MaxInFlight }
+func (t *transactionsConfig) MaxQueued() uint64                    { return t.e.MaxQueued }
+func (t *transactionsConfig) ReaperInterval() time.Duration        { return t.e.ReaperInterval }
+func (t *transactionsConfig) ReaperThreshold() time.Duration       { return t.e.ReaperThreshold }
+func (t *transactionsConfig) ResendAfterThreshold() time.Duration  { return t.e.ResendAfterThreshold }
+func (t *transactionsConfig) AutoPurge() evmconfig.AutoPurgeConfig { return t.autoPurge }
+
+type autoPurgeConfig struct{}
+
+func (a *autoPurgeConfig) AutoPurgeStuckTxs() bool            { return false }
+func (a *autoPurgeConfig) AutoPurgeThreshold() uint32         { return 0 }
+func (a *autoPurgeConfig) AutoPurgeMinAttempts() uint32       { return 0 }
+func (a *autoPurgeConfig) AutoPurgeDetectionApiUrl() *url.URL { return &url.URL{} }
 
 type MockConfig struct {
 	EvmConfig           *TestEvmConfig

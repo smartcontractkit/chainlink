@@ -456,18 +456,17 @@ func (a *AutoPurgeConfig) ValidateConfig() (err error) {
 			return commonconfig.ErrInvalid{Name: "AutoPurgeDetectionApiUrl", Value: a.AutoPurgeDetectionApiUrl.Scheme, Msg: "must be http or https"}
 		}
 	}
-	var errorList []error
 	if a.AutoPurgeThreshold == nil {
-		errorList = append(errorList, commonconfig.ErrMissing{Name: "AutoPurgeThreshold", Msg: "needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
+		err = errors.Join(err, commonconfig.ErrMissing{Name: "AutoPurgeThreshold", Msg: "needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
 	} else if *a.AutoPurgeThreshold == 0 {
-		errorList = append(errorList, commonconfig.ErrInvalid{Name: "AutoPurgeThreshold", Value: *a.AutoPurgeThreshold, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
+		err = errors.Join(err, commonconfig.ErrInvalid{Name: "AutoPurgeThreshold", Value: *a.AutoPurgeThreshold, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
 	}
 	if a.AutoPurgeMinAttempts == nil {
-		errorList = append(errorList, commonconfig.ErrMissing{Name: "AutoPurgeMinAttempts", Msg: "needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
+		err = errors.Join(err, commonconfig.ErrMissing{Name: "AutoPurgeMinAttempts", Msg: "needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
 	} else if *a.AutoPurgeMinAttempts == 0 {
-		errorList = append(errorList, commonconfig.ErrInvalid{Name: "AutoPurgeMinAttempts", Value: *a.AutoPurgeMinAttempts, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
+		err = errors.Join(err, commonconfig.ErrInvalid{Name: "AutoPurgeMinAttempts", Value: *a.AutoPurgeMinAttempts, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
 	}
-	return errors.Join(errorList...)
+	return
 }
 
 func (a *AutoPurgeConfig) setFrom(f *AutoPurgeConfig) {
