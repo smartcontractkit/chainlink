@@ -447,6 +447,4 @@ func numReplayBlocks(requestTimeout time.Duration, chainID *big.Int) int64 {
 		// assume block time of 1s
 		return timeoutSeconds
 	}
-	// assume block time of 1s
-	return timeoutSeconds
 }
