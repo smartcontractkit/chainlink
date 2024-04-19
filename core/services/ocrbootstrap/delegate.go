@@ -126,7 +126,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         jb.ID,
 				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
+				RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
 				New:           d.isNewlyCreatedJob,
 				ProviderType:  string(types.Functions),
 			},
@@ -191,4 +191,16 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 // OnDeleteJob satisfies the job.Delegate interface.
 func (d *Delegate) OnDeleteJob(context.Context, job.Job) error {
 	return nil
+}
+
+func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) []byte {
+	_, ok := relayConfig["defaultTransactionQueueDepth"]
+	if !ok {
+		relayConfig["defaultTransactionQueueDepth"] = d.ocr2Cfg.DefaultTransactionQueueDepth()
+	}
+	_, ok = relayConfig["simulateTransactions"]
+	if !ok {
+		relayConfig["simulateTransactions"] = d.ocr2Cfg.SimulateTransactions()
+	}
+	return relayConfig.Bytes()
 }

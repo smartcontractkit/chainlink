@@ -578,7 +578,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		JobID:         spec.ID,
 		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
-		RelayConfig:   spec.RelayConfig.Bytes(),
+		RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
 		ProviderType:  pCfg.ProviderType,
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
@@ -755,7 +755,7 @@ func (d *Delegate) newServicesMercury(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
 			ProviderType:  string(spec.PluginType),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
@@ -974,7 +974,7 @@ func (d *Delegate) newServicesMedian(
 		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
 	}
 
-	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
+	medianServices, err2 := median.NewMedianServices(ctx, jb, d.relayConfigsWithDefaults(jb.OCR2OracleSpec.RelayConfig), d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
@@ -1015,7 +1015,7 @@ func (d *Delegate) newServicesDKG(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
 		}, types.PluginArgs{
 			TransmitterID: spec.TransmitterID.String,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1101,7 +1101,7 @@ func (d *Delegate) newServicesOCR2VRF(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1115,7 +1115,7 @@ func (d *Delegate) newServicesOCR2VRF(
 			ExternalJobID: jb.ExternalJobID,
 			JobID:         jb.ID,
 			ContractID:    cfg.DKGContractAddress,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   d.relayConfigsWithDefaults(spec.RelayConfig),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1304,7 +1304,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 			JobID:              jb.ID,
 			ContractID:         spec.ContractID,
 			New:                d.isNewlyCreatedJob,
-			RelayConfig:        spec.RelayConfig.Bytes(),
+			RelayConfig:        d.relayConfigsWithDefaults(spec.RelayConfig),
 			ProviderType:       string(spec.PluginType),
 			MercuryCredentials: mc,
 		}, types.PluginArgs{
