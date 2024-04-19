@@ -8,16 +8,16 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 var (
-	_ types.TelemetryService = (*telemetryServiceClient)(nil)
-	_ types.TelemetryClient  = (*telemetryClient)(nil)
+	_ core.TelemetryService = (*telemetryServiceClient)(nil)
+	_ core.TelemetryClient  = (*telemetryClient)(nil)
 )
 
 type telemetryEndpoint struct {
-	client        types.TelemetryService
+	client        core.TelemetryService
 	network       string
 	chainID       string
 	telemetryType string
@@ -28,16 +28,16 @@ func (t *telemetryEndpoint) SendLog(ctx context.Context, log []byte) error {
 	return t.client.Send(ctx, t.network, t.chainID, t.contractID, t.telemetryType, log)
 }
 
-func NewTelemetryClient(client types.TelemetryService) *telemetryClient {
+func NewTelemetryClient(client core.TelemetryService) *telemetryClient {
 	return &telemetryClient{TelemetryService: client}
 }
 
 type telemetryClient struct {
-	types.TelemetryService
+	core.TelemetryService
 }
 
 // NewEndpoint generates a new monitoring endpoint, returns nil if one cannot be generated.
-func (t *telemetryClient) NewEndpoint(ctx context.Context, network string, chainID string, contractID string, telemetryType string) (types.TelemetryClientEndpoint, error) {
+func (t *telemetryClient) NewEndpoint(ctx context.Context, network string, chainID string, contractID string, telemetryType string) (core.TelemetryClientEndpoint, error) {
 	if contractID == "" {
 		return nil, errors.New("contractID cannot be empty")
 	}
@@ -102,7 +102,7 @@ var _ pb.TelemetryServer = (*telemetryServer)(nil)
 type telemetryServer struct {
 	pb.UnimplementedTelemetryServer
 
-	impl types.TelemetryService
+	impl core.TelemetryService
 }
 
 func (t *telemetryServer) Send(ctx context.Context, message *pb.TelemetryMessage) (*emptypb.Empty, error) {
@@ -115,6 +115,6 @@ func (t *telemetryServer) Send(ctx context.Context, message *pb.TelemetryMessage
 	return &emptypb.Empty{}, err
 }
 
-func NewTelemetryServer(impl types.TelemetryService) *telemetryServer {
+func NewTelemetryServer(impl core.TelemetryService) *telemetryServer {
 	return &telemetryServer{impl: impl}
 }

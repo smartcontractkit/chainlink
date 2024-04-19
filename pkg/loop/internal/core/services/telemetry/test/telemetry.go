@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/telemetry"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 var Telemetry = staticTelemetry{
@@ -48,7 +48,7 @@ type staticTelemetry struct {
 	staticTelemetryConfig
 }
 
-func (s staticTelemetry) NewEndpoint(ctx context.Context, network string, chainID string, contractID string, telemType string) (types.TelemetryClientEndpoint, error) {
+func (s staticTelemetry) NewEndpoint(ctx context.Context, network string, chainID string, contractID string, telemType string) (core.TelemetryClientEndpoint, error) {
 	if network != s.network {
 		return nil, fmt.Errorf("expected network %s but got %s", s.network, network)
 	}
@@ -86,7 +86,7 @@ func (s staticTelemetry) Send(ctx context.Context, n string, chid string, conid 
 	return nil
 }
 
-func (s staticTelemetry) Evaluate(ctx context.Context, other types.TelemetryClient) error {
+func (s staticTelemetry) Evaluate(ctx context.Context, other core.TelemetryClient) error {
 	endpoint, err := other.NewEndpoint(ctx, s.network, s.chainID, s.contractID, s.telemType)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate endpoint: %w", err)
@@ -98,7 +98,7 @@ func (s staticTelemetry) Evaluate(ctx context.Context, other types.TelemetryClie
 	return nil
 }
 
-func (s staticTelemetry) Expected() types.TelemetryClient {
+func (s staticTelemetry) Expected() core.TelemetryClient {
 	return s
 }
 

@@ -11,6 +11,7 @@ import (
 	validationtest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/validation/test"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -109,7 +110,7 @@ func RunFactory(t *testing.T, factory libocr.ReportingPluginFactory) {
 	})
 }
 
-func RunValidation(t *testing.T, validationService types.ValidationService) {
+func RunValidation(t *testing.T, validationService core.ValidationService) {
 	ctx := tests.Context(t)
 	t.Run("ValidationService", func(t *testing.T) {
 		err := validationService.ValidateConfig(ctx, validationtest.GoodPluginConfig)

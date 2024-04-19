@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
@@ -78,7 +79,7 @@ func NewOCR3(config Config) *Capability {
 	return cp
 }
 
-func (o *Capability) NewReportingPluginFactory(ctx context.Context, cfg commontypes.ReportingPluginServiceConfig, provider commontypes.PluginProvider, pipelineRunner commontypes.PipelineRunnerService, telemetry commontypes.TelemetryClient, errorLog commontypes.ErrorLog, capabilityRegistry commontypes.CapabilitiesRegistry, keyValueStore commontypes.KeyValueStore) (commontypes.OCR3ReportingPluginFactory, error) {
+func (o *Capability) NewReportingPluginFactory(ctx context.Context, cfg core.ReportingPluginServiceConfig, provider commontypes.PluginProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient, errorLog core.ErrorLog, capabilityRegistry core.CapabilitiesRegistry, keyValueStore core.KeyValueStore) (core.OCR3ReportingPluginFactory, error) {
 	factory, err := newFactory(o.config.store, o.config.capability, o.config.BatchSize, o.config.Logger)
 	if err != nil {
 		return nil, err
@@ -92,7 +93,7 @@ func (o *Capability) NewReportingPluginFactory(ctx context.Context, cfg commonty
 	return factory, err
 }
 
-func (o *Capability) NewValidationService(ctx context.Context) (commontypes.ValidationService, error) {
+func (o *Capability) NewValidationService(ctx context.Context) (core.ValidationService, error) {
 	s := &validationService{lggr: o.Logger}
 	o.SubService(s)
 	return s, nil

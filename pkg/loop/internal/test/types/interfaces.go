@@ -8,6 +8,7 @@ import (
 
 	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 // Evaluator is a helper interface for testing types
@@ -52,14 +53,14 @@ type OffchainConfigDigesterEvaluator interface {
 
 // TelemetryEvaluator is a helper interface for testing TelemetryClients
 type TelemetryEvaluator interface {
-	types.TelemetryClient
-	Evaluator[types.TelemetryClient]
+	core.TelemetryClient
+	Evaluator[core.TelemetryClient]
 }
 
 // PipelineEvaluator is a helper interface for testing PipelineRunnerServices
 type PipelineEvaluator interface {
-	types.PipelineRunnerService
-	Evaluator[types.PipelineRunnerService]
+	core.PipelineRunnerService
+	Evaluator[core.PipelineRunnerService]
 }
 
 // CodecEvaluator is a helper interface for testing Codecs
@@ -70,14 +71,14 @@ type CodecEvaluator interface {
 
 // ErrorLogEvaluator is a helper interface for testing ErrorLogs
 type ErrorLogEvaluator interface {
-	types.ErrorLog
-	Evaluator[types.ErrorLog]
+	core.ErrorLog
+	Evaluator[core.ErrorLog]
 }
 
 // ValidationEvaluator is a helper interface for testing ValidationService
 type ValidationEvaluator interface {
-	types.ValidationService
-	Evaluator[types.ValidationService]
+	core.ValidationService
+	Evaluator[core.ValidationService]
 }
 
 type MedianProviderTester interface {

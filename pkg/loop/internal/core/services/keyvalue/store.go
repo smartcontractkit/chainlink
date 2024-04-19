@@ -8,10 +8,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-var _ types.KeyValueStore = (*Client)(nil)
+var _ core.KeyValueStore = (*Client)(nil)
 
 type Client struct {
 	grpc pb.KeyValueStoreClient
@@ -43,10 +43,10 @@ var _ pb.KeyValueStoreServer = (*Server)(nil)
 
 type Server struct {
 	pb.UnimplementedKeyValueStoreServer
-	impl types.KeyValueStore
+	impl core.KeyValueStore
 }
 
-func NewServer(impl types.KeyValueStore) *Server {
+func NewServer(impl core.KeyValueStore) *Server {
 	return &Server{impl: impl}
 }
 

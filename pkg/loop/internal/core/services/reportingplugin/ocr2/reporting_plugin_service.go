@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/keyvalue"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
@@ -20,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-var _ types.ReportingPluginClient = (*ReportingPluginServiceClient)(nil)
+var _ core.ReportingPluginClient = (*ReportingPluginServiceClient)(nil)
 
 type ReportingPluginServiceClient struct {
 	*goplugin.PluginClient
@@ -37,12 +38,12 @@ func NewReportingPluginServiceClient(broker net.Broker, brokerCfg net.BrokerConf
 
 func (m *ReportingPluginServiceClient) NewReportingPluginFactory(
 	ctx context.Context,
-	config types.ReportingPluginServiceConfig,
+	config core.ReportingPluginServiceConfig,
 	grpcProvider grpc.ClientConnInterface,
-	pipelineRunner types.PipelineRunnerService,
-	telemetryService types.TelemetryService,
-	errorLog types.ErrorLog,
-	keyValueStore types.KeyValueStore,
+	pipelineRunner core.PipelineRunnerService,
+	telemetryService core.TelemetryService,
+	errorLog core.ErrorLog,
+	keyValueStore core.KeyValueStore,
 ) (types.ReportingPluginFactory, error) {
 	cc := m.NewClientConn("ReportingPluginServiceFactory", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		providerID, providerRes, err := m.Serve("PluginProvider", proxy.NewProxy(grpcProvider))
@@ -107,7 +108,7 @@ func (m *ReportingPluginServiceClient) NewReportingPluginFactory(
 	return NewReportingPluginFactoryClient(m.PluginClient.BrokerExt, cc), nil
 }
 
-func (m *ReportingPluginServiceClient) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+func (m *ReportingPluginServiceClient) NewValidationService(ctx context.Context) (core.ValidationService, error) {
 	cc := m.NewClientConn("validationService", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		reply, err := m.reportingPluginService.NewValidationService(ctx, &pb.ValidationServiceRequest{})
 		if err != nil {
@@ -124,15 +125,15 @@ type reportingPluginServiceServer struct {
 	pb.UnimplementedReportingPluginServiceServer
 
 	*net.BrokerExt
-	impl types.ReportingPluginClient
+	impl core.ReportingPluginClient
 }
 
-func RegisterReportingPluginServiceServer(server *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl types.ReportingPluginClient) error {
+func RegisterReportingPluginServiceServer(server *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl core.ReportingPluginClient) error {
 	pb.RegisterReportingPluginServiceServer(server, newReportingPluginServiceServer(&net.BrokerExt{Broker: broker, BrokerConfig: brokerCfg}, impl))
 	return nil
 }
 
-func newReportingPluginServiceServer(b *net.BrokerExt, gp types.ReportingPluginClient) *reportingPluginServiceServer {
+func newReportingPluginServiceServer(b *net.BrokerExt, gp core.ReportingPluginClient) *reportingPluginServiceServer {
 	return &reportingPluginServiceServer{BrokerExt: b.WithName("ReportingPluginService"), impl: gp}
 }
 
@@ -175,7 +176,7 @@ func (m *reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Con
 	keyValueStoreRes := net.Resource{Closer: keyValueStoreConn, Name: "KeyValueStore"}
 	keyValueStore := keyvalue.NewClient(keyValueStoreConn)
 
-	config := types.ReportingPluginServiceConfig{
+	config := core.ReportingPluginServiceConfig{
 		ProviderType:  request.ReportingPluginServiceConfig.ProviderType,
 		PluginConfig:  request.ReportingPluginServiceConfig.PluginConfig,
 		PluginName:    request.ReportingPluginServiceConfig.PluginName,

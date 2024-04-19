@@ -19,10 +19,11 @@ import (
 	reportingplugintest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/test"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
-func PluginMedian(t *testing.T, p types.PluginMedian) {
+func PluginMedian(t *testing.T, p core.PluginMedian) {
 	PluginMedianTest{&MedianProvider}.TestPluginMedian(t, p)
 }
 
@@ -30,7 +31,7 @@ type PluginMedianTest struct {
 	types.MedianProvider
 }
 
-func (m PluginMedianTest) TestPluginMedian(t *testing.T, p types.PluginMedian) {
+func (m PluginMedianTest) TestPluginMedian(t *testing.T, p core.PluginMedian) {
 	t.Run("PluginMedian", func(t *testing.T) {
 		ctx := tests.Context(t)
 		factory, err := p.NewMedianFactory(ctx, m.MedianProvider, DataSource, JuelsPerFeeCoinDataSource, &errorlogtest.ErrorLog)
@@ -70,9 +71,9 @@ type staticMedianFactoryServer struct {
 	staticPluginMedianConfig
 }
 
-var _ types.PluginMedian = staticMedianFactoryServer{}
+var _ core.PluginMedian = staticMedianFactoryServer{}
 
-func (s staticMedianFactoryServer) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
+func (s staticMedianFactoryServer) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog core.ErrorLog) (types.ReportingPluginFactory, error) {
 	// the provider may be a grpc client, so we can't compare it directly
 	// but in all of these static tests, the implementation of the provider is expected
 	// to be the same static implementation, so we can compare the expected values

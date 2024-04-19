@@ -12,12 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 const PluginServiceName = "ocr3-plugin-service"
 
 type ProviderServer[T types.PluginProvider] interface {
-	types.OCR3ReportingPluginServer[T]
+	core.OCR3ReportingPluginServer[T]
 	ConnToProvider(conn grpc.ClientConnInterface, broker net.Broker, brokerConfig loop.BrokerConfig) T
 }
 
@@ -34,50 +35,50 @@ type GRPCService[T types.PluginProvider] struct {
 type serverAdapter struct {
 	NewReportingPluginFactoryFn func(
 		context.Context,
-		types.ReportingPluginServiceConfig,
+		core.ReportingPluginServiceConfig,
 		grpc.ClientConnInterface,
-		types.PipelineRunnerService,
-		types.TelemetryService,
-		types.ErrorLog,
-		types.CapabilitiesRegistry,
-		types.KeyValueStore,
-	) (types.OCR3ReportingPluginFactory, error)
+		core.PipelineRunnerService,
+		core.TelemetryService,
+		core.ErrorLog,
+		core.CapabilitiesRegistry,
+		core.KeyValueStore,
+	) (core.OCR3ReportingPluginFactory, error)
 
 	ValidateConfigService
 }
 
 type ValidateConfigService interface {
-	NewValidationService(ctx context.Context) (types.ValidationService, error)
+	NewValidationService(ctx context.Context) (core.ValidationService, error)
 }
 
-func (s serverAdapter) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+func (s serverAdapter) NewValidationService(ctx context.Context) (core.ValidationService, error) {
 	return s.ValidateConfigService.NewValidationService(ctx)
 }
 
 func (s serverAdapter) NewReportingPluginFactory(
 	ctx context.Context,
-	config types.ReportingPluginServiceConfig,
+	config core.ReportingPluginServiceConfig,
 	conn grpc.ClientConnInterface,
-	pr types.PipelineRunnerService,
-	ts types.TelemetryService,
-	errorLog types.ErrorLog,
-	capRegistry types.CapabilitiesRegistry,
-	kv types.KeyValueStore,
-) (types.OCR3ReportingPluginFactory, error) {
+	pr core.PipelineRunnerService,
+	ts core.TelemetryService,
+	errorLog core.ErrorLog,
+	capRegistry core.CapabilitiesRegistry,
+	kv core.KeyValueStore,
+) (core.OCR3ReportingPluginFactory, error) {
 	return s.NewReportingPluginFactoryFn(ctx, config, conn, pr, ts, errorLog, capRegistry, kv)
 }
 
 func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
 	newReportingPluginFactoryFn := func(
 		ctx context.Context,
-		cfg types.ReportingPluginServiceConfig,
+		cfg core.ReportingPluginServiceConfig,
 		conn grpc.ClientConnInterface,
-		pr types.PipelineRunnerService,
-		ts types.TelemetryService,
-		el types.ErrorLog,
-		capRegistry types.CapabilitiesRegistry,
-		kv types.KeyValueStore,
-	) (types.OCR3ReportingPluginFactory, error) {
+		pr core.PipelineRunnerService,
+		ts core.TelemetryService,
+		el core.ErrorLog,
+		capRegistry core.CapabilitiesRegistry,
+		kv core.KeyValueStore,
+	) (core.OCR3ReportingPluginFactory, error) {
 		provider := g.PluginServer.ConnToProvider(conn, broker, g.BrokerConfig)
 		tc := telemetry.NewTelemetryClient(ts)
 		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, tc, el, capRegistry, kv)
@@ -96,7 +97,7 @@ func (g *GRPCService[T]) GRPCClient(_ context.Context, broker *plugin.GRPCBroker
 		g.pluginClient.Refresh(broker, conn)
 	}
 
-	return types.OCR3ReportingPluginClient(g.pluginClient), nil
+	return core.OCR3ReportingPluginClient(g.pluginClient), nil
 }
 
 func (g *GRPCService[T]) ClientConfig() *plugin.ClientConfig {

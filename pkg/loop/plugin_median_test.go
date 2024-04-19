@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 func TestPluginMedian(t *testing.T) {
@@ -63,13 +64,13 @@ func TestPluginMedianExec(t *testing.T) {
 	i, err := client.Dispense(loop.PluginMedianName)
 	require.NoError(t, err)
 
-	mediantest.PluginMedian(t, i.(types.PluginMedian))
+	mediantest.PluginMedian(t, i.(core.PluginMedian))
 
 	t.Run("proxy", func(t *testing.T) {
 		pr := newPluginRelayerExec(t, false, stopCh)
 		p := newMedianProvider(t, pr)
 		pm := mediantest.PluginMedianTest{MedianProvider: p}
-		pm.TestPluginMedian(t, i.(types.PluginMedian))
+		pm.TestPluginMedian(t, i.(core.PluginMedian))
 	})
 }
 

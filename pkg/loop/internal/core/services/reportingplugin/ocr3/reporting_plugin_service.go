@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	ocr3pb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 type ReportingPluginServiceClient struct {
@@ -37,14 +37,14 @@ func NewReportingPluginServiceClient(broker net.Broker, brokerCfg net.BrokerConf
 
 func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 	ctx context.Context,
-	config types.ReportingPluginServiceConfig,
+	config core.ReportingPluginServiceConfig,
 	grpcProvider grpc.ClientConnInterface,
-	pipelineRunner types.PipelineRunnerService,
-	telemetryService types.TelemetryService,
-	errorLog types.ErrorLog,
-	capRegistry types.CapabilitiesRegistry,
-	keyValueStore types.KeyValueStore,
-) (types.OCR3ReportingPluginFactory, error) {
+	pipelineRunner core.PipelineRunnerService,
+	telemetryService core.TelemetryService,
+	errorLog core.ErrorLog,
+	capRegistry core.CapabilitiesRegistry,
+	keyValueStore core.KeyValueStore,
+) (core.OCR3ReportingPluginFactory, error) {
 	cc := o.NewClientConn("ReportingPluginServiceFactory", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		providerID, providerRes, err := o.Serve("PluginProvider", proxy.NewProxy(grpcProvider))
 		if err != nil {
@@ -115,7 +115,7 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 	return newReportingPluginFactoryClient(o.PluginClient.BrokerExt, cc), nil
 }
 
-func (o *ReportingPluginServiceClient) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+func (o *ReportingPluginServiceClient) NewValidationService(ctx context.Context) (core.ValidationService, error) {
 	cc := o.NewClientConn("ValidationService", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		reply, err := o.reportingPluginService.NewValidationService(ctx, &pb.ValidationServiceRequest{})
 		if err != nil {
@@ -132,7 +132,7 @@ type reportingPluginServiceServer struct {
 	pb.UnimplementedReportingPluginServiceServer
 
 	*net.BrokerExt
-	impl types.OCR3ReportingPluginClient
+	impl core.OCR3ReportingPluginClient
 }
 
 func (m reportingPluginServiceServer) NewValidationService(ctx context.Context, request *pb.ValidationServiceRequest) (*pb.ValidationServiceResponse, error) {
@@ -199,7 +199,7 @@ func (m reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Cont
 	keyValueStoreRes := net.Resource{Closer: keyValueStoreConn, Name: "KeyValueStore"}
 	keyValueStore := keyvalue.NewClient(keyValueStoreConn)
 
-	config := types.ReportingPluginServiceConfig{
+	config := core.ReportingPluginServiceConfig{
 		ProviderType:  request.ReportingPluginServiceConfig.ProviderType,
 		PluginConfig:  request.ReportingPluginServiceConfig.PluginConfig,
 		PluginName:    request.ReportingPluginServiceConfig.PluginName,
@@ -224,11 +224,11 @@ func (m reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Cont
 	return &pb.NewReportingPluginFactoryReply{ID: id}, nil
 }
 
-func RegisterReportingPluginServiceServer(server *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl types.OCR3ReportingPluginClient) error {
+func RegisterReportingPluginServiceServer(server *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl core.OCR3ReportingPluginClient) error {
 	pb.RegisterReportingPluginServiceServer(server, newReportingPluginServiceServer(&net.BrokerExt{Broker: broker, BrokerConfig: brokerCfg}, impl))
 	return nil
 }
 
-func newReportingPluginServiceServer(b *net.BrokerExt, gp types.OCR3ReportingPluginClient) *reportingPluginServiceServer {
+func newReportingPluginServiceServer(b *net.BrokerExt, gp core.OCR3ReportingPluginClient) *reportingPluginServiceServer {
 	return &reportingPluginServiceServer{BrokerExt: b.WithName("OCR3ReportingPluginService"), impl: gp}
 }

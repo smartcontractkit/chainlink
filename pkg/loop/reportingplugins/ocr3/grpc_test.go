@@ -17,6 +17,7 @@ import (
 	reportingplugintest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -28,16 +29,16 @@ func newStopCh(t *testing.T) <-chan struct{} {
 	return stopCh
 }
 
-func PluginGenericTest(t *testing.T, p types.OCR3ReportingPluginClient) {
+func PluginGenericTest(t *testing.T, p core.OCR3ReportingPluginClient) {
 	t.Run("PluginServer", func(t *testing.T) {
 		ctx := tests.Context(t)
 		factory, err := p.NewReportingPluginFactory(ctx,
-			types.ReportingPluginServiceConfig{},
+			core.ReportingPluginServiceConfig{},
 			nettest.MockConn{},
 			pipelinetest.PipelineRunner,
 			telemetrytest.Telemetry,
 			errorlogtest.ErrorLog,
-			types.CapabilitiesRegistry(nil),
+			core.CapabilitiesRegistry(nil),
 			keyvaluestoretest.KeyValueStore{})
 		require.NoError(t, err)
 

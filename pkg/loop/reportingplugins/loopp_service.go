@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 var _ ocrtypes.ReportingPluginFactory = (*LOOPPService)(nil)
@@ -23,7 +24,7 @@ type LOOPPService struct {
 }
 
 type LOOPPServiceValidation struct {
-	goplugin.PluginService[*GRPCService[types.PluginProvider], types.ValidationService]
+	goplugin.PluginService[*GRPCService[types.PluginProvider], core.ValidationService]
 }
 
 // NewLOOPPService returns a new [*PluginService].
@@ -33,15 +34,15 @@ func NewLOOPPService(
 	lggr logger.Logger,
 	grpcOpts loop.GRPCOpts,
 	cmd func() *exec.Cmd,
-	config types.ReportingPluginServiceConfig,
+	config core.ReportingPluginServiceConfig,
 	providerConn grpc.ClientConnInterface,
-	pipelineRunner types.PipelineRunnerService,
-	telemetryService types.TelemetryService,
-	errorLog types.ErrorLog,
-	keyValueStore types.KeyValueStore,
+	pipelineRunner core.PipelineRunnerService,
+	telemetryService core.TelemetryService,
+	errorLog core.ErrorLog,
+	keyValueStore core.KeyValueStore,
 ) *LOOPPService {
 	newService := func(ctx context.Context, instance any) (types.ReportingPluginFactory, error) {
-		plug, ok := instance.(types.ReportingPluginClient)
+		plug, ok := instance.(core.ReportingPluginClient)
 		if !ok {
 			return nil, fmt.Errorf("expected GenericPluginClient but got %T", instance)
 		}
@@ -67,8 +68,8 @@ func NewLOOPPServiceValidation(
 	grpcOpts loop.GRPCOpts,
 	cmd func() *exec.Cmd,
 ) *LOOPPServiceValidation {
-	newService := func(ctx context.Context, instance any) (types.ValidationService, error) {
-		plug, ok := instance.(types.ReportingPluginClient)
+	newService := func(ctx context.Context, instance any) (core.ValidationService, error) {
+		plug, ok := instance.(core.ReportingPluginClient)
 		if !ok {
 			return nil, fmt.Errorf("expected ValidationServiceClient but got %T", instance)
 		}

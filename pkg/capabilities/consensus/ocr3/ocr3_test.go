@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
@@ -24,14 +25,14 @@ func TestOCR3_ReportingFactoryAddsCapability(t *testing.T) {
 	require.NoError(t, o.Start(ctx))
 
 	var p types.PluginProvider
-	var pr types.PipelineRunnerService
-	var tc types.TelemetryClient
-	var el types.ErrorLog
-	var kv types.KeyValueStore
+	var pr core.PipelineRunnerService
+	var tc core.TelemetryClient
+	var el core.ErrorLog
+	var kv core.KeyValueStore
 	r := mocks.NewCapabilitiesRegistry(t)
 	r.On("Add", mock.Anything, o.config.capability).Return(nil)
 
-	_, err := o.NewReportingPluginFactory(ctx, types.ReportingPluginServiceConfig{}, p, pr, tc, el, r, kv)
+	_, err := o.NewReportingPluginFactory(ctx, core.ReportingPluginServiceConfig{}, p, pr, tc, el, r, kv)
 	require.NoError(t, err)
 }
 
@@ -46,14 +47,14 @@ func TestOCR3_ReportingFactoryIsAService(t *testing.T) {
 	require.NoError(t, o.Start(ctx))
 
 	var p types.PluginProvider
-	var pr types.PipelineRunnerService
-	var tc types.TelemetryClient
-	var el types.ErrorLog
-	var kv types.KeyValueStore
+	var pr core.PipelineRunnerService
+	var tc core.TelemetryClient
+	var el core.ErrorLog
+	var kv core.KeyValueStore
 	r := mocks.NewCapabilitiesRegistry(t)
 	r.On("Add", mock.Anything, o.config.capability).Return(nil)
 
-	factory, err := o.NewReportingPluginFactory(ctx, types.ReportingPluginServiceConfig{}, p, pr, tc, el, r, kv)
+	factory, err := o.NewReportingPluginFactory(ctx, core.ReportingPluginServiceConfig{}, p, pr, tc, el, r, kv)
 	require.NoError(t, err)
 
 	require.NoError(t, factory.Start(ctx))

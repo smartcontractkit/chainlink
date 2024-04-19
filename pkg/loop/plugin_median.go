@@ -8,16 +8,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/median"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 // PluginMedianName is the name for [types.PluginMedian]/[NewGRPCPluginMedian].
 const PluginMedianName = "median"
 
 // Deprecated
-type PluginMedian = types.PluginMedian
+type PluginMedian = core.PluginMedian
 
 // Deprecated
-type ErrorLog = types.ErrorLog
+type ErrorLog = core.ErrorLog
 
 func PluginMedianHandshakeConfig() plugin.HandshakeConfig {
 	return plugin.HandshakeConfig{
@@ -34,7 +35,7 @@ type GRPCPluginMedian struct {
 
 	BrokerConfig
 
-	PluginServer types.PluginMedian
+	PluginServer core.PluginMedian
 
 	pluginClient *median.PluginMedianClient
 }
@@ -51,7 +52,7 @@ func (p *GRPCPluginMedian) GRPCClient(_ context.Context, broker *plugin.GRPCBrok
 		p.pluginClient.Refresh(broker, conn)
 	}
 
-	return types.PluginMedian(p.pluginClient), nil
+	return core.PluginMedian(p.pluginClient), nil
 }
 
 func (p *GRPCPluginMedian) ClientConfig() *plugin.ClientConfig {

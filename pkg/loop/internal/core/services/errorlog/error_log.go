@@ -7,10 +7,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-var _ types.ErrorLog = (*errorLogClient)(nil)
+var _ core.ErrorLog = (*errorLogClient)(nil)
 
 type errorLogClient struct {
 	grpc pb.ErrorLogClient
@@ -30,10 +30,10 @@ var _ pb.ErrorLogServer = (*Server)(nil)
 type Server struct {
 	pb.UnimplementedErrorLogServer
 
-	impl types.ErrorLog
+	impl core.ErrorLog
 }
 
-func NewServer(impl types.ErrorLog) *Server {
+func NewServer(impl core.ErrorLog) *Server {
 	return &Server{impl: impl}
 }
 

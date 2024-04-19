@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -28,7 +28,7 @@ type ocr3staticPluginFactory struct {
 	reportingPlugin ocr3staticReportingPlugin
 }
 
-var _ types.OCR3ReportingPluginFactory = (*ocr3staticPluginFactory)(nil)
+var _ core.OCR3ReportingPluginFactory = (*ocr3staticPluginFactory)(nil)
 
 func (o ocr3staticPluginFactory) Name() string { panic("implement me") }
 
@@ -85,7 +85,7 @@ func (o ocr3staticPluginFactory) equalConfig(other ocr3types.ReportingPluginConf
 	return nil
 }
 
-func OCR3ReportingPluginFactory(t *testing.T, factory types.OCR3ReportingPluginFactory) {
+func OCR3ReportingPluginFactory(t *testing.T, factory core.OCR3ReportingPluginFactory) {
 	expectedFactory := Factory
 	t.Run("OCR3ReportingPluginFactory", func(t *testing.T) {
 		ctx := tests.Context(t)

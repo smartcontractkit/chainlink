@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 var ValidationService = staticValidationService{}
@@ -16,13 +16,13 @@ var GoodPluginConfig = map[string]interface{}{
 	"someFieldName": "someFieldValue",
 }
 
-var _ types.ValidationService = (*staticValidationService)(nil)
+var _ core.ValidationService = (*staticValidationService)(nil)
 
 type staticValidationService struct {
 	services.Service
 }
 
-func (t staticValidationService) Evaluate(ctx context.Context, other types.ValidationService) error {
+func (t staticValidationService) Evaluate(ctx context.Context, other core.ValidationService) error {
 	return other.ValidateConfig(ctx, GoodPluginConfig)
 }
 

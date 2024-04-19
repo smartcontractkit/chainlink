@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2"
 	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 var _ looptypes.PluginRelayer = (*PluginRelayerClient)(nil)
@@ -38,7 +39,7 @@ func NewPluginRelayerClient(broker net.Broker, brokerCfg net.BrokerConfig, conn 
 	return &PluginRelayerClient{PluginClient: pc, grpc: pb.NewPluginRelayerClient(pc)}
 }
 
-func (p *PluginRelayerClient) NewRelayer(ctx context.Context, config string, keystore types.Keystore) (looptypes.Relayer, error) {
+func (p *PluginRelayerClient) NewRelayer(ctx context.Context, config string, keystore core.Keystore) (looptypes.Relayer, error) {
 	cc := p.NewClientConn("Relayer", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		var ksRes net.Resource
 		id, ksRes, err = p.ServeNew("Keystore", func(s *grpc.Server) {
@@ -109,7 +110,7 @@ func (p *pluginRelayerServer) NewRelayer(ctx context.Context, request *pb.NewRel
 	return &pb.NewRelayerReply{RelayerID: id}, nil
 }
 
-var _ types.Keystore = (*keystoreClient)(nil)
+var _ core.Keystore = (*keystoreClient)(nil)
 
 type keystoreClient struct {
 	grpc pb.KeystoreClient
@@ -140,7 +141,7 @@ var _ pb.KeystoreServer = (*keystoreServer)(nil)
 type keystoreServer struct {
 	pb.UnimplementedKeystoreServer
 
-	impl types.Keystore
+	impl core.Keystore
 }
 
 func (k *keystoreServer) Accounts(ctx context.Context, _ *emptypb.Empty) (*pb.AccountsReply, error) {

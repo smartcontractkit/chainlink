@@ -2,10 +2,70 @@ package types
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"regexp"
 
 	"github.com/google/uuid"
 )
+
+const (
+	NetworkEVM      = "evm"
+	NetworkCosmos   = "cosmos"
+	NetworkSolana   = "solana"
+	NetworkStarkNet = "starknet"
+)
+
+var SupportedRelays = map[string]struct{}{
+	NetworkEVM:      {},
+	NetworkCosmos:   {},
+	NetworkSolana:   {},
+	NetworkStarkNet: {},
+}
+
+type RelayID struct {
+	Network string
+	ChainID string
+}
+
+// ID uniquely identifies a relayer by network and chain id
+func (i *RelayID) Name() string {
+	return fmt.Sprintf("%s.%s", i.Network, i.ChainID)
+}
+
+func (i *RelayID) String() string {
+	return i.Name()
+}
+func NewRelayID(n string, c string) RelayID {
+	return RelayID{Network: n, ChainID: c}
+}
+
+var idRegex = regexp.MustCompile(
+	fmt.Sprintf("^((%s)|(%s)|(%s)|(%s))\\.", NetworkEVM, NetworkCosmos, NetworkSolana, NetworkStarkNet),
+)
+
+func (i *RelayID) UnmarshalString(s string) error {
+	idxs := idRegex.FindStringIndex(s)
+	if idxs == nil {
+		return fmt.Errorf("error unmarshaling Identifier. %q does not match expected pattern", s)
+	}
+	// ignore the `.` in the match by dropping last rune
+	network := s[idxs[0] : idxs[1]-1]
+	chainID := s[idxs[1]:]
+	newID := &RelayID{ChainID: chainID}
+	for n := range SupportedRelays {
+		if network == n {
+			newID.Network = n
+			break
+		}
+	}
+	if newID.Network == "" {
+		return fmt.Errorf("error unmarshaling identifier: did not find network in supported list %q", network)
+	}
+	i.ChainID = newID.ChainID
+	i.Network = newID.Network
+	return nil
+}
 
 // PluginArgs are the args required to create any OCR2 plugin components.
 // It's possible that the plugin config might actually be different

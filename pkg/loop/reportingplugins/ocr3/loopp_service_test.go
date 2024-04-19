@@ -17,7 +17,7 @@ import (
 	nettest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 type HelperProcessCommand test.HelperProcessCommand
@@ -56,12 +56,12 @@ func TestLOOPPService(t *testing.T) {
 		looppSvc := NewLOOPPService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
 			return NewHelperProcessCommand(ts.Plugin)
 		},
-			types.ReportingPluginServiceConfig{},
+			core.ReportingPluginServiceConfig{},
 			nettest.MockConn{},
 			pipelinetest.PipelineRunner,
 			telemetrytest.Telemetry,
 			errorlogtest.ErrorLog,
-			types.CapabilitiesRegistry(nil),
+			core.CapabilitiesRegistry(nil),
 			keyvaluestoretest.KeyValueStore{})
 		hook := looppSvc.XXXTestHook()
 		servicetest.Run(t, looppSvc)
@@ -100,12 +100,12 @@ func TestLOOPPService_recovery(t *testing.T) {
 		}
 		return h.New()
 	},
-		types.ReportingPluginServiceConfig{},
+		core.ReportingPluginServiceConfig{},
 		nettest.MockConn{},
 		pipelinetest.PipelineRunner,
 		telemetrytest.Telemetry,
 		errorlogtest.ErrorLog,
-		types.CapabilitiesRegistry(nil),
+		core.CapabilitiesRegistry(nil),
 		keyvaluestoretest.KeyValueStore{})
 	servicetest.Run(t, looppSvc)
 

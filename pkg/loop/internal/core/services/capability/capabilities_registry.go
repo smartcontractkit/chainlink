@@ -11,10 +11,10 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-var _ types.CapabilitiesRegistry = (*capabilitiesRegistryClient)(nil)
+var _ core.CapabilitiesRegistry = (*capabilitiesRegistryClient)(nil)
 
 type capabilitiesRegistryClient struct {
 	*net.BrokerExt
@@ -169,7 +169,7 @@ var _ pb.CapabilitiesRegistryServer = (*capabilitiesRegistryServer)(nil)
 type capabilitiesRegistryServer struct {
 	pb.UnimplementedCapabilitiesRegistryServer
 	*net.BrokerExt
-	impl types.CapabilitiesRegistry
+	impl core.CapabilitiesRegistry
 }
 
 func (c *capabilitiesRegistryServer) Get(ctx context.Context, request *pb.GetRequest) (*pb.GetReply, error) {
@@ -358,7 +358,7 @@ func (c *capabilitiesRegistryServer) Add(ctx context.Context, request *pb.AddReq
 	return &emptypb.Empty{}, nil
 }
 
-func NewCapabilitiesRegistryServer(b *net.BrokerExt, i types.CapabilitiesRegistry) *capabilitiesRegistryServer {
+func NewCapabilitiesRegistryServer(b *net.BrokerExt, i core.CapabilitiesRegistry) *capabilitiesRegistryServer {
 	return &capabilitiesRegistryServer{
 		BrokerExt: b.WithName("CapabilitiesRegistryServer"),
 		impl:      i,

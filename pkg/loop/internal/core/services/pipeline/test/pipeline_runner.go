@@ -7,7 +7,7 @@ import (
 	"time"
 
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 )
 
@@ -19,15 +19,15 @@ answer;
 var PipelineRunner = staticPipelineRunnerService{
 	staticPipelineRunnerConfig: staticPipelineRunnerConfig{
 		spec: pipleineSpec,
-		vars: types.Vars{
+		vars: core.Vars{
 			Vars: map[string]interface{}{"foo": "baz"},
 		},
-		options: types.Options{
+		options: core.Options{
 			MaxTaskDuration: 10 * time.Second,
 		},
-		taskResults: types.TaskResults([]types.TaskResult{
+		taskResults: core.TaskResults([]core.TaskResult{
 			{
-				TaskValue: types.TaskValue{
+				TaskValue: core.TaskValue{
 					Value: jsonserializable.JSONSerializable{
 						Val:   "hello",
 						Valid: true,
@@ -43,16 +43,16 @@ var _ testtypes.PipelineEvaluator = (*staticPipelineRunnerService)(nil)
 
 type staticPipelineRunnerConfig struct {
 	spec        string
-	vars        types.Vars
-	options     types.Options
-	taskResults types.TaskResults
+	vars        core.Vars
+	options     core.Options
+	taskResults core.TaskResults
 }
 
 type staticPipelineRunnerService struct {
 	staticPipelineRunnerConfig
 }
 
-func (pr staticPipelineRunnerService) ExecuteRun(ctx context.Context, s string, v types.Vars, o types.Options) (types.TaskResults, error) {
+func (pr staticPipelineRunnerService) ExecuteRun(ctx context.Context, s string, v core.Vars, o core.Options) (core.TaskResults, error) {
 	if s != pr.spec {
 		return nil, fmt.Errorf("expected %s but got %s", pr.spec, s)
 	}
@@ -65,7 +65,7 @@ func (pr staticPipelineRunnerService) ExecuteRun(ctx context.Context, s string, 
 	return pr.taskResults, nil
 }
 
-func (pr staticPipelineRunnerService) Evaluate(ctx context.Context, other types.PipelineRunnerService) error {
+func (pr staticPipelineRunnerService) Evaluate(ctx context.Context, other core.PipelineRunnerService) error {
 	tr, err := pr.ExecuteRun(ctx, pr.spec, pr.vars, pr.options)
 	if err != nil {
 		return fmt.Errorf("failed to execute pipeline: %w", err)

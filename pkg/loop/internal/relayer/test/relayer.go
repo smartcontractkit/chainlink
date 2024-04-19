@@ -23,6 +23,7 @@ import (
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -100,7 +101,7 @@ type staticPluginRelayer struct {
 	staticPluginRelayerConfig
 }
 
-func (s staticPluginRelayer) NewRelayer(ctx context.Context, config string, keystore types.Keystore) (looptypes.Relayer, error) {
+func (s staticPluginRelayer) NewRelayer(ctx context.Context, config string, keystore core.Keystore) (looptypes.Relayer, error) {
 	if s.StaticChecks && config != ConfigTOML {
 		return nil, fmt.Errorf("expected config %q but got %q", ConfigTOML, config)
 	}

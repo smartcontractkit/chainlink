@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 var ErrorLog = StaticErrorLog{errMsg: "an error"}
@@ -23,6 +23,6 @@ func (s StaticErrorLog) SaveError(ctx context.Context, msg string) error {
 	return nil
 }
 
-func (s StaticErrorLog) Evaluate(ctx context.Context, other types.ErrorLog) error {
+func (s StaticErrorLog) Evaluate(ctx context.Context, other core.ErrorLog) error {
 	return s.SaveError(ctx, s.errMsg)
 }

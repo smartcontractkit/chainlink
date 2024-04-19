@@ -11,19 +11,19 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 )
 
 type mockPipelineRunner struct {
-	taskResults []types.TaskResult
+	taskResults []core.TaskResult
 	err         error
 	spec        string
-	vars        types.Vars
-	options     types.Options
+	vars        core.Vars
+	options     core.Options
 }
 
-func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars types.Vars, options types.Options) (types.TaskResults, error) {
+func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars core.Vars, options core.Options) (core.TaskResults, error) {
 	m.spec, m.vars, m.options = spec, vars, options
 	return m.taskResults, m.err
 }
@@ -37,10 +37,10 @@ func (c *clientAdapter) ExecuteRun(ctx context.Context, in *pb.RunRequest, opts 
 }
 
 func TestPipelineRunnerService(t *testing.T) {
-	originalResults := []types.TaskResult{
+	originalResults := []core.TaskResult{
 		{
 			ID: "1",
-			TaskValue: types.TaskValue{
+			TaskValue: core.TaskValue{
 				Value: jsonserializable.JSONSerializable{
 					Val:   123.123,
 					Valid: true,
@@ -51,7 +51,7 @@ func TestPipelineRunnerService(t *testing.T) {
 		{
 			ID: "2",
 
-			TaskValue: types.TaskValue{
+			TaskValue: core.TaskValue{
 				Value: jsonserializable.JSONSerializable{},
 				Error: errors.New("Error task"),
 			},
@@ -66,8 +66,8 @@ func TestPipelineRunnerService(t *testing.T) {
 	trs, err := client.ExecuteRun(
 		context.Background(),
 		"my-spec",
-		types.Vars{Vars: map[string]interface{}{"my-vars": true}},
-		types.Options{MaxTaskDuration: 10 * time.Second},
+		core.Vars{Vars: map[string]interface{}{"my-vars": true}},
+		core.Options{MaxTaskDuration: 10 * time.Second},
 	)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, originalResults, trs)
@@ -79,10 +79,10 @@ func TestPipelineRunnerService_CallArgs(t *testing.T) {
 	client := &pipelineRunnerServiceClient{grpc: &clientAdapter{srv: srv}}
 
 	spec := "my-spec"
-	vars := types.Vars{
+	vars := core.Vars{
 		Vars: map[string]interface{}{"my-vars": true},
 	}
-	options := types.Options{
+	options := core.Options{
 		MaxTaskDuration: 10 * time.Second,
 	}
 	_, err := client.ExecuteRun(context.Background(), spec, vars, options)

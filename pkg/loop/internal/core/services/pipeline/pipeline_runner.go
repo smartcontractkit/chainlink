@@ -10,11 +10,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 )
 
-var _ types.PipelineRunnerService = (*pipelineRunnerServiceClient)(nil)
+var _ core.PipelineRunnerService = (*pipelineRunnerServiceClient)(nil)
 
 type pipelineRunnerServiceClient struct {
 	*net.BrokerExt
@@ -25,7 +25,7 @@ func NewRunnerClient(cc grpc.ClientConnInterface) *pipelineRunnerServiceClient {
 	return &pipelineRunnerServiceClient{grpc: pb.NewPipelineRunnerServiceClient(cc)}
 }
 
-func (p pipelineRunnerServiceClient) ExecuteRun(ctx context.Context, spec string, vars types.Vars, options types.Options) (types.TaskResults, error) {
+func (p pipelineRunnerServiceClient) ExecuteRun(ctx context.Context, spec string, vars core.Vars, options core.Options) (core.TaskResults, error) {
 	varsStruct, err := structpb.NewStruct(vars.Vars)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (p pipelineRunnerServiceClient) ExecuteRun(ctx context.Context, spec string
 		return nil, err
 	}
 
-	trs := make([]types.TaskResult, len(executeRunResult.Results))
+	trs := make([]core.TaskResult, len(executeRunResult.Results))
 	for i, trr := range executeRunResult.Results {
 		var err error
 		if trr.HasError {
@@ -56,10 +56,10 @@ func (p pipelineRunnerServiceClient) ExecuteRun(ctx context.Context, spec string
 		if err2 != nil {
 			return nil, err2
 		}
-		trs[i] = types.TaskResult{
+		trs[i] = core.TaskResult{
 			ID:   trr.Id,
 			Type: trr.Type,
-			TaskValue: types.TaskValue{
+			TaskValue: core.TaskValue{
 				Value:      js,
 				Error:      err,
 				IsTerminal: trr.IsTerminal,
@@ -77,18 +77,18 @@ type RunnerServer struct {
 	pb.UnimplementedPipelineRunnerServiceServer
 	*net.BrokerExt
 
-	impl types.PipelineRunnerService
+	impl core.PipelineRunnerService
 }
 
-func NewRunnerServer(impl types.PipelineRunnerService) *RunnerServer {
+func NewRunnerServer(impl core.PipelineRunnerService) *RunnerServer {
 	return &RunnerServer{impl: impl}
 }
 
 func (p *RunnerServer) ExecuteRun(ctx context.Context, rr *pb.RunRequest) (*pb.RunResponse, error) {
-	vars := types.Vars{
+	vars := core.Vars{
 		Vars: rr.Vars.AsMap(),
 	}
-	options := types.Options{
+	options := core.Options{
 		MaxTaskDuration: rr.Options.MaxTaskDuration.AsDuration(),
 	}
 	trs, err := p.impl.ExecuteRun(ctx, rr.Spec, vars, options)

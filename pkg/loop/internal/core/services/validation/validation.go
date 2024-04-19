@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 type validationServiceClient struct {
@@ -38,7 +38,7 @@ type validationServiceServer struct {
 
 	*net.BrokerExt
 
-	impl types.ValidationServiceServer
+	impl core.ValidationServiceServer
 }
 
 func (v *validationServiceServer) ValidateConfig(ctx context.Context, c *pb.ValidateConfigRequest) (*pb.ValidateConfigResponse, error) {
@@ -49,6 +49,6 @@ func (v *validationServiceServer) ValidateConfig(ctx context.Context, c *pb.Vali
 	return &pb.ValidateConfigResponse{}, nil
 }
 
-func NewValidationServiceServer(impl types.ValidationServiceServer, b *net.BrokerExt) *validationServiceServer {
+func NewValidationServiceServer(impl core.ValidationServiceServer, b *net.BrokerExt) *validationServiceServer {
 	return &validationServiceServer{impl: impl, BrokerExt: b.WithName("ReportingPluginFactoryServer")}
 }

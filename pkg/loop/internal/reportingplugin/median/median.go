@@ -16,9 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	medianprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-var _ types.PluginMedian = (*PluginMedianClient)(nil)
+var _ core.PluginMedian = (*PluginMedianClient)(nil)
 
 type PluginMedianClient struct {
 	*goplugin.PluginClient
@@ -33,7 +34,7 @@ func NewPluginMedianClient(broker net.Broker, brokerCfg net.BrokerConfig, conn *
 	return &PluginMedianClient{PluginClient: pc, median: pb.NewPluginMedianClient(pc), ServiceClient: goplugin.NewServiceClient(pc.BrokerExt, pc)}
 }
 
-func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
+func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog core.ErrorLog) (types.ReportingPluginFactory, error) {
 	cc := m.NewClientConn("MedianPluginFactory", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		dataSourceID, dsRes, err := m.ServeNew("DataSource", func(s *grpc.Server) {
 			pb.RegisterDataSourceServer(s, newDataSourceServer(dataSource))
@@ -95,15 +96,15 @@ type pluginMedianServer struct {
 	pb.UnimplementedPluginMedianServer
 
 	*net.BrokerExt
-	impl types.PluginMedian
+	impl core.PluginMedian
 }
 
-func RegisterPluginMedianServer(server *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl types.PluginMedian) error {
+func RegisterPluginMedianServer(server *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl core.PluginMedian) error {
 	pb.RegisterPluginMedianServer(server, newPluginMedianServer(&net.BrokerExt{Broker: broker, BrokerConfig: brokerCfg}, impl))
 	return nil
 }
 
-func newPluginMedianServer(b *net.BrokerExt, mp types.PluginMedian) *pluginMedianServer {
+func newPluginMedianServer(b *net.BrokerExt, mp core.PluginMedian) *pluginMedianServer {
 	return &pluginMedianServer{BrokerExt: b.WithName("PluginMedian"), impl: mp}
 }
 

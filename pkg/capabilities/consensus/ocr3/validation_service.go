@@ -5,10 +5,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-var _ commontypes.ValidationService = (*validationService)(nil)
+var _ core.ValidationService = (*validationService)(nil)
 
 type validationService struct {
 	lggr logger.Logger
