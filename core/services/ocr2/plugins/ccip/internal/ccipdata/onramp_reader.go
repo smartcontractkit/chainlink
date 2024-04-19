@@ -4,7 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
 )
 
 type LeafHasherInterface[H hashlib.Hash] interface {
