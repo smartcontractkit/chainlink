@@ -22,6 +22,7 @@ import (
 
 func TestChainRelayExtenders(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	newId := testutils.NewRandomEVMChainID()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -31,8 +32,8 @@ func TestChainRelayExtenders(t *testing.T) {
 		c.EVM = append(c.EVM, &toml.EVMConfig{ChainID: ubig.New(newId), Enabled: &t, Chain: toml.Defaults(nil)})
 	})
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
-	require.NoError(t, kst.Unlock(cltest.Password))
+	kst := cltest.NewKeyStore(t, db)
+	require.NoError(t, kst.Unlock(ctx, cltest.Password))
 
 	opts := evmtest.NewChainRelayExtOpts(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg})
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
