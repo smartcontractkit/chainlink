@@ -355,15 +355,15 @@ func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2ty
 
 		timePairBytes, err := ds.kvStore.Get(ctx, dataSourceCacheKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get result time pair bytes, err: %w", err)
+			return nil, fmt.Errorf("in memory data source cache is empty and failed to get backup persisted value, err: %w", err)
 		}
 
-		if err := json.Unmarshal(timePairBytes, &resTime); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal result time pair bytes, err: %w", err)
+		if err = json.Unmarshal(timePairBytes, &resTime); err != nil {
+			return nil, fmt.Errorf("in memory data source cache is empty and failed to unmarshal backup persisted value, err: %w", err)
 		}
 
 		if time.Since(resTime.Time) >= ds.stalenessAlertThreshold {
-			ds.lggr.Errorf("cache hasn't been updated for over %v, latestUpdateErr is: %v", ds.stalenessAlertThreshold, ds.latestUpdateErr)
+			ds.lggr.Errorf("in memory data source cache is empty and the persisted value hasn't been updated for over %v, latestUpdateErr is: %v", ds.stalenessAlertThreshold, ds.latestUpdateErr)
 		}
 		return resTime.Result.ToInt(), nil
 	}
@@ -374,6 +374,13 @@ func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2ty
 		ConfigDigest: timestamp.ConfigDigest.Hex(),
 	})
 
+	// if last update was unsuccessful, check how much time passed since a successful update
+	if ds.latestUpdateErr != nil {
+		if time.Since(ds.latestTrrs.GetTaskRunResultsFinishedAt()) >= ds.stalenessAlertThreshold {
+			ds.lggr.Errorf("in memory cache is old and hasn't been updated for over %v, latestUpdateErr is: %v", ds.stalenessAlertThreshold, ds.latestUpdateErr)
+		}
+
+	}
 	return ds.parse(latestResult)
 }
 
