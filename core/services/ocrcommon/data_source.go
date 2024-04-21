@@ -341,7 +341,7 @@ func (ds *inMemoryDataSourceCache) get(ctx context.Context) (pipeline.FinalResul
 	ds.mu.RUnlock()
 
 	if err := ds.updateCache(ctx); err != nil {
-		ds.lggr.Warnf("failed to update cache err: %v, returning stale result now, err: %v", err)
+		ds.lggr.Warnf("failed to update cache, returning stale result now, err: %v", err)
 	}
 
 	ds.mu.RLock()
