@@ -41,8 +41,8 @@ coordinator_gas_overhead_per_word = 440
 wrapper_max_number_of_words = 10
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 10
-wrapper_native_premium_percentage=24
-wrapper_link_premium_percentage=20
+coordinator_native_premium_percentage=24
+coordinator_link_premium_percentage=20
 
 # VRF Job config
 vrf_job_forwarding_allowed = false

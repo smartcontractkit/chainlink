@@ -50,9 +50,9 @@ type General struct {
 	LinkPremiumPercentage             *uint8   `toml:"link_premium_percentage"`                // LINK Premium Percentage
 
 	//Wrapper config
-	CoordinatorGasOverheadPerWord  *uint16 `toml:"coordinator_gas_overhead_per_word"`
-	WrapperNativePremiumPercentage *uint8  `toml:"wrapper_native_premium_percentage"`
-	WrapperLinkPremiumPercentage   *uint8  `toml:"wrapper_link_premium_percentage"`
+	CoordinatorGasOverheadPerWord      *uint16 `toml:"coordinator_gas_overhead_per_word"`
+	CoordinatorNativePremiumPercentage *uint8  `toml:"coordinator_native_premium_percentage"`
+	CoordinatorLinkPremiumPercentage   *uint8  `toml:"coordinator_link_premium_percentage"`
 }
 
 func (c *General) Validate() error {
@@ -83,11 +83,11 @@ func (c *General) Validate() error {
 	if c.CoordinatorGasOverheadPerWord == nil {
 		return errors.New("coordinator_gas_overhead_per_word must not be nil")
 	}
-	if c.WrapperNativePremiumPercentage == nil {
-		return errors.New("wrapper_native_premium_percentage must not be nil")
+	if c.CoordinatorNativePremiumPercentage == nil {
+		return errors.New("coordinator_native_premium_percentage must not be nil")
 	}
-	if c.WrapperLinkPremiumPercentage == nil {
-		return errors.New("wrapper_link_premium_percentage must not be nil")
+	if c.CoordinatorLinkPremiumPercentage == nil {
+		return errors.New("coordinator_link_premium_percentage must not be nil")
 	}
 	return nil
 }

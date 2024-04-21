@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
@@ -207,16 +208,12 @@ func SetupVRFV2Contracts(
 		ReqsForTier5:                   big.NewInt(*vrfv2Config.ReqsForTier5)}
 
 	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2.Address()).Msg("Setting Coordinator Config")
-	fallbackWeiPerUnitLink, ok := new(big.Int).SetString(*vrfv2Config.FallbackWeiPerUnitLink, 10)
-	if !ok {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrSetVRFCoordinatorConfig, "failed to parse fallbackWeiPerUnitLink")
-	}
 	err = vrfContracts.CoordinatorV2.SetConfig(
 		*vrfv2Config.MinimumConfirmations,
 		*vrfv2Config.MaxGasLimitCoordinatorConfig,
 		*vrfv2Config.StalenessSeconds,
 		*vrfv2Config.GasAfterPaymentCalculation,
-		fallbackWeiPerUnitLink,
+		decimal.RequireFromString(*vrfv2Config.FallbackWeiPerUnitLink).BigInt(),
 		vrfCoordinatorV2FeeConfig,
 	)
 	if err != nil {
