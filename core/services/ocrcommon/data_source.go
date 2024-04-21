@@ -3,7 +3,6 @@ package ocrcommon
 import (
 	"context"
 	"encoding/json"
-	errjoin "errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -294,31 +293,30 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
-	// check for any errors
-	_, latestTrrs, latestUpdateErr := ds.executeRun(ctx)
-	if latestTrrs.FinalResult(ds.lggr).HasErrors() {
-		latestUpdateErr = errjoin.Join(append(latestTrrs.FinalResult(ds.lggr).AllErrors, latestUpdateErr)...)
-	}
-
-	if latestUpdateErr != nil {
+	_, latestTrrs, err := ds.executeRun(ctx)
+	if err != nil {
 		previousUpdateErr := ds.latestUpdateErr
-		ds.latestUpdateErr = latestUpdateErr
-		// raise log severity
+		ds.latestUpdateErr = err
+		// warn log if previous cache update also errored
 		if previousUpdateErr != nil {
 			ds.lggr.Warnf("consecutive cache updates errored: previous err: %v new err: %v", previousUpdateErr, ds.latestUpdateErr)
 		}
-		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
+
+		return errors.Wrapf(ds.latestUpdateErr, "error updating in memory data source cache for spec ID %v", ds.spec.ID)
 	}
 
+	value, err := ds.inMemoryDataSource.parse(latestTrrs.FinalResult(ds.lggr))
+	if err != nil {
+		ds.latestUpdateErr = errors.Wrapf(err, "invalid result")
+		return ds.latestUpdateErr
+	}
+
+	// update cache values
 	ds.latestTrrs = latestTrrs
 	ds.latestResult = ds.latestTrrs.FinalResult(ds.lggr)
-	value, err := ds.inMemoryDataSource.parse(ds.latestResult)
-	if err != nil {
-		return errors.Wrapf(err, "invalid result")
-	}
+	ds.latestUpdateErr = nil
 
 	// backup in case data source fails continuously and node gets rebooted
-
 	timePairBytes, err := json.Marshal(&ResultTimePair{Result: *serializablebig.New(value), Time: time.Now()})
 	if err != nil {
 		return fmt.Errorf("failed to marshal result time pair, err: %w", err)
