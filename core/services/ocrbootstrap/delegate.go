@@ -101,7 +101,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if spec.FeedID != nil {
 		spec.RelayConfig["feedID"] = *spec.FeedID
 	}
-	spec.RelayConfig = d.relayConfigsWithDefaults(spec.RelayConfig)
+	d.relayConfigsWithDefaults(spec.RelayConfig)
 
 	ctxVals := loop.ContextValues{
 		JobID:      jb.ID,
@@ -194,7 +194,7 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error {
 	return nil
 }
 
-func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) job.JSONConfig {
+func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) {
 	_, ok := relayConfig["defaultTransactionQueueDepth"]
 	if !ok {
 		relayConfig["defaultTransactionQueueDepth"] = d.ocr2Cfg.DefaultTransactionQueueDepth()
@@ -203,5 +203,4 @@ func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) job.JSON
 	if !ok {
 		relayConfig["simulateTransactions"] = d.ocr2Cfg.SimulateTransactions()
 	}
-	return relayConfig
 }

@@ -401,7 +401,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
-	spec.RelayConfig = d.relayConfigsWithDefaults(spec.RelayConfig)
+	d.relayConfigsWithDefaults(spec.RelayConfig)
 
 	ocrDB := NewDB(d.db, spec.ID, 0, lggr, d.cfg.Database())
 	if d.peerWrapper == nil {
@@ -1695,7 +1695,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	return append([]job.ServiceCtx{functionsProvider, thresholdProvider, s4Provider}, functionsServices...), nil
 }
 
-func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) job.JSONConfig {
+func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) {
 	_, ok := relayConfig["defaultTransactionQueueDepth"]
 	if !ok {
 		relayConfig["defaultTransactionQueueDepth"] = d.cfg.OCR2().DefaultTransactionQueueDepth()
@@ -1704,7 +1704,6 @@ func (d *Delegate) relayConfigsWithDefaults(relayConfig job.JSONConfig) job.JSON
 	if !ok {
 		relayConfig["simulateTransactions"] = d.cfg.OCR2().SimulateTransactions()
 	}
-	return relayConfig
 }
 
 // errorLog implements [loop.ErrorLog]
