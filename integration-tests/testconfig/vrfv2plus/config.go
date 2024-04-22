@@ -49,6 +49,11 @@ type General struct {
 	FulfillmentFlatFeeLinkDiscountPPM *uint32  `toml:"fulfillment_flat_fee_link_discount_ppm"` // Flat fee discount in ppm for LINK for the VRF Coordinator config
 	NativePremiumPercentage           *uint8   `toml:"native_premium_percentage"`              // Native Premium Percentage
 	LinkPremiumPercentage             *uint8   `toml:"link_premium_percentage"`                // LINK Premium Percentage
+
+	// Wrapper Config
+	CoordinatorGasOverheadNative  *uint32 `toml:"coordinator_gas_overhead_native"`
+	CoordinatorGasOverheadLink    *uint32 `toml:"coordinator_gas_overhead_link"`
+	CoordinatorGasOverheadPerWord *uint16 `toml:"coordinator_gas_overhead_per_word"`
 }
 
 func (c *General) Validate() error {
@@ -78,6 +83,12 @@ func (c *General) Validate() error {
 	}
 	if c.LinkPremiumPercentage == nil {
 		return errors.New("link_premium_percentage must not be nil")
+	}
+	if c.CoordinatorGasOverheadNative == nil || *c.CoordinatorGasOverheadNative == 0 {
+		return errors.New("coordinator_gas_overhead_native must be set to a non-negative value")
+	}
+	if c.CoordinatorGasOverheadLink == nil || *c.CoordinatorGasOverheadLink == 0 {
+		return errors.New("coordinator_gas_overhead_link must be set to a non-negative value")
 	}
 	return nil
 }
