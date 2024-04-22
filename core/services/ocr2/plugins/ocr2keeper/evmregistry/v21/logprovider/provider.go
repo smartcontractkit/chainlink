@@ -349,7 +349,6 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 			}
 
 			p.lggr.With("where", "getLogsFromBuffer").Infow("built payloads", "payloadsBuilt", payloadsBuilt)
-
 			if remaining > 0 {
 				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
 				// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
