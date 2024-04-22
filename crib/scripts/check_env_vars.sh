@@ -23,6 +23,7 @@ done
 # Exit with an error if any variables were missing
 if [ $missing_vars -ne 0 ]; then
   echo "Total missing environment variables: $missing_vars"
+  echo "To fix it, add missing variables in the crib/.env file"
   exit 1
 else
   echo "All required environment variables are set."
