@@ -289,7 +289,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
-	localAdminUsersORM := localauth.NewORM(sqlxDB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+	localAdminUsersORM := localauth.NewORM(opts.DB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, auditLogger)
 
 	// Initialize Sessions ORM based on environment configured authenticator
 	// localDB auth or remote LDAP auth
@@ -301,26 +301,26 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	case sessions.LDAPAuth:
 		var err error
 		authenticationProvider, err = ldapauth.NewLDAPAuthenticator(
-			sqlxDB, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
+			opts.DB, cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
 		}
 		sessionReaper = ldapauth.NewLDAPServerStateSync(sqlxDB, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
 	case sessions.LocalAuth:
-		authenticationProvider = localauth.NewORM(sqlxDB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		authenticationProvider = localauth.NewORM(opts.DB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, auditLogger)
 		sessionReaper = localauth.NewSessionReaper(sqlxDB.DB, cfg.WebServer(), globalLogger)
 	default:
 		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
 	}
 
 	var (
-		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(sqlxDB, globalLogger, cfg.Database())
-		mercuryORM     = mercury.NewORM(sqlxDB, globalLogger, cfg.Database())
+		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM      = bridges.NewORM(sqlxDB)
+		mercuryORM     = mercury.NewORM(opts.DB)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(sqlxDB, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(sqlxDB, globalLogger)
+		txmORM         = txmgr.NewTxStore(opts.DB, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
@@ -353,7 +353,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineORM,
 				legacyEVMChains,
 				globalLogger,
-				cfg.Database(),
 				mailMon),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
@@ -444,6 +443,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			sqlxDB,
+			opts.DB,
 			jobORM,
 			bridgeORM,
 			mercuryORM,
@@ -835,7 +835,7 @@ func (app *ChainlinkApplication) ResumeJobV2(
 	taskID uuid.UUID,
 	result pipeline.Result,
 ) error {
-	return app.pipelineRunner.ResumeRun(taskID, result.Value, result.Error)
+	return app.pipelineRunner.ResumeRun(ctx, taskID, result.Value, result.Error)
 }
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {

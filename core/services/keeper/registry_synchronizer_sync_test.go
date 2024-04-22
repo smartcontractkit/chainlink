@@ -27,6 +27,7 @@ func (g *GetUpkeepFailure) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepC
 }
 
 func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
+	ctx := testutils.Context(t)
 	log, logObserver := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	synchronizer := &RegistrySynchronizer{
 		logger: log.(logger.SugaredLogger),
@@ -49,7 +50,7 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 	}
 
 	getter := &GetUpkeepFailure{}
-	synchronizer.syncUpkeepWithCallback(getter, registry, id, doneFunc)
+	synchronizer.syncUpkeepWithCallback(ctx, getter, registry, id, doneFunc)
 
 	// logs should have the upkeep identifier included in the error context properly formatted
 	require.Equal(t, 1, logObserver.Len())

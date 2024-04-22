@@ -1120,7 +1120,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 		}
 
 		ec.lggr.Debugw("Callback: resuming tx with receipt", "output", output, "taskErr", taskErr, "pipelineTaskRunID", data.ID)
-		if err := ec.resumeCallback(data.ID, output, taskErr); err != nil {
+		if err := ec.resumeCallback(ctx, data.ID, output, taskErr); err != nil {
 			return fmt.Errorf("failed to resume suspended pipeline run: %w", err)
 		}
 		// Mark tx as having completed callback

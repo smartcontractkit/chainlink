@@ -993,6 +993,60 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
+func TestResolver_WorkflowSpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "Workflow spec",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+					Type: job.Workflow,
+					WorkflowSpec: &job.WorkflowSpec{
+						ID:         id,
+						WorkflowID: "<test workflow id>",
+						Workflow:   "<test workflow spec>",
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on WorkflowSpec {
+									id
+									workflowID
+									workflow
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "WorkflowSpec",
+							"id": "1",
+							"workflowID": "<test workflow id>",
+							"workflow": "<test workflow spec>"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
 func TestResolver_GatewaySpec(t *testing.T) {
 	var (
 		id = int32(1)

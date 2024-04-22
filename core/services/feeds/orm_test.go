@@ -1652,8 +1652,8 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		config         = configtest.NewGeneralConfig(t, nil)
 		keyStore       = cltest.NewKeyStore(t, db, config.Database())
 		lggr           = logger.TestLogger(t)
-		pipelineORM    = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(db, lggr, config.Database())
+		pipelineORM    = pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM      = bridges.NewORM(db)
 		relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	)
 	orm := job.NewORM(db, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
@@ -1662,8 +1662,8 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 
 	defer func() { assert.NoError(t, orm.Close()) }()
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)

@@ -281,7 +281,7 @@ func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
 	listener.skipMarkingConsumed.Store(skip)
 }
 
-func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
+func (listener *simpleLogListener) HandleLog(ctx context.Context, lb log.Broadcast) {
 	listener.received.Lock()
 	defer listener.received.Unlock()
 	listener.lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
