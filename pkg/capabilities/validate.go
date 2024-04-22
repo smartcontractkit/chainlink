@@ -11,6 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
+// A Validator can validate the config, inputs, and outputs of a capability.
+//
+// The library generates a JSON schema for each of these types to both
+// describe the types in a language-agnostic way and to validate the API boundary
+// of the capability.
+//
+// To see how to annotate your structs with JSON schema tags, take a look at the
+// jsonschema package.
 type Validator[Config any, Inputs any, Outputs any] struct {
 	ValidatorArgs
 
@@ -18,6 +26,7 @@ type Validator[Config any, Inputs any, Outputs any] struct {
 	inputsType  Inputs
 	outputsType Outputs
 
+	// schemas is a cache of the generated schemas.
 	schemas map[string]string
 }
 
@@ -43,9 +52,8 @@ type ValidatorArgs struct {
 
 func NewValidator[Config any, Inputs any, Outputs any](args ValidatorArgs) Validator[Config, Inputs, Outputs] {
 	baseID := jsonschema.ID(uriPrefix)
-	defaultReflector := &jsonschema.Reflector{ExpandedStruct: true, DoNotReference: true,
-		BaseSchemaID: baseID,
-	}
+	defaultReflector := &jsonschema.Reflector{ExpandedStruct: true, DoNotReference: true, BaseSchemaID: baseID}
+
 	if args.DefaultReflector != nil {
 		defaultReflector = args.DefaultReflector
 	}
@@ -72,6 +80,10 @@ func NewValidator[Config any, Inputs any, Outputs any](args ValidatorArgs) Valid
 	}
 }
 
+// Schema returns the a JSON schema that combines the config, inputs, and outputs
+// into a single schema.
+//
+// This fully describes the capability's API boundary.
 func (v *Validator[Config, Inputs, Outputs]) Schema() (string, error) {
 	type combined struct {
 		Config  Config  `json:"config"`
@@ -103,6 +115,9 @@ func (v *Validator[Config, Inputs, Outputs]) Schema() (string, error) {
 	// print values of combined
 	return schemaWith(*v.SchemaReflector, c, v.schemas, "root", v.Info)
 }
+
+// The following methods return the JSON schema for each of the types.
+
 func (v *Validator[Config, Inputs, Outputs]) ConfigSchema() (string, error) {
 	return schemaWith(*v.ConfigReflector, v.configType, v.schemas, "config", v.Info)
 }
@@ -112,6 +127,8 @@ func (v *Validator[Config, Inputs, Outputs]) InputsSchema() (string, error) {
 func (v *Validator[Config, Inputs, Outputs]) OutputsSchema() (string, error) {
 	return schemaWith(*v.OutputsReflector, v.outputsType, v.schemas, "outputs", v.Info)
 }
+
+// The following methods validate the inputs, config, and outputs against their respective schemas.
 
 func (v *Validator[Config, Inputs, Outputs]) ValidateInputs(inputs *values.Map) (*Inputs, error) {
 	inputsSchema, err := v.InputsSchema()
