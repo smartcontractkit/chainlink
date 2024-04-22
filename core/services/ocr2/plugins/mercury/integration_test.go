@@ -136,13 +136,14 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 	return steve, backend, verifier, verifierAddress
 }
 
-func XXXTestIntegration_MercuryV1(t *testing.T) {
+func TestIntegration_MercuryV1(t *testing.T) {
 	t.Parallel()
 
 	integration_MercuryV1(t)
 }
 
 func integration_MercuryV1(t *testing.T) {
+	ctx := testutils.Context(t)
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -192,7 +193,7 @@ func integration_MercuryV1(t *testing.T) {
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n], "")
-	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	bootstrapNode := Node{App: &appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
 	// Set up n oracles
@@ -205,7 +206,7 @@ func integration_MercuryV1(t *testing.T) {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i], "")
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb,
+			&app, transmitter, kb,
 		})
 		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
@@ -247,7 +248,7 @@ func integration_MercuryV1(t *testing.T) {
 		t.Cleanup(bridge.Close)
 		u, _ := url.Parse(bridge.URL)
 		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName(bridgeName),
 			URL:  models.WebURL(*u),
 		}))
@@ -478,13 +479,15 @@ func integration_MercuryV1(t *testing.T) {
 	})
 }
 
-func XXXTestIntegration_MercuryV2(t *testing.T) {
+func TestIntegration_MercuryV2(t *testing.T) {
 	t.Parallel()
 
 	integration_MercuryV2(t)
 }
 
 func integration_MercuryV2(t *testing.T) {
+	ctx := testutils.Context(t)
+
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -545,7 +548,7 @@ func integration_MercuryV2(t *testing.T) {
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n], "")
-	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	bootstrapNode := Node{App: &appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
 	// Set up n oracles
@@ -558,7 +561,7 @@ func integration_MercuryV2(t *testing.T) {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i], "")
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb,
+			&app, transmitter, kb,
 		})
 
 		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
@@ -601,7 +604,7 @@ func integration_MercuryV2(t *testing.T) {
 		t.Cleanup(bridge.Close)
 		u, _ := url.Parse(bridge.URL)
 		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName(bridgeName),
 			URL:  models.WebURL(*u),
 		}))
@@ -833,7 +836,7 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 	const nSrvs = 3
 	reqChs := make([]chan request, nSrvs)
 	servers := make(map[string]string)
-	t.Log("Creating all servers")
+
 	for i := 0; i < nSrvs; i++ {
 		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
 		reqs := make(chan request, 100)
@@ -844,9 +847,9 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 			}
 			return report
 		}, tlsCertFile, tlsKeyFile)
-		t.Log("Created all servers successfully")
+
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
-		t.Log("Started all servers successfully")
+
 		reqChs[i] = reqs
 		servers[serverURL] = fmt.Sprintf("%x", k.PublicKey)
 	}
@@ -898,13 +901,9 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 		logObservers = append(logObservers, observedLogs)
 	}
 
-	t.Log("Created Oracles")
-
 	for _, feed := range feeds {
 		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
 	}
-
-	t.Log("Added Bootstrap Jobs")
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -965,8 +964,6 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 		}
 	}
 
-	t.Log("Added ocr jobs")
-
 	// Setup config on contract
 	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
@@ -1016,90 +1013,70 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 		backend.Commit()
 	}
 
-	histogram := make(map[string]map[string]int)
 	runTestSetup := func(reqs chan request) {
 		// Expect at least one report per feed from each oracle, per server
 		seen := make(map[[32]byte]map[ocr2types.Account]struct{})
 		for i := range feeds {
 			// feedID will be deleted when all n oracles have reported
 			seen[feeds[i].id] = make(map[ocr2types.Account]struct{}, n)
-			histogram[fmt.Sprintf("%x", feeds[i].id)] = make(map[string]int)
-			for _, o := range oracles {
-				histogram[fmt.Sprintf("%x", feeds[i].id)][string(o.OracleIdentity.TransmitAccount)] = 0
-			}
 		}
 
 		oracle_transmitters := make(map[ocr2types.Account]struct{})
 		for _, o := range oracles {
 			t.Logf("Expect report from oracle %s", o.OracleIdentity.TransmitAccount)
-			oracle_transmitters[o.OracleIdentity.TransmitAccount] = struct{}{}
 		}
-		i := 0
-		logs := make([]string, 0)
+
 		// feedID: account: count
-	outer:
-		for {
-			select {
-			case <-time.After(30 * time.Second):
-				t.Fatalf("FAIL: timed out waiting for reports")
-			case req := <-reqs:
-				i++
-				if i > 100 {
-					t.Fatalf("FAIL: too many requests: %v, seen history: %v", histogram, logs)
+		for req := range reqs {
+
+			v := make(map[string]interface{})
+			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+			require.NoError(t, err)
+			report, exists := v["report"]
+			if !exists {
+				t.Fatalf("expected payload %#v to contain 'report'", v)
+			}
+			reportElems := make(map[string]interface{})
+			err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
+			require.NoError(t, err)
+
+			feedID := reportElems["feedId"].([32]uint8)
+			feed, exists := feedM[feedID]
+			require.True(t, exists)
+
+			t.Logf("Oracle %s AKA %s reported for feed %s (0x%x)", req.pk, req.TransmitterID(), feed.name, feed.id)
+
+			if _, exists := seen[feedID]; !exists {
+				continue // already saw all oracles for this feed
+			}
+
+			expectedFee := datastreamsmercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
+			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
+
+			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
+			assert.InDelta(t, feed.baseBenchmarkPrice.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
+			assert.InDelta(t, feed.baseBid.Int64(), reportElems["bid"].(*big.Int).Int64(), 5000000)
+			assert.InDelta(t, feed.baseAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
+			assert.NotZero(t, reportElems["validFromTimestamp"].(uint32))
+			assert.GreaterOrEqual(t, reportElems["observationsTimestamp"].(uint32), reportElems["validFromTimestamp"].(uint32))
+			assert.Equal(t, expectedExpiresAt, reportElems["expiresAt"].(uint32))
+			assert.Equal(t, expectedFee, reportElems["linkFee"].(*big.Int))
+			assert.Equal(t, expectedFee, reportElems["nativeFee"].(*big.Int))
+
+			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+			if _, ok := oracle_transmitters[req.TransmitterID()]; !ok {
+				t.Fatalf("FAIL: unexpected report from oracle %s", req.TransmitterID())
+			}
+
+			t.Logf("Oracle %s AKA %s reported for feed %s (0x%x)", req.pk, req.TransmitterID(), feed.name, feed.id)
+
+			seen[feedID][req.TransmitterID()] = struct{}{}
+			if len(seen[feedID]) == n {
+				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
+				delete(seen, feedID)
+				if len(seen) == 0 {
+					return // saw all oracles; success!
 				}
-
-				v := make(map[string]interface{})
-				err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
-				require.NoError(t, err)
-				report, exists := v["report"]
-				if !exists {
-					t.Fatalf("expected payload %#v to contain 'report'", v)
-				}
-				reportElems := make(map[string]interface{})
-				err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
-				require.NoError(t, err)
-
-				feedID := reportElems["feedId"].([32]uint8)
-				feed, exists := feedM[feedID]
-				require.True(t, exists)
-
-				t.Logf("Oracle %s AKA %s reported for feed %s (0x%x)", req.pk, req.TransmitterID(), feed.name, feed.id)
-				histogram[fmt.Sprintf("%x", feedID)][string(req.TransmitterID())]++
-				logs = append(logs, fmt.Sprintf("Seen looks like: %v", seen))
-
-				if _, exists := seen[feedID]; !exists {
-					continue // already saw all oracles for this feed
-				}
-
-				expectedFee := datastreamsmercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
-				expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
-
-				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
-				assert.InDelta(t, feed.baseBenchmarkPrice.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
-				assert.InDelta(t, feed.baseBid.Int64(), reportElems["bid"].(*big.Int).Int64(), 5000000)
-				assert.InDelta(t, feed.baseAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
-				assert.NotZero(t, reportElems["validFromTimestamp"].(uint32))
-				assert.GreaterOrEqual(t, reportElems["observationsTimestamp"].(uint32), reportElems["validFromTimestamp"].(uint32))
-				assert.Equal(t, expectedExpiresAt, reportElems["expiresAt"].(uint32))
-				assert.Equal(t, expectedFee, reportElems["linkFee"].(*big.Int))
-				assert.Equal(t, expectedFee, reportElems["nativeFee"].(*big.Int))
-
-				t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
-				if _, ok := oracle_transmitters[req.TransmitterID()]; !ok {
-					t.Fatalf("FAIL: unexpected report from oracle %s", req.TransmitterID())
-				}
-
-				t.Logf("Oracle %s AKA %s reported for feed %s (0x%x)", req.pk, req.TransmitterID(), feed.name, feed.id)
-
-				seen[feedID][req.TransmitterID()] = struct{}{}
-				if len(seen[feedID]) == n {
-					t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
-					delete(seen, feedID)
-					if len(seen) == 0 {
-						break outer // saw all oracles; success!
-					}
-				}
-
 			}
 		}
 	}

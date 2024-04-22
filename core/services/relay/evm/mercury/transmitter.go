@@ -215,7 +215,7 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 	}
 }
 
-func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feedIDHex string, fromAccount string) {
+func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feedIDHex string) {
 	defer wg.Done()
 	// Exponential backoff with very short retry interval (since latency is a priority)
 	// 5ms, 10ms, 20ms, 40ms etc
@@ -348,7 +348,7 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 
 				mt.wg.Add(2)
 				go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
-				go s.runQueueLoop(mt.stopCh, mt.wg, mt.feedID.Hex(), mt.fromAccount)
+				go s.runQueueLoop(mt.stopCh, mt.wg, mt.feedID.Hex())
 			}
 			if err := (&services.MultiStart{}).Start(ctx, startClosers...); err != nil {
 				return err
@@ -461,7 +461,6 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		s := s // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
 			if ok := s.q.Push(req, reportCtx); !ok {
-				// TODO: have to figure out how to wire metadata through to Transmit
 				s.transmitQueuePushErrorCount.Inc()
 				return errors.New("transmit queue is closed")
 			}

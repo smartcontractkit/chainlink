@@ -237,7 +237,6 @@ func (c *client) dialGrpc(ctx context.Context, opts ...grpc.DialOption) error {
 				grpc.WithTransportCredentials(
 					insecure.NewCredentials(),
 				),
-				//grpc.WithBlock(),
 			)...,
 		)
 
