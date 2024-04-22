@@ -847,6 +847,7 @@ func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 
@@ -854,7 +855,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, &defaultMaxGasPrice)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
@@ -1002,6 +1003,7 @@ func requestAndEstimateFulfillmentCost(
 }
 
 func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 
@@ -1009,7 +1011,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, &defaultMaxGasPrice)
 

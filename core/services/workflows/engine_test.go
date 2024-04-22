@@ -79,16 +79,18 @@ func newMockCapability(info capabilities.CapabilityInfo, transform func(capabili
 	}
 }
 
-func (m *mockCapability) Execute(ctx context.Context, ch chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	cr, err := m.transform(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	ch := make(chan capabilities.CapabilityResponse, 10)
+
+	m.response <- cr
 	ch <- cr
 	close(ch)
-	m.response <- cr
-	return nil
+	return ch, nil
 }
 
 func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -102,13 +104,14 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 type mockTriggerCapability struct {
 	capabilities.CapabilityInfo
 	triggerEvent capabilities.CapabilityResponse
+	ch           chan capabilities.CapabilityResponse
 }
 
 var _ capabilities.TriggerCapability = (*mockTriggerCapability)(nil)
 
-func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, ch chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
-	ch <- m.triggerEvent
-	return nil
+func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	m.ch <- m.triggerEvent
+	return m.ch, nil
 }
 
 func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {
@@ -116,6 +119,7 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -216,6 +220,7 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 			"issues a trigger when a mercury report is received.",
 			"v1.0.0",
 		),
+		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
 	resp, err := values.NewMap(map[string]any{
 		"123": decimal.NewFromFloat(1.00),
@@ -288,6 +293,7 @@ func mockTarget() *mockCapability {
 }
 
 func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -388,6 +394,7 @@ func mockAction() (*mockCapability, values.Value) {
 }
 
 func TestEngine_MultiStepDependencies(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
