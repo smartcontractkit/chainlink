@@ -1,4 +1,4 @@
-{{- if $.Values.deployContractsAndJobs }}
+{{- if $.Values.ccipScriptsDeployment.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

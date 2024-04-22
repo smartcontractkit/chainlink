@@ -1,5 +1,9 @@
-ccipScriptsImage: ccip-scripts-image:image-tag
-deployContractsAndJobs: true
+ccipScriptsDeployment:
+  enabled: false
+  image: ccip-scripts-image:image-tag
+  # oidc role name required to upload job output to S3
+  oidcRoleARN: arn:aws:iam::123456789012:role/example
+  outputBucketName: example
 chains:
   - NetworkId: 1337
     ChainId: geth_1337
@@ -73,3 +77,5 @@ chainlink:
     - name: node-6
 geth:
   wsRpcPort: 8546
+networkPolicies:
+  enabled: true
