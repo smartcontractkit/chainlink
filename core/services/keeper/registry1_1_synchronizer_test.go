@@ -201,6 +201,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
+	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
@@ -235,11 +236,11 @@ func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
-	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
 	// Do the thing
-	synchronizer.HandleLog(logBroadcast)
+	synchronizer.HandleLog(ctx, logBroadcast)
 
 	cltest.AssertRecordEventually(t, db, &registry, fmt.Sprintf(`SELECT * FROM keeper_registries WHERE id = %d`, registry.ID), func() bool {
 		return registry.BlockCountPerTurn == 40
@@ -248,6 +249,7 @@ func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
+	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
@@ -281,11 +283,11 @@ func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
-	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
 	// Do the thing
-	synchronizer.HandleLog(logBroadcast)
+	synchronizer.HandleLog(ctx, logBroadcast)
 
 	cltest.AssertRecordEventually(t, db, &registry, fmt.Sprintf(`SELECT * FROM keeper_registries WHERE id = %d`, registry.ID), func() bool {
 		return registry.NumKeepers == 2
@@ -293,6 +295,7 @@ func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
 	cltest.AssertCount(t, db, "keeper_registries", 1)
 }
 func Test_RegistrySynchronizer1_1_UpkeepCanceledLog(t *testing.T) {
+	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
@@ -320,16 +323,17 @@ func Test_RegistrySynchronizer1_1_UpkeepCanceledLog(t *testing.T) {
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
-	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
 	// Do the thing
-	synchronizer.HandleLog(logBroadcast)
+	synchronizer.HandleLog(ctx, logBroadcast)
 
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
 }
 
 func Test_RegistrySynchronizer1_1_UpkeepRegisteredLog(t *testing.T) {
+	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
@@ -360,16 +364,17 @@ func Test_RegistrySynchronizer1_1_UpkeepRegisteredLog(t *testing.T) {
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
-	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
 	// Do the thing
-	synchronizer.HandleLog(logBroadcast)
+	synchronizer.HandleLog(ctx, logBroadcast)
 
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
 }
 
 func Test_RegistrySynchronizer1_1_UpkeepPerformedLog(t *testing.T) {
+	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
@@ -401,11 +406,11 @@ func Test_RegistrySynchronizer1_1_UpkeepPerformedLog(t *testing.T) {
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
-	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
 	// Do the thing
-	synchronizer.HandleLog(logBroadcast)
+	synchronizer.HandleLog(ctx, logBroadcast)
 
 	g.Eventually(func() int64 {
 		var upkeep keeper.UpkeepRegistration

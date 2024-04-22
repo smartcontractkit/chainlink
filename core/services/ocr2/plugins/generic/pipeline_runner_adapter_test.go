@@ -36,14 +36,16 @@ answer;
 `
 
 func TestAdapter_Integration(t *testing.T) {
+	testutils.SkipShortDB(t)
+	ctx := testutils.Context(t)
 	logger := logger.TestLogger(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	url := cfg.Database().URL()
 	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
 
-	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger, cfg.Database())
-	pipelineORM := pipeline.NewORM(db, logger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger)
+	pipelineORM := pipeline.NewORM(db, logger, cfg.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 	jobORM := job.NewORM(db, pipelineORM, bridgesORM, keystore, logger, cfg.Database())
 	pr := pipeline.NewRunner(
@@ -58,7 +60,7 @@ func TestAdapter_Integration(t *testing.T) {
 		http.DefaultClient,
 		http.DefaultClient,
 	)
-	err = keystore.Unlock(cfg.Password().Keystore())
+	err = keystore.Unlock(ctx, cfg.Password().Keystore())
 	require.NoError(t, err)
 	jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), cfg.OCR2(), cfg.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)

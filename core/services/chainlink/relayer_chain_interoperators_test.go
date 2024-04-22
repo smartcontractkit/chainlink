@@ -172,7 +172,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	})
 
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 
 	lggr := logger.TestLogger(t)
 

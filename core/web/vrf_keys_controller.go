@@ -32,7 +32,8 @@ func (vrfkc *VRFKeysController) Index(c *gin.Context) {
 // Example:
 // "POST <application>/keys/vrf"
 func (vrfkc *VRFKeysController) Create(c *gin.Context) {
-	pk, err := vrfkc.App.GetKeyStore().VRF().Create()
+	ctx := c.Request.Context()
+	pk, err := vrfkc.App.GetKeyStore().VRF().Create(ctx)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -53,13 +54,14 @@ func (vrfkc *VRFKeysController) Create(c *gin.Context) {
 // "DELETE <application>/keys/vrf/:keyID"
 // "DELETE <application>/keys/vrf/:keyID?hard=true"
 func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
+	ctx := c.Request.Context()
 	keyID := c.Param("keyID")
 	key, err := vrfkc.App.GetKeyStore().VRF().Get(keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	_, err = vrfkc.App.GetKeyStore().VRF().Delete(keyID)
+	_, err = vrfkc.App.GetKeyStore().VRF().Delete(ctx, keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -78,6 +80,7 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 // "Post <application>/keys/vrf/import"
 func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 	defer vrfkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
+	ctx := c.Request.Context()
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -85,7 +88,7 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	key, err := vrfkc.App.GetKeyStore().VRF().Import(bytes, oldPassword)
+	key, err := vrfkc.App.GetKeyStore().VRF().Import(ctx, bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

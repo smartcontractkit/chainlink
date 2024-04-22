@@ -13,6 +13,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	rollups "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
+
 	types "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 )
 
@@ -190,6 +192,26 @@ func (_m *EvmEstimator) HealthReport() map[string]error {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
+}
+
+// L1Oracle provides a mock function with given fields:
+func (_m *EvmEstimator) L1Oracle() rollups.L1Oracle {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for L1Oracle")
+	}
+
+	var r0 rollups.L1Oracle
+	if rf, ok := ret.Get(0).(func() rollups.L1Oracle); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(rollups.L1Oracle)
 		}
 	}
 

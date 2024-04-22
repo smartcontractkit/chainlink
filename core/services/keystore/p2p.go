@@ -1,13 +1,14 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --quiet --name P2P --output ./mocks/ --case=underscore --filename p2p.go
@@ -15,12 +16,12 @@ import (
 type P2P interface {
 	Get(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 	GetAll() ([]p2pkey.KeyV2, error)
-	Create() (p2pkey.KeyV2, error)
-	Add(key p2pkey.KeyV2) error
-	Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error)
-	Import(keyJSON []byte, password string) (p2pkey.KeyV2, error)
+	Create(ctx context.Context) (p2pkey.KeyV2, error)
+	Add(ctx context.Context, key p2pkey.KeyV2) error
+	Delete(ctx context.Context, id p2pkey.PeerID) (p2pkey.KeyV2, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (p2pkey.KeyV2, error)
 	Export(id p2pkey.PeerID, password string) ([]byte, error)
-	EnsureKey() error
+	EnsureKey(ctx context.Context) error
 
 	GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 }
@@ -58,7 +59,7 @@ func (ks *p2p) GetAll() (keys []p2pkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks *p2p) Create() (p2pkey.KeyV2, error) {
+func (ks *p2p) Create(ctx context.Context) (p2pkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -68,10 +69,10 @@ func (ks *p2p) Create() (p2pkey.KeyV2, error) {
 	if err != nil {
 		return p2pkey.KeyV2{}, err
 	}
-	return key, ks.safeAddKey(key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
-func (ks *p2p) Add(key p2pkey.KeyV2) error {
+func (ks *p2p) Add(ctx context.Context, key p2pkey.KeyV2) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -80,10 +81,10 @@ func (ks *p2p) Add(key p2pkey.KeyV2) error {
 	if _, found := ks.keyRing.P2P[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-func (ks *p2p) Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
+func (ks *p2p) Delete(ctx context.Context, id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -93,14 +94,14 @@ func (ks *p2p) Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if err != nil {
 		return p2pkey.KeyV2{}, err
 	}
-	err = ks.safeRemoveKey(key, func(tx pg.Queryer) error {
-		_, err2 := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = $1`, key.ID())
+	err = ks.safeRemoveKey(ctx, key, func(ds sqlutil.DataSource) error {
+		_, err2 := ds.ExecContext(ctx, `DELETE FROM p2p_peers WHERE peer_id = $1`, key.ID())
 		return err2
 	})
 	return key, err
 }
 
-func (ks *p2p) Import(keyJSON []byte, password string) (p2pkey.KeyV2, error) {
+func (ks *p2p) Import(ctx context.Context, keyJSON []byte, password string) (p2pkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -113,7 +114,7 @@ func (ks *p2p) Import(keyJSON []byte, password string) (p2pkey.KeyV2, error) {
 	if _, found := ks.keyRing.P2P[key.ID()]; found {
 		return p2pkey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(key)
+	return key, ks.keyManager.safeAddKey(ctx, key)
 }
 
 func (ks *p2p) Export(id p2pkey.PeerID, password string) ([]byte, error) {
@@ -129,7 +130,7 @@ func (ks *p2p) Export(id p2pkey.PeerID, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks *p2p) EnsureKey() error {
+func (ks *p2p) EnsureKey(ctx context.Context) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -147,7 +148,7 @@ func (ks *p2p) EnsureKey() error {
 
 	ks.logger.Infof("Created P2P key with ID %s", key.ID())
 
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
 var (

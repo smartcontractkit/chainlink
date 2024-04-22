@@ -19,6 +19,8 @@ type OCR2Config interface {
 	ContractPollInterval() time.Duration
 	ContractTransmitterTransmitTimeout() time.Duration
 	DatabaseTimeout() time.Duration
+	DefaultTransactionQueueDepth() uint32
+	SimulateTransactions() bool
 	TraceLogging() bool
 }
 
