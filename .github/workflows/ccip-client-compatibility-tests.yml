@@ -58,7 +58,7 @@ jobs:
 
   build-chainlink:
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [ changes ]
+    needs: [changes]
     environment: integration
     permissions:
       id-token: write
@@ -92,7 +92,7 @@ jobs:
 
   build-tests:
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [ changes ]
+    needs: [changes]
     environment: integration
     permissions:
       id-token: write
@@ -127,7 +127,7 @@ jobs:
 
   get-latest-available-images:
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [ changes ]
+    needs: [changes]
     environment: integration
     runs-on: ubuntu-latest
     permissions:
@@ -151,7 +151,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
         with:
-          mask-password: 'true'
+          mask-password: "true"
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       - name: Get latest docker images from ECR
@@ -178,7 +178,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [ build-chainlink, changes, get-latest-available-images ]
+    needs: [build-chainlink, changes, get-latest-available-images]
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
     env:
       SELECTED_NETWORKS: SIMULATED_1,SIMULATED_2
@@ -304,7 +304,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [ evm-compatibility-matrix, changes ]
+    needs: [evm-compatibility-matrix, changes]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -353,7 +353,7 @@ jobs:
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.client}}
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ always() && needs.changes.outputs.src == 'true' && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     permissions:
       checks: write
@@ -361,7 +361,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [ start-slack-thread ]
+    needs: [changes, start-slack-thread]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
