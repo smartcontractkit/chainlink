@@ -67,6 +67,7 @@ type vrfUniverse struct {
 }
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
+	ctx := testutils.Context(t)
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
@@ -80,7 +81,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	txm, err := txmgr.NewTxm(db, db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
@@ -90,12 +91,12 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
-	require.NoError(t, ks.Unlock(testutils.Password))
+	require.NoError(t, ks.Unlock(ctx, testutils.Password))
 	k, err2 := ks.Eth().Create(testutils.Context(t), testutils.FixtureChainID)
 	require.NoError(t, err2)
 	submitter := k.Address
 	require.NoError(t, err)
-	vrfkey, err3 := ks.VRF().Create()
+	vrfkey, err3 := ks.VRF().Create(ctx)
 	require.NoError(t, err3)
 
 	return vrfUniverse{
@@ -559,11 +560,11 @@ decode_log->vrf->encode_tx->submit_tx
 
 func Test_CheckFromAddressesExist(t *testing.T) {
 	t.Run("from addresses exist", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
-		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
-		require.NoError(t, ks.Unlock(testutils.Password))
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
 		for i := 0; i < 3; i++ {
@@ -587,11 +588,11 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 	})
 
 	t.Run("one of from addresses doesn't exist", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
-		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
-		require.NoError(t, ks.Unlock(testutils.Password))
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
 		for i := 0; i < 3; i++ {
