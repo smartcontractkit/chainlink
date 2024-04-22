@@ -17,6 +17,7 @@ import (
 	grpc_connectivity "google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
@@ -114,6 +115,7 @@ type client struct {
 
 	logger    logger.Logger
 	conn      Conn
+	connLock  sync.RWMutex
 	rawClient pb.MercuryClient
 
 	consecutiveTimeoutCnt atomic.Int32
@@ -138,7 +140,6 @@ func NewClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []by
 }
 
 func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet, tlsCertFile *string) *client {
-
 	return &client{
 		csaKey:                     clientPrivKey,
 		serverPubKey:               serverPubKey,
@@ -216,7 +217,9 @@ func (w *client) dialWsrpc(ctx context.Context, opts ...wsrpc.DialOption) error 
 	}
 	w.dialSuccessCountMetric.Inc()
 	setLivenessMetric(true)
+	w.connLock.Lock()
 	w.conn = conn
+	w.connLock.Unlock()
 	w.rawClient = pb.NewMercuryClient(conn)
 	return nil
 }
@@ -359,6 +362,9 @@ func (w *client) Healthy() (err error) {
 
 func (w *client) waitForReady(ctx context.Context) (err error) {
 	ok := w.IfStarted(func() {
+		// WaitForReady blocks on WSRPC client conns but not on gRPC
+		w.connLock.RLock()
+		defer w.connLock.RUnlock()
 		if ready := w.conn.WaitForReady(ctx); !ready {
 			err = errors.Errorf("websocket client not ready; got state: %v", w.conn.GetState())
 			return
@@ -376,6 +382,8 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	if err = w.waitForReady(ctx); err != nil {
 		return nil, errors.Wrap(err, "Transmit call failed")
 	}
+
+	ctx = metadata.AppendToOutgoingContext(ctx, "csa-key", w.csaKey.PublicKeyString())
 	resp, err = w.rawClient.Transmit(ctx, req)
 	w.handleTimeout(err)
 	if err != nil {
@@ -428,6 +436,8 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 	if err = w.waitForReady(ctx); err != nil {
 		return nil, errors.Wrap(err, "LatestReport failed")
 	}
+
+	ctx = metadata.AppendToOutgoingContext(ctx, "csa-key", w.csaKey.PublicKeyString())
 	var cached bool
 	if w.cache == nil {
 		resp, err = w.rawClient.LatestReport(ctx, req)

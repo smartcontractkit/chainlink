@@ -354,7 +354,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	var mercuryTlsCertFile *string
 	if cfg.Mercury().TLS() != nil {
 		tlsCertFile := cfg.Mercury().TLS().CertFile()
-		if cfg.Mercury().TLS() != nil && tlsCertFile != "" {
+		if tlsCertFile != "" {
 			mercuryTlsCertFile = &tlsCertFile
 		}
 	}

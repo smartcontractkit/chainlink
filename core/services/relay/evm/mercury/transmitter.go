@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/metadata"
 	"io"
 	"math/big"
 	"sort"
@@ -20,7 +21,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/metadata"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"

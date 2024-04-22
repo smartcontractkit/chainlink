@@ -85,15 +85,14 @@ func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (
 		if !ok {
 			return nil, errors.New("could not extract public key from grpc outgoing context")
 		}
-		peerID = md.Get("peer-id")[0]
+		peerID = md.Get("csa-key")[0]
 	} else {
-	
 		p, ok := peer.FromContext(ctx)
 		if !ok {
 			return nil, errors.New("could not extract public key")
 		}
 
-		peerID = fmt.Sprintf("%x", p.PublicKey)
+		peerID = p.PublicKey.String()
 	}
 	
 	r := request{peerID, req}
@@ -113,13 +112,13 @@ func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRe
 		if !ok {
 			return nil, errors.New("could not extract public key from grpc outgoing context")
 		}
-		peerID = md.Get("peer-id")[0]
+		peerID = md.Get("csa-key")[0]
 	} else {
 		p, ok := peer.FromContext(ctx)
 		if !ok {
 			return nil, errors.New("could not extract public key")
 		}
-		peerID = fmt.Sprintf("%x", p.PublicKey)
+		peerID = p.PublicKey.String()
 	}
 	s.t.Logf("mercury server got latest report from %v for feed id 0x%x", peerID, lrr.FeedId)
 	
@@ -237,7 +236,7 @@ func setupNode(
 	dbName string,
 	backend *backends.SimulatedBackend,
 	csaKey csakey.KeyV2,
-	tlsCertFile string, // "" for using WSRPC, uses GRPC otherwise
+	tlsCertFile string, // nil if using WSRPC, uses GRPC otherwise
 ) (app cltest.TestApplication, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
