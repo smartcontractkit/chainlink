@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -65,6 +66,7 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 // Example:
 // "GET <application>/jobs/:ID/runs/:runID"
 func (prc *PipelineRunsController) Show(c *gin.Context) {
+	ctx := c.Request.Context()
 	pipelineRun := pipeline.Run{}
 	err := pipelineRun.SetID(c.Param("runID"))
 	if err != nil {
@@ -72,7 +74,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	pipelineRun, err = prc.App.PipelineORM().FindRun(pipelineRun.ID)
+	pipelineRun, err = prc.App.PipelineORM().FindRun(ctx, pipelineRun.ID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -86,8 +88,9 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 // Example:
 // "POST <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Create(c *gin.Context) {
+	ctx := c.Request.Context()
 	respondWithPipelineRun := func(jobRunID int64) {
-		pipelineRun, err := prc.App.PipelineORM().FindRun(jobRunID)
+		pipelineRun, err := prc.App.PipelineORM().FindRun(ctx, jobRunID)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -116,7 +119,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			return
 		}
 		if canRun {
-			jobRunID, err3 := prc.App.RunWebhookJobV2(c.Request.Context(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{})
+			jobRunID, err3 := prc.App.RunWebhookJobV2(c.Request.Context(), jobUUID, string(bodyBytes), jsonserializable.JSONSerializable{})
 			if errors.Is(err3, webhook.ErrJobNotExists) {
 				jsonAPIError(c, http.StatusNotFound, err3)
 				return

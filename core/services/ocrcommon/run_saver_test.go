@@ -25,7 +25,7 @@ func TestRunSaver(t *testing.T) {
 		pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(nil).
 			Run(func(args mock.Arguments) {
-				args.Get(0).(*pipeline.Run).ID = int64(d)
+				args.Get(2).(*pipeline.Run).ID = int64(d)
 			}).
 			Once()
 		rs.Save(&pipeline.Run{ID: int64(i)})

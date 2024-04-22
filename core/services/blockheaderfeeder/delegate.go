@@ -2,6 +2,7 @@ package blockheaderfeeder
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -53,6 +53,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if jb.BlockHeaderFeederSpec == nil {
 		return nil, errors.Errorf("Delegate expects a BlockHeaderFeederSpec to be present, got %+v", jb)
 	}
+	marshalledJob, err := json.MarshalIndent(jb.BlockHeaderFeederSpec, "", " ")
+	if err != nil {
+		return nil, err
+	}
+	d.logger.Debugw("Creating services for job spec", "job", string(marshalledJob))
 
 	chain, err := d.legacyChains.Get(jb.BlockHeaderFeederSpec.EVMChainID.String())
 	if err != nil {
@@ -208,7 +213,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {

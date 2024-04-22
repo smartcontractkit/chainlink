@@ -117,6 +117,8 @@ deployments:
             runAsGroup: 999
           web_port: 6688
           p2p_port: 6690
+          # extraEnvVars:
+            # "CL_MEDIAN_CMD": "chainlink-feeds"
           nodes:
             - name: node-1
               image: ${runtime.images.app}
@@ -161,7 +163,14 @@ deployments:
               #        [WebServer.TLS]
               #        HTTPSPort = 0
               # or use overridesToml to override some part of configuration
-              #      overridesToml: |
+              # overridesToml: |
+              # Enable Tracing
+              #   [Tracing]
+              #   Enabled = true
+              #   SamplingRatio = 1.0
+              #   CollectorTarget = 'app-opentelemetry-collector:4317'
+              #   TLSCertPath = ''
+              #   Mode = 'unencrypted'
             - name: node-2
               image: ${runtime.images.app}
             - name: node-3

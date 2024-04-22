@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -23,8 +22,8 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	require.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
-	db := evm.NewRoundRequestedDB(sqlDB.DB, 1, lggr)
-	db2 := evm.NewRoundRequestedDB(sqlDB.DB, 2, lggr)
+	db := evm.NewRoundRequestedDB(sqlDB, 1, lggr)
+	db2 := evm.NewRoundRequestedDB(sqlDB, 2, lggr)
 
 	rawLog := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/round_requested_log_1_1.json")
 
@@ -38,9 +37,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 
 	t.Run("saves latest round requested", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		err := pg.SqlxTransaction(ctx, sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
-			return db.SaveLatestRoundRequested(q, rr)
-		})
+		err := db.SaveLatestRoundRequested(ctx, rr)
 		require.NoError(t, err)
 
 		rawLog.Index = 42
@@ -54,19 +51,18 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 			Raw:          rawLog,
 		}
 
-		err = pg.SqlxTransaction(ctx, sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
-			return db.SaveLatestRoundRequested(q, rr)
-		})
+		err = db.SaveLatestRoundRequested(ctx, rr)
 		require.NoError(t, err)
 	})
 
 	t.Run("loads latest round requested", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		// There is no round for db2
-		lrr, err := db2.LoadLatestRoundRequested()
+		lrr, err := db2.LoadLatestRoundRequested(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, int(lrr.Epoch))
 
-		lrr, err = db.LoadLatestRoundRequested()
+		lrr, err = db.LoadLatestRoundRequested(ctx)
 		require.NoError(t, err)
 
 		assert.Equal(t, rr, lrr)

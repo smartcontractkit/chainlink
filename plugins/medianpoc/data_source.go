@@ -53,7 +53,7 @@ func (d *DataSource) Observe(ctx context.Context, reportTimestamp ocrtypes.Repor
 		return nil, fmt.Errorf("pipeline execution failed: %w", finalResult.Error)
 	}
 
-	asDecimal, err := utils.ToDecimal(finalResult.Value)
+	asDecimal, err := utils.ToDecimal(finalResult.Value.Val)
 	if err != nil {
 		return nil, errors.New("cannot convert observation to decimal")
 	}
@@ -76,4 +76,10 @@ func (d *DataSource) updateAnswer(latestAnswer *big.Int) {
 		LatestAnswer: latestAnswer,
 		UpdatedAt:    big.NewInt(time.Now().Unix()),
 	}
+}
+
+type ZeroDataSource struct{}
+
+func (d *ZeroDataSource) Observe(ctx context.Context, reportTimestamp ocrtypes.ReportTimestamp) (*big.Int, error) {
+	return new(big.Int), nil
 }

@@ -10,7 +10,7 @@ import (
 // If legacy env vars are found it prints ready to use TOML configuration
 func MissingImageInfoAsError(errStr string) error {
 	intro := `
-Old configuration approach detected. Please use TOML instead of env vars.
+You might have used old configuration approach. If so, use TOML instead of env vars.
 Please refer to integration-tests/testconfig/README.md for more information.
 `
 
@@ -41,7 +41,7 @@ Or if you want to run your tests right now add following content to integration-
 // If legacy env var is found it prints ready to use TOML configuration.
 func NoSelectedNetworkInfoAsError(errStr string) error {
 	intro := `
-Old configuration approach detected. Please use TOML instead of env vars.
+You might have used old configuration approach. If so, use TOML instead of env vars.
 Please refer to integration-tests/testconfig/README.md for more information.
 `
 

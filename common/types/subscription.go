@@ -4,7 +4,6 @@ package types
 // delivered on a data channel.
 // This is a generic interface for Subscription to represent used by clients.
 
-//go:generate mockery --quiet --name Subscription --output ./mocks/ --case=underscore
 type Subscription interface {
 	// Unsubscribe cancels the sending of events to the data channel
 	// and closes the error channel.

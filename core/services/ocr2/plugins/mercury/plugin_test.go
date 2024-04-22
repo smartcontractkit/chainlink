@@ -26,7 +26,6 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	libocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
@@ -267,6 +266,8 @@ var _ commontypes.MercuryProvider = (*testProvider)(nil)
 
 type testRegistrarConfig struct{}
 
+func (c *testRegistrarConfig) UnregisterLOOP(ID string) {}
+
 // RegisterLOOP implements plugins.RegistrarConfig.
 func (*testRegistrarConfig) RegisterLOOP(config plugins.CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error) {
 	return nil, loop.GRPCOpts{}, nil
@@ -277,7 +278,7 @@ var _ plugins.RegistrarConfig = (*testRegistrarConfig)(nil)
 type testDataSourceORM struct{}
 
 // LatestReport implements types.DataSourceORM.
-func (*testDataSourceORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
+func (*testDataSourceORM) LatestReport(ctx context.Context, feedID [32]byte) (report []byte, err error) {
 	return []byte{1, 2, 3}, nil
 }
 

@@ -94,7 +94,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config.EVM(), lggr, highestSeenHead, mailMon)
-	kst := cltest.NewKeyStore(t, db, globalConfig.Database())
+	kst := cltest.NewKeyStore(t, db)
 
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{
 		Client:         ethClient,
@@ -281,7 +281,7 @@ func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
 	listener.skipMarkingConsumed.Store(skip)
 }
 
-func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
+func (listener *simpleLogListener) HandleLog(ctx context.Context, lb log.Broadcast) {
 	listener.received.Lock()
 	defer listener.received.Unlock()
 	listener.lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())

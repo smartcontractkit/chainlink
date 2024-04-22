@@ -98,5 +98,4 @@ override*.toml
 # Pythin venv
 .venv/
 
-# Temp Changelog migration
-CHANGELOG.md
+ocr_soak_report.csv

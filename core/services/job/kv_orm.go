@@ -1,12 +1,11 @@
 package job
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/jmoiron/sqlx/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -16,8 +15,8 @@ import (
 //
 //go:generate mockery --quiet --name KVStore --output ./mocks/ --case=underscore
 type KVStore interface {
-	Store(key string, val interface{}) error
-	Get(key string, dest interface{}) error
+	Store(ctx context.Context, key string, val []byte) error
+	Get(ctx context.Context, key string) ([]byte, error)
 }
 
 type kVStore struct {
@@ -37,32 +36,28 @@ func NewKVStore(jobID int32, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger) kV
 	}
 }
 
-// Store saves serializable value by key.
-func (kv kVStore) Store(key string, val interface{}) error {
-	jsonVal, err := json.Marshal(val)
-	if err != nil {
-		return err
-	}
+// Store saves []byte value by key.
+func (kv kVStore) Store(ctx context.Context, key string, val []byte) error {
 
-	sql := `INSERT INTO job_kv_store (job_id, key, val)
+	sql := `INSERT INTO job_kv_store (job_id, key, val_bytea)
        	 	VALUES ($1, $2, $3)
         	ON CONFLICT (job_id, key) DO UPDATE SET
-				val = EXCLUDED.val,
+				val_bytea = EXCLUDED.val_bytea,
 				updated_at = $4;`
 
-	if err = kv.q.ExecQ(sql, kv.jobID, key, types.JSONText(jsonVal), time.Now()); err != nil {
-		return fmt.Errorf("failed to store value: %s for key: %s for jobID: %d : %w", string(jsonVal), key, kv.jobID, err)
+	if _, err := kv.q.ExecContext(ctx, sql, kv.jobID, key, val, time.Now()); err != nil {
+		return fmt.Errorf("failed to store value: %s for key: %s for jobID: %d : %w", string(val), key, kv.jobID, err)
 	}
 	return nil
 }
 
-// Get retrieves serializable value by key.
-func (kv kVStore) Get(key string, dest interface{}) error {
-	var ret json.RawMessage
-	sql := "SELECT val FROM job_kv_store WHERE job_id = $1 AND key = $2"
-	if err := kv.q.Get(&ret, sql, kv.jobID, key); err != nil {
-		return fmt.Errorf("failed to get value by key: %s for jobID: %d : %w", key, kv.jobID, err)
+// Get retrieves []byte value by key.
+func (kv kVStore) Get(ctx context.Context, key string) ([]byte, error) {
+	var val []byte
+	sql := "SELECT val_bytea FROM job_kv_store WHERE job_id = $1 AND key = $2"
+	if err := kv.q.GetContext(ctx, &val, sql, kv.jobID, key); err != nil {
+		return nil, fmt.Errorf("failed to get value by key: %s for jobID: %d : %w", key, kv.jobID, err)
 	}
 
-	return json.Unmarshal(ret, dest)
+	return val, nil
 }

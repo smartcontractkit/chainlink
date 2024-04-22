@@ -6,9 +6,9 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   using Address for address;
@@ -36,8 +36,233 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   {}
 
   // ================================================================
+  // |                      PIPELINE FUNCTIONS                      |
+  // ================================================================
+
+  /**
+   * @notice called by the automation DON to check if work is needed
+   * @param id the upkeep ID to check for work needed
+   * @param triggerData extra contextual data about the trigger (not used in all code paths)
+   * @dev this one of the core functions called in the hot path
+   * @dev there is a 2nd checkUpkeep function (below) that is being maintained for backwards compatibility
+   * @dev there is an incongruency on what gets returned during failure modes
+   * ex sometimes we include price data, sometimes we omit it depending on the failure
+   */
+  function checkUpkeep(
+    uint256 id,
+    bytes memory triggerData
+  )
+    public
+    returns (
+      bool upkeepNeeded,
+      bytes memory performData,
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed,
+      uint256 gasLimit,
+      uint256 fastGasWei,
+      uint256 linkUSD
+    )
+  {
+    _preventExecution();
+
+    Trigger triggerType = _getTriggerType(id);
+    HotVars memory hotVars = s_hotVars;
+    Upkeep memory upkeep = s_upkeep[id];
+
+    {
+      uint256 nativeUSD;
+      uint96 maxPayment;
+      if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0, 0);
+      if (upkeep.maxValidBlocknumber != UINT32_MAX)
+        return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0, 0);
+      if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
+      (fastGasWei, linkUSD, nativeUSD) = _getFeedData(hotVars);
+      maxPayment = _getMaxPayment(
+        id,
+        hotVars,
+        triggerType,
+        upkeep.performGas,
+        fastGasWei,
+        linkUSD,
+        nativeUSD,
+        upkeep.billingToken
+      );
+      if (upkeep.balance < maxPayment) {
+        return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
+      }
+    }
+
+    bytes memory callData = _checkPayload(id, triggerType, triggerData);
+
+    gasUsed = gasleft();
+    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(callData);
+    gasUsed = gasUsed - gasleft();
+
+    if (!success) {
+      // User's target check reverted. We capture the revert data here and pass it within performData
+      if (result.length > s_storage.maxRevertDataSize) {
+        return (
+          false,
+          bytes(""),
+          UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
+          gasUsed,
+          upkeep.performGas,
+          fastGasWei,
+          linkUSD
+        );
+      }
+      return (
+        upkeepNeeded,
+        result,
+        UpkeepFailureReason.TARGET_CHECK_REVERTED,
+        gasUsed,
+        upkeep.performGas,
+        fastGasWei,
+        linkUSD
+      );
+    }
+
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded)
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, upkeep.performGas, fastGasWei, linkUSD);
+
+    if (performData.length > s_storage.maxPerformDataSize)
+      return (
+        false,
+        bytes(""),
+        UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
+        gasUsed,
+        upkeep.performGas,
+        fastGasWei,
+        linkUSD
+      );
+
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.performGas, fastGasWei, linkUSD);
+  }
+
+  /**
+   * @notice see other checkUpkeep function for description
+   * @dev this function may be deprecated in a future version of chainlink automation
+   */
+  function checkUpkeep(
+    uint256 id
+  )
+    external
+    returns (
+      bool upkeepNeeded,
+      bytes memory performData,
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed,
+      uint256 gasLimit,
+      uint256 fastGasWei,
+      uint256 linkUSD
+    )
+  {
+    return checkUpkeep(id, bytes(""));
+  }
+
+  /**
+   * @dev checkCallback is used specifically for automation data streams lookups (see StreamsLookupCompatibleInterface.sol)
+   * @param id the upkeepID to execute a callback for
+   * @param values the values returned from the data streams lookup
+   * @param extraData the user-provided extra context data
+   */
+  function checkCallback(
+    uint256 id,
+    bytes[] memory values,
+    bytes calldata extraData
+  )
+    external
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
+    return executeCallback(id, payload);
+  }
+
+  /**
+   * @notice this is a generic callback executor that forwards a call to a user's contract with the configured
+   * gas limit
+   * @param id the upkeepID to execute a callback for
+   * @param payload the data (including function selector) to call on the upkeep target contract
+   */
+  function executeCallback(
+    uint256 id,
+    bytes memory payload
+  )
+    public
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    _preventExecution();
+
+    Upkeep memory upkeep = s_upkeep[id];
+    gasUsed = gasleft();
+    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
+    gasUsed = gasUsed - gasleft();
+    if (!success) {
+      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
+    }
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded) {
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
+    }
+    if (performData.length > s_storage.maxPerformDataSize) {
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
+    }
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
+  }
+
+  /**
+   * @notice simulates the upkeep with the perform data returned from checkUpkeep
+   * @param id identifier of the upkeep to execute the data with.
+   * @param performData calldata parameter to be passed to the target upkeep.
+   * @return success whether the call reverted or not
+   * @return gasUsed the amount of gas the target contract consumed
+   */
+  function simulatePerformUpkeep(
+    uint256 id,
+    bytes calldata performData
+  ) external returns (bool success, uint256 gasUsed) {
+    _preventExecution();
+
+    if (s_hotVars.paused) revert RegistryPaused();
+    Upkeep memory upkeep = s_upkeep[id];
+    (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);
+    return (success, gasUsed);
+  }
+
+  // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
   // ================================================================
+
+  /**
+   * @notice adds fund to an upkeep
+   * @param id the upkeepID
+   * @param amount the amount of funds to add, in the upkeep's billing token
+   */
+  function addFunds(uint256 id, uint96 amount) external payable {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+
+    if (msg.value != 0) {
+      if (upkeep.billingToken != IERC20(i_wrappedNativeToken)) {
+        revert InvalidToken();
+      }
+      amount = SafeCast.toUint96(msg.value);
+    }
+
+    s_upkeep[id].balance = upkeep.balance + amount;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + amount;
+
+    if (msg.value == 0) {
+      // ERC20 payment
+      upkeep.billingToken.safeTransferFrom(msg.sender, address(this), amount);
+    } else {
+      // native payment
+      i_wrappedNativeToken.deposit{value: amount}();
+    }
+
+    emit FundsAdded(id, msg.sender, amount);
+  }
 
   /**
    * @notice overrides the billing config for an upkeep
@@ -63,37 +288,6 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     s_upkeep[id].overridesEnabled = false;
     delete s_billingOverrides[id];
     emit BillingConfigOverrideRemoved(id);
-  }
-
-  /**
-   * @notice adds fund to an upkeep
-   * @param id the upkeepID
-   * @param amount the amount of funds to add, in the upkeep's billing token
-   */
-  function addFunds(uint256 id, uint96 amount) external payable {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-
-    if (msg.value != 0) {
-      if (upkeep.billingToken != IERC20(i_wrappedNativeToken)) {
-        revert InvalidToken();
-      }
-      amount = SafeCast.toUint96(msg.value);
-    }
-
-    s_upkeep[id].balance = upkeep.balance + amount;
-    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + amount;
-
-    if (msg.value == 0) {
-      // ERC20 payment
-      bool success = upkeep.billingToken.transferFrom(msg.sender, address(this), amount);
-      if (!success) revert TransferFailed();
-    } else {
-      // native payment
-      i_wrappedNativeToken.deposit{value: amount}();
-    }
-
-    emit FundsAdded(id, msg.sender, amount);
   }
 
   /**
@@ -204,13 +398,9 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
-  /**
-   * @notice returns the size of the LINK liquidity pool
-   # @dev LINK max supply < 2^96, so casting to int256 is safe
-   */
-  function linkAvailableForPayment() public view returns (int256) {
-    return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
-  }
+  // ================================================================
+  // |                       FINANCE ACTIONS                        |
+  // ================================================================
 
   /**
    * @notice withdraws excess LINK from the liquidity pool
@@ -221,7 +411,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
-    int256 available = linkAvailableForPayment();
+    int256 available = _linkAvailableForPayment();
     if (available < 0) {
       revert InsufficientBalance(0, amount);
     } else if (amount > uint256(available)) {
@@ -240,65 +430,18 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
    * @param asset the asset to withdraw
    * @param to the address to send the fees to
    * @param amount the amount to withdraw
+   * @dev we prevent withdrawing non-LINK fees unless there is sufficient LINK liquidity
+   * to cover all outstanding debts on the registry
    */
   function withdrawERC20Fees(IERC20 asset, address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     if (address(asset) == address(i_link)) revert InvalidToken();
+    if (_linkAvailableForPayment() < 0) revert InsufficientLinkLiquidity();
     uint256 available = asset.balanceOf(address(this)) - s_reserveAmounts[asset];
     if (amount > available) revert InsufficientBalance(available, amount);
 
     asset.safeTransfer(to, amount);
     emit FeesWithdrawn(address(asset), to, amount);
-  }
-
-  /**
-   * @dev checkCallback is used specifically for automation data streams lookups (see StreamsLookupCompatibleInterface.sol)
-   * @param id the upkeepID to execute a callback for
-   * @param values the values returned from the data streams lookup
-   * @param extraData the user-provided extra context data
-   */
-  function checkCallback(
-    uint256 id,
-    bytes[] memory values,
-    bytes calldata extraData
-  )
-    external
-    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
-  {
-    bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
-    return executeCallback(id, payload);
-  }
-
-  /**
-   * @notice this is a generic callback executor that forwards a call to a user's contract with the configured
-   * gas limit
-   * @param id the upkeepID to execute a callback for
-   * @param payload the data (including function selector) to call on the upkeep target contract
-   */
-  function executeCallback(
-    uint256 id,
-    bytes memory payload
-  )
-    public
-    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
-  {
-    _preventExecution();
-
-    Upkeep memory upkeep = s_upkeep[id];
-    gasUsed = gasleft();
-    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
-    gasUsed = gasUsed - gasleft();
-    if (!success) {
-      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
-    }
-    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
-    if (!upkeepNeeded) {
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
-    }
-    if (performData.length > s_storage.maxPerformDataSize) {
-      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
-    }
-    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
   }
 }
