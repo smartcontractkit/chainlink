@@ -396,9 +396,9 @@ jobs:
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: cl-node-coverage-data
+          name: cl-node-coverage-data-${{ matrix.product.name }}
           path: .covdata
           retention-days: 1
 
@@ -498,9 +498,9 @@ jobs:
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: cl-node-coverage-data
+          name: cl-node-coverage-data-${{ matrix.product.name }}
           path: .covdata
           retention-days: 1          
 
@@ -709,9 +709,9 @@ jobs:
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: cl-node-coverage-data
+          name: cl-node-coverage-data-${{ matrix.product.name }}-${{ matrix.product.tag_suffix }}
           path: .covdata
           retention-days: 1
 
@@ -819,10 +819,13 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Download All Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: cl-node-coverage-data
           path: cl-node-coverage-data
+          pattern: cl-node-coverage-data-*
+          merge-multiple: true
+      - name: List all files and directories
+        run: ls -R
       - name: Show Coverage
         run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl-node-coverage-data/*/merged"
 
@@ -919,9 +922,9 @@ jobs:
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: cl-node-coverage-data
+          name: cl-node-coverage-data-migration-tests
           path: .covdata
           retention-days: 1          
 
@@ -1229,9 +1232,9 @@ jobs:
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata          
 
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: cl-node-coverage-data
+          name: cl-node-coverage-data-solana-tests
           path: .covdata
           retention-days: 1          
 
