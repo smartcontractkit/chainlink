@@ -1,12 +1,10 @@
 package ocr3
 
 import (
-	"encoding/json"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
 	"github.com/shopspring/decimal"
@@ -16,21 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 const workflowTestID = "consensus-workflow-test-id-1"
 const workflowExecutionTestID = "consensus-workflow-execution-test-id-1"
-
-var transformJSON = cmp.FilterValues(func(x, y []byte) bool {
-	return json.Valid(x) && json.Valid(y)
-}, cmp.Transformer("ParseJSON", func(in []byte) (out interface{}) {
-	if err := json.Unmarshal(in, &out); err != nil {
-		panic(err) // should never occur given previous filter to ensure valid JSON
-	}
-	return out
-}))
 
 type encoder struct {
 	types.Encoder
@@ -61,10 +51,7 @@ func TestOCR3Capability_Schema(t *testing.T) {
 	fixture, err := os.ReadFile("./testdata/fixtures/capability/schema.json")
 	require.NoError(t, err)
 
-	if diff := cmp.Diff(fixture, []byte(schema), transformJSON); diff != "" {
-		t.Errorf("TestMercuryTrigger_Schema() mismatch (-want +got):\n%s", diff)
-		t.FailNow()
-	}
+	utils.AssertJSONEqual(t, fixture, []byte(schema))
 }
 
 func TestOCR3Capability(t *testing.T) {

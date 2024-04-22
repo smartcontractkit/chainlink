@@ -2,6 +2,7 @@ package triggers
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
@@ -288,4 +290,75 @@ func upwrapTriggerEvent(t *testing.T, wrappedEvent values.Value) (capabilities.T
 	mercuryReports, err := mercury.Codec{}.Unwrap(event.Payload)
 	require.NoError(t, err)
 	return event, mercuryReports
+}
+
+func TestMercuryTrigger_ConfigValidation(t *testing.T) {
+	var newConfig = func(t *testing.T, feedIDs []string, maxFrequencyMs int) *values.Map {
+		cm := map[string]interface{}{
+			"feedIds":        feedIDs,
+			"maxFrequencyMs": maxFrequencyMs,
+		}
+		configWrapped, err := values.NewMap(cm)
+		require.NoError(t, err)
+
+		return configWrapped
+	}
+
+	var newConfigSingleFeed = func(t *testing.T, feedID string) *values.Map {
+		return newConfig(t, []string{feedID}, 1000)
+	}
+
+	ts := NewMercuryTriggerService(1000, logger.Nop())
+	rawConf := newConfigSingleFeed(t, "012345678901234567890123456789012345678901234567890123456789000000")
+	conf, err := ts.ValidateConfig(rawConf)
+	require.Error(t, err)
+	require.Empty(t, conf)
+
+	rawConf = newConfigSingleFeed(t, "0x1234")
+	conf, err = ts.ValidateConfig(rawConf)
+	require.Error(t, err)
+	require.Empty(t, conf)
+
+	rawConf = newConfigSingleFeed(t, "0x123zzz")
+	conf, err = ts.ValidateConfig(rawConf)
+	require.Error(t, err)
+	require.Empty(t, conf)
+
+	rawConf = newConfigSingleFeed(t, "0x0001013ebd4ed3f5889FB5a8a52b42675c60c1a8c42bc79eaa72dcd922ac4292")
+	conf, err = ts.ValidateConfig(rawConf)
+	require.Error(t, err)
+	require.Empty(t, conf)
+
+	passingFeedID := "0x0001013ebd4ed3f5889fb5a8a52b42675c60c1a8c42bc79eaa72dcd922ac4292"
+	// test maxfreq < 1
+	rawConf = newConfig(t, []string{passingFeedID}, 0)
+	conf, err = ts.ValidateConfig(rawConf)
+	require.Error(t, err)
+	require.Empty(t, conf)
+
+	rawConf = newConfig(t, []string{passingFeedID}, -1)
+	conf, err = ts.ValidateConfig(rawConf)
+	require.Error(t, err)
+	require.Empty(t, conf)
+
+	rawConf = newConfigSingleFeed(t, passingFeedID)
+	conf, err = ts.ValidateConfig(rawConf)
+	require.NoError(t, err)
+	require.NotEmpty(t, conf)
+}
+
+func TestMercuryTrigger_GenerateSchema(t *testing.T) {
+	ts := NewMercuryTriggerService(1000, logger.Nop())
+	schema, err := ts.Schema()
+	require.NoError(t, err)
+	var shouldUpdate = false
+	if shouldUpdate {
+		err = os.WriteFile("./testdata/fixtures/mercury/schema.json", []byte(schema), 0600)
+		require.NoError(t, err)
+	}
+
+	fixture, err := os.ReadFile("./testdata/fixtures/mercury/schema.json")
+	require.NoError(t, err)
+
+	utils.AssertJSONEqual(t, fixture, []byte(schema))
 }

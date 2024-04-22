@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartcontractkit/chainlink/capabilities/mercury-trigger/root",
+  "properties": {
+    "config": {
+      "properties": {
+        "feedIds": {
+          "items": {
+            "type": "string",
+            "pattern": "^0x[0-9a-f]{64}$"
+          },
+          "type": "array",
+          "minItems": 1
+        },
+        "maxFrequencyMs": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "feedIds",
+        "maxFrequencyMs"
+      ]
+    },
+    "inputs": {
+      "properties": {
+        "triggerId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "triggerId"
+      ]
+    },
+    "outputs": {
+      "properties": {
+        "TriggerType": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Timestamp": {
+          "type": "string"
+        },
+        "Payload": true
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "TriggerType",
+        "ID",
+        "Timestamp",
+        "Payload"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "config",
+    "inputs",
+    "outputs"
+  ],
+  "description": "An example mercury trigger."
+}

@@ -1,0 +1,13 @@
+config:
+  feedIds:
+    - "0x1111111111111111111100000000000000000000000000000000000000000000"
+  maxFrequencyMs: 1
+inputs:
+  triggerId: "asdfkaslfef" 
+outputs:
+  TriggerType: "mercury"
+  ID: "myid" 
+  Timestamp:  ""
+  Payload: 
+
+# yaml-language-server: $schema=./schema.json
