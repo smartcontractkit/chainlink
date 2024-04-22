@@ -104,6 +104,10 @@ testscripts: chainlink-test ## Install and run testscript against testdata/scrip
 testscripts-update: ## Update testdata/scripts/* files via testscript.
 	make testscripts TS_FLAGS="-u"
 
+.PHONY: setup-testdb
+setup-testdb: ## Setup the test database.
+	./core/scripts/setup_testdb.sh
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run . local db preparetest
