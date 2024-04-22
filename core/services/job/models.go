@@ -327,14 +327,14 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
-func (relayConfig JSONConfig) ApplyDefaultsOCR2(cfg ocr2Config) {
-	_, ok := relayConfig["defaultTransactionQueueDepth"]
+func (r JSONConfig) ApplyDefaultsOCR2(cfg ocr2Config) {
+	_, ok := r["defaultTransactionQueueDepth"]
 	if !ok {
-		relayConfig["defaultTransactionQueueDepth"] = cfg.DefaultTransactionQueueDepth()
+		r["defaultTransactionQueueDepth"] = cfg.DefaultTransactionQueueDepth()
 	}
-	_, ok = relayConfig["simulateTransactions"]
+	_, ok = r["simulateTransactions"]
 	if !ok {
-		relayConfig["simulateTransactions"] = cfg.SimulateTransactions()
+		r["simulateTransactions"] = cfg.SimulateTransactions()
 	}
 }
 
