@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"math"
 	"math/big"
 	"runtime"
 	"sync"
@@ -114,6 +115,10 @@ type logEventProvider struct {
 	currentPartitionIdx uint64
 
 	chainID *big.Int
+
+	currentIteration    int
+	iterations          int
+	previousStartWindow *int64
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
@@ -290,7 +295,34 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
 		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
 		for len(payloads) < maxResults && start <= latestBlock {
-			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
+			startWindow, end := getBlockWindow(start, blockRate)
+
+			if p.previousStartWindow == nil {
+				p.previousStartWindow = &startWindow
+
+			} else if p.previousStartWindow != nil && startWindow != *p.previousStartWindow {
+				p.lggr.Debugw("new block window", "windowStart", startWindow)
+				p.currentIteration = 0
+				p.previousStartWindow = &startWindow
+			}
+
+			if p.currentIteration == p.iterations {
+				p.currentIteration = 0
+			}
+
+			if p.currentIteration == 0 {
+				p.iterations = int(math.Ceil(float64(p.bufferV1.NumOfUpkeeps()*logLimitLow) / float64(maxResults)))
+				if p.iterations == 0 {
+					p.iterations = 1
+				}
+				p.lggr.Debugw("calculated iterations", "iterations", p.iterations, "upkeeps", p.bufferV1.NumOfUpkeeps(), "logLimitLow", logLimitLow, "maxResults", maxResults)
+			}
+
+			upkeepSelectorFn := func(id *big.Int) bool {
+				return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
+			}
+
+			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 			}

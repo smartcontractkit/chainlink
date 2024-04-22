@@ -141,7 +141,8 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
 			}
-			results, remaining := buf.Dequeue(tc.args.block, tc.args.blockRate, tc.args.upkeepLimit, tc.args.maxResults, tc.args.upkeepSelector)
+			start, end := getBlockWindow(tc.args.block, tc.args.blockRate)
+			results, remaining := buf.Dequeue(start, end, tc.args.upkeepLimit, tc.args.maxResults, tc.args.upkeepSelector)
 			require.Equal(t, len(tc.results), len(results))
 			require.Equal(t, tc.remaining, remaining)
 		})

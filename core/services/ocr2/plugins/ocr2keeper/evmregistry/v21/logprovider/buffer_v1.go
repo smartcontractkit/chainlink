@@ -26,7 +26,7 @@ type LogBuffer interface {
 	// It also accepts a function to select upkeeps.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
-	Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
+	Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, blockRate, logLimit uint32)
 	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
@@ -110,11 +110,10 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 
 // Dequeue greedly pulls logs from the buffers.
 // Returns logs and the number of remaining logs in the buffer.
-func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
+func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
-	start, end := getBlockWindow(block, blockRate)
 	return b.dequeue(start, end, upkeepLimit, maxResults, upkeepSelector)
 }
 
@@ -126,11 +125,14 @@ func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int,
 func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
 	var result []BufferedLog
 	var remainingLogs int
+	selectedUpkeeps := []string{}
+	numLogs := 0
 	for _, q := range b.queues {
 		if !upkeepSelector(q.id) {
 			// if the upkeep is not selected, skip it
 			continue
 		}
+		selectedUpkeeps = append(selectedUpkeeps, q.id.String())
 		logsInRange := q.sizeOfRange(start, end)
 		if logsInRange == 0 {
 			// if there are no logs in the range, skip the upkeep
@@ -150,8 +152,10 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 			result = append(result, BufferedLog{ID: q.id, Log: l})
 			capacity--
 		}
+		numLogs += len(logs)
 		remainingLogs += remaining
 	}
+	b.lggr.Debugw("dequeued logs for upkeeps", "numUpkeeps", len(selectedUpkeeps), "numLogs", numLogs)
 	return result, remainingLogs
 }
 
