@@ -2,6 +2,8 @@ package wsrpc
 
 import (
 	"context"
+	"crypto"
+	"crypto/ed25519"
 	"crypto/x509"
 	"fmt"
 	"os"
@@ -463,4 +465,39 @@ func (w *client) ServerURL() string {
 
 func (w *client) RawClient() pb.MercuryClient {
 	return w.rawClient
+}
+
+type PbRequest interface {
+	String() string
+}
+
+// CanonicalStringFromRequest returns a string representation of the request
+// The result must be deterministic - both the client and server must agree on the format
+func (w *client) CanonicalStringFromRequest(request PbRequest) string {
+	return request.String()
+}
+
+// Sign returns a hex encoded signature of the request
+func (w *client) Sign(request PbRequest) (string, error) {
+	canonicalRequestString := w.CanonicalStringFromRequest(request)
+	signableKey := ed25519.PrivateKey(w.csaKey.Raw())
+	signedBytes, err := signableKey.Sign(nil, []byte(canonicalRequestString), crypto.Hash(0))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", signedBytes), nil
+}
+
+// VerifySignature verifies the signature of the request
+// TODO: Should live in a separate module
+func VerifySignature(publicKey ed25519.PublicKey, request PbRequest, signature string) error {
+	canonicalRequestString := request.String()
+	signedBytes, err := hexutil.Decode("0x" + signature)
+	if err != nil {
+		return err
+	}
+	if !ed25519.Verify(publicKey, []byte(canonicalRequestString), signedBytes) {
+		return errors.New("signature verification failed")
+	}
+	return nil
 }

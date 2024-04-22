@@ -14,6 +14,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/smartcontractkit/wsrpc"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -21,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/wsrpc"
 )
 
 // simulate start without dialling
@@ -271,19 +272,17 @@ func Test_Start_Dial(t *testing.T) {
 	}
 }
 
-
-
 type TestMercuryServer struct {
-    pb.UnimplementedMercuryServer
+	pb.UnimplementedMercuryServer
 	testLatestReportResponse pb.LatestReportResponse
 }
 
 func (s *TestMercuryServer) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
-    return &s.testLatestReportResponse, nil
+	return &s.testLatestReportResponse, nil
 }
 
 func (s *TestMercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
-    return &pb.TransmitResponse{}, nil
+	return &pb.TransmitResponse{}, nil
 }
 
 func TestIntegration_GRPC(t *testing.T) {
@@ -339,7 +338,7 @@ func TestIntegration_GRPCWithCreds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
-	t.Cleanup(func(){ lis.Close() })
+	t.Cleanup(func() { lis.Close() })
 
 	grpcServer := grpc.NewServer(grpc.Creds(serverCreds))
 	mercuryServer := TestMercuryServer{
@@ -351,7 +350,7 @@ func TestIntegration_GRPCWithCreds(t *testing.T) {
 	}
 	pb.RegisterGrpcMercuryServer(grpcServer, &mercuryServer)
 
-	t.Cleanup(func(){ grpcServer.Stop() })
+	t.Cleanup(func() { grpcServer.Stop() })
 
 	// Use the server certificate for client TLS credentials
 	clientCreds, err := credentials.NewClientTLSFromFile("./fixtures/domain.pem", "")
@@ -375,6 +374,24 @@ func TestIntegration_GRPCWithCreds(t *testing.T) {
 	require.EqualValues(t, mercuryServer.testLatestReportResponse.String(), resp.String())
 }
 
+func Test_GRPC_Signature(t *testing.T) {
+	client := client{
+		csaKey: csakey.MustNewV2XXXTestingOnly(testutils.MustParseBigInt(t, "32")),
+	}
+
+	FeedIDString := "testFeedID"
+	latestReportRequest := &pb.LatestReportRequest{
+		FeedId: []byte(FeedIDString),
+	}
+
+	// Generate the signature
+	signature, err := client.Sign(latestReportRequest)
+	require.NoError(t, err)
+
+	// Verify the signature
+	err = VerifySignature(client.csaKey.PublicKey, latestReportRequest, signature)
+	require.NoError(t, err)
+}
 
 // TODO:
 // * figure out if I want a mode where the client can dial the grpc server without a cert bundle

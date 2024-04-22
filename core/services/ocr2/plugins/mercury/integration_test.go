@@ -1024,6 +1024,7 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 		oracle_transmitters := make(map[ocr2types.Account]struct{})
 		for _, o := range oracles {
 			t.Logf("Expect report from oracle %s", o.OracleIdentity.TransmitAccount)
+			oracle_transmitters[o.OracleIdentity.TransmitAccount] = struct{}{}
 		}
 
 		// feedID: account: count
