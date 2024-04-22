@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func Test_Poller(t *testing.T) {
