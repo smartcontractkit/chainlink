@@ -531,6 +531,7 @@ func createVRFJobs(
 	batchEnabled bool,
 	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job) {
+	ctx := testutils.Context(t)
 	if len(gasLanePrices) != len(fromKeys) {
 		t.Fatalf("must provide one gas lane price for each set of from addresses. len(gasLanePrices) != len(fromKeys) [%d != %d]",
 			len(gasLanePrices), len(fromKeys))
@@ -542,7 +543,7 @@ func createVRFJobs(
 			keyStrs = append(keyStrs, k.Address.String())
 		}
 
-		vrfkey, err := app.GetKeyStore().VRF().Create()
+		vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 		require.NoError(t, err)
 
 		jid := uuid.New()
@@ -1838,6 +1839,7 @@ func TestMaliciousConsumer(t *testing.T) {
 }
 
 func TestRequestCost(t *testing.T) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 
@@ -1845,7 +1847,7 @@ func TestRequestCost(t *testing.T) {
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, nil)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
@@ -1943,6 +1945,7 @@ func TestMaxConsumersCost(t *testing.T) {
 }
 
 func TestFulfillmentCost(t *testing.T) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 
@@ -1950,7 +1953,7 @@ func TestFulfillmentCost(t *testing.T) {
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, nil)
 
@@ -2050,7 +2053,7 @@ func TestStartingCountsV1(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
 	ec := evmclimocks.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
@@ -2067,7 +2070,7 @@ func TestStartingCountsV1(t *testing.T) {
 	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(counts))
-	err = ks.Unlock(testutils.Password)
+	err = ks.Unlock(ctx, testutils.Password)
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)

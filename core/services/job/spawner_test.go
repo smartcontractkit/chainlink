@@ -75,14 +75,15 @@ func (g *relayGetter) Get(id relay.ID) (loop.Relayer, error) {
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
-	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
-	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(ctx, cltest.DefaultP2PKey))
+	require.NoError(t, keyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key))
 
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -131,7 +132,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start", mock.Anything).Return(nil).Once()
 		serviceA2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
 		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
-		dA := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
+		dA := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config, mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, make(chan struct{}), dA}
 
 		eventuallyB := cltest.NewAwaiter()
@@ -139,7 +140,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceB2 := mocks.NewServiceCtx(t)
 		serviceB1.On("Start", mock.Anything).Return(nil).Once()
 		serviceB2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
-		dB := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
+		dB := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config, mailMon)
 		delegateB := &delegate{jobB.Type, []job.ServiceCtx{serviceB1, serviceB2}, 0, make(chan struct{}), dB}
 
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
@@ -190,7 +191,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db), keyStore, config.Database())
 		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
-		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
+		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config, mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
@@ -224,7 +225,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db), keyStore, config.Database())
 		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
-		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
+		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config, mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,

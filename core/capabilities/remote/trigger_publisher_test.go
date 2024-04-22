@@ -87,9 +87,9 @@ func (t *testTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) 
 	return t.info, nil
 }
 
-func (t *testTrigger) RegisterTrigger(_ context.Context, _ chan<- commoncap.CapabilityResponse, request commoncap.CapabilityRequest) error {
+func (t *testTrigger) RegisterTrigger(_ context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	t.registrationsCh <- request
-	return nil
+	return nil, nil
 }
 
 func (t *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.CapabilityRequest) error {

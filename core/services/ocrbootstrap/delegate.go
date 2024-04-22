@@ -101,6 +101,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if spec.FeedID != nil {
 		spec.RelayConfig["feedID"] = *spec.FeedID
 	}
+	spec.RelayConfig.ApplyDefaultsOCR2(d.ocr2Cfg)
 
 	ctxVals := loop.ContextValues{
 		JobID:      jb.ID,

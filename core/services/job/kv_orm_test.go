@@ -34,7 +34,7 @@ func TestJobKVStore(t *testing.T) {
 
 	jobID := int32(1337)
 	kvStore := job.NewKVStore(jobID, db, config.Database(), lggr)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, cltest.NewKeyStore(t, db, config.Database()), config.Database())
+	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, cltest.NewKeyStore(t, db), config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)

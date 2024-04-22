@@ -29,6 +29,7 @@ func clearJobsDb(t *testing.T, db *sqlx.DB) {
 }
 
 func TestPipelineORM_Integration(t *testing.T) {
+	ctx := testutils.Context(t)
 	const DotStr = `
         // data source 1
         ds1          [type=bridge name=voter_turnout];
@@ -51,11 +52,11 @@ func TestPipelineORM_Integration(t *testing.T) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(30 * time.Millisecond)
 	})
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 	var specID int32
 
