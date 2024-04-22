@@ -6,7 +6,7 @@ import {AuthorizedForwarder} from "./AuthorizedForwarder.sol";
 
 // @title Operator Factory
 // @notice Creates Operator contracts for node operators
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 contract OperatorFactory {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable linkToken;
@@ -20,7 +20,6 @@ contract OperatorFactory {
     linkToken = linkAddress;
   }
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant typeAndVersion = "OperatorFactory 1.0.0";
 
   // @notice creates a new Operator contract with the msg.sender as owner
@@ -34,7 +33,7 @@ contract OperatorFactory {
   }
 
   // @notice creates a new Operator contract with the msg.sender as owner and a
-  // new Operator Forwarder with the Operator as the owner
+  // new Operator Forwarder with the OperatorFactory as the owner
   function deployNewOperatorAndForwarder() external returns (address, address) {
     Operator operator = new Operator(linkToken, msg.sender);
     s_created[address(operator)] = true;
