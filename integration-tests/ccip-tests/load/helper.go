@@ -247,6 +247,13 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			l.TestCfg.TestGroupInput.SkipRequestIfAnotherRequestTriggeredWithin,
 		)
 		ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgType, big.NewInt(*l.TestCfg.TestGroupInput.DestGasLimit))
+		// if it's not multicall set the tokens to nil to free up some space,
+		// we have already formed the msg to be sent in load, there is no need to store the bridge tokens anymore
+		// In case of multicall we still need the BridgeTokens to transfer amount from mutlicall to owner
+		if !lane.Source.Common.MulticallEnabled {
+			lane.Source.Common.BridgeTokens = nil
+			lane.Dest.Common.BridgeTokens = nil
+		}
 		lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 		labels := make(map[string]string)
 		for k, v := range l.Labels {

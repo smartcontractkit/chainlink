@@ -139,13 +139,6 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 			}
 		}
 	}
-	// if it's not multicall set the tokens to nil to free up some space,
-	// we have already formed the msg to be sent in load, there is no need to store the bridge tokens anymore
-	// In case of multicall we still need the BridgeTokens to transfer amount from mutlicall to owner
-	if !sourceCCIP.Common.MulticallEnabled {
-		sourceCCIP.Common.BridgeTokens = nil
-		destCCIP.Common.BridgeTokens = nil
-	}
 
 	c.LastFinalizedTxBlock.Store(c.Lane.Source.NewFinalizedBlockNum.Load())
 	c.LastFinalizedTimestamp.Store(c.Lane.Source.NewFinalizedBlockTimestamp.Load())
