@@ -198,6 +198,41 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 	)
 }
 
+func RegisterMigratableCoordinator(
+	e helpers.Environment,
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinatorMigrateToAddress common.Address,
+) {
+	tx, err := coordinator.RegisterMigratableCoordinator(e.Owner, coordinatorMigrateToAddress)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(
+		context.Background(),
+		e.Ec,
+		tx,
+		e.ChainID,
+		fmt.Sprintf("Coordinator %s registered migratable coordinator %s", coordinator.Address().String(), coordinatorMigrateToAddress.String()),
+	)
+}
+
+func MigrateSub(
+	e helpers.Environment,
+	coordinatorMigrateSubFrom vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinatorMigrateSubTo common.Address,
+	subID *big.Int,
+) {
+	tx, err := coordinatorMigrateSubFrom.Migrate(e.Owner, subID, coordinatorMigrateSubTo)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(
+		context.Background(),
+		e.Ec,
+		tx,
+		e.ChainID,
+		fmt.Sprintf("Sub Migrated from Coordinator: %s,", coordinatorMigrateSubFrom.Address().String()),
+		fmt.Sprintf("Sub Migrated TO Coordinator: %s,", coordinatorMigrateSubTo.String()),
+		fmt.Sprintf("Sub ID which was migrated: %s,", subID.String()),
+	)
+}
+
 func WrapperDeploy(
 	e helpers.Environment,
 	link, linkEthFeed, coordinator common.Address, subID *big.Int,
