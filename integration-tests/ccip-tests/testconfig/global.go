@@ -173,7 +173,7 @@ type Common struct {
 	NewCLCluster            *ChainlinkDeployment                 `toml:",omitempty"` // NewCLCluster is the new chainlink cluster to create, if specified along with ExistingCLCluster this will be ignored
 	Network                 *ctfconfig.NetworkConfig             `toml:",omitempty"`
 	PrivateEthereumNetworks map[string]*test_env.EthereumNetwork `toml:",omitempty"`
-	Logging                 *ctfconfig.LoggingConfig             `toml:"Logging"`
+	Logging                 *ctfconfig.LoggingConfig             `toml:",omitempty"`
 }
 
 func (p *Common) GetSethConfig() *seth.Config {
