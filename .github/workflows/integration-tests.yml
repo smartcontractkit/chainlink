@@ -824,8 +824,6 @@ jobs:
           path: cl-node-coverage-data
           pattern: cl-node-coverage-data-*
           merge-multiple: true
-      - name: List all files and directories
-        run: ls -R
       - name: Show Coverage
         run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl-node-coverage-data/*/merged"
 
