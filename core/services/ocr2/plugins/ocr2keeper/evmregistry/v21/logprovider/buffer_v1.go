@@ -1,9 +1,12 @@
 package logprovider
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"math"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -155,8 +158,14 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 		numLogs += len(logs)
 		remainingLogs += remaining
 	}
-	b.lggr.Debugw("dequeued logs for upkeeps", "numUpkeeps", len(selectedUpkeeps), "numLogs", numLogs)
+	b.lggr.Debugw("dequeued logs for upkeeps", "numUpkeeps", len(selectedUpkeeps), "numLogs", numLogs, "hash", hashCombinedStrings(selectedUpkeeps))
 	return result, remainingLogs
+}
+
+func hashCombinedStrings(s []string) string {
+	combined := strings.Join(s, "")
+	hashed := md5.Sum([]byte(combined))
+	return hex.EncodeToString(hashed[:8])
 }
 
 func (b *logBuffer) SetConfig(lookback, blockRate, logLimit uint32) {
