@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -218,6 +219,13 @@ func TestOCR2OracleSpec(t *testing.T) {
 `,
 					},
 				},
+			},
+		},
+		OnchainSigningStrategy: map[string]interface{}{
+			"strategyName": "single-chain",
+			"config": map[string]interface{}{
+				"evm":       "",
+				"publicKey": "0xdeadbeef",
 			},
 		},
 		PluginConfig: map[string]interface{}{"juelsPerFeeCoinSource": `  // data source 1
