@@ -10,14 +10,21 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
+type DelegateConfig interface {
+	FluxMonitor() config.FluxMonitor
+	JobPipeline() config.JobPipeline
+}
+
 // Delegate represents a Flux Monitor delegate
 type Delegate struct {
+	cfg            DelegateConfig
 	db             *sqlx.DB
 	ethKeyStore    keystore.Eth
 	jobORM         job.ORM
@@ -31,6 +38,7 @@ var _ job.Delegate = (*Delegate)(nil)
 
 // NewDelegate constructs a new delegate
 func NewDelegate(
+	cfg DelegateConfig,
 	ethKeyStore keystore.Eth,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
@@ -40,6 +48,7 @@ func NewDelegate(
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
+		cfg:            cfg,
 		db:             db,
 		ethKeyStore:    ethKeyStore,
 		jobORM:         jobORM,
@@ -69,10 +78,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if err != nil {
 		return nil, err
 	}
-	cfg := chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FluxMonitor().DefaultTransactionQueueDepth())
+	strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, d.cfg.FluxMonitor().DefaultTransactionQueueDepth())
 	var checker txmgr.TransmitCheckerSpec
-	if chain.Config().FluxMonitor().SimulateTransactions() {
+	if d.cfg.FluxMonitor().SimulateTransactions() {
 		checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 	}
 
@@ -88,7 +96,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		d.pipelineRunner,
 		chain.Config().EVM(),
 		chain.Config().EVM().GasEstimator(),
-		chain.Config().JobPipeline(),
+		d.cfg.JobPipeline(),
 		d.lggr,
 	)
 	if err != nil {
