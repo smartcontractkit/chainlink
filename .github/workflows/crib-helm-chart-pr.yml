@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "charts/**"
-      - ".github/workflows/helm-chart.yml"
+      - ".github/workflows/crib-helm-chart.yml"
 
 jobs:
   ci-lint-helm-charts:
@@ -15,13 +15,12 @@ jobs:
         with:
           # chart testing inputs
           chart-testing-extra-args: "--lint-conf=lintconf.yaml"
-          charts-dir: charts/chainlink-cluster
+          charts-dir: charts/crib-chainlink-cluster
           # grafana inputs
           metrics-job-name: ci-lint-helm-charts
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-
   ci-kubeconform:
     runs-on: ubuntu-latest
     steps:
@@ -29,9 +28,19 @@ jobs:
         uses: smartcontractkit/.github/actions/ci-kubeconform@1ae8a9a984814c4daf50aa96f03be2cba0ef3fec # ci-kubeconform@0.2.0
         with:
           # kubeform inputs
-          charts-dir: charts/chainlink-cluster
+          charts-dir: charts/crib-chainlink-cluster
           # grafana inputs
           metrics-job-name: ci-kubeconform
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+  ci-build-charts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ci-build-charts
+        uses: smartcontractkit/.github/actions/cicd-build-publish-charts@7ac9af09dda8c553593d2153a975b43b6958fa9f # cicd-build-publish-charts@0.1.3
+        with:
+          # grafana inputs
+          metrics-job-name: ci-build-charts
+          gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}

@@ -2,6 +2,8 @@
 # Copied from:
 # https://redhat-cop.github.io/ci/linting-testing-helm-charts.html
 # with `min-spaces-from-content` changed to be compatible with prettier.
+target-branch: develop
+check-version-increment: true
 rules:
   braces:
     min-spaces-inside: 0

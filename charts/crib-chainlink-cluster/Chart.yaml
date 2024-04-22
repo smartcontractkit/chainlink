@@ -1,8 +1,8 @@
 apiVersion: v2
-name: chainlink-cluster
-description: Chainlink nodes cluster
-version: 0.4.0
-appVersion: "2.6.0"
+name: crib-chainlink-cluster
+description: Chainlink nodes cluster for Integration level testing
+version: 0.5.0
+appVersion: "2.10.0"
 dependencies:
   - name: mockserver
     version: "5.14.0"

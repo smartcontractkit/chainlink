@@ -1,0 +1,69 @@
+name: Helm Publish
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "charts/**"
+      - ".github/workflows/crib-helm-chart.yml"
+      - ".github/workflows/crib-helm-chart-push-develop.yml"
+jobs:
+  helm_release:
+    runs-on: ubuntu-latest
+    environment: build-develop
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_GATI }}
+          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: helm-publish.helm-release
+
+      - name: Get Github Token
+        id: get-gh-token
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@5874ff7211cf5a5a2670bb010fbff914eaaae138 # v2.3.12
+        with:
+          url: ${{ secrets.GATI_LAMBDA_FUNCTION_URL }}
+
+  ci-lint-charts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ci-lint-charts
+        uses: smartcontractkit/.github/actions/ci-lint-charts@6b08487b176ef7cad086526d0b54ddff6691c044 # ci-lint-charts@0.1.2
+        with:
+          # grafana inputs
+          metrics-job-name: ci-lint-charts
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+  cicd-build-publish-charts:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: cicd-build-publish-charts
+        uses: smartcontractkit/.github/actions/cicd-build-publish-charts@5b1046c28343660ecb84844c6fa95a66d1cdb52e # cicd-build-publish-charts@0.1.2
+        with:
+          # general inputs
+          charts-dir: chart
+          publish: "true"
+          # grafana inputs
+          metrics-job-name: cicd-build-publish-charts
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_CHART_PROD_ARN }}
+          aws-account-number: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
