@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -38,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
@@ -71,7 +71,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -108,6 +107,7 @@ func (e ErrRelayNotEnabled) Error() string {
 
 type RelayGetter interface {
 	Get(id types.RelayID) (loop.Relayer, error)
+	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
 }
 type Delegate struct {
 	ds                    sqlutil.DataSource
@@ -567,6 +567,11 @@ func (d *Delegate) newServicesGenericPlugin(
 		return nil, ErrJobSpecNoRelayer{PluginName: pCfg.PluginName, Err: err}
 	}
 
+	relayerSet, err := generic.NewRelayerSet(d.RelayGetter, jb.ExternalJobID, jb.ID, d.isNewlyCreatedJob)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create relayer set: %w", err)
+	}
+
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: pCfg.PluginName}
@@ -620,7 +625,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		//TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
 		d.lggr.Info("provider is not a LOOPP provider, switching to provider server")
 
-		ps, err2 := relay.NewProviderServer(provider, types.OCR2PluginType(pCfg.ProviderType), d.lggr)
+		ps, err2 := loop.NewProviderServer(provider, types.OCR2PluginType(pCfg.ProviderType), d.lggr)
 		if err2 != nil {
 			return nil, fmt.Errorf("cannot start EVM provider server: %s", err2)
 		}
@@ -657,7 +662,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	switch pCfg.OCRVersion {
 	case 2:
 		plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta,
-			errorLog, keyValueStore)
+			errorLog, keyValueStore, relayerSet)
 		oracleArgs := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -683,7 +688,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	case 3:
 		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
 		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog,
-			capabilitiesRegistry, keyValueStore)
+			capabilitiesRegistry, keyValueStore, relayerSet)
 		contractTransmitter := ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter())
 		oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
