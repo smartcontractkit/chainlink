@@ -32,6 +32,26 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_link_native_feed;
 
+  event FulfillmentTxSizeSet(uint32 size);
+  event ConfigSet(
+    uint32 wrapperGasOverhead,
+    uint32 coordinatorGasOverhead,
+    uint16 coordinatorGasOverheadPerWord,
+    uint8 coordinatorNativePremiumPercentage,
+    uint8 coordinatorLinkPremiumPercentage,
+    bytes32 keyHash,
+    uint8 maxNumWords,
+    uint32 stalenessSeconds,
+    int256 fallbackWeiPerUnitLink,
+    uint32 fulfillmentFlatFeeNativePPM,
+    uint32 fulfillmentFlatFeeLinkDiscountPPM
+  );
+  event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
+  event Withdrawn(address indexed to, uint256 amount);
+  event NativeWithdrawn(address indexed to, uint256 amount);
+  event Enabled();
+  event Disabled();
+
   error LinkAlreadySet();
   error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
   error InvalidPremiumPercentage(uint8 premiumPercentage, uint8 max);

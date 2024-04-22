@@ -2,6 +2,7 @@ package blockhashstore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -64,6 +65,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return nil, errors.Errorf(
 			"blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
 	}
+	marshalledJob, err := json.MarshalIndent(jb.BlockhashStoreSpec, "", " ")
+	if err != nil {
+		return nil, err
+	}
+	d.logger.Debugw("Creating services for job spec", "job", string(marshalledJob))
 
 	chain, err := d.legacyChains.Get(jb.BlockhashStoreSpec.EVMChainID.String())
 	if err != nil {

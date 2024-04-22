@@ -80,7 +80,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
-			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+			keyStore := cltest.NewKeyStore(t, db)
 			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
 			lggr := logger.TestLogger(t)
@@ -181,7 +181,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			// create/run with a new admin user
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
-			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+			keyStore := cltest.NewKeyStore(t, db)
 			_, err := keyStore.Eth().Create(testutils.Context(t), &cltest.FixtureChainID)
 			require.NoError(t, err)
 
@@ -290,7 +290,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 		// seems to be needed for config validate
 		c.Insecure.OCRDevelopmentMode = nil
 	})
-	keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
+	keyStore := cltest.NewKeyStore(t, sqlxDB)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 	txStore := cltest.NewTestTxStore(t, sqlxDB)
@@ -371,7 +371,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 
-			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
+			keyStore := cltest.NewKeyStore(t, sqlxDB)
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
@@ -448,7 +448,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 
-			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
+			keyStore := cltest.NewKeyStore(t, sqlxDB)
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 

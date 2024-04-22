@@ -681,6 +681,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 	b *backends.SimulatedBackend, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
+	ctx := testutils.Context(t)
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
@@ -719,12 +720,13 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 	require.NoError(t, err)
 	b.Commit()
 
-	key, err := app.GetKeyStore().OCR().Create()
+	key, err := app.GetKeyStore().OCR().Create(ctx)
 	require.NoError(t, err)
 	return app, p2pKey.PeerID().Raw(), transmitter, key
 }
 
 func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 int, b *backends.SimulatedBackend, overrides func(c *chainlink.Config, s *chainlink.Secrets)) (*cltest.TestApplication, string, common.Address, common.Address, ocrkey.KeyV2) {
+	ctx := testutils.Context(t)
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
@@ -761,7 +763,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	require.NoError(t, err)
 	b.Commit()
 
-	key, err := app.GetKeyStore().OCR().Create()
+	key, err := app.GetKeyStore().OCR().Create(ctx)
 	require.NoError(t, err)
 
 	// deploy a forwarder
@@ -1241,6 +1243,7 @@ observationSource = """
 
 func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	var initialDefaultGasPrice int64 = 5_000_000_000
 	maxGasPrice := assets.NewWeiI(10 * initialDefaultGasPrice)
@@ -1260,8 +1263,8 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
-	require.NoError(t, kst.Unlock(cltest.Password))
+	kst := cltest.NewKeyStore(t, db)
+	require.NoError(t, kst.Unlock(ctx, cltest.Password))
 
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
 

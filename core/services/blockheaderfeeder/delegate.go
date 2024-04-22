@@ -2,6 +2,7 @@ package blockheaderfeeder
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -61,6 +62,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if jb.BlockHeaderFeederSpec == nil {
 		return nil, errors.Errorf("Delegate expects a BlockHeaderFeederSpec to be present, got %+v", jb)
 	}
+	marshalledJob, err := json.MarshalIndent(jb.BlockHeaderFeederSpec, "", " ")
+	if err != nil {
+		return nil, err
+	}
+	d.logger.Debugw("Creating services for job spec", "job", string(marshalledJob))
 
 	chain, err := d.legacyChains.Get(jb.BlockHeaderFeederSpec.EVMChainID.String())
 	if err != nil {

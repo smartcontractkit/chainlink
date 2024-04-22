@@ -1672,9 +1672,9 @@ func testMaliciousConsumer(
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
 	require.NoError(t, app.Start(ctx))
 
-	err := app.GetKeyStore().Unlock(cltest.Password)
+	err := app.GetKeyStore().Unlock(ctx, cltest.Password)
 	require.NoError(t, err)
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 
 	jid := uuid.New()
@@ -1796,7 +1796,7 @@ func testReplayOldRequestsOnStartUp(
 	require.NoError(t, app.Start(ctx))
 
 	// Create VRF Key, register it to coordinator and export
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni, coordinator, vrfkey, &defaultMaxGasPrice)
 	keyHash := vrfkey.PublicKey.MustHash()
@@ -1833,7 +1833,7 @@ func testReplayOldRequestsOnStartUp(
 
 	require.NoError(t, app.Start(ctx))
 
-	vrfKey, err := app.GetKeyStore().VRF().Import(encodedVrfKey, testutils.Password)
+	vrfKey, err := app.GetKeyStore().VRF().Import(ctx, encodedVrfKey, testutils.Password)
 	require.NoError(t, err)
 
 	incomingConfs := 2

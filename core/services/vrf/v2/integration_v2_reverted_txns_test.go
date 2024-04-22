@@ -411,6 +411,7 @@ func createVRFJobsNew(
 	chainID *big.Int,
 	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job, vrfKeyIDs []string) {
+	ctx := testutils.Context(t)
 	if len(gasLanePrices) != len(fromKeys) {
 		t.Fatalf("must provide one gas lane price for each set of from addresses. len(gasLanePrices) != len(fromKeys) [%d != %d]",
 			len(gasLanePrices), len(fromKeys))
@@ -422,7 +423,7 @@ func createVRFJobsNew(
 			keyStrs = append(keyStrs, k.Address.String())
 		}
 
-		vrfkey, err := app.GetKeyStore().VRF().Create()
+		vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 		require.NoError(t, err)
 
 		jid := uuid.New()
