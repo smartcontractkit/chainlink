@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#internal Generic Pluging `onchainSigningStrategy` support
+#internal Generic Plugin `onchainSigningStrategy` support

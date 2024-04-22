@@ -209,7 +209,6 @@ func (o *OCR2OnchainSigningStrategy) PublicKey() (string, error) {
 }
 
 func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc plugins.RegistrarConfig) error {
-	fmt.Println("running validateGenericPluginSpec")
 	p := OCR2GenericPluginConfig{}
 	err := json.Unmarshal(spec.PluginConfig.Bytes(), &p)
 	if err != nil {
@@ -233,7 +232,6 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	if err != nil {
 		return err
 	}
-	fmt.Println("public key", pk)
 	if pk == "" {
 		return errors.New("generic config invalid: must provide public key for the onchain signing strategy")
 	}
