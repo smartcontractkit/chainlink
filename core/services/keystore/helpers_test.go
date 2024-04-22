@@ -1,15 +1,14 @@
 package keystore
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -19,14 +18,14 @@ func mustNewEthKey(t *testing.T) *ethkey.KeyV2 {
 	return &key
 }
 
-func ExposedNewMaster(t *testing.T, db *sqlx.DB, cfg pg.QConfig) *master {
-	return newMaster(db, utils.FastScryptParams, logger.TestLogger(t), cfg)
+func ExposedNewMaster(t *testing.T, ds sqlutil.DataSource) *master {
+	return newMaster(ds, utils.FastScryptParams, logger.TestLogger(t))
 }
 
-func (m *master) ExportedSave() error {
+func (m *master) ExportedSave(ctx context.Context) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return m.save()
+	return m.save(ctx)
 }
 
 func (m *master) ResetXXXTestOnly() {
