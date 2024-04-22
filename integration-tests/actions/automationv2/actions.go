@@ -29,6 +29,7 @@ import (
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 
@@ -583,7 +584,10 @@ func calculateOCR3ConfigArgs(a *AutomationTest, S []int, oracleIdentities []conf
 
 func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common.Hash, error) {
 	registrationTxHashes := make([]common.Hash, 0)
-	concurrency := a.GetConcurrency()
+	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
+	if err != nil {
+		return nil, err
+	}
 
 	type result struct {
 		txHash common.Hash
@@ -721,7 +725,10 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.Hash) ([]*big.Int, error) {
 	upkeepIds := make([]*big.Int, 0)
 
-	concurrency := a.GetConcurrency()
+	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
+	if err != nil {
+		return nil, err
+	}
 
 	type result struct {
 		upkeepID *big.Int
@@ -903,8 +910,4 @@ func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress
 	require.NoError(t, err, "Error loading registrar contract")
 
 	a.AddJobsAndSetConfig(t)
-}
-
-func (a *AutomationTest) GetConcurrency() int {
-	return int(*a.ChainClient.Cfg.EphemeralAddrs)
 }

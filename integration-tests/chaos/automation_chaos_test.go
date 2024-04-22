@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -247,17 +246,7 @@ func TestAutomationChaos(t *testing.T) {
 
 					network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
 
-					sethConfigFn := func(sethCfg *seth.Config) error {
-						if sethCfg.IsSimulatedNetwork() {
-							require.Equal(t, int(*sethCfg.EphemeralAddrs), 0, "You must not use ephemeral addresses on a simulated network. Please update '[Seth] ephemeral_addresses_number = 0' field in the TOML config file", *sethCfg.EphemeralAddrs)
-							// take only the first key, all others are not funded in genesis and will crash the test ¯\_(ツ)_/¯
-							sethCfg.Network.PrivateKeys = sethCfg.Network.PrivateKeys[0:1]
-						}
-
-						return nil
-					}
-
-					chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, network, sethConfigFn)
+					chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, network, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
 					require.NoError(t, err, "Error creating seth client")
 
 					// Register cleanup for any test

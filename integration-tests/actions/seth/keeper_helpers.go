@@ -230,8 +230,8 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
 
-	concurrency := int(*client.Cfg.EphemeralAddrs)
-	require.GreaterOrEqual(t, concurrency, 1, "You need at least 1 ephemeral address to deploy consumers. Please set them in TOML config. Example: `[Seth] ephemeral_addresses_number = 10`")
+	concurrency, err := GetAndAssertCorrectConcurrency(client, 1)
+	require.NoError(t, err, "Insufficient concurrency to execute action")
 
 	type config struct {
 		address string
@@ -374,8 +374,8 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	l := logging.GetTestLogger(t)
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
 
-	concurrency := int(*client.Cfg.EphemeralAddrs)
-	require.GreaterOrEqual(t, concurrency, 1, "You need at least 1 ephemeral address to deploy consumers. Please set them in TOML config. Example: `[Seth] ephemeral_addresses_number = 10`")
+	concurrency, err := GetAndAssertCorrectConcurrency(client, 1)
+	require.NoError(t, err, "Insufficient concurrency to execute action")
 
 	type result struct {
 		contract contracts.KeeperConsumer
@@ -601,7 +601,9 @@ func RegisterNewUpkeeps(
 		addressesOfNewUpkeeps = append(addressesOfNewUpkeeps, upkeep.Address())
 	}
 
-	concurrency := int(*chainClient.Cfg.EphemeralAddrs)
+	concurrency, err := GetAndAssertCorrectConcurrency(chainClient, 1)
+	require.NoError(t, err, "Insufficient concurrency to execute action")
+
 	operationsPerAddress := numberOfNewUpkeeps / concurrency
 
 	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
@@ -615,4 +617,48 @@ func RegisterNewUpkeeps(
 	newUpkeepIDs := RegisterUpkeepContracts(t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfNewUpkeeps, addressesOfNewUpkeeps, false, false)
 
 	return newlyDeployedUpkeeps, newUpkeepIDs
+}
+
+var INSUFFICIENT_EPHEMERAL_KEYS = `
+Error: Insufficient Ephemeral Addresses for Simulated Network
+
+To operate on a simulated network, you must configure at least one ephemeral address. Currently, %d ephemeral address(es) are set. Please update your TOML configuration file as follows to meet this requirement:
+[Seth] ephemeral_addresses_number = 1
+
+This adjustment ensures that your setup is minimaly viable. Although it is highly recommended to use at least 20 ephemeral addresses.
+`
+
+var INSUFFICIENT_STATIC_KEYS = `
+Error: Insufficient Private Keys for Live Network
+
+To run this test on a live network, you must either:
+1. Set at least two private keys in the '[Network.WalletKeys]' section of your TOML configuration file. Example format:
+   [Network.WalletKeys]
+   NETWORK_NAME=["PRIVATE_KEY_1", "PRIVATE_KEY_2"]
+2. Set at least two private keys in the '[Network.EVMNetworks.NETWORK_NAME] section of your TOML configuration file. Example format:
+   evm_keys=["PRIVATE_KEY_1", "PRIVATE_KEY_2"]
+
+Currently, only %d private key/s is/are set.
+
+Recommended Action:
+Distribute your funds across multiple private keys and update your configuration accordingly. Even though 1 private key is sufficient for testing, it is highly recommended to use at least 10 private keys.
+`
+
+// GetAndAssertCorrectConcurrency checks Seth configuration for the number of ephemeral keys or static keys (depending on Seth configuration) and makes sure that
+// the number is at least minConcurrency. If the number is less than minConcurrency, it returns an error. Root key is always excuded from the count.
+func GetAndAssertCorrectConcurrency(client *seth.Client, minConcurrency int) (int, error) {
+	concurrency := client.Cfg.GetMaxConcurrency()
+
+	var msg string
+	if client.Cfg.IsSimulatedNetwork() {
+		msg = fmt.Sprintf(INSUFFICIENT_EPHEMERAL_KEYS, concurrency)
+	} else {
+		msg = fmt.Sprintf(INSUFFICIENT_STATIC_KEYS, concurrency)
+	}
+
+	if concurrency < minConcurrency {
+		return 0, fmt.Errorf(msg)
+	}
+
+	return concurrency, nil
 }

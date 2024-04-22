@@ -143,10 +143,9 @@ func TestAutomationBenchmark(t *testing.T) {
 	benchmarkTestNetwork := getNetworkConfig(&config)
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
-
 	testNetwork := utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
 
-	chainClient, err := actions_seth.GetChainClient(&config, testNetwork)
+	chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error getting Seth client")
 
 	registryVersions := addRegistry(&config)
@@ -330,6 +329,10 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 	if strings.Contains(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest, "2_") {
 		numberOfNodes++
 	}
+
+	networkName := strings.ReplaceAll(testNetwork.Name, " ", "-")
+	networkName = strings.ReplaceAll(networkName, "_", "-")
+	testNetwork.Name = networkName
 
 	testEnvironment := environment.New(&environment.Config{
 		TTL: time.Hour * 720, // 30 days,

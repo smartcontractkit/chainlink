@@ -330,23 +330,6 @@ func (k *KeeperBenchmarkTest) Run() {
 		}
 	}
 
-	// Progress log for visibility
-	go func() {
-		ticker := time.NewTicker(10 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				k.log.Warn().Str("Done/Total", fmt.Sprintf("%d/%d", finishedObservations.Load(), startedObservations.Load())).Msg("Upkeep observation progress")
-				if finishedObservations.Load() == startedObservations.Load() {
-					return
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
 	if err := errgroup.Wait(); err != nil {
 		k.t.Fatalf("errored when waiting for upkeeps: %v", err)
 	}

@@ -80,8 +80,13 @@ type DeploymentData struct {
 	LoadConfigs       []aconfig.Load
 }
 
-func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load, chainClient *seth.Client, concurrency int, multicallAddress common.Address, automationDefaultLinkFunds *big.Int, linkToken contracts.LinkToken) (DeploymentData, error) {
+func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load, chainClient *seth.Client, multicallAddress common.Address, automationDefaultLinkFunds *big.Int, linkToken contracts.LinkToken) (DeploymentData, error) {
 	data := DeploymentData{}
+
+	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(chainClient, 1)
+	if err != nil {
+		return DeploymentData{}, err
+	}
 
 	type deployedContractData struct {
 		consumerContract contracts.KeeperConsumer

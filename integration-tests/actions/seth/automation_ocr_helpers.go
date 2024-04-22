@@ -111,7 +111,11 @@ func DeployMultiCallAndFundDeploymentAddresses(
 	numberOfUpkeeps int,
 	linkFundsForEachUpkeep *big.Int,
 ) error {
-	concurrency := int(*chainClient.Cfg.EphemeralAddrs)
+	concurrency, err := GetAndAssertCorrectConcurrency(chainClient, 1)
+	if err != nil {
+		return err
+	}
+
 	operationsPerAddress := numberOfUpkeeps / concurrency
 
 	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)

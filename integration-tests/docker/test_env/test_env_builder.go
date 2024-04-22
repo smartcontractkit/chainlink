@@ -323,7 +323,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 			if b.hasSeth {
-				seth, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
+				seth, err := actions_seth.GetChainClientWithConfigFunction(b.testConfig, networkConfig, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
 				if err != nil {
 					return nil, err
 				}
@@ -416,7 +416,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 		if b.hasSeth {
 			b.te.sethClients = make(map[int64]*seth.Client)
-			seth, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
+			seth, err := actions_seth.GetChainClientWithConfigFunction(b.testConfig, networkConfig, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
 			if err != nil {
 				return nil, err
 			}

@@ -15,8 +15,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/seth"
-
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -322,11 +320,7 @@ Load Config:
 
 	testNetwork = utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
 
-	sethConfigFn := func(sethCfg *seth.Config) error {
-		return utils.ValidateAddressesTypeAndNumber(sethCfg, 50)
-	}
-
-	chainClient, err := actions_seth.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, sethConfigFn)
+	chainClient, err := actions_seth.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -430,7 +424,7 @@ Load Config:
 	}
 
 	for _, u := range loadedTestConfig.Automation.Load {
-		deploymentData, err := deployConsumerAndTriggerContracts(l, u, a.ChainClient, a.GetConcurrency(), multicallAddress, automationDefaultLinkFunds, a.LinkToken)
+		deploymentData, err := deployConsumerAndTriggerContracts(l, u, a.ChainClient, multicallAddress, automationDefaultLinkFunds, a.LinkToken)
 		require.NoError(t, err, "Error deploying consumer and trigger contracts")
 
 		consumerContracts = append(consumerContracts, deploymentData.ConsumerContracts...)

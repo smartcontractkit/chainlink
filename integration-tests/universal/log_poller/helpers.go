@@ -41,7 +41,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -1188,9 +1187,6 @@ func SetupLogPollerTestDocker(
 	selectedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
 	chainClient, err := env.GetSethClient(selectedNetwork.ChainID)
 	require.NoError(t, err, "Error getting seth client")
-
-	err = utils.ValidateAddressesTypeAndNumber(chainClient.Cfg, *testConfig.LogPoller.General.Contracts)
-	require.NoError(t, err, "Error validating Seth addresses types and number")
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]

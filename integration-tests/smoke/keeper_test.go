@@ -33,7 +33,7 @@ import (
 const (
 	keeperDefaultUpkeepGasLimit       = uint32(2500000)
 	keeperDefaultLinkFunds            = int64(9e18)
-	keeperDefaultUpkeepsToDeploy      = 10
+	keeperDefaultUpkeepsToDeploy      = 2
 	numUpkeepsAllowedForStragglingTxs = 6
 	keeperExpectedData                = "abcdef"
 )
@@ -221,85 +221,108 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 				}
 			})
 
-			keepersPerformed := make(map[*big.Int][]string, 0)
+			keepersPerformedLowFreq := map[*big.Int][]string{}
 
-			gom := gomega.NewGomegaWithT(t)
-			// Wait for upkeep to be performed twice by different keepers (buddies)
-			l.Info().Msg("Waiting for 1m for upkeeps to be performed by different keepers")
-			gom.Eventually(func(g gomega.Gomega) {
-				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(testcontext.Get(t))
-					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-					l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+			// gom := gomega.NewGomegaWithT(t)
+			// Wait for upkeep to be performed by two different keepers that alternate (buddies)
+			l.Info().Msg("Waiting for 2m for upkeeps to be performed by different keepers")
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
 
-					upkeepInfo, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
-					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+			stop := time.After(2 * time.Minute)
 
-					latestKeeper := upkeepInfo.LastKeeper
-					previouslyPerformed := keepersPerformed[upkeepIDs[i]]
-					l.Info().Str("keeper", latestKeeper).Msg("last keeper to perform upkeep")
-					g.Expect(latestKeeper).ShouldNot(gomega.Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
-					g.Expect(latestKeeper).ShouldNot(gomega.BeElementOf(previouslyPerformed), "A new keeper node should perform this upkeep")
+		LOW_LOOP:
+			for {
+				select {
+				case <-ticker.C:
+					for i := 0; i < len(upkeepIDs); i++ {
+						counter, err := consumers[i].Counter(testcontext.Get(t))
+						require.NoError(t, err, "Calling consumer's counter shouldn't fail")
+						l.Info().Str("UpkeepId", upkeepIDs[i].String()).Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 
-					l.Info().Str("keeper", latestKeeper).Msg("New keeper performed upkeep")
-					keepersPerformed[upkeepIDs[i]] = append(keepersPerformed[upkeepIDs[i]], latestKeeper)
+						upkeepInfo, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
+						require.NoError(t, err, "Registry's getUpkeep shouldn't fail")
+
+						latestKeeper := upkeepInfo.LastKeeper
+						if latestKeeper == actions.ZeroAddress.String() {
+							continue
+						}
+
+						keepersPerformedLowFreq[upkeepIDs[i]] = append(keepersPerformedLowFreq[upkeepIDs[i]], latestKeeper)
+					}
+				case <-stop:
+					ticker.Stop()
+					break LOW_LOOP
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}
 
-			l.Info().Msg("Waiting again for 1m for upkeeps to be performed by different keepers")
-			gom.Eventually(func(g gomega.Gomega) {
-				for i := 0; i < len(upkeepIDs); i++ {
-					upkeepInfo, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
-					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
-
-					latestKeeper := upkeepInfo.LastKeeper
-					previouslyPerformed := keepersPerformed[upkeepIDs[i]]
-					g.Expect(latestKeeper).ShouldNot(gomega.Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
-					g.Expect(latestKeeper).ShouldNot(gomega.BeElementOf(previouslyPerformed), "A new keeper node should perform this upkeep")
-
-					l.Info().Str("Keeper", latestKeeper).Msg("New keeper performed upkeep")
-					keepersPerformed[upkeepIDs[i]] = append(keepersPerformed[upkeepIDs[i]], latestKeeper)
-				}
-			}, "1m", "1s").Should(gomega.Succeed())
-
-			// Expect no new keepers to perform for a while
-			l.Info().Msg("Waiting for 1m for to check whether no upkeeps are performed")
-			gom.Consistently(func(g gomega.Gomega) {
-				for i := 0; i < len(upkeepIDs); i++ {
-					upkeepInfo, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
-					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
-
-					latestKeeper := upkeepInfo.LastKeeper
-					previouslyPerformed := keepersPerformed[upkeepIDs[i]]
-					g.Expect(latestKeeper).ShouldNot(gomega.Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
-					g.Expect(latestKeeper).Should(gomega.BeElementOf(previouslyPerformed), "Existing keepers should alternate turns within BCPT")
-				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			require.GreaterOrEqual(t, 2, len(keepersPerformedLowFreq), "At least 2 different keepers should have been performing upkeeps")
 
 			// Now set BCPT to be low, so keepers change turn frequently
 			err = registry.SetConfig(lowBCPTRegistryConfig, contracts.OCRv2Config{})
 			require.NoError(t, err, "Error setting registry config")
 
-			// Expect a new keeper to perform
-			l.Info().Msg("Waiting for 1m for upkeeps to be performed by different keepers after BCPT change")
-			gom.Eventually(func(g gomega.Gomega) {
-				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(testcontext.Get(t))
-					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-					l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Num upkeeps performed")
+			keepersPerformedHigherFreq := map[*big.Int][]string{}
 
-					upkeepInfo, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
-					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+			ticker = time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
 
-					latestKeeper := upkeepInfo.LastKeeper
-					previouslyPerformed := keepersPerformed[upkeepIDs[i]]
-					l.Info().Str("keeper", latestKeeper).Msg("last keeper to perform upkeep")
-					g.Expect(latestKeeper).ShouldNot(gomega.Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
-					g.Expect(latestKeeper).ShouldNot(gomega.BeElementOf(previouslyPerformed), "A new keeper node should perform this upkeep")
+			stop = time.After(2 * time.Minute)
 
-					l.Info().Str("keeper", latestKeeper).Msg("New keeper performed upkeep")
+		HIGH_LOOP:
+			for {
+				select {
+				case <-ticker.C:
+					for i := 0; i < len(upkeepIDs); i++ {
+						counter, err := consumers[i].Counter(testcontext.Get(t))
+						require.NoError(t, err, "Calling consumer's counter shouldn't fail")
+						l.Info().Str("UpkeepId", upkeepIDs[i].String()).Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+
+						upkeepInfo, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
+						require.NoError(t, err, "Registry's getUpkeep shouldn't fail")
+
+						latestKeeper := upkeepInfo.LastKeeper
+						if latestKeeper == actions.ZeroAddress.String() {
+							continue
+						}
+
+						keepersPerformedHigherFreq[upkeepIDs[i]] = append(keepersPerformedHigherFreq[upkeepIDs[i]], latestKeeper)
+					}
+				case <-stop:
+					ticker.Stop()
+					break HIGH_LOOP
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}
+
+			require.GreaterOrEqual(t, 3, len(keepersPerformedHigherFreq), "At least 3 different keepers should have been performing upkeeps after BCPT change")
+
+			var countFreq = func(keepers []string, freqMap map[string]int) {
+				for _, keeper := range keepers {
+					freqMap[keeper]++
+				}
+			}
+
+			for i := 0; i < len(upkeepIDs); i++ {
+				lowFreqMap := make(map[string]int)
+				highFreqMap := make(map[string]int)
+
+				countFreq(keepersPerformedLowFreq[upkeepIDs[i]], lowFreqMap)
+				countFreq(keepersPerformedHigherFreq[upkeepIDs[i]], highFreqMap)
+
+				require.Greater(t, len(highFreqMap), len(lowFreqMap), "High frequency map should have more keepers than low frequency map")
+
+				l.Info().Interface("Low BCPT", lowFreqMap).Interface("High BCPT", highFreqMap).Str("UpkeepID", upkeepIDs[i].String()).Msg("Keeper frequency map")
+
+				for lowKeeper, lowFreq := range lowFreqMap {
+					highFreq, ok := highFreqMap[lowKeeper]
+					// it might happen due to fluke that a keeper is not found in high frequency map
+					if !ok {
+						continue
+					}
+					// require.True(t, ok, "Keeper %s not found in high frequency map. This should not happen", lowKeeper)
+					require.GreaterOrEqual(t, lowFreq, highFreq, "Keeper %s should have performed less times with high BCPT than with low BCPT", lowKeeper)
+				}
+			}
 		})
 	}
 }

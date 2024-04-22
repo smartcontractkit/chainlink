@@ -887,10 +887,6 @@ func SendLinkFundsToDeploymentAddresses(
 		return data, nil
 	}
 
-	if *chainClient.Cfg.EphemeralAddrs == 0 {
-		return nil
-	}
-
 	toTransferToMultiCallContract := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(totalUpkeeps+concurrency)))
 	toTransferPerClient := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(operationsPerAddress+1)))
 	err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
@@ -950,6 +946,40 @@ func SendLinkFundsToDeploymentAddresses(
 var noOpSethConfigFn = func(cfg *seth.Config) error { return nil }
 
 type SethConfigFunction = func(*seth.Config) error
+
+// OneEphemeralKeysLiveTestnetCheckFn checks whether there's at least one ephemeral key on a simulated network or at least one static key on a live network,
+// and that there are no epehemeral keys on a live network. Root key is excluded from the check.
+var OneEphemeralKeysLiveTestnetCheckFn = func(sethCfg *seth.Config) error {
+	concurrency := sethCfg.GetMaxConcurrency()
+
+	if sethCfg.IsSimulatedNetwork() {
+		if concurrency < 1 {
+			return fmt.Errorf(INSUFFICIENT_EPHEMERAL_KEYS, 0)
+		}
+
+		return nil
+	}
+
+	if sethCfg.EphemeralAddrs != nil && int(*sethCfg.EphemeralAddrs) > 0 {
+		ephMsg := `
+			Error: Ephemeral Addresses Detected on Live Network
+
+			Ephemeral addresses are currently set for use on a live network, which is not permitted. The number of ephemeral addresses set is %d. Please make the following update to your TOML configuration file to correct this:
+			'[Seth] ephemeral_addresses_number = 0'
+
+			Additionally, ensure the following requirements are met to run this test on a live network:
+			1. Use more than one private key in your network configuration.
+			`
+
+		return errors.New(ephMsg)
+	}
+
+	if concurrency < 1 {
+		return fmt.Errorf(INSUFFICIENT_STATIC_KEYS, len(sethCfg.Network.PrivateKeys))
+	}
+
+	return nil
+}
 
 // GetChainClient returns a seth client for the given network after validating the config
 func GetChainClient(config tc.SethConfig, network blockchain.EVMNetwork) (*seth.Client, error) {
