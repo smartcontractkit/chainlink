@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -33,7 +34,7 @@ var (
 		Name: "multi_node_invariant_violations",
 		Help: "The number of invariant violations",
 	}, []string{"network", "chainId", "invariant"})
-	ErroringNodeError = fmt.Errorf("no live nodes available")
+	ErroringNodeError = errors.New("no live nodes available")
 )
 
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
@@ -678,7 +679,7 @@ func aggregateTxResults(resultsByCode map[SendTxReturnCode][]error) (txResult er
 		return result[0], nil
 	}
 
-	err = fmt.Errorf("expected at least one response on SendTransaction")
+	err = errors.New("expected at least one response on SendTransaction")
 	return err, err
 }
 

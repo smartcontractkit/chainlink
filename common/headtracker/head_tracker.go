@@ -151,7 +151,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Con
 	}
 
 	if !latestFinalized.IsValid() {
-		return fmt.Errorf("latest finalized block is not valid")
+		return errors.New("latest finalized block is not valid")
 	}
 
 	latestChain, err := ht.headSaver.Load(ctx, latestFinalized.BlockNumber())
@@ -238,7 +238,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 
 		headWithChain := ht.headSaver.Chain(head.BlockHash())
 		if !headWithChain.IsValid() {
-			return fmt.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
+			return errors.New("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
 		}
 		ht.backfillMB.Deliver(headWithChain)
 		ht.broadcastMB.Deliver(headWithChain)
@@ -395,7 +395,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 		const errMsg = "expected finalized block to be present in canonical chain"
 		ht.log.With("finalized_block_number", latestFinalizedHead.BlockNumber(), "finalized_hash", latestFinalizedHead.BlockHash(),
 			"canonical_chain_block_number", head.BlockNumber(), "canonical_chain_hash", head.BlockHash()).Criticalf(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	l = l.With("latest_finalized_block_hash", latestFinalizedHead.BlockHash(),
