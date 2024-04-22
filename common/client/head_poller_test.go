@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func Test_Poller(t *testing.T) {
@@ -27,10 +26,10 @@ func Test_Poller(t *testing.T) {
 	channel := make(chan Head, 1)
 
 	// Create poller and subscribe to receive data
-	poller := NewPoller[Head](time.Millisecond, pollFunc, channel, logger.Test(t))
+	poller := NewHeadPoller[Head](time.Millisecond, pollFunc, channel, logger.Test(t))
 	require.NoError(t, poller.Subscribe())
 
-	// Create goroutine to receive updates from the subscriber
+	// Create goroutine to receive updates from the poller
 	pollCount := 0
 	pollMax := 50
 	go func() {

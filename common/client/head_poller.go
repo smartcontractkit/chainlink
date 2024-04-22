@@ -10,10 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
-// Poller is a component that polls a function at a given interval
+// HeadPoller is a component that polls a function at a given interval
 // and delivers the result to a channel. It is used to poll for new heads
 // and implements the Subscription interface.
-type Poller[
+type HeadPoller[
 	HEAD Head,
 ] struct {
 	services.StateMachine
@@ -28,11 +28,15 @@ type Poller[
 	wg     sync.WaitGroup
 }
 
-// NewPoller creates a new Poller instance
-func NewPoller[
+// TODO: write an error to the Err()<- chan if the parent context is canceled/closed?
+// TODO: Do we want to add ctx to the NewHeadPoller constructor?
+// TODO: Should we start the polling loop right away or wait for Subsribe?
+
+// NewHeadPoller creates a new HeadPoller instance
+func NewHeadPoller[
 	HEAD Head,
-](pollingInterval time.Duration, pollingFunc func() (HEAD, error), channel chan<- HEAD, logger logger.Logger) Poller[HEAD] {
-	return Poller[HEAD]{
+](pollingInterval time.Duration, pollingFunc func() (HEAD, error), channel chan<- HEAD, logger logger.Logger) HeadPoller[HEAD] {
+	return HeadPoller[HEAD]{
 		pollingInterval: pollingInterval,
 		pollingFunc:     pollingFunc,
 		logger:          logger,
@@ -41,11 +45,11 @@ func NewPoller[
 	}
 }
 
-var _ types.Subscription = &Poller[Head]{}
+var _ types.Subscription = &HeadPoller[Head]{}
 
 // Subscribe starts the polling process
-func (p *Poller[HEAD]) Subscribe() error {
-	return p.StartOnce("Poller", func() error {
+func (p *HeadPoller[HEAD]) Subscribe() error {
+	return p.StartOnce("HeadPoller", func() error {
 		p.wg.Add(1)
 		go p.pollingLoop()
 		return nil
@@ -53,8 +57,8 @@ func (p *Poller[HEAD]) Subscribe() error {
 }
 
 // Unsubscribe cancels the sending of events to the data channel
-func (p *Poller[HEAD]) Unsubscribe() {
-	_ = p.StopOnce("Poller", func() error {
+func (p *HeadPoller[HEAD]) Unsubscribe() {
+	_ = p.StopOnce("HeadPoller", func() error {
 		close(p.stopCh)
 		p.wg.Wait()
 		return nil
@@ -62,11 +66,11 @@ func (p *Poller[HEAD]) Unsubscribe() {
 	close(p.errCh)
 }
 
-func (p *Poller[HEAD]) Err() <-chan error {
+func (p *HeadPoller[HEAD]) Err() <-chan error {
 	return p.errCh
 }
 
-func (p *Poller[HEAD]) pollingLoop() {
+func (p *HeadPoller[HEAD]) pollingLoop() {
 	ticker := time.NewTicker(p.pollingInterval)
 	defer ticker.Stop()
 
@@ -76,6 +80,7 @@ func (p *Poller[HEAD]) pollingLoop() {
 			result, err := p.pollingFunc()
 			if err != nil {
 				p.logger.Error("error occurred when calling polling function:", err)
+				p.errCh <- err
 				continue
 			}
 			p.channel <- result
