@@ -299,7 +299,6 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 
 			if p.previousStartWindow == nil {
 				p.previousStartWindow = &startWindow
-
 			} else if p.previousStartWindow != nil && startWindow != *p.previousStartWindow {
 				p.lggr.Debugw("new block window", "windowStart", startWindow)
 				p.currentIteration = 0
@@ -324,7 +323,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 
 			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
 			if len(logs) > 0 {
-				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
+				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs), "iterations", p.iterations, "currentIteration", p.currentIteration)
 			}
 			for _, l := range logs {
 				payload, err := p.createPayload(l.ID, l.Log)
@@ -332,6 +331,14 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 					payloads = append(payloads, payload)
 				}
 			}
+
+			p.currentIteration++
+
+			if p.currentIteration == p.iterations {
+				start += int64(blockRate)
+				continue
+			}
+
 			if remaining > 0 {
 				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
 				// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
