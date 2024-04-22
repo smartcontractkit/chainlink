@@ -37,7 +37,7 @@ func initBlocksSubCmds(s *Shell) []cli.Command {
 			},
 		},
 		{
-			Name:   "find_lca",
+			Name:   "find-lca",
 			Usage:  "Find latest common block stored in DB and on chain",
 			Action: s.FindLCA,
 			Flags: []cli.Flag{

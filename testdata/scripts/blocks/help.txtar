@@ -10,7 +10,7 @@ USAGE:
 
 COMMANDS:
    replay    Replays block data from the given number
-   find_lca  Find latest common block stored in DB and on chain
+   find-lca  Find latest common block stored in DB and on chain
 
 OPTIONS:
    --help, -h  show help

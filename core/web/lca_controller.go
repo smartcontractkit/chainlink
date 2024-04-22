@@ -1,11 +1,11 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -52,7 +52,7 @@ func (bdc *LCAController) FindLCA(c *gin.Context) {
 }
 
 type LCAResponse struct {
-	BlockNumber int64    `json:"block_number"`
+	BlockNumber int64    `json:"blockNumber"`
 	Hash        string   `json:"hash"`
 	EVMChainID  *big.Big `json:"evmChainID"`
 }
