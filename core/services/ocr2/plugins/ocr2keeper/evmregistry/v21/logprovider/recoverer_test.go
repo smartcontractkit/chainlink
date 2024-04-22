@@ -1187,10 +1187,15 @@ type mockFilterStore struct {
 	UpkeepFilterStore
 	HasFn               func(id *big.Int) bool
 	RangeFiltersByIDsFn func(iterator func(int, upkeepFilter), ids ...*big.Int)
+	UpdateFiltersFn     func(updater func(upkeepFilter, upkeepFilter) upkeepFilter, filters ...upkeepFilter)
 }
 
 func (s *mockFilterStore) RangeFiltersByIDs(iterator func(int, upkeepFilter), ids ...*big.Int) {
 	s.RangeFiltersByIDsFn(iterator, ids...)
+}
+
+func (s *mockFilterStore) UpdateFilters(updater func(upkeepFilter, upkeepFilter) upkeepFilter, filters ...upkeepFilter) {
+	s.UpdateFiltersFn(updater, filters...)
 }
 
 func (s *mockFilterStore) Has(id *big.Int) bool {

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -313,6 +315,444 @@ func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upk
 		topics:   topics,
 	}
 	return cfg, f
+}
+
+func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
+	t.Run("5 upkeeps, 100 logs per upkeep per block for 100 blocks", func(t *testing.T) {
+		upkeepIDs := []*big.Int{
+			big.NewInt(1),
+			big.NewInt(2),
+			big.NewInt(3),
+			big.NewInt(4),
+			big.NewInt(5),
+		}
+
+		filterStore := NewUpkeepFilterStore()
+
+		logGenerator := func(start, end int64) []logpoller.Log {
+			var res []logpoller.Log
+			for i := start; i < end; i++ {
+				for j := 0; j < 100; j++ {
+					res = append(res, logpoller.Log{
+						LogIndex:    int64(j),
+						BlockHash:   common.HexToHash(fmt.Sprintf("%d", i+1)),
+						BlockNumber: i + 1,
+					})
+				}
+			}
+			return res
+		}
+
+		// use a log poller that will create logs for the queried block range
+		logPoller := &mockLogPoller{
+			LatestBlockFn: func(ctx context.Context) (int64, error) {
+				return 100, nil
+			},
+			LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+				return logGenerator(start, end), nil
+			},
+		}
+
+		// prepare the filter store with upkeeps
+		for _, upkeepID := range upkeepIDs {
+			filterStore.AddActiveUpkeeps(
+				upkeepFilter{
+					addr:     []byte(upkeepID.String()),
+					upkeepID: upkeepID,
+					topics: []common.Hash{
+						common.HexToHash(upkeepID.String()),
+					},
+				},
+			)
+		}
+
+		opts := NewOptions(200, big.NewInt(1))
+		opts.BufferVersion = "v1"
+
+		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(1), &mockedPacker{}, filterStore, opts)
+
+		ctx := context.Background()
+
+		err := provider.ReadLogs(ctx, upkeepIDs...)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 5, provider.bufferV1.NumOfUpkeeps())
+
+		bufV1 := provider.bufferV1.(*logBuffer)
+
+		// each upkeep should have 100 logs * 100 blocks = 10000 logs
+		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["5"].logs))
+
+		payloads, err := provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across the 5 upkeeps
+		assert.Equal(t, 9980, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9980, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 9980, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 9980, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 9980, len(bufV1.queues["5"].logs))
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across the 5 upkeeps
+		assert.Equal(t, 9960, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9960, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 9960, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 9960, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 9960, len(bufV1.queues["5"].logs))
+	})
+
+	t.Run("200 upkeeps", func(t *testing.T) {
+		var upkeepIDs []*big.Int
+
+		for i := int64(1); i <= 200; i++ {
+			upkeepIDs = append(upkeepIDs, big.NewInt(i))
+		}
+
+		filterStore := NewUpkeepFilterStore()
+
+		logGenerator := func(start, end int64) []logpoller.Log {
+			var res []logpoller.Log
+			for i := start; i < end; i++ {
+				for j := 0; j < 100; j++ {
+					res = append(res, logpoller.Log{
+						LogIndex:    int64(j),
+						BlockHash:   common.HexToHash(fmt.Sprintf("%d", i+1)),
+						BlockNumber: i + 1,
+					})
+				}
+			}
+			return res
+		}
+
+		// use a log poller that will create logs for the queried block range
+		logPoller := &mockLogPoller{
+			LatestBlockFn: func(ctx context.Context) (int64, error) {
+				return 100, nil
+			},
+			LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+				return logGenerator(start, end), nil
+			},
+		}
+
+		// prepare the filter store with upkeeps
+		for _, upkeepID := range upkeepIDs {
+			filterStore.AddActiveUpkeeps(
+				upkeepFilter{
+					addr:     []byte(upkeepID.String()),
+					upkeepID: upkeepID,
+					topics: []common.Hash{
+						common.HexToHash(upkeepID.String()),
+					},
+				},
+			)
+		}
+
+		opts := NewOptions(200, big.NewInt(1))
+		opts.BufferVersion = "v1"
+
+		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(1), &mockedPacker{}, filterStore, opts)
+
+		ctx := context.Background()
+
+		err := provider.ReadLogs(ctx, upkeepIDs...)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 200, provider.bufferV1.NumOfUpkeeps())
+
+		bufV1 := provider.bufferV1.(*logBuffer)
+
+		// each upkeep should have 100 logs * 100 blocks = 10000 logs
+		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["150"].logs))
+
+		payloads, err := provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 2, provider.iterations)
+		assert.Equal(t, 1, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps
+		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["150"].logs))
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 2, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps
+		assert.Equal(t, 9999, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["150"].logs))
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 1, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps
+		assert.Equal(t, 9999, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["150"].logs))
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 2, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps
+		assert.Equal(t, 9998, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["150"].logs))
+	})
+
+	t.Run("200 upkeeps, increasing to 300 upkeeps midway through the test", func(t *testing.T) {
+		var upkeepIDs []*big.Int
+
+		for i := int64(1); i <= 200; i++ {
+			upkeepIDs = append(upkeepIDs, big.NewInt(i))
+		}
+
+		filterStore := NewUpkeepFilterStore()
+
+		logGenerator := func(start, end int64) []logpoller.Log {
+			var res []logpoller.Log
+			for i := start; i < end; i++ {
+				for j := 0; j < 100; j++ {
+					res = append(res, logpoller.Log{
+						LogIndex:    int64(j),
+						BlockHash:   common.HexToHash(fmt.Sprintf("%d", i+1)),
+						BlockNumber: i + 1,
+					})
+				}
+			}
+			return res
+		}
+
+		// use a log poller that will create logs for the queried block range
+		logPoller := &mockLogPoller{
+			LatestBlockFn: func(ctx context.Context) (int64, error) {
+				return 100, nil
+			},
+			LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+				return logGenerator(start, end), nil
+			},
+		}
+
+		// prepare the filter store with upkeeps
+		for _, upkeepID := range upkeepIDs {
+			filterStore.AddActiveUpkeeps(
+				upkeepFilter{
+					addr:     []byte(upkeepID.String()),
+					upkeepID: upkeepID,
+					topics: []common.Hash{
+						common.HexToHash(upkeepID.String()),
+					},
+				},
+			)
+		}
+
+		opts := NewOptions(200, big.NewInt(1))
+		opts.BufferVersion = "v1"
+
+		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(1), &mockedPacker{}, filterStore, opts)
+
+		ctx := context.Background()
+
+		err := provider.ReadLogs(ctx, upkeepIDs...)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 200, provider.bufferV1.NumOfUpkeeps())
+
+		bufV1 := provider.bufferV1.(*logBuffer)
+
+		// each upkeep should have 100 logs * 100 blocks = 10000 logs
+		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["9"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["21"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["150"].logs))
+
+		payloads, err := provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 2, provider.iterations)
+		assert.Equal(t, 1, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps; with 2 iterations this means even upkeep IDs are dequeued first
+		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["40"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["45"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["150"].logs))
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 2, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps; on the second iteration, odd upkeep IDs are dequeued
+		assert.Equal(t, 9999, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["99"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["100"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["150"].logs))
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 1, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps; on the third iteration, even upkeep IDs are dequeued once again
+		assert.Equal(t, 9999, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["160"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["170"].logs))
+
+		for i := int64(201); i <= 300; i++ {
+			upkeepIDs = append(upkeepIDs, big.NewInt(i))
+		}
+
+		for i := 200; i < len(upkeepIDs); i++ {
+			upkeepID := upkeepIDs[i]
+			filterStore.AddActiveUpkeeps(
+				upkeepFilter{
+					addr:     []byte(upkeepID.String()),
+					upkeepID: upkeepID,
+					topics: []common.Hash{
+						common.HexToHash(upkeepID.String()),
+					},
+				},
+			)
+		}
+
+		err = provider.ReadLogs(ctx, upkeepIDs...)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 300, provider.bufferV1.NumOfUpkeeps())
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 2, provider.iterations)
+		assert.Equal(t, 2, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps; the new iterations
+		// have not yet been recalculated despite the new logs being added; new iterations
+		// are only calculated when current iteration maxes out at the total number of iterations
+		assert.Equal(t, 9998, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["51"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["52"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["150"].logs))
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		// with the newly added logs, iterations is recalculated
+		assert.Equal(t, 3, provider.iterations)
+		assert.Equal(t, 1, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps
+		assert.Equal(t, 9998, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["11"].logs))
+		assert.Equal(t, 9997, len(bufV1.queues["111"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9997, len(bufV1.queues["150"].logs))
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 3, provider.iterations)
+		assert.Equal(t, 2, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		// the dequeue is evenly distributed across selected upkeeps
+		assert.Equal(t, 9997, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 9997, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
+		assert.Equal(t, 9998, len(bufV1.queues["101"].logs))
+		assert.Equal(t, 9997, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["250"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["299"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["300"].logs))
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 3, provider.iterations)
+		assert.Equal(t, 3, provider.currentIteration)
+
+		// we dequeue a maximum of 100 logs
+		assert.Equal(t, 100, len(payloads))
+
+		var remainingLogs int
+		// at this point, every queue should have had at least one log dequeued
+		for _, queue := range bufV1.queues {
+			assert.True(t, len(queue.logs) < 10000)
+			remainingLogs += len(queue.logs)
+		}
+
+		// check that across all 300 upkeeps, we have only dequeued 700 of the 3000000 logs (7 dequeue calls of 100 logs)
+		assert.Equal(t, 2999300, remainingLogs)
+	})
 }
 
 type mockedPacker struct {
