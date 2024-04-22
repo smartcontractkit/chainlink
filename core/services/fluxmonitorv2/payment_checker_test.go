@@ -11,6 +11,7 @@ import (
 )
 
 func TestPaymentChecker_SufficientFunds(t *testing.T) {
+	t.Parallel()
 	var (
 		checker     = fluxmonitorv2.NewPaymentChecker(nil, nil)
 		payment     = 100
@@ -44,6 +45,7 @@ func TestPaymentChecker_SufficientFunds(t *testing.T) {
 }
 
 func TestPaymentChecker_SufficientPayment(t *testing.T) {
+	t.Parallel()
 	var (
 		payment int64 = 10
 		eq            = payment

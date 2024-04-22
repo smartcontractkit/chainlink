@@ -43,7 +43,7 @@ import (
 
 func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	lggr := logger.TestLogger(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := mocks.NewORM(t)
@@ -480,7 +480,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 		}).
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	lggr := logger.TestLogger(t)
@@ -521,7 +521,7 @@ func Test_PipelineRunner_ExecuteAndInsertFinishedRun_SavingTheSpec(t *testing.T)
 		}).
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	lggr := logger.TestLogger(t)
@@ -1002,7 +1002,7 @@ func Test_PipelineRunner_ExecuteRun(t *testing.T) {
 	t.Run("uses cached *Pipeline if available", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 		lggr := logger.TestLogger(t)

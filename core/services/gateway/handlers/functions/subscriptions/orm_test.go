@@ -237,6 +237,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 	})
 }
 func Test_NewORM(t *testing.T) {
+	t.Parallel()
 	t.Run("OK-create_ORM", func(t *testing.T) {
 		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), testutils.NewAddress())
 		require.NoError(t, err)

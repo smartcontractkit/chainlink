@@ -565,6 +565,7 @@ func TestShell_ConfigV2(t *testing.T) {
 
 func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.OCR.Enabled = ptr(true)
@@ -577,7 +578,7 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	})
 	client, _ := app.NewShellAndRenderer()
 
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})

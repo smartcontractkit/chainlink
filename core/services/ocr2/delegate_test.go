@@ -27,6 +27,7 @@ import (
 )
 
 func TestGetEVMEffectiveTransmitterID(t *testing.T) {
+	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -39,8 +40,8 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		})
 	})
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config.Database())
-	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+	keyStore := cltest.NewKeyStore(t, db)
+	require.NoError(t, keyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key))
 	lggr := logger.TestLogger(t)
 
 	txManager := txmmocks.NewMockEvmTxManager(t)

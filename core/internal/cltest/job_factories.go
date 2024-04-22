@@ -62,7 +62,7 @@ func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec)
 
 func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
 	config := configtest.NewTestGeneralConfig(t)
-	keyStore := NewKeyStore(t, db, config.Database())
+	keyStore := NewKeyStore(t, db)
 	lggr := logger.TestLogger(t)
 	pipelineORM = pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db)

@@ -29,7 +29,7 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.6
 	github.com/go-webauthn/webauthn v0.9.4
 	github.com/google/pprof v0.0.0-20231023181126-ff6d637d2a7b
-	github.com/google/uuid v1.4.0
+	github.com/google/uuid v1.5.0
 	github.com/gorilla/securecookie v1.1.2
 	github.com/gorilla/sessions v1.2.2
 	github.com/gorilla/websocket v1.5.1
@@ -72,8 +72,8 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chain-selectors v1.0.10
 	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240415164156-8872a8f311cb
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240213120401-01a23955f9f8
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240419105123-fc5d616c7d2e
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419131812-73d148593d92
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240119021347-3c541a78cdb8
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240216142700-c5869534c19e
@@ -82,7 +82,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20240326191951-2bbe9382d052
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
-	github.com/smartcontractkit/wsrpc v0.7.2
+	github.com/smartcontractkit/wsrpc v0.8.1
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.9.0
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
