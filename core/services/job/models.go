@@ -327,6 +327,22 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
+func (relayConfig JSONConfig) ApplyDefaultsOCR2(cfg ocr2Config) {
+	_, ok := relayConfig["defaultTransactionQueueDepth"]
+	if !ok {
+		relayConfig["defaultTransactionQueueDepth"] = cfg.DefaultTransactionQueueDepth()
+	}
+	_, ok = relayConfig["simulateTransactions"]
+	if !ok {
+		relayConfig["simulateTransactions"] = cfg.SimulateTransactions()
+	}
+}
+
+type ocr2Config interface {
+	DefaultTransactionQueueDepth() uint32
+	SimulateTransactions() bool
+}
+
 var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2VRF, types.OCR2Keeper, types.Functions}
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
