@@ -1950,8 +1950,8 @@ func TestVRFNodeReorg(t *testing.T) {
 	subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
 	t.Run("Reorg on rand request", func(t *testing.T) {
-		//1. set minimum confirmations to 5 so that we can be sure that request wont be fulfilled before reorg
-		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](6)
+		//1. set minimum confirmations to higher value so that we can be sure that request won't be fulfilled before reorg
+		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](10)
 
 		//2. request randomness
 		randomWordsRequestedEvent, err := vrfv2plus.RequestRandomness(
@@ -1966,7 +1966,7 @@ func TestVRFNodeReorg(t *testing.T) {
 		require.NoError(t, err)
 
 		// rewind chain to block number before the randomness request was made
-		rewindChainToBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber - 2
+		rewindChainToBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber - 4
 
 		rpcUrl, err := getRPCUrl(env, chainID)
 		require.NoError(t, err, "error getting rpc url")
@@ -1993,8 +1993,7 @@ func TestVRFNodeReorg(t *testing.T) {
 	})
 
 	t.Run("Reorg on fulfillment", func(t *testing.T) {
-		//1. set minimum confirmations to 5 so that we can be sure that request won't be fulfilled before reorg
-		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](5)
+		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](10)
 
 		//2. request randomness and wait for fulfillment for blockhash from Reorged Fork
 		randomWordsRequestedEvent, randomWordsFulfilledEventOnReorgedFork, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
@@ -2009,22 +2008,22 @@ func TestVRFNodeReorg(t *testing.T) {
 		require.NoError(t, err)
 
 		// rewind chain to block number after the request was made, but before the request was fulfilled
-		rewindChainToBlock := randomWordsRequestedEvent.Raw.BlockNumber + 2
+		rewindChainToBlock := randomWordsRequestedEvent.Raw.BlockNumber + 1
 
 		rpcUrl, err := getRPCUrl(env, chainID)
 		require.NoError(t, err, "error getting rpc url")
 
-		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
+		//2. rewind chain by n number of blocks - basically, mimicking reorg scenario
 		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), evmClient, rpcUrl, rewindChainToBlock, l)
 		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlock))
 
-		//4.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
+		//3.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
 		require.Greater(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
 
-		//4.2 ensure that chain is reorged and latest block number is less than the block number when fulfilment was performed
+		//3.2 ensure that chain is reorged and latest block number is less than the block number when fulfilment was performed
 		require.Less(t, latestBlockNumberAfterReorg, randomWordsFulfilledEventOnReorgedFork.Raw.BlockNumber)
 
-		//5. wait for the fulfillment which VRF Node will generate for Canonical chain
+		//4. wait for the fulfillment which VRF Node will generate for Canonical chain
 		_, err = vrfv2plus.WaitRandomWordsFulfilledEvent(
 			vrfContracts.CoordinatorV2Plus,
 			randomWordsRequestedEvent.RequestId,
