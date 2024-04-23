@@ -143,6 +143,10 @@ func (e *EVMConfig) NodePool() NodePool {
 	return &NodePoolConfig{C: e.C.NodePool}
 }
 
+func (e *EVMConfig) ClientErrors() ClientErrors {
+	return &clientErrorsConfig{c: e.C.NodePool.Errors}
+}
+
 func (e *EVMConfig) NodeNoNewHeadsThreshold() time.Duration {
 	return e.C.NoNewHeadsThreshold.Duration()
 }
