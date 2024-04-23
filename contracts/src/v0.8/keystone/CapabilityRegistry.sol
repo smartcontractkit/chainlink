@@ -38,6 +38,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @param nodeOperatorId The ID of the non existent node operator
     error NonExistentNodeOperator(uint256 nodeOperatorId);
 
+    /// @notice This error is thrown when the updated node operator
+    /// parameters are the same as the existing node operator parameters
+    error InvalidNodeOperatorUpdate();
+
     /// @notice This event is emitted when a new node operator is added
     /// @param nodeOperatorId The ID of the newly added node operator
     /// @param admin The address of the admin that can manage the node
@@ -48,6 +52,13 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice This event is emitted when a node operator is removed
     /// @param nodeOperatorId The ID of the node operator that was removed
     event NodeOperatorRemoved(uint256 nodeOperatorId);
+
+    /// @notice This event is emitted when a node operator is updated
+    /// @param nodeOperatorId The ID of the updated node operator
+    /// @param admin The address of the admin that can manage the node
+    /// operator
+    /// @param name The human readable name of the node operator
+    event NodeOperatorUpdated(uint256 nodeOperatorId, address indexed admin, string name);
 
     /// @notice This event is emitted when a node operator is removed
     /// @param nodeOperatorId The ID of the operator that was removed
@@ -89,6 +100,22 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         if (msg.sender != nodeOperator.admin && msg.sender != owner()) revert AccessForbidden();
         delete s_nodeOperators[nodeOperatorId];
         emit NodeOperatorRemoved(nodeOperatorId);
+    }
+
+    /// @notice Updates a node operator
+    /// @param nodeOperatorId The ID of the node operator being updated
+    function updateNodeOperator(uint256 nodeOperatorId, address admin, string calldata name) external {
+        if (admin == address(0)) revert InvalidNodeOperatorAdmin();
+        NodeOperator memory nodeOperator = s_nodeOperators[nodeOperatorId];
+        if (nodeOperator.admin == address(0)) revert NonExistentNodeOperator(nodeOperatorId);
+        if (msg.sender != nodeOperator.admin && msg.sender != owner()) revert AccessForbidden();
+
+        if (nodeOperator.admin == admin && keccak256(abi.encode(nodeOperator.name)) == keccak256(abi.encode(name))) {
+            revert InvalidNodeOperatorUpdate();
+        }
+        s_nodeOperators[nodeOperatorId].admin = admin;
+        s_nodeOperators[nodeOperatorId].name = name;
+        emit NodeOperatorUpdated(nodeOperatorId, admin, name);
     }
 
     /// @notice Gets a node operator's data
