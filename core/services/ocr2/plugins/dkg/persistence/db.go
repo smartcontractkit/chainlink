@@ -21,7 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 var (
@@ -60,7 +59,7 @@ type shareDB struct {
 }
 
 // NewShareDB creates a new DKG share database.
-func NewShareDB(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID *big.Int, chainType relay.Network) ocr2vrftypes.DKGSharePersistence {
+func NewShareDB(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID *big.Int, chainType string) ocr2vrftypes.DKGSharePersistence {
 	return &shareDB{
 		q:         pg.NewQ(db, lggr, cfg),
 		lggr:      lggr,
