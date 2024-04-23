@@ -51,6 +51,8 @@ type General struct {
 
 	//Wrapper config
 	CoordinatorGasOverheadPerWord      *uint16 `toml:"coordinator_gas_overhead_per_word"`
+	CoordinatorGasOverheadNative       *uint32 `toml:"coordinator_gas_overhead_native"`
+	CoordinatorGasOverheadLink         *uint32 `toml:"coordinator_gas_overhead_link"`
 	CoordinatorNativePremiumPercentage *uint8  `toml:"coordinator_native_premium_percentage"`
 	CoordinatorLinkPremiumPercentage   *uint8  `toml:"coordinator_link_premium_percentage"`
 }
@@ -82,6 +84,12 @@ func (c *General) Validate() error {
 	}
 	if c.CoordinatorGasOverheadPerWord == nil {
 		return errors.New("coordinator_gas_overhead_per_word must not be nil")
+	}
+	if c.CoordinatorGasOverheadNative == nil || *c.CoordinatorGasOverheadNative == 0 {
+		return errors.New("coordinator_gas_overhead_native must be set to a non-negative value")
+	}
+	if c.CoordinatorGasOverheadLink == nil || *c.CoordinatorGasOverheadLink == 0 {
+		return errors.New("coordinator_gas_overhead_link must be set to a non-negative value")
 	}
 	if c.CoordinatorNativePremiumPercentage == nil {
 		return errors.New("coordinator_native_premium_percentage must not be nil")

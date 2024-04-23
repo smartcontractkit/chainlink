@@ -102,9 +102,11 @@ func (p *Plugin) newFactory(ctx context.Context, config types.ReportingPluginSer
 		lggr:           p.Logger,
 	}
 	factory := &median.NumericalMedianFactory{
-		ContractTransmitter:       provider.MedianContract(),
-		DataSource:                ds,
-		JuelsPerFeeCoinDataSource: jds,
+		ContractTransmitter:                  provider.MedianContract(),
+		DataSource:                           ds,
+		JuelsPerFeeCoinDataSource:            jds,
+		GasPriceSubunitsDataSource:           &ZeroDataSource{},
+		IncludeGasPriceSubunitsInObservation: false,
 		Logger: logger.NewOCRWrapper(
 			p.Logger,
 			true,

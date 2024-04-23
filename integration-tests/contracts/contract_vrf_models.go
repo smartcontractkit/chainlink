@@ -173,7 +173,8 @@ type VRFV2PlusWrapper interface {
 	Address() string
 	SetConfig(
 		wrapperGasOverhead uint32,
-		coordinatorGasOverhead uint32,
+		coordinatorGasOverheadNative uint32,
+		coordinatorGasOverheadLink uint32,
 		coordinatorGasOverheadPerWord uint16,
 		wrapperNativePremiumPercentage uint8,
 		wrapperLinkPremiumPercentage uint8,

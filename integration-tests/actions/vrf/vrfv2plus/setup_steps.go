@@ -294,7 +294,8 @@ func SetupVRFV2PlusWrapperEnvironment(
 	}
 	err = wrapperContracts.VRFV2PlusWrapper.SetConfig(
 		*vrfv2PlusConfig.WrapperGasOverhead,
-		*vrfv2PlusConfig.CoordinatorGasOverhead,
+		*vrfv2PlusConfig.CoordinatorGasOverheadNative,
+		*vrfv2PlusConfig.CoordinatorGasOverheadLink,
 		*vrfv2PlusConfig.CoordinatorGasOverheadPerWord,
 		*vrfv2PlusConfig.CoordinatorNativePremiumPercentage,
 		*vrfv2PlusConfig.CoordinatorLinkPremiumPercentage,

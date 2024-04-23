@@ -36,7 +36,8 @@ native_premium_percentage=24
 link_premium_percentage=20
 
 wrapped_gas_overhead = 50000
-coordinator_gas_overhead = 52000
+coordinator_gas_overhead_native = 52000
+coordinator_gas_overhead_link = 74000
 coordinator_gas_overhead_per_word = 440
 wrapper_max_number_of_words = 10
 wrapper_consumer_funding_amount_native_token = 1.0
