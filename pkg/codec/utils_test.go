@@ -17,6 +17,39 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
+func TestGetMapsFromPath(t *testing.T) {
+	type testA struct {
+		IntSlice []int
+	}
+	type testB struct {
+		TestASlice []testA
+	}
+
+	type testStruct struct {
+		A    testA
+		B    testB
+		C, D int
+	}
+
+	testMap := map[string]any{"A": map[string]any{"B": []testStruct{{B: testB{TestASlice: []testA{{IntSlice: []int{3, 2, 0}}, {IntSlice: []int{0, 1, 2}}}}, C: 10, D: 100}, {C: 20, D: 200}}}}
+	t.Parallel()
+	actual, err := getMapsFromPath(testMap, []string{"A"})
+	require.NoError(t, err)
+	assert.Equal(t, []map[string]any{{"B": []testStruct{{B: testB{TestASlice: []testA{{IntSlice: []int{3, 2, 0}}, {IntSlice: []int{0, 1, 2}}}}, C: 10, D: 100}, {C: 20, D: 200}}}}, actual)
+
+	actual, err = getMapsFromPath(testMap, []string{"A", "B"})
+	require.NoError(t, err)
+	assert.Equal(t, []map[string]any{{"A": map[string]any{"IntSlice": []int(nil)}, "B": map[string]any{"TestASlice": []testA{{IntSlice: []int{3, 2, 0}}, {IntSlice: []int{0, 1, 2}}}}, "C": 10, "D": 100}, {"A": map[string]any{"IntSlice": []int(nil)}, "B": map[string]any{"TestASlice": []testA(nil)}, "C": 20, "D": 200}}, actual)
+
+	actual, err = getMapsFromPath(testMap, []string{"A", "B", "B"})
+	require.NoError(t, err)
+	assert.Equal(t, []map[string]any{{"TestASlice": []testA{{IntSlice: []int{3, 2, 0}}, {IntSlice: []int{0, 1, 2}}}}}, actual)
+
+	actual, err = getMapsFromPath(testMap, []string{"A", "B", "B", "TestASlice"})
+	require.NoError(t, err)
+	assert.Equal(t, []map[string]any{{"IntSlice": []int{3, 2, 0}}, {"IntSlice": []int{0, 1, 2}}}, actual)
+}
+
 func TestFitsInNBitsSigned(t *testing.T) {
 	t.Parallel()
 	t.Run("Fits", func(t *testing.T) {

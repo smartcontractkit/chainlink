@@ -285,6 +285,17 @@ func getMapsFromPath(valueMap map[string]any, path []string) ([]map[string]any, 
 				if err := mapstructure.Decode(item, &m); err != nil {
 					return nil, fmt.Errorf("%w: %w", types.ErrInvalidType, err)
 				}
+
+				// cleanup empty values for non path keys
+				for k, v := range m {
+					if k != p && reflect.ValueOf(v).IsZero() {
+						delete(m, k)
+					}
+				}
+				if len(m) == 0 {
+					continue
+				}
+
 				extractMap[p] = m
 				tmp = append(tmp, m)
 			}
