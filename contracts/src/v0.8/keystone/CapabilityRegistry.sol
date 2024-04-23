@@ -23,9 +23,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bytes32 version;
   }
 
+  /// @notice This error is thrown when a caller is not allowed
+  /// to execute the transaction
+  error AccessForbidden();
+
+  /// @notice This error is thrown when there is a mismatch between
+  /// array arguments
+  /// @param lengthOne The length of the first array argument
+  /// @param lengthTwo The length of the second array argument
+  error LengthMismatch(uint256 lengthOne, uint256 lengthTwo);
+
   /// @notice This error is thrown when trying to set a node operator's
   /// admin address to the zero address
   error InvalidNodeOperatorAdmin();
+
+  /// @notice This error is thrown when the updated node operator
+  /// parameters are the same as the existing node operator parameters
+  error InvalidNodeOperatorUpdate();
 
   /// @notice This event is emitted when a new node operator is added
   /// @param nodeOperatorId The ID of the newly added node operator
@@ -37,6 +51,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice This event is emitted when a node operator is removed
   /// @param nodeOperatorId The ID of the node operator that was removed
   event NodeOperatorRemoved(uint256 nodeOperatorId);
+
+  /// @notice This event is emitted when a node operator is updated
+  /// @param nodeOperatorId The ID of the node operator that was updated
+  /// @param admin The address of the node operator's admin
+  /// @param name The node operator's human readable name
+  event NodeOperatorUpdated(uint256 nodeOperatorId, address indexed admin, string name);
 
   /// @notice This event is emitted when a new capability is added
   /// @param capabilityId The ID of the newly added capability
@@ -75,6 +95,29 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       uint256 nodeOperatorId = nodeOperatorIds[i];
       delete s_nodeOperators[nodeOperatorId];
       emit NodeOperatorRemoved(nodeOperatorId);
+    }
+  }
+
+  /// @notice Updates a node operator
+  /// @param nodeOperatorIds The ID of the node operator being updated
+  function updateNodeOperators(uint256[] calldata nodeOperatorIds, NodeOperator[] calldata nodeOperators) external {
+    if (nodeOperatorIds.length != nodeOperators.length)
+      revert LengthMismatch(nodeOperatorIds.length, nodeOperators.length);
+    for (uint256 i; i < nodeOperatorIds.length; ++i) {
+      uint256 nodeOperatorId = nodeOperatorIds[i];
+      NodeOperator memory nodeOperator = nodeOperators[i];
+      if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
+      if (msg.sender != nodeOperator.admin && msg.sender != owner()) revert AccessForbidden();
+
+      if (
+        s_nodeOperators[nodeOperatorId].admin == nodeOperator.admin &&
+        keccak256(abi.encode(s_nodeOperators[nodeOperatorId].name)) == keccak256(abi.encode(nodeOperator.name))
+      ) {
+        revert InvalidNodeOperatorUpdate();
+      }
+      s_nodeOperators[nodeOperatorId].admin = nodeOperator.admin;
+      s_nodeOperators[nodeOperatorId].name = nodeOperator.name;
+      emit NodeOperatorUpdated(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
     }
   }
 
