@@ -1,9 +1,12 @@
 package logprovider
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"math"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -126,11 +129,14 @@ func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int,
 func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
 	var result []BufferedLog
 	var remainingLogs int
+	selectedUpkeeps := []string{}
+	numLogs := 0
 	for _, q := range b.queues {
 		if !upkeepSelector(q.id) {
 			// if the upkeep is not selected, skip it
 			continue
 		}
+		selectedUpkeeps = append(selectedUpkeeps, q.id.String())
 		logsInRange := q.sizeOfRange(start, end)
 		if logsInRange == 0 {
 			// if there are no logs in the range, skip the upkeep
@@ -150,9 +156,18 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 			result = append(result, BufferedLog{ID: q.id, Log: l})
 			capacity--
 		}
+		numLogs += len(logs)
 		remainingLogs += remaining
 	}
+	b.lggr.Debugw("dequeued logs for upkeeps", "numUpkeeps", len(selectedUpkeeps), "numLogs", numLogs, "hash", hashCombinedStrings(selectedUpkeeps))
+
 	return result, remainingLogs
+}
+
+func hashCombinedStrings(s []string) string {
+	combined := strings.Join(s, "")
+	hashed := md5.Sum([]byte(combined))
+	return hex.EncodeToString(hashed[:])
 }
 
 func (b *logBuffer) SetConfig(lookback, blockRate, logLimit uint32) {
