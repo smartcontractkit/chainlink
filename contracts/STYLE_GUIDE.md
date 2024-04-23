@@ -380,6 +380,14 @@ rule: `gas-custom-errors`
 
 ## Interfaces
 
+### Purpose
+
+Interfaces separate NatSpec from contract logic, requiring readers to do more work to understand the code. For this reason, you shouldn’t create an interface by default.
+
+If created, interfaces should have a documented purpose. For example, an interface is useful if 3rd party on-chain contracts will interact with your contract. CCIP’s [`IRouterClient` interface](https://github.com/smartcontractkit/ccip/blob/ccip-develop/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol) is a good example here.
+
+### Naming
+
 Interfaces should be named `IFoo` instead of `FooInterface`. This follows the patterns of popular [libraries like OpenZeppelin’s](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol#L9). 
 
 rule: `interface-starts-with-i`
