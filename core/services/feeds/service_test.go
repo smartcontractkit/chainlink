@@ -124,7 +124,8 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
-juelsPerFeeCoinCacheDuration = "1m"
+[pluginConfig.juelsPerFeeCoinCache]
+updateInterval = "1m"
 `
 const BootstrapTestSpecTemplate = `
 type				= "bootstrap"
@@ -176,8 +177,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
 	keyStore := new(ksmocks.Master)
-	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, gcfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: gcfg,
 		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
@@ -186,7 +186,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), legacyChains, lggr, "1.0.0", nil)
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), gcfg.Database(), legacyChains, lggr, "1.0.0", nil)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -1626,7 +1626,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -1665,7 +1665,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -1783,7 +1783,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(j, nil)
 			},
@@ -1798,7 +1798,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
@@ -1814,7 +1814,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(j, nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
 
@@ -1853,7 +1853,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
@@ -1893,7 +1893,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
@@ -1952,7 +1952,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(errors.New("bridges do not exist"))
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(errors.New("bridges do not exist"))
 			},
 			id:      spec.ID,
 			wantErr: "failed to approve job spec due to bridge check: bridges do not exist",
@@ -1975,7 +1975,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(j, nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, errors.New("failure"))
 			},
@@ -1990,7 +1990,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, errors.New("failure"))
@@ -2006,7 +2006,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(j, nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
 				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(errors.New("failure"))
@@ -2022,7 +2022,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.EXPECT().GetJobProposal(jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(j.ID, nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
@@ -2039,7 +2039,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -2064,7 +2064,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -2095,7 +2095,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -2189,7 +2189,8 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
-juelsPerFeeCoinCacheDuration = "30s"
+[pluginConfig.juelsPerFeeCoinCache]
+updateInterval = "30s"
 `
 		defn2 = `
 name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
@@ -2219,7 +2220,8 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
-juelsPerFeeCoinCacheDuration = "20m"
+[pluginConfig.juelsPerFeeCoinCache]
+updateInterval = "20m"
 `
 
 		jp = &feeds.JobProposal{
@@ -2268,7 +2270,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -2306,7 +2308,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -2371,7 +2373,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
 			},
@@ -2386,7 +2388,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
@@ -2431,7 +2433,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 					Definition:    fmt.Sprintf(defn2, externalJobID.String(), &feedID),
 				}, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, &feedID, mock.Anything).Return(j.ID, nil)
@@ -2470,7 +2472,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
 				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
@@ -2558,7 +2560,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(errors.New("bridges do not exist"))
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(errors.New("bridges do not exist"))
 			},
 			id:      spec.ID,
 			wantErr: "failed to approve job spec due to bridge check: bridges do not exist",
@@ -2581,7 +2583,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -2606,7 +2608,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -2637,7 +2639,7 @@ juelsPerFeeCoinCacheDuration = "20m"
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -2774,7 +2776,7 @@ chainID = 0
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -2812,7 +2814,7 @@ chainID = 0
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -2877,7 +2879,7 @@ chainID = 0
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
 			},
@@ -2892,7 +2894,7 @@ chainID = 0
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
@@ -2937,7 +2939,7 @@ chainID = 0
 					Definition:    fmt.Sprintf(defn2, externalJobID.String(), feedID),
 				}, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, &feedID, mock.Anything).Return(j.ID, nil)
@@ -2976,7 +2978,7 @@ chainID = 0
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
 				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
@@ -3064,7 +3066,7 @@ chainID = 0
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(errors.New("bridges do not exist"))
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(errors.New("bridges do not exist"))
 			},
 			id:      spec.ID,
 			wantErr: "failed to approve job spec due to bridge check: bridges do not exist",
@@ -3087,7 +3089,7 @@ chainID = 0
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -3112,7 +3114,7 @@ chainID = 0
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
@@ -3143,7 +3145,7 @@ chainID = 0
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)

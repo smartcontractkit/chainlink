@@ -91,10 +91,10 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 	if err = ValidateBridgeType(btr); err != nil {
 		return nil, err
 	}
-	if err = ValidateBridgeTypeUniqueness(btr, orm); err != nil {
+	if err = ValidateBridgeTypeUniqueness(ctx, btr, orm); err != nil {
 		return nil, err
 	}
-	if err := orm.CreateBridgeType(bt); err != nil {
+	if err := orm.CreateBridgeType(ctx, bt); err != nil {
 		return nil, err
 	}
 
@@ -113,7 +113,7 @@ func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolv
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().CSA().Create()
+	key, err := r.App.GetKeyStore().CSA().Create(ctx)
 	if err != nil {
 		if errors.Is(err, keystore.ErrCSAKeyExists) {
 			return NewCreateCSAKeyPayload(nil, err), nil
@@ -137,7 +137,7 @@ func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().CSA().Delete(string(args.ID))
+	key, err := r.App.GetKeyStore().CSA().Delete(ctx, string(args.ID))
 	if err != nil {
 		if errors.As(err, &keystore.KeyNotFoundError{}) {
 			return NewDeleteCSAKeyPayload(csakey.KeyV2{}, err), nil
@@ -475,7 +475,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 
 	// Find the bridge
 	orm := r.App.BridgeORM()
-	bridge, err := orm.FindBridge(taskType)
+	bridge, err := orm.FindBridge(ctx, taskType)
 	if errors.Is(err, sql.ErrNoRows) {
 		return NewUpdateBridgePayload(nil, err), nil
 	}
@@ -488,7 +488,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if err := orm.UpdateBridgeType(&bridge, btr); err != nil {
+	if err := orm.UpdateBridgeType(ctx, &bridge, btr); err != nil {
 		return nil, err
 	}
 
@@ -561,7 +561,7 @@ func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundleP
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().OCR().Create()
+	key, err := r.App.GetKeyStore().OCR().Create(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -581,7 +581,7 @@ func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	deletedKey, err := r.App.GetKeyStore().OCR().Delete(args.ID)
+	deletedKey, err := r.App.GetKeyStore().OCR().Delete(ctx, args.ID)
 	if err != nil {
 		if errors.As(err, &keystore.KeyNotFoundError{}) {
 			return NewDeleteOCRKeyBundlePayloadResolver(ocrkey.KeyV2{}, err), nil
@@ -606,7 +606,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 	}
 
 	orm := r.App.BridgeORM()
-	bt, err := orm.FindBridge(taskType)
+	bt, err := orm.FindBridge(ctx, taskType)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteBridgePayload(nil, err), nil
@@ -623,7 +623,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return NewDeleteBridgePayload(nil, fmt.Errorf("bridge has jobs associated with it")), nil
 	}
 
-	if err = orm.DeleteBridgeType(&bt); err != nil {
+	if err = orm.DeleteBridgeType(ctx, &bt); err != nil {
 		return nil, err
 	}
 
@@ -636,7 +636,7 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().P2P().Create()
+	key, err := r.App.GetKeyStore().P2P().Create(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -665,7 +665,7 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().P2P().Delete(keyID)
+	key, err := r.App.GetKeyStore().P2P().Delete(ctx, keyID)
 	if err != nil {
 		if errors.As(err, &keystore.KeyNotFoundError{}) {
 			return NewDeleteP2PKeyPayload(p2pkey.KeyV2{}, err), nil
@@ -686,7 +686,7 @@ func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolv
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().VRF().Create()
+	key, err := r.App.GetKeyStore().VRF().Create(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -708,7 +708,7 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().VRF().Delete(string(args.ID))
+	key, err := r.App.GetKeyStore().VRF().Delete(ctx, string(args.ID))
 	if err != nil {
 		if errors.Is(errors.Cause(err), keystore.ErrMissingVRFKey) {
 			return NewDeleteVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
@@ -884,7 +884,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, errors.New("couldn't retrieve user session")
 	}
 
-	dbUser, err := r.App.AuthenticationProvider().FindUser(session.User.Email)
+	dbUser, err := r.App.AuthenticationProvider().FindUser(ctx, session.User.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -897,11 +897,11 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		}), nil
 	}
 
-	if err = r.App.AuthenticationProvider().ClearNonCurrentSessions(session.SessionID); err != nil {
+	if err = r.App.AuthenticationProvider().ClearNonCurrentSessions(ctx, session.SessionID); err != nil {
 		return nil, clearSessionsError{}
 	}
 
-	err = r.App.AuthenticationProvider().SetPassword(&dbUser, args.Input.NewPassword)
+	err = r.App.AuthenticationProvider().SetPassword(ctx, &dbUser, args.Input.NewPassword)
 	if err != nil {
 		return nil, failedPasswordUpdateError{}
 	}
@@ -939,12 +939,12 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 	if !ok {
 		return nil, errors.New("Failed to obtain current user from context")
 	}
-	dbUser, err := r.App.AuthenticationProvider().FindUser(session.User.Email)
+	dbUser, err := r.App.AuthenticationProvider().FindUser(ctx, session.User.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.App.AuthenticationProvider().TestPassword(dbUser.Email, args.Input.Password)
+	err = r.App.AuthenticationProvider().TestPassword(ctx, dbUser.Email, args.Input.Password)
 	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]interface{}{"user": dbUser.Email})
 
@@ -953,7 +953,7 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 		}), nil
 	}
 
-	newToken, err := r.App.AuthenticationProvider().CreateAndSetAuthToken(&dbUser)
+	newToken, err := r.App.AuthenticationProvider().CreateAndSetAuthToken(ctx, &dbUser)
 	if err != nil {
 		return nil, err
 	}
@@ -973,12 +973,12 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	if !ok {
 		return nil, errors.New("Failed to obtain current user from context")
 	}
-	dbUser, err := r.App.AuthenticationProvider().FindUser(session.User.Email)
+	dbUser, err := r.App.AuthenticationProvider().FindUser(ctx, session.User.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.App.AuthenticationProvider().TestPassword(dbUser.Email, args.Input.Password)
+	err = r.App.AuthenticationProvider().TestPassword(ctx, dbUser.Email, args.Input.Password)
 	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]interface{}{"user": dbUser.Email})
 
@@ -987,7 +987,7 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 		}), nil
 	}
 
-	err = r.App.AuthenticationProvider().DeleteAuthToken(&dbUser)
+	err = r.App.AuthenticationProvider().DeleteAuthToken(ctx, &dbUser)
 	if err != nil {
 		return nil, err
 	}
@@ -1019,7 +1019,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	config := r.App.GetConfig()
 	switch jbt {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetRelayers().LegacyEVMChains(), args.Input.TOML)
+		jb, err = ocr.ValidatedOracleSpecToml(config, r.App.GetRelayers().LegacyEVMChains(), args.Input.TOML)
 		if !config.OCR().Enabled() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
@@ -1162,7 +1162,7 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	plnRun, err := r.App.PipelineORM().FindRun(jobRunID)
+	plnRun, err := r.App.PipelineORM().FindRun(ctx, jobRunID)
 	if err != nil {
 		return nil, err
 	}
@@ -1206,7 +1206,7 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 
 	ct := FromOCR2ChainType(args.ChainType)
 
-	key, err := r.App.GetKeyStore().OCR2().Create(chaintype.ChainType(ct))
+	key, err := r.App.GetKeyStore().OCR2().Create(ctx, chaintype.ChainType(ct))
 	if err != nil {
 		// Not covering the	`chaintype.ErrInvalidChainType` since the GQL model would prevent a non-accepted chain-type from being received
 		return nil, err
@@ -1238,7 +1238,7 @@ func (r *Resolver) DeleteOCR2KeyBundle(ctx context.Context, args struct {
 		return NewDeleteOCR2KeyBundlePayloadResolver(nil, err), nil
 	}
 
-	err = r.App.GetKeyStore().OCR2().Delete(id)
+	err = r.App.GetKeyStore().OCR2().Delete(ctx, id)
 	if err != nil {
 		return nil, err
 	}

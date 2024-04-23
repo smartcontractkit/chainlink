@@ -8,6 +8,7 @@ import (
 )
 
 func TestParse_Graph(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name   string
 		yaml   string
@@ -185,6 +186,31 @@ targets:
 				},
 				"a-target": {},
 			},
+		},
+		{
+			name: "non-trigger step with no dependent refs",
+			yaml: `
+triggers:
+  - type: "a-trigger"
+  - type: "a-second-trigger"
+actions:
+  - type: "an-action"
+    ref: "an-action"
+    inputs:
+      hello: "world"
+consensus:
+  - type: "a-consensus"
+    ref: "a-consensus"
+    inputs:
+      trigger_output: $(trigger.outputs)
+      action_output: $(an-action.outputs)
+targets:
+  - type: "a-target"
+    ref: "a-target"
+    inputs:
+      consensus_output: $(a-consensus.outputs)
+`,
+			errMsg: "all non-trigger steps must have a dependent ref",
 		},
 	}
 

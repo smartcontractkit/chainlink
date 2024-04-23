@@ -1,3 +1,4 @@
+{{- if .Values.chainlink.enabled }}
 {{- range $cfg := .Values.chainlink.nodes }}
 apiVersion: v1
 kind: Service
@@ -15,4 +16,5 @@ spec:
     instance: {{ $cfg.name }}
   type: ClusterIP
 ---
+{{- end }}
 {{- end }}

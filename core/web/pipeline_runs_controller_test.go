@@ -50,7 +50,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		require.Equal(t, `{"result":"12345"}`, string(bs))
 	})
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL})
 
 	// Add the job
 	uuid := uuid.New()
@@ -100,7 +100,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	// Setup the bridges
 	mockServer := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL})
 
 	mockServer = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 		defer r.Body.Close()
@@ -109,7 +109,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		require.Equal(t, `{"result":"12345"}`, string(bs))
 	})
 
-	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL})
 
 	// Add the job
 	uuid := uuid.New()
@@ -250,6 +250,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -261,8 +262,8 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.Start(ctx))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 	client := app.NewHTTPClient(nil)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())

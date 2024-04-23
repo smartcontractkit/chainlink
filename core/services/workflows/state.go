@@ -216,6 +216,20 @@ func deepMap(input any, transform func(el string) (any, error)) (any, error) {
 		}
 
 		return nv, nil
+	case mapping:
+		// coerce mapping to map[string]any
+		mp := map[string]any(tv)
+
+		nm := map[string]any{}
+		for k, v := range mp {
+			nv, err := deepMap(v, transform)
+			if err != nil {
+				return nil, err
+			}
+
+			nm[k] = nv
+		}
+		return nm, nil
 	case map[string]any:
 		nm := map[string]any{}
 		for k, v := range tv {

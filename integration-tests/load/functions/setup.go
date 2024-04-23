@@ -53,8 +53,11 @@ type S4SecretsCfg struct {
 func SetupLocalLoadTestEnv(globalConfig tc.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
 	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
 	readSethCfg := globalConfig.GetSethConfig()
-	sethCfg := utils.MergeSethAndEvmNetworkConfigs(log.Logger, selectedNetwork, *readSethCfg)
-	err := utils.ValidateSethNetworkConfig(sethCfg.Network)
+	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(selectedNetwork, *readSethCfg)
+	if err != nil {
+		return nil, err
+	}
+	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 	if err != nil {
 		return nil, err
 	}

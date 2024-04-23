@@ -25,10 +25,10 @@ func TestCronV2Pipeline(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	lggr := logger.TestLogger(t)
-	orm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, lggr, cfg.Database())
+	orm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
+	btORM := bridges.NewORM(db)
 	jobORM := job.NewORM(db, orm, btORM, keyStore, lggr, cfg.Database())
 
 	jb := &job.Job{

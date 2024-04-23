@@ -7,21 +7,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 )
 
 func TestValidatePluginConfig(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
-	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
+	kst := cltest.NewKeyStore(t, db)
 
-	dkgEncryptKey, err := kst.DKGEncrypt().Create()
+	dkgEncryptKey, err := kst.DKGEncrypt().Create(ctx)
 	require.NoError(t, err)
-	dkgSignKey, err := kst.DKGSign().Create()
+	dkgSignKey, err := kst.DKGSign().Create(ctx)
 	require.NoError(t, err)
 
 	encryptKeyBytes, err := dkgEncryptKey.PublicKey.MarshalBinary()

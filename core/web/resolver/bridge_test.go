@@ -48,7 +48,7 @@ func Test_Bridges(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
-				f.Mocks.bridgeORM.On("BridgeTypes", PageDefaultOffset, PageDefaultLimit).Return([]bridges.BridgeType{
+				f.Mocks.bridgeORM.On("BridgeTypes", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]bridges.BridgeType{
 					{
 						Name:                   "bridge1",
 						URL:                    models.WebURL(*bridgeURL),
@@ -118,7 +118,7 @@ func Test_Bridge(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
-				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{
+				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridges.BridgeType{
 					Name:                   name,
 					URL:                    models.WebURL(*bridgeURL),
 					Confirmations:          uint32(1),
@@ -145,7 +145,7 @@ func Test_Bridge(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
-				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{}, sql.ErrNoRows)
+				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridges.BridgeType{}, sql.ErrNoRows)
 			},
 			query: query,
 			result: `{
@@ -200,10 +200,10 @@ func Test_CreateBridge(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
-				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{}, sql.ErrNoRows)
-				f.Mocks.bridgeORM.On("CreateBridgeType", mock.IsType(&bridges.BridgeType{})).
+				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridges.BridgeType{}, sql.ErrNoRows)
+				f.Mocks.bridgeORM.On("CreateBridgeType", mock.Anything, mock.IsType(&bridges.BridgeType{})).
 					Run(func(args mock.Arguments) {
-						arg := args.Get(0).(*bridges.BridgeType)
+						arg := args.Get(1).(*bridges.BridgeType)
 						*arg = bridges.BridgeType{
 							Name:                   name,
 							URL:                    models.WebURL(*bridgeURL),
@@ -298,7 +298,7 @@ func Test_UpdateBridge(t *testing.T) {
 				}
 
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
-				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridge, nil)
+				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridge, nil)
 
 				btr := &bridges.BridgeTypeRequest{
 					Name:                   bridges.BridgeName("bridge-updated"),
@@ -307,9 +307,9 @@ func Test_UpdateBridge(t *testing.T) {
 					MinimumContractPayment: assets.NewLinkFromJuels(2),
 				}
 
-				f.Mocks.bridgeORM.On("UpdateBridgeType", mock.IsType(&bridges.BridgeType{}), btr).
+				f.Mocks.bridgeORM.On("UpdateBridgeType", mock.Anything, mock.IsType(&bridges.BridgeType{}), btr).
 					Run(func(args mock.Arguments) {
-						arg := args.Get(0).(*bridges.BridgeType)
+						arg := args.Get(1).(*bridges.BridgeType)
 						*arg = bridges.BridgeType{
 							Name:                   "bridge-updated",
 							URL:                    models.WebURL(*newBridgeURL),
@@ -342,7 +342,7 @@ func Test_UpdateBridge(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
-				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{}, sql.ErrNoRows)
+				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridges.BridgeType{}, sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -416,8 +416,8 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 					MinimumContractPayment: &link,
 				}
 
-				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridge, nil)
-				f.Mocks.bridgeORM.On("DeleteBridgeType", &bridge).Return(nil)
+				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridge, nil)
+				f.Mocks.bridgeORM.On("DeleteBridgeType", mock.Anything, &bridge).Return(nil)
 				f.Mocks.jobORM.On("FindJobIDsWithBridge", name.String()).Return([]int32{}, nil)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
@@ -461,7 +461,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 				"id": "bridge1",
 			},
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{}, sql.ErrNoRows)
+				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridges.BridgeType{}, sql.ErrNoRows)
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
 			},
 			result: `
@@ -480,7 +480,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 				"id": "bridge1",
 			},
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{}, nil)
+				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridges.BridgeType{}, nil)
 				f.Mocks.jobORM.On("FindJobIDsWithBridge", name.String()).Return([]int32{1}, nil)
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)

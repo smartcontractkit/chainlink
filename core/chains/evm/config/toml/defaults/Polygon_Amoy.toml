@@ -1,0 +1,31 @@
+ChainID = '80002'
+FinalityDepth = 500
+LogPollInterval = '1s'
+MinIncomingConfirmations = 5
+NoNewHeadsThreshold = '30s'
+RPCBlockQueryDelay = 10
+RPCDefaultBatchSize = 100
+
+[Transactions]
+ResendAfterThreshold = '1m'
+MaxQueued = 5000
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+BumpMin = '20 gwei'
+BumpThreshold = 5
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[HeadTracker]
+HistoryDepth = 2000
+SamplingInterval = '1s'
+
+[NodePool]
+SyncThreshold = 10

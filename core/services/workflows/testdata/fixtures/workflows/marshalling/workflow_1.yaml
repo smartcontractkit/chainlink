@@ -1,5 +1,5 @@
  triggers:
-   - type: on_mercury_report@1
+   - type: mercury-trigger@1
      ref: report_data
      config:
        boolean_coercion:

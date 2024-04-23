@@ -17,7 +17,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -485,7 +484,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
 						P2PV2Bootstrappers:                pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
-						Relay:                             relay.EVM,
+						Relay:                             types.NetworkEVM,
 						RelayConfig:                       relayConfig,
 						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
 						PluginType:                        types.Median,
@@ -983,6 +982,60 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 							"contractConfigTrackerPollInterval": "2m0s",
 							"contractConfigConfirmations": 100,
 							"createdAt": "2021-01-01T00:00:00Z"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_WorkflowSpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "Workflow spec",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+					Type: job.Workflow,
+					WorkflowSpec: &job.WorkflowSpec{
+						ID:         id,
+						WorkflowID: "<test workflow id>",
+						Workflow:   "<test workflow spec>",
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on WorkflowSpec {
+									id
+									workflowID
+									workflow
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "WorkflowSpec",
+							"id": "1",
+							"workflowID": "<test workflow id>",
+							"workflow": "<test workflow spec>"
 						}
 					}
 				}
