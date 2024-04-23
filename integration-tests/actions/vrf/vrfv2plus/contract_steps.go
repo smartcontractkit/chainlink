@@ -375,7 +375,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	isNativeBilling bool,
 	config *vrfv2plus_config.General,
 	l zerolog.Logger,
-) (*contracts.CoordinatorRandomWordsFulfilled, error) {
+) (*contracts.CoordinatorRandomWordsRequested, *contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := RequestRandomness(
 		consumer,
 		coordinator,
@@ -386,7 +386,7 @@ func RequestRandomnessAndWaitForFulfillment(
 		l,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	randomWordsFulfilledEvent, err := WaitRandomWordsFulfilledEvent(
@@ -398,45 +398,11 @@ func RequestRandomnessAndWaitForFulfillment(
 		l,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return randomWordsFulfilledEvent, nil
+	return randomWordsRequestedEvent, randomWordsFulfilledEvent, nil
 
 }
-
-//func RequestRandomnessAndWaitForFulfillmentUpgraded(
-//	consumer contracts.VRFv2PlusLoadTestConsumer,
-//	coordinator contracts.Coordinator,
-//	vrfKeyData *vrfcommon.VRFKeyData,
-//	subID *big.Int,
-//	isNativeBilling bool,
-//	config *vrfv2plus_config.General,
-//	l zerolog.Logger,
-//) (*contracts.CoordinatorRandomWordsFulfilled, error) {
-//
-//	randomWordsRequestedEvent, err := RequestRandomness(
-//		consumer,
-//		coordinator,
-//		vrfKeyData,
-//		subID,
-//		isNativeBilling,
-//		config,
-//		l,
-//	)
-//
-//	if err != nil {
-//		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRequestRandomness, err)
-//	}
-//
-//	return WaitForRandomWordsFulfilledEventUpgraded(
-//		coordinator,
-//		randomWordsRequestedEvent.RequestId,
-//		subID,
-//		isNativeBilling,
-//		config.RandomWordsFulfilledEventTimeout.Duration,
-//		l,
-//	)
-//}
 
 func DeployVRFV2PlusDirectFundingContracts(
 	contractDeployer contracts.ContractDeployer,
