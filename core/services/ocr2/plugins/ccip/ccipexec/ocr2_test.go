@@ -215,7 +215,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			mockOnRampPriceRegistryProvider.On("NewPriceRegistryReader", ctx, sourcePriceRegistryAddress).Return(sourcePriceRegReader, nil).Maybe()
 			p.sourcePriceRegistryProvider = mockOnRampPriceRegistryProvider
 
-			p.snoozedRoots = cache.NewSnoozedRoots(time.Minute, time.Minute)
+			p.commitRootsCache = cache.NewCommitRootsCache(logger.TestLogger(t), time.Minute, time.Minute)
 			p.chainHealthcheck = cache.NewChainHealthcheck(p.lggr, mockOnRampReader, commitStoreReader)
 
 			_, err = p.Observation(ctx, types.ReportTimestamp{}, types.Query{})
