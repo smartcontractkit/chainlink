@@ -1,7 +1,6 @@
 package txmgr
 
 import (
-	"math/big"
 	"net/url"
 	"testing"
 	"time"
@@ -13,7 +12,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func ptr[T any](t T) *T { return &t }
@@ -65,7 +63,7 @@ func (e *TestEvmConfig) NonceAutoSync() bool { return true }
 
 func (e *TestEvmConfig) FinalityDepth() uint32 { return 42 }
 
-func (e *TestEvmConfig) ChainID() *big.Int { return testutils.FixtureChainID }
+func (e *TestEvmConfig) ChainType() commonconfig.ChainType { return "" }
 
 type TestGasEstimatorConfig struct {
 	bumpThreshold uint64

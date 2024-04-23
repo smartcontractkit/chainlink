@@ -554,11 +554,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fet
 		}
 		validReceipts, purgeReceipts := ec.separateValidAndPurgeAttemptReceipts(receipts, batch)
 		// Saves the receipts and mark the associated transactions as Confirmed
-		if err := ec.txStore.SaveFetchedReceipts(ctx, validReceipts, ec.chainID); err != nil {
+		if err := ec.txStore.SaveFetchedReceipts(ctx, validReceipts, TxConfirmed, nil, ec.chainID); err != nil {
 			return fmt.Errorf("saveFetchedReceipts failed: %w", err)
 		}
 		// Save the receipts but mark the associated transactions as Fatal Error since the original transaction was purged
-		if err := ec.txStore.SavePurgedReceipts(ctx, purgeReceipts, ec.stuckTxDetector.StuckTxFatalError(), ec.chainID); err != nil {
+		if err := ec.txStore.SaveFetchedReceipts(ctx, purgeReceipts, TxFatalError, ec.stuckTxDetector.StuckTxFatalError(), ec.chainID); err != nil {
 			return fmt.Errorf("saveFetchedReceipts failed: %w", err)
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))

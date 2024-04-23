@@ -401,6 +401,9 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: "must be greater than or equal to 1"})
 	}
 
+	// Validate AutoPurgeConfig in Chain config
+	err = multierr.Append(err, c.Transactions.AutoPurge.ValidateConfig(chainType))
+
 	return
 }
 
@@ -444,28 +447,37 @@ type AutoPurgeConfig struct {
 	AutoPurgeDetectionApiUrl *commonconfig.URL
 }
 
-func (a *AutoPurgeConfig) ValidateConfig() (err error) {
+func (a *AutoPurgeConfig) ValidateConfig(chainType config.ChainType) (err error) {
 	if a.AutoPurgeStuckTxs == nil || !*a.AutoPurgeStuckTxs {
 		return
 	}
-	if a.AutoPurgeDetectionApiUrl != nil && !a.AutoPurgeDetectionApiUrl.IsZero() {
-		switch a.AutoPurgeDetectionApiUrl.Scheme {
-		case "http", "https":
-			return
-		default:
-			return commonconfig.ErrInvalid{Name: "AutoPurgeDetectionApiUrl", Value: a.AutoPurgeDetectionApiUrl.Scheme, Msg: "must be http or https"}
+	switch chainType {
+	case config.ChainZkEvm:
+		// Does not require these configs
+	case config.ChainScroll:
+		if a.AutoPurgeDetectionApiUrl == nil || a.AutoPurgeDetectionApiUrl.IsZero() {
+			return commonconfig.ErrMissing{Name: "AutoPurgeDetectionApiUrl", Msg: fmt.Sprintf("AutoPurgeDetectionApiUrl required for %s", config.ChainScroll)}
+		} else {
+			switch a.AutoPurgeDetectionApiUrl.Scheme {
+			case "http", "https":
+				return
+			default:
+				return commonconfig.ErrInvalid{Name: "AutoPurgeDetectionApiUrl", Value: a.AutoPurgeDetectionApiUrl.Scheme, Msg: "must be http or https"}
+			}
+		}
+	default:
+		if a.AutoPurgeThreshold == nil {
+			err = errors.Join(err, commonconfig.ErrMissing{Name: "AutoPurgeThreshold", Msg: "needs to be set if AutoPurgeStuckTxs is enabled"})
+		} else if *a.AutoPurgeThreshold == 0 {
+			err = errors.Join(err, commonconfig.ErrInvalid{Name: "AutoPurgeThreshold", Value: *a.AutoPurgeThreshold, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled"})
+		}
+		if a.AutoPurgeMinAttempts == nil {
+			err = errors.Join(err, commonconfig.ErrMissing{Name: "AutoPurgeMinAttempts", Msg: "needs to be set if AutoPurgeStuckTxs is enabled"})
+		} else if *a.AutoPurgeMinAttempts == 0 {
+			err = errors.Join(err, commonconfig.ErrInvalid{Name: "AutoPurgeMinAttempts", Value: *a.AutoPurgeMinAttempts, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled"})
 		}
 	}
-	if a.AutoPurgeThreshold == nil {
-		err = errors.Join(err, commonconfig.ErrMissing{Name: "AutoPurgeThreshold", Msg: "needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
-	} else if *a.AutoPurgeThreshold == 0 {
-		err = errors.Join(err, commonconfig.ErrInvalid{Name: "AutoPurgeThreshold", Value: *a.AutoPurgeThreshold, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
-	}
-	if a.AutoPurgeMinAttempts == nil {
-		err = errors.Join(err, commonconfig.ErrMissing{Name: "AutoPurgeMinAttempts", Msg: "needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
-	} else if *a.AutoPurgeMinAttempts == 0 {
-		err = errors.Join(err, commonconfig.ErrInvalid{Name: "AutoPurgeMinAttempts", Value: *a.AutoPurgeMinAttempts, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
-	}
+
 	return
 }
 

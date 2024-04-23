@@ -1165,17 +1165,17 @@ func (_m *EvmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, ti
 	return r0
 }
 
-// SaveFetchedReceipts provides a mock function with given fields: ctx, receipts, chainID
-func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, receipts []*evmtypes.Receipt, chainID *big.Int) error {
-	ret := _m.Called(ctx, receipts, chainID)
+// SaveFetchedReceipts provides a mock function with given fields: ctx, r, state, errorMsg, chainID
+func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, state types.TxState, errorMsg *string, chainID *big.Int) error {
+	ret := _m.Called(ctx, r, state, errorMsg, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFetchedReceipts")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, *big.Int) error); ok {
-		r0 = rf(ctx, receipts, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, types.TxState, *string, *big.Int) error); ok {
+		r0 = rf(ctx, r, state, errorMsg, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1212,24 +1212,6 @@ func (_m *EvmTxStore) SaveInsufficientFundsAttempt(ctx context.Context, timeout 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error); ok {
 		r0 = rf(ctx, timeout, attempt, broadcastAt)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// SavePurgedReceipts provides a mock function with given fields: ctx, r, errorMsg, chainID
-func (_m *EvmTxStore) SavePurgedReceipts(ctx context.Context, r []*evmtypes.Receipt, errorMsg string, chainID *big.Int) error {
-	ret := _m.Called(ctx, r, errorMsg, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SavePurgedReceipts")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, string, *big.Int) error); ok {
-		r0 = rf(ctx, r, errorMsg, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}

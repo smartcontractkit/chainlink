@@ -833,30 +833,30 @@ func (o *evmTxStore) FindUnconfirmedTxsByFromAddresses(ctx context.Context, addr
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	addressesStr := make([]string, len(addresses))
-	for _, addr := range addresses {
-		addressesStr = append(addressesStr, addr.String())
+	enabledAddrsBytea := make([][]byte, len(addresses))
+	for i, addr := range addresses {
+		enabledAddrsBytea[i] = addr.Bytes()
 	}
 	err = o.Transaction(ctx, true, func(orm *evmTxStore) error {
 		var dbTxs []DbEthTx
 		err = orm.q.SelectContext(ctx, &dbTxs, `
 SELECT evm.txes.* FROM evm.txes
 WHERE evm.txes.state = 'unconfirmed' AND evm.txes.from_address = ANY($1) AND evm.txes.evm_chain_id = $2
-`, pq.Array(addressesStr), chainID.String())
+`, enabledAddrsBytea, chainID.String())
 		if err != nil {
 			return fmt.Errorf("FindTxAttemptsForPurge failed to load evm.tx_attempts: %w", err)
 		}
 		if len(dbTxs) == 0 {
 			return nil
 		}
-		txs := dbEthTxsToEvmEthTxs(dbTxs)
+		txs = dbEthTxsToEvmEthTxs(dbTxs)
 		err = orm.preloadTxAttempts(ctx, txs)
 		return pkgerrors.Wrap(err, "FindTxAttemptsForPurge failed to load evm.txes")
 	})
 	return
 }
 
-func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
+func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, state txmgrtypes.TxState, errorMsg *string, chainID *big.Int) (err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -903,7 +903,7 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 		valueStrs = append(valueStrs, "(?,?,?,?,?,NOW())")
 		valueArgs = append(valueArgs, r.TxHash, r.BlockHash, r.BlockNumber.Int64(), r.TransactionIndex, receiptJSON)
 	}
-	valueArgs = append(valueArgs, chainID.String())
+	valueArgs = append(valueArgs, state, errorMsg, chainID.String())
 
 	/* #nosec G201 */
 	sql := `
@@ -926,7 +926,7 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 		RETURNING evm.tx_attempts.eth_tx_id
 	)
 	UPDATE evm.txes
-	SET state = 'confirmed'
+	SET state = ?, error = ?
 	FROM updated_eth_tx_attempts
 	WHERE updated_eth_tx_attempts.eth_tx_id = evm.txes.id
 	AND evm_chain_id = ?
@@ -938,66 +938,6 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 
 	_, err = o.q.ExecContext(ctx, stmt, valueArgs...)
 	return pkgerrors.Wrap(err, "SaveFetchedReceipts failed to save receipts")
-}
-
-// TODO: Combine with SaveFetchedReceipts to avoid an extra method
-func (o *evmTxStore) SavePurgedReceipts(ctx context.Context, r []*evmtypes.Receipt, errorMsg string, chainID *big.Int) (err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
-	defer cancel()
-	receipts := toOnchainReceipt(r)
-	if len(receipts) == 0 {
-		return nil
-	}
-
-	var valueStrs []string
-	var valueArgs []interface{}
-	for _, r := range receipts {
-		var receiptJSON []byte
-		receiptJSON, err = json.Marshal(r)
-		if err != nil {
-			return pkgerrors.Wrap(err, "saveFetchedReceipts failed to marshal JSON")
-		}
-		valueStrs = append(valueStrs, "(?,?,?,?,?,NOW())")
-		valueArgs = append(valueArgs, r.TxHash, r.BlockHash, r.BlockNumber.Int64(), r.TransactionIndex, receiptJSON)
-	}
-	valueArgs = append(valueArgs, errorMsg, chainID.String())
-
-	sql := `
-	WITH inserted_receipts AS (
-		INSERT INTO evm.receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at)
-		VALUES %s
-		ON CONFLICT (tx_hash, block_hash) DO UPDATE SET
-			block_number = EXCLUDED.block_number,
-			transaction_index = EXCLUDED.transaction_index,
-			receipt = EXCLUDED.receipt
-		RETURNING evm.receipts.tx_hash, evm.receipts.block_number
-	),
-	updated_eth_tx_attempts AS (
-		UPDATE evm.tx_attempts
-		SET
-			state = 'broadcast',
-			broadcast_before_block_num = COALESCE(evm.tx_attempts.broadcast_before_block_num, inserted_receipts.block_number)
-		FROM inserted_receipts
-		WHERE inserted_receipts.tx_hash = evm.tx_attempts.hash
-		RETURNING evm.tx_attempts.eth_tx_id
-	)
-	UPDATE evm.txes
-	SET state = 'fatal_error', error = ?
-	FROM updated_eth_tx_attempts
-	WHERE updated_eth_tx_attempts.eth_tx_id = evm.txes.id
-	AND evm_chain_id = ?
-	`
-
-	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
-
-	stmt = sqlx.Rebind(sqlx.DOLLAR, stmt)
-
-	_, err = o.q.ExecContext(ctx, stmt, valueArgs...)
-	if err != nil {
-		return fmt.Errorf("SaveFetchedReceipts failed to save receipts: %w", err)
-	}
-	return nil
 }
 
 // MarkAllConfirmedMissingReceipt

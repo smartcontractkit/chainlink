@@ -1,7 +1,6 @@
 package txmgr
 
 import (
-	"math/big"
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -16,7 +15,6 @@ import (
 //
 //go:generate mockery --quiet --recursive --name ChainConfig --output ./mocks/ --case=underscore --structname Config --filename config.go
 type ChainConfig interface {
-	ChainID() *big.Int
 	ChainType() config.ChainType
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
