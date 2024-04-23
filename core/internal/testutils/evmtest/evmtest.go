@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -175,10 +174,10 @@ chains:
 	}
 }
 
-func (mo *TestConfigs) Chains(ids ...relay.ChainID) (cs []types.ChainStatus, count int, err error) {
+func (mo *TestConfigs) Chains(chainIDs ...string) (cs []types.ChainStatus, count int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
-	if len(ids) == 0 {
+	if len(chainIDs) == 0 {
 		for _, c := range mo.EVMConfigs {
 			c2 := types.ChainStatus{
 				ID:      c.ChainID.String(),
@@ -196,7 +195,7 @@ func (mo *TestConfigs) Chains(ids ...relay.ChainID) (cs []types.ChainStatus, cou
 	for i := range mo.EVMConfigs {
 		c := mo.EVMConfigs[i]
 		chainID := c.ChainID.String()
-		if !slices.Contains(ids, chainID) {
+		if !slices.Contains(chainIDs, chainID) {
 			continue
 		}
 		c2 := types.ChainStatus{
@@ -214,19 +213,19 @@ func (mo *TestConfigs) Chains(ids ...relay.ChainID) (cs []types.ChainStatus, cou
 }
 
 // Nodes implements evmtypes.Configs
-func (mo *TestConfigs) Nodes(id relay.ChainID) (nodes []evmtypes.Node, err error) {
+func (mo *TestConfigs) Nodes(chainID string) (nodes []evmtypes.Node, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 
 	for i := range mo.EVMConfigs {
 		c := mo.EVMConfigs[i]
-		if id == c.ChainID.String() {
+		if chainID == c.ChainID.String() {
 			for _, n := range c.Nodes {
 				nodes = append(nodes, legacyNode(n, c.ChainID))
 			}
 		}
 	}
-	err = fmt.Errorf("no nodes: chain %s: %w", id, chains.ErrNotFound)
+	err = fmt.Errorf("no nodes: chain %s: %w", chainID, chains.ErrNotFound)
 	return
 }
 
