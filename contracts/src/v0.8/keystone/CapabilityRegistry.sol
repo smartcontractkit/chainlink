@@ -29,6 +29,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// to execute the transaction
     error AccessForbidden();
 
+    /// @notice This error is thrown when trying to set a node operator's
+    /// admin address to the zero address
+    error InvalidNodeOperatorAdmin();
+
     /// @notice This error is thrown when trying to perform an action
     /// on a non existent node operator
     /// @param nodeOperatorId The ID of the non existent node operator
@@ -70,7 +74,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// operator
     /// @param name The human readable name of the node operator
     function addNodeOperator(address admin, string calldata name) external onlyOwner {
-        if (admin == address(0)) revert AccessForbidden();
+        if (admin == address(0)) revert InvalidNodeOperatorAdmin();
         uint256 nodeOperatorId = s_nodeOperatorId;
         s_nodeOperators[nodeOperatorId] = NodeOperator({id: nodeOperatorId, admin: admin, name: name});
         ++s_nodeOperatorId;
