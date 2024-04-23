@@ -699,7 +699,7 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) {
 			}
 			return
 		}
-		// If this is our first run, start from block min(lastProcessed.FinalizedBlockNumber-1, lastProcessed.BlockNumber-backupPollerBlockDelay)
+		// If this is our first run, start from block min(lastProcessed.FinalizedBlockNumber, lastProcessed.BlockNumber-backupPollerBlockDelay)
 		backupStartBlock := mathutil.Min(lastProcessed.FinalizedBlockNumber, lastProcessed.BlockNumber-lp.backupPollerBlockDelay)
 		// (or at block 0 if whole blockchain is too short)
 		lp.backupPollerNextBlock = mathutil.Max(backupStartBlock, 0)
@@ -1256,8 +1256,8 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]Lo
 }
 
 // fillRemainingBlocksFromRPC sends a batch request for each block in blocksRequested, and converts them from
-// geth blocks into LogPollerBlock strutcs. This is only intended to be used for requesting finalized blocks,
-// if any of the blocks coming back are not finalized they will be discarded
+// geth blocks into LogPollerBlock structs. This is only intended to be used for requesting finalized blocks,
+// if any of the blocks coming back are not finalized, an error will be returned
 func (lp *logPoller) fillRemainingBlocksFromRPC(
 	ctx context.Context,
 	blocksRequested map[uint64]struct{},
