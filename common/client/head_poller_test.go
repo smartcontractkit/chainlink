@@ -1,15 +1,13 @@
 package client
 
 import (
-	"context"
+	"github.com/pkg/errors"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func Test_Poller(t *testing.T) {
@@ -28,10 +26,9 @@ func Test_Poller(t *testing.T) {
 	channel := make(chan Head, 1)
 
 	// Create poller and subscribe to receive data
-	poller := NewHeadPoller[Head](time.Millisecond, pollFunc, channel, logger.Test(t))
-	ctx := context.Background()
+	poller := NewHeadPoller[Head](time.Millisecond, pollFunc, channel)
 
-	require.NoError(t, poller.Start(ctx))
+	require.NoError(t, poller.Start())
 	defer poller.Unsubscribe()
 
 	// Create goroutine to receive updates from the poller
@@ -49,5 +46,33 @@ func Test_Poller(t *testing.T) {
 	require.Equal(t, pollMax, pollCount)
 }
 
-// TODO: Test error in pollingFunc
-// TODO: Test context cancellation
+func Test_Poller_Error(t *testing.T) {
+	// Mock polling function that returns an error every time it's called
+	pollFunc := func() (Head, error) {
+		return nil, errors.New("polling error")
+	}
+
+	// data channel to receive updates from the poller
+	channel := make(chan Head, 1)
+
+	// Create poller and subscribe to receive data
+	poller := NewHeadPoller[Head](time.Millisecond, pollFunc, channel)
+
+	require.NoError(t, poller.Start())
+	defer poller.Unsubscribe()
+
+	// Create goroutine to receive updates from the poller
+	pollCount := 0
+	pollMax := 50
+	go func() {
+		for ; pollCount < pollMax; pollCount++ {
+			err := <-poller.Err()
+			require.Error(t, err)
+			require.Equal(t, "polling error", err.Error())
+		}
+	}()
+
+	// Wait for a short duration to allow for some polling iterations
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, pollMax, pollCount)
+}
