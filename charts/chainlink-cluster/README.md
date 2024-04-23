@@ -172,26 +172,3 @@ devspace run dashboard_deploy
 ```
 
 Open Grafana folder `DashboardCoreDebug` and find dashboard `ChainlinkClusterDebug`
-
-# Testing
-
-Deploy your dashboard and run soak/load [tests](../../integration-tests/load/), check [README](../../integration-tests/README.md) for further explanations
-
-```sh
-devspace run dashboard_deploy
-devspace run workload
-devspace run dashboard_test
-```
-
-# Local Testing
-
-Go to [dashboard-lib](../../dashboard) and link the modules locally
-
-```sh
-cd dashboard
-pnpm link --global
-cd charts/chainlink-cluster/dashboard/tests
-pnpm link --global dashboard-tests
-```
-
-Then run the tests with commands mentioned above
