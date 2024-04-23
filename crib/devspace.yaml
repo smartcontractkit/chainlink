@@ -108,6 +108,52 @@ deployments:
 
         chainlink-cluster:
           chainlink:
+            global:
+              overridesToml: |-
+                [Feature]
+                LogPoller = true
+                CCIP = true
+
+                [Log]
+                Level = 'debug'
+                JSONConsole = true
+
+                [Log.File]
+                MaxSize = '0b'
+
+                [WebServer]
+                AllowOrigins = '*'
+                HTTPPort = 6688
+                SecureCookies = false
+                HTTPWriteTimeout = '1m'
+
+                [WebServer.RateLimit]
+                Authenticated = 2000
+                Unauthenticated = 1000
+
+                [WebServer.TLS]
+                HTTPSPort = 0
+
+                [Database]
+                MaxIdleConns = 50
+                MaxOpenConns = 50
+                MigrateOnStartup = true
+
+                [OCR2]
+                Enabled = true
+                DefaultTransactionQueueDepth = 0
+
+                [OCR]
+                Enabled = false
+                DefaultTransactionQueueDepth = 0
+
+                [P2P]
+                [P2P.V2]
+                Enabled = true
+                ListenAddresses = ['0.0.0.0:6690']
+                AnnounceAddresses = ['0.0.0.0:6690']
+                DeltaDial = '500ms'
+                DeltaReconcile = '5s'
             securityContext:
               capabilities:
                 drop:
@@ -119,7 +165,7 @@ deployments:
             web_port: 6688
             p2p_port: 6690
             # extraEnvVars:
-              # "CL_MEDIAN_CMD": "chainlink-feeds"
+            # "CL_MEDIAN_CMD": "chainlink-feeds"
             nodes:
               - name: node-1
                 image: ${runtime.images.app}
@@ -154,287 +200,16 @@ deployments:
                 #        [WebServer.TLS]
                 #        HTTPSPort = 0
                 # or use overridesToml to override some part of configuration
-                overridesToml: |
-                  [Feature]
-                  LogPoller = true
-                  CCIP = true
-  
-                  [Log]
-                  Level = 'debug'
-                  JSONConsole = true
-  
-                  [Log.File]
-                  MaxSize = '0b'
-  
-                  [WebServer]
-                  AllowOrigins = '*'
-                  HTTPPort = 6688
-                  SecureCookies = false
-                  HTTPWriteTimeout = '1m'
-  
-                  [WebServer.RateLimit]
-                  Authenticated = 2000
-                  Unauthenticated = 1000
-  
-                  [WebServer.TLS]
-                  HTTPSPort = 0
-  
-                  [Database]
-                  MaxIdleConns = 50
-                  MaxOpenConns = 50
-                  MigrateOnStartup = true
-  
-                  [OCR2]
-                  Enabled = true
-                  DefaultTransactionQueueDepth = 0
-  
-                  [OCR]
-                  Enabled = false
-                  DefaultTransactionQueueDepth = 0
-  
-                  [P2P]
-                  [P2P.V2]
-                  Enabled = true
-                  ListenAddresses = ['0.0.0.0:6690']
-                  AnnounceAddresses = ['0.0.0.0:6690']
-                  DeltaDial = '500ms'
-                  DeltaReconcile = '5s'
               - name: node-2
                 image: ${runtime.images.app}
-                overridesToml: |
-                  [Feature]
-                  LogPoller = true
-                  CCIP = true
-  
-                  [Log]
-                  Level = 'debug'
-                  JSONConsole = true
-  
-                  [Log.File]
-                  MaxSize = '0b'
-  
-                  [WebServer]
-                  AllowOrigins = '*'
-                  HTTPPort = 6688
-                  SecureCookies = false
-                  HTTPWriteTimeout = '1m'
-  
-                  [WebServer.RateLimit]
-                  Authenticated = 2000
-                  Unauthenticated = 1000
-  
-                  [WebServer.TLS]
-                  HTTPSPort = 0
-  
-                  [Database]
-                  MaxIdleConns = 50
-                  MaxOpenConns = 50
-                  MigrateOnStartup = true
-  
-                  [OCR2]
-                  Enabled = true
-                  DefaultTransactionQueueDepth = 0
-  
-                  [OCR]
-                  Enabled = false
-                  DefaultTransactionQueueDepth = 0
-  
-                  [P2P]
-                  [P2P.V2]
-                  Enabled = true
-                  ListenAddresses = ['0.0.0.0:6690']
-                  AnnounceAddresses = ['0.0.0.0:6690']
-                  DeltaDial = '500ms'
-                  DeltaReconcile = '5s'
               - name: node-3
                 image: ${runtime.images.app}
-                overridesToml: |
-                  [Feature]
-                  LogPoller = true
-                  CCIP = true
-  
-                  [Log]
-                  Level = 'debug'
-                  JSONConsole = true
-  
-                  [Log.File]
-                  MaxSize = '0b'
-  
-                  [WebServer]
-                  AllowOrigins = '*'
-                  HTTPPort = 6688
-                  SecureCookies = false
-                  HTTPWriteTimeout = '1m'
-  
-                  [WebServer.RateLimit]
-                  Authenticated = 2000
-                  Unauthenticated = 1000
-  
-                  [WebServer.TLS]
-                  HTTPSPort = 0
-  
-                  [Database]
-                  MaxIdleConns = 50
-                  MaxOpenConns = 50
-                  MigrateOnStartup = true
-  
-                  [OCR2]
-                  Enabled = true
-                  DefaultTransactionQueueDepth = 0
-  
-                  [OCR]
-                  Enabled = false
-                  DefaultTransactionQueueDepth = 0
-  
-                  [P2P]
-                  [P2P.V2]
-                  Enabled = true
-                  ListenAddresses = ['0.0.0.0:6690']
-                  AnnounceAddresses = ['0.0.0.0:6690']
-                  DeltaDial = '500ms'
-                  DeltaReconcile = '5s'
               - name: node-4
                 image: ${runtime.images.app}
-                overridesToml: |
-                  [Feature]
-                  LogPoller = true
-                  CCIP = true
-  
-                  [Log]
-                  Level = 'debug'
-                  JSONConsole = true
-  
-                  [Log.File]
-                  MaxSize = '0b'
-  
-                  [WebServer]
-                  AllowOrigins = '*'
-                  HTTPPort = 6688
-                  SecureCookies = false
-                  HTTPWriteTimeout = '1m'
-  
-                  [WebServer.RateLimit]
-                  Authenticated = 2000
-                  Unauthenticated = 1000
-  
-                  [WebServer.TLS]
-                  HTTPSPort = 0
-  
-                  [Database]
-                  MaxIdleConns = 50
-                  MaxOpenConns = 50
-                  MigrateOnStartup = true
-  
-                  [OCR2]
-                  Enabled = true
-                  DefaultTransactionQueueDepth = 0
-  
-                  [OCR]
-                  Enabled = false
-                  DefaultTransactionQueueDepth = 0
-  
-                  [P2P]
-                  [P2P.V2]
-                  Enabled = true
-                  ListenAddresses = ['0.0.0.0:6690']
-                  AnnounceAddresses = ['0.0.0.0:6690']
-                  DeltaDial = '500ms'
-                  DeltaReconcile = '5s'
               - name: node-5
                 image: ${runtime.images.app}
-                overridesToml: |
-                  [Feature]
-                  LogPoller = true
-                  CCIP = true
-  
-                  [Log]
-                  Level = 'debug'
-                  JSONConsole = true
-  
-                  [Log.File]
-                  MaxSize = '0b'
-  
-                  [WebServer]
-                  AllowOrigins = '*'
-                  HTTPPort = 6688
-                  SecureCookies = false
-                  HTTPWriteTimeout = '1m'
-  
-                  [WebServer.RateLimit]
-                  Authenticated = 2000
-                  Unauthenticated = 1000
-  
-                  [WebServer.TLS]
-                  HTTPSPort = 0
-  
-                  [Database]
-                  MaxIdleConns = 50
-                  MaxOpenConns = 50
-                  MigrateOnStartup = true
-  
-                  [OCR2]
-                  Enabled = true
-                  DefaultTransactionQueueDepth = 0
-  
-                  [OCR]
-                  Enabled = false
-                  DefaultTransactionQueueDepth = 0
-  
-                  [P2P]
-                  [P2P.V2]
-                  Enabled = true
-                  ListenAddresses = ['0.0.0.0:6690']
-                  AnnounceAddresses = ['0.0.0.0:6690']
-                  DeltaDial = '500ms'
-                  DeltaReconcile = '5s'
               - name: node-6
                 image: ${runtime.images.app}
-                overridesToml: |
-                  [Feature]
-                  LogPoller = true
-                  CCIP = true
-  
-                  [Log]
-                  Level = 'debug'
-                  JSONConsole = true
-  
-                  [Log.File]
-                  MaxSize = '0b'
-  
-                  [WebServer]
-                  AllowOrigins = '*'
-                  HTTPPort = 6688
-                  SecureCookies = false
-                  HTTPWriteTimeout = '1m'
-  
-                  [WebServer.RateLimit]
-                  Authenticated = 2000
-                  Unauthenticated = 1000
-  
-                  [WebServer.TLS]
-                  HTTPSPort = 0
-  
-                  [Database]
-                  MaxIdleConns = 50
-                  MaxOpenConns = 50
-                  MigrateOnStartup = true
-  
-                  [OCR2]
-                  Enabled = true
-                  DefaultTransactionQueueDepth = 0
-  
-                  [OCR]
-                  Enabled = false
-                  DefaultTransactionQueueDepth = 0
-  
-                  [P2P]
-                  [P2P.V2]
-                  Enabled = true
-                  ListenAddresses = ['0.0.0.0:6690']
-                  AnnounceAddresses = ['0.0.0.0:6690']
-                  DeltaDial = '500ms'
-                  DeltaReconcile = '5s'
-
           # each CL node have a dedicated PostgreSQL 11.15
           # use StatefulSet by setting:
           #
@@ -496,7 +271,6 @@ deployments:
                 memory: 1024Mi
           # monitoring.coreos.com/v1 PodMonitor for each node
           prometheusMonitor: true
-
 
           # These ingresses create AWS ALB resources and Route 53 Records.
           ingress:
@@ -626,3 +400,13 @@ deployments:
             image: ${DEVSPACE_CCIP_SCRIPTS_IMAGE}
             oidcRoleARN: ${DEVSPACE_CCIP_SCRIPTS_OIDC_ROLE_ARN}
             outputBucketName: ${DEVSPACE_CCIP_SCRIPTS_OUTPUT_BUCKET_NAME}
+profiles:
+  - name: local-dev
+    patches:
+      # Remove the global overridesToml field.
+      # This will be configured via a values file.
+      - op: remove
+        path: deployments.app.helm.values.chainlink-cluster.chainlink.global.overridesToml
+      - op: add
+        path: deployments.app.helm.valuesFiles
+        value: ["../charts/chainlink-cluster/values-profiles/values-dev.yaml"]

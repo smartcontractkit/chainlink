@@ -2,3 +2,6 @@
 charts/
 requirements.lock
 .rendered
+values-profiles/*
+!values-profiles/values-dev.yaml.example
+!values-profiles/README.md
