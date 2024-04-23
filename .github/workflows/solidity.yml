@@ -212,7 +212,7 @@ jobs:
           echo "Bumping version to ${{ needs.tag-check.outputs.pre-release-version }}"
           pnpm version ${{ needs.tag-check.outputs.pre-release-version }} --no-git-tag-version --no-commit-hooks --no-git-checks
 
-      - name: Publish to NPM (Dry Run)
+      - name: Publish to NPM (beta)
         uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
@@ -254,7 +254,7 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to NPM (Dry Run)
+      - name: Publish to NPM (latest)
         uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
