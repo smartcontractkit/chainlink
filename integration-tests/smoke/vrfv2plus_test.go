@@ -106,9 +106,6 @@ func TestVRFv2Plus(t *testing.T) {
 
 		subBalanceBeforeRequest := subscription.Balance
 
-		jobRunsBeforeTest, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
-		require.NoError(t, err, "error reading job runs")
-
 		// test and assert
 		_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
@@ -130,10 +127,6 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err, "error getting subscription information")
 		subBalanceAfterRequest := subscription.Balance
 		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
-
-		jobRuns, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
-		require.NoError(t, err, "error reading job runs")
-		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
@@ -170,9 +163,6 @@ func TestVRFv2Plus(t *testing.T) {
 
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
-		jobRunsBeforeTest, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
-		require.NoError(t, err, "error reading job runs")
-
 		// test and assert
 		_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
@@ -193,10 +183,6 @@ func TestVRFv2Plus(t *testing.T) {
 		subBalanceAfterRequest := subscription.NativeBalance
 		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
 
-		jobRuns, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
-		require.NoError(t, err, "error reading job runs")
-		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
-
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
@@ -207,6 +193,45 @@ func TestVRFv2Plus(t *testing.T) {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
+	})
+	t.Run("CL Node VRF Job Runs", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		var isNativeBilling = false
+		consumers, subIDsForRequestRandomness, err := vrfv2plus.SetupNewConsumersAndSubs(
+			env,
+			chainID,
+			vrfContracts.CoordinatorV2Plus,
+			configCopy,
+			vrfContracts.LinkToken,
+			1,
+			1,
+			l,
+		)
+		require.NoError(t, err, "error setting up new consumers and subs")
+		subIDForRequestRandomness := subIDsForRequestRandomness[0]
+		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subIDForRequestRandomness)
+		require.NoError(t, err, "error getting subscription information")
+		vrfcommon.LogSubDetails(l, subscription, subIDForRequestRandomness.String(), vrfContracts.CoordinatorV2Plus)
+		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForRequestRandomness...)
+
+		jobRunsBeforeTest, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+
+		// test and assert
+		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			consumers[0],
+			vrfContracts.CoordinatorV2Plus,
+			vrfKey,
+			subIDForRequestRandomness,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General,
+			l,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+		jobRuns, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 	})
 	t.Run("Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)

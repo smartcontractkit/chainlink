@@ -25,6 +25,7 @@ tools/clroot/db.sqlite3-wal
 .env*
 .dbenv
 !charts/chainlink-cluster/.env.example
+!crib/.env.example
 !.github/actions/setup-postgres/.env
 .direnv
 .idea
