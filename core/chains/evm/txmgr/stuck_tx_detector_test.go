@@ -36,17 +36,13 @@ func TestStuckTxDetector_Disabled(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	config := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	estimator := gasmocks.NewEvmEstimator(t)
-	newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 	lggr := logger.Test(t)
-	ge := config.EVM().GasEstimator()
-	feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil, ge)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	autoPurgeCfg := testAutoPurgeConfig{
 		autoPurgeStuckTxs: false,
 	}
@@ -63,17 +59,14 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	config := newTestChainScopedConfig(t)
+	_, config := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := testutils.Context(t)
 
-	estimator := gasmocks.NewEvmEstimator(t)
-	newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 	lggr := logger.Test(t)
-	ge := config.EVM().GasEstimator()
-	feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil, ge)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 
 	t.Run("returns empty list if no unconfimed transactions found", func(t *testing.T) {
@@ -120,19 +113,16 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	config := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := testutils.Context(t)
 
-	estimator := gasmocks.NewEvmEstimator(t)
-	newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 	lggr := logger.Test(t)
-	ge := config.EVM().GasEstimator()
-	feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil, ge)
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	// Return 10 gwei as market gas price
 	marketGasPrice := tenGwei
-	estimator.On("GetLegacyGas", mock.Anything, []byte{}, uint64(0), mock.Anything).Return(marketGasPrice, uint64(0), nil)
+	fee := gas.EvmFee{Legacy: marketGasPrice}
+	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything).Return(fee, uint64(0), nil)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	autoPurgeThreshold := uint32(5)
 	autoPurgeMinAttempts := uint32(3)
@@ -222,16 +212,12 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	config := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := testutils.Context(t)
 
-	estimator := gasmocks.NewEvmEstimator(t)
-	newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 	lggr := logger.Test(t)
-	ge := config.EVM().GasEstimator()
-	feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil, ge)
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	autoPurgeCfg := testAutoPurgeConfig{
 		autoPurgeStuckTxs: true,
@@ -288,16 +274,12 @@ func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	config := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := testutils.Context(t)
 
-	estimator := gasmocks.NewEvmEstimator(t)
-	newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 	lggr := logger.Test(t)
-	ge := config.EVM().GasEstimator()
-	feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil, ge)
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	blockNum := int64(100)
 
