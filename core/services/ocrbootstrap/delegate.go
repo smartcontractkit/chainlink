@@ -19,11 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type RelayGetter interface {
-	Get(relay.ID) (loop.Relayer, error)
+	Get(types.RelayID) (loop.Relayer, error)
 }
 
 // Delegate creates Bootstrap jobs
