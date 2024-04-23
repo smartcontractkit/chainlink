@@ -73,6 +73,7 @@ func makeTestEvmTxm(
 		ccfg,
 		fcfg,
 		txConfig,
+		nil,
 		dbConfig,
 		listenerConfig,
 		ethClient,
