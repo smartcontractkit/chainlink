@@ -305,10 +305,6 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 				p.previousStartWindow = &startWindow
 			}
 
-			if p.currentIteration == p.iterations {
-				p.currentIteration = 0
-			}
-
 			if p.currentIteration == 0 {
 				p.iterations = int(math.Ceil(float64(p.bufferV1.NumOfUpkeeps()*logLimitLow) / float64(maxResults)))
 				if p.iterations == 0 {
@@ -335,6 +331,8 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 			p.currentIteration++
 
 			if p.currentIteration == p.iterations {
+				p.lggr.Debugw("Reached maximum iterations, bumping window", "start", start, "latestBlock", latestBlock, "currentIteration", p.currentIteration, "iterations", p.iterations)
+
 				start += int64(blockRate)
 				continue
 			}

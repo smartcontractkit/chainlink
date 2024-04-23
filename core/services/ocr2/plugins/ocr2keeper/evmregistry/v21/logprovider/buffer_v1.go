@@ -1,7 +1,7 @@
 package logprovider
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"math"
 	"math/big"
@@ -164,7 +164,8 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 
 func hashCombinedStrings(s []string) string {
 	combined := strings.Join(s, "")
-	hashed := md5.Sum([]byte(combined))
+	hasher := sha256.New()
+	hashed := hasher.Sum([]byte(combined))
 	return hex.EncodeToString(hashed[:8])
 }
 
