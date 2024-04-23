@@ -449,7 +449,7 @@ func (a *AutoPurgeConfig) ValidateConfig() (err error) {
 		return
 	}
 
-	if a.AutoPurgeDetectionApiUrl != nil && a.AutoPurgeDetectionApiUrl.IsZero() {
+	if a.AutoPurgeDetectionApiUrl != nil && !a.AutoPurgeDetectionApiUrl.IsZero() {
 		switch a.AutoPurgeDetectionApiUrl.Scheme {
 		case "http", "https":
 			return
