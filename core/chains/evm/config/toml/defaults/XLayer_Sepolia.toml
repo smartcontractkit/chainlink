@@ -5,6 +5,7 @@ MinIncomingConfirmations = 1
 LogPollInterval = '30s'
 RPCBlockQueryDelay = 15
 RPCDefaultBatchSize = 100
+ChainType = 'gnosis'
 
 [OCR]
 ContractConfirmations = 1
