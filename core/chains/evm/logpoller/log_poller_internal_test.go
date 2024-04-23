@@ -2,6 +2,7 @@ package logpoller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -596,6 +597,77 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 			require.Error(t, err)
 		})
 	})
+}
+
+func Test_FetchBlocks(t *testing.T) {
+	lggr := logger.Test(t)
+	chainID := testutils.FixtureChainID
+	db := pgtest.NewSqlxDB(t)
+	orm := NewORM(chainID, db, lggr)
+	ctx := testutils.Context(t)
+
+	lpOpts := Opts{
+		PollPeriod:               time.Hour,
+		BackfillBatchSize:        2,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 50,
+		FinalityDepth:            3,
+	}
+
+	ec := evmclimocks.NewClient(t)
+	mockBatchCallContext(t, ec) // This will return 5 for "finalized" and 8 for "latest"
+
+	cases := []struct {
+		name            string
+		blocksRequested []string
+		expectedErr     error
+	}{{
+		"successful validation including finalized and latest",
+		[]string{"0x3", "latest", "0x5", "finalized", "0x1"},
+		nil,
+	}, {
+		"successful validation with all block numbers",
+		[]string{"0x2", "0x5", "0x3", "0x4"},
+		nil,
+	}, {
+		"finality violation including finalized and latest",
+		[]string{"0x8", "0x2", "latest", "finalized"},
+		errors.New("Received unfinalized block 8 while expecting finalized block (latestFinalizedBlockNumber = 5)"),
+	}, {
+		"finality violation with all block numbers",
+		[]string{"0x9", "0x2", "finalized", "latest"},
+		errors.New("Received unfinalized block 9 while expecting finalized block (latestFinalizedBlockNumber = 5)"),
+	}}
+
+	lp := NewLogPoller(orm, ec, lggr, lpOpts)
+	for _, tc := range cases {
+		for _, lp.useFinalityTag = range []bool{false, true} {
+			blockValidationReq := latestBlock
+			if lp.useFinalityTag {
+				blockValidationReq = finalizedBlock
+			}
+			t.Run(fmt.Sprintf("%s where useFinalityTag=%t", tc.name, lp.useFinalityTag), func(t *testing.T) {
+				blocks, err := lp.fetchBlocks(ctx, tc.blocksRequested, blockValidationReq)
+				if tc.expectedErr != nil {
+					require.Equal(t, err.Error(), tc.expectedErr.Error())
+					return // PASS
+				}
+				require.NoError(t, err)
+				for i, blockRequested := range tc.blocksRequested {
+					switch blockRequested {
+					case string(latestBlock):
+						assert.Equal(t, int64(8), blocks[i].Number)
+					case string(finalizedBlock):
+						assert.Equal(t, int64(5), blocks[i].Number)
+					default:
+						blockNum, err2 := hexutil.DecodeUint64(blockRequested)
+						require.NoError(t, err2)
+						assert.Equal(t, int64(blockNum), blocks[i].Number)
+					}
+				}
+			})
+		}
+	}
 }
 
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {

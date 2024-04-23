@@ -1364,7 +1364,7 @@ func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []string, 
 		blockRequested := r.Args[0].(string)
 		if blockRequested != string(latestBlock) && block.Number > latestFinalizedBlockNumber {
 			return nil, fmt.Errorf(
-				"Received unfinalized block %d while expecting finalized block (latestFinaliezdBlockNumber = %d)",
+				"Received unfinalized block %d while expecting finalized block (latestFinalizedBlockNumber = %d)",
 				block.Number, latestFinalizedBlockNumber)
 		}
 

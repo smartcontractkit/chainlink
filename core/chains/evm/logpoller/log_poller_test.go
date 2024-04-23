@@ -1344,7 +1344,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	blockNums = []uint64{2}
 	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.Error(t, err)
-	assert.Equal(t, "Received unfinalized block 2 while expecting finalized block (latestFinaliezdBlockNumber = 1)", err.Error())
+	assert.Equal(t, "Received unfinalized block 2 while expecting finalized block (latestFinalizedBlockNumber = 1)", err.Error())
 
 	th.Client.Commit() // Commit block #4, so that block #2 is finalized
 
