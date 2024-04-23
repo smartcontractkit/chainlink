@@ -77,3 +77,9 @@ func (d *DataSource) updateAnswer(latestAnswer *big.Int) {
 		UpdatedAt:    big.NewInt(time.Now().Unix()),
 	}
 }
+
+type ZeroDataSource struct{}
+
+func (d *ZeroDataSource) Observe(ctx context.Context, reportTimestamp ocrtypes.ReportTimestamp) (*big.Int, error) {
+	return new(big.Int), nil
+}
