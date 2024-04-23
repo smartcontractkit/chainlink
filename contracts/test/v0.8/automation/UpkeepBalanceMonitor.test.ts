@@ -321,7 +321,10 @@ describe('UpkeepBalanceMonitor', () => {
     it('cannot be called by a non-owner', async () => {
       await expect(
         upkeepBalanceMonitor.connect(stranger).topUp([], [], []),
-      ).to.be.revertedWith('OnlyForwarderOrOwner()')
+      ).to.be.revertedWithCustomError(
+        upkeepBalanceMonitor,
+        'OnlyForwarderOrOwner',
+      )
     })
 
     it('should revert if the contract is paused', async () => {

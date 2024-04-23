@@ -452,7 +452,7 @@ func FundVRFCoordinatorV2Subscription(
 func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	l zerolog.Logger,
 	consumer contracts.VRFv2WrapperLoadTestConsumer,
-	coordinator contracts.VRFCoordinatorV2,
+	coordinator contracts.Coordinator,
 	subID uint64,
 	vrfv2KeyData *vrfcommon.VRFKeyData,
 	minimumConfirmations uint16,
@@ -461,7 +461,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
 	randomWordsFulfilledEventTimeout time.Duration,
-) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {
+) (*contracts.CoordinatorRandomWordsFulfilled, error) {
 	logRandRequest(
 		l,
 		consumer.Address(),
@@ -496,7 +496,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 func RequestRandomnessAndWaitForFulfillment(
 	l zerolog.Logger,
 	consumer contracts.VRFv2LoadTestConsumer,
-	coordinator contracts.VRFCoordinatorV2,
+	coordinator contracts.Coordinator,
 	subID uint64,
 	vrfKeyData *vrfcommon.VRFKeyData,
 	minimumConfirmations uint16,
@@ -505,7 +505,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
 	randomWordsFulfilledEventTimeout time.Duration,
-) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {
+) (*contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := RequestRandomness(
 		l,
 		consumer,
@@ -536,7 +536,7 @@ func RequestRandomnessAndWaitForFulfillment(
 func RequestRandomness(
 	l zerolog.Logger,
 	consumer contracts.VRFv2LoadTestConsumer,
-	coordinator contracts.VRFCoordinatorV2,
+	coordinator contracts.Coordinator,
 	subID uint64,
 	vrfKeyData *vrfcommon.VRFKeyData,
 	minimumConfirmations uint16,
@@ -544,7 +544,7 @@ func RequestRandomness(
 	numberOfWords uint32,
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
-) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
+) (*contracts.CoordinatorRandomWordsRequested, error) {
 	logRandRequest(
 		l,
 		consumer.Address(),
@@ -569,7 +569,7 @@ func RequestRandomness(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRequestRandomness, err)
 	}
-	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, false)
 
 	return randomWordsRequestedEvent, err
 }
@@ -577,7 +577,7 @@ func RequestRandomness(
 func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 	l zerolog.Logger,
 	consumer contracts.VRFv2LoadTestConsumer,
-	coordinator contracts.VRFCoordinatorV2,
+	coordinator contracts.Coordinator,
 	vrfOwner contracts.VRFOwner,
 	vrfv2KeyData *vrfcommon.VRFKeyData,
 	minimumConfirmations uint16,
@@ -588,9 +588,10 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 	subTopUpAmount *big.Int,
 	linkAddress common.Address,
 	randomWordsFulfilledEventTimeout time.Duration,
-) (*vrf_coordinator_v2.VRFCoordinatorV2ConfigSet, *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, *vrf_owner.VRFOwnerRandomWordsForced, error) {
+) (*contracts.CoordinatorConfigSet, *contracts.CoordinatorRandomWordsFulfilled, *vrf_owner.VRFOwnerRandomWordsForced, error) {
 	logRandRequest(l, consumer.Address(), coordinator.Address(), 0, minimumConfirmations, callbackGasLimit, numberOfWords, randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation, vrfv2KeyData.KeyHash)
-	_, err := consumer.RequestRandomWordsWithForceFulfill(
+	randomWordsRequestedEvent, err := consumer.RequestRandomWordsWithForceFulfill(
+		coordinator,
 		vrfv2KeyData.KeyHash,
 		minimumConfirmations,
 		callbackGasLimit,
@@ -603,20 +604,11 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRequestRandomness, err)
 	}
 
-	randomWordsRequestedEvent, err := coordinator.WaitForRandomWordsRequestedEvent(
-		[][32]byte{vrfv2KeyData.KeyHash},
-		nil,
-		[]common.Address{common.HexToAddress(consumer.Address())},
-		time.Minute*1,
-	)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitRandomWordsRequestedEvent, err)
-	}
-	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, false)
 
 	errorChannel := make(chan error)
-	configSetEventChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2ConfigSet)
-	randWordsFulfilledEventChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled)
+	configSetEventChannel := make(chan *contracts.CoordinatorConfigSet)
+	randWordsFulfilledEventChannel := make(chan *contracts.CoordinatorRandomWordsFulfilled)
 	randWordsForcedEventChannel := make(chan *vrf_owner.VRFOwnerRandomWordsForced)
 
 	go func() {
@@ -632,8 +624,10 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 
 	go func() {
 		randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
-			[]*big.Int{randomWordsRequestedEvent.RequestId},
-			randomWordsFulfilledEventTimeout,
+			contracts.RandomWordsFulfilledEventFilter{
+				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
+				Timeout:    randomWordsFulfilledEventTimeout,
+			},
 		)
 		if err != nil {
 			l.Error().Err(err).Msg("error waiting for RandomWordsFulfilledEvent")
@@ -656,8 +650,8 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 		randWordsForcedEventChannel <- randomWordsForcedEvent
 	}()
 
-	var configSetEvent *vrf_coordinator_v2.VRFCoordinatorV2ConfigSet
-	var randomWordsFulfilledEvent *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
+	var configSetEvent *contracts.CoordinatorConfigSet
+	var randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled
 	var randomWordsForcedEvent *vrf_owner.VRFOwnerRandomWordsForced
 	for i := 0; i < 3; i++ {
 		select {
@@ -665,9 +659,9 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 			return nil, nil, nil, err
 		case configSetEvent = <-configSetEventChannel:
 		case randomWordsFulfilledEvent = <-randWordsFulfilledEventChannel:
-			LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
+			vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, false)
 		case randomWordsForcedEvent = <-randWordsForcedEventChannel:
-			LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
+			vrfcommon.LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
 		case <-time.After(randomWordsFulfilledEventTimeout):
 			err = fmt.Errorf("timeout waiting for ConfigSet, RandomWordsFulfilled and RandomWordsForced events")
 		}
@@ -676,19 +670,21 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 }
 
 func WaitRandomWordsFulfilledEvent(
-	coordinator contracts.VRFCoordinatorV2,
+	coordinator contracts.Coordinator,
 	requestId *big.Int,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
-) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {
+) (*contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
-		[]*big.Int{requestId},
-		randomWordsFulfilledEventTimeout,
+		contracts.RandomWordsFulfilledEventFilter{
+			RequestIds: []*big.Int{requestId},
+			Timeout:    randomWordsFulfilledEventTimeout,
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitRandomWordsFulfilledEvent, err)
 	}
-	LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
+	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, false)
 	return randomWordsFulfilledEvent, err
 }
 

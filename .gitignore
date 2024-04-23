@@ -23,6 +23,7 @@ tools/clroot/db.sqlite3-wal
 .DS_Store
 .envrc
 .env*
+.dbenv
 !charts/chainlink-cluster/.env.example
 !.github/actions/setup-postgres/.env
 .direnv
@@ -98,5 +99,4 @@ override*.toml
 # Pythin venv
 .venv/
 
-# Temp Changelog migration
-CHANGELOG.md
+ocr_soak_report.csv

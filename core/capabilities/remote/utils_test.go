@@ -10,6 +10,10 @@ import (
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -56,11 +60,11 @@ func newKeyPair(t *testing.T) (ed25519.PrivateKey, ragetypes.PeerID) {
 
 func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2ptypes.PeerID, receiverId p2ptypes.PeerID, capabilityId string, donId string, payload []byte) p2ptypes.Message {
 	body := remotetypes.MessageBody{
-		Sender:       senderId[:],
-		Receiver:     receiverId[:],
-		CapabilityId: capabilityId,
-		DonId:        donId,
-		Payload:      payload,
+		Sender:          senderId[:],
+		Receiver:        receiverId[:],
+		CapabilityId:    capabilityId,
+		CapabilityDonId: donId,
+		Payload:         payload,
 	}
 	rawBody, err := proto.Marshal(&body)
 	require.NoError(t, err)
@@ -77,4 +81,40 @@ func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2pt
 		Sender:  senderId,
 		Payload: rawMsg,
 	}
+}
+
+func TestToPeerID(t *testing.T) {
+	id := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
+}
+
+func TestDefaultModeAggregator_Aggregate(t *testing.T) {
+	val, err := values.Wrap(triggerEvent1)
+	require.NoError(t, err)
+	capResponse1 := commoncap.CapabilityResponse{
+		Value: val,
+		Err:   nil,
+	}
+	marshaled1, err := pb.MarshalCapabilityResponse(capResponse1)
+	require.NoError(t, err)
+
+	val2, err := values.Wrap(triggerEvent2)
+	require.NoError(t, err)
+	capResponse2 := commoncap.CapabilityResponse{
+		Value: val2,
+		Err:   nil,
+	}
+	marshaled2, err := pb.MarshalCapabilityResponse(capResponse2)
+	require.NoError(t, err)
+
+	agg := remote.NewDefaultModeAggregator(2)
+	_, err = agg.Aggregate("", [][]byte{marshaled1})
+	require.Error(t, err)
+
+	_, err = agg.Aggregate("", [][]byte{marshaled1, marshaled2})
+	require.Error(t, err)
+
+	res, err := agg.Aggregate("", [][]byte{marshaled1, marshaled2, marshaled1})
+	require.NoError(t, err)
+	require.Equal(t, res, capResponse1)
 }

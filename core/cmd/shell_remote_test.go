@@ -225,7 +225,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 		&bridges.ExternalInitiatorRequest{Name: uuid.New().String()},
 	)
 	require.NoError(t, err)
-	err = app.BridgeORM().CreateExternalInitiator(exi)
+	err = app.BridgeORM().CreateExternalInitiator(testutils.Context(t), exi)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
@@ -565,6 +565,7 @@ func TestShell_ConfigV2(t *testing.T) {
 
 func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.OCR.Enabled = ptr(true)
@@ -577,10 +578,10 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	})
 	client, _ := app.NewShellAndRenderer()
 
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
@@ -646,11 +647,12 @@ func TestShell_RunOCRJob_JobNotFound(t *testing.T) {
 
 func TestShell_AutoLogin(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(ctx, &user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,
@@ -674,11 +676,12 @@ func TestShell_AutoLogin(t *testing.T) {
 
 func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(ctx, &user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,

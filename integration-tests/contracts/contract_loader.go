@@ -200,7 +200,7 @@ func (e *EthereumContractLoader) LoadFunctionsCoordinator(addr string) (Function
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsCoordinator{
+	return &LegacyEthereumFunctionsCoordinator{
 		client:   e.client,
 		instance: instance.(*functions_coordinator.FunctionsCoordinator),
 		address:  common.HexToAddress(addr),
@@ -218,7 +218,7 @@ func (e *EthereumContractLoader) LoadFunctionsRouter(addr string) (FunctionsRout
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsRouter{
+	return &LegacyEthereumFunctionsRouter{
 		client:   e.client,
 		instance: instance.(*functions_router.FunctionsRouter),
 		address:  common.HexToAddress(addr),
@@ -237,7 +237,7 @@ func (e *EthereumContractLoader) LoadFunctionsLoadTestClient(addr string) (Funct
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsLoadTestClient{
+	return &LegacyEthereumFunctionsLoadTestClient{
 		client:   e.client,
 		instance: instance.(*functions_load_test_client.FunctionsLoadTestClient),
 		address:  common.HexToAddress(addr),

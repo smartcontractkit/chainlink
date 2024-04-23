@@ -157,8 +157,6 @@ type General struct {
 
 	// Wrapper Config
 	WrapperGasOverhead                      *uint32  `toml:"wrapped_gas_overhead"`
-	CoordinatorGasOverhead                  *uint32  `toml:"coordinator_gas_overhead"`
-	WrapperPremiumPercentage                *uint8   `toml:"wrapper_premium_percentage"`
 	WrapperMaxNumberOfWords                 *uint8   `toml:"wrapper_max_number_of_words"`
 	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"`
 	WrapperConsumerFundingAmountLink        *int64   `toml:"wrapper_consumer_funding_amount_link"`
@@ -244,12 +242,6 @@ func (c *General) Validate() error {
 	}
 	if c.WrapperGasOverhead == nil {
 		return errors.New("wrapped_gas_overhead must be set to a non-negative value")
-	}
-	if c.CoordinatorGasOverhead == nil || *c.CoordinatorGasOverhead == 0 {
-		return errors.New("coordinator_gas_overhead must be set to a non-negative value")
-	}
-	if c.WrapperPremiumPercentage == nil || *c.WrapperPremiumPercentage == 0 {
-		return errors.New("wrapper_premium_percentage must be set to a positive value")
 	}
 	if c.WrapperMaxNumberOfWords == nil || *c.WrapperMaxNumberOfWords == 0 {
 		return errors.New("wrapper_max_number_of_words must be set to a positive value")

@@ -61,7 +61,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 
 	configDigest := testhelpers.MakeConfigDigest(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlDB).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
 	lggr := logger.TestLogger(t)
@@ -152,7 +152,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		OffchainConfig:        []byte{0x03, 0x04},
 	}
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlDB).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
 	lggr := logger.TestLogger(t)
@@ -239,7 +239,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	sqlDB := setupDB(t)
 
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlDB).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	lggr := logger.TestLogger(t)

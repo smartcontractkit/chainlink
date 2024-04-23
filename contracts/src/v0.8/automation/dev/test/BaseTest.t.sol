@@ -5,17 +5,19 @@ import "forge-std/Test.sol";
 
 import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
+import {ERC20Mock6Decimals} from "../../mocks/ERC20Mock6Decimals.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
+import {UpkeepTranscoder5_0 as Transcoder} from "../v2_3/UpkeepTranscoder5_0.sol";
 import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
 import {AutomationRegistryLogicC2_3} from "../v2_3/AutomationRegistryLogicC2_3.sol";
-import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 import {WETH9} from "./WETH9.sol";
@@ -39,7 +41,8 @@ contract BaseTest is Test {
 
   // contracts
   LinkToken internal linkToken;
-  ERC20Mock internal usdToken;
+  ERC20Mock6Decimals internal usdToken6;
+  ERC20Mock internal usdToken18;
   WETH9 internal weth;
   MockV3Aggregator internal LINK_USD_FEED;
   MockV3Aggregator internal NATIVE_USD_FEED;
@@ -47,6 +50,7 @@ contract BaseTest is Test {
   MockV3Aggregator internal FAST_GAS_FEED;
   MockUpkeep internal TARGET1;
   MockUpkeep internal TARGET2;
+  Transcoder internal TRANSCODER;
 
   // roles
   address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
@@ -71,7 +75,8 @@ contract BaseTest is Test {
     vm.startPrank(OWNER);
     linkToken = new LinkToken();
     linkToken.grantMintRole(OWNER);
-    usdToken = new ERC20Mock("MOCK_ERC20", "MOCK_ERC20", OWNER, 0);
+    usdToken18 = new ERC20Mock("MOCK_ERC20_18Decimals", "MOCK_ERC20_18Decimals", OWNER, 0);
+    usdToken6 = new ERC20Mock6Decimals("MOCK_ERC20_6Decimals", "MOCK_ERC20_6Decimals", OWNER, 0);
     weth = new WETH9();
 
     LINK_USD_FEED = new MockV3Aggregator(8, 2_000_000_000); // $20
@@ -81,6 +86,8 @@ contract BaseTest is Test {
 
     TARGET1 = new MockUpkeep();
     TARGET2 = new MockUpkeep();
+
+    TRANSCODER = new Transcoder();
 
     SIGNERS[0] = vm.addr(SIGNING_KEY0); //0xc110458BE52CaA6bB68E66969C3218A4D9Db0211
     SIGNERS[1] = vm.addr(SIGNING_KEY1); //0xc110a19c08f1da7F5FfB281dc93630923F8E3719
@@ -110,14 +117,22 @@ contract BaseTest is Test {
     vm.deal(UPKEEP_ADMIN, 100 ether);
     vm.deal(FINANCE_ADMIN, 100 ether);
     vm.deal(STRANGER, 100 ether);
+
     linkToken.mint(OWNER, 1000e18);
     linkToken.mint(UPKEEP_ADMIN, 1000e18);
     linkToken.mint(FINANCE_ADMIN, 1000e18);
     linkToken.mint(STRANGER, 1000e18);
-    usdToken.mint(OWNER, 1000e18);
-    usdToken.mint(UPKEEP_ADMIN, 1000e18);
-    usdToken.mint(FINANCE_ADMIN, 1000e18);
-    usdToken.mint(STRANGER, 1000e18);
+
+    usdToken18.mint(OWNER, 1000e18);
+    usdToken18.mint(UPKEEP_ADMIN, 1000e18);
+    usdToken18.mint(FINANCE_ADMIN, 1000e18);
+    usdToken18.mint(STRANGER, 1000e18);
+
+    usdToken6.mint(OWNER, 1000e6);
+    usdToken6.mint(UPKEEP_ADMIN, 1000e6);
+    usdToken6.mint(FINANCE_ADMIN, 1000e6);
+    usdToken6.mint(STRANGER, 1000e6);
+
     weth.mint(OWNER, 1000e18);
     weth.mint(UPKEEP_ADMIN, 1000e18);
     weth.mint(FINANCE_ADMIN, 1000e18);
@@ -127,7 +142,7 @@ contract BaseTest is Test {
   }
 
   /// @notice deploys the component parts of a registry, but nothing more
-  function deployRegistry(AutoBase.PayoutMode payoutMode) internal returns (IAutomationRegistryMaster2_3) {
+  function deployRegistry(AutoBase.PayoutMode payoutMode) internal returns (Registry) {
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
     AutomationRegistryLogicC2_3 logicC2_3 = new AutomationRegistryLogicC2_3(
       address(linkToken),
@@ -141,23 +156,25 @@ contract BaseTest is Test {
     );
     AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(logicC2_3);
     AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
-    return IAutomationRegistryMaster2_3(payable(address(new AutomationRegistry2_3(logicA2_3))));
+    return Registry(payable(address(new AutomationRegistry2_3(logicA2_3))));
   }
 
   /// @notice deploys and configures a registry, registrar, and everything needed for most tests
   function deployAndConfigureRegistryAndRegistrar(
     AutoBase.PayoutMode payoutMode
-  ) internal returns (IAutomationRegistryMaster2_3, AutomationRegistrar2_3) {
-    IAutomationRegistryMaster2_3 registry = deployRegistry(payoutMode);
+  ) internal returns (Registry, AutomationRegistrar2_3) {
+    Registry registry = deployRegistry(payoutMode);
 
-    IERC20[] memory billingTokens = new IERC20[](3);
-    billingTokens[0] = IERC20(address(usdToken));
+    IERC20[] memory billingTokens = new IERC20[](4);
+    billingTokens[0] = IERC20(address(usdToken18));
     billingTokens[1] = IERC20(address(weth));
     billingTokens[2] = IERC20(address(linkToken));
+    billingTokens[3] = IERC20(address(usdToken6));
     uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
-    minRegistrationFees[0] = 100000000000000000000; // 100 USD
-    minRegistrationFees[1] = 5000000000000000000; // 5 Native
-    minRegistrationFees[2] = 5000000000000000000; // 5 LINK
+    minRegistrationFees[0] = 100e18; // 100 USD
+    minRegistrationFees[1] = 5e18; // 5 Native
+    minRegistrationFees[2] = 5e18; // 5 LINK
+    minRegistrationFees[3] = 100e6; // 100 USD
     address[] memory billingTokenAddresses = new address[](billingTokens.length);
     for (uint256 i = 0; i < billingTokens.length; i++) {
       billingTokenAddresses[i] = address(billingTokens[i]);
@@ -169,21 +186,32 @@ contract BaseTest is Test {
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100_000_000, // $1
-      minSpend: 1000000000000000000 // 1 USD
+      minSpend: 1e18, // 1 USD
+      decimals: 18
     });
     billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(NATIVE_USD_FEED),
       fallbackPrice: 100_000_000, // $1
-      minSpend: 5000000000000000000 // 5 Native
+      minSpend: 5e18, // 5 Native
+      decimals: 18
     });
     billingTokenConfigs[2] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: DEFAULT_GAS_FEE_PPB, // 10%
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(LINK_USD_FEED),
       fallbackPrice: 1_000_000_000, // $10
-      minSpend: 1000000000000000000 // 1 LINK
+      minSpend: 1e18, // 1 LINK
+      decimals: 18
+    });
+    billingTokenConfigs[3] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
+      priceFeed: address(USDTOKEN_USD_FEED),
+      fallbackPrice: 1e8, // $1
+      minSpend: 1e6, // 1 USD
+      decimals: 6
     });
 
     if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
@@ -233,7 +261,7 @@ contract BaseTest is Test {
       fallbackGasPrice: 20_000_000_000,
       fallbackLinkPrice: 2_000_000_000, // $20
       fallbackNativePrice: 400_000_000_000, // $4,000
-      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      transcoder: address(TRANSCODER),
       registrars: registrars,
       upkeepPrivilegeManager: PRIVILEGE_MANAGER,
       chainModule: address(new ChainModuleBase()),
@@ -258,13 +286,14 @@ contract BaseTest is Test {
   /// @notice this function updates the billing config for the provided token on the provided registry,
   /// and throws an error if the token is not found
   function _updateBillingTokenConfig(
-    IAutomationRegistryMaster2_3 registry,
+    Registry registry,
     address billingToken,
     AutomationRegistryBase2_3.BillingConfig memory newConfig
   ) internal {
     (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
     AutomationRegistryBase2_3.OnchainConfig memory config = registry.getConfig();
     address[] memory billingTokens = registry.getBillingTokens();
+
     AutomationRegistryBase2_3.BillingConfig[]
       memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
 
@@ -289,6 +318,84 @@ contract BaseTest is Test {
       billingTokens,
       billingTokenConfigs
     );
+  }
+
+  /// @notice this function removes a billing token from the registry
+  function _removeBillingTokenConfig(Registry registry, address billingToken) internal {
+    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
+    AutomationRegistryBase2_3.OnchainConfig memory config = registry.getConfig();
+    address[] memory billingTokens = registry.getBillingTokens();
+
+    address[] memory newBillingTokens = new address[](billingTokens.length - 1);
+    AutomationRegistryBase2_3.BillingConfig[]
+      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length - 1);
+
+    uint256 j = 0;
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      if (billingTokens[i] != billingToken) {
+        if (j == newBillingTokens.length) revert("could not find billing token provided on registry");
+        newBillingTokens[j] = billingTokens[i];
+        billingTokenConfigs[j] = registry.getBillingTokenConfig(billingTokens[i]);
+        j++;
+      }
+    }
+
+    registry.setConfigTypeSafe(
+      signers,
+      transmitters,
+      f,
+      config,
+      OFFCHAIN_CONFIG_VERSION,
+      "",
+      newBillingTokens,
+      billingTokenConfigs
+    );
+  }
+
+  function _transmit(uint256 id, Registry registry) internal {
+    uint256[] memory ids = new uint256[](1);
+    ids[0] = id;
+    _transmit(ids, registry);
+  }
+
+  function _transmit(uint256[] memory ids, Registry registry) internal {
+    uint256[] memory upkeepIds = new uint256[](ids.length);
+    uint256[] memory gasLimits = new uint256[](ids.length);
+    bytes[] memory performDatas = new bytes[](ids.length);
+    bytes[] memory triggers = new bytes[](ids.length);
+    for (uint256 i = 0; i < ids.length; i++) {
+      upkeepIds[i] = ids[i];
+      gasLimits[i] = registry.getUpkeep(ids[i]).performGas;
+      performDatas[i] = new bytes(0);
+      uint8 triggerType = registry.getTriggerType(ids[i]);
+      if (triggerType == 0) {
+        triggers[i] = _encodeConditionalTrigger(
+          AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
+        );
+      } else {
+        revert("not implemented");
+      }
+    }
+    AutoBase.Report memory report = AutoBase.Report(
+      uint256(1000000000),
+      uint256(2000000000),
+      upkeepIds,
+      gasLimits,
+      triggers,
+      performDatas
+    );
+
+    bytes memory reportBytes = _encodeReport(report);
+    (, , bytes32 configDigest) = registry.latestConfigDetails();
+    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
+    uint256[] memory signerPKs = new uint256[](2);
+    signerPKs[0] = SIGNING_KEY0;
+    signerPKs[1] = SIGNING_KEY1;
+    (bytes32[] memory rs, bytes32[] memory ss, bytes32 vs) = _signReport(reportBytes, reportContext, signerPKs);
+
+    vm.startPrank(TRANSMITTERS[0]);
+    registry.transmit(reportContext, reportBytes, rs, ss, vs);
+    vm.stopPrank();
   }
 
   /// @notice Gather signatures on report data
@@ -335,10 +442,10 @@ contract BaseTest is Test {
     linkToken.mint(recipient, amount);
   }
 
-  /// @dev mints USDToken to the recipient
-  function _mintERC20(address recipient, uint256 amount) internal {
+  /// @dev mints USDToken with 18 decimals to the recipient
+  function _mintERC20_18Decimals(address recipient, uint256 amount) internal {
     vm.prank(OWNER);
-    usdToken.mint(recipient, amount);
+    usdToken18.mint(recipient, amount);
   }
 
   /// @dev returns a pseudo-random 32 bytes

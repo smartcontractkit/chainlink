@@ -16,7 +16,8 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
   uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 ETH
   bytes32 private vrfKeyHash = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
   uint32 private wrapperGasOverhead = 10_000;
-  uint32 private coordinatorGasOverhead = 20_000;
+  uint32 private coordinatorGasOverheadNative = 20_000;
+  uint32 private coordinatorGasOverheadLink = 40_000;
   uint256 private s_wrapperSubscriptionId;
 
   ExposedVRFCoordinatorV2_5 private s_testCoordinator;
@@ -101,7 +102,9 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
   function setConfigWrapper() internal {
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
-      coordinatorGasOverhead, // coordinator gas overhead
+      coordinatorGasOverheadNative, // coordinator gas overhead native
+      coordinatorGasOverheadLink, // coordinator gas overhead link
+      0, // coordinator gas overhead per word
       0, // native premium percentage,
       0, // link premium percentage
       vrfKeyHash, // keyHash
@@ -117,14 +120,18 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
       ,
       ,
       uint32 _wrapperGasOverhead,
-      uint32 _coordinatorGasOverhead,
+      uint32 _coordinatorGasOverheadNative,
+      uint32 _coordinatorGasOverheadLink,
+      uint16 _coordinatorGasOverheadPerWord,
       uint8 _coordinatorNativePremiumPercentage,
       uint8 _coordinatorLinkPremiumPercentage,
       bytes32 _keyHash,
       uint8 _maxNumWords
     ) = s_wrapper.getConfig();
     assertEq(_wrapperGasOverhead, wrapperGasOverhead);
-    assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
+    assertEq(_coordinatorGasOverheadNative, coordinatorGasOverheadNative);
+    assertEq(_coordinatorGasOverheadLink, coordinatorGasOverheadLink);
+    assertEq(0, _coordinatorGasOverheadPerWord);
     assertEq(0, _coordinatorNativePremiumPercentage);
     assertEq(0, _coordinatorLinkPremiumPercentage);
     assertEq(vrfKeyHash, _keyHash);
@@ -219,16 +226,16 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
 
     // Request randomness from wrapper.
     uint32 callbackGasLimit = 1_000_000;
-    uint256 wrapperCost = s_wrapper.calculateRequestPrice(callbackGasLimit);
+    uint256 wrapperCost = s_wrapper.calculateRequestPrice(callbackGasLimit, 0);
     vm.expectEmit(true, true, true, true);
     emit WrapperRequestMade(1, wrapperCost);
     uint256 requestId = s_consumer.makeRequest(callbackGasLimit, 0, 1);
     assertEq(requestId, 1);
 
     (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
-    uint32 expectedPaid = (callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead) * 2;
-    uint256 wrapperCostEstimate = s_wrapper.estimateRequestPrice(callbackGasLimit, tx.gasprice);
-    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPrice(callbackGasLimit);
+    uint32 expectedPaid = (callbackGasLimit + wrapperGasOverhead + coordinatorGasOverheadLink) * 2;
+    uint256 wrapperCostEstimate = s_wrapper.estimateRequestPrice(callbackGasLimit, 0, tx.gasprice);
+    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPrice(callbackGasLimit, 0);
     assertEq(paid, expectedPaid); // 1_030_000 * 2 for link/native ratio
     assertEq(uint256(paid), wrapperCostEstimate);
     assertEq(wrapperCostEstimate, wrapperCostCalculation);
@@ -333,16 +340,17 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
 
     // Request randomness from wrapper.
     uint32 callbackGasLimit = 1_000_000;
+    uint32 numWords = 1;
     vm.expectEmit(true, true, true, true);
-    uint256 wrapperCost = s_wrapper.calculateRequestPriceNative(callbackGasLimit);
+    uint256 wrapperCost = s_wrapper.calculateRequestPriceNative(callbackGasLimit, numWords);
     emit WrapperRequestMade(1, wrapperCost);
-    uint256 requestId = s_consumer.makeRequestNative(callbackGasLimit, 0, 1);
+    uint256 requestId = s_consumer.makeRequestNative(callbackGasLimit, 0, numWords);
     assertEq(requestId, 1);
 
     (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
-    uint32 expectedPaid = callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead;
-    uint256 wrapperNativeCostEstimate = s_wrapper.estimateRequestPriceNative(callbackGasLimit, tx.gasprice);
-    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPriceNative(callbackGasLimit);
+    uint32 expectedPaid = callbackGasLimit + wrapperGasOverhead + coordinatorGasOverheadNative;
+    uint256 wrapperNativeCostEstimate = s_wrapper.estimateRequestPriceNative(callbackGasLimit, 0, tx.gasprice);
+    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPriceNative(callbackGasLimit, 0);
     assertEq(paid, expectedPaid);
     assertEq(uint256(paid), wrapperNativeCostEstimate);
     assertEq(wrapperNativeCostEstimate, wrapperCostCalculation);

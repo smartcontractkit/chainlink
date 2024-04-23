@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type ChainsController interface {
@@ -23,7 +22,7 @@ type ChainsController interface {
 }
 
 type chainsController[R jsonapi.EntityNamer] struct {
-	network       relay.Network
+	network       string
 	resourceName  string
 	chainStats    chainlink.ChainStatuser
 	errNotEnabled error
@@ -41,7 +40,7 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.tomlKey)
 }
 
-func newChainsController[R jsonapi.EntityNamer](network relay.Network, chainStats chainlink.ChainsNodesStatuser, errNotEnabled error,
+func newChainsController[R jsonapi.EntityNamer](network string, chainStats chainlink.ChainsNodesStatuser, errNotEnabled error,
 	newResource func(types.ChainStatus) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[R] {
 	return &chainsController[R]{
 		network:       network,
@@ -79,7 +78,7 @@ func (cc *chainsController[R]) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return
 	}
-	relayID := relay.ID{Network: cc.network, ChainID: c.Param("ID")}
+	relayID := types.RelayID{Network: cc.network, ChainID: c.Param("ID")}
 	chain, err := cc.chainStats.ChainStatus(c, relayID)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)

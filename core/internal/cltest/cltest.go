@@ -38,6 +38,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
@@ -182,8 +183,8 @@ type JobPipelineConfig interface {
 
 func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, dbCfg pg.QConfig, legacyChains legacyevm.LegacyChainContainer, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, lggr, dbCfg, jpcfg.MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, lggr, dbCfg)
+	prm := pipeline.NewORM(db, lggr, jpcfg.MaxSuccessfulRuns())
+	btORM := bridges.NewORM(db)
 	jrm := job.NewORM(db, prm, btORM, keyStore, lggr, dbCfg)
 	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, legacyChains, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
@@ -263,18 +264,19 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 }
 
 func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID ubig.Big) {
-	require.NoError(t, app.KeyStore.Unlock(Password))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.KeyStore.Unlock(ctx, Password))
 
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
 			app.Keys = append(app.Keys, v)
 		case p2pkey.KeyV2:
-			require.NoError(t, app.GetKeyStore().P2P().Add(v))
+			require.NoError(t, app.GetKeyStore().P2P().Add(ctx, v))
 		case csakey.KeyV2:
-			require.NoError(t, app.GetKeyStore().CSA().Add(v))
+			require.NoError(t, app.GetKeyStore().CSA().Add(ctx, v))
 		case ocr2key.KeyBundle:
-			require.NoError(t, app.GetKeyStore().OCR2().Add(v))
+			require.NoError(t, app.GetKeyStore().OCR2().Add(ctx, v))
 		}
 	}
 
@@ -341,7 +343,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
 	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
@@ -534,7 +536,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 func (ta *TestApplication) Start(ctx context.Context) error {
 	ta.t.Helper()
 	ta.Started = true
-	err := ta.ChainlinkApplication.KeyStore.Unlock(Password)
+	err := ta.ChainlinkApplication.KeyStore.Unlock(ctx, Password)
 	if err != nil {
 		return err
 	}
@@ -576,7 +578,7 @@ func (ta *TestApplication) MustSeedNewSession(email string) (id string) {
 
 // ImportKey adds private key to the application keystore and database
 func (ta *TestApplication) Import(ctx context.Context, content string) {
-	require.NoError(ta.t, ta.KeyStore.Unlock(Password))
+	require.NoError(ta.t, ta.KeyStore.Unlock(ctx, Password))
 	_, err := ta.KeyStore.Eth().Import(ctx, []byte(content), Password, &FixtureChainID)
 	require.NoError(ta.t, err)
 }
@@ -588,6 +590,7 @@ type User struct {
 
 func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	ta.t.Helper()
+	ctx := testutils.Context(ta.t)
 
 	if user == nil {
 		user = &User{}
@@ -604,7 +607,7 @@ func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	u, err := clsessions.NewUser(user.Email, Password, user.Role)
 	require.NoError(ta.t, err)
 
-	err = ta.BasicAdminUsersORM().CreateUser(&u)
+	err = ta.BasicAdminUsersORM().CreateUser(ctx, &u)
 	require.NoError(ta.t, err)
 
 	sessionID := ta.MustSeedNewSession(user.Email)
@@ -660,9 +663,10 @@ func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Sh
 }
 
 // NewKeyStore returns a new, unlocked keystore
-func NewKeyStore(t testing.TB, db *sqlx.DB, cfg pg.QConfig) keystore.Master {
-	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger.TestLogger(t), cfg)
-	require.NoError(t, keystore.Unlock(Password))
+func NewKeyStore(t testing.TB, ds sqlutil.DataSource) keystore.Master {
+	ctx := testutils.Context(t)
+	keystore := keystore.NewInMemory(ds, utils.FastScryptParams, logger.TestLogger(t))
+	require.NoError(t, keystore.Unlock(ctx, Password))
 	return keystore
 }
 
@@ -1510,8 +1514,8 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	}
 }
 
-func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
-	testutils.AssertCount(t, db, tableName, expected)
+func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected int64) {
+	testutils.AssertCount(t, ds, tableName, expected)
 }
 
 func WaitForCount(t *testing.T, db *sqlx.DB, tableName string, want int64) {
@@ -1559,8 +1563,8 @@ func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
-func NewTestTxStore(t *testing.T, db *sqlx.DB) txmgr.TestEvmTxStore {
-	return txmgr.NewTxStore(db, logger.TestLogger(t))
+func NewTestTxStore(t *testing.T, ds sqlutil.DataSource) txmgr.TestEvmTxStore {
+	return txmgr.NewTxStore(ds, logger.TestLogger(t))
 }
 
 // ClearDBTables deletes all rows from the given tables

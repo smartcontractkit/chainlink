@@ -1,3 +1,4 @@
+{{ if and (hasKey .Values "geth") .Values.geth.enabled }}
 {{- if .Values.networkPolicies.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -20,4 +21,5 @@ spec:
           port: 8544
         - protocol: TCP
           port: 8546
+{{- end }}
 {{- end }}

@@ -14,9 +14,14 @@ import (
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
 type PluginConfig struct {
-	JuelsPerFeeCoinPipeline      string          `json:"juelsPerFeeCoinSource"`
-	JuelsPerFeeCoinCacheDuration models.Interval `json:"juelsPerFeeCoinCacheDuration"`
-	JuelsPerFeeCoinCacheDisabled bool            `json:"juelsPerFeeCoinCacheDisabled"`
+	JuelsPerFeeCoinPipeline string `json:"juelsPerFeeCoinSource"`
+	// JuelsPerFeeCoinCache is disabled when nil
+	JuelsPerFeeCoinCache *JuelsPerFeeCoinCache `json:"juelsPerFeeCoinCache"`
+}
+
+type JuelsPerFeeCoinCache struct {
+	UpdateInterval          models.Interval `json:"updateInterval"`
+	StalenessAlertThreshold models.Interval `json:"stalenessAlertThreshold"`
 }
 
 // ValidatePluginConfig validates the arguments for the Median plugin.
@@ -25,12 +30,13 @@ func ValidatePluginConfig(config PluginConfig) error {
 		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
 	}
 
-	// unset duration defaults later
-	if config.JuelsPerFeeCoinCacheDuration != 0 {
-		if config.JuelsPerFeeCoinCacheDuration.Duration() < time.Second*30 {
-			return errors.Errorf("juelsPerFeeCoinSource cache duration: %s is below 30 second minimum", config.JuelsPerFeeCoinCacheDuration.Duration().String())
-		} else if config.JuelsPerFeeCoinCacheDuration.Duration() > time.Minute*20 {
-			return errors.Errorf("juelsPerFeeCoinSource cache duration: %s is above 20 minute maximum", config.JuelsPerFeeCoinCacheDuration.Duration().String())
+	// unset durations have a default set late
+	if config.JuelsPerFeeCoinCache != nil {
+		updateInterval := config.JuelsPerFeeCoinCache.UpdateInterval.Duration()
+		if updateInterval != 0 && updateInterval < time.Second*30 {
+			return errors.Errorf("juelsPerFeeCoinSourceCache update interval: %s is below 30 second minimum", updateInterval.String())
+		} else if updateInterval > time.Minute*20 {
+			return errors.Errorf("juelsPerFeeCoinSourceCache update interval: %s is above 20 minute maximum", updateInterval.String())
 		}
 	}
 
