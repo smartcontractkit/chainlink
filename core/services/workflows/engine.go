@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -25,7 +25,7 @@ const (
 type Engine struct {
 	services.StateMachine
 	logger              logger.Logger
-	registry            types.CapabilitiesRegistry
+	registry            core.CapabilitiesRegistry
 	workflow            *workflow
 	executionStates     *inMemoryStore
 	pendingStepRequests chan stepRequest
@@ -591,7 +591,7 @@ type Config struct {
 	Spec             string
 	WorkflowID       string
 	Lggr             logger.Logger
-	Registry         types.CapabilitiesRegistry
+	Registry         core.CapabilitiesRegistry
 	MaxWorkerLimit   int
 	QueueSize        int
 	NewWorkerTimeout time.Duration

@@ -19,7 +19,7 @@ require (
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/fatih/color v1.16.0
 	github.com/fxamacker/cbor/v2 v2.5.0
-	github.com/gagliardetto/solana-go v1.4.1-0.20220428092759-5250b4abbb27
+	github.com/gagliardetto/solana-go v1.8.4
 	github.com/getsentry/sentry-go v0.19.0
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-contrib/expvar v0.0.1
@@ -72,14 +72,14 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chain-selectors v1.0.10
 	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240419105123-fc5d616c7d2e
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240419205832-845fa69af8d9
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419131812-73d148593d92
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540
-	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240119021347-3c541a78cdb8
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240216142700-c5869534c19e
+	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240422130241-13c17a91b2ab
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240422172640-59d47c73ba58
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240325075535-0f7eb05ee595
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20240222010609-cd67d123c772
-	github.com/smartcontractkit/libocr v0.0.0-20240326191951-2bbe9382d052
+	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/wsrpc v0.8.1
@@ -132,7 +132,6 @@ require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -181,7 +180,7 @@ require (
 	github.com/ethereum/c-kzg-4844 v0.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
-	github.com/gagliardetto/binary v0.7.1 // indirect
+	github.com/gagliardetto/binary v0.7.7 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
 	github.com/gballet/go-verkle v0.1.1-0.20231031103413-a67434b50f46 // indirect
@@ -291,6 +290,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.15.0 // indirect
 	github.com/status-im/keycard-go v0.2.0 // indirect
+	github.com/streamingfast/logging v0.0.0-20220405224725-2755dab2ce75 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
@@ -315,6 +315,7 @@ require (
 	github.com/zondax/ledger-go v0.14.1 // indirect
 	go.dedis.ch/protobuf v1.0.11 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
+	go.mongodb.org/mongo-driver v1.15.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.21.0 // indirect

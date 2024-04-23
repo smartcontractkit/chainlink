@@ -2,21 +2,8 @@
 
 CRIB is a devspace configuration to launch chainlink cluster for system level tests
 
-Install `kubefwd` (no nixpkg for it yet, planned)
-
-```
-brew install txn2/tap/kubefwd
-```
-
-If you want to build images you need [docker](https://docs.docker.com/engine/install/) service running
-
-Enter the shell (from the root project dir)
-
-```
-nix develop
-```
-
 # Develop
+<<<<<<<< HEAD:crib/README.md
 
 ## New cluster
 
@@ -94,11 +81,32 @@ If you used `devspace dev ...` always use `devspace reset pods` to switch the po
 If you would like to use `helm` directly, please uncomment data in `values.yaml`
 
 ## Install from local files
+========
+## Install from release
+Note: The setup below doesn't work at the moment.
+
+Add the repository
+
+```
+helm repo add chainlink-cluster https://raw.githubusercontent.com/smartcontractkit/chainlink/helm-release/
+helm repo update
+```
+
+Set default namespace
+
+```
+kubectl create ns cl-cluster
+kubectl config set-context --current --namespace cl-cluster
+```
+
+Install
+>>>>>>>> 566fdc43e043e34f258e627583fb3b653d8bed29:charts/chainlink-cluster/README.md
 
 ```
 helm install -f values.yaml cl-cluster .
 ```
 
+<<<<<<<< HEAD:crib/README.md
 Forward all apps (in another terminal)
 
 ```
@@ -154,3 +162,21 @@ pnpm link --global dashboard-tests
 ```
 
 Then run the tests with commands mentioned above
+========
+## Create a new release
+Note: The setup below doesn't work at the moment.
+
+Bump version in `Chart.yml` add your changes and add `helm_release` label to any PR to trigger a release
+
+## Helm Test
+
+```
+helm test cl-cluster
+```
+
+## Uninstall
+
+```
+helm uninstall cl-cluster
+```
+>>>>>>>> 566fdc43e043e34f258e627583fb3b653d8bed29:charts/chainlink-cluster/README.md

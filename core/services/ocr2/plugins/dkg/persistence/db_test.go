@@ -10,19 +10,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 	"github.com/smartcontractkit/chainlink-vrf/types/hash"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 func setup(t testing.TB) (ocr2vrftypes.DKGSharePersistence, *sqlx.DB) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	return NewShareDB(db, lggr, pgtest.NewQConfig(true), big.NewInt(1337), relay.EVM), db
+	return NewShareDB(db, lggr, pgtest.NewQConfig(true), big.NewInt(1337), types.NetworkEVM), db
 }
 
 func TestShareDB_WriteShareRecords(t *testing.T) {
