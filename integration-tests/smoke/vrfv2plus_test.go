@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
@@ -218,7 +217,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
-		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
 			vrfKey,
@@ -2034,22 +2033,6 @@ func TestVRFNodeReorg(t *testing.T) {
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
 	})
-}
-
-func checkBlock(t *testing.T, evmClient blockchain.EVMClient, blockNumber *big.Int, expectedTxHash common.Hash) *types.Block {
-	fmt.Println("######## CHECKING BLOCK NUMBER ########", blockNumber)
-	randRequestBlock, err := evmClient.GetEthClient().BlockByNumber(testcontext.Get(t), blockNumber)
-	require.NoError(t, err)
-	randRequestBlockTransactions := randRequestBlock.Transactions()
-
-	for _, tx := range randRequestBlockTransactions {
-		fmt.Println("randRequestBlockTransaction HASH", tx.Hash().String())
-		if tx.Hash().Cmp(expectedTxHash) == 0 {
-			fmt.Println("MATCH!!!! BLOCK has the rand request tx", tx.Hash().String())
-		}
-	}
-	fmt.Println("number of txs", len(randRequestBlockTransactions), "for block", randRequestBlock.NumberU64())
-	return randRequestBlock
 }
 
 func getRPCUrl(env *test_env.CLClusterTestEnv, chainID int64) (string, error) {
