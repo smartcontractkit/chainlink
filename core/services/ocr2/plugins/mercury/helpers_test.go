@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -86,6 +87,8 @@ func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (
 			return nil, errors.New("could not extract public key from grpc outgoing context")
 		}
 		peerID = md.Get("csa-key")[0]
+		signature := md.Get("signature")[0]
+		require.NoError(s.t, VerifySignature(peerID, req, signature), "signature verification failed")
 	} else {
 		p, ok := peer.FromContext(ctx)
 		if !ok {
@@ -94,7 +97,7 @@ func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (
 
 		peerID = p.PublicKey.String()
 	}
-	
+
 	r := request{peerID, req}
 	s.reqsCh <- r
 
@@ -113,6 +116,8 @@ func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRe
 			return nil, errors.New("could not extract public key from grpc outgoing context")
 		}
 		peerID = md.Get("csa-key")[0]
+		signature := md.Get("signature")[0]
+		require.NoError(s.t, VerifySignature(peerID, lrr, signature), "signature verification failed")
 	} else {
 		p, ok := peer.FromContext(ctx)
 		if !ok {
@@ -121,7 +126,6 @@ func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRe
 		peerID = p.PublicKey.String()
 	}
 	s.t.Logf("mercury server got latest report from %v for feed id 0x%x", peerID, lrr.FeedId)
-	
 
 	out := new(pb.LatestReportResponse)
 	out.Report = new(pb.Report)
@@ -134,6 +138,29 @@ func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRe
 	}
 	out.Report.Payload = payload
 	return out, nil
+}
+
+type PbRequest interface {
+	String() string
+}
+
+// VerifySignature verifies the signature of the request
+// TODO: Should live in a separate module
+func VerifySignature(publicKeyStr string, request PbRequest, signature string) error {
+	publicKeyBytes, err := hexutil.Decode("0x" + publicKeyStr)
+	if err != nil {
+		return err
+	}
+
+	canonicalRequestString := request.String()
+	signedBytes, err := hexutil.Decode("0x" + signature)
+	if err != nil {
+		return err
+	}
+	if !ed25519.Verify(publicKeyBytes, []byte(canonicalRequestString), signedBytes) {
+		return errors.New("signature verification failed")
+	}
+	return nil
 }
 
 // Routes start logic based on TLS attributes of srv
@@ -169,7 +196,7 @@ func startMercuryGrpcServer(t *testing.T, srv *mercuryServer) (serverURL string)
 	port := freeport.GetOne(t)
 	serverUrl := fmt.Sprintf("127.0.0.1:%v", port)
 	lis, err := net.Listen("tcp", serverUrl)
-	t.Cleanup(func() {lis.Close()})
+	t.Cleanup(func() { lis.Close() })
 	if err != nil {
 		t.Fatalf("FAIL: startMercuryGrpcServer failed to listen: %v", err)
 	}

@@ -379,9 +379,9 @@ func Test_GRPC_Signature(t *testing.T) {
 		csaKey: csakey.MustNewV2XXXTestingOnly(testutils.MustParseBigInt(t, "32")),
 	}
 
-	FeedIDString := "testFeedID"
+	FeedIDStr := "testFeedID"
 	latestReportRequest := &pb.LatestReportRequest{
-		FeedId: []byte(FeedIDString),
+		FeedId: []byte(FeedIDStr),
 	}
 
 	// Generate the signature
@@ -391,6 +391,8 @@ func Test_GRPC_Signature(t *testing.T) {
 	// Verify the signature
 	err = VerifySignature(client.csaKey.PublicKey, latestReportRequest, signature)
 	require.NoError(t, err)
+
+	t.Fatalf("message: %v, \n signature: %v", latestReportRequest.String(), signature)
 }
 
 // TODO:

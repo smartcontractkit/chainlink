@@ -384,7 +384,11 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 		return nil, errors.Wrap(err, "Transmit call failed")
 	}
 
-	ctx = metadata.AppendToOutgoingContext(ctx, "csa-key", w.csaKey.PublicKeyString())
+	signature, err := w.Sign(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "Transmit call failed")
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx, "csa-key", w.csaKey.PublicKeyString(), "signature", signature)
 	resp, err = w.rawClient.Transmit(ctx, req)
 	w.handleTimeout(err)
 	if err != nil {
@@ -438,7 +442,11 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 		return nil, errors.Wrap(err, "LatestReport failed")
 	}
 
-	ctx = metadata.AppendToOutgoingContext(ctx, "csa-key", w.csaKey.PublicKeyString())
+	signature, err := w.Sign(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "Transmit call failed")
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx, "csa-key", w.csaKey.PublicKeyString(), "signature", signature)
 	var cached bool
 	if w.cache == nil {
 		resp, err = w.rawClient.LatestReport(ctx, req)
