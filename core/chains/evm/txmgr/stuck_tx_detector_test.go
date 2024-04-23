@@ -295,7 +295,8 @@ func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 		attempts2 := tx2.TxAttempts[0]
 
 		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			res.Write([]byte(fmt.Sprintf(`{"errcode": 0,"errmsg": "","data": {"%s": 1, "%s": 0}}`, attempts1.Hash, attempts2.Hash)))
+			_, err := res.Write([]byte(fmt.Sprintf(`{"errcode": 0,"errmsg": "","data": {"%s": 1, "%s": 0}}`, attempts1.Hash, attempts2.Hash)))
+			require.NoError(t, err)
 		}))
 		defer func() { testServer.Close() }()
 		testUrl, err := url.Parse(testServer.URL)
