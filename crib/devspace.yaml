@@ -52,7 +52,7 @@ commands:
   ttl: |-
     kubectl label namespace $1 cleanup.kyverno.io/ttl=$2 --overwrite
   workload: |-
-    cd ../../integration-tests/load/ocr && go test -v -run TestOCRLoad || cd -
+    cd ../integration-tests/load/ocr && go test -v -run TestOCRLoad || cd -
   dashboard_deploy: |-
     go run dashboard/cmd/deploy.go
   dashboard_test: |-
@@ -98,7 +98,7 @@ deployments:
       releaseName: "app"
       chart:
         name: cl-cluster
-        path: .
+        path: ../charts/chainlink-cluster
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy

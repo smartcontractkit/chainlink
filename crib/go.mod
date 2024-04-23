@@ -34,5 +34,5 @@ replace (
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 
 	github.com/sercand/kuberesolver/v4 => github.com/sercand/kuberesolver/v5 v5.1.1
-	github.com/smartcontractkit/chainlink/dashboard-lib => ../../dashboard-lib
+	github.com/smartcontractkit/chainlink/dashboard-lib => ./../dashboard-lib
 )

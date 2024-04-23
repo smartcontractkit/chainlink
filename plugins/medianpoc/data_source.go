@@ -11,13 +11,13 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type DataSource struct {
-	pipelineRunner types.PipelineRunnerService
+	pipelineRunner core.PipelineRunnerService
 	spec           string
 	lggr           logger.Logger
 
@@ -32,13 +32,13 @@ func (d *DataSource) Observe(ctx context.Context, reportTimestamp ocrtypes.Repor
 	}
 
 	// NOTE: job metadata is automatically attached by the pipeline runner service
-	vars := types.Vars{
+	vars := core.Vars{
 		Vars: map[string]interface{}{
 			"jobRun": md,
 		},
 	}
 
-	results, err := d.pipelineRunner.ExecuteRun(ctx, d.spec, vars, types.Options{})
+	results, err := d.pipelineRunner.ExecuteRun(ctx, d.spec, vars, core.Options{})
 	if err != nil {
 		return nil, err
 	}
