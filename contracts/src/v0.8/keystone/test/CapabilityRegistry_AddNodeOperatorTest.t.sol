@@ -15,7 +15,7 @@ contract CapabilityRegistry_AddNodeOperatorTest is BaseTest {
 
     function test_RevertWhen_NodeOperatorAdminAddressZero() public {
         changePrank(ADMIN);
-        vm.expectRevert(CapabilityRegistry.InvalidNodeOperatorAdmin.selector);
+        vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
         s_capabilityRegistry.addNodeOperator(address(0), NODE_OPERATOR_ONE_NAME);
     }
 
