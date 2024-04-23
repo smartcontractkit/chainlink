@@ -179,7 +179,12 @@ describe('VRFCoordinatorV2', () => {
             c.weiPerUnitLink,
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
           ),
-      ).to.be.revertedWith('InvalidRequestConfirmations(201, 201, 200)')
+      )
+        .to.be.revertedWithCustomError(
+          vrfCoordinatorV2,
+          'InvalidRequestConfirmations',
+        )
+        .withArgs(201, 201, 200)
     })
 
     it('positive fallback price', async function () {
@@ -194,7 +199,9 @@ describe('VRFCoordinatorV2', () => {
             0,
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
           ),
-      ).to.be.revertedWith('InvalidLinkWeiPrice(0)')
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, 'InvalidLinkWeiPrice')
+        .withArgs(0)
       await expect(
         vrfCoordinatorV2
           .connect(owner)
@@ -206,7 +213,9 @@ describe('VRFCoordinatorV2', () => {
             -1,
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
           ),
-      ).to.be.revertedWith('InvalidLinkWeiPrice(-1)')
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, 'InvalidLinkWeiPrice')
+        .withArgs(-1)
     })
   })
 
@@ -261,7 +270,7 @@ describe('VRFCoordinatorV2', () => {
         vrfCoordinatorV2
           .connect(subOwner)
           .addConsumer(subId, randomAddressString()),
-      ).to.be.revertedWith(`TooManyConsumers()`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `TooManyConsumers`)
     })
   })
 
@@ -275,7 +284,9 @@ describe('VRFCoordinatorV2', () => {
         vrfCoordinatorV2
           .connect(random)
           .requestSubscriptionOwnerTransfer(subId, randomAddress),
-      ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeSubOwner`)
+        .withArgs(subOwnerAddress)
     })
     it('owner can request transfer', async function () {
       await expect(
@@ -304,7 +315,7 @@ describe('VRFCoordinatorV2', () => {
         vrfCoordinatorV2
           .connect(subOwner)
           .acceptSubscriptionOwnerTransfer(1203123123),
-      ).to.be.revertedWith(`InvalidSubscription`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidSubscription`)
     })
     it('must be requested owner to accept', async function () {
       await expect(
@@ -316,7 +327,9 @@ describe('VRFCoordinatorV2', () => {
         vrfCoordinatorV2
           .connect(subOwner)
           .acceptSubscriptionOwnerTransfer(subId),
-      ).to.be.revertedWith(`MustBeRequestedOwner("${randomAddress}")`)
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeRequestedOwner`)
+        .withArgs(randomAddress)
     })
     it('requested owner can accept', async function () {
       await expect(
@@ -344,12 +357,14 @@ describe('VRFCoordinatorV2', () => {
         vrfCoordinatorV2
           .connect(subOwner)
           .addConsumer(1203123123, randomAddress),
-      ).to.be.revertedWith(`InvalidSubscription`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidSubscription`)
     })
     it('must be owner', async function () {
       await expect(
         vrfCoordinatorV2.connect(random).addConsumer(subId, randomAddress),
-      ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeSubOwner`)
+        .withArgs(subOwnerAddress)
     })
     it('add is idempotent', async function () {
       await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)
@@ -366,7 +381,7 @@ describe('VRFCoordinatorV2', () => {
       // await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
       await expect(
         vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress),
-      ).to.be.revertedWith(`TooManyConsumers()`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `TooManyConsumers`)
       // Same is true if we first create with the maximum
       const consumers: string[] = []
       for (let i = 0; i < 100; i++) {
@@ -375,7 +390,7 @@ describe('VRFCoordinatorV2', () => {
       subId = await createSubscriptionWithConsumers(consumers)
       await expect(
         vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress),
-      ).to.be.revertedWith(`TooManyConsumers()`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `TooManyConsumers`)
     })
     it('owner can update', async function () {
       await expect(
@@ -396,12 +411,14 @@ describe('VRFCoordinatorV2', () => {
         vrfCoordinatorV2
           .connect(subOwner)
           .removeConsumer(1203123123, randomAddress),
-      ).to.be.revertedWith(`InvalidSubscription`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidSubscription`)
     })
     it('must be owner', async function () {
       await expect(
         vrfCoordinatorV2.connect(random).removeConsumer(subId, randomAddress),
-      ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeSubOwner`)
+        .withArgs(subOwnerAddress)
     })
     it('owner can update', async function () {
       const subBefore = await vrfCoordinatorV2.getSubscription(subId)
@@ -440,14 +457,16 @@ describe('VRFCoordinatorV2', () => {
         vrfCoordinatorV2
           .connect(subOwner)
           .cancelSubscription(1203123123, subOwnerAddress),
-      ).to.be.revertedWith(`InvalidSubscription`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidSubscription`)
     })
     it('must be owner', async function () {
       await expect(
         vrfCoordinatorV2
           .connect(random)
           .cancelSubscription(subId, subOwnerAddress),
-      ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeSubOwner`)
+        .withArgs(subOwnerAddress)
     })
     it('can cancel', async function () {
       await linkToken
@@ -468,7 +487,7 @@ describe('VRFCoordinatorV2', () => {
       assert.equal(randomBalance.toString(), '1000000000000001000')
       await expect(
         vrfCoordinatorV2.connect(subOwner).getSubscription(subId),
-      ).to.be.revertedWith('InvalidSubscription')
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, 'InvalidSubscription')
     })
     it('can add same consumer after canceling', async function () {
       await linkToken
@@ -511,7 +530,7 @@ describe('VRFCoordinatorV2', () => {
         vrfCoordinatorV2
           .connect(subOwner)
           .cancelSubscription(subId, randomAddress),
-      ).to.be.revertedWith('PendingRequestExists()')
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, 'PendingRequestExists')
       // However the owner is able to cancel
       // funds go to the sub owner.
       await expect(
@@ -617,17 +636,23 @@ describe('VRFCoordinatorV2', () => {
     // Non-owners cannot change the consumers
     await expect(
       vrfCoordinatorV2.connect(random).addConsumer(subId, randomAddress),
-    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
+    )
+      .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeSubOwner`)
+      .withArgs(subOwnerAddress)
     await expect(
       vrfCoordinatorV2.connect(random).removeConsumer(subId, randomAddress),
-    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
+    )
+      .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeSubOwner`)
+      .withArgs(subOwnerAddress)
 
     // Non-owners cannot ask to transfer ownership
     await expect(
       vrfCoordinatorV2
         .connect(random)
         .requestSubscriptionOwnerTransfer(subId, randomAddress),
-    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
+    )
+      .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeSubOwner`)
+      .withArgs(subOwnerAddress)
 
     // Owners can request ownership transfership
     await expect(
@@ -641,7 +666,9 @@ describe('VRFCoordinatorV2', () => {
     // Non-requested owners cannot accept
     await expect(
       vrfCoordinatorV2.connect(subOwner).acceptSubscriptionOwnerTransfer(subId),
-    ).to.be.revertedWith(`MustBeRequestedOwner("${randomAddress}")`)
+    )
+      .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeRequestedOwner`)
+      .withArgs(randomAddress)
 
     // Requested owners can accept
     await expect(
@@ -659,7 +686,9 @@ describe('VRFCoordinatorV2', () => {
     // Non-owners cannot cancel
     await expect(
       vrfCoordinatorV2.connect(random).cancelSubscription(subId, randomAddress),
-    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
+    )
+      .to.be.revertedWithCustomError(vrfCoordinatorV2, `MustBeSubOwner`)
+      .withArgs(subOwnerAddress)
 
     await expect(
       vrfCoordinatorV2
@@ -689,7 +718,7 @@ describe('VRFCoordinatorV2', () => {
           1000, // callbackGasLimit
           1, // numWords
         ),
-      ).to.be.revertedWith(`InvalidSubscription()`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidSubscription`)
     })
     it('invalid consumer', async function () {
       await expect(
@@ -700,9 +729,9 @@ describe('VRFCoordinatorV2', () => {
           1000, // callbackGasLimit
           1, // numWords
         ),
-      ).to.be.revertedWith(
-        `InvalidConsumer(${subId}, "${randomAddress.toString()}")`,
       )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidConsumer`)
+        .withArgs(subId, randomAddress)
     })
     it('invalid req confs', async function () {
       await expect(
@@ -713,7 +742,12 @@ describe('VRFCoordinatorV2', () => {
           1000, // callbackGasLimit
           1, // numWords
         ),
-      ).to.be.revertedWith(`InvalidRequestConfirmations(0, 1, 200)`)
+      )
+        .to.be.revertedWithCustomError(
+          vrfCoordinatorV2,
+          `InvalidRequestConfirmations`,
+        )
+        .withArgs(0, 1, 200)
     })
     it('gas limit too high', async function () {
       await linkToken.connect(subOwner).transferAndCall(
@@ -729,7 +763,9 @@ describe('VRFCoordinatorV2', () => {
           1000001, // callbackGasLimit
           1, // numWords
         ),
-      ).to.be.revertedWith(`GasLimitTooBig(1000001, 1000000)`)
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `GasLimitTooBig`)
+        .withArgs(1000001, 1000000)
     })
 
     it('nonce increments', async function () {
@@ -817,9 +853,9 @@ describe('VRFCoordinatorV2', () => {
           1000, // callbackGasLimit
           1, // numWords
         ),
-      ).to.be.revertedWith(
-        `InvalidConsumer(${subId}, "${randomAddress.toString()}")`,
       )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidConsumer`)
+        .withArgs(subId, randomAddress)
     })
     it('cancel/add subscription invariant', async function () {
       await linkToken.connect(subOwner).transferAndCall(
@@ -841,9 +877,9 @@ describe('VRFCoordinatorV2', () => {
           1000, // callbackGasLimit
           1, // numWords
         ),
-      ).to.be.revertedWith(
-        `InvalidConsumer(${subId}, "${randomAddress.toString()}")`,
       )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidConsumer`)
+        .withArgs(subId, randomAddress)
     })
   })
 
@@ -853,7 +889,7 @@ describe('VRFCoordinatorV2', () => {
         vrfCoordinatorV2
           .connect(oracle)
           .oracleWithdraw(randomAddressString(), BigNumber.from('100')),
-      ).to.be.revertedWith(`InsufficientBalance`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `InsufficientBalance`)
     })
   })
 
@@ -894,7 +930,7 @@ describe('VRFCoordinatorV2', () => {
           0, // Fee PPM
           BigNumber.from('1000000000000000000'),
         ),
-      ).to.be.revertedWith(`PaymentTooLarge()`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `PaymentTooLarge`)
     })
 
     it('non-positive link wei price should revert', async function () {
@@ -917,7 +953,9 @@ describe('VRFCoordinatorV2', () => {
             0, // Fee PPM
             BigNumber.from('1000000000000000000'),
           ),
-      ).to.be.revertedWith(`InvalidLinkWeiPrice(0)`)
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidLinkWeiPrice`)
+        .withArgs(0)
       const mockLinkEthNegative = await mockAggregatorV3Factory.deploy(0, -1)
       const vrfCoordinatorV2TestHelperNegative =
         await vrfCoordinatorV2TestHelperFactory.deploy(
@@ -931,7 +969,9 @@ describe('VRFCoordinatorV2', () => {
             0, // Fee PPM
             BigNumber.from('1000000000000000000'),
           ),
-      ).to.be.revertedWith(`InvalidLinkWeiPrice(-1)`)
+      )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `InvalidLinkWeiPrice`)
+        .withArgs(-1)
     })
   })
 
@@ -953,7 +993,12 @@ describe('VRFCoordinatorV2', () => {
       await vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey)
       await expect(
         vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey),
-      ).to.be.revertedWith(`ProvingKeyAlreadyRegistered("${kh}")`)
+      )
+        .to.be.revertedWithCustomError(
+          vrfCoordinatorV2,
+          `ProvingKeyAlreadyRegistered`,
+        )
+        .withArgs(kh)
     })
     it('deregister key emits log', async function () {
       const testKey = [BigNumber.from('1'), BigNumber.from('2')]
@@ -968,9 +1013,9 @@ describe('VRFCoordinatorV2', () => {
     it('cannot deregister unregistered key', async function () {
       const testKey = [BigNumber.from('1'), BigNumber.from('2')]
       const kh = await vrfCoordinatorV2.hashOfKey(testKey)
-      await expect(
-        vrfCoordinatorV2.deregisterProvingKey(testKey),
-      ).to.be.revertedWith(`NoSuchProvingKey("${kh}")`)
+      await expect(vrfCoordinatorV2.deregisterProvingKey(testKey))
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `NoSuchProvingKey`)
+        .withArgs(kh)
     })
     it('can register after deregister', async function () {
       const testKey = [BigNumber.from('1'), BigNumber.from('2')]
@@ -1006,9 +1051,11 @@ describe('VRFCoordinatorV2', () => {
       ]
       await expect(
         vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc),
-      ).to.be.revertedWith(
-        `NoSuchProvingKey("0xa15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c")`,
       )
+        .to.be.revertedWithCustomError(vrfCoordinatorV2, `NoSuchProvingKey`)
+        .withArgs(
+          '0xa15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c',
+        )
     })
     it('no corresponding request', async function () {
       const proof = [
@@ -1031,7 +1078,10 @@ describe('VRFCoordinatorV2', () => {
       ]
       await expect(
         vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc),
-      ).to.be.revertedWith(`NoCorrespondingRequest()`)
+      ).to.be.revertedWithCustomError(
+        vrfCoordinatorV2,
+        `NoCorrespondingRequest`,
+      )
     })
     it('incorrect commitment wrong blocknum', async function () {
       const subId = await createSubscription()
@@ -1073,7 +1123,7 @@ describe('VRFCoordinatorV2', () => {
       ]
       await expect(
         vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc),
-      ).to.be.revertedWith(`IncorrectCommitment()`)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2, `IncorrectCommitment`)
     })
   })
 

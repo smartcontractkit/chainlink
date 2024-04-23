@@ -80,7 +80,7 @@ DefaultLockTimeout = '15s' # Default
 DefaultQueryTimeout = '10s' # Default
 LogQueries = false # Default
 MaxIdleConns = 10 # Default
-MaxOpenConns = 20 # Default
+MaxOpenConns = 100 # Default
 MigrateOnStartup = true # Default
 ```
 
@@ -119,7 +119,7 @@ Postgres has connection limits, so you must use caution when increasing this val
 
 ### MaxOpenConns
 ```toml
-MaxOpenConns = 20 # Default
+MaxOpenConns = 100 # Default
 ```
 MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 
@@ -1782,7 +1782,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5400000
+GasLimit = 10500000
 ```
 
 </p></details>
@@ -4285,7 +4285,7 @@ Enabled = true
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '50 mwei'
+PriceMin = '1 mwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
@@ -5183,6 +5183,90 @@ GasLimit = 5400000
 
 </p></details>
 
+<details><summary>Linea Sepolia (59141)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 900
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '3m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 wei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 1000
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+```
+
+</p></details>
+
 <details><summary>Linea Mainnet (59144)</summary><p>
 
 ```toml
@@ -5267,6 +5351,91 @@ GasLimit = 5400000
 
 </p></details>
 
+<details><summary>Metis Sepolia (59902)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'metis'
+FinalityDepth = 1
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+```
+
+</p></details>
+
 <details><summary>Polygon Mumbai (80001)</summary><p>
 
 ```toml
@@ -5312,6 +5481,90 @@ BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
 EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 2000
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+```
+
+</p></details>
+
+<details><summary>Polygon Amoy (80002)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 500
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 5
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 10
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 5000
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '20 gwei'
+BumpPercent = 20
+BumpThreshold = 5
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
@@ -6029,7 +6282,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5400000
+GasLimit = 10500000
 ```
 
 </p></details>
@@ -6990,6 +7243,110 @@ If `FinalityTagEnabled = false`, poll is not performed and `pool_rpc_node_highes
 reported based on latest block and finality depth.
 
 Set to 0 to disable.
+
+## EVM.NodePool.Errors
+```toml
+[EVM.NodePool.Errors]
+NonceTooLow = '(: |^)nonce too low' # Example
+NonceTooHigh = '(: |^)nonce too high' # Example
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Example
+LimitReached = '(: |^)limit reached' # Example
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
+TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
+InsufficientEth = '(: |^)insufficeint eth' # Example
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
+L2FeeTooLow = '(: |^)l2 fee too low' # Example
+L2FeeTooHigh = '(: |^)l2 fee too high' # Example
+L2Full = '(: |^)l2 full' # Example
+TransactionAlreadyMined = '(: |^)transaction already mined' # Example
+Fatal = '(: |^)fatal' # Example
+ServiceUnavailable = '(: |^)service unavailable' # Example
+```
+Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
+
+### NonceTooLow
+```toml
+NonceTooLow = '(: |^)nonce too low' # Example
+```
+NonceTooLow is a regex pattern to match against nonce too low errors.
+
+### NonceTooHigh
+```toml
+NonceTooHigh = '(: |^)nonce too high' # Example
+```
+NonceTooHigh is a regex pattern to match against nonce too high errors.
+
+### ReplacementTransactionUnderpriced
+```toml
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Example
+```
+ReplacementTransactionUnderpriced is a regex pattern to match against replacement transaction underpriced errors.
+
+### LimitReached
+```toml
+LimitReached = '(: |^)limit reached' # Example
+```
+LimitReached is a regex pattern to match against limit reached errors.
+
+### TransactionAlreadyInMempool
+```toml
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
+```
+TransactionAlreadyInMempool is a regex pattern to match against transaction already in mempool errors.
+
+### TerminallyUnderpriced
+```toml
+TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
+```
+TerminallyUnderpriced is a regex pattern to match against terminally underpriced errors.
+
+### InsufficientEth
+```toml
+InsufficientEth = '(: |^)insufficeint eth' # Example
+```
+InsufficientEth is a regex pattern to match against insufficient eth errors.
+
+### TxFeeExceedsCap
+```toml
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
+```
+TxFeeExceedsCap is a regex pattern to match against tx fee exceeds cap errors.
+
+### L2FeeTooLow
+```toml
+L2FeeTooLow = '(: |^)l2 fee too low' # Example
+```
+L2FeeTooLow is a regex pattern to match against l2 fee too low errors.
+
+### L2FeeTooHigh
+```toml
+L2FeeTooHigh = '(: |^)l2 fee too high' # Example
+```
+L2FeeTooHigh is a regex pattern to match against l2 fee too high errors.
+
+### L2Full
+```toml
+L2Full = '(: |^)l2 full' # Example
+```
+L2Full is a regex pattern to match against l2 full errors.
+
+### TransactionAlreadyMined
+```toml
+TransactionAlreadyMined = '(: |^)transaction already mined' # Example
+```
+TransactionAlreadyMined is a regex pattern to match against transaction already mined errors.
+
+### Fatal
+```toml
+Fatal = '(: |^)fatal' # Example
+```
+Fatal is a regex pattern to match against fatal errors.
+
+### ServiceUnavailable
+```toml
+ServiceUnavailable = '(: |^)service unavailable' # Example
+```
+ServiceUnavailable is a regex pattern to match against service unavailable errors.
 
 ## EVM.OCR
 ```toml

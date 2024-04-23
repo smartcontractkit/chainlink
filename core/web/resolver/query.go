@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
@@ -31,7 +30,7 @@ func (r *Resolver) Bridge(ctx context.Context, args struct{ ID graphql.ID }) (*B
 		return nil, err
 	}
 
-	bridge, err := r.App.BridgeORM().FindBridge(name)
+	bridge, err := r.App.BridgeORM().FindBridge(ctx, name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewBridgePayload(bridge, err), nil
@@ -55,7 +54,7 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	brdgs, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
+	brdgs, count, err := r.App.BridgeORM().BridgeTypes(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +68,7 @@ func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*Ch
 		return nil, err
 	}
 
-	cs, _, err := r.App.EVMORM().Chains(relay.ChainID(args.ID))
+	cs, _, err := r.App.EVMORM().Chains(string(args.ID))
 	if err != nil {
 		return nil, err
 	}

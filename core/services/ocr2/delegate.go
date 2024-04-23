@@ -27,6 +27,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
@@ -37,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
@@ -59,6 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
@@ -105,10 +108,11 @@ func (e ErrRelayNotEnabled) Error() string {
 }
 
 type RelayGetter interface {
-	Get(id relay.ID) (loop.Relayer, error)
+	Get(id types.RelayID) (loop.Relayer, error)
 }
 type Delegate struct {
-	db                    *sqlx.DB
+	db                    *sqlx.DB // legacy: prefer to use ds instead
+	ds                    sqlutil.DataSource
 	jobORM                job.ORM
 	bridgeORM             bridges.ORM
 	mercuryORM            evmmercury.ORM
@@ -127,7 +131,7 @@ type Delegate struct {
 	mailMon           *mailbox.Monitor
 
 	legacyChains         legacyevm.LegacyChainContainer // legacy: use relayers instead
-	capabilitiesRegistry types.CapabilitiesRegistry
+	capabilitiesRegistry core.CapabilitiesRegistry
 }
 
 type DelegateConfig interface {
@@ -182,7 +186,9 @@ type ocr2Config interface {
 	ContractPollInterval() time.Duration
 	ContractTransmitterTransmitTimeout() time.Duration
 	DatabaseTimeout() time.Duration
+	DefaultTransactionQueueDepth() uint32
 	KeyBundleID() (string, error)
+	SimulateTransactions() bool
 	TraceLogging() bool
 	CaptureAutomationCustomTelemetry() bool
 }
@@ -222,6 +228,7 @@ var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
 	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	jobORM job.ORM,
 	bridgeORM bridges.ORM,
 	mercuryORM evmmercury.ORM,
@@ -238,10 +245,11 @@ func NewDelegate(
 	ethKs keystore.Eth,
 	relayers RelayGetter,
 	mailMon *mailbox.Monitor,
-	capabilitiesRegistry types.CapabilitiesRegistry,
+	capabilitiesRegistry core.CapabilitiesRegistry,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,
+		ds:                    ds,
 		jobORM:                jobORM,
 		bridgeORM:             bridgeORM,
 		mercuryORM:            mercuryORM,
@@ -273,7 +281,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
-func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) error {
+func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 	// If the job spec is malformed in any way, we report the error but return nil so that
 	//  the job deletion itself isn't blocked.
 
@@ -289,14 +297,14 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) er
 		return nil
 	}
 	// we only have clean to do for the EVM
-	if rid.Network == relay.EVM {
-		return d.cleanupEVM(ctx, jb, q, rid)
+	if rid.Network == types.NetworkEVM {
+		return d.cleanupEVM(ctx, jb, rid)
 	}
 	return nil
 }
 
 // cleanupEVM is a helper for clean up EVM specific state when a job is deleted
-func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, q pg.Queryer, relayID relay.ID) error {
+func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.RelayID) error {
 	//  If UnregisterFilter returns an
 	//  error, that means it failed to remove a valid active filter from the db.  We do abort the job deletion
 	//  in that case, since it should be easy for the user to retry and will avoid leaving the db in
@@ -381,7 +389,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
 
-	if rid.Network == relay.EVM {
+	if rid.Network == types.NetworkEVM {
 		lggr = logger.Sugared(lggr.With("evmChainID", rid.ChainID))
 
 		chain, err2 := d.legacyChains.Get(rid.ChainID)
@@ -394,6 +402,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
+	spec.RelayConfig.ApplyDefaultsOCR2(d.cfg.OCR2())
 
 	ocrDB := NewDB(d.db, spec.ID, 0, lggr, d.cfg.Database())
 	if d.peerWrapper == nil {
@@ -471,7 +480,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesOCR2Functions(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
 
 	case types.GenericPlugin:
-		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, d.capabilitiesRegistry)
+		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, d.capabilitiesRegistry,
+			kvStore)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -530,10 +540,10 @@ func (d *Delegate) newServicesGenericPlugin(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
-	capabilitiesRegistry types.CapabilitiesRegistry,
+	capabilitiesRegistry core.CapabilitiesRegistry,
+	keyValueStore core.KeyValueStore,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
-
 	// NOTE: we don't need to validate this config, since that happens as part of creating the job.
 	// See: validate/validate.go's `validateSpec`.
 	pCfg := validate.OCR2GenericPluginConfig{}
@@ -629,7 +639,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		return nil, fmt.Errorf("cannot dump plugin config to string before sending to plugin: %s", err)
 	}
 
-	pluginConfig := types.ReportingPluginServiceConfig{
+	pluginConfig := core.ReportingPluginServiceConfig{
 		PluginName:    pCfg.PluginName,
 		Command:       command,
 		ProviderType:  pCfg.ProviderType,
@@ -649,7 +659,8 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	switch pCfg.OCRVersion {
 	case 2:
-		plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog)
+		plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta,
+			errorLog, keyValueStore)
 		oracleArgs := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -674,7 +685,8 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	case 3:
 		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
-		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog, capabilitiesRegistry)
+		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog,
+			capabilitiesRegistry, keyValueStore)
 		contractTransmitter := ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter())
 		oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -731,7 +743,7 @@ func (d *Delegate) newServicesMercury(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "mercury"}
 	}
-	if rid.Network != relay.EVM {
+	if rid.Network != types.NetworkEVM {
 		return nil, fmt.Errorf("mercury services: expected EVM relayer got %s", rid.Network)
 	}
 	relayer, err := d.RelayGetter.Get(rid)
@@ -815,7 +827,7 @@ func (d *Delegate) newServicesLLO(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "streams"}
 	}
-	if rid.Network != relay.EVM {
+	if rid.Network != types.NetworkEVM {
 		return nil, fmt.Errorf("streams services: expected EVM relayer got %s", rid.Network)
 	}
 	relayer, err := d.RelayGetter.Get(rid)
@@ -990,7 +1002,7 @@ func (d *Delegate) newServicesDKG(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "DKG"}
 	}
-	if rid.Network != relay.EVM {
+	if rid.Network != types.NetworkEVM {
 		return nil, fmt.Errorf("DKG services: expected EVM relayer got %s", rid.Network)
 	}
 
@@ -1060,7 +1072,7 @@ func (d *Delegate) newServicesOCR2VRF(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "VRF"}
 	}
-	if rid.Network != relay.EVM {
+	if rid.Network != types.NetworkEVM {
 		return nil, fmt.Errorf("VRF services: expected EVM relayer got %s", rid.Network)
 	}
 	chain, err2 := d.legacyChains.Get(rid.ChainID)
@@ -1174,10 +1186,10 @@ func (d *Delegate) newServicesOCR2VRF(
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 	})
 	dkgReportingPluginFactoryDecorator := func(wrapped ocrtypes.ReportingPluginFactory) ocrtypes.ReportingPluginFactory {
-		return promwrapper.NewPromFactory(wrapped, "DKG", string(relay.EVM), chain.ID())
+		return promwrapper.NewPromFactory(wrapped, "DKG", string(types.NetworkEVM), chain.ID())
 	}
 	vrfReportingPluginFactoryDecorator := func(wrapped ocrtypes.ReportingPluginFactory) ocrtypes.ReportingPluginFactory {
-		return promwrapper.NewPromFactory(wrapped, "OCR2VRF", string(relay.EVM), chain.ID())
+		return promwrapper.NewPromFactory(wrapped, "OCR2VRF", string(types.NetworkEVM), chain.ID())
 	}
 	noopMonitoringEndpoint := telemetry.NoopAgent{}
 	oracles, err2 := ocr2vrf.NewOCR2VRF(ocr2vrf.DKGVRFArgs{
@@ -1278,7 +1290,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keeper2"}
 	}
-	if rid.Network != relay.EVM {
+	if rid.Network != types.NetworkEVM {
 		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %s", rid.Network)
 	}
 
@@ -1308,6 +1320,14 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	keeperProvider, ok := provider.(types.AutomationProvider)
 	if !ok {
 		return nil, errors.New("could not coerce PluginProvider to AutomationProvider")
+	}
+
+	// TODO: (AUTO-9355) remove once we remove v0
+	if useBufferV1 := cfg.UseBufferV1 != nil && *cfg.UseBufferV1; useBufferV1 {
+		logProviderFeatures, ok := keeperProvider.LogEventProvider().(logprovider.LogEventProviderFeatures)
+		if ok {
+			logProviderFeatures.WithBufferVersion("v1")
+		}
 	}
 
 	services, err := ocr2keeper.EVMDependencies21(kb)
@@ -1421,7 +1441,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keepers2.0"}
 	}
-	if rid.Network != relay.EVM {
+	if rid.Network != types.NetworkEVM {
 		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %s", rid.Network)
 	}
 	chain, err2 := d.legacyChains.Get(rid.ChainID)
@@ -1545,7 +1565,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "functions"}
 	}
-	if rid.Network != relay.EVM {
+	if rid.Network != types.NetworkEVM {
 		return nil, fmt.Errorf("functions services: expected EVM relayer got %s", rid.Network)
 	}
 	chain, err := d.legacyChains.Get(rid.ChainID)
@@ -1657,8 +1677,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		Job:               jb,
 		JobORM:            d.jobORM,
 		BridgeORM:         d.bridgeORM,
-		QConfig:           d.cfg.Database(),
-		DB:                d.db,
+		DS:                d.ds,
 		Chain:             chain,
 		ContractID:        spec.ContractID,
 		Logger:            lggr,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -43,12 +44,13 @@ func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress types.EIP55A
 }
 
 func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec) {
+	ctx := testutils.Context(t)
 	jobORM, pipelineORM := getORMs(t, db)
 	webhookSpec := job.WebhookSpec{}
 	require.NoError(t, jobORM.InsertWebhookSpec(&webhookSpec))
 
 	pSpec := pipeline.Pipeline{}
-	pipelineSpecID, err := pipelineORM.CreateSpec(pSpec, 0)
+	pipelineSpecID, err := pipelineORM.CreateSpec(ctx, nil, pSpec, 0)
 	require.NoError(t, err)
 
 	createdJob := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook",
@@ -60,10 +62,10 @@ func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec)
 
 func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
 	config := configtest.NewTestGeneralConfig(t)
-	keyStore := NewKeyStore(t, db, config.Database())
+	keyStore := NewKeyStore(t, db)
 	lggr := logger.TestLogger(t)
-	pipelineORM = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
-	bridgeORM := bridges.NewORM(db, lggr, config.Database())
+	pipelineORM = pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
+	bridgeORM := bridges.NewORM(db)
 	jobORM = job.NewORM(db, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
 	t.Cleanup(func() { jobORM.Close() })
 	return

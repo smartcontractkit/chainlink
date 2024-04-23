@@ -3,8 +3,8 @@ package remote_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -24,5 +24,7 @@ func TestTarget_Placeholder(t *testing.T) {
 	dispatcher := remoteMocks.NewDispatcher(t)
 	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil)
 	target := remote.NewRemoteTargetCaller(commoncap.CapabilityInfo{}, donInfo, dispatcher, lggr)
-	require.NoError(t, target.Execute(ctx, nil, commoncap.CapabilityRequest{}))
+
+	_, err := target.Execute(ctx, commoncap.CapabilityRequest{})
+	assert.NoError(t, err)
 }

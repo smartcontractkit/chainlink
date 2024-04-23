@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
@@ -270,7 +269,7 @@ func (l *functionsListener) setError(ctx context.Context, requestId RequestID, e
 		promRequestComputationError.WithLabelValues(l.contractAddressHex).Inc()
 	}
 	readyForProcessing := errType != INTERNAL_ERROR
-	if err := l.pluginORM.SetError(requestId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
+	if err := l.pluginORM.SetError(ctx, requestId, errType, errBytes, time.Now(), readyForProcessing); err != nil {
 		l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(requestId), "err", err)
 	}
 }
@@ -321,7 +320,7 @@ func (l *functionsListener) HandleOffchainRequest(ctx context.Context, request *
 		CoordinatorContractAddress: &senderAddr,
 		OnchainMetadata:            []byte(OffchainRequestMarker),
 	}
-	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
+	if err := l.pluginORM.CreateRequest(ctx, newReq); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {
 			l.logger.Warnw("HandleOffchainRequest: received duplicate request ID", "requestID", formatRequestId(requestId), "err", err)
 		} else {
@@ -348,7 +347,7 @@ func (l *functionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleR
 		CoordinatorContractAddress: &request.CoordinatorContract,
 		OnchainMetadata:            request.OnchainMetadata,
 	}
-	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
+	if err := l.pluginORM.CreateRequest(ctx, newReq); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {
 			l.logger.Warnw("handleOracleRequestV1: received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
 		} else {
@@ -395,7 +394,7 @@ func (l *functionsListener) handleRequest(ctx context.Context, requestID Request
 	requestIDStr := formatRequestId(requestID)
 	l.logger.Infow("processing request", "requestID", requestIDStr)
 
-	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
+	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient(ctx)
 	if err != nil {
 		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", requestIDStr, "err", err)
 		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(err.Error()))
@@ -450,7 +449,7 @@ func (l *functionsListener) handleRequest(ctx context.Context, requestID Request
 		promRequestComputationSuccess.WithLabelValues(l.contractAddressHex).Inc()
 		promComputationResultSize.WithLabelValues(l.contractAddressHex).Set(float64(len(computationResult)))
 		l.logger.Debugw("saving computation result", "requestID", requestIDStr)
-		if err2 := l.pluginORM.SetResult(requestID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+		if err2 := l.pluginORM.SetResult(ctx, requestID, computationResult, time.Now()); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", requestIDStr, "err", err2)
 			return err2
 		}
@@ -464,7 +463,7 @@ func (l *functionsListener) handleOracleResponseV1(response *evmrelayTypes.Oracl
 
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
-	if err := l.pluginORM.SetConfirmed(response.RequestId, pg.WithParentCtx(ctx)); err != nil {
+	if err := l.pluginORM.SetConfirmed(ctx, response.RequestId); err != nil {
 		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(response.RequestId), "err", err)
 	}
 	promRequestConfirmed.WithLabelValues(l.contractAddressHex).Inc()
@@ -486,7 +485,7 @@ func (l *functionsListener) timeoutRequests() {
 		case <-ticker.C:
 			cutoff := time.Now().Add(-(time.Duration(timeoutSec) * time.Second))
 			ctx, cancel := l.getNewHandlerContext()
-			ids, err := l.pluginORM.TimeoutExpiredResults(cutoff, batchSize, pg.WithParentCtx(ctx))
+			ids, err := l.pluginORM.TimeoutExpiredResults(ctx, cutoff, batchSize)
 			cancel()
 			if err != nil {
 				l.logger.Errorw("error when calling FindExpiredResults", "err", err)
@@ -531,7 +530,7 @@ func (l *functionsListener) pruneRequests() {
 		case <-ticker.C:
 			ctx, cancel := l.getNewHandlerContext()
 			startTime := time.Now()
-			nTotal, nPruned, err := l.pluginORM.PruneOldestRequests(maxStoredRequests, batchSize, pg.WithParentCtx(ctx))
+			nTotal, nPruned, err := l.pluginORM.PruneOldestRequests(ctx, maxStoredRequests, batchSize)
 			cancel()
 			elapsedMillis := time.Since(startTime).Milliseconds()
 			if err != nil {

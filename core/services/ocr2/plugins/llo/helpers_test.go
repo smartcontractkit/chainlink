@@ -59,7 +59,7 @@ type request struct {
 }
 
 func (r request) TransmitterID() ocr2types.Account {
-	return ocr2types.Account(fmt.Sprintf("%x", r.pk))
+	return ocr2types.Account(r.pk.String())
 }
 
 type mercuryServer struct {
@@ -114,7 +114,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
 	serverURL = lis.Addr().String()
-	s := wsrpc.NewServer(wsrpc.Creds(srv.privKey, pubKeys))
+	s := wsrpc.NewServer(wsrpc.WithCreds(srv.privKey, pubKeys))
 
 	// Register mercury implementation with the wsrpc server
 	pb.RegisterMercuryServer(s, srv)
@@ -141,7 +141,7 @@ func (node *Node) AddStreamJob(t *testing.T, spec string) {
 
 func (node *Node) AddLLOJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
+	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
@@ -304,6 +304,7 @@ fromBlock = 1`,
 }
 
 func addOCRJobs(t *testing.T, streams []Stream, serverPubKey ed25519.PublicKey, serverURL string, verifierAddress common.Address, bootstrapPeerID string, bootstrapNodePort int, nodes []Node, configStoreAddress common.Address, clientPubKeys []ed25519.PublicKey, chainID *big.Int, fromBlock int) {
+	ctx := testutils.Context(t)
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := io.ReadAll(req.Body)
@@ -319,7 +320,7 @@ func addOCRJobs(t *testing.T, streams []Stream, serverPubKey ed25519.PublicKey, 
 		t.Cleanup(bridge.Close)
 		u, _ := url.Parse(bridge.URL)
 		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName(bridgeName),
 			URL:  models.WebURL(*u),
 		}))

@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestClientConfigBuilder(t *testing.T) {
@@ -55,7 +56,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, *finalityTagEnabled, chainCfg.FinalityTagEnabled())
 
 	// let combiler tell us, when we do not have sufficient data to create evm client
-	_ = client.NewEvmClient(nodePool, chainCfg, logger.TestLogger(t), big.NewInt(10), nodes)
+	_ = client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), big.NewInt(10), nodes)
 }
 
 func TestNodeConfigs(t *testing.T) {
