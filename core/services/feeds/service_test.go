@@ -177,8 +177,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
 	keyStore := new(ksmocks.Master)
-	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, gcfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: gcfg,
 		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
@@ -187,7 +186,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), legacyChains, lggr, "1.0.0", nil)
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), gcfg.Database(), legacyChains, lggr, "1.0.0", nil)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{

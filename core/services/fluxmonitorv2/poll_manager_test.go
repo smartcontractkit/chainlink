@@ -84,6 +84,7 @@ func watchTicks(t *testing.T, pm *fluxmonitorv2.PollManager, waitDuration time.D
 }
 
 func TestPollManager_PollTicker(t *testing.T) {
+	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    pollTickerDefaultDuration,
 		PollTickerDisabled:    false,
@@ -104,6 +105,7 @@ func TestPollManager_PollTicker(t *testing.T) {
 }
 
 func TestPollManager_IdleTimer(t *testing.T) {
+	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    100 * time.Millisecond,
 		PollTickerDisabled:    true,
@@ -126,6 +128,7 @@ func TestPollManager_IdleTimer(t *testing.T) {
 }
 
 func TestPollManager_RoundTimer(t *testing.T) {
+	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    pollTickerDefaultDuration,
 		PollTickerDisabled:    true,
@@ -149,6 +152,7 @@ func TestPollManager_RoundTimer(t *testing.T) {
 }
 
 func TestPollManager_RetryTimer(t *testing.T) {
+	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:      pollTickerDefaultDuration,
 		PollTickerDisabled:      true,
@@ -185,6 +189,7 @@ func TestPollManager_RetryTimer(t *testing.T) {
 }
 
 func TestPollManager_InitialPoll(t *testing.T) {
+	t.Parallel()
 	pm := newPollManager(t)
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{})
 
@@ -193,6 +198,7 @@ func TestPollManager_InitialPoll(t *testing.T) {
 }
 
 func TestPollManager_HibernationTimer(t *testing.T) {
+	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    pollTickerDefaultDuration,
 		PollTickerDisabled:    true,
@@ -214,6 +220,7 @@ func TestPollManager_HibernationTimer(t *testing.T) {
 }
 
 func TestPollManager_HibernationOnStartThenAwaken(t *testing.T) {
+	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    pollTickerDefaultDuration,
 		PollTickerDisabled:    false,
@@ -248,6 +255,7 @@ func TestPollManager_HibernationOnStartThenAwaken(t *testing.T) {
 }
 
 func TestPollManager_AwakeOnStartThenHibernate(t *testing.T) {
+	t.Parallel()
 	pm := newPollManager(t)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
@@ -272,6 +280,7 @@ func TestPollManager_AwakeOnStartThenHibernate(t *testing.T) {
 }
 
 func TestPollManager_ShouldPerformInitialPoll(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name               string
 		pollTickerDisabled bool
@@ -339,6 +348,7 @@ func TestPollManager_ShouldPerformInitialPoll(t *testing.T) {
 }
 
 func TestPollManager_Stop(t *testing.T) {
+	t.Parallel()
 	pm := newPollManager(t)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
@@ -362,6 +372,7 @@ func TestPollManager_Stop(t *testing.T) {
 }
 
 func TestPollManager_ResetIdleTimer(t *testing.T) {
+	t.Parallel()
 	pm := newPollManager(t)
 
 	// Start again in awake mode
@@ -382,6 +393,7 @@ func TestPollManager_ResetIdleTimer(t *testing.T) {
 }
 
 func TestPollManager_ResetIdleTimerWhenHibernating(t *testing.T) {
+	t.Parallel()
 	pm := newPollManager(t)
 
 	// Start in hibernation
@@ -402,6 +414,7 @@ func TestPollManager_ResetIdleTimerWhenHibernating(t *testing.T) {
 }
 
 func TestPollManager_Reset(t *testing.T) {
+	t.Parallel()
 	pm := newPollManager(t)
 
 	// Start again in awake mode
@@ -429,6 +442,7 @@ func TestPollManager_Reset(t *testing.T) {
 }
 
 func TestPollManager_ResetWhenHibernating(t *testing.T) {
+	t.Parallel()
 	pm := newPollManager(t)
 
 	// Start in hibernation

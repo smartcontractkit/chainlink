@@ -50,7 +50,7 @@ func (c *remoteTargetCaller) UnregisterFromWorkflow(ctx context.Context, request
 	return errors.New("not implemented")
 }
 
-func (c *remoteTargetCaller) Execute(ctx context.Context, callback chan<- commoncap.CapabilityResponse, request commoncap.CapabilityRequest) error {
+func (c *remoteTargetCaller) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	c.lggr.Debugw("not implemented - executing fake remote target capability", "capabilityId", c.capInfo.ID, "nMembers", len(c.donInfo.Members))
 	for _, peerID := range c.donInfo.Members {
 		m := &types.MessageBody{
@@ -60,10 +60,12 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, callback chan<- common
 		}
 		err := c.dispatcher.Send(peerID, m)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+
+	// TODO: return a channel that will be closed when all responses are received
+	return nil, nil
 }
 
 func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {

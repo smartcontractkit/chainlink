@@ -43,6 +43,10 @@ ephemeral_addresses_number = 0
 # That's because the one we are about to send would get queued, possibly for a very long time
 pending_nonce_protection_enabled = false
 
+# when enabled when creating a new Seth client we will send 10k wei from root address to root address
+# to make sure transaction can be submited and mined
+check_rpc_health_on_start = false
+
 [Seth.nonce_manager]
 key_sync_rate_limit_per_sec = 10
 key_sync_timeout = "2s"
@@ -60,7 +64,7 @@ transfer_gas_fee = 21_000
 # gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
 # gas_limit = 8_000_000
 
-# manual settings, used when gas_estimation_enabled is false or when it fails
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
 # legacy transactions
 gas_price = 1_000_000_000
 
@@ -77,11 +81,11 @@ eip_1559_dynamic_fees = true
 
 # automated gas estimation for live networks
 # if set to true we will dynamically estimate gas for every transaction (based on suggested values, priority and congestion rate for last X blocks)
-# gas_estimation_enabled = true
+# gas_price_estimation_enabled = true
 # number of blocks to use for congestion rate estimation (it will determine buffer added on top of suggested values)
-# gas_estimation_blocks = 100
+# gas_price_estimation_blocks = 100
 # transaction priority, which determines adjustment factor multiplier applied to suggested values (fast - 1.2x, standard - 1x, slow - 0.8x)
-# gas_estimation_tx_priority = "standard"
+# gas_price_estimation_tx_priority = "standard"
 
 # URLs
 # if set they will overwrite URLs from EVMNetwork that Seth uses, can be either WS(S) or HTTP(S)
@@ -94,7 +98,7 @@ eip_1559_dynamic_fees = true
 # we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
 transfer_gas_fee = 21_000
 
-# manual settings, used when gas_estimation_enabled is false or when it fails
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
 # legacy transactions
 gas_price = 30_000_000_000
 
@@ -110,11 +114,11 @@ eip_1559_dynamic_fees = false
 
 # automated gas estimation for live networks
 # if set to true we will dynamically estimate gas for every transaction (based on suggested values, priority and congestion rate for last X blocks)
-# gas_estimation_enabled = true
+# gas_price_estimation_enabled = true
 # number of blocks to use for congestion rate estimation (it will determine buffer added on top of suggested values)
-# gas_estimation_blocks = 100
+# gas_price_estimation_blocks = 100
 # transaction priority, which determines adjustment factor multiplier applied to suggested values (fast - 1.2x, standard - 1x, slow - 0.8x)
-# gas_estimation_tx_priority = "standard"
+# gas_price_estimation_tx_priority = "standard"
 
 # URLs
 # if set they will overwrite URLs from EVMNetwork that Seth uses, can be either WS(S) or HTTP(S)
@@ -127,7 +131,7 @@ eip_1559_dynamic_fees = false
 # we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
 transfer_gas_fee = 21_000
 
-# manual settings, used when gas_estimation_enabled is false or when it fails
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
 # legacy transactions
 gas_price = 50_000_000_000
 
@@ -143,11 +147,11 @@ eip_1559_dynamic_fees = true
 
 # automated gas estimation for live networks
 # if set to true we will dynamically estimate gas for every transaction (based on suggested values, priority and congestion rate for last X blocks)
-# gas_estimation_enabled = true
+# gas_price_estimation_enabled = true
 # number of blocks to use for congestion rate estimation (it will determine buffer added on top of suggested values)
-# gas_estimation_blocks = 100
+# gas_price_estimation_blocks = 100
 # transaction priority, which determines adjustment factor multiplier applied to suggested values (fast - 1.2x, standard - 1x, slow - 0.8x)
-# gas_estimation_tx_priority = "standard"
+# gas_price_estimation_tx_priority = "standard"
 
 # URLs
 # if set they will overwrite URLs from EVMNetwork that Seth uses, can be either WS(S) or HTTP(S)
@@ -160,7 +164,7 @@ eip_1559_dynamic_fees = true
 # we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
 transfer_gas_fee = 21_000
 
-# manual settings, used when gas_estimation_enabled is false or when it fails
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
 # legacy transactions
 gas_price = 1_800_000_000
 
@@ -176,11 +180,11 @@ eip_1559_dynamic_fees = false
 
 # automated gas estimation for live networks
 # if set to true we will dynamically estimate gas for every transaction (based on suggested values, priority and congestion rate for last X blocks)
-# gas_estimation_enabled = true
+# gas_price_estimation_enabled = true
 # number of blocks to use for congestion rate estimation (it will determine buffer added on top of suggested values)
-# gas_estimation_blocks = 100
+# gas_price_estimation_blocks = 100
 # transaction priority, which determines adjustment factor multiplier applied to suggested values (fast - 1.2x, standard - 1x, slow - 0.8x)
-# gas_estimation_tx_priority = "standard"
+# gas_price_estimation_tx_priority = "standard"
 
 # URLs
 # if set they will overwrite URLs from EVMNetwork that Seth uses, can be either WS(S) or HTTP(S)
@@ -193,7 +197,7 @@ eip_1559_dynamic_fees = false
 # we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
 transfer_gas_fee = 21_000
 
-# manual settings, used when gas_estimation_enabled is false or when it fails
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
 # legacy transactions
 gas_price = 50_000_000
 

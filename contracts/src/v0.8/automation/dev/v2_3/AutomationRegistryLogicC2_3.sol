@@ -6,7 +6,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IAutomationV21PlusCommon} from "../../interfaces/IAutomationV21PlusCommon.sol";
 
 contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
