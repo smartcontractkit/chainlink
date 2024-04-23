@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -348,10 +347,11 @@ var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG,
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID         int32         `toml:"-"`
-	ContractID string        `toml:"contractID"`
-	FeedID     *common.Hash  `toml:"feedID"`
-	Relay      relay.Network `toml:"relay"`
+	ID         int32        `toml:"-"`
+	ContractID string       `toml:"contractID"`
+	FeedID     *common.Hash `toml:"feedID"`
+	// Network
+	Relay string `toml:"relay"`
 	// TODO BCF-2442 implement ChainID as top level parameter rathe than buried in RelayConfig.
 	ChainID                           string               `toml:"chainID"`
 	RelayConfig                       JSONConfig           `toml:"relayConfig"`
@@ -371,9 +371,9 @@ type OCR2OracleSpec struct {
 	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
 }
 
-func validateRelayID(id relay.ID) error {
+func validateRelayID(id types.RelayID) error {
 	// only the EVM has specific requirements
-	if id.Network == relay.EVM {
+	if id.Network == types.NetworkEVM {
 		_, err := toml.ChainIDInt64(id.ChainID)
 		if err != nil {
 			return fmt.Errorf("invalid EVM chain id %s: %w", id.ChainID, err)
@@ -382,20 +382,20 @@ func validateRelayID(id relay.ID) error {
 	return nil
 }
 
-func (s *OCR2OracleSpec) RelayID() (relay.ID, error) {
+func (s *OCR2OracleSpec) RelayID() (types.RelayID, error) {
 	cid, err := s.getChainID()
 	if err != nil {
-		return relay.ID{}, err
+		return types.RelayID{}, err
 	}
-	rid := relay.NewID(s.Relay, cid)
+	rid := types.NewRelayID(s.Relay, cid)
 	err = validateRelayID(rid)
 	if err != nil {
-		return relay.ID{}, err
+		return types.RelayID{}, err
 	}
 	return rid, nil
 }
 
-func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
+func (s *OCR2OracleSpec) getChainID() (string, error) {
 	if s.ChainID != "" {
 		return s.ChainID, nil
 	}
@@ -403,7 +403,7 @@ func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
 	return s.getChainIdFromRelayConfig()
 }
 
-func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (relay.ChainID, error) {
+func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
 
 	v, exists := s.RelayConfig["chainID"]
 	if !exists {
@@ -755,10 +755,10 @@ type LegacyGasStationSidecarSpec struct {
 
 // BootstrapSpec defines the spec to handles the node communication setup process.
 type BootstrapSpec struct {
-	ID                                int32         `toml:"-"`
-	ContractID                        string        `toml:"contractID"`
-	FeedID                            *common.Hash  `toml:"feedID"`
-	Relay                             relay.Network `toml:"relay"`
+	ID                                int32        `toml:"-"`
+	ContractID                        string       `toml:"contractID"`
+	FeedID                            *common.Hash `toml:"feedID"`
+	Relay                             string       `toml:"relay"` // RelayID.Network
 	RelayConfig                       JSONConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
 	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
