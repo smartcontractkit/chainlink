@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-import {ICapabilityRegistry} from "../interfaces/ICapabilityRegistry.sol";
+import {CapabilityRegistry} from "../interfaces/CapabilityRegistry.sol";
 
 contract CapabilityRegistry_AddNodeOperatorTest is BaseTest {
     event NodeOperatorAdded(uint256 nodeOperatorId, address indexed admin, string name);
@@ -15,25 +15,21 @@ contract CapabilityRegistry_AddNodeOperatorTest is BaseTest {
 
     function test_RevertWhen_NodeOperatorAdminAddressZero() public {
         changePrank(ADMIN);
-        vm.expectRevert(ICapabilityRegistry.InvalidNodeOperatorAdmin.selector);
+        vm.expectRevert(CapabilityRegistry.InvalidNodeOperatorAdmin.selector);
         s_capabilityRegistry.addNodeOperator(address(0), NODE_OPERATOR_ONE_NAME);
     }
 
     function test_AddNodeOperator() public {
         changePrank(ADMIN);
+
+        vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
+        emit NodeOperatorAdded(0, NODE_OPERATOR_ONE_ADMIN, NODE_OPERATOR_ONE_NAME);
         s_capabilityRegistry.addNodeOperator(NODE_OPERATOR_ONE_ADMIN, NODE_OPERATOR_ONE_NAME);
 
-        ICapabilityRegistry.NodeOperator memory nodeOperator = s_capabilityRegistry.getNodeOperator(0);
+        CapabilityRegistry.NodeOperator memory nodeOperator = s_capabilityRegistry.getNodeOperator(0);
 
         assertEq(nodeOperator.id, 0);
         assertEq(nodeOperator.admin, NODE_OPERATOR_ONE_ADMIN);
         assertEq(nodeOperator.name, NODE_OPERATOR_ONE_NAME);
-    }
-
-    function test_EmitsEvent() public {
-        changePrank(ADMIN);
-        vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-        emit NodeOperatorAdded(0, NODE_OPERATOR_ONE_ADMIN, NODE_OPERATOR_ONE_NAME);
-        s_capabilityRegistry.addNodeOperator(NODE_OPERATOR_ONE_ADMIN, NODE_OPERATOR_ONE_NAME);
     }
 }
