@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
@@ -212,7 +213,7 @@ func SetupVRFV2Contracts(
 		*vrfv2Config.MaxGasLimitCoordinatorConfig,
 		*vrfv2Config.StalenessSeconds,
 		*vrfv2Config.GasAfterPaymentCalculation,
-		big.NewInt(*vrfv2Config.FallbackWeiPerUnitLink),
+		decimal.RequireFromString(*vrfv2Config.FallbackWeiPerUnitLink).BigInt(),
 		vrfCoordinatorV2FeeConfig,
 	)
 	if err != nil {
