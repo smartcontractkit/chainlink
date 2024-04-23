@@ -606,9 +606,8 @@ func RewindSimulatedChainToBlockNumber(
 	return latestBlockNumberAfterReorg, nil
 }
 
-// todo - remove evmClient from func arguments after debugging
-func setHeadForSimulatedChain(evmClient blockchain.EVMClient, rpcURL string, rewindChainToBlockNumber uint64) error {
-
+func setHeadForSimulatedChain(rpcURL string, rewindChainToBlockNumber uint64) error {
+	// todo - remove RawJsonRPCCall after debugging
 	//var result any
 	//err := evmClient.RawJsonRPCCall(testcontext.Get(t), &result, "debug_setHead", hexutil.EncodeUint64(rewindChainToBlockNumber))
 	//require.NoError(t, err, "error setting head block")
@@ -629,11 +628,14 @@ func setHeadForSimulatedChain(evmClient blockchain.EVMClient, rpcURL string, rew
 }
 
 func makePostRequest(URL string, requestBody *bytes.Buffer) error {
-	resp, err := http.Post(URL, "application/json", requestBody)
-	defer resp.Body.Close()
-
+	req, err := http.NewRequest(http.MethodPost, URL, requestBody)
+	if err != nil {
+		return fmt.Errorf("error creating post request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("error making post request: %w", err)
 	}
+	defer resp.Body.Close()
 	return nil
 }
