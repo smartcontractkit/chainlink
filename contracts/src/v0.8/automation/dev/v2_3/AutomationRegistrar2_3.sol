@@ -6,7 +6,7 @@ import {IAutomationRegistryMaster2_3} from "../interfaces/v2_3/IAutomationRegist
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";

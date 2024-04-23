@@ -26,6 +26,7 @@ func NewTxm(
 	chainConfig ChainConfig,
 	fCfg FeeConfig,
 	txConfig config.Transactions,
+	clientErrors config.ClientErrors,
 	dbConfig DatabaseConfig,
 	listenerConfig ListenerConfig,
 	client evmclient.Client,
@@ -47,9 +48,9 @@ func NewTxm(
 	// create tx attempt builder
 	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
 	txStore := NewTxStore(sqlxDB, lggr)
-	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config
-	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
-	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
+	txmCfg := NewEvmTxmConfig(chainConfig)             // wrap Evm specific config
+	feeCfg := NewEvmTxmFeeConfig(fCfg)                 // wrap Evm specific config
+	txmClient := NewEvmTxmClient(client, clientErrors) // wrap Evm specific client
 	chainID := txmClient.ConfiguredChainID()
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)

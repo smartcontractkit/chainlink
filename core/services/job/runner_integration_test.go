@@ -54,17 +54,18 @@ import (
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
+	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
+	keyStore := cltest.NewKeyStore(t, db)
 
 	ethKeyStore := keyStore.Eth()
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
-		kb, err := keyStore.OCR().Create()
+		kb, err := keyStore.OCR().Create(ctx)
 		require.NoError(t, err)
 		kbid := models.MustSha256HashFromHex(kb.ID())
 		c.OCR.KeyBundleID = &kbid
@@ -79,7 +80,6 @@ func TestRunner(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
-	ctx := testutils.Context(t)
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	require.NoError(t, pipelineORM.Start(ctx))
 	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
@@ -198,7 +198,7 @@ func TestRunner(t *testing.T) {
 		// Reference a different one
 		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, config)
 
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, fmt.Sprintf(`
+		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = 0
@@ -437,6 +437,7 @@ answer1      [type=median index=0];
 	})
 
 	t.Run("minimal bootstrap", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
@@ -445,7 +446,7 @@ answer1      [type=median index=0];
 		evmChainID		   = "0"
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -454,7 +455,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 
 		lggr := logger.TestLogger(t)
-		_, err = keyStore.P2P().Create()
+		_, err = keyStore.P2P().Create(ctx)
 		assert.NoError(t, err)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		servicetest.Run(t, pw)
@@ -467,7 +468,7 @@ answer1      [type=median index=0];
 			monitoringEndpoint,
 			legacyChains,
 			lggr,
-			config.Database(),
+			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
@@ -475,11 +476,12 @@ answer1      [type=median index=0];
 	})
 
 	t.Run("test min non-bootstrap", func(t *testing.T) {
-		kb, err := keyStore.OCR().Create()
+		ctx := testutils.Context(t)
+		kb, err := keyStore.OCR().Create(ctx)
 		require.NoError(t, err)
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -501,7 +503,7 @@ answer1      [type=median index=0];
 			monitoringEndpoint,
 			legacyChains,
 			lggr,
-			config.Database(),
+			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
@@ -510,7 +512,7 @@ answer1      [type=median index=0];
 
 	t.Run("test min bootstrap", func(t *testing.T) {
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -529,7 +531,7 @@ answer1      [type=median index=0];
 			monitoringEndpoint,
 			legacyChains,
 			lggr,
-			config.Database(),
+			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
@@ -537,6 +539,7 @@ answer1      [type=median index=0];
 	})
 
 	t.Run("test enhanced telemetry service creation", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		testCases := []struct {
 			jbCaptureEATelemetry   bool
 			specCaptureEATelemetry bool
@@ -558,11 +561,11 @@ answer1      [type=median index=0];
 			relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 			legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
-			kb, err := keyStore.OCR().Create()
+			kb, err := keyStore.OCR().Create(ctx)
 			require.NoError(t, err)
 
 			s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
-			jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+			jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
 			require.NoError(t, err)
 			err = toml.Unmarshal([]byte(s), &jb)
 			require.NoError(t, err)
@@ -584,7 +587,7 @@ answer1      [type=median index=0];
 				monitoringEndpoint,
 				legacyChains,
 				lggr,
-				config.Database(),
+				config,
 				servicetest.Run(t, mailboxtest.NewMonitor(t)),
 			)
 
@@ -606,8 +609,9 @@ answer1      [type=median index=0];
 	})
 
 	t.Run("test job spec error is created", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		// Create a keystore with an ocr key bundle and p2p key.
-		kb, err := keyStore.OCR().Create()
+		kb, err := keyStore.OCR().Create(ctx)
 		require.NoError(t, err)
 		spec := fmt.Sprintf(ocrJobSpecTemplate, testutils.NewAddress().Hex(), kb.ID(), transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
 		jb := makeOCRJobSpecFromToml(t, spec)
@@ -628,7 +632,7 @@ answer1      [type=median index=0];
 			monitoringEndpoint,
 			legacyChains,
 			lggr,
-			config.Database(),
+			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		services, err := sd.ServicesForSpec(testutils.Context(t), *jb)
@@ -636,7 +640,6 @@ answer1      [type=median index=0];
 
 		// Return an error getting the contract code.
 		ethClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("no such code"))
-		ctx := testutils.Context(t)
 		for _, s := range services {
 			err = s.Start(ctx)
 			require.NoError(t, err)

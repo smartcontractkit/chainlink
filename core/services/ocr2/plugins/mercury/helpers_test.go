@@ -103,7 +103,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
 	serverURL = lis.Addr().String()
-	s := wsrpc.NewServer(wsrpc.Creds(srv.privKey, pubKeys))
+	s := wsrpc.NewServer(wsrpc.WithCreds(srv.privKey, pubKeys))
 
 	// Register mercury implementation with the wsrpc server
 	pb.RegisterMercuryServer(s, srv)

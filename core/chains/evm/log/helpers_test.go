@@ -94,7 +94,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config.EVM(), lggr, highestSeenHead, mailMon)
-	kst := cltest.NewKeyStore(t, db, globalConfig.Database())
+	kst := cltest.NewKeyStore(t, db)
 
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{
 		Client:         ethClient,
@@ -110,7 +110,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 		m[r.Chain().ID().String()] = r.Chain()
 	}
 	legacyChains := legacyevm.NewLegacyChains(m, cc.AppConfig().EVMConfigs())
-	pipelineHelper := cltest.NewJobPipelineV2(t, config.WebServer(), config.JobPipeline(), config.Database(), legacyChains, db, kst, nil, nil)
+	pipelineHelper := cltest.NewJobPipelineV2(t, globalConfig.WebServer(), globalConfig.JobPipeline(), globalConfig.Database(), legacyChains, db, kst, nil, nil)
 
 	return &broadcasterHelper{
 		t:              t,

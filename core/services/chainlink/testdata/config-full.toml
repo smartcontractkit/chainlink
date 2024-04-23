@@ -347,6 +347,22 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
 
+[EVM.NodePool.Errors]
+NonceTooLow = '(: |^)nonce too low'
+NonceTooHigh = '(: |^)nonce too high'
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
+LimitReached = '(: |^)limit reached'
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
+TerminallyUnderpriced = '(: |^)terminally underpriced'
+InsufficientEth = '(: |^)insufficient eth'
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
+L2FeeTooLow = '(: |^)l2 fee too low'
+L2FeeTooHigh = '(: |^)l2 fee too high'
+L2Full = '(: |^)l2 full'
+TransactionAlreadyMined = '(: |^)transaction already mined'
+Fatal = '(: |^)fatal'
+ServiceUnavailable = '(: |^)service unavailable'
+
 [EVM.OCR]
 ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'

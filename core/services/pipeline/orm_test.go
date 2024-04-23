@@ -74,7 +74,7 @@ func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM, jorm job
 	orm = pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipelineMaxSuccessfulRuns())
 	config := configtest.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
-	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	bridgeORM := bridges.NewORM(db)
 
 	jorm = job.NewORM(db, orm, bridgeORM, keyStore, lggr, config.Database())
@@ -661,7 +661,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	config := configtest.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	porm := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db)
 
@@ -764,7 +764,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	config := configtest.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	porm := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db)
 

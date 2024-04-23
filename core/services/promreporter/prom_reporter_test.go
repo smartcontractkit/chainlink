@@ -34,7 +34,7 @@ func newHead() evmtypes.Head {
 
 func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainContainer {
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
-	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
+	keyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
 	lggr := logger.TestLogger(t)
@@ -53,6 +53,7 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 		evmConfig,
 		evmConfig.GasEstimator(),
 		evmConfig.Transactions(),
+		nil,
 		dbConfig,
 		dbConfig.Listener(),
 		ethClient,
@@ -95,9 +96,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 	t.Run("with unconfirmed evm.txes", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		cfg := configtest.NewGeneralConfig(t, nil)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		var subscribeCalls atomic.Int32

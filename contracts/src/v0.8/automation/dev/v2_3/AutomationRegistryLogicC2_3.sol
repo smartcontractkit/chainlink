@@ -6,7 +6,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IAutomationV21PlusCommon} from "../../interfaces/IAutomationV21PlusCommon.sol";
 
 contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
@@ -184,7 +184,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
       payments[i + activeTransmittersLength] = transmitter.balance;
       s_transmitters[deactivatedAddr].balance = 0;
     }
-    delete s_deactivatedTransmitters;
+
+    for (uint256 idx = s_deactivatedTransmitters.length(); idx > 0; idx--) {
+      s_deactivatedTransmitters.remove(s_deactivatedTransmitters.at(idx - 1));
+    }
 
     emit NOPsSettledOffchain(payees, payments);
   }
