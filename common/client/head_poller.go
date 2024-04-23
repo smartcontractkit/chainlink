@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -41,17 +42,17 @@ func NewHeadPoller[
 		pollingFunc:     pollingFunc,
 		logger:          logger,
 		channel:         channel,
+		errCh:           make(chan error),
 		stopCh:          make(chan struct{}),
 	}
 }
 
 var _ types.Subscription = &HeadPoller[Head]{}
 
-// Subscribe starts the polling process
-func (p *HeadPoller[HEAD]) Subscribe() error {
+func (p *HeadPoller[HEAD]) Start(ctx context.Context) error {
 	return p.StartOnce("HeadPoller", func() error {
 		p.wg.Add(1)
-		go p.pollingLoop()
+		go p.pollingLoop(ctx)
 		return nil
 	})
 }
@@ -70,7 +71,7 @@ func (p *HeadPoller[HEAD]) Err() <-chan error {
 	return p.errCh
 }
 
-func (p *HeadPoller[HEAD]) pollingLoop() {
+func (p *HeadPoller[HEAD]) pollingLoop(ctx context.Context) {
 	defer p.wg.Done()
 
 	ticker := time.NewTicker(p.pollingInterval)
@@ -78,6 +79,11 @@ func (p *HeadPoller[HEAD]) pollingLoop() {
 
 	for {
 		select {
+		case <-ctx.Done():
+			p.errCh <- ctx.Err()
+			return
+		case <-p.stopCh:
+			return
 		case <-ticker.C:
 			result, err := p.pollingFunc()
 			if err != nil {
@@ -85,10 +91,18 @@ func (p *HeadPoller[HEAD]) pollingLoop() {
 				p.errCh <- err
 				continue
 			}
-			// TODO: Fix this so we don't block the polling loop if we want to exit!
-			p.channel <- result
-		case <-p.stopCh:
-			return
+
+			// TODO: If channel is full, should we drop the message?
+			// TODO: Or maybe stop polling until the channel has room?
+		sendResult:
+			for {
+				select {
+				case p.channel <- result:
+					break sendResult
+				case <-p.stopCh:
+					return
+				}
+			}
 		}
 	}
 }

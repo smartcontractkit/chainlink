@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -28,7 +29,10 @@ func Test_Poller(t *testing.T) {
 
 	// Create poller and subscribe to receive data
 	poller := NewHeadPoller[Head](time.Millisecond, pollFunc, channel, logger.Test(t))
-	require.NoError(t, poller.Subscribe())
+	ctx := context.Background()
+
+	require.NoError(t, poller.Start(ctx))
+	defer poller.Unsubscribe()
 
 	// Create goroutine to receive updates from the poller
 	pollCount := 0
@@ -43,5 +47,7 @@ func Test_Poller(t *testing.T) {
 	// Wait for a short duration to allow for some polling iterations
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, pollMax, pollCount)
-	poller.Unsubscribe()
 }
+
+// TODO: Test error in pollingFunc
+// TODO: Test context cancellation
