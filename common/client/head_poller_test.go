@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/pkg/errors"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -47,7 +47,7 @@ func Test_Poller(t *testing.T) {
 }
 
 func Test_Poller_Error(t *testing.T) {
-	// Mock polling function that returns an error every time it's called
+	// Mock polling function that returns an error
 	pollFunc := func() (Head, error) {
 		return nil, errors.New("polling error")
 	}
