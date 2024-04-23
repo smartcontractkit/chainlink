@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
@@ -106,7 +106,7 @@ func TestVRFv2Plus(t *testing.T) {
 		subBalanceBeforeRequest := subscription.Balance
 
 		// test and assert
-		randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
 			vrfKey,
@@ -163,7 +163,7 @@ func TestVRFv2Plus(t *testing.T) {
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
 		// test and assert
-		randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
 			vrfKey,
@@ -217,7 +217,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
-		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
 			vrfKey,
@@ -482,7 +482,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.False(t, pendingRequestsExist, "Pending requests should not exist")
 
 		configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout = ptr.Ptr(blockchain.StrDuration{Duration: 5 * time.Second})
-		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
 			vrfKey,
@@ -494,7 +494,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 		require.Error(t, err, "error should occur for waiting for fulfilment due to low sub balance")
 
-		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
 			vrfKey,
@@ -622,7 +622,7 @@ func TestVRFv2Plus(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
-		fulfilledEventLink, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, fulfilledEventLink, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
 			vrfKey,
@@ -633,7 +633,7 @@ func TestVRFv2Plus(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		fulfilledEventNative, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, fulfilledEventNative, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
 			vrfKey,
@@ -766,7 +766,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 
 		var fulfillmentTxFromAddresses []string
 		for i := 0; i < newEnvConfig.NumberOfTxKeysToCreate+1; i++ {
-			randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 				consumers[0],
 				vrfContracts.CoordinatorV2Plus,
 				vrfKey,
@@ -1002,7 +1002,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.Equal(t, 0, expectedEthTotalBalanceForOldCoordinator.Cmp(oldCoordinatorEthTotalBalanceAfterMigration))
 
 		//Verify rand requests fulfills with Link Token billing
-		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			newCoordinator,
 			vrfKey,
@@ -1014,7 +1014,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
 		//Verify rand requests fulfills with Native Token billing
-		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[1],
 			newCoordinator,
 			vrfKey,
@@ -1694,7 +1694,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			1,
 		)
 		require.NoError(t, err, "error creating funded sub in replay test")
-		randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[1],
 			vrfContracts.CoordinatorV2Plus,
 			vrfKey,
@@ -1862,7 +1862,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	l.Info().Uint16("minimumConfirmationDelay", *config.VRFv2Plus.General.MinimumConfirmations).Msg("Minimum Confirmation Delay")
 
 	// test and assert
-	randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+	_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		consumers[0],
 		vrfContracts.CoordinatorV2Plus,
 		vrfKey,
@@ -1877,4 +1877,168 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	require.NoError(t, err, "error getting rand request status")
 	require.True(t, status.Fulfilled)
 	l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+}
+
+func TestVRFNodeReorg(t *testing.T) {
+	t.Parallel()
+	var (
+		env                          *test_env.CLClusterTestEnv
+		vrfContracts                 *vrfcommon.VRFContracts
+		subIDsForCancellingAfterTest []*big.Int
+		defaultWalletAddress         string
+		vrfKey                       *vrfcommon.VRFKeyData
+	)
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	require.NoError(t, err, "Error getting config")
+	vrfv2PlusConfig := config.VRFv2Plus
+	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
+
+	cleanupFn := func() {
+		evmClient, err := env.GetEVMClient(chainID)
+		require.NoError(t, err, "Getting EVM client shouldn't fail")
+
+		if evmClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", evmClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+			}
+		}
+		if !*vrfv2PlusConfig.General.UseExistingEnv {
+			if err := env.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate: 0,
+		UseVRFOwner:            false,
+		UseTestCoordinator:     false,
+	}
+
+	env, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
+	require.NoError(t, err, "Error setting up VRFv2Plus universe")
+
+	evmClient, err := env.GetEVMClient(chainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
+
+	configCopy := config.MustCopy().(tc.TestConfig)
+	var isNativeBilling = true
+
+	consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+		env,
+		chainID,
+		vrfContracts.CoordinatorV2Plus,
+		configCopy,
+		vrfContracts.LinkToken,
+		1,
+		1,
+		l,
+	)
+	require.NoError(t, err, "error setting up new consumers and subs")
+	subID := subIDs[0]
+	subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+	require.NoError(t, err, "error getting subscription information")
+	vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
+	subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
+
+	t.Run("Reorg on rand request", func(t *testing.T) {
+		//1. set minimum confirmations to 5 so that we can be sure that request wont be fulfilled before reorg
+		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](6)
+
+		//2. request randomness
+		randomWordsRequestedEvent, err := vrfv2plus.RequestRandomness(
+			consumers[0],
+			vrfContracts.CoordinatorV2Plus,
+			vrfKey,
+			subID,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General,
+			l,
+		)
+		require.NoError(t, err)
+
+		// rewind chain to block number before the randomness request was made
+		rewindChainToBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber - 2
+
+		rpcUrl, err := getRPCUrl(env, chainID)
+		require.NoError(t, err, "error getting rpc url")
+
+		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
+		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), evmClient, rpcUrl, rewindChainToBlockNumber, l)
+		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlockNumber))
+
+		//4. ensure that chain is reorged and latest block number is less than the block number when request was made
+		require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
+
+		//5. ensure that rand request is not fulfilled for the request which was made on reorged fork
+		// For context - when performing debug_setHead on geth simulated chain, then tx
+		_, err = vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
+			contracts.RandomWordsFulfilledEventFilter{
+				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
+				SubIDs:     []*big.Int{subID},
+				Timeout:    time.Second * 10,
+			},
+		)
+		require.Error(t, err, "fulfillment should not be generated for the request which was made on reorged fork on Simulated Chain")
+	})
+
+	t.Run("Reorg on fulfillment", func(t *testing.T) {
+		//1. set minimum confirmations to 5 so that we can be sure that request won't be fulfilled before reorg
+		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](5)
+
+		//2. request randomness and wait for fulfillment for blockhash from Reorged Fork
+		randomWordsRequestedEvent, randomWordsFulfilledEventOnReorgedFork, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			consumers[0],
+			vrfContracts.CoordinatorV2Plus,
+			vrfKey,
+			subID,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General,
+			l,
+		)
+		require.NoError(t, err)
+
+		// rewind chain to block number after the request was made, but before the request was fulfilled
+		rewindChainToBlock := randomWordsRequestedEvent.Raw.BlockNumber + 2
+
+		rpcUrl, err := getRPCUrl(env, chainID)
+		require.NoError(t, err, "error getting rpc url")
+
+		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
+		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), evmClient, rpcUrl, rewindChainToBlock, l)
+		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlock))
+
+		//4.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
+		require.Greater(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
+
+		//4.2 ensure that chain is reorged and latest block number is less than the block number when fulfilment was performed
+		require.Less(t, latestBlockNumberAfterReorg, randomWordsFulfilledEventOnReorgedFork.Raw.BlockNumber)
+
+		//5. wait for the fulfillment which VRF Node will generate for Canonical chain
+		_, err = vrfv2plus.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2Plus,
+			randomWordsRequestedEvent.RequestId,
+			subID,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+		)
+		require.NoError(t, err, "error waiting for randomness fulfilled event")
+	})
+}
+
+func getRPCUrl(env *test_env.CLClusterTestEnv, chainID int64) (string, error) {
+	provider, err := env.GetRpcProvider(chainID)
+	if err != nil {
+		return "", err
+	}
+	return provider.PublicHttpUrls()[0], nil
 }

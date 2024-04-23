@@ -2,20 +2,24 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/rs/zerolog"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -561,4 +565,75 @@ func WaitForBlockNumberToBe(
 			return 0, err
 		}
 	}
+}
+
+// todo - move to EVMClient
+func RewindSimulatedChainToBlockNumber(
+	ctx context.Context,
+	evmClient blockchain.EVMClient,
+	rpcURL string,
+	rewindChainToBlockNumber uint64,
+	l zerolog.Logger,
+) (uint64, error) {
+	latestBlockNumber, err := evmClient.LatestBlockNumber(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("error getting latest block number: %w", err)
+	}
+
+	l.Info().
+		Str("RPC URL", rpcURL).
+		Uint64("Latest Block Number", latestBlockNumber).
+		Uint64("Rewind Chain to Block Number", rewindChainToBlockNumber).
+		Msg("Performing Reorg on chain by rewinding chain to specific block number")
+	err = setHeadForSimulatedChain(evmClient, rpcURL, rewindChainToBlockNumber)
+	if err != nil {
+		return 0, fmt.Errorf("error making reorg: %w", err)
+	}
+
+	err = evmClient.WaitForEvents()
+	if err != nil {
+		return 0, fmt.Errorf("error waiting for events: %w", err)
+	}
+
+	latestBlockNumberAfterReorg, err := evmClient.LatestBlockNumber(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("error getting latest block number: %w", err)
+	}
+
+	l.Info().
+		Uint64("Block Number", latestBlockNumberAfterReorg).
+		Msg("Latest Block Number after Reorg")
+	return latestBlockNumberAfterReorg, nil
+}
+
+// todo - remove evmClient from func arguments after debugging
+func setHeadForSimulatedChain(evmClient blockchain.EVMClient, rpcURL string, rewindChainToBlockNumber uint64) error {
+
+	//var result any
+	//err := evmClient.RawJsonRPCCall(testcontext.Get(t), &result, "debug_setHead", hexutil.EncodeUint64(rewindChainToBlockNumber))
+	//require.NoError(t, err, "error setting head block")
+
+	postBody, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "debug_setHead",
+		"params":  []string{hexutil.EncodeUint64(rewindChainToBlockNumber)},
+	})
+	requestBody := bytes.NewBuffer(postBody)
+
+	err := makePostRequest(rpcURL, requestBody)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func makePostRequest(URL string, requestBody *bytes.Buffer) error {
+	resp, err := http.Post(URL, "application/json", requestBody)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return fmt.Errorf("error making post request: %w", err)
+	}
+	return nil
 }
