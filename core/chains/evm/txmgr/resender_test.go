@@ -30,9 +30,8 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	logCfg := pgtest.NewQConfig(true)
 	lggr := logger.Test(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
@@ -101,9 +100,8 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	logCfg := pgtest.NewQConfig(true)
 	lggr, o := logger.TestObserved(t, zapcore.DebugLevel)
-	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	// Set this to the smallest non-zero value possible for the attempt to be eligible for resend
 	delay := commonconfig.MustNewDuration(1 * time.Nanosecond)
@@ -149,7 +147,7 @@ func Test_EthResender_Start(t *testing.T) {
 		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
 	})
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	lggr := logger.Test(t)

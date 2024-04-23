@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -25,7 +25,7 @@ const (
 type Engine struct {
 	services.StateMachine
 	logger              logger.Logger
-	registry            types.CapabilitiesRegistry
+	registry            core.CapabilitiesRegistry
 	workflow            *workflow
 	executionStates     *inMemoryStore
 	pendingStepRequests chan stepRequest
@@ -183,10 +183,17 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 		Config: tc,
 		Inputs: triggerInputs,
 	}
-	err = t.trigger.RegisterTrigger(ctx, e.triggerEvents, triggerRegRequest)
+	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate trigger %s, %s", t.Type, err)
 	}
+
+	go func() {
+		for event := range eventsCh {
+			e.triggerEvents <- event
+		}
+	}()
+
 	return nil
 }
 
@@ -212,7 +219,12 @@ func (e *Engine) loop(ctx context.Context) {
 		case <-ctx.Done():
 			e.logger.Debugw("shutting down loop")
 			return
-		case resp := <-e.triggerEvents:
+		case resp, isOpen := <-e.triggerEvents:
+			if !isOpen {
+				e.logger.Errorf("trigger events channel is no longer open, skipping")
+				continue
+			}
+
 			if resp.Err != nil {
 				e.logger.Errorf("trigger event was an error; not executing", resp.Err)
 				continue
@@ -579,7 +591,7 @@ type Config struct {
 	Spec             string
 	WorkflowID       string
 	Lggr             logger.Logger
-	Registry         types.CapabilitiesRegistry
+	Registry         core.CapabilitiesRegistry
 	MaxWorkerLimit   int
 	QueueSize        int
 	NewWorkerTimeout time.Duration

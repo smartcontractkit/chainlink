@@ -154,7 +154,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, err
 	}
 
-	keyStore := keystore.New(sqlxDB, utils.GetScryptParams(cfg), appLggr, cfg.Database())
+	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr)
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), appLggr.Named("Mailbox"))
 
 	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing())

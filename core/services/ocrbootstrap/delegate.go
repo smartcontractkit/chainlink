@@ -19,12 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type RelayGetter interface {
-	Get(relay.ID) (loop.Relayer, error)
+	Get(types.RelayID) (loop.Relayer, error)
 }
 
 // Delegate creates Bootstrap jobs
@@ -102,6 +100,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if spec.FeedID != nil {
 		spec.RelayConfig["feedID"] = *spec.FeedID
 	}
+	spec.RelayConfig.ApplyDefaultsOCR2(d.ocr2Cfg)
 
 	ctxVals := loop.ContextValues{
 		JobID:      jb.ID,
@@ -190,6 +189,6 @@ func (d *Delegate) AfterJobCreated(spec job.Job) {
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error {
+func (d *Delegate) OnDeleteJob(context.Context, job.Job) error {
 	return nil
 }

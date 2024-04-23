@@ -364,7 +364,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	// Local shell initialization always uses local auth users table for admin auth
 	authProviderORM := app.BasicAdminUsersORM()
 	keyStore := app.GetKeyStore()
-	err = s.KeyStoreAuthenticator.authenticate(keyStore, s.Config.Password())
+	err = s.KeyStoreAuthenticator.authenticate(rootCtx, keyStore, s.Config.Password())
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
@@ -390,7 +390,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	if s.Config.OCR().Enabled() {
-		err2 := app.GetKeyStore().OCR().EnsureKey()
+		err2 := app.GetKeyStore().OCR().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
@@ -409,37 +409,37 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.StarkNetEnabled() {
 			enabledChains = append(enabledChains, chaintype.StarkNet)
 		}
-		err2 := app.GetKeyStore().OCR2().EnsureKeys(enabledChains...)
+		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
 	if s.Config.P2P().Enabled() {
-		err2 := app.GetKeyStore().P2P().EnsureKey()
+		err2 := app.GetKeyStore().P2P().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
 	}
 	if s.Config.CosmosEnabled() {
-		err2 := app.GetKeyStore().Cosmos().EnsureKey()
+		err2 := app.GetKeyStore().Cosmos().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure cosmos key")
 		}
 	}
 	if s.Config.SolanaEnabled() {
-		err2 := app.GetKeyStore().Solana().EnsureKey()
+		err2 := app.GetKeyStore().Solana().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure solana key")
 		}
 	}
 	if s.Config.StarkNetEnabled() {
-		err2 := app.GetKeyStore().StarkNet().EnsureKey()
+		err2 := app.GetKeyStore().StarkNet().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure starknet key")
 		}
 	}
 
-	err2 := app.GetKeyStore().CSA().EnsureKey()
+	err2 := app.GetKeyStore().CSA().EnsureKey(rootCtx)
 	if err2 != nil {
 		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
@@ -621,7 +621,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
 	}
 
-	err = keyStore.Unlock(s.Config.Password().Keystore())
+	err = keyStore.Unlock(ctx, s.Config.Password().Keystore())
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
@@ -637,7 +637,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	cfg := txmgr.NewEvmTxmConfig(chain.Config().EVM())
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
-		cfg, feeCfg, chain.Config().EVM().Transactions(), chain.Config().Database(), keyStore.Eth(), txBuilder, chain.Logger())
+		cfg, feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {

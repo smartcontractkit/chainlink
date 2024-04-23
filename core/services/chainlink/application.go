@@ -308,7 +308,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var (
-		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(sqlxDB)
 		mercuryORM     = mercury.NewORM(opts.DB)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
@@ -333,6 +333,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				legacyEVMChains,
 				mailMon),
 			job.Keeper: keeper.NewDelegate(
+				cfg,
 				sqlxDB,
 				jobORM,
 				pipelineRunner,
@@ -346,7 +347,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineORM,
 				legacyEVMChains,
 				globalLogger,
-				cfg.Database(),
 				mailMon),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
@@ -356,10 +356,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				globalLogger),
 			job.BlockhashStore: blockhashstore.NewDelegate(
+				cfg,
 				globalLogger,
 				legacyEVMChains,
 				keyStore.Eth()),
 			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
+				cfg,
 				globalLogger,
 				legacyEVMChains,
 				keyStore.Eth()),
@@ -388,6 +390,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
 	} else {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
+			cfg,
 			keyStore.Eth(),
 			jobORM,
 			pipelineORM,
@@ -421,7 +424,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
-			cfg.Database(),
+			cfg,
 			mailMon,
 		)
 	} else {
@@ -495,6 +498,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			sqlxDB,
 			jobSpawner,
 			keyStore,
+			cfg,
 			cfg.Insecure(),
 			cfg.JobPipeline(),
 			cfg.OCR(),
@@ -829,7 +833,7 @@ func (app *ChainlinkApplication) ResumeJobV2(
 	taskID uuid.UUID,
 	result pipeline.Result,
 ) error {
-	return app.pipelineRunner.ResumeRun(taskID, result.Value, result.Error)
+	return app.pipelineRunner.ResumeRun(ctx, taskID, result.Value, result.Error)
 }
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {

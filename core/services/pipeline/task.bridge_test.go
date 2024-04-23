@@ -216,8 +216,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 		RequestData: btcUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -258,8 +258,8 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 		CacheTTL:    "30s", // standard duration string format
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t),
@@ -321,8 +321,8 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 		RequestData: btcUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -481,8 +481,8 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		Async:       "true",
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, id, c)
 
@@ -659,8 +659,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+			specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -728,8 +728,8 @@ func TestBridgeTask_Meta(t *testing.T) {
 		Name:        bridge.Name.String(),
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -782,8 +782,8 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+			specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -838,8 +838,8 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -877,8 +877,8 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -902,8 +902,8 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	orm := bridges.NewORM(db)
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -992,8 +992,8 @@ func TestBridgeTask_Headers(t *testing.T) {
 		}
 
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
-		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+		specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 		require.NoError(t, err)
 		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1014,8 +1014,8 @@ func TestBridgeTask_Headers(t *testing.T) {
 		}
 
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
-		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+		specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 		require.NoError(t, err)
 		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1036,8 +1036,8 @@ func TestBridgeTask_Headers(t *testing.T) {
 		}
 
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
-		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+		specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 		require.NoError(t, err)
 		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1082,8 +1082,8 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 		RequestData: btcUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 

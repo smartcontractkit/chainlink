@@ -2,42 +2,34 @@
   "tests": [
     {
       "name": "TestKeeperBasicSmoke",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestKeeperBlockCountPerTurn",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestKeeperSimulation",
-      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
       "name": "TestKeeperCheckPerformGasLimit",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestKeeperRegisterUpkeep",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestKeeperAddFunds",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestKeeperRemove",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestKeeperPauseRegistry",
-      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
@@ -45,7 +37,6 @@
     },
     {
       "name": "TestKeeperNodeDown",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {

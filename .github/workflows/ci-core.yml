@@ -63,6 +63,7 @@ jobs:
         uses: ./.github/actions/golangci-lint
         if: ${{ needs.filter.outputs.changes == 'true' }}
         with:
+          id: core
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -107,6 +108,9 @@ jobs:
       - name: Setup Go
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
+      - name: Run short tests
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        run: go test -short ./...
       - name: Setup Solana
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-solana

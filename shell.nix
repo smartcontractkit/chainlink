@@ -42,6 +42,9 @@ mkShell' {
     kubectl
     kubernetes-helm
 
+    # cross-compiling, used in CRIB
+    zig
+
     # gofuzz
   ] ++ lib.optionals stdenv.isLinux [
     # some dependencies needed for node-gyp on pnpm install

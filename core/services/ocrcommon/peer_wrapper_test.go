@@ -33,20 +33,18 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V2.Enabled = ptr(true)
 		})
-		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+		keyStore := cltest.NewKeyStore(t, db)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
 		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 	})
 
 	t.Run("with one p2p key and matching P2P.PeerID returns nil", func(t *testing.T) {
-		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.P2P.V2.Enabled = ptr(true)
-		})
-		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-		k, err := keyStore.P2P().Create()
+		ctx := testutils.Context(t)
+		keyStore := cltest.NewKeyStore(t, db)
+		k, err := keyStore.P2P().Create(ctx)
 		require.NoError(t, err)
 
-		cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V2.Enabled = ptr(true)
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 			c.P2P.PeerID = ptr(k.PeerID())
@@ -58,13 +56,14 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with one p2p key and mismatching P2P.PeerID returns error", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V2.Enabled = ptr(true)
 			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
 		})
-		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+		keyStore := cltest.NewKeyStore(t, db)
 
-		_, err := keyStore.P2P().Create()
+		_, err := keyStore.P2P().Create(ctx)
 		require.NoError(t, err)
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
@@ -73,15 +72,12 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with multiple p2p keys and valid P2P.PeerID returns nil", func(t *testing.T) {
-		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
-		})
-		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-		k2, err := keyStore.P2P().Create()
+		ctx := testutils.Context(t)
+		keyStore := cltest.NewKeyStore(t, db)
+		k2, err := keyStore.P2P().Create(ctx)
 		require.NoError(t, err)
 
-		cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V2.Enabled = ptr(true)
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 			c.P2P.PeerID = ptr(k2.PeerID())
@@ -94,14 +90,15 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with multiple p2p keys and mismatching P2P.PeerID returns error", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V2.Enabled = ptr(true)
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
 		})
-		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+		keyStore := cltest.NewKeyStore(t, db)
 
-		_, err := keyStore.P2P().Create()
+		_, err := keyStore.P2P().Create(ctx)
 		require.NoError(t, err)
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
@@ -112,15 +109,15 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	db := pgtest.NewSqlxDB(t)
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	k, err := keyStore.P2P().Create()
+	keyStore := cltest.NewKeyStore(t, db)
+	k, err := keyStore.P2P().Create(ctx)
 	require.NoError(t, err)
 
-	cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.PeerID = ptr(k.PeerID())
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
