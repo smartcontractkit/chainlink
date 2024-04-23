@@ -60,7 +60,7 @@ data:
     [WebServer.TLS]
     HTTPSPort = 0
     {{- end }}
-  overrides.toml: |-
+  overrides.toml: |
   {{- if (hasKey $cfg "overridesToml") }}
   {{- $cfg.overridesToml | nindent 4 }}
   {{- else if and (hasKey $.Values.chainlink.global "overridesToml") $.Values.chainlink.global.overridesToml }}
