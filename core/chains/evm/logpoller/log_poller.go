@@ -1303,17 +1303,24 @@ func newBlockReq(num string) rpc.BatchElem {
 	}
 }
 
+type blockValidationType string
+
+var (
+	latestBlock    blockValidationType = blockValidationType(rpc.LatestBlockNumber.String())
+	finalizedBlock blockValidationType = blockValidationType(rpc.FinalizedBlockNumber.String())
+)
+
 // fetchBlocks fetches a list of blocks in a single batch. validationReq is the string to use for the
 // additional validation request (either the "finalized" or "latest" string defined in rpc module), which
 // will be used to validate the finality of the other blocks.
-func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []string, validationReq string) (blocks []*evmtypes.Head, err error) {
+func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []string, validationReq blockValidationType) (blocks []*evmtypes.Head, err error) {
 	n := len(blocksRequested)
 	blocks = make([]*evmtypes.Head, 0, n+1)
 	reqs := make([]rpc.BatchElem, 0, n+1)
 
 	validationBlockIndex := n
 	for k, num := range blocksRequested {
-		if num == validationReq {
+		if num == string(validationReq) {
 			validationBlockIndex = k
 		}
 		reqs = append(reqs, newBlockReq(num))
@@ -1321,7 +1328,7 @@ func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []string, 
 
 	if validationBlockIndex == n {
 		// Add validation req if it wasn't in there already
-		reqs = append(reqs, newBlockReq(validationReq))
+		reqs = append(reqs, newBlockReq(string(validationReq)))
 	}
 
 	err = lp.ec.BatchCallContext(ctx, reqs)
@@ -1334,7 +1341,7 @@ func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []string, 
 		return nil, err
 	}
 	latestFinalizedBlockNumber := validationBlock.Number
-	if validationReq == rpc.LatestBlockNumber.String() {
+	if validationReq == latestBlock {
 		// subtract finalityDepth from "latest" to get finalized, when useFinalityTags = false
 		latestFinalizedBlockNumber = mathutil.Max(latestFinalizedBlockNumber-lp.finalityDepth, 0)
 	}
@@ -1369,9 +1376,9 @@ func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []string, 
 func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []string, batchSize int64) ([]*evmtypes.Head, error) {
 	var blocks = make([]*evmtypes.Head, 0, len(blocksRequested)+1)
 
-	validationReq := rpc.FinalizedBlockNumber.String()
+	validationReq := finalizedBlock
 	if !lp.useFinalityTag {
-		validationReq = rpc.LatestBlockNumber.String()
+		validationReq = latestBlock
 	}
 
 	for i := 0; i < len(blocksRequested); i += int(batchSize) {
