@@ -1979,7 +1979,9 @@ func TestVRFNodeReorg(t *testing.T) {
 		require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
 
 		//5. ensure that rand request is not fulfilled for the request which was made on reorged fork
-		// For context - when performing debug_setHead on geth simulated chain, then tx
+		// For context - when performing debug_setHead on geth simulated chain and therefore rewinding chain to a previous block,
+		//then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
+		//Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
 		_, err = vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
 			contracts.RandomWordsFulfilledEventFilter{
 				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},

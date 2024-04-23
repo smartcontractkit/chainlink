@@ -585,7 +585,7 @@ func RewindSimulatedChainToBlockNumber(
 		Uint64("Latest Block Number", latestBlockNumber).
 		Uint64("Rewind Chain to Block Number", rewindChainToBlockNumber).
 		Msg("Performing Reorg on chain by rewinding chain to specific block number")
-	err = setHeadForSimulatedChain(evmClient, rpcURL, rewindChainToBlockNumber)
+	err = setHeadForSimulatedChain(rpcURL, rewindChainToBlockNumber)
 	if err != nil {
 		return 0, fmt.Errorf("error making reorg: %w", err)
 	}
@@ -607,11 +607,6 @@ func RewindSimulatedChainToBlockNumber(
 }
 
 func setHeadForSimulatedChain(rpcURL string, rewindChainToBlockNumber uint64) error {
-	// todo - remove RawJsonRPCCall after debugging
-	//var result any
-	//err := evmClient.RawJsonRPCCall(testcontext.Get(t), &result, "debug_setHead", hexutil.EncodeUint64(rewindChainToBlockNumber))
-	//require.NoError(t, err, "error setting head block")
-
 	postBody, _ := json.Marshal(map[string]any{
 		"jsonrpc": "2.0",
 		"id":      1,
