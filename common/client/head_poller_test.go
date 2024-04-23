@@ -43,4 +43,5 @@ func Test_Poller(t *testing.T) {
 	// Wait for a short duration to allow for some polling iterations
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, pollMax, pollCount)
+	poller.Unsubscribe()
 }

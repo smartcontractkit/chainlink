@@ -61,9 +61,9 @@ func (p *HeadPoller[HEAD]) Unsubscribe() {
 	_ = p.StopOnce("HeadPoller", func() error {
 		close(p.stopCh)
 		p.wg.Wait()
+		close(p.errCh)
 		return nil
 	})
-	close(p.errCh)
 }
 
 func (p *HeadPoller[HEAD]) Err() <-chan error {
@@ -71,6 +71,8 @@ func (p *HeadPoller[HEAD]) Err() <-chan error {
 }
 
 func (p *HeadPoller[HEAD]) pollingLoop() {
+	defer p.wg.Done()
+
 	ticker := time.NewTicker(p.pollingInterval)
 	defer ticker.Stop()
 
@@ -83,9 +85,9 @@ func (p *HeadPoller[HEAD]) pollingLoop() {
 				p.errCh <- err
 				continue
 			}
+			// TODO: Fix this so we don't block the polling loop if we want to exit!
 			p.channel <- result
 		case <-p.stopCh:
-			p.wg.Done()
 			return
 		}
 	}
