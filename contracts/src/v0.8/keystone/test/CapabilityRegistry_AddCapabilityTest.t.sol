@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-import {CapabilityRegistry} from "../interfaces/CapabilityRegistry.sol";
+import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_AddCapabilityTest is BaseTest {
     function test_AddCapability() public {

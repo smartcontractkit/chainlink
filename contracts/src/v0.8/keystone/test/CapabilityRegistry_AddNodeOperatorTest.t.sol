@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-import {CapabilityRegistry} from "../interfaces/CapabilityRegistry.sol";
+import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_AddNodeOperatorTest is BaseTest {
     event NodeOperatorAdded(uint256 nodeOperatorId, address indexed admin, string name);
