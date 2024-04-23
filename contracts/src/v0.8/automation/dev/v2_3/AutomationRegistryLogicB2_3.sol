@@ -175,6 +175,9 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     external
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0);
+
     bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
     return executeCallback(id, payload);
   }
