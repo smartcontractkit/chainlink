@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
@@ -643,4 +644,12 @@ func makePostRequest(URL string, requestBody *bytes.Buffer) (io.ReadCloser, erro
 	}
 	defer resp.Body.Close()
 	return resp.Body, nil
+}
+
+func GetRPCUrl(env *test_env.CLClusterTestEnv, chainID int64) (string, error) {
+	provider, err := env.GetRpcProvider(chainID)
+	if err != nil {
+		return "", err
+	}
+	return provider.PublicHttpUrls()[0], nil
 }

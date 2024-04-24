@@ -1925,7 +1925,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 }
 
-func TestVRFNodeReorg(t *testing.T) {
+func TestVRFv2PlusNodeReorg(t *testing.T) {
 	t.Parallel()
 	var (
 		env                          *test_env.CLClusterTestEnv
@@ -1975,14 +1975,13 @@ func TestVRFNodeReorg(t *testing.T) {
 	require.NoError(t, err, "Getting EVM client shouldn't fail")
 	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 
-	configCopy := config.MustCopy().(tc.TestConfig)
 	var isNativeBilling = true
 
 	consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 		env,
 		chainID,
 		vrfContracts.CoordinatorV2Plus,
-		configCopy,
+		config,
 		vrfContracts.LinkToken,
 		1,
 		1,
@@ -1995,50 +1994,8 @@ func TestVRFNodeReorg(t *testing.T) {
 	vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 	subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
-	t.Run("Reorg on rand request", func(t *testing.T) {
-		//1. set minimum confirmations to higher value so that we can be sure that request won't be fulfilled before reorg
-		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](10)
-
-		//2. request randomness
-		randomWordsRequestedEvent, err := vrfv2plus.RequestRandomness(
-			consumers[0],
-			vrfContracts.CoordinatorV2Plus,
-			vrfKey,
-			subID,
-			isNativeBilling,
-			configCopy.VRFv2Plus.General,
-			l,
-		)
-		require.NoError(t, err)
-
-		// rewind chain to block number before the randomness request was made
-		rewindChainToBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber - 4
-
-		rpcUrl, err := getRPCUrl(env, chainID)
-		require.NoError(t, err, "error getting rpc url")
-
-		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
-		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), evmClient, rpcUrl, rewindChainToBlockNumber, l)
-		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlockNumber))
-
-		//4. ensure that chain is reorged and latest block number is less than the block number when request was made
-		require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
-
-		//5. ensure that rand request is not fulfilled for the request which was made on reorged fork
-		// For context - when performing debug_setHead on geth simulated chain and therefore rewinding chain to a previous block,
-		//then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
-		//Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
-		_, err = vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
-				SubIDs:     []*big.Int{subID},
-				Timeout:    time.Second * 10,
-			},
-		)
-		require.Error(t, err, "fulfillment should not be generated for the request which was made on reorged fork on Simulated Chain")
-	})
-
 	t.Run("Reorg on fulfillment", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
 		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](10)
 
 		//1. request randomness and wait for fulfillment for blockhash from Reorged Fork
@@ -2056,7 +2013,7 @@ func TestVRFNodeReorg(t *testing.T) {
 		// rewind chain to block number after the request was made, but before the request was fulfilled
 		rewindChainToBlock := randomWordsRequestedEvent.Raw.BlockNumber + 1
 
-		rpcUrl, err := getRPCUrl(env, chainID)
+		rpcUrl, err := actions.GetRPCUrl(env, chainID)
 		require.NoError(t, err, "error getting rpc url")
 
 		//2. rewind chain by n number of blocks - basically, mimicking reorg scenario
@@ -2080,12 +2037,49 @@ func TestVRFNodeReorg(t *testing.T) {
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
 	})
-}
 
-func getRPCUrl(env *test_env.CLClusterTestEnv, chainID int64) (string, error) {
-	provider, err := env.GetRpcProvider(chainID)
-	if err != nil {
-		return "", err
-	}
-	return provider.PublicHttpUrls()[0], nil
+	t.Run("Reorg on rand request", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		//1. set minimum confirmations to higher value so that we can be sure that request won't be fulfilled before reorg
+		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](6)
+
+		//2. request randomness
+		randomWordsRequestedEvent, err := vrfv2plus.RequestRandomness(
+			consumers[0],
+			vrfContracts.CoordinatorV2Plus,
+			vrfKey,
+			subID,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General,
+			l,
+		)
+		require.NoError(t, err)
+
+		// rewind chain to block number before the randomness request was made
+		rewindChainToBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber - 3
+
+		rpcUrl, err := actions.GetRPCUrl(env, chainID)
+		require.NoError(t, err, "error getting rpc url")
+
+		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
+		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), evmClient, rpcUrl, rewindChainToBlockNumber, l)
+		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlockNumber))
+
+		//4. ensure that chain is reorged and latest block number is less than the block number when request was made
+		require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
+
+		//5. ensure that rand request is not fulfilled for the request which was made on reorged fork
+		// For context - when performing debug_setHead on geth simulated chain and therefore rewinding chain to a previous block,
+		//then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
+		//Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
+		_, err = vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
+			contracts.RandomWordsFulfilledEventFilter{
+				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
+				SubIDs:     []*big.Int{subID},
+				Timeout:    time.Second * 10,
+			},
+		)
+		require.Error(t, err, "fulfillment should not be generated for the request which was made on reorged fork on Simulated Chain")
+	})
+
 }
