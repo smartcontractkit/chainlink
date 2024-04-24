@@ -73,6 +73,8 @@ images:
         MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk IMAGE=$image ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
         docker push $image
 hooks:
+  - command: ./scripts/check_env_vars.sh
+    events: [ "before:deploy:app" ]
   - wait:
       running: true
       terminatedWithCode: 0
