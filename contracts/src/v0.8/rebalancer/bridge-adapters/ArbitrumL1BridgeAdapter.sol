@@ -58,7 +58,7 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
   }
 
   /// @dev these are parameters provided by the caller of the sendERC20 function
-  /// @dev these must be determined offchain.
+  /// and must be determined offchain.
   struct SendERC20Params {
     uint256 gasLimit;
     uint256 maxSubmissionCost;
@@ -110,12 +110,10 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
     return inboxSequenceNumber;
   }
 
-  /// @dev This function is so that we can easily abi-encode the arbitrum-specific
-  /// @dev payload for the sendERC20 function.
+  /// @dev This function is so that we can easily abi-encode the arbitrum-specific payload for the sendERC20 function.
   function exposeSendERC20Params(SendERC20Params memory params) public pure {}
 
-  /// @dev fees have to be determined offchain for arbitrum
-  /// @dev therefore revert here to discourage usage
+  /// @dev fees have to be determined offchain for arbitrum, therefore revert here to discourage usage.
   function getBridgeFeeInNative() public pure override returns (uint256) {
     revert Unimplemented();
   }
@@ -141,16 +139,19 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
     bytes data;
   }
 
-  /// @dev This function is so that we can easily abi-encode the arbitrum-specific
-  /// @dev payload for the finalizeWithdrawERC20 function.
+  /// @dev This function is so that we can easily abi-encode the arbitrum-specific payload for the finalizeWithdrawERC20 function.
   function exposeArbitrumFinalizationPayload(ArbitrumFinalizationPayload memory payload) public pure {}
 
   /// @notice Finalize an L2 -> L1 transfer.
+  /// Arbitrum finalizations are single-step, so we always return true.
+  /// Calls to this function will revert in two cases, 1) if the finalization payload is wrong,
+  /// i.e incorrect merkle proof, or index and 2) if the withdrawal was already finalized.
+  /// @return true iff the finalization does not revert.
   function finalizeWithdrawERC20(
     address /* remoteSender */,
     address /* localReceiver */,
     bytes calldata arbitrumFinalizationPayload
-  ) external {
+  ) external override returns (bool) {
     ArbitrumFinalizationPayload memory payload = abi.decode(arbitrumFinalizationPayload, (ArbitrumFinalizationPayload));
     i_l1Outbox.executeTransaction(
       payload.proof,
@@ -163,8 +164,11 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
       payload.value,
       payload.data
     );
+    return true;
   }
 
+  /// @notice Convenience function to get the L2 token address from the L1 token address.
+  /// @return The L2 token address for the given L1 token address.
   function getL2Token(address l1Token) external view returns (address) {
     return i_l1GatewayRouter.calculateL2TokenAddress(l1Token);
   }

@@ -306,6 +306,7 @@ func (l *l2ToL1Bridge) toPendingTransfers(
 					logIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
 				BridgeData: readyData[i], // finalization data for withdrawals that are ready
+				Stage:      StageFinalizeReady,
 			},
 			Status: models.TransferStatusReady,
 			ID:     fmt.Sprintf("%s-%d", transfer.Raw.TxHash.Hex(), transfer.Raw.Index),
@@ -326,11 +327,14 @@ func (l *l2ToL1Bridge) toPendingTransfers(
 					logIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
 				BridgeData: []byte{}, // No data since its not ready
+				Stage:      StageRebalanceConfirmed,
 			},
 			Status: models.TransferStatusNotReady,
 			ID:     fmt.Sprintf("%s-%d", transfer.Raw.TxHash.Hex(), transfer.Raw.Index),
 		})
 	}
+	// TODO: need to also return executed finalizations. See https://smartcontract-it.atlassian.net/browse/CCIP-1893.
+	// Use stage StageFinalizeConfirmed for executed finalizations.
 	return transfers, nil
 }
 

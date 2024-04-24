@@ -131,11 +131,13 @@ contract OptimismL1BridgeAdapter is IBridgeAdapter {
   /// @notice Prove or finalize an ERC20 withdrawal from L2.
   /// The action to take is specified in the payload. See the docstring of FinalizeWithdrawERC20Payload for more details.
   /// @param data The payload for the action. This is an abi.encode'd FinalizeWithdrawERC20Payload with the appropriate data.
+  /// @return true iff finalization is successful, and false for proving a withdrawal. If either of these fail,
+  /// the call to this function will revert.
   function finalizeWithdrawERC20(
     address /* remoteSender */,
     address /* localReceiver */,
     bytes calldata data
-  ) external override {
+  ) external override returns (bool) {
     // decode the data into FinalizeWithdrawERC20Payload first and extract the action.
     FinalizeWithdrawERC20Payload memory payload = abi.decode(data, (FinalizeWithdrawERC20Payload));
     if (payload.action == FinalizationAction.ProveWithdrawal) {
@@ -143,6 +145,7 @@ contract OptimismL1BridgeAdapter is IBridgeAdapter {
       // Decode the data into OptimismProveWithdrawalPayload and call the proveWithdrawal function.
       OptimismProveWithdrawalPayload memory provePayload = abi.decode(payload.data, (OptimismProveWithdrawalPayload));
       _proveWithdrawal(provePayload);
+      return false;
     } else if (payload.action == FinalizationAction.FinalizeWithdrawal) {
       // decode the data into OptimismFinalizationPayload and call the finalizeWithdrawal function.
       OptimismFinalizationPayload memory finalizePayload = abi.decode(payload.data, (OptimismFinalizationPayload));
@@ -151,6 +154,7 @@ contract OptimismL1BridgeAdapter is IBridgeAdapter {
       // However, we can't do that from within this adapter because it doesn't actually have the ether.
       // So its up to the caller to rectify this by re-wrapping the ether.
       _finalizeWithdrawal(finalizePayload);
+      return true;
     } else {
       revert InvalidFinalizationAction();
     }

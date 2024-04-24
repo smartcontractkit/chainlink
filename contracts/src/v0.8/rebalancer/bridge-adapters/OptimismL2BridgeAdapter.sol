@@ -88,11 +88,14 @@ contract OptimismL2BridgeAdapter is IBridgeAdapter {
   }
 
   /// @notice No-op since L1 -> L2 transfers do not need finalization.
+  /// @return true always.
   function finalizeWithdrawERC20(
     address /* remoteSender */,
     address /* localReceiver */,
     bytes calldata /* bridgeSpecificPayload */
-  ) external override {}
+  ) external override returns (bool) {
+    return true;
+  }
 
   /// @notice There are no fees to bridge back to L1
   function getBridgeFeeInNative() external pure returns (uint256) {

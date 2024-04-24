@@ -10,7 +10,7 @@
   "fixed": [],
   "linked": [],
   "access": "public",
-  "baseBranch": "develop",
+  "baseBranch": "ccip-develop",
   "updateInternalDependencies": "patch",
   "ignore": []
 }

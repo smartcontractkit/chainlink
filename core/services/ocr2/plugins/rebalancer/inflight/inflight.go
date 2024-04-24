@@ -60,8 +60,19 @@ func (i *inflight) Expire(pending []models.PendingTransfer) int {
 			To:     p.To,
 			Amount: p.Amount.String(),
 		}
-		_, ok := i.transfers[k]
-		if ok {
+		t, ok := i.transfers[k]
+		// This check handles scenarios where the same transfer can be in-flight multiple times.
+		// This only arises in bridges that have multi-stage finalization, like Optimism, or the
+		// testonly bridge, which emulates Optimism. In that case, this is the scenario that arises:
+		// 1. Initial rebalance out of Optimism is sent to the chain, and the transfer is added to the inflight container.
+		// 2. The transfer is confirmed on-chain, and the inflight transfer is expired. This is regular so far.
+		// 3. The bridge transfer is now in a pending state, where we are waiting for it to be ready to prove on L1.
+		// 4. Once the transfer is ready to prove on L1, we generate the proof data and submit it to the rebalancer on L1. This is a new inflight transfer.
+		// 5. In the next round, we still notice that the transfer is ready to prove, so we return it from the bridge. However, it is not ready to remove from the
+		// inflight container, because its still inflight to L1. This stage check would return false because the stage of the inflight transfer is the same
+		// as the stage of the pending transfer provided.
+		// 6. The prove withdrawal tx is confirmed on L1, and the bridge notices that, so the transfer is then expired because it has a higher stage.
+		if ok && p.Stage > t.Stage {
 			numExpired++
 			delete(i.transfers, k)
 		}

@@ -3,6 +3,8 @@ pragma solidity 0.8.19;
 
 import {Test} from "forge-std/Test.sol";
 
+import {WETH9} from "../../ccip/test/WETH9.sol";
+
 import {ERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -13,6 +15,8 @@ contract RebalancerBaseTest is Test {
 
   IERC20 internal s_l1Token;
   IERC20 internal s_l2Token;
+  WETH9 internal s_l1Weth;
+  WETH9 internal s_l2Weth;
 
   uint64 internal immutable i_localChainSelector = 1234;
   uint64 internal immutable i_remoteChainSelector = 9876;
@@ -23,6 +27,9 @@ contract RebalancerBaseTest is Test {
   function setUp() public virtual {
     s_l1Token = new ERC20("l1", "L1");
     s_l2Token = new ERC20("l2", "L2");
+
+    s_l1Weth = new WETH9();
+    s_l2Weth = new WETH9();
 
     vm.startPrank(OWNER);
     vm.label(OWNER, "Owner");

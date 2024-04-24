@@ -7,9 +7,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/multienv"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/optimism_l2_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 )
 
@@ -57,4 +60,39 @@ func WithdrawFromL2(
 	)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), env.Clients[l2ChainID], tx, int64(l2ChainID), "WithdrawFromL2")
+}
+
+func WithdrawFromL2ViaRebalancer(
+	env multienv.Env,
+	l2ChainID,
+	remoteChainID uint64,
+	l2RebalancerAddress common.Address,
+	amount *big.Int,
+) {
+	remoteChain, ok := chainsel.ChainByEvmChainID(remoteChainID)
+	if !ok {
+		panic(fmt.Sprintf("Chain ID %d not found in chain selectors", remoteChainID))
+	}
+
+	// check if there is enough liquidity in the rebalancer.
+	l2Rebalancer, err := rebalancer.NewRebalancer(l2RebalancerAddress, env.Clients[l2ChainID])
+	helpers.PanicErr(err)
+
+	liquidity, err := l2Rebalancer.GetLiquidity(nil)
+	helpers.PanicErr(err)
+	if liquidity.Cmp(amount) < 0 {
+		panic(fmt.Sprintf("not enough liquidity to withdraw, inject more tokens into the liquidity container or specify less amount, liquidity: %s, want: %s",
+			liquidity.String(), amount.String()))
+	}
+
+	tx, err := l2Rebalancer.RebalanceLiquidity(
+		env.Transactors[l2ChainID],
+		remoteChain.Selector,
+		amount,
+		big.NewInt(0), // no eth fee for L2 -> L1
+		[]byte{},      // no bridge specific payload for OP stack L2 to L1
+	)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), env.Clients[l2ChainID], tx, int64(l2ChainID),
+		"WithdrawFromL2ViaRebalancer", amount.String(), "to", remoteChain.Name)
 }

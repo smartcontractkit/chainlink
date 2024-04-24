@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -1190,7 +1191,7 @@ func TestPlugin_E2EWithMocks(t *testing.T) {
 
 						br.
 							On("GetBridgePayloadAndFee", mock.Anything, mock.Anything).
-							Return(nil, big.NewInt(10), nil).Maybe()
+							Return(nil, nativeBridgeFee, nil).Maybe()
 
 						br.
 							On("QuorumizedBridgePayload", mock.Anything, mock.Anything).
@@ -1299,15 +1300,19 @@ func twoNodesFourRounds(t *testing.T) testCase {
 				},
 				pendingTransfersPerNode: [][]models.PendingTransfer{{}, {}, {}, {}},
 				inflightPerNode: [][]models.Transfer{
-					{models.NewTransfer(networkA, networkB, big.NewInt(1000), time.Time{}, nil)},
-					{models.NewTransfer(networkA, networkB, big.NewInt(1000), time.Time{}, nil)},
-					{models.NewTransfer(networkA, networkB, big.NewInt(1000), time.Time{}, nil)},
-					{models.NewTransfer(networkA, networkB, big.NewInt(1000), time.Time{}, nil)},
+					{models.Transfer{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX,
+						RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB, BridgeData: hexutil.Bytes{}, NativeBridgeFee: ubig.New(nativeBridgeFee)}},
+					{models.Transfer{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX,
+						RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB, BridgeData: hexutil.Bytes{}, NativeBridgeFee: ubig.New(nativeBridgeFee)}},
+					{models.Transfer{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX,
+						RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB, BridgeData: hexutil.Bytes{}, NativeBridgeFee: ubig.New(nativeBridgeFee)}},
+					{models.Transfer{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX,
+						RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB, BridgeData: hexutil.Bytes{}, NativeBridgeFee: ubig.New(nativeBridgeFee)}},
 				},
 				expTransmitted: []ocr3types.ReportWithInfo[models.Report]{
 					{
 						Info: models.Report{
-							Transfers:               []models.Transfer{models.NewTransfer(networkA, networkB, big.NewInt(1000), time.Time{}, nil)},
+							Transfers:               []models.Transfer{{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX, RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB}},
 							LiquidityManagerAddress: rebalancerA,
 							NetworkID:               networkA,
 							ConfigDigest:            cfgDigest1,
@@ -1318,7 +1323,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 				expNotAccepted:    []ocr3types.ReportWithInfo[models.Report]{},
 				expOutcome: models.NewOutcome(
 					nil,
-					[]models.Transfer{{From: networkA, To: networkB, Amount: ubig.New(big.NewInt(1000))}},
+					[]models.Transfer{{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX, RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB}},
 					nil,
 					[]models.ConfigDigestWithMeta{{Digest: cfgDigest1, NetworkSel: networkA}, {Digest: cfgDigest2, NetworkSel: networkB}}),
 				dataPerRebalancer: map[models.NetworkSelector]perRebalancerData{
@@ -1343,10 +1348,14 @@ func twoNodesFourRounds(t *testing.T) testCase {
 				},
 				pendingTransfersPerNode: [][]models.PendingTransfer{{}, {}, {}, {}},
 				inflightPerNode: [][]models.Transfer{
-					{models.NewTransfer(networkA, networkB, big.NewInt(1000), time.Time{}, nil)},
-					{models.NewTransfer(networkA, networkB, big.NewInt(1000), time.Time{}, nil)},
-					{models.NewTransfer(networkA, networkB, big.NewInt(1000), time.Time{}, nil)},
-					{models.NewTransfer(networkA, networkB, big.NewInt(1000), time.Time{}, nil)},
+					{models.Transfer{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX,
+						RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB, BridgeData: hexutil.Bytes{}, NativeBridgeFee: ubig.New(nativeBridgeFee)}},
+					{models.Transfer{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX,
+						RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB, BridgeData: hexutil.Bytes{}, NativeBridgeFee: ubig.New(nativeBridgeFee)}},
+					{models.Transfer{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX,
+						RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB, BridgeData: hexutil.Bytes{}, NativeBridgeFee: ubig.New(nativeBridgeFee)}},
+					{models.Transfer{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX,
+						RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB, BridgeData: hexutil.Bytes{}, NativeBridgeFee: ubig.New(nativeBridgeFee)}},
 				},
 				expTransmitted:    []ocr3types.ReportWithInfo[models.Report]{},
 				expNotTransmitted: []ocr3types.ReportWithInfo[models.Report]{},
@@ -1384,6 +1393,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 							Amount:             ubig.NewI(1000),
 							LocalTokenAddress:  tokenX,
 							RemoteTokenAddress: tokenY,
+							Stage:              1,
 						},
 						Status: models.TransferStatusNotReady,
 					},
@@ -1395,6 +1405,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 							Amount:             ubig.NewI(1000),
 							LocalTokenAddress:  tokenX,
 							RemoteTokenAddress: tokenY,
+							Stage:              1,
 						},
 						Status: models.TransferStatusNotReady,
 					},
@@ -1406,6 +1417,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 							Amount:             ubig.NewI(1000),
 							LocalTokenAddress:  tokenX,
 							RemoteTokenAddress: tokenY,
+							Stage:              1,
 						},
 						Status: models.TransferStatusNotReady,
 					},
@@ -1417,6 +1429,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 							Amount:             ubig.NewI(1000),
 							LocalTokenAddress:  tokenX,
 							RemoteTokenAddress: tokenY,
+							Stage:              1,
 						},
 						Status: models.TransferStatusNotReady,
 					},
@@ -1700,6 +1713,8 @@ var (
 
 	date2010 = time.Date(2010, 5, 6, 12, 4, 4, 0, time.UTC)
 	date2011 = time.Date(2011, 5, 6, 12, 4, 4, 0, time.UTC)
+
+	nativeBridgeFee = big.NewInt(10)
 )
 
 // JsonReportCodec is used in tests

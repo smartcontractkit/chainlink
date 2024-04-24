@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer_report_encoder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/bridge/testonlybridge"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
@@ -78,7 +78,20 @@ func TestEvmReportCodec(t *testing.T) {
 		evmEncoder := NewEvmReportCodec()
 		// an actual report from one integration test run
 		// should consist of 1 send operation from 909606746561742123 to 3379446385462418246
-		encodedReport := hexutil.MustDecode("0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000004563918244f4000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002ee634951ef71b46000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000004563918244f400000000000000000000000000000000000000000000000000000000000000000000")
+		packedBridgeData, err := testonlybridge.PackBridgeSendReturnData(big.NewInt(1))
+		require.NoError(t, err)
+		encodedReport, err := evmEncoder.onchainReportArguments.Pack(rebalancer_report_encoder.IRebalancerLiquidityInstructions{
+			SendLiquidityParams: []rebalancer_report_encoder.IRebalancerSendLiquidityParams{
+				{
+					Amount:              assets.Ether(5).ToInt(),
+					NativeBridgeFee:     big.NewInt(0),
+					RemoteChainSelector: 3379446385462418246,
+					BridgeData:          packedBridgeData,
+				},
+			},
+			ReceiveLiquidityParams: []rebalancer_report_encoder.IRebalancerReceiveLiquidityParams{},
+		})
+		require.NoError(t, err)
 		_, instructions, err := evmEncoder.Decode(
 			909606746561742123,
 			models.Address(common.HexToAddress("0x2033C546BC60900f8B765F0a8e7E2376a17cba5d")),
@@ -91,10 +104,22 @@ func TestEvmReportCodec(t *testing.T) {
 		require.Equal(t, big.NewInt(0).String(), instructions.SendLiquidityParams[0].NativeBridgeFee.String())
 		amount, err := testonlybridge.UnpackBridgeSendReturnData(instructions.SendLiquidityParams[0].BridgeData)
 		require.NoError(t, err)
-		require.Equal(t, assets.Ether(5).ToInt().String(), amount.String())
+		require.Equal(t, big.NewInt(1).String(), amount.String())
 
-		// should consist of 1 receive instruction from 3379446385462418246 to 909606746561742123
-		encodedReport = hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000004563918244f400000000000000000000000000000000000000000000000000000c9f9284461c852b000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000004563918244f400000000000000000000000000000000000000000000000000000000000000000001")
+		// should consist of 1 receive instruction from 909606746561742123 to 3379446385462418246
+		packedBridgeData, err = testonlybridge.PackFinalizeBridgePayload(assets.Ether(5).ToInt(), big.NewInt(1))
+		require.NoError(t, err)
+		encodedReport, err = evmEncoder.onchainReportArguments.Pack(rebalancer_report_encoder.IRebalancerLiquidityInstructions{
+			SendLiquidityParams: []rebalancer_report_encoder.IRebalancerSendLiquidityParams{},
+			ReceiveLiquidityParams: []rebalancer_report_encoder.IRebalancerReceiveLiquidityParams{
+				{
+					Amount:              assets.Ether(5).ToInt(),
+					RemoteChainSelector: 909606746561742123,
+					BridgeData:          packedBridgeData,
+				},
+			},
+		})
+		require.NoError(t, err)
 		_, instructions, err = evmEncoder.Decode(
 			3379446385462418246,
 			models.Address(common.HexToAddress("0x2033C546BC60900f8B765F0a8e7E2376a17cba5d")),

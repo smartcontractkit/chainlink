@@ -8,16 +8,19 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/multienv"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/optimism_l1_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
 var (
-	l1AdapterABI = abihelpers.MustParseABI(optimism_l1_bridge_adapter.OptimismL1BridgeAdapterMetaData.ABI)
+	l1AdapterABI  = abihelpers.MustParseABI(optimism_l1_bridge_adapter.OptimismL1BridgeAdapterMetaData.ABI)
+	rebalancerABI = abihelpers.MustParseABI(rebalancer.RebalancerMetaData.ABI)
 )
 
 func SendToL2(
@@ -110,4 +113,64 @@ func SendToL2(
 
 func scaleGasCost(gasCost uint64) uint64 {
 	return gasCost * 18 / 10
+}
+
+func SendToL2ViaRebalancer(
+	env multienv.Env,
+	l1ChainID,
+	remoteChainID uint64,
+	l1RebalancerAddress common.Address,
+	amount *big.Int,
+) {
+	remoteChain, ok := chainsel.ChainByEvmChainID(remoteChainID)
+	if !ok {
+		panic(fmt.Sprintf("Chain ID %d not found in chain selectors", remoteChainID))
+	}
+
+	l1Rebalancer, err := rebalancer.NewRebalancer(l1RebalancerAddress, env.Clients[l1ChainID])
+	helpers.PanicErr(err)
+
+	// check if there is enough liquidity to transfer the provided amount.
+	liquidity, err := l1Rebalancer.GetLiquidity(nil)
+	helpers.PanicErr(err)
+	if liquidity.Cmp(amount) < 0 {
+		panic(fmt.Sprintf("Insufficient liquidity, add more tokens to the liquidity container or specify smaller amount: %s < %s", liquidity, amount))
+	}
+
+	// Estimate gas of the bridging operation and multiply that by 1.6 since
+	// optimism bridging costs are paid for in gas.
+	calldata, err := rebalancerABI.Pack("rebalanceLiquidity",
+		remoteChain.Selector,
+		amount,
+		big.NewInt(0), // no eth fee for L1 -> L2
+		[]byte{},      // no bridge specific payload for L1 to OP stack L2
+	)
+	helpers.PanicErr(err)
+
+	gasPrice, err := env.Clients[l1ChainID].SuggestGasPrice(context.Background())
+	helpers.PanicErr(err)
+
+	// Estimate gas of the bridging operation and multiply that by 1.6 since
+	// optimism bridging costs are paid for in gas.
+	gasCost, err := env.Clients[l1ChainID].EstimateGas(context.Background(), ethereum.CallMsg{
+		From:     env.Transactors[l1ChainID].From,
+		Gas:      1e6,
+		GasPrice: gasPrice,
+		To:       &l1RebalancerAddress,
+		Data:     calldata,
+	})
+	helpers.PanicErr(err)
+
+	gasCost = scaleGasCost(gasCost)
+
+	fmt.Println("Estimated gas cost for bridging operation, after scaling by 1.8x:", gasCost)
+
+	tx, err := l1Rebalancer.RebalanceLiquidity(&bind.TransactOpts{
+		From:     env.Transactors[l1ChainID].From,
+		Signer:   env.Transactors[l1ChainID].Signer,
+		GasLimit: gasCost,
+	}, remoteChain.Selector, amount, big.NewInt(0), []byte{})
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), env.Clients[l1ChainID], tx, int64(l1ChainID),
+		"RebalanceLiquidity", amount.String(), "to", remoteChain.Name)
 }

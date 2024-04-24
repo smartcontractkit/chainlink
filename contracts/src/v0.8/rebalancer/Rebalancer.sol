@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {IBridgeAdapter} from "./interfaces/IBridge.sol";
 import {IRebalancer} from "./interfaces/IRebalancer.sol";
 import {ILiquidityContainer} from "./interfaces/ILiquidityContainer.sol";
+import {IWrappedNative} from "../ccip/interfaces/IWrappedNative.sol";
 
 import {OCR3Base} from "./ocr/OCR3Base.sol";
 
@@ -12,7 +13,7 @@ import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/token/
 
 /// @notice Rebalancer for a single token over multiple chains.
 /// @dev This contract is designed to be used with the LockReleaseTokenPool contract but
-/// isn't constraint to it. It can be used with any contract that implements the ILiquidityContainer
+/// isn't constrained to it. It can be used with any contract that implements the ILiquidityContainer
 /// interface.
 /// @dev The OCR3 DON should only be able to transfer funds to other pre-approved contracts
 /// on other chains. Under no circumstances should it be able to transfer funds to arbitrary
@@ -30,6 +31,11 @@ contract Rebalancer is IRebalancer, OCR3Base {
   error InsufficientLiquidity(uint256 requested, uint256 available);
   error EmptyReport();
 
+  event FinalizationStepCompleted(
+    uint64 indexed ocrSeqNum,
+    uint64 indexed remoteChainSelector,
+    bytes bridgeSpecificData
+  );
   event LiquidityTransferred(
     uint64 indexed ocrSeqNum,
     uint64 indexed fromChainSelector,
@@ -165,9 +171,10 @@ contract Rebalancer is IRebalancer, OCR3Base {
   function receiveLiquidity(
     uint64 remoteChainSelector,
     uint256 amount,
+    bool shouldWrapNative,
     bytes calldata bridgeSpecificPayload
   ) external onlyOwner {
-    _receiveLiquidity(remoteChainSelector, amount, bridgeSpecificPayload, type(uint64).max);
+    _receiveLiquidity(remoteChainSelector, amount, bridgeSpecificPayload, shouldWrapNative, type(uint64).max);
   }
 
   /// @notice Transfers liquidity to another chain.
@@ -217,6 +224,7 @@ contract Rebalancer is IRebalancer, OCR3Base {
     uint64 remoteChainSelector,
     uint256 amount,
     bytes memory bridgeSpecificPayload,
+    bool shouldWrapNative,
     uint64 ocrSeqNum
   ) internal {
     // check if the remote chain is supported
@@ -232,8 +240,20 @@ contract Rebalancer is IRebalancer, OCR3Base {
         address(this), // localReceiver: this contract
         bridgeSpecificPayload
       )
-    {
-      // successfully finalized the withdrawal
+    returns (bool fundsAvailable) {
+      if (fundsAvailable) {
+        // finalization was successful and we can inject the liquidity into the container.
+        // approve and liquidity container should transferFrom.
+        _injectLiquidity(amount, ocrSeqNum, remoteChainSelector, bridgeSpecificPayload, shouldWrapNative);
+      } else {
+        // a finalization step was completed, but funds are not available.
+        // hence, we cannot inject any liquidity yet.
+        emit FinalizationStepCompleted(ocrSeqNum, remoteChainSelector, bridgeSpecificPayload);
+      }
+
+      // return here on the happy path.
+      // sad path is when finalizeWithdrawERC20 reverts, which is handled after the catch block.
+      return;
     } catch (bytes memory lowLevelData) {
       // failed to finalize the withdrawal.
       // this could mean that the withdrawal was already finalized
@@ -242,8 +262,29 @@ contract Rebalancer is IRebalancer, OCR3Base {
       emit FinalizationFailed(ocrSeqNum, remoteChainSelector, bridgeSpecificPayload, lowLevelData);
     }
 
-    // inject liquidity into the liquidity container
-    // approve and liquidity container should transferFrom
+    // if we reach this point, the finalization failed.
+    // since we don't have enough information to know why it failed,
+    // we assume that it failed because the withdrawal was already finalized,
+    // and that the funds are available.
+    _injectLiquidity(amount, ocrSeqNum, remoteChainSelector, bridgeSpecificPayload, shouldWrapNative);
+  }
+
+  function _injectLiquidity(
+    uint256 amount,
+    uint64 ocrSeqNum,
+    uint64 remoteChainSelector,
+    bytes memory bridgeSpecificPayload,
+    bool shouldWrapNative
+  ) private {
+    // We trust the DON or the owner (the only two actors who can end up calling this function)
+    // to correctly set the shouldWrapNative flag.
+    // Some bridges only bridge native and not wrapped native.
+    // In such a case we need to re-wrap the native in order to inject it into the liquidity container.
+    // TODO: escape hatch in case of bug?
+    if (shouldWrapNative) {
+      IWrappedNative(address(i_localToken)).deposit{value: amount}();
+    }
+
     i_localToken.safeIncreaseAllowance(address(s_localLiquidityContainer), amount);
     s_localLiquidityContainer.provideLiquidity(amount);
 
@@ -285,6 +326,7 @@ contract Rebalancer is IRebalancer, OCR3Base {
         instructions.receiveLiquidityParams[i].remoteChainSelector,
         instructions.receiveLiquidityParams[i].amount,
         instructions.receiveLiquidityParams[i].bridgeData,
+        instructions.receiveLiquidityParams[i].shouldWrapNative,
         ocrSeqNum
       );
     }

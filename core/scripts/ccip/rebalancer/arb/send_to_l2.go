@@ -218,7 +218,7 @@ func estimateAll(env multienv.Env, l1ChainID, l2ChainID uint64, rd RetryableData
 
 	maxSubmissionFee := estimateSubmissionFee(env.Clients[l1ChainID], l1ChainID, l1BaseFee, uint64(len(rd.Data)))
 
-	gasLimit := estimateRetryableGasLimit(env, l2Client, l2ChainID, rd)
+	gasLimit := estimateRetryableGasLimit(l2Client, l2ChainID, rd)
 
 	deposit := new(big.Int).Mul(gasLimit, l2MaxFeePerGas)
 	deposit = deposit.Add(deposit, maxSubmissionFee)
@@ -237,7 +237,7 @@ func estimateAll(env multienv.Env, l1ChainID, l2ChainID uint64, rd RetryableData
 	}
 }
 
-func estimateRetryableGasLimit(env multienv.Env, l2Client *ethclient.Client, l2ChainID uint64, rd RetryableData) *big.Int {
+func estimateRetryableGasLimit(l2Client *ethclient.Client, l2ChainID uint64, rd RetryableData) *big.Int {
 	packed, err := nodeInterfaceABI.Pack("estimateRetryableTicket",
 		rd.From,
 		assets.Ether(1).ToInt(), // this is what is done in the SDK, not sure why yet

@@ -330,6 +330,8 @@ func main() {
 		tx, err := weth.Transfer(env.Transactors[*chainID], common.HexToAddress(*toAddress), decimal.RequireFromString(*amount).BigInt())
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), env.Clients[*chainID], tx, int64(*chainID))
+
+	// Optimism specific commands
 	case "deploy-op-l1-adapter":
 		cmd := flag.NewFlagSet("deploy-op-l1-adapter", flag.ExitOnError)
 		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
@@ -432,8 +434,106 @@ func main() {
 			*l1ChainID,
 			*l2ChainID,
 			common.HexToAddress(*l1BridgeAdapterAddress),
-			opstack.OptimismContracts[*l1ChainID]["OptimismPortal"],
 			common.HexToHash(*l2TxHash))
+
+	// operations through the rebalancer contract instead of the adapters.
+	case "op-send-to-l2-via-rebalancer":
+		cmd := flag.NewFlagSet("op-send-to-l2-via-rebalancer", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		l1RebalancerAddress := cmd.String("l1-rebalancer-address", "", "L1 Rebalancer Address")
+		remoteChainID := cmd.Uint64("remote-chain-id", 0, "Remote Chain ID")
+		amount := cmd.String("amount", "1", "Amount")
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id", "l1-rebalancer-address", "remote-chain-id")
+
+		env := multienv.New(false, false)
+		opstack.SendToL2ViaRebalancer(
+			env,
+			*l1ChainID,
+			*remoteChainID,
+			common.HexToAddress(*l1RebalancerAddress),
+			decimal.RequireFromString(*amount).BigInt(),
+		)
+	case "op-receive-on-l2-via-rebalancer":
+		cmd := flag.NewFlagSet("op-receive-on-l2-via-rebalancer", flag.ExitOnError)
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l2RebalancerAddress := cmd.String("l2-rebalancer-address", "", "L2 Rebalancer Address")
+		remoteChainID := cmd.Uint64("remote-chain-id", 0, "Remote Chain ID")
+		amount := cmd.String("amount", "1", "Amount")
+		shouldWrapNative := cmd.Bool("should-wrap-native", false, "Should wrap native")
+		helpers.ParseArgs(cmd, os.Args[2:], "l2-chain-id", "l2-rebalancer-address", "remote-chain-id", "amount")
+
+		env := multienv.New(false, false)
+		l2Rebalancer, err := rebalancer.NewRebalancer(common.HexToAddress(*l2RebalancerAddress), env.Clients[*l2ChainID])
+		helpers.PanicErr(err)
+
+		tx, err := l2Rebalancer.ReceiveLiquidity(
+			env.Transactors[*l2ChainID],
+			mustGetChainByEvmID(*remoteChainID).Selector,
+			decimal.RequireFromString(*amount).BigInt(),
+			*shouldWrapNative,
+			[]byte{}, // no bridge specific payload for receiving liquidity on OP L2
+		)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), env.Clients[*l2ChainID], tx, int64(*l2ChainID),
+			"ReceiveLiquidity", *amount, "wei from", fmt.Sprintf("chain %d", *remoteChainID))
+	case "op-withdraw-to-l1-via-rebalancer":
+		cmd := flag.NewFlagSet("op-withdraw-to-l1-via-rebalancer", flag.ExitOnError)
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l2RebalancerAddress := cmd.String("l2-rebalancer-address", "", "L2 Rebalancer Address")
+		remoteChainID := cmd.Uint64("remote-chain-id", 0, "Remote Chain ID")
+		amount := cmd.String("amount", "1", "Amount")
+		helpers.ParseArgs(cmd, os.Args[2:], "l2-chain-id", "l2-rebalancer-address", "remote-chain-id", "amount")
+
+		env := multienv.New(false, false)
+		opstack.WithdrawFromL2ViaRebalancer(
+			env,
+			*l2ChainID,
+			*remoteChainID,
+			common.HexToAddress(*l2RebalancerAddress),
+			decimal.RequireFromString(*amount).BigInt(),
+		)
+	case "op-prove-withdrawal-on-l1-via-rebalancer":
+		cmd := flag.NewFlagSet("op-prove-withdrawal-on-l1-via-rebalancer", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l2TxHash := cmd.String("l2-tx-hash", "", "L2 Tx Hash")
+		l1RebalancerAddress := cmd.String("l1-rebalancer-address", "", "L1 Rebalancer Address")
+		remoteChainID := cmd.Uint64("remote-chain-id", 0, "Remote Chain ID")
+		amount := cmd.String("amount", "1", "Amount")
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id", "l2-chain-id", "l2-tx-hash", "l1-rebalancer-address", "remote-chain-id", "amount")
+
+		env := multienv.New(false, false)
+		opstack.ProveWithdrawalViaRebalancer(
+			env,
+			*l1ChainID,
+			*l2ChainID,
+			*remoteChainID,
+			decimal.RequireFromString(*amount).BigInt(),
+			common.HexToAddress(*l1RebalancerAddress),
+			opstack.OptimismContracts[*l1ChainID]["L2OutputOracle"],
+			opstack.OptimismContracts[*l1ChainID]["OptimismPortal"],
+			common.HexToHash(*l2TxHash),
+		)
+	case "op-finalize-withdrawal-on-l1-via-rebalancer":
+		cmd := flag.NewFlagSet("op-finalize-withdrawal-on-l1-via-rebalancer", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l2TxHash := cmd.String("l2-tx-hash", "", "L2 Tx Hash")
+		l1RebalancerAddress := cmd.String("l1-rebalancer-address", "", "L1 Rebalancer Address")
+		remoteChainID := cmd.Uint64("remote-chain-id", 0, "Remote Chain ID")
+		amount := cmd.String("amount", "1", "Amount")
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id", "l2-chain-id", "l2-tx-hash", "l1-rebalancer-address", "remote-chain-id", "amount")
+
+		env := multienv.New(false, false)
+		opstack.FinalizeWithdrawalViaRebalancer(
+			env,
+			*l1ChainID,
+			*l2ChainID,
+			*remoteChainID,
+			decimal.RequireFromString(*amount).BigInt(),
+			common.HexToAddress(*l1RebalancerAddress),
+			common.HexToHash(*l2TxHash),
+		)
 	}
 }
 

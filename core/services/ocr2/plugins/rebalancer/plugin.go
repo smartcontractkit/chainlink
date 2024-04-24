@@ -354,7 +354,8 @@ func (p *Plugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, r
 	}
 
 	// add the transfers to the inflight container since none of them are inflight already.
-	for _, transfer := range report.Transfers {
+	// need to range through the meta because it has the correct stage information.
+	for _, transfer := range r.Info.Transfers {
 		p.inflight.Add(transfer)
 	}
 
@@ -707,6 +708,7 @@ func (p *Plugin) resolveProposedTransfers(ctx context.Context, lggr logger.Logge
 		}
 		resolvedTransfer.BridgeData = bridgePayload
 		resolvedTransfer.NativeBridgeFee = ubig.New(bridgeFee)
+		resolvedTransfer.Stage = 0
 		resolvedTransfers = append(resolvedTransfers, resolvedTransfer)
 	}
 

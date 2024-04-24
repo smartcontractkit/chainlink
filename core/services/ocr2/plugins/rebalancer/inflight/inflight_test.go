@@ -107,6 +107,7 @@ func Test_inflight_Expire(t *testing.T) {
 						From:   1,
 						To:     2,
 						Amount: ubig.NewI(1),
+						Stage:  0,
 					},
 				},
 			},
@@ -121,13 +122,14 @@ func Test_inflight_Expire(t *testing.T) {
 			},
 		},
 		{
-			"pending transfer",
+			"pending transfer with larger stage",
 			fields{
 				items: map[transferID]models.Transfer{
 					{From: 1, To: 2, Amount: "1"}: {
 						From:   1,
 						To:     2,
 						Amount: ubig.NewI(1),
+						Stage:  0,
 					},
 				},
 			},
@@ -138,6 +140,7 @@ func Test_inflight_Expire(t *testing.T) {
 							From:   1,
 							To:     2,
 							Amount: ubig.NewI(1),
+							Stage:  1,
 						},
 					},
 				},
@@ -147,6 +150,37 @@ func Test_inflight_Expire(t *testing.T) {
 			},
 			func(t *testing.T, i *inflight) {
 				require.Len(t, i.transfers, 0)
+			},
+		},
+		{
+			"pending transfer with equal stage",
+			fields{
+				items: map[transferID]models.Transfer{
+					{From: 1, To: 2, Amount: "1"}: {
+						From:   1,
+						To:     2,
+						Amount: ubig.NewI(1),
+						Stage:  0,
+					},
+				},
+			},
+			args{
+				[]models.PendingTransfer{
+					{
+						Transfer: models.Transfer{
+							From:   1,
+							To:     2,
+							Amount: ubig.NewI(1),
+							Stage:  0,
+						},
+					},
+				},
+			},
+			func(t *testing.T, i *inflight) {
+				require.Len(t, i.transfers, 1)
+			},
+			func(t *testing.T, i *inflight) {
+				require.Len(t, i.transfers, 1)
 			},
 		},
 	}

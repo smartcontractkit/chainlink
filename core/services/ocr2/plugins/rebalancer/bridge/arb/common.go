@@ -33,6 +33,15 @@ const (
 	// DepositFinalizedToAddressTopicIndex is the index of the topic in the DepositFinalized event
 	// that contains the "to" address.
 	DepositFinalizedToAddressTopicIndex = 3
+
+	// Arbitrum stages
+	// StageRebalanceConfirmed is set as the transfer stage when the rebalanceLiquidity tx is confirmed onchain.
+	StageRebalanceConfirmed = 1
+	// StageFinalizeReady is set as the transfer stage when the finalization is ready to execute onchain.
+	StageFinalizeReady = 2
+	// StageFinalizeConfirmed is set as the transfer stage when the finalization is confirmed onchain.
+	// This is a terminal stage.
+	StageFinalizeConfirmed = 3
 )
 
 var (

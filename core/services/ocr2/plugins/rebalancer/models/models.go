@@ -106,6 +106,10 @@ type Transfer struct {
 	BridgeData hexutil.Bytes
 	// NativeBridgeFee is the fee that the bridge charges for the transfer.
 	NativeBridgeFee *ubig.Big
+	// Stage is the stage of the transfer.
+	// This is primarily used for correct inflight tracking and expiry.
+	// In particular, only transfers with a strictly higher stage can expire a transfer with a lower stage.
+	Stage int
 	// todo: consider adding some unique id field
 }
 
@@ -144,11 +148,13 @@ func (t Transfer) Equals(other Transfer) bool {
 		t.RemoteTokenAddress == other.RemoteTokenAddress &&
 		t.Amount.Cmp(other.Amount) == 0 &&
 		t.Date.Equal(other.Date) &&
-		bytes.Equal(t.BridgeData, other.BridgeData)
+		bytes.Equal(t.BridgeData, other.BridgeData) &&
+		t.NativeBridgeFee.Cmp(other.NativeBridgeFee) == 0 &&
+		t.Stage == other.Stage
 }
 
 func (t Transfer) String() string {
-	return fmt.Sprintf("{From: %d, To: %d, Amount: %s, Sender: %s, Receiver: %s, LocalTokenAddress: %s, RemoteTokenAddress: %s, BridgeData: %s, NativeBridgeFee: %s}",
+	return fmt.Sprintf("{From: %d, To: %d, Amount: %s, Sender: %s, Receiver: %s, LocalTokenAddress: %s, RemoteTokenAddress: %s, BridgeData: %s, NativeBridgeFee: %s, Stage: %d}",
 		t.From,
 		t.To,
 		t.Amount.String(),
@@ -158,6 +164,7 @@ func (t Transfer) String() string {
 		t.RemoteTokenAddress.String(),
 		hexutil.Encode(t.BridgeData),
 		t.NativeBridgeFee.String(),
+		t.Stage,
 	)
 }
 

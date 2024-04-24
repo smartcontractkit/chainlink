@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -16,13 +17,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/arb"
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/multienv"
+	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/opstack"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
-	router2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	cciprouter "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_l1_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_l2_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/optimism_l1_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/optimism_l2_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 )
 
@@ -59,41 +63,30 @@ func deployUniverse(
 	// required by the token pool.
 	l1Arm, l1ArmProxy := deployArm(l1Transactor, l1Client, l1ChainID)
 
-	l1RouterAddress, _, _, err := router2.DeployRouter(l1Transactor, l1Client, common.Address{}, l1ArmProxy.Address())
+	_, tx, _, err := cciprouter.DeployRouter(l1Transactor, l1Client, common.Address{}, l1ArmProxy.Address())
 	helpers.PanicErr(err)
+	l1RouterAddress := helpers.ConfirmContractDeployed(context.Background(), l1Client, tx, int64(l1ChainID))
 
-	// deploy token pool targeting l1TokenAddress
+	// deploy token pool targeting l1TokenAddress.
 	l1TokenPool, l1Rebalancer := deployTokenPoolAndRebalancer(l1Transactor, l1Client, l1TokenAddress, l1ArmProxy.Address(), l1ChainSelector, l1RouterAddress)
 
-	// deploy the L1 bridge adapter to point to the token address
-	_, tx, _, err := arbitrum_l1_bridge_adapter.DeployArbitrumL1BridgeAdapter(
-		l1Transactor,
-		l1Client,
-		arb.ArbitrumContracts[l1ChainID]["L1GatewayRouter"],
-		arb.ArbitrumContracts[l1ChainID]["L1Outbox"],
-	)
-	helpers.PanicErr(err)
-	l1BridgeAdapterAddress := helpers.ConfirmContractDeployed(context.Background(), l1Client, tx, int64(l1ChainID))
+	// deploy the appropriate L1 bridge adapter depending on the chain.
+	l1BridgeAdapterAddress := deployL1BridgeAdapter(l1Transactor, l1Client, l1ChainID, l2ChainID)
 
 	// L2 deploys
 	// deploy arm and arm proxy.
 	// required by the token pool.
 	l2Arm, l2ArmProxy := deployArm(l2Transactor, l2Client, l2ChainID)
 
-	l2RouterAddress, _, _, err := router2.DeployRouter(l2Transactor, l2Client, common.Address{}, l2ArmProxy.Address())
+	_, tx, _, err = cciprouter.DeployRouter(l2Transactor, l2Client, common.Address{}, l2ArmProxy.Address())
 	helpers.PanicErr(err)
+	l2RouterAddress := helpers.ConfirmContractDeployed(context.Background(), l2Client, tx, int64(l2ChainID))
 
 	// deploy token pool targeting l2TokenAddress
 	l2TokenPool, l2Rebalancer := deployTokenPoolAndRebalancer(l2Transactor, l2Client, l2TokenAddress, l2ArmProxy.Address(), l2ChainSelector, l2RouterAddress)
 
 	// deploy the L2 bridge adapter to point to the token address
-	_, tx, _, err = arbitrum_l2_bridge_adapter.DeployArbitrumL2BridgeAdapter(
-		l2Transactor,
-		l2Client,
-		arb.ArbitrumContracts[l2ChainID]["L2GatewayRouter"],
-	)
-	helpers.PanicErr(err)
-	l2BridgeAdapterAddress := helpers.ConfirmContractDeployed(context.Background(), l2Client, tx, int64(l2ChainID))
+	l2BridgeAdapterAddress := deployL2BridgeAdapter(l2Transactor, l2Client, l2ChainID)
 
 	// link the l1 and l2 rebalancers together via the SetCrossChainRebalancer function
 	tx, err = l1Rebalancer.SetCrossChainRebalancer(l1Transactor, rebalancer.IRebalancerCrossChainRebalancerArgs{
@@ -139,16 +132,20 @@ func deployUniverse(
 	}
 
 	fmt.Println("Deployments complete\n",
-		"L1 Arm:", l1Arm.Address().Hex(), "\n",
-		"L1 Arm Proxy:", l1ArmProxy.Address().Hex(), "\n",
-		"L1 Token Pool:", l1TokenPool.Address().Hex(), "\n",
-		"L1 Rebalancer:", l1Rebalancer.Address().Hex(), "\n",
-		"L1 Bridge Adapter:", l1BridgeAdapterAddress.Hex(), "\n",
-		"L2 Arm:", l2Arm.Address().Hex(), "\n",
-		"L2 Arm Proxy:", l2ArmProxy.Address().Hex(), "\n",
-		"L2 Token Pool:", l2TokenPool.Address().Hex(), "\n",
-		"L2 Rebalancer:", l2Rebalancer.Address().Hex(), "\n",
-		"L2 Bridge Adapter:", l2BridgeAdapterAddress.Hex(),
+		"L1 Chain ID:", l1ChainID, "\n",
+		"L1 Chain Selector:", l1ChainSelector, "\n",
+		"L1 Arm:", helpers.ContractExplorerLink(int64(l1ChainID), l1Arm.Address()), "(", l1Arm.Address().Hex(), ")\n",
+		"L1 Arm Proxy:", helpers.ContractExplorerLink(int64(l1ChainID), l1ArmProxy.Address()), "(", l1ArmProxy.Address().Hex(), ")\n",
+		"L1 Token Pool:", helpers.ContractExplorerLink(int64(l1ChainID), l1TokenPool.Address()), "(", l1TokenPool.Address().Hex(), ")\n",
+		"L1 Rebalancer:", helpers.ContractExplorerLink(int64(l1ChainID), l1Rebalancer.Address()), "(", l1Rebalancer.Address().Hex(), ")\n",
+		"L1 Bridge Adapter:", helpers.ContractExplorerLink(int64(l1ChainID), l1BridgeAdapterAddress), "(", l1BridgeAdapterAddress.Hex(), ")\n",
+		"L2 Chain ID:", l2ChainID, "\n",
+		"L2 Chain Selector:", l2ChainSelector, "\n",
+		"L2 Arm:", helpers.ContractExplorerLink(int64(l2ChainID), l2Arm.Address()), "(", l2Arm.Address().Hex(), ")\n",
+		"L2 Arm Proxy:", helpers.ContractExplorerLink(int64(l2ChainID), l2ArmProxy.Address()), "(", l2ArmProxy.Address().Hex(), ")\n",
+		"L2 Token Pool:", helpers.ContractExplorerLink(int64(l2ChainID), l2TokenPool.Address()), "(", l2TokenPool.Address().Hex(), ")\n",
+		"L2 Rebalancer:", helpers.ContractExplorerLink(int64(l2ChainID), l2Rebalancer.Address()), "(", l2Rebalancer.Address().Hex(), ")\n",
+		"L2 Bridge Adapter:", helpers.ContractExplorerLink(int64(l2ChainID), l2BridgeAdapterAddress), "(", l2BridgeAdapterAddress.Hex(), ")",
 	)
 
 	return universe{
@@ -179,6 +176,59 @@ func deployUniverse(
 			BridgeAdapterAddress: l2BridgeAdapterAddress,
 		},
 	}
+}
+
+func deployL1BridgeAdapter(
+	l1Transactor *bind.TransactOpts,
+	l1Client *ethclient.Client,
+	l1ChainID, l2ChainID uint64,
+) common.Address {
+	if l2ChainID == chainsel.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID || l2ChainID == chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.EvmChainID {
+		_, tx, _, err := arbitrum_l1_bridge_adapter.DeployArbitrumL1BridgeAdapter(
+			l1Transactor,
+			l1Client,
+			arb.ArbitrumContracts[l1ChainID]["L1GatewayRouter"],
+			arb.ArbitrumContracts[l1ChainID]["L1Outbox"],
+		)
+		helpers.PanicErr(err)
+		return helpers.ConfirmContractDeployed(context.Background(), l1Client, tx, int64(l1ChainID))
+	} else if l2ChainID == chainsel.ETHEREUM_MAINNET_OPTIMISM_1.EvmChainID || l2ChainID == chainsel.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.EvmChainID {
+		_, tx, _, err := optimism_l1_bridge_adapter.DeployOptimismL1BridgeAdapter(
+			l1Transactor,
+			l1Client,
+			opstack.OptimismContracts[l1ChainID]["L1StandardBridge"],
+			opstack.OptimismContracts[l1ChainID]["WETH"],
+			opstack.OptimismContracts[l1ChainID]["OptimismPortal"],
+		)
+		helpers.PanicErr(err)
+		return helpers.ConfirmContractDeployed(context.Background(), l1Client, tx, int64(l1ChainID))
+	}
+	panic(fmt.Sprintf("unsupported chain id %d", l1ChainID))
+}
+
+func deployL2BridgeAdapter(
+	l2Transactor *bind.TransactOpts,
+	l2Client *ethclient.Client,
+	l2ChainID uint64,
+) common.Address {
+	if l2ChainID == chainsel.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID || l2ChainID == chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.EvmChainID {
+		_, tx, _, err := arbitrum_l2_bridge_adapter.DeployArbitrumL2BridgeAdapter(
+			l2Transactor,
+			l2Client,
+			arb.ArbitrumContracts[l2ChainID]["L2GatewayRouter"],
+		)
+		helpers.PanicErr(err)
+		return helpers.ConfirmContractDeployed(context.Background(), l2Client, tx, int64(l2ChainID))
+	} else if l2ChainID == chainsel.ETHEREUM_MAINNET_OPTIMISM_1.EvmChainID || l2ChainID == chainsel.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.EvmChainID {
+		_, tx, _, err := optimism_l2_bridge_adapter.DeployOptimismL2BridgeAdapter(
+			l2Transactor,
+			l2Client,
+			opstack.OptimismContracts[l2ChainID]["WETH"],
+		)
+		helpers.PanicErr(err)
+		return helpers.ConfirmContractDeployed(context.Background(), l2Client, tx, int64(l2ChainID))
+	}
+	panic(fmt.Sprintf("unsupported l2 chain id %d", l2ChainID))
 }
 
 func deployTokenPoolAndRebalancer(

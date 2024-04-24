@@ -318,7 +318,7 @@ func SetupNode(
 		resetDatabase(client, ctx)
 	}
 
-	return setupRebalancerNodeFromClient(client, ctx, e)
+	return setupRebalancerNodeFromClient(client, ctx)
 }
 
 func configureEnvironmentVariables(
@@ -364,8 +364,7 @@ func resetDatabase(client *cmd.Shell, context *cli.Context) {
 
 func setupRebalancerNodeFromClient(
 	client *cmd.Shell,
-	context *cli.Context,
-	e multienv.Env) *cmd.SetupRebalancerNodePayload {
+	context *cli.Context) *cmd.SetupRebalancerNodePayload {
 	payload, err := client.ConfigureRebalancerNode(context)
 	helpers.PanicErr(err)
 
