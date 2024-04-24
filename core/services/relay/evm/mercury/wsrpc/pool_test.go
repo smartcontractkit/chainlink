@@ -58,7 +58,7 @@ func Test_Pool(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	t.Run("Checkout", func(t *testing.T) {
-		p := &pool {
+		p := &pool{
 			lggr: lggr,
 		}
 		p.cacheSet = &mockCacheSet{}
@@ -208,7 +208,7 @@ func Test_Pool(t *testing.T) {
 		})
 	})
 
-	p := &pool {
+	p := &pool{
 		lggr: lggr,
 	}
 	p.cacheSet = &mockCacheSet{}

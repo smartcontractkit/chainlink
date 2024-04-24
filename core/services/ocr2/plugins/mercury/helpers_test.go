@@ -2,6 +2,7 @@ package mercury_test
 
 import (
 	"context"
+	"crypto"
 	"crypto/ed25519"
 	"encoding/binary"
 	"errors"
@@ -575,4 +576,12 @@ chainID = 1337
 		linkFeedID,
 		nativeFeedID,
 	))
+}
+
+func sign(t *testing.T, key csakey.KeyV2, request PbRequest) string {
+	canonicalRequestString := request.String()
+	signableKey := ed25519.PrivateKey(key.Raw())
+	signedBytes, err := signableKey.Sign(nil, []byte(canonicalRequestString), crypto.Hash(0))
+	require.NoError(t, err)
+	return fmt.Sprintf("%x", signedBytes)
 }

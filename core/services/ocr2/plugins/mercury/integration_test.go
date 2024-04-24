@@ -1027,7 +1027,6 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 			oracle_transmitters[o.OracleIdentity.TransmitAccount] = struct{}{}
 		}
 
-		// feedID: account: count
 		for req := range reqs {
 
 			v := make(map[string]interface{})
@@ -1068,8 +1067,6 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 			if _, ok := oracle_transmitters[req.TransmitterID()]; !ok {
 				t.Fatalf("FAIL: unexpected report from oracle %s", req.TransmitterID())
 			}
-
-			t.Logf("Oracle %s AKA %s reported for feed %s (0x%x)", req.pk, req.TransmitterID(), feed.name, feed.id)
 
 			seen[feedID][req.TransmitterID()] = struct{}{}
 			if len(seen[feedID]) == n {
@@ -1144,12 +1141,16 @@ func TestIntegration_MercuryGRPC(t *testing.T) {
 
 	rawClient := pb.NewMercuryGrpcClient(conn2)
 
+	latestReportRequest := pb.LatestReportRequest{
+		FeedId: []byte("feedId"),
+	}
 	latestReportCtx := testutils.Context(t)
 	kv := make(map[string]string)
 	kv["csa-key"] = key.PublicKeyString()
+	kv["signature"] = sign(t, key, &latestReportRequest)
 	md := metadata.New(kv)
 	latestReportCtx = metadata.NewOutgoingContext(latestReportCtx, md)
-	resp2, err := rawClient.LatestReport(latestReportCtx, &pb.LatestReportRequest{})
+	resp2, err := rawClient.LatestReport(latestReportCtx, &latestReportRequest)
 	require.NoError(t, err)
 	t.Logf("LatestReport Response: %v", resp2)
 
@@ -1165,7 +1166,7 @@ func TestIntegration_MercuryGRPC(t *testing.T) {
 	t.Logf("Client name: %v", client.Name())
 	t.Logf("Client health: %v", client.HealthReport())
 
-	resp3, err3 := client.LatestReport(latestReportCtx, &pb.LatestReportRequest{})
+	resp3, err3 := client.LatestReport(latestReportCtx, &latestReportRequest)
 	require.NoError(t, err3)
 
 	t.Logf("LatestReport Response: %v", resp3)
