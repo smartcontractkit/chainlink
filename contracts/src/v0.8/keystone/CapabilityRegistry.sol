@@ -47,9 +47,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @param nodeOperatorId The ID of the node operator that was removed
     event NodeOperatorRemoved(uint256 nodeOperatorId);
 
-    /// @notice This event is emitted when a node operator is removed
-    /// @param nodeOperatorId The ID of the operator that was removed
-
     /// @notice This event is emitted when a new capability is added
     /// @param capabilityId The ID of the newly added capability
     event CapabilityAdded(bytes32 indexed capabilityId);
@@ -80,14 +77,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         }
     }
 
-        /// @notice Removes a node operator
-    /// @param nodeOperatorId The ID of the node operator being removed
-    function removeNodeOperator(uint256 nodeOperatorId) external {
-        NodeOperator memory nodeOperator = s_nodeOperators[nodeOperatorId];
-        if (nodeOperator.admin == address(0)) revert NonExistentNodeOperator(nodeOperatorId);
-        if (msg.sender != nodeOperator.admin && msg.sender != owner()) revert AccessForbidden();
-        delete s_nodeOperators[nodeOperatorId];
-        emit NodeOperatorRemoved(nodeOperatorId);
+    /// @notice Removes a node operator
+    /// @param nodeOperatorIds The IDs of the node operators to remove
+    function removeNodeOperators(uint256[] calldata nodeOperatorIds) external {
+        for (uint256 i; i < nodeOperatorIds.length; ++i) {
+            uint256 nodeOperatorId = nodeOperatorIds[i];
+            NodeOperator memory nodeOperator = s_nodeOperators[nodeOperatorId];
+            if (nodeOperator.admin == address(0)) revert NonExistentNodeOperator(nodeOperatorId);
+            if (msg.sender != nodeOperator.admin && msg.sender != owner()) revert AccessForbidden();
+            delete s_nodeOperators[nodeOperatorId];
+            emit NodeOperatorRemoved(nodeOperatorId);
+        }
     }
 
     /// @notice Gets a node operator's data
