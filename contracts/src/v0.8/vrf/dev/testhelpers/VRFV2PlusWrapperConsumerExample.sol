@@ -77,4 +77,10 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
     // solhint-disable-next-line gas-custom-errors
     require(success, "withdrawNative failed");
   }
+
+  event Received(address, uint256);
+
+  receive() external payable {
+    emit Received(msg.sender, msg.value);
+  }
 }
