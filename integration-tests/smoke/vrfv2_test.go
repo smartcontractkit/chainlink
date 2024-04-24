@@ -63,7 +63,7 @@ func TestVRFv2Basic(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -104,7 +104,7 @@ func TestVRFv2Basic(t *testing.T) {
 		subBalanceBeforeRequest := subscription.Balance
 
 		// test and assert
-		randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
+		_, randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
 			l,
 			consumers[0],
 			vrfContracts.CoordinatorV2,
@@ -137,6 +137,54 @@ func TestVRFv2Basic(t *testing.T) {
 		}
 	})
 
+	t.Run("VRF Node waits block confirmation number specified by the consumer in the rand request before sending fulfilment on-chain", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		testConfig := configCopy.VRFv2.General
+
+		consumers, subIDs, err := vrfv2.SetupNewConsumersAndSubs(
+			testEnv,
+			chainID,
+			vrfContracts.CoordinatorV2,
+			configCopy,
+			vrfContracts.LinkToken,
+			1,
+			1,
+			l,
+		)
+		require.NoError(t, err, "error setting up new consumers and subs")
+		subID := subIDs[0]
+		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
+		require.NoError(t, err, "error getting subscription information")
+		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subID, 10), vrfContracts.CoordinatorV2)
+		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
+
+		expectedBlockNumberWait := uint16(10)
+		testConfig.MinimumConfirmations = ptr.Ptr[uint16](expectedBlockNumberWait)
+		randomWordsRequestedEvent, randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
+			l,
+			consumers[0],
+			vrfContracts.CoordinatorV2,
+			subID,
+			vrfKey,
+			*testConfig.MinimumConfirmations,
+			*testConfig.CallbackGasLimit,
+			*testConfig.NumberOfWords,
+			*testConfig.RandomnessRequestCountPerRequest,
+			*testConfig.RandomnessRequestCountPerRequestDeviation,
+			testConfig.RandomWordsFulfilledEventTimeout.Duration,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+		// check that VRF node waited at least the number of blocks specified by the consumer in the rand request min confs field
+		blockNumberWait := randomWordsRequestedEvent.Raw.BlockNumber - randomWordsFulfilledEvent.Raw.BlockNumber
+		require.GreaterOrEqual(t, blockNumberWait, uint64(expectedBlockNumberWait))
+
+		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, status.Fulfilled)
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+	})
+
 	t.Run("CL Node VRF Job Runs", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		consumers, subIDsForJobRuns, err := vrfv2.SetupNewConsumersAndSubs(
@@ -161,7 +209,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
-		_, err = vrfv2.RequestRandomnessAndWaitForFulfillment(
+		_, _, err = vrfv2.RequestRandomnessAndWaitForFulfillment(
 			l,
 			consumers[0],
 			vrfContracts.CoordinatorV2,
@@ -281,7 +329,7 @@ func TestVRFv2Basic(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subIDForOracleWithdraw, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForOracleWithDraw...)
 
-		fulfilledEventLink, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
+		_, fulfilledEventLink, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
 			l,
 			consumers[0],
 			vrfContracts.CoordinatorV2,
@@ -436,7 +484,7 @@ func TestVRFv2Basic(t *testing.T) {
 
 		// Request randomness - should fail due to underfunded subscription
 		randomWordsFulfilledEventTimeout := 5 * time.Second
-		_, err = vrfv2.RequestRandomnessAndWaitForFulfillment(
+		_, _, err = vrfv2.RequestRandomnessAndWaitForFulfillment(
 			l,
 			consumers[0],
 			vrfContracts.CoordinatorV2,
@@ -556,7 +604,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -602,7 +650,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 
 		var fulfillmentTxFromAddresses []string
 		for i := 0; i < newEnvConfig.NumberOfTxKeysToCreate+1; i++ {
-			randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
+			_, randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
 				l,
 				consumers[0],
 				vrfContracts.CoordinatorV2,
@@ -664,7 +712,7 @@ func TestVRFOwner(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -807,7 +855,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}

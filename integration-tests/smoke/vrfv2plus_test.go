@@ -64,7 +64,7 @@ func TestVRFv2Plus(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -193,6 +193,52 @@ func TestVRFv2Plus(t *testing.T) {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 	})
+
+	t.Run("VRF Node waits block confirmation number specified by the consumer in the rand request before sending fulfilment on-chain", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		testConfig := configCopy.VRFv2Plus.General
+		var isNativeBilling = true
+
+		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			env,
+			chainID,
+			vrfContracts.CoordinatorV2Plus,
+			configCopy,
+			vrfContracts.LinkToken,
+			1,
+			1,
+			l,
+		)
+		require.NoError(t, err, "error setting up new consumers and subs")
+		subID := subIDs[0]
+		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+		require.NoError(t, err, "error getting subscription information")
+		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
+		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
+
+		expectedBlockNumberWait := uint16(10)
+		testConfig.MinimumConfirmations = ptr.Ptr[uint16](expectedBlockNumberWait)
+		randomWordsRequestedEvent, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			consumers[0],
+			vrfContracts.CoordinatorV2Plus,
+			vrfKey,
+			subID,
+			isNativeBilling,
+			testConfig,
+			l,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+		// check that VRF node waited at least the number of blocks specified by the consumer in the rand request min confs field
+		blockNumberWait := randomWordsRequestedEvent.Raw.BlockNumber - randomWordsFulfilledEvent.Raw.BlockNumber
+		require.GreaterOrEqual(t, blockNumberWait, uint64(expectedBlockNumberWait))
+
+		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, status.Fulfilled)
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+	})
+
 	t.Run("CL Node VRF Job Runs", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
@@ -719,7 +765,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -826,7 +872,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1249,7 +1295,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1470,7 +1516,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1618,7 +1664,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1817,7 +1863,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1910,7 +1956,7 @@ func TestVRFNodeReorg(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
