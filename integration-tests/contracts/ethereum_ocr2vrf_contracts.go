@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 )
 
 // EthereumDKG represents DKG contract
@@ -47,13 +46,6 @@ type EthereumVRFBeaconConsumer struct {
 	address           *common.Address
 	client            blockchain.EVMClient
 	vrfBeaconConsumer *vrf_beacon_consumer.BeaconVRFConsumer
-}
-
-// LegacyEthereumVRFCoordinator represents VRF coordinator contract
-type LegacyEthereumVRFCoordinator struct {
-	address     *common.Address
-	client      blockchain.EVMClient
-	coordinator *solidity_vrf_coordinator_interface.VRFCoordinator
 }
 
 // DeployDKG deploys DKG contract

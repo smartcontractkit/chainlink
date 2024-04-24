@@ -59,7 +59,7 @@ type VRFCoordinatorV2 interface {
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
 	CreateSubscription() (*types.Transaction, error)
 	AddConsumer(subId uint64, consumerAddress string) error
-	Address() string
+	Address() *common.Address
 	GetSubscription(ctx context.Context, subID uint64) (Subscription, error)
 	GetOwner(ctx context.Context) (common.Address, error)
 	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)

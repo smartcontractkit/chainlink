@@ -18,10 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	vrf_common_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
+	"github.com/smartcontractkit/seth"
 )
 
 func CreateFundAndGetSendingKeys(
-	client blockchain.EVMClient,
+	client *seth.Client,
 	node *VRFNode,
 	chainlinkNodeFunding float64,
 	numberOfTxKeysToCreate int,
@@ -44,7 +45,7 @@ func CreateFundAndGetSendingKeys(
 }
 
 func CreateAndFundSendingKeys(
-	client blockchain.EVMClient,
+	client *seth.Client,
 	node *VRFNode,
 	chainlinkNodeFunding float64,
 	numberOfNativeTokenAddressesToCreate int,
@@ -79,13 +80,13 @@ func SetupBHSNode(
 	l zerolog.Logger,
 	bhsNode *VRFNode,
 ) error {
-	evmClient, err := env.GetEVMClient(chainID.Int64())
+	sethClient, err := env.GetSethClient(chainID.Int64())
 	if err != nil {
 		return err
 	}
 
 	bhsTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
-		evmClient,
+		sethClient,
 		bhsNode,
 		txKeyFunding,
 		numberOfTxKeysToCreate,

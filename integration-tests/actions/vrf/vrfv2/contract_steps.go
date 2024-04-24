@@ -22,6 +22,7 @@ import (
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
+	"github.com/smartcontractkit/seth"
 )
 
 func DeployVRFV2Contracts(
@@ -37,51 +38,38 @@ func DeployVRFV2Contracts(
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployBlockHashStore, err)
 	}
 
-	evmClient, err := env.GetEVMClient(chainID)
+	sethClient, err := env.GetSethClientForSelectedNetwork()
+	// evmClient, err := env.GetEVMClient(chainID)
 	if err != nil {
 		return nil, err
 	}
 
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
-
-	var coordinatorAddress string
+	var coordinatorAddress *common.Address
 	if useTestCoordinator {
-		testCoordinator, err := env.ContractDeployer.DeployVRFCoordinatorTestV2(linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
+		testCoordinator, err := contracts.DeployVRFCoordinatorTestV2(sethClient, linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
 		}
-		err = evmClient.WaitForEvents()
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 		}
 		coordinatorAddress = testCoordinator.Address()
 	} else {
-		coordinator, err := env.ContractDeployer.DeployVRFCoordinatorV2(linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
+		coordinator, err := contracts.DeployVRFCoordinatorV2(linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
-		}
-		err = evmClient.WaitForEvents()
-		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 		}
 		coordinatorAddress = coordinator.Address()
 	}
 
-	coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2(coordinatorAddress)
+	coordinator, err := contracts.LoadVRFCoordinatorV2(sethClient, *coordinatorAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrLoadingCoordinator, err)
 	}
 	if useVRFOwner {
-		vrfOwner, err := env.ContractDeployer.DeployVRFOwner(coordinatorAddress)
+		vrfOwner, err := contracts.DeployVRFOwner(sethClient, *coordinatorAddress)
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
-		}
-		err = evmClient.WaitForEvents()
-		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 		}
 		return &vrfcommon.VRFContracts{
 			CoordinatorV2:   coordinator,
@@ -114,10 +102,10 @@ func DeployVRFV2Consumers(contractDeployer contracts.ContractDeployer, coordinat
 	return consumers, nil
 }
 
-func DeployVRFV2WrapperConsumers(contractDeployer contracts.ContractDeployer, linkTokenAddress string, vrfV2Wrapper contracts.VRFV2Wrapper, consumerContractsAmount int) ([]contracts.VRFv2WrapperLoadTestConsumer, error) {
+func DeployVRFV2WrapperConsumers(client *seth.Client, linkTokenAddress string, vrfV2Wrapper contracts.VRFV2Wrapper, consumerContractsAmount int) ([]contracts.VRFv2WrapperLoadTestConsumer, error) {
 	var consumers []contracts.VRFv2WrapperLoadTestConsumer
 	for i := 1; i <= consumerContractsAmount; i++ {
-		loadTestConsumer, err := contractDeployer.DeployVRFV2WrapperLoadTestConsumer(linkTokenAddress, vrfV2Wrapper.Address())
+		loadTestConsumer, err := contracts.DeployVRFV2WrapperLoadTestConsumer(client, linkTokenAddress, vrfV2Wrapper.Address())
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", ErrAdvancedConsumer, err)
 		}
@@ -127,29 +115,19 @@ func DeployVRFV2WrapperConsumers(contractDeployer contracts.ContractDeployer, li
 }
 
 func DeployVRFV2DirectFundingContracts(
-	contractDeployer contracts.ContractDeployer,
-	chainClient blockchain.EVMClient,
+	client *seth.Client,
 	linkTokenAddress string,
 	linkEthFeedAddress string,
 	coordinator contracts.VRFCoordinatorV2,
 	consumerContractsAmount int,
 ) (*VRFV2WrapperContracts, error) {
-	vrfv2Wrapper, err := contractDeployer.DeployVRFV2Wrapper(linkTokenAddress, linkEthFeedAddress, coordinator.Address())
+	vrfv2Wrapper, err := contracts.DeployVRFV2Wrapper(client, linkTokenAddress, linkEthFeedAddress, coordinator.Address().Hex())
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2Wrapper, err)
 	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
-
-	consumers, err := DeployVRFV2WrapperConsumers(contractDeployer, linkTokenAddress, vrfv2Wrapper, consumerContractsAmount)
+	consumers, err := DeployVRFV2WrapperConsumers(client, linkTokenAddress, vrfv2Wrapper, consumerContractsAmount)
 	if err != nil {
 		return nil, err
-	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return &VRFV2WrapperContracts{vrfv2Wrapper, consumers}, nil
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 )
 
@@ -29,6 +30,16 @@ type EthereumVRFCoordinator struct {
 	address     *common.Address
 	client      *seth.Client
 	coordinator *solidity_vrf_coordinator_interface.VRFCoordinator
+}
+
+type EthereumVRFCoordinatorTestV2 struct {
+	address     *common.Address
+	client      *seth.Client
+	coordinator *vrf_coordinator_test_v2.VRFCoordinatorTestV2
+}
+
+func (v *EthereumVRFCoordinatorTestV2) Address() *common.Address {
+	return v.address
 }
 
 // EthereumVRFConsumer represents VRF consumer contract
@@ -156,6 +167,36 @@ func DeployVRFCoordinator(seth *seth.Client, linkAddr, bhsAddr string) (VRFCoord
 	}
 
 	return &EthereumVRFCoordinator{
+		client:      seth,
+		coordinator: coordinator,
+		address:     &coordinatorDeploymentData.Address,
+	}, err
+}
+
+func DeployVRFCoordinatorTestV2(seth *seth.Client, linkAddr, bhsAddr, linkEthFeedAddr string) (*EthereumVRFCoordinatorTestV2, error) {
+	abi, err := vrf_coordinator_test_v2.VRFCoordinatorTestV2MetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFCoordinatorTestV2{}, fmt.Errorf("failed to get VRFCoordinatorTestV2 ABI: %w", err)
+	}
+
+	coordinatorDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinatorTestV2",
+		*abi,
+		common.FromHex(vrf_coordinator_test_v2.VRFCoordinatorTestV2MetaData.Bin),
+		common.HexToAddress(linkAddr),
+		common.HexToAddress(bhsAddr),
+		common.HexToAddress(linkEthFeedAddr))
+	if err != nil {
+		return &EthereumVRFCoordinatorTestV2{}, fmt.Errorf("VRFCoordinatorTestV2 instance deployment have failed: %w", err)
+	}
+
+	coordinator, err := vrf_coordinator_test_v2.NewVRFCoordinatorTestV2(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFCoordinatorTestV2{}, fmt.Errorf("failed to instantiate VRFCoordinatorTestV2 instance: %w", err)
+	}
+
+	return &EthereumVRFCoordinatorTestV2{
 		client:      seth,
 		coordinator: coordinator,
 		address:     &coordinatorDeploymentData.Address,

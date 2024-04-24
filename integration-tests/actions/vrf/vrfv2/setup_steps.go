@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
@@ -115,7 +114,7 @@ func SetupVRFV2Environment(
 		return nil, nil, nil, err
 	}
 
-	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2.Address()).Msg("Registering Proving Key")
+	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2.Address().Hex()).Msg("Registering Proving Key")
 	provingKey, err := VRFV2RegisterProvingKey(vrfKey, registerProvingKeyAgainstAddress, vrfContracts.CoordinatorV2)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRegisteringProvingKey, err)
@@ -130,8 +129,13 @@ func SetupVRFV2Environment(
 		return nil, nil, nil, err
 	}
 
+	sethClient, err := env.GetSethClient(chainID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	vrfTXKeyAddressStrings, vrfTXKeyAddresses, err := vrfcommon.CreateFundAndGetSendingKeys(
-		evmClient,
+		sethClient,
 		nodeTypeToNodeMap[vrfcommon.VRF],
 		*vrfv2TestConfig.GetCommonConfig().ChainlinkNodeFunding,
 		numberOfTxKeysToCreate,
@@ -170,7 +174,7 @@ func SetupVRFV2Environment(
 				configGeneral.General,
 				numberOfTxKeysToCreate,
 				big.NewInt(chainID),
-				vrfContracts.CoordinatorV2.Address(),
+				vrfContracts.CoordinatorV2.Address().Hex(),
 				vrfContracts.BHS.Address(),
 				*vrfv2TestConfig.GetCommonConfig().ChainlinkNodeFunding,
 				l,
@@ -201,7 +205,7 @@ func SetupVRFV2Environment(
 func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Config *testconfig.General, pubKeyCompressed string, vrfOwnerConfig *vrfcommon.VRFOwnerConfig, l zerolog.Logger, vrfNode *vrfcommon.VRFNode) error {
 	vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
 		ForwardingAllowed:             *vrfv2Config.VRFJobForwardingAllowed,
-		CoordinatorAddress:            contracts.CoordinatorV2.Address(),
+		CoordinatorAddress:            contracts.CoordinatorV2.Address().Hex(),
 		FromAddresses:                 vrfNode.TXKeyAddressStrings,
 		EVMChainID:                    chainID.String(),
 		MinIncomingConfirmations:      int(*vrfv2Config.MinimumConfirmations),
@@ -251,15 +255,14 @@ func SetupVRFV2WrapperEnvironment(
 	keyHash [32]byte,
 	wrapperConsumerContractsAmount int,
 ) (*VRFV2WrapperContracts, *uint64, error) {
-	evmClient, err := env.GetEVMClient(chainID)
+	sethClient, err := env.GetSethClientForSelectedNetwork()
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Deploy VRF v2 direct funding contracts
 	wrapperContracts, err := DeployVRFV2DirectFundingContracts(
-		env.ContractDeployer,
-		evmClient,
+		sethClient,
 		linkToken.Address(),
 		mockNativeLINKFeed.Address(),
 		coordinator,
@@ -267,10 +270,6 @@ func SetupVRFV2WrapperEnvironment(
 	)
 	if err != nil {
 		return nil, nil, err
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	vrfv2Config := vrfv2TestConfig.GetVRFv2Config()
@@ -286,19 +285,11 @@ func SetupVRFV2WrapperEnvironment(
 	if err != nil {
 		return nil, nil, err
 	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
 
 	// Fetch wrapper subscription ID
 	wrapperSubID, err := wrapperContracts.VRFV2Wrapper.GetSubID(ctx)
 	if err != nil {
 		return nil, nil, err
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	// Fund wrapper subscription
@@ -314,10 +305,6 @@ func SetupVRFV2WrapperEnvironment(
 	)
 	if err != nil {
 		return nil, nil, err
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	return wrapperContracts, &wrapperSubID, nil
@@ -372,8 +359,7 @@ func SetupVRFV2ForNewEnv(
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
 
-	n := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
-	sethClient, err := env.GetSethClient(n.ChainID)
+	sethClient, err := env.GetSethClientForSelectedNetwork()
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -419,11 +405,17 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
-	coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2(*commonExistingEnvConfig.CoordinatorAddress)
+	client, err := env.GetSethClientForSelectedNetwork()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	coordinatorAddr := common.HexToAddress(*commonExistingEnvConfig.ConsumerAddress)
+	coordinator, err := contracts.LoadVRFCoordinatorV2(client, coordinatorAddr)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2", err)
 	}
-	linkToken, err := env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
+	linkAddr := common.HexToAddress(*commonExistingEnvConfig.LinkAddress)
+	linkToken, err := contracts.LoadLinkTokenContract(l, client, linkAddr)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 	}
@@ -483,7 +475,12 @@ func SetupSubsAndConsumersForExistingEnv(
 				return nil, nil, fmt.Errorf("err: %w", err)
 			}
 		} else {
-			consumer, err := env.ContractLoader.LoadVRFv2LoadTestConsumer(*commonExistingEnvConfig.ConsumerAddress)
+			client, err := env.GetSethClientForSelectedNetwork()
+			if err != nil {
+				return nil, nil, err
+			}
+			addr := common.HexToAddress(*commonExistingEnvConfig.ConsumerAddress)
+			consumer, err := contracts.LoadVRFv2LoadTestConsumer(client, addr)
 			if err != nil {
 				return nil, nil, fmt.Errorf("err: %w", err)
 			}
