@@ -407,14 +407,9 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	}
 
 	if testConfig.Seth != nil && !isAnySimulated && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
-		msg := `
-		Error: Ephemeral Addresses Misconfigured
-
-		Your configuration contains %d ephemeral address(es), which are only permissible for use with simulated networks. Using them on live networks poses a risk of losing your funds. Please adjust your TOML configuration file to ensure proper settings:
-		[Seth]
-		ephemeral_addresses_number = 0
-`
-		return TestConfig{}, fmt.Errorf(msg, *testConfig.Seth.EphemeralAddrs)
+		testConfig.Seth.EphemeralAddrs = new(int64)
+		logger.Warn().
+			Msg("Ephemeral addresses were enabled, but test was setup to run on a live network. Ephemeral addresses will be disabled.")
 	}
 
 	if testConfig.Seth != nil && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
