@@ -6,8 +6,6 @@ import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     struct NodeOperator {
-        /// @notice Unique identifier for the node operator
-        uint256 id;
         /// @notice The address of the admin that can manage a node
         /// operator
         address admin;
@@ -28,6 +26,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice This error is thrown when a caller is not allowed
     /// to execute the transaction
     error AccessForbidden();
+
+    /// @notice This error is thrown when trying to set a node operator's
+    /// admin address to the zero address
+    error InvalidNodeOperatorAdmin();
 
     /// @notice This error is thrown when trying to perform an action
     /// on a non existent node operator
@@ -65,19 +67,20 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         return "CapabilityRegistry 1.0.0";
     }
 
-    /// @notice Adds a new node operator
-    /// @param admin The address of the admin that can manage the node
-    /// operator
-    /// @param name The human readable name of the node operator
-    function addNodeOperator(address admin, string calldata name) external onlyOwner {
-        if (admin == address(0)) revert AccessForbidden();
-        uint256 nodeOperatorId = s_nodeOperatorId;
-        s_nodeOperators[nodeOperatorId] = NodeOperator({id: nodeOperatorId, admin: admin, name: name});
-        ++s_nodeOperatorId;
-        emit NodeOperatorAdded(nodeOperatorId, admin, name);
+    /// @notice Adds a list of node operators
+    /// @param nodeOperators List of node operators to add
+    function addNodeOperators(NodeOperator[] calldata nodeOperators) external onlyOwner {
+        for (uint256 i; i < nodeOperators.length; ++i) {
+            NodeOperator memory nodeOperator = nodeOperators[i];
+            if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
+            uint256 nodeOperatorId = s_nodeOperatorId;
+            s_nodeOperators[nodeOperatorId] = NodeOperator({admin: nodeOperator.admin, name: nodeOperator.name});
+            ++s_nodeOperatorId;
+            emit NodeOperatorAdded(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
+        }
     }
 
-    /// @notice Removes a node operator
+        /// @notice Removes a node operator
     /// @param nodeOperatorId The ID of the node operator being removed
     function removeNodeOperator(uint256 nodeOperatorId) external {
         NodeOperator memory nodeOperator = s_nodeOperators[nodeOperatorId];

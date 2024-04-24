@@ -12,4 +12,13 @@ contract BaseTest is Test, Constants {
         vm.startPrank(ADMIN);
         s_capabilityRegistry = new CapabilityRegistry();
     }
+
+    function _getNodeOperators() internal view returns (CapabilityRegistry.NodeOperator[] memory) {
+        CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](2);
+        nodeOperators[0] =
+            CapabilityRegistry.NodeOperator({admin: NODE_OPERATOR_ONE_ADMIN, name: NODE_OPERATOR_ONE_NAME});
+        nodeOperators[1] =
+            CapabilityRegistry.NodeOperator({admin: NODE_OPERATOR_TWO_ADMIN, name: NODE_OPERATOR_TWO_NAME});
+        return nodeOperators;
+    }
 }
