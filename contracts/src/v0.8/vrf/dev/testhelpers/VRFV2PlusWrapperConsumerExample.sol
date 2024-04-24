@@ -78,9 +78,9 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
     require(success, "withdrawNative failed");
   }
 
-  event Received(address, uint);
-  
+  event Received(address, uint256);
+
   receive() external payable {
-      emit Received(msg.sender, msg.value);
+    emit Received(msg.sender, msg.value);
   }
 }
