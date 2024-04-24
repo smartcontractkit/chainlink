@@ -225,7 +225,7 @@ func integration_MercuryV1(t *testing.T) {
 		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
 	}
 
-	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
+	createBridge := func(ctx context.Context, name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
@@ -259,9 +259,9 @@ func integration_MercuryV1(t *testing.T) {
 	// Add OCR jobs - one per feed on each node
 	for i, node := range nodes {
 		for j, feed := range feeds {
-			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
-			askBridge := createBridge(fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
-			bidBridge := createBridge(fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
+			bmBridge := createBridge(ctx, fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
+			askBridge := createBridge(ctx, fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
+			bidBridge := createBridge(ctx, fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
 
 			addV1MercuryJob(
 				t,
@@ -581,7 +581,7 @@ func integration_MercuryV2(t *testing.T) {
 		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
 	}
 
-	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
+	createBridge := func(ctx context.Context, name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
@@ -615,7 +615,7 @@ func integration_MercuryV2(t *testing.T) {
 	// Add OCR jobs - one per feed on each node
 	for i, node := range nodes {
 		for j, feed := range feeds {
-			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
+			bmBridge := createBridge(ctx, fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
 
 			addV2MercuryJob(
 				t,
@@ -905,7 +905,7 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
 	}
 
-	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
+	createBridge := func(ctx context.Context, name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			var b []byte
 			b, err = io.ReadAll(req.Body)
@@ -940,9 +940,9 @@ func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string
 	// Add OCR jobs - one per feed on each node
 	for i, node := range nodes {
 		for j, feed := range feeds {
-			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
-			bidBridge := createBridge(fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
-			askBridge := createBridge(fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
+			bmBridge := createBridge(ctx, fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
+			bidBridge := createBridge(ctx, fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
+			askBridge := createBridge(ctx, fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
 
 			addV3MercuryJob(
 				t,
