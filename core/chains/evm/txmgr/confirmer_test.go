@@ -3173,12 +3173,19 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
 		tx := mustInsertUnconfirmedTxWithXBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
 
-		// ProcessStuckTransactions should:
-		// 1. Detect a stuck transaction, confirmed above
+		head := evmtypes.Head{
+			Hash:   utils.NewHash(),
+			Number: blockNum,
+		}
+		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Once()
+
+		// First call to ProcessHead should:
+		// 1. Detect a stuck transaction
 		// 2. Create a purge attempt for it
 		// 3. Save the purge attempt to the DB
 		// 4. Send the purge attempt
-		err := ec.ProcessStuckTransactions(ctx, blockNum)
+		err := ec.ProcessHead(ctx, &head)
 		require.NoError(t, err)
 
 		// Check if the purge attempt was saved to the DB properly
@@ -3190,6 +3197,10 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.Equal(t, limitDefault, latestAttempt.ChainSpecificFeeLimit)
 		require.Equal(t, bumpedFee.Legacy, latestAttempt.TxFee.Legacy)
 
+		head = evmtypes.Head{
+			Hash:   utils.NewHash(),
+			Number: blockNum + 1,
+		}
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 4 && cltest.BatchElemMatchesParams(b[0], latestAttempt.Hash, "eth_getTransactionReceipt")
@@ -3199,18 +3210,22 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 			*(elems[0].Result.(*evmtypes.Receipt)) = evmtypes.Receipt{
 				TxHash:           latestAttempt.Hash,
 				BlockHash:        utils.NewHash(),
-				BlockNumber:      big.NewInt(101),
+				BlockNumber:      big.NewInt(blockNum + 1),
 				TransactionIndex: uint(1),
 				Status:           uint64(1),
 			}
 		}).Once()
-		// Check if transaction marked as fatal after purge attempt is confirmed
-		err = ec.CheckForReceipts(ctx, blockNum + 1)
+
+		// Second call to ProcessHead on next head should:
+		// 1. Check for receipts for purged transaction
+		// 2. When receipts are found for a purge attempt, the transaction is marked in the DB as fatal error with error message
+		err = ec.ProcessHead(ctx, &head)
 		require.NoError(t, err)
 		dbTx, err = txStore.FindTxWithAttempts(ctx, tx.ID)
 		require.NoError(t, err)
 		require.NotNil(t, dbTx)
 		require.Equal(t, txmgrcommon.TxFatalError, dbTx.State)
+		require.Equal(t, "purged terminally stuck transaction", dbTx.Error.String)
 	})
 }
 
