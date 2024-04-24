@@ -14,6 +14,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 )
@@ -28,6 +29,10 @@ const (
 type checkResult struct {
 	cr  []ocr2keepers.CheckResult
 	err error
+}
+
+type UpkeepOffchainConfig struct {
+	MaxGasPrice *big.Int `json:"maxGasPrice" cbor:"maxGasPrice"`
 }
 
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
@@ -306,6 +311,19 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		block, _, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
 
 		opts := r.buildCallOpts(ctx, block)
+
+		fee, _, err := r.ge.GetFee(ctx, []byte{}, 10_000_000, assets.NewWei(big.NewInt(1_000_000_000_000_000)))
+		if err != nil {
+			r.lggr.Error("failed to get fee for %s", upkeepId.String())
+			checkResults[performToKeyIdx[i]].Eligible = false
+			checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
+			continue
+		}
+		if fee.ValidDynamic() {
+			r.lggr.Infof("current gas price EIP-1559 is fee cap %s, tip cap %s", fee.DynamicFeeCap.String(), fee.DynamicTipCap.String())
+		} else {
+			r.lggr.Infof("current gas price legacy is %s", fee.Legacy.String())
+		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
