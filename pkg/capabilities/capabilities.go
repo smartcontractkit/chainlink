@@ -32,7 +32,7 @@ func (c CapabilityType) String() string {
 	case CapabilityTypeAction:
 		return "action"
 	case CapabilityTypeConsensus:
-		return "report"
+		return "consensus"
 	case CapabilityTypeTarget:
 		return "target"
 	}
