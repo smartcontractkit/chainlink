@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 )
 
 // EthereumBlockhashStore represents a blockhash store for VRF contract
@@ -42,6 +43,37 @@ type EthereumVRF struct {
 	client  *seth.Client
 	vrf     *solidity_vrf_wrapper.VRF
 	address *common.Address
+}
+
+type EthereumVRFMockETHLINKAggregator struct {
+	client   *seth.Client
+	address  *common.Address
+	contract *vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregator
+}
+
+func (a *EthereumVRFMockETHLINKAggregator) Address() string {
+	return a.address.Hex()
+}
+
+func (a *EthereumVRFMockETHLINKAggregator) LatestRoundData() (*big.Int, error) {
+	data, err := a.contract.LatestRoundData(a.client.NewCallOpts())
+	if err != nil {
+		return nil, err
+	}
+	return data.Ans, nil
+}
+
+func (a *EthereumVRFMockETHLINKAggregator) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := a.contract.LatestRoundData(a.client.NewCallOpts())
+	if err != nil {
+		return nil, err
+	}
+	return data.UpdatedAt, nil
+}
+
+func (a *EthereumVRFMockETHLINKAggregator) SetBlockTimestampDeduction(blockTimestampDeduction *big.Int) error {
+	_, err := a.client.Decode(a.contract.SetBlockTimestampDeduction(a.client.NewTXOpts(), blockTimestampDeduction))
+	return err
 }
 
 // DeployVRFContract deploy VRFv1 contract
@@ -158,6 +190,35 @@ func DeployVRFConsumer(seth *seth.Client, linkAddr, coordinatorAddr string) (VRF
 		client:   seth,
 		consumer: consumer,
 		address:  &consumerDeploymentData.Address,
+	}, err
+}
+
+func DeployVRFMockETHLINKFeed(seth *seth.Client, answer *big.Int) (VRFMockETHLINKFeed, error) {
+	abi, err := vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFMockETHLINKAggregator{}, fmt.Errorf("failed to get VRFMockETHLINKAggregator ABI: %w", err)
+	}
+
+	deployment, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFMockETHLINKAggregator",
+		*abi,
+		common.FromHex(solidity_vrf_consumer_interface.VRFConsumerMetaData.Bin),
+		answer,
+	)
+	if err != nil {
+		return &EthereumVRFMockETHLINKAggregator{}, fmt.Errorf("VRFMockETHLINKAggregator deployment have failed: %w", err)
+	}
+
+	contract, err := vrf_mock_ethlink_aggregator.NewVRFMockETHLINKAggregator(deployment.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFMockETHLINKAggregator{}, fmt.Errorf("failed to instantiate VRFMockETHLINKAggregator instance: %w", err)
+	}
+
+	return &EthereumVRFMockETHLINKAggregator{
+		client:   seth,
+		contract: contract,
+		address:  &deployment.Address,
 	}, err
 }
 

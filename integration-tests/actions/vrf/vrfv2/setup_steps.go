@@ -372,15 +372,13 @@ func SetupVRFV2ForNewEnv(
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
 
-	env.ParallelTransactions(true)
-
 	n := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	sethClient, err := env.GetSethClient(n.ChainID)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	mockETHLinkFeed, err := env.ContractDeployer.DeployVRFMockETHLINKFeed(big.NewInt(*testConfig.VRFv2.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := contracts.DeployVRFMockETHLINKFeed(sethClient, big.NewInt(*testConfig.VRFv2.General.LinkNativeFeedResponse))
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying mock ETH/LINK feed", err)
 	}
