@@ -247,7 +247,7 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 
 	t.Run("creates legacy purge attempt with fields if previous attempt is legacy", func(t *testing.T) {
 		n := evmtypes.Nonce(0)
-		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1,2,3}}
+		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1, 2, 3}}
 		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{Legacy: bumpedLegacy.Sub(assets.GWei(1))}, 100, 0x0, lggr)
 		require.NoError(t, err)
 		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
@@ -266,7 +266,7 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 
 	t.Run("creates dynamic purge attempt with fields if previous attempt is dynamic", func(t *testing.T) {
 		n := evmtypes.Nonce(0)
-		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1,2,3}}
+		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1, 2, 3}}
 		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{DynamicTipCap: bumpedDynamicTip.Sub(assets.GWei(1)), DynamicFeeCap: bumpedDynamicFee.Sub(assets.GWei(1))}, 100, 0x2, lggr)
 		require.NoError(t, err)
 		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
@@ -286,7 +286,7 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 
 	t.Run("creates bump purge attempt with fields", func(t *testing.T) {
 		n := evmtypes.Nonce(0)
-		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1,2,3}}
+		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1, 2, 3}}
 		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{Legacy: bumpedLegacy.Sub(assets.GWei(1))}, 100, 0x0, lggr)
 		require.NoError(t, err)
 		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)

@@ -3139,7 +3139,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(commonclient.Successful, nil).Once()
 	lggr := logger.Test(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
-	
+
 	// Return 10 gwei as market gas price
 	marketGasPrice := tenGwei
 	fee := gas.EvmFee{Legacy: marketGasPrice}
