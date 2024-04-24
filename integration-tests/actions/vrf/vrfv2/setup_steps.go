@@ -13,9 +13,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
@@ -363,6 +365,7 @@ func SetupVRFV2ForNewEnv(
 		WithCLNodes(len(newEnvConfig.NodesToCreate)).
 		WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
 		WithCustomCleanup(cleanupFn).
+		WithSeth().
 		Build()
 
 	if err != nil {
@@ -371,19 +374,20 @@ func SetupVRFV2ForNewEnv(
 
 	env.ParallelTransactions(true)
 
+	n := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	sethClient, err := env.GetSethClient(n.ChainID)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
 	mockETHLinkFeed, err := env.ContractDeployer.DeployVRFMockETHLINKFeed(big.NewInt(*testConfig.VRFv2.General.LinkNativeFeedResponse))
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying mock ETH/LINK feed", err)
 	}
 
-	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	linkToken, err := contracts.DeployLinkTokenContract(l, sethClient)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying LINK contract", err)
-	}
-
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, nil, nil, nil, err
 	}
 
 	vrfContracts, vrfKey, nodeTypeToNode, err := SetupVRFV2Environment(
@@ -397,7 +401,7 @@ func SetupVRFV2ForNewEnv(
 		linkToken,
 		mockETHLinkFeed,
 		//register proving key against EOA address in order to return funds to this address
-		evmClient.GetDefaultWallet().Address(),
+		sethClient.Addresses[0].Hex(),
 		newEnvConfig.NumberOfTxKeysToCreate,
 		l,
 	)
