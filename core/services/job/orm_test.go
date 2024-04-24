@@ -34,13 +34,13 @@ func TestLoadConfigVarsLocalOCR(t *testing.T) {
 	chainConfig := evmtest.NewChainScopedConfig(t, config)
 	jobSpec := &job.OCROracleSpec{}
 
-	jobSpec = job.LoadConfigVarsLocalOCR(chainConfig.EVM().OCR(), *jobSpec, chainConfig.OCR())
+	jobSpec = job.LoadConfigVarsLocalOCR(chainConfig.EVM().OCR(), *jobSpec, config.OCR())
 
-	require.Equal(t, models.Interval(chainConfig.OCR().ObservationTimeout()), jobSpec.ObservationTimeout)
-	require.Equal(t, models.Interval(chainConfig.OCR().BlockchainTimeout()), jobSpec.BlockchainTimeout)
-	require.Equal(t, models.Interval(chainConfig.OCR().ContractSubscribeInterval()), jobSpec.ContractConfigTrackerSubscribeInterval)
-	require.Equal(t, models.Interval(chainConfig.OCR().ContractPollInterval()), jobSpec.ContractConfigTrackerPollInterval)
-	require.Equal(t, chainConfig.OCR().CaptureEATelemetry(), jobSpec.CaptureEATelemetry)
+	require.Equal(t, models.Interval(config.OCR().ObservationTimeout()), jobSpec.ObservationTimeout)
+	require.Equal(t, models.Interval(config.OCR().BlockchainTimeout()), jobSpec.BlockchainTimeout)
+	require.Equal(t, models.Interval(config.OCR().ContractSubscribeInterval()), jobSpec.ContractConfigTrackerSubscribeInterval)
+	require.Equal(t, models.Interval(config.OCR().ContractPollInterval()), jobSpec.ContractConfigTrackerPollInterval)
+	require.Equal(t, config.OCR().CaptureEATelemetry(), jobSpec.CaptureEATelemetry)
 
 	require.Equal(t, chainConfig.EVM().OCR().ContractConfirmations(), jobSpec.ContractConfigConfirmations)
 	require.Equal(t, models.Interval(chainConfig.EVM().OCR().DatabaseTimeout()), *jobSpec.DatabaseTimeout)

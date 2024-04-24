@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -37,7 +36,7 @@ var migrationDir = "migrations"
 type OffchainReporting2OracleSpec100 struct {
 	ID                                int32           `toml:"-"`
 	ContractID                        string          `toml:"contractID"`
-	Relay                             relay.Network   `toml:"relay"`
+	Relay                             string          `toml:"relay"` // RelayID.Network
 	RelayConfig                       job.JSONConfig  `toml:"relayConfig"`
 	P2PBootstrapPeers                 pq.StringArray  `toml:"p2pBootstrapPeers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`

@@ -14,7 +14,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	abiutil "github.com/smartcontractkit/chainlink/v2/core/chains/evm/abi"
@@ -28,8 +28,7 @@ import (
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
-func InitializeWrite(registry commontypes.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer,
-	lggr logger.Logger) error {
+func InitializeWrite(registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, lggr logger.Logger) error {
 	for _, chain := range legacyEVMChains.Slice() {
 		capability := NewEvmWrite(chain, lggr)
 		if err := registry.Add(context.TODO(), capability); err != nil {
