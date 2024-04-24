@@ -212,8 +212,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					ChainOpts: legacyevm.ChainOpts{
 						AppConfig: cfg,
 						MailMon:   &mailbox.Monitor{},
-						SqlxDB:    db,
-						DB:        db,
+						DS:        db,
 					},
 					CSAETHKeystore: keyStore,
 				}),
@@ -265,8 +264,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:    keyStore.Cosmos(),
 					TOMLConfigs: cfg.CosmosConfigs(),
-					DB:          db,
-					QConfig:     cfg.Database()}),
+					DS:          db,
+				}),
 			},
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
@@ -287,8 +286,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						AppConfig: cfg,
 
 						MailMon: &mailbox.Monitor{},
-						SqlxDB:  db,
-						DB:      db,
+						DS:      db,
 					},
 					CSAETHKeystore: keyStore,
 				}),
@@ -298,8 +296,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:    keyStore.Cosmos(),
 					TOMLConfigs: cfg.CosmosConfigs(),
-					DB:          db,
-					QConfig:     cfg.Database(),
+					DS:          db,
 				}),
 			},
 			expectedEVMChainCnt: 2,

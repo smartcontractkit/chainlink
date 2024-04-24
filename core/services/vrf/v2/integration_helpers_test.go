@@ -1207,7 +1207,6 @@ func testSingleConsumerBigGasCallbackSandwich(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
@@ -1324,7 +1323,6 @@ func testSingleConsumerMultipleGasLanes(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
@@ -1694,7 +1692,7 @@ func testMaliciousConsumer(
 	}).Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(s)
 	require.NoError(t, err)
-	err = app.JobSpawner().CreateJob(&jb)
+	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
 
@@ -1861,7 +1859,7 @@ func testReplayOldRequestsOnStartUp(
 	jb, err := vrfcommon.ValidatedVRFSpec(spec)
 	require.NoError(t, err)
 	t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfKey.PublicKey.MustHash())
-	err = app.JobSpawner().CreateJob(&jb)
+	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 
 	// Wait until all jobs are active and listening for logs
