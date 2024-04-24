@@ -1,6 +1,9 @@
 package logprovider
 
 import (
+	"fmt"
+	"github.com/stretchr/testify/assert"
+	"math"
 	"math/big"
 	"testing"
 
@@ -147,6 +150,188 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 			require.Equal(t, tc.remaining, remaining)
 		})
 	}
+}
+
+func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
+	t.Run("Dequeue with default upkeep selector", func(t *testing.T) {
+		lookback := uint32(20)
+		blockRate := uint32(1)
+		logLimit := uint32(1)
+		buf := NewLogBuffer(logger.TestLogger(t), lookback, blockRate, logLimit)
+
+		upkeepIDs := []*big.Int{
+			big.NewInt(1),
+			big.NewInt(2),
+			big.NewInt(3),
+			big.NewInt(4),
+			big.NewInt(5),
+		}
+
+		blockNumbers := []int64{
+			100, 101, 102, 103, 104, 105, 106, 107, 108, 109,
+		}
+
+		// for each upkeep, enqueue 10 logs per block, for 10 blocks
+		for _, upkeepID := range upkeepIDs {
+			for _, blockNumber := range blockNumbers {
+				for i := 0; i < 10; i++ {
+					log := logpoller.Log{
+						BlockNumber: blockNumber,
+						TxHash:      common.HexToHash(fmt.Sprintf("0x%dff%dff%d", blockNumber, upkeepID.Int64(), i)),
+					}
+					buf.Enqueue(upkeepID, log)
+				}
+			}
+		}
+
+		bufV1 := buf.(*logBuffer)
+
+		assert.Equal(t, 5, len(bufV1.queues))
+
+		// each queue should have 100 logs
+		assert.Equal(t, 100, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["5"].logs))
+
+		logs, remaining := buf.Dequeue(100, 101, 5, 5, DefaultUpkeepSelector)
+
+		// we should dequeue 5 logs, and the block window should have 95 logs remaining
+		assert.Equal(t, 5, len(logs))
+		assert.Equal(t, 95, remaining)
+
+		has95 := 0
+		has100 := 0
+		unexpected := 0
+		for _, queue := range bufV1.queues {
+			if len(queue.logs) == 95 {
+				has95++
+			} else if len(queue.logs) == 100 {
+				has100++
+			} else {
+				unexpected++
+			}
+		}
+
+		// 5 logs should have been dequeued from one queue only
+		assert.Equal(t, 1, has95)
+		assert.Equal(t, 4, has100)
+		assert.Equal(t, 0, unexpected)
+
+		logs, remaining = buf.Dequeue(100, 101, 5, 5, DefaultUpkeepSelector)
+
+		// we should dequeue 5 logs, and the block window should have 90 logs remaining
+		assert.Equal(t, 5, len(logs))
+		assert.Equal(t, 90, remaining)
+
+		has90 := 0
+		has100 = 0
+		has95 = 0
+		for _, queue := range bufV1.queues {
+			if len(queue.logs) == 90 {
+				has90++
+			} else if len(queue.logs) == 95 {
+				has95++
+			} else if len(queue.logs) == 100 {
+				has100++
+			} else {
+				unexpected++
+			}
+		}
+
+		//// at this point it's possible that the same upkeep was dequeued by 5 again, or another upkeep was dequeued by 5
+		//possibleScenarios90 := has90 == 0 || has90 == 1
+		//possibleScenarios95 := has95 == 0 || has95 == 2
+		//possibleScenarios100 := has100 == 3 || has100 == 4
+
+		// 5 logs should have been dequeued from one queue only
+		assert.Equal(t, has90, 1)
+		assert.Equal(t, has95, 0)
+		assert.Equal(t, has100, 4)
+		assert.Equal(t, 0, unexpected)
+	})
+
+	t.Run("Dequeue from a deterministic order of upkeeps", func(t *testing.T) {
+		lookback := uint32(20)
+		blockRate := uint32(1)
+		logLimit := uint32(1)
+		buf := NewLogBuffer(logger.TestLogger(t), lookback, blockRate, logLimit)
+
+		upkeepIDs := []*big.Int{
+			big.NewInt(1),
+			big.NewInt(2),
+			big.NewInt(3),
+			big.NewInt(4),
+			big.NewInt(5),
+		}
+
+		blockNumbers := []int64{
+			100, 101, 102, 103, 104, 105, 106, 107, 108, 109,
+		}
+
+		// for each upkeep, enqueue 10 logs per block, for 10 blocks
+		for _, upkeepID := range upkeepIDs {
+			for _, blockNumber := range blockNumbers {
+				for i := 0; i < 10; i++ {
+					log := logpoller.Log{
+						BlockNumber: blockNumber,
+						TxHash:      common.HexToHash(fmt.Sprintf("0x%dff%dff%d", blockNumber, upkeepID.Int64(), i)),
+					}
+					buf.Enqueue(upkeepID, log)
+				}
+			}
+		}
+
+		bufV1 := buf.(*logBuffer)
+
+		assert.Equal(t, 5, len(bufV1.queues))
+
+		// each queue should have 100 logs
+		assert.Equal(t, 100, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["5"].logs))
+
+		iterations := int(math.Ceil(float64(5*5) / float64(5)))
+		if iterations == 0 {
+			iterations = 1
+		}
+
+		upkeepSelectorFn := func(id *big.Int) bool {
+			return id.Int64()%int64(iterations) == int64(0) // on this dequeue attempt, current iteration will be 0
+		}
+
+		logs, remaining := buf.Dequeue(100, 101, 5, 5, upkeepSelectorFn)
+
+		// we should dequeue 5 logs, and the block window should have 95 logs remaining
+		assert.Equal(t, 5, len(logs))
+		assert.Equal(t, 95, remaining)
+
+		assert.Equal(t, 100, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 95, len(bufV1.queues["5"].logs))
+
+		upkeepSelectorFn = func(id *big.Int) bool {
+			return id.Int64()%int64(iterations) == int64(1) // on this dequeue attempt, current iteration will be 1
+		}
+
+		logs, remaining = buf.Dequeue(100, 101, 5, 5, upkeepSelectorFn)
+
+		// we should dequeue 5 logs, and the block window should have 90 logs remaining
+		assert.Equal(t, 5, len(logs))
+		assert.Equal(t, 90, remaining)
+
+		assert.Equal(t, 95, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 100, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 95, len(bufV1.queues["5"].logs))
+	})
+
 }
 
 func TestLogEventBufferV1_Enqueue(t *testing.T) {
