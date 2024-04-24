@@ -1,0 +1,100 @@
+package client
+
+import (
+	"context"
+	"errors"
+	"math/big"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+)
+
+func Test_Poller(t *testing.T) {
+	pollingTimeout := 10 * time.Millisecond
+	lggr, err := logger.New()
+	require.NoError(t, err)
+
+	t.Run("Test Polling for Heads", func(t *testing.T) {
+		// Mock polling function that returns a new value every time it's called
+		var pollNumber int
+		pollFunc := func(ctx context.Context) (Head, error) {
+			pollNumber++
+			h := head{
+				BlockNumber:     int64(pollNumber),
+				BlockDifficulty: big.NewInt(int64(pollNumber)),
+			}
+			return h.ToMockHead(t), nil
+		}
+
+		// data channel to receive updates from the poller
+		channel := make(chan Head, 1)
+
+		// Create poller and start to receive data
+		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, lggr)
+		require.NoError(t, poller.Start())
+		defer poller.Unsubscribe()
+
+		done := make(chan struct{})
+		// Create goroutine to receive updates from the poller
+		pollCount := 0
+		pollMax := 50
+		go func() {
+			for ; pollCount < pollMax; pollCount++ {
+				h := <-channel
+				assert.Equal(t, int64(pollNumber), h.BlockNumber())
+			}
+			close(done)
+		}()
+
+		<-done
+	})
+
+	t.Run("Test polling errors", func(t *testing.T) {
+		// Mock polling function that returns an error
+		pollFunc := func(ctx context.Context) (Head, error) {
+			return nil, errors.New("polling error")
+		}
+
+		// data channel to receive updates from the poller
+		channel := make(chan Head, 1)
+
+		// Create poller and subscribe to receive data
+		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, lggr)
+
+		require.NoError(t, poller.Start())
+		defer poller.Unsubscribe()
+
+		done := make(chan struct{})
+
+		// Create goroutine to receive updates from the poller
+		pollCount := 0
+		pollMax := 50
+		go func() {
+			for ; pollCount < pollMax; pollCount++ {
+				err := <-poller.Err()
+				require.Error(t, err)
+				require.Equal(t, "polling error", err.Error())
+			}
+			close(done)
+		}()
+
+		<-done
+	})
+}
+
+func Test_Poller_Unsubscribe(t *testing.T) {
+	t.Run("Test multiple unsubscribe", func(t *testing.T) {
+		// TODO: to the p.channel. And one that ensure we can call Unsubscribe twice without panic.
+		poller := NewPoller[Head](time.Millisecond, nil, nil, nil, nil)
+		poller.Unsubscribe()
+		poller.Unsubscribe()
+	})
+
+	t.Run("Test exit with no subscribers", func(t *testing.T) {
+		// TODO: Add test case that ensures Unsubscribe exits even if no one is listening
+	})
+}
