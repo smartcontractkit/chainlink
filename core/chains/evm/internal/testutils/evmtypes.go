@@ -8,6 +8,8 @@ import (
 	mrand "math/rand"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -59,4 +61,16 @@ func Head(val interface{}) *evmtypes.Head {
 		panic(fmt.Sprintf("Could not convert %v of type %T to Head", val, val))
 	}
 	return &h
+}
+
+func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *big.Int, data []byte) *types.Transaction {
+	tx := types.LegacyTx{
+		Nonce:    nonce,
+		To:       &to,
+		Value:    value,
+		Gas:      uint64(gasLimit),
+		GasPrice: gasPrice,
+		Data:     data,
+	}
+	return types.NewTx(&tx)
 }
