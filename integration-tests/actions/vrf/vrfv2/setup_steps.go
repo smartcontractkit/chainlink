@@ -135,6 +135,7 @@ func SetupVRFV2Environment(
 	}
 
 	vrfTXKeyAddressStrings, vrfTXKeyAddresses, err := vrfcommon.CreateFundAndGetSendingKeys(
+		l,
 		sethClient,
 		nodeTypeToNodeMap[vrfcommon.VRF],
 		*vrfv2TestConfig.GetCommonConfig().ChainlinkNodeFunding,
@@ -420,12 +421,12 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 	}
 
-	evmClient, err := env.GetEVMClient(chainID)
+	sethClient, err := env.GetSethClient(chainID)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	err = vrfcommon.FundNodesIfNeeded(ctx, commonExistingEnvConfig, evmClient, l)
+	err = vrfcommon.FundNodesIfNeeded(ctx, commonExistingEnvConfig, sethClient, l)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
 	}

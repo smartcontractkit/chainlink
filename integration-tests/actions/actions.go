@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
 
@@ -31,8 +32,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/seth"
 )
 
 // ContractDeploymentInterval After how many contract actions to wait before starting any more
@@ -470,19 +473,14 @@ func GenerateWallet() (common.Address, error) {
 }
 
 // todo - move to CTF
-func FundAddress(client blockchain.EVMClient, sendingKey string, fundingToSendEth *big.Float) error {
-	address := common.HexToAddress(sendingKey)
-	gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
-		To: &address,
-	})
-	if err != nil {
-		return err
+func FundAddress(l zerolog.Logger, client *seth.Client, sendingKey string, fundingToSendEth *big.Int) error {
+	payload := actions_seth.FundsToSendPayload{
+		ToAddress: common.HexToAddress(sendingKey),
+		Amount:    fundingToSendEth,
 	}
-	err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	_, err := actions_seth.SendFunds(l, client, payload)
+	return err
 }
 
 // todo - move to CTF
