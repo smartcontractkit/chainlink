@@ -623,6 +623,9 @@ func setHeadForSimulatedChain(rpcURL string, rewindChainToBlockNumber uint64) er
 	}
 	var responseObject api.JsonRPCResponse
 	err = json.NewDecoder(respBody).Decode(&responseObject)
+	if err != nil {
+		return fmt.Errorf("error decoding response body: %w", err)
+	}
 	if responseObject.Error != nil {
 		return fmt.Errorf("received non-empty error field: %v", responseObject.Error)
 	}
