@@ -11,6 +11,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
@@ -224,7 +226,7 @@ func RegisterUpkeepContracts(t *testing.T, client *seth.Client, linkToken contra
 		numberOfContracts, upkeepAddresses, checkData, isLogTrigger, isMercury)
 }
 
-// RegisterUpkeepContractsWithCheckData concurrently registers a set of upkeep contracts with the given check data. It requires at least 1 ephemeral key to be present in Seth config.
+// RegisterUpkeepContractsWithCheckData concurrently registers a set of upkeep contracts with the given check data. It requires at least 1 extra private key (epehemeral or static) to be present in Seth config.
 func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, linkToken contracts.LinkToken, linkFunds *big.Int, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, checkData [][]byte, isLogTrigger bool, isMercury bool) []*big.Int {
 	l := logging.GetTestLogger(t)
 	registrationTxHashes := make([]common.Hash, 0)
@@ -253,14 +255,12 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	var wgProcesses sync.WaitGroup
 	wgProcesses.Add(len(upkeepAddresses))
 
-	deplymentErrors := []error{}
-	deploymentCh := make(chan result, numberOfContracts)
-
 	// used mostly for logging/visibility and upkeep name creation
 	atomicCounter := atomic.Uint64{}
 
 	var registerUpkeepFn = func(channel chan result, keyNum int, config config) {
 		atomicCounter.Add(1)
+		uuid := uuid.New().String()
 
 		req, err := registrar.EncodeRegisterRequest(
 			fmt.Sprintf("upkeep_%d", atomicCounter.Load()),
@@ -277,34 +277,40 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 		)
 
 		if err != nil {
-			channel <- result{err: err}
+			channel <- result{err: errors.Wrapf(err, "[uuid: %s] Failed to encode register request for upkeep %s", uuid, config.address)}
 			return
 		}
 
 		balance, err := linkToken.BalanceOf(context.Background(), client.Addresses[keyNum].Hex())
 		if err != nil {
-			channel <- result{err: fmt.Errorf("Failed to get LINK balance of %s: %w", client.Addresses[keyNum].Hex(), err)}
+			channel <- result{err: errors.Wrapf(err, "[uuid: %s]Failed to get LINK balance of %s", uuid, client.Addresses[keyNum].Hex())}
 			return
 		}
 
 		// not stricly necessary, but helps us to avoid an errorless revert if there is not enough LINK
 		if balance.Cmp(linkFunds) < 0 {
-			channel <- result{err: fmt.Errorf("Not enough LINK balance for %s. Has: %s. Needs: %s", client.Addresses[keyNum].Hex(), balance.String(), linkFunds.String())}
+			channel <- result{err: fmt.Errorf("[uuid: %s] Not enough LINK balance for %s. Has: %s. Needs: %s", uuid, client.Addresses[keyNum].Hex(), balance.String(), linkFunds.String())}
 			return
 		}
 
 		tx, err := linkToken.TransferAndCallFromKey(registrar.Address(), linkFunds, req, keyNum)
-		channel <- result{tx: tx, err: err}
+		channel <- result{tx: tx, err: errors.Wrapf(err, "[uuid: %s] Failed to register upkeep %s", uuid, config.address)}
 	}
+
+	deploymentCh := make(chan result, numberOfContracts)
+	deplymentErrors := []error{}
+	errMut := sync.Mutex{}
 
 	// listen in the background until all registrations are done (it won't fail on the first error)
 	go func() {
 		defer l.Debug().Msg("Finished listening to results of registering upkeeps")
 		for r := range deploymentCh {
 			if r.err != nil {
+				errMut.Lock()
 				l.Error().Err(r.err).Msg("Failed to register upkeep")
 				deplymentErrors = append(deplymentErrors, r.err)
 				wgProcesses.Done()
+				errMut.Unlock()
 				continue
 			}
 
@@ -344,7 +350,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 
 	require.Equal(t, 0, len(deplymentErrors), "Failed to register some upkeeps")
 
-	// Fetch the upkeep IDs
+	// Fetch the upkeep IDs (this could be moved to registerUpkeepFn to speed it up a bit)
 	for _, txHash := range registrationTxHashes {
 		receipt, err := client.Client.TransactionReceipt(context.Background(), txHash)
 		require.NoError(t, err, "Registration tx should be completed")

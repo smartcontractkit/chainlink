@@ -3,13 +3,9 @@ package actions_seth
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -548,55 +544,6 @@ func TeardownRemoteSuite(
 		l.Error().Err(err).Str("Namespace", namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
-	}
-
-	// This is a failsafe, we should never use ephemeral keys on live networks
-	if !client.Cfg.IsSimulatedNetwork() {
-		if err := ReturnFundFromEphemeralKeys(l, client); err != nil {
-			l.Error().Err(err).Str("Namespace", namespace).
-				Msg("Error attempting to return funds from ephemeral keys to root key")
-
-			pkStrings := []string{}
-			for _, pk := range client.PrivateKeys {
-				privateKeyBytes := pk.D.Bytes()
-				privateKeyBytes32 := make([]byte, 32)
-				copy(privateKeyBytes32[32-len(privateKeyBytes):], privateKeyBytes)
-				privateKeyHex := hex.EncodeToString(privateKeyBytes32)
-				pkStrings = append(pkStrings, "0x"+privateKeyHex)
-			}
-
-			privateKeyJson, jsonErr := json.Marshal(pkStrings)
-			if jsonErr != nil {
-				l.Error().
-					Err(jsonErr).
-					Msg("Error marshalling private keys to JSON. Funds are left in ephemeral keys")
-
-				return err
-			}
-
-			fileName := "ephemeral_addresses_private_keys.json"
-			writeErr := os.WriteFile(fileName, privateKeyJson, 0600)
-			if writeErr != nil {
-				l.Error().
-					Err(writeErr).
-					Msg("Error writing ephemeral addresses private keys to file. Funds are left in ephemeral keys")
-
-				return err
-			}
-			absolutePath, pathErr := filepath.Abs(fileName)
-			if pathErr != nil {
-				l.Error().
-					Err(pathErr).
-					Str("FileName", fileName).
-					Msg("Error getting absolute path of file with private keys. Try looking for it yourself.")
-
-				return err
-			}
-
-			l.Info().
-				Str("Filepath", absolutePath).
-				Msg("Private keys for ephemeral addresses are saved in the file. You can use them to return funds manually.")
-		}
 	}
 
 	return err

@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
@@ -367,22 +366,4 @@ func sendAllFundsIfPossible(log zerolog.Logger, sethClient *seth.Client, fromPri
 	}
 
 	return nil
-}
-
-// ReturnFundFromEphemeralKeys returns funds from all ephemeral keys to the root key wallet
-// using a variefy of retry strategies.
-func ReturnFundFromEphemeralKeys(l zerolog.Logger, client *seth.Client) error {
-	err := client.NonceManager.UpdateNonces()
-	if err != nil {
-		return err
-	}
-	eg := errgroup.Group{}
-	for i := 1; i < len(client.Addresses); i++ {
-		i := i
-		eg.Go(func() error {
-			return sendAllFundsIfPossible(l, client, client.PrivateKeys[i])
-		})
-	}
-
-	return eg.Wait()
 }

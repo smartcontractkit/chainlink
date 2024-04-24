@@ -252,21 +252,14 @@ func (k *KeeperBenchmarkTest) Run() {
 		}
 	}
 
-	effectiveBlockRange := inputs.Upkeeps.BlockRange + inputs.UpkeepSLA
 	k.log.Info().Msgf("Waiting for %d blocks for all upkeeps to be performed", inputs.Upkeeps.BlockRange+inputs.UpkeepSLA)
-	timeout := effectiveBlockRange * 3 * int64(time.Second)
-	timeout = int64(float64(timeout) * 1.1)
-	timeoutDuration := time.Duration(timeout)
 
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(timeoutDuration))
-	defer cancel()
-	errgroup, errCtx := errgroup.WithContext(ctx)
+	errgroup, errCtx := errgroup.WithContext(context.Background())
 
 	var startedObservations = atomic.Int32{}
 	var finishedObservations = atomic.Int32{}
 
 	for rIndex := range k.keeperRegistries {
-		// headerCh := make(chan *types.Header, len(k.upkeepIDs[rIndex]))
 		for index, upkeepID := range k.upkeepIDs[rIndex] {
 			upkeepIDCopy := upkeepID
 			registryIndex := rIndex
@@ -275,7 +268,6 @@ func (k *KeeperBenchmarkTest) Run() {
 				startedObservations.Add(1)
 				k.log.Info().Str("UpkeepID", upkeepIDCopy.String()).Msg("Starting upkeep observation")
 
-				// doneCh := make(chan struct{})
 				confirmer := contracts.NewKeeperConsumerBenchmarkkUpkeepObserver(
 					k.keeperConsumerContracts[registryIndex],
 					k.keeperRegistries[registryIndex],
@@ -286,7 +278,6 @@ func (k *KeeperBenchmarkTest) Run() {
 					upkeepIndex,
 					inputs.Upkeeps.FirstEligibleBuffer,
 					k.log,
-					// doneCh,
 				)
 
 				k.log.Debug().Str("UpkeepID", upkeepIDCopy.String()).Msg("Subscribing to new headers for upkeep observation")
@@ -304,10 +295,6 @@ func (k *KeeperBenchmarkTest) Run() {
 						k.log.Error().Err(errCtx.Err()).Str("UpkeepID", upkeepIDCopy.String()).Msg("Stopping obervations due to error in one of the goroutines")
 						sub.Unsubscribe()
 						return nil
-					case <-ctx.Done(): // timeout, abandon ship!
-						k.log.Error().Str("UpkeepID", upkeepIDCopy.String()).Msg("Stopping obervations due to timeout")
-						sub.Unsubscribe()
-						return fmt.Errorf("failed to observe desired block range for upkeep %s before timeout", upkeepIDCopy.String())
 					case header := <-headerCh: // new block, check if upkeep was performed
 						finished, headerErr := confirmer.ReceiveHeader(header)
 						if headerErr != nil {
