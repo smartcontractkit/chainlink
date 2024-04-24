@@ -6,8 +6,6 @@ import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     struct NodeOperator {
-        /// @notice Unique identifier for the node operator
-        uint256 id;
         /// @notice The address of the admin that can manage a node
         /// operator
         address admin;
@@ -53,16 +51,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         return "CapabilityRegistry 1.0.0";
     }
 
-    /// @notice Adds a new node operator
-    /// @param admin The address of the admin that can manage the node
-    /// operator
-    /// @param name The human readable name of the node operator
-    function addNodeOperator(address admin, string calldata name) external onlyOwner {
-        if (admin == address(0)) revert InvalidNodeOperatorAdmin();
-        uint256 nodeOperatorId = s_nodeOperatorId;
-        s_nodeOperators[nodeOperatorId] = NodeOperator({id: nodeOperatorId, admin: admin, name: name});
-        ++s_nodeOperatorId;
-        emit NodeOperatorAdded(nodeOperatorId, admin, name);
+    /// @notice Adds a list of node operators
+    /// @param nodeOperators List of node operators to add
+    function addNodeOperators(NodeOperator[] calldata nodeOperators) external onlyOwner {
+        for (uint256 i; i < nodeOperators.length; ++i) {
+            NodeOperator memory nodeOperator = nodeOperators[i];
+            if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
+            uint256 nodeOperatorId = s_nodeOperatorId;
+            s_nodeOperators[nodeOperatorId] = NodeOperator({admin: nodeOperator.admin, name: nodeOperator.name});
+            ++s_nodeOperatorId;
+            emit NodeOperatorAdded(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
+        }
     }
 
     /// @notice Gets a node operator's data
