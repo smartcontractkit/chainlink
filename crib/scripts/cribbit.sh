@@ -25,7 +25,7 @@ if [[ -z "${DEVSPACE_NAMESPACE}" ]]; then
     exit 1
 fi
 
-# Check if $DEVSPACE_NAMESPACE begins with a crib- prefix and exit 1 if it does not.
+# Bail if $DEVSPACE_NAMESPACE does not begin with a crib- prefix or does not have an orride set.
 if [[ ! "${DEVSPACE_NAMESPACE}" =~ ^crib- ]] && [[ -z "${CRIB_IGNORE_NAMESPACE_PREFIX:-}" ]]; then
     echo "Error: DEVSPACE_NAMESPACE must begin with 'crib-' prefix."
     exit 1
