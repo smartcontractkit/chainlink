@@ -18,7 +18,7 @@ func Test_Poller(t *testing.T) {
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
-	t.Run("Test Polling for Heads", func(t *testing.T) {
+	t.Run("Test polling for heads", func(t *testing.T) {
 		// Mock polling function that returns a new value every time it's called
 		var pollNumber int
 		pollFunc := func(ctx context.Context) (Head, error) {
@@ -75,9 +75,13 @@ func Test_Poller(t *testing.T) {
 		pollMax := 50
 		go func() {
 			for ; pollCount < pollMax; pollCount++ {
-				err := <-poller.Err()
-				require.Error(t, err)
-				require.Equal(t, "polling error", err.Error())
+				select {
+				case <-channel:
+					require.Fail(t, "should not receive any data")
+				case err := <-poller.Err():
+					require.Error(t, err)
+					require.Equal(t, "polling error", err.Error())
+				}
 			}
 			close(done)
 		}()
@@ -90,11 +94,17 @@ func Test_Poller_Unsubscribe(t *testing.T) {
 	t.Run("Test multiple unsubscribe", func(t *testing.T) {
 		// TODO: to the p.channel. And one that ensure we can call Unsubscribe twice without panic.
 		poller := NewPoller[Head](time.Millisecond, nil, nil, nil, nil)
+		err := poller.Start()
+		require.NoError(t, err)
 		poller.Unsubscribe()
 		poller.Unsubscribe()
 	})
 
-	t.Run("Test exit with no subscribers", func(t *testing.T) {
+	t.Run("Test unsubscribe with no subscribers", func(t *testing.T) {
 		// TODO: Add test case that ensures Unsubscribe exits even if no one is listening
+		poller := NewPoller[Head](time.Millisecond, nil, nil, nil, nil)
+		err := poller.Start()
+		require.NoError(t, err)
+		poller.Unsubscribe()
 	})
 }
