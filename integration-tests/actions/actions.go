@@ -2,15 +2,13 @@
 package actions
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -20,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog"
 
 	"github.com/ethereum/go-ethereum"
@@ -39,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
 // ContractDeploymentInterval After how many contract actions to wait before starting any more
@@ -588,7 +586,9 @@ func RewindSimulatedChainToBlockNumber(
 		Uint64("Latest Block Number before Reorg", latestBlockNumberBeforeReorg).
 		Uint64("Rewind Chain to Block Number", rewindChainToBlockNumber).
 		Msg("Performing Reorg on chain by rewinding chain to specific block number")
-	err = setHeadForSimulatedChain(rpcURL, rewindChainToBlockNumber)
+
+	_, err = NewRPCRawClient(rpcURL).SetHeadForSimulatedChain(rewindChainToBlockNumber)
+
 	if err != nil {
 		return 0, fmt.Errorf("error making reorg: %w", err)
 	}
@@ -609,50 +609,58 @@ func RewindSimulatedChainToBlockNumber(
 	return latestBlockNumberAfterReorg, nil
 }
 
-func setHeadForSimulatedChain(rpcURL string, rewindChainToBlockNumber uint64) error {
-	postBody, _ := json.Marshal(map[string]any{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "debug_setHead",
-		"params":  []string{hexutil.EncodeUint64(rewindChainToBlockNumber)},
-	})
-	requestBody := bytes.NewBuffer(postBody)
-	respBody, err := makePostRequest(rpcURL, requestBody)
-	if err != nil {
-		return err
-	}
-	var responseObject api.JsonRPCResponse
-	err = json.NewDecoder(respBody).Decode(&responseObject)
-	if err != nil {
-		return fmt.Errorf("error decoding response body: %w", err)
-	}
-	if responseObject.Error != nil {
-		return fmt.Errorf("received non-empty error field: %v", responseObject.Error)
-	}
-	return nil
-}
-
-func makePostRequest(URL string, requestBody *bytes.Buffer) (io.ReadCloser, error) {
-	req, err := http.NewRequest(http.MethodPost, URL, requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("error creating post request: %w", err)
-	}
-	req.Header.Add("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error making post request: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP request failed: status code: %s", resp.Status)
-	}
-	defer resp.Body.Close()
-	return resp.Body, nil
-}
-
 func GetRPCUrl(env *test_env.CLClusterTestEnv, chainID int64) (string, error) {
 	provider, err := env.GetRpcProvider(chainID)
 	if err != nil {
 		return "", err
 	}
 	return provider.PublicHttpUrls()[0], nil
+}
+
+// RPCRawClient
+// created separate client since method evmClient.RawJsonRPCCall fails on "invalid argument 0: json: cannot unmarshal non-string into Go value of type hexutil.Uint64"
+type RPCRawClient struct {
+	resty *resty.Client
+}
+
+func NewRPCRawClient(url string) *RPCRawClient {
+	isDebug := os.Getenv("DEBUG_RESTY") == "true"
+	restyClient := resty.New().SetDebug(isDebug).SetBaseURL(url)
+	return &RPCRawClient{
+		resty: restyClient,
+	}
+}
+
+func (g *RPCRawClient) SetHeadForSimulatedChain(setHeadToBlockNumber uint64) (JsonRPCResponse, error) {
+	var responseObject JsonRPCResponse
+	postBody, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "debug_setHead",
+		"params":  []string{hexutil.EncodeUint64(setHeadToBlockNumber)},
+	})
+	resp, err := g.resty.R().
+		SetHeader("Content-Type", "application/json").
+		SetBody(postBody).
+		SetResult(&responseObject).
+		Post("")
+
+	if err != nil {
+		return JsonRPCResponse{}, fmt.Errorf("error making API request: %w", err)
+	}
+	statusCode := resp.StatusCode()
+	if statusCode != 200 && statusCode != 201 {
+		return JsonRPCResponse{}, fmt.Errorf("error invoking debug_setHead method, received unexpected status code %d: %s", statusCode, resp.String())
+	}
+	if responseObject.Error != "" {
+		return JsonRPCResponse{}, fmt.Errorf("received non-empty error field: %v", responseObject.Error)
+	}
+	return responseObject, nil
+}
+
+type JsonRPCResponse struct {
+	Version string `json:"jsonrpc"`
+	Id      int    `json:"id"`
+	Result  string `json:"result,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
