@@ -582,4 +582,35 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   function linkAvailableForPayment() public view returns (int256) {
     return _linkAvailableForPayment();
   }
+
+  /**
+   * @notice returns the BillingOverrides config for a given upkeep
+   */
+  function getBillingOverrides(uint256 upkeepID) external view returns (BillingOverrides memory) {
+    return s_billingOverrides[upkeepID];
+  }
+
+  /**
+   * @notice returns the BillingConfig for a given billing token, this includes decimals and price feed etc
+   */
+  function getBillingConfig(IERC20 billingToken) external view returns (BillingConfig memory) {
+    return s_billingConfigs[billingToken];
+  }
+
+  /**
+   * @notice returns all active transmitters with their associated payees
+   */
+  function getTransmittersWithPayees() external view returns (TransmitterPayeeInfo[] memory) {
+    uint256 transmitterCount = s_transmittersList.length;
+    TransmitterPayeeInfo[] memory transmitters = new TransmitterPayeeInfo[](transmitterCount);
+
+    for (uint256 i = 0; i < transmitterCount; i++) {
+      address transmitterAddress = s_transmittersList[i];
+      address payeeAddress = s_transmitterPayees[transmitterAddress];
+
+      transmitters[i] = TransmitterPayeeInfo(transmitterAddress, payeeAddress);
+    }
+
+    return transmitters;
+  }
 }
