@@ -22,7 +22,10 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	gasMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
@@ -670,6 +673,16 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	mockReg := mocks.NewRegistry(t)
 	mockHttpClient := mocks.NewHttpClient(t)
 	client := evmClientMocks.NewClient(t)
+	ge := gasMocks.NewEvmFeeEstimator(t)
+	ge.On("GetFee", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("uint64"), mock.Anything).Return(
+		gas.EvmFee{
+			Legacy:        nil,
+			DynamicFeeCap: assets.NewWei(big.NewInt(10_000_000_000)),
+			DynamicTipCap: assets.NewWei(big.NewInt(1_000_000_000)),
+		},
+		uint64(5_000_000),
+		nil,
+	)
 
 	r := &EvmRegistry{
 		lggr:         lggr,
@@ -694,6 +707,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 			AllowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc: mockHttpClient,
+		ge: ge,
 	}
 	return r
 }

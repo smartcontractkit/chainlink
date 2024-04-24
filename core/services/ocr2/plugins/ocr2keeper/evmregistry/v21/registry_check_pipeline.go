@@ -312,7 +312,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		opts := r.buildCallOpts(ctx, block)
 
-		fee, _, err := r.ge.GetFee(ctx, []byte{}, 10_000_000, assets.NewWei(big.NewInt(1_000_000_000_000_000)))
+		fee, _, err := r.ge.GetFee(ctx, []byte{}, uint64(10_000_000), assets.NewWei(big.NewInt(1_000_000_000_000_000)))
 		if err != nil {
 			r.lggr.Error("failed to get fee for %s", upkeepId.String())
 			checkResults[performToKeyIdx[i]].Eligible = false
