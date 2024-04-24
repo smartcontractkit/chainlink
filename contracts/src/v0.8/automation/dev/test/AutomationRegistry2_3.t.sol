@@ -940,6 +940,9 @@ contract NOPsSettlement is SetUp {
       assertEq(i, index);
       assertEq(0, balance);
     }
+
+    // after the offchain settlement, the total reserve amount of LINK should be 0
+    assertEq(registry.getReserveAmount(address(linkToken)), 0);
   }
 
   function testSettleNOPsOffchainForDeactivatedTransmittersSuccess() public {
@@ -1035,6 +1038,9 @@ contract NOPsSettlement is SetUp {
       assertEq(i, index);
       assertEq(0, balance);
     }
+
+    // after the offchain settlement, the total reserve amount of LINK should be 0
+    assertEq(registry.getReserveAmount(address(linkToken)), 0);
   }
 
   function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {
