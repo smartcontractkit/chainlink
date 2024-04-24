@@ -76,9 +76,11 @@ func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx Tx, prev
 	if err != nil {
 		return attempt, bumpedFee, bumpedFeeLimit, true, pkgerrors.Wrap(err, "failed to bump fee") // estimator errors are retryable
 	}
-	// If transaction's previous attempt is marked for purge, ensure the new bumped attempt also sends empty payload
+	// If transaction's previous attempt is marked for purge, ensure the new bumped attempt also sends empty payload, 0 value, and LimitDefault as fee limit
 	if previousAttempt.IsPurgeAttempt {
 		etx.EncodedPayload = []byte{}
+		etx.Value = *big.NewInt(0)
+		bumpedFeeLimit = c.feeConfig.LimitDefault()
 	}
 	attempt, retryable, err = c.NewCustomTxAttempt(ctx, etx, bumpedFee, bumpedFeeLimit, previousAttempt.TxType, lggr)
 	// If transaction's previous attempt is marked for purge, ensure the new bumped attempt is also marked for purge
@@ -89,7 +91,9 @@ func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx Tx, prev
 }
 
 func (c *evmTxAttemptBuilder) NewPurgeTxAttempt(ctx context.Context, etx Tx, lggr logger.Logger) (attempt TxAttempt, err error) {
+	// Use the LimitDefault since this is an empty tx
 	gasLimit := c.feeConfig.LimitDefault()
+	// Transactions being purged will always have a previous attempt since it had to have been broadcasted before at least once
 	previousAttempt := etx.TxAttempts[0]
 	keySpecificMaxGasPriceWei := c.feeConfig.PriceMaxKey(etx.FromAddress)
 	// TODO: Confirm if bump is needed. Either we could have a separate config or a hardcoded 10% to minimize the replacement fee
@@ -97,6 +101,9 @@ func (c *evmTxAttemptBuilder) NewPurgeTxAttempt(ctx context.Context, etx Tx, lgg
 	if err != nil {
 		return attempt, fmt.Errorf("failed to bump previous fee to use for the purge attempt: %w", err)
 	}
+	// Set empty payload and 0 value for purge attempts
+	etx.EncodedPayload = []byte{}
+	etx.Value = *big.NewInt(0)
 	attempt, _, err = c.NewCustomTxAttempt(ctx, etx, bumpedFee, gasLimit, previousAttempt.TxType, lggr)
 	if err != nil {
 		return attempt, fmt.Errorf("failed to create purge attempt: %w", err)
