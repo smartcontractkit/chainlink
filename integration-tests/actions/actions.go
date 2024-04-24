@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"strings"
@@ -37,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
 // ContractDeploymentInterval After how many contract actions to wait before starting any more
@@ -575,14 +577,14 @@ func RewindSimulatedChainToBlockNumber(
 	rewindChainToBlockNumber uint64,
 	l zerolog.Logger,
 ) (uint64, error) {
-	latestBlockNumber, err := evmClient.LatestBlockNumber(ctx)
+	latestBlockNumberBeforeReorg, err := evmClient.LatestBlockNumber(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("error getting latest block number: %w", err)
 	}
 
 	l.Info().
 		Str("RPC URL", rpcURL).
-		Uint64("Latest Block Number", latestBlockNumber).
+		Uint64("Latest Block Number before Reorg", latestBlockNumberBeforeReorg).
 		Uint64("Rewind Chain to Block Number", rewindChainToBlockNumber).
 		Msg("Performing Reorg on chain by rewinding chain to specific block number")
 	err = setHeadForSimulatedChain(rpcURL, rewindChainToBlockNumber)
@@ -614,23 +616,31 @@ func setHeadForSimulatedChain(rpcURL string, rewindChainToBlockNumber uint64) er
 		"params":  []string{hexutil.EncodeUint64(rewindChainToBlockNumber)},
 	})
 	requestBody := bytes.NewBuffer(postBody)
-
-	err := makePostRequest(rpcURL, requestBody)
+	respBody, err := makePostRequest(rpcURL, requestBody)
 	if err != nil {
 		return err
+	}
+	var responseObject api.JsonRPCResponse
+	err = json.NewDecoder(respBody).Decode(&responseObject)
+	if responseObject.Error != nil {
+		return fmt.Errorf("received non-empty error field: %v", responseObject.Error)
 	}
 	return nil
 }
 
-func makePostRequest(URL string, requestBody *bytes.Buffer) error {
+func makePostRequest(URL string, requestBody *bytes.Buffer) (io.ReadCloser, error) {
 	req, err := http.NewRequest(http.MethodPost, URL, requestBody)
 	if err != nil {
-		return fmt.Errorf("error creating post request: %w", err)
+		return nil, fmt.Errorf("error creating post request: %w", err)
 	}
+	req.Header.Add("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("error making post request: %w", err)
+		return nil, fmt.Errorf("error making post request: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP request failed: status code: %s", resp.Status)
 	}
 	defer resp.Body.Close()
-	return nil
+	return resp.Body, nil
 }

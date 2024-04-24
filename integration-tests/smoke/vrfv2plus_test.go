@@ -1995,7 +1995,7 @@ func TestVRFNodeReorg(t *testing.T) {
 	t.Run("Reorg on fulfillment", func(t *testing.T) {
 		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](10)
 
-		//2. request randomness and wait for fulfillment for blockhash from Reorged Fork
+		//1. request randomness and wait for fulfillment for blockhash from Reorged Fork
 		randomWordsRequestedEvent, randomWordsFulfilledEventOnReorgedFork, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
