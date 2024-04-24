@@ -23,9 +23,18 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bytes32 version;
   }
 
+  /// @notice This error is thrown when a caller is not allowed
+  /// to execute the transaction
+  error AccessForbidden();
+
   /// @notice This error is thrown when trying to set a node operator's
   /// admin address to the zero address
   error InvalidNodeOperatorAdmin();
+
+  /// @notice This error is thrown when trying to perform an action
+  /// on a non existent node operator
+  /// @param nodeOperatorId The ID of the non existent node operator
+  error NonExistentNodeOperator(uint256 nodeOperatorId);
 
   /// @notice This event is emitted when a new node operator is added
   /// @param nodeOperatorId The ID of the newly added node operator
@@ -33,6 +42,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// operator
   /// @param name The human readable name of the node operator
   event NodeOperatorAdded(uint256 nodeOperatorId, address indexed admin, string name);
+
+  /// @notice This event is emitted when a node operator is removed
+  /// @param nodeOperatorId The ID of the node operator that was removed
+  event NodeOperatorRemoved(uint256 nodeOperatorId);
 
   /// @notice This event is emitted when a new capability is added
   /// @param capabilityId The ID of the newly added capability
@@ -61,6 +74,19 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       s_nodeOperators[nodeOperatorId] = NodeOperator({admin: nodeOperator.admin, name: nodeOperator.name});
       ++s_nodeOperatorId;
       emit NodeOperatorAdded(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
+    }
+  }
+
+  /// @notice Removes a node operator
+  /// @param nodeOperatorIds The IDs of the node operators to remove
+  function removeNodeOperators(uint256[] calldata nodeOperatorIds) external {
+    for (uint256 i; i < nodeOperatorIds.length; ++i) {
+      uint256 nodeOperatorId = nodeOperatorIds[i];
+      NodeOperator memory nodeOperator = s_nodeOperators[nodeOperatorId];
+      if (nodeOperator.admin == address(0)) revert NonExistentNodeOperator(nodeOperatorId);
+      if (msg.sender != nodeOperator.admin && msg.sender != owner()) revert AccessForbidden();
+      delete s_nodeOperators[nodeOperatorId];
+      emit NodeOperatorRemoved(nodeOperatorId);
     }
   }
 
