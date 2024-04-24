@@ -19,6 +19,7 @@ func Test_CapabilityInfo(t *testing.T) {
 		CapabilityTypeAction,
 		"This is a mock capability that doesn't do anything.",
 		"v1.0.0",
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -33,6 +34,7 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 		CapabilityType(5),
 		"This is a mock capability that doesn't do anything.",
 		"v1.0.0",
+		nil,
 	)
 	assert.ErrorContains(t, err, "invalid capability type")
 
@@ -41,6 +43,7 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 		CapabilityTypeAction,
 		"This is a mock capability that doesn't do anything.",
 		"v1.0.0",
+		nil,
 	)
 	assert.ErrorContains(t, err, "invalid id")
 
@@ -49,6 +52,7 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 		CapabilityTypeAction,
 		"This is a mock capability that doesn't do anything.",
 		"hello",
+		nil,
 	)
 	assert.ErrorContains(t, err, "invalid version")
 
@@ -57,6 +61,7 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 		CapabilityTypeAction,
 		"This is a mock capability that doesn't do anything.",
 		"hello",
+		nil,
 	)
 	assert.ErrorContains(t, err, "exceeds max length 128")
 }
@@ -188,6 +193,7 @@ func Test_MustNewCapabilityInfo(t *testing.T) {
 			CapabilityTypeAction,
 			"This is a mock capability that doesn't do anything.",
 			"should-panic",
+			nil,
 		)
 	})
 }

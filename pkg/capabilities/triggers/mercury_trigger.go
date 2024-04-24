@@ -19,6 +19,7 @@ var mercuryInfo = capabilities.MustNewCapabilityInfo(
 	capabilities.CapabilityTypeTrigger,
 	"An example mercury trigger.",
 	"v1.0.0",
+	nil,
 )
 
 const defaultTickerResolutionMs = 1000

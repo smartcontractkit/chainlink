@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"golang.org/x/mod/semver"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -153,12 +154,25 @@ type TargetCapability interface {
 	CallbackCapability
 }
 
+type DONConfig struct {
+	SharedSecret [16]byte
+}
+
+type DON struct {
+	ID      string
+	Members []p2ptypes.PeerID
+	F       uint8
+
+	Config DONConfig
+}
+
 // CapabilityInfo is a struct for the info of a capability.
 type CapabilityInfo struct {
 	ID             string
 	CapabilityType CapabilityType
 	Description    string
 	Version        string
+	DON            *DON
 }
 
 // Info returns the info of the capability.
@@ -181,6 +195,7 @@ func NewCapabilityInfo(
 	capabilityType CapabilityType,
 	description string,
 	version string,
+	don *DON,
 ) (CapabilityInfo, error) {
 	if len(id) > idMaxLength {
 		return CapabilityInfo{}, fmt.Errorf("invalid id: %s exceeds max length %d", id, idMaxLength)
@@ -202,6 +217,7 @@ func NewCapabilityInfo(
 		CapabilityType: capabilityType,
 		Description:    description,
 		Version:        version,
+		DON:            don,
 	}, nil
 }
 
@@ -212,8 +228,9 @@ func MustNewCapabilityInfo(
 	capabilityType CapabilityType,
 	description string,
 	version string,
+	don *DON,
 ) CapabilityInfo {
-	c, err := NewCapabilityInfo(id, capabilityType, description, version)
+	c, err := NewCapabilityInfo(id, capabilityType, description, version, don)
 	if err != nil {
 		panic(err)
 	}
