@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
-	"github.com/smartcontractkit/seth"
 )
 
 type Coordinator interface {
@@ -104,8 +103,4 @@ func parseRequestRandomnessLogs(coordinator Coordinator, logs []*types.Log) (*Co
 		}
 	}
 	return randomWordsRequestedEvent, nil
-}
-
-func RetrieveRequestRandomnessLogs(coordinator Coordinator, client *seth.Client, tx *seth.DecodedTransaction) (*CoordinatorRandomWordsRequested, error) {
-	return parseRequestRandomnessLogs(coordinator, tx.Receipt.Logs)
 }
