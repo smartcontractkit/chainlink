@@ -21,7 +21,7 @@ type Poller[
 	pollingInterval time.Duration
 	pollingFunc     func(ctx context.Context) (T, error)
 	pollingTimeout  *time.Duration
-	logger          logger.Logger
+	logger          *logger.Logger
 	channel         chan<- T
 	errCh           chan error
 
@@ -32,7 +32,7 @@ type Poller[
 // NewPoller creates a new Poller instance
 func NewPoller[
 	T any,
-](pollingInterval time.Duration, pollingFunc func(ctx context.Context) (T, error), pollingTimeout *time.Duration, channel chan<- T, logger logger.Logger) Poller[T] {
+](pollingInterval time.Duration, pollingFunc func(ctx context.Context) (T, error), pollingTimeout *time.Duration, channel chan<- T, logger *logger.Logger) Poller[T] {
 	return Poller[T]{
 		pollingInterval: pollingInterval,
 		pollingFunc:     pollingFunc,
@@ -87,7 +87,9 @@ func (p *Poller[T]) pollingLoop() {
 			result, err := p.pollingFunc(ctx)
 			cancel()
 			if err != nil {
-				p.logger.Warnw("Polling error", "error", err)
+				if p.logger != nil {
+					(*p.logger).Warnw("Polling error", "error", err)
+				}
 				select {
 				case p.errCh <- err:
 					continue

@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
+// TODO: Fix race conditions in tests!
+
 func Test_Poller(t *testing.T) {
 	pollingTimeout := 10 * time.Millisecond
 	lggr, err := logger.New()
@@ -34,22 +36,21 @@ func Test_Poller(t *testing.T) {
 		channel := make(chan Head, 1)
 
 		// Create poller and start to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, lggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, &lggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
-		done := make(chan struct{})
 		// Create goroutine to receive updates from the poller
-		pollCount := 0
-		pollMax := 50
+		done := make(chan struct{})
 		go func() {
+			pollCount := 0
+			pollMax := 50
 			for ; pollCount < pollMax; pollCount++ {
 				h := <-channel
 				assert.Equal(t, int64(pollNumber), h.BlockNumber())
 			}
 			close(done)
 		}()
-
 		<-done
 	})
 
@@ -63,17 +64,15 @@ func Test_Poller(t *testing.T) {
 		channel := make(chan Head, 1)
 
 		// Create poller and subscribe to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, lggr)
-
+		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, &lggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
-		done := make(chan struct{})
-
 		// Create goroutine to receive updates from the poller
-		pollCount := 0
-		pollMax := 50
+		done := make(chan struct{})
 		go func() {
+			pollCount := 0
+			pollMax := 50
 			for ; pollCount < pollMax; pollCount++ {
 				select {
 				case <-channel:
@@ -85,14 +84,12 @@ func Test_Poller(t *testing.T) {
 			}
 			close(done)
 		}()
-
 		<-done
 	})
 }
 
 func Test_Poller_Unsubscribe(t *testing.T) {
 	t.Run("Test multiple unsubscribe", func(t *testing.T) {
-		// TODO: to the p.channel. And one that ensure we can call Unsubscribe twice without panic.
 		poller := NewPoller[Head](time.Millisecond, nil, nil, nil, nil)
 		err := poller.Start()
 		require.NoError(t, err)
