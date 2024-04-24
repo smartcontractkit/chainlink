@@ -299,7 +299,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 
 			if p.previousStartWindow == nil {
 				p.previousStartWindow = &startWindow
-			} else if p.previousStartWindow != nil && startWindow != *p.previousStartWindow {
+			} else if startWindow != *p.previousStartWindow {
 				p.lggr.Debugw("new block window", "windowStart", startWindow)
 				p.currentIteration = 0
 				p.previousStartWindow = &startWindow
