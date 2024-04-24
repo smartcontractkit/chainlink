@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -21,6 +22,33 @@ type DataSource interface {
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error)
 	NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error)
+}
+
+type RowScanner interface {
+	Scan(dest ...any) error
+	SliceScan() ([]interface{}, error)
+	MapScan(dest map[string]interface{}) error
+	StructScan(dest interface{}) error
+}
+
+// NamedQueryContext is like sqlx.NamedQueryContext, but it works with any DataSource.
+// fn will be called once for each row.
+func NamedQueryContext(ctx context.Context, ds DataSource, query string, arg any, fn func(RowScanner) error) error {
+	query, args, err := ds.BindNamed(query, arg)
+	if err != nil {
+		return fmt.Errorf("failed to bind named query: %w", err)
+	}
+	rows, err := ds.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err = fn(rows); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
 }
 
 type TxOptions struct {
@@ -48,6 +76,15 @@ func Transact[D any](ctx context.Context, newD func(DataSource) D, ds DataSource
 		// Unsupported or already inside another transaction.
 		return fn(newD(ds))
 	}
+	return transact(ctx, newD, txds, opts, fn)
+}
+
+// TransactConn is a special case to support *sqlx.Conn, which does not implement the full DataSource interface.
+func TransactConn[D any](ctx context.Context, newD func(DataSource) D, ds *sqlx.Conn, opts *TxOptions, fn func(tx D) error) (err error) {
+	return transact(ctx, newD, ds, opts, fn)
+}
+
+func transact[D any](ctx context.Context, newD func(DataSource) D, ds transactional, opts *TxOptions, fn func(tx D) error) (err error) {
 	if opts == nil {
 		opts = &TxOptions{}
 	}
@@ -62,7 +99,7 @@ func Transact[D any](ctx context.Context, newD func(DataSource) D, ds DataSource
 			return tx, nil
 		}
 
-		tx, terr := txds.BeginTxx(ctx, &opts.TxOptions)
+		tx, terr := ds.BeginTxx(ctx, &opts.TxOptions)
 		if terr != nil {
 			return nil, terr
 		}
@@ -94,7 +131,7 @@ func Transact[D any](ctx context.Context, newD func(DataSource) D, ds DataSource
 var _ transactional = (*sqlx.DB)(nil)
 
 type transactional interface {
-	// BeginTxx is implemented by *sqlx.DB but not *sqlx.Tx.
+	// BeginTxx is implemented by *sqlx.DB and *sqlx.Conn, but not *sqlx.Tx.
 	BeginTxx(context.Context, *sql.TxOptions) (*sqlx.Tx, error)
 }
 

@@ -82,6 +82,8 @@ func (w *wrappedDataSource) BindNamed(s string, i interface{}) (string, []any, e
 }
 
 func (w *wrappedDataSource) QueryContext(ctx context.Context, query string, args ...any) (rows *sql.Rows, err error) {
+	// no default timeout since it applies to the lifetime of the returned Rows
+	ctx = WithoutDefaultTimeout(ctx)
 	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
 		rows, err = w.db.QueryContext(ctx, query, args...) //nolint
 		return
@@ -90,14 +92,18 @@ func (w *wrappedDataSource) QueryContext(ctx context.Context, query string, args
 }
 
 func (w *wrappedDataSource) QueryxContext(ctx context.Context, query string, args ...any) (rows *sqlx.Rows, err error) {
+	// no default timeout since it applies to the lifetime of the returned Rows
+	ctx = WithoutDefaultTimeout(ctx)
 	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
-		rows, err = w.db.QueryxContext(ctx, query, args...) //nolint:sqlclosecheck
+		rows, err = w.db.QueryxContext(ctx, query, args...) //nolint
 		return
 	}, query, args...)
 	return
 }
 
 func (w *wrappedDataSource) QueryRowxContext(ctx context.Context, query string, args ...any) (row *sqlx.Row) {
+	// no default timeout since it applies to the lifetime of the returned Rows
+	ctx = WithoutDefaultTimeout(ctx)
 	_ = w.hook(ctx, w.lggr, func(ctx context.Context) error {
 		row = w.db.QueryRowxContext(ctx, query, args...)
 		return nil
