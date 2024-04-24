@@ -1269,13 +1269,19 @@ func main() {
 		cbGasLimit := cmd.Uint("cb-gas-limit", 100_000, "request callback gas limit")
 		confirmations := cmd.Uint("request-confirmations", 3, "request confirmations")
 		numWords := cmd.Uint("num-words", 1, "num words to request")
+		nativePayment := cmd.Bool("native-payment", false, "whether to use native payment or not")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
 
 		consumer, err := vrfv2plus_wrapper_consumer_example.NewVRFV2PlusWrapperConsumerExample(
 			common.HexToAddress(*consumerAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		tx, err := consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
+		var tx *types.Transaction
+		if *nativePayment {
+			tx, err = consumer.MakeRequestNative(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
+		} else {
+			tx, err = consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
+		}
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-consumer-request-status":
