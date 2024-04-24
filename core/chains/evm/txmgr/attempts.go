@@ -96,7 +96,6 @@ func (c *evmTxAttemptBuilder) NewPurgeTxAttempt(ctx context.Context, etx Tx, lgg
 	// Transactions being purged will always have a previous attempt since it had to have been broadcasted before at least once
 	previousAttempt := etx.TxAttempts[0]
 	keySpecificMaxGasPriceWei := c.feeConfig.PriceMaxKey(etx.FromAddress)
-	// TODO: Confirm if bump is needed. Either we could have a separate config or a hardcoded 10% to minimize the replacement fee
 	bumpedFee, _, err := c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.TxFee, etx.FeeLimit, keySpecificMaxGasPriceWei, newEvmPriorAttempts(etx.TxAttempts))
 	if err != nil {
 		return attempt, fmt.Errorf("failed to bump previous fee to use for the purge attempt: %w", err)

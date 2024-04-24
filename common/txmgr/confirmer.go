@@ -469,22 +469,21 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 			purgeAttempt, err := ec.TxAttemptBuilder.NewPurgeTxAttempt(ctx, tx, lggr)
 			if err != nil {
 				errMu.Lock()
-				errorList = append(errorList, err)
+				errorList = append(errorList, fmt.Errorf("failed to create a purge attempt: %w", err))
 				errMu.Unlock()
 				return
 			}
 			// Save purge attempt
 			if err := ec.txStore.SaveInProgressAttempt(ctx, &purgeAttempt); err != nil {
 				errMu.Lock()
-				errorList = append(errorList, fmt.Errorf("saveInProgressAttempt failed for purge attempt: %w", err))
+				errorList = append(errorList, fmt.Errorf("failed to save purge attempt: %w", err))
 				errMu.Unlock()
 				return
 			}
-
 			// Send purge attempt
 			if err := ec.handleInProgressAttempt(ctx, lggr, tx, purgeAttempt, blockNum); err != nil {
 				errMu.Lock()
-				errorList = append(errorList, fmt.Errorf("handleInProgressAttempt failed for purge attempt: %w", err))
+				errorList = append(errorList, fmt.Errorf("failed to send purge attempt: %w", err))
 				errMu.Unlock()
 				return
 			}

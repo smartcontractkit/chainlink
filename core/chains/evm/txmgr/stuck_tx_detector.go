@@ -56,7 +56,9 @@ type stuckTxDetector struct {
 }
 
 func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.ChainType, cfg stuckTxDetectorConfig, gasEstimator stuckTxDetectorGasEstimator, txStore stuckTxDetectorTxStore, chainClient stuckTxDetectorClient) *stuckTxDetector {
-	// TODO: ensure to initialize client with the usual security standards
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DisableCompression = true
+	httpClient := &http.Client{Transport: t}
 	// TODO: Load purgeBlockNumMap with some DB state or confirm rate limit is not needed on first purge after restart
 	return &stuckTxDetector{
 		lggr:             lggr,
@@ -66,7 +68,7 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.C
 		gasEstimator:     gasEstimator,
 		txStore:          txStore,
 		chainClient:      chainClient,
-		httpClient:       &http.Client{},
+		httpClient:       httpClient,
 		purgeBlockNumMap: make(map[common.Address]int64),
 	}
 }

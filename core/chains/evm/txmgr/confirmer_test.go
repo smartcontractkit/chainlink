@@ -3128,6 +3128,92 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	})
 }
 
+func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(commonclient.Successful, nil).Once()
+	lggr := logger.Test(t)
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
+	
+	// Return 10 gwei as market gas price
+	marketGasPrice := tenGwei
+	fee := gas.EvmFee{Legacy: marketGasPrice}
+	bumpedLegacy := assets.GWei(30)
+	bumpedFee := gas.EvmFee{Legacy: bumpedLegacy}
+	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything).Return(fee, uint64(0), nil)
+	feeEstimator.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(bumpedFee, uint64(10_000), nil)
+	autoPurgeThreshold := uint32(5)
+	autoPurgeMinAttempts := uint32(3)
+	limitDefault := uint64(100)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.LimitDefault = ptr(limitDefault)
+		c.EVM[0].Transactions.AutoPurge.AutoPurgeStuckTxs = ptr(true)
+		c.EVM[0].Transactions.AutoPurge.AutoPurgeThreshold = ptr(autoPurgeThreshold)
+		c.EVM[0].Transactions.AutoPurge.AutoPurgeMinAttempts = ptr(autoPurgeMinAttempts)
+	})
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	ge := evmcfg.EVM().GasEstimator()
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", evmcfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database(), ethKeyStore, txBuilder, lggr, stuckTxDetector)
+	servicetest.Run(t, ec)
+
+	ctx := testutils.Context(t)
+	blockNum := int64(100)
+
+	t.Run("detects and processes stuck transactions", func(t *testing.T) {
+		nonce := int64(0)
+		// Create attempts so that the oldest broadcast attempt's block num is what meets the threshold check
+		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
+		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
+		tx := mustInsertUnconfirmedTxWithXBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
+
+		// ProcessStuckTransactions should:
+		// 1. Detect a stuck transaction, confirmed above
+		// 2. Create a purge attempt for it
+		// 3. Save the purge attempt to the DB
+		// 4. Send the purge attempt
+		err := ec.ProcessStuckTransactions(ctx, blockNum)
+		require.NoError(t, err)
+
+		// Check if the purge attempt was saved to the DB properly
+		dbTx, err := txStore.FindTxWithAttempts(ctx, tx.ID)
+		require.NoError(t, err)
+		require.NotNil(t, dbTx)
+		latestAttempt := dbTx.TxAttempts[0]
+		require.Equal(t, true, latestAttempt.IsPurgeAttempt)
+		require.Equal(t, limitDefault, latestAttempt.ChainSpecificFeeLimit)
+		require.Equal(t, bumpedFee.Legacy, latestAttempt.TxFee.Legacy)
+
+		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(1), nil)
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 4 && cltest.BatchElemMatchesParams(b[0], latestAttempt.Hash, "eth_getTransactionReceipt")
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// First transaction confirmed
+			*(elems[0].Result.(*evmtypes.Receipt)) = evmtypes.Receipt{
+				TxHash:           latestAttempt.Hash,
+				BlockHash:        utils.NewHash(),
+				BlockNumber:      big.NewInt(101),
+				TransactionIndex: uint(1),
+				Status:           uint64(1),
+			}
+		}).Once()
+		// Check if transaction marked as fatal after purge attempt is confirmed
+		err = ec.CheckForReceipts(ctx, blockNum + 1)
+		require.NoError(t, err)
+		dbTx, err = txStore.FindTxWithAttempts(ctx, tx.ID)
+		require.NoError(t, err)
+		require.NotNil(t, dbTx)
+		require.Equal(t, txmgrcommon.TxFatalError, dbTx.State)
+	})
+}
+
 func ptr[T any](t T) *T { return &t }
 
 func newEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Client, gconfig chainlink.GeneralConfig, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgrcommon.ResumeCallback) *txmgr.Confirmer {
