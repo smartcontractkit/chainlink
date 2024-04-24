@@ -981,6 +981,31 @@ var OneEphemeralKeysLiveTestnetCheckFn = func(sethCfg *seth.Config) error {
 	return nil
 }
 
+// OneEphemeralKeysLiveTestnetAutoFixFn checks whether there's at least one ephemeral key on a simulated network or at least one static key on a live network,
+// and that there are no epehemeral keys on a live network (if ephemeral keys count is different from zero, it will disable them). Root key is excluded from the check.
+var OneEphemeralKeysLiveTestnetAutoFixFn = func(sethCfg *seth.Config) error {
+	concurrency := sethCfg.GetMaxConcurrency()
+
+	if sethCfg.IsSimulatedNetwork() {
+		if concurrency < 1 {
+			return fmt.Errorf(INSUFFICIENT_EPHEMERAL_KEYS, 0)
+		}
+
+		return nil
+	}
+
+	if sethCfg.EphemeralAddrs != nil && int(*sethCfg.EphemeralAddrs) > 0 {
+		var zero int64 = 0
+		sethCfg.EphemeralAddrs = &zero
+	}
+
+	if concurrency < 1 {
+		return fmt.Errorf(INSUFFICIENT_STATIC_KEYS, len(sethCfg.Network.PrivateKeys))
+	}
+
+	return nil
+}
+
 // GetChainClient returns a seth client for the given network after validating the config
 func GetChainClient(config tc.SethConfig, network blockchain.EVMNetwork) (*seth.Client, error) {
 	return GetChainClientWithConfigFunction(config, network, noOpSethConfigFn)
