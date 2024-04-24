@@ -18,6 +18,10 @@ func NewTestChainScopedConfig(t testing.TB, overrideFn func(c *toml.EVMConfig)) 
 	}
 
 	if overrideFn != nil {
+		// We need to get the chainID from the override function first to load the correct chain defaults.
+		// Then we apply the override values on top
+		overrideFn(evmCfg)
+		evmCfg.Chain = toml.Defaults(evmCfg.ChainID)
 		overrideFn(evmCfg)
 	}
 
