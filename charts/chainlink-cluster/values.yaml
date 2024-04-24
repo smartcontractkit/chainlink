@@ -11,6 +11,23 @@
 #   version: stable
 chainlink:
   enabled: true
+  global:
+    # `toml` is initially set to null. Uncomment and modify the following example as needed.
+    # Example configuration parameters for all Chainlink nodes. Can be overridden by individual node configurations and via `overridesToml`.
+    # toml: |-
+    #   [Log]
+    #   Level = 'info'
+    #   [WebServer]
+    #   HTTPPort = 6688
+    toml: null
+    # `overridesToml` is initially set to null. Uncomment and modify the following example as needed.
+    # Example configuration parameters that override the main configuration.
+    # overridesToml: |-
+    #   [Log]
+    #   Level = 'debug'
+    #   [WebServer]
+    #   HTTPPort = 6690
+    overridesToml: null
   podSecurityContext:
     fsGroup: 14933
   securityContext:
@@ -73,13 +90,6 @@ chainlink:
     - name: node-4
     - name: node-5
     - name: node-6
-  resources:
-    requests:
-      cpu: 350m
-      memory: 1024Mi
-    limits:
-      cpu: 350m
-      memory: 1024Mi
 
 # each CL node have a dedicated PostgreSQL 11.15
 # use StatefulSet by setting:

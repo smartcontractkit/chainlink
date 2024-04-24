@@ -40,7 +40,6 @@ import (
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -360,7 +359,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			TransmitterAddress: address.Hex(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
@@ -765,7 +764,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	})
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jb, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
+	jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, spec.Toml())
 	require.NoError(t, err)
 
 	t.Run("with a set chain id", func(t *testing.T) {
@@ -777,7 +776,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 
 		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 		spec.JobID = externalJobID.UUID.String()
-		jba, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
+		jba, err := ocr.ValidatedOracleSpecToml(config, legacyChains, spec.Toml())
 		require.NoError(t, err)
 		err = jobORM.CreateJob(&jba) // Try to add duplicate job with default id
 		require.Error(t, err)
@@ -785,7 +784,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 
 		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 		spec.JobID = externalJobID.UUID.String()
-		jb2, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
+		jb2, err := ocr.ValidatedOracleSpecToml(config, legacyChains, spec.Toml())
 		require.NoError(t, err)
 
 		err = jobORM.CreateJob(&jb2) // Try to add duplicate job with custom id
@@ -927,7 +926,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test ETH key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.EVM
+		jb.OCR2OracleSpec.Relay = types.NetworkEVM
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
 
@@ -938,7 +937,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Cosmos key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.Cosmos
+		jb.OCR2OracleSpec.Relay = types.NetworkCosmos
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
 
@@ -950,7 +949,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Solana key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.Solana
+		jb.OCR2OracleSpec.Relay = types.NetworkSolana
 
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
@@ -963,7 +962,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Starknet key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.StarkNet
+		jb.OCR2OracleSpec.Relay = types.NetworkStarkNet
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
 
@@ -1007,7 +1006,7 @@ func Test_FindJobs(t *testing.T) {
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jb1, err := ocr.ValidatedOracleSpecToml(legacyChains,
+	jb1, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
@@ -1092,7 +1091,7 @@ func Test_FindJob(t *testing.T) {
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	job, err := ocr.ValidatedOracleSpecToml(legacyChains,
+	job, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			Name:               "orig ocr spec",
@@ -1103,7 +1102,7 @@ func Test_FindJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	jobSameAddress, err := ocr.ValidatedOracleSpecToml(legacyChains,
+	jobSameAddress, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
@@ -1322,7 +1321,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
+	jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
@@ -1384,7 +1383,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
+	jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
@@ -1450,7 +1449,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		key, err := ethkey.NewV2()
 
 		require.NoError(t, err)
-		jb, err = ocr.ValidatedOracleSpecToml(legacyChains,
+		jb, err = ocr.ValidatedOracleSpecToml(config, legacyChains,
 			testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 				JobID:              jobID,
 				Name:               fmt.Sprintf("Job #%v", jobID),
@@ -1554,7 +1553,7 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
+	jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
@@ -1730,7 +1729,7 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
+	jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),

@@ -63,7 +63,7 @@ func TestVRFv2Basic(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -556,7 +556,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -664,7 +664,7 @@ func TestVRFOwner(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -772,7 +772,7 @@ func TestVRFOwner(t *testing.T) {
 		require.Equal(t, *configCopy.VRFv2.General.MinimumConfirmations, coordinatorConfig.MinimumRequestConfirmations)
 		require.Equal(t, *configCopy.VRFv2.General.FulfillmentFlatFeeLinkPPMTier1, coordinatorFeeConfig.FulfillmentFlatFeeLinkPPMTier1)
 		require.Equal(t, *configCopy.VRFv2.General.ReqsForTier2, coordinatorFeeConfig.ReqsForTier2.Int64())
-		require.Equal(t, *configCopy.VRFv2.General.FallbackWeiPerUnitLink, coordinatorFallbackWeiPerUnitLinkConfig.Int64())
+		require.Equal(t, *configCopy.VRFv2.General.FallbackWeiPerUnitLink, coordinatorFallbackWeiPerUnitLinkConfig.String())
 	})
 }
 
@@ -807,7 +807,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}

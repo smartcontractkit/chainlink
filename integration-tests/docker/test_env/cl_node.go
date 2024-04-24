@@ -339,6 +339,14 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
 	}
 
+	// retries can change the container name which affects urls used later
+	// so update to use the name that actually started
+	n.ContainerName, err = container.Name(context.Background())
+	if err != nil {
+		return err
+	}
+	n.ContainerName = strings.Replace(n.ContainerName, "/", "", -1)
+
 	clEndpoint, err := test_env.GetEndpoint(testcontext.Get(n.t), container, "http")
 	if err != nil {
 		return err

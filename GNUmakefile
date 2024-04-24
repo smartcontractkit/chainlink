@@ -45,6 +45,10 @@ docs: ## Install and run pkgsite to view Go docs
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
 
+.PHONY: install-chainlink-cover
+install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
+	go install -cover $(GOFLAGS) .
+
 .PHONY: chainlink
 chainlink: ## Build the chainlink binary.
 	go build $(GOFLAGS) .
@@ -104,6 +108,10 @@ testscripts: chainlink-test ## Install and run testscript against testdata/scrip
 testscripts-update: ## Update testdata/scripts/* files via testscript.
 	make testscripts TS_FLAGS="-u"
 
+.PHONY: setup-testdb
+setup-testdb: ## Setup the test database.
+	./core/scripts/setup_testdb.sh
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run . local db preparetest
@@ -125,7 +133,7 @@ gomods: ## Install gomods
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.38.0
+	go install github.com/vektra/mockery/v2@v2.42.2
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
