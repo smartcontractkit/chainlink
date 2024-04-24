@@ -7245,6 +7245,7 @@ reported based on latest block and finality depth.
 Set to 0 to disable.
 
 ## EVM.NodePool.Errors
+:warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
 ```toml
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low' # Example
