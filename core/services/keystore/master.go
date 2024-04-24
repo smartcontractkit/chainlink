@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -8,8 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -50,8 +49,8 @@ type Master interface {
 	Cosmos() Cosmos
 	StarkNet() StarkNet
 	VRF() VRF
-	Unlock(password string) error
-	IsEmpty() (bool, error)
+	Unlock(ctx context.Context, password string) error
+	IsEmpty(ctx context.Context) (bool, error)
 }
 
 type master struct {
@@ -69,12 +68,12 @@ type master struct {
 	dkgEncrypt *dkgEncrypt
 }
 
-func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) Master {
-	return newMaster(db, scryptParams, lggr, cfg)
+func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
+	return newMaster(ds, scryptParams, lggr)
 }
 
-func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) *master {
-	orm := NewORM(db, lggr, cfg)
+func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
+	orm := NewORM(ds, lggr)
 	km := &keyManager{
 		orm:          orm,
 		keystateORM:  orm,
@@ -87,7 +86,7 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger,
 		keyManager: km,
 		cosmos:     newCosmosKeyStore(km),
 		csa:        newCSAKeyStore(km),
-		eth:        newEthKeyStore(km, orm, orm.q),
+		eth:        newEthKeyStore(km, orm, orm.ds),
 		ocr:        newOCRKeyStore(km),
 		ocr2:       newOCR2KeyStore(km),
 		p2p:        newP2PKeyStore(km),
@@ -144,13 +143,13 @@ func (ks *master) VRF() VRF {
 }
 
 type ORM interface {
-	isEmpty() (bool, error)
-	saveEncryptedKeyRing(*encryptedKeyRing, ...func(pg.Queryer) error) error
-	getEncryptedKeyRing() (encryptedKeyRing, error)
+	isEmpty(context.Context) (bool, error)
+	saveEncryptedKeyRing(context.Context, *encryptedKeyRing, ...func(sqlutil.DataSource) error) error
+	getEncryptedKeyRing(context.Context) (encryptedKeyRing, error)
 }
 
 type keystateORM interface {
-	loadKeyStates() (*keyStates, error)
+	loadKeyStates(context.Context) (*keyStates, error)
 }
 
 type keyManager struct {
@@ -164,11 +163,11 @@ type keyManager struct {
 	logger       logger.Logger
 }
 
-func (km *keyManager) IsEmpty() (bool, error) {
-	return km.orm.isEmpty()
+func (km *keyManager) IsEmpty(ctx context.Context) (bool, error) {
+	return km.orm.isEmpty(ctx)
 }
 
-func (km *keyManager) Unlock(password string) error {
+func (km *keyManager) Unlock(ctx context.Context, password string) error {
 	km.lock.Lock()
 	defer km.lock.Unlock()
 	// DEV: allow Unlock() to be idempotent - this is especially useful in tests,
@@ -178,7 +177,7 @@ func (km *keyManager) Unlock(password string) error {
 		}
 		return nil
 	}
-	ekr, err := km.orm.getEncryptedKeyRing()
+	ekr, err := km.orm.getEncryptedKeyRing(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to get encrypted key ring")
 	}
@@ -189,7 +188,7 @@ func (km *keyManager) Unlock(password string) error {
 	kr.logPubKeys(km.logger)
 	km.keyRing = kr
 
-	ks, err := km.keystateORM.loadKeyStates()
+	ks, err := km.keystateORM.loadKeyStates(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to load key states")
 	}
@@ -200,16 +199,16 @@ func (km *keyManager) Unlock(password string) error {
 }
 
 // caller must hold lock!
-func (km *keyManager) save(callbacks ...func(pg.Queryer) error) error {
+func (km *keyManager) save(ctx context.Context, callbacks ...func(sqlutil.DataSource) error) error {
 	ekb, err := km.keyRing.Encrypt(km.password, km.scryptParams)
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt keyRing")
 	}
-	return km.orm.saveEncryptedKeyRing(&ekb, callbacks...)
+	return km.orm.saveEncryptedKeyRing(ctx, &ekb, callbacks...)
 }
 
 // caller must hold lock!
-func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) error) error {
+func (km *keyManager) safeAddKey(ctx context.Context, unknownKey Key, callbacks ...func(sqlutil.DataSource) error) error {
 	fieldName, err := GetFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
@@ -221,7 +220,7 @@ func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) e
 	keyMap := keyRing.FieldByName(fieldName)
 	keyMap.SetMapIndex(id, key)
 	// save keyring to DB
-	err = km.save(callbacks...)
+	err = km.save(ctx, callbacks...)
 	// if save fails, remove key from keyring
 	if err != nil {
 		keyMap.SetMapIndex(id, reflect.Value{})
@@ -231,7 +230,7 @@ func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) e
 }
 
 // caller must hold lock!
-func (km *keyManager) safeRemoveKey(unknownKey Key, callbacks ...func(pg.Queryer) error) (err error) {
+func (km *keyManager) safeRemoveKey(ctx context.Context, unknownKey Key, callbacks ...func(sqlutil.DataSource) error) (err error) {
 	fieldName, err := GetFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
@@ -242,7 +241,7 @@ func (km *keyManager) safeRemoveKey(unknownKey Key, callbacks ...func(pg.Queryer
 	keyMap := keyRing.FieldByName(fieldName)
 	keyMap.SetMapIndex(id, reflect.Value{})
 	// save keyring to DB
-	err = km.save(callbacks...)
+	err = km.save(ctx, callbacks...)
 	// if save fails, add key back to keyRing
 	if err != nil {
 		keyMap.SetMapIndex(id, key)

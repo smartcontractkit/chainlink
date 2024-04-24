@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -102,7 +103,7 @@ func TestResolver_CreateP2PKey(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.p2p.On("Create").Return(fakeKey, nil)
+				f.Mocks.p2p.On("Create", mock.Anything).Return(fakeKey, nil)
 				f.Mocks.keystore.On("P2P").Return(f.Mocks.p2p)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -163,7 +164,7 @@ func TestResolver_DeleteP2PKey(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.p2p.On("Delete", peerID).Return(fakeKey, nil)
+				f.Mocks.p2p.On("Delete", mock.Anything, peerID).Return(fakeKey, nil)
 				f.Mocks.keystore.On("P2P").Return(f.Mocks.p2p)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -176,7 +177,7 @@ func TestResolver_DeleteP2PKey(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.p2p.
-					On("Delete", peerID).
+					On("Delete", mock.Anything, peerID).
 					Return(
 						p2pkey.KeyV2{},
 						keystore.KeyNotFoundError{ID: peerID.String(), KeyType: "P2P"},

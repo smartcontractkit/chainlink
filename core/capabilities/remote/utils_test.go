@@ -1,7 +1,6 @@
 package remote_test
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"testing"
@@ -90,29 +89,32 @@ func TestToPeerID(t *testing.T) {
 }
 
 func TestDefaultModeAggregator_Aggregate(t *testing.T) {
-	capResponse1 := marshalCapabilityResponse(t, triggerEvent1, nil)
-	capResponse2 := marshalCapabilityResponse(t, triggerEvent2, nil)
+	val, err := values.Wrap(triggerEvent1)
+	require.NoError(t, err)
+	capResponse1 := commoncap.CapabilityResponse{
+		Value: val,
+		Err:   nil,
+	}
+	marshaled1, err := pb.MarshalCapabilityResponse(capResponse1)
+	require.NoError(t, err)
+
+	val2, err := values.Wrap(triggerEvent2)
+	require.NoError(t, err)
+	capResponse2 := commoncap.CapabilityResponse{
+		Value: val2,
+		Err:   nil,
+	}
+	marshaled2, err := pb.MarshalCapabilityResponse(capResponse2)
+	require.NoError(t, err)
 
 	agg := remote.NewDefaultModeAggregator(2)
-	_, err := agg.Aggregate("", [][]byte{capResponse1})
+	_, err = agg.Aggregate("", [][]byte{marshaled1})
 	require.Error(t, err)
 
-	_, err = agg.Aggregate("", [][]byte{capResponse1, capResponse2})
+	_, err = agg.Aggregate("", [][]byte{marshaled1, marshaled2})
 	require.Error(t, err)
 
-	res, err := agg.Aggregate("", [][]byte{capResponse1, capResponse2, capResponse1})
+	res, err := agg.Aggregate("", [][]byte{marshaled1, marshaled2, marshaled1})
 	require.NoError(t, err)
-	require.True(t, bytes.Equal(res, capResponse1))
-}
-
-func marshalCapabilityResponse(t *testing.T, capValue any, capError error) []byte {
-	val, err := values.Wrap(capValue)
-	require.NoError(t, err)
-	capResponse := commoncap.CapabilityResponse{
-		Value: val,
-		Err:   capError,
-	}
-	marshaled, err := pb.MarshalCapabilityResponse(capResponse)
-	require.NoError(t, err)
-	return marshaled
+	require.Equal(t, res, capResponse1)
 }

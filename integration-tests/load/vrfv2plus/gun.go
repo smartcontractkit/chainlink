@@ -44,7 +44,7 @@ func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
-	_, err = vrfv2plus.RequestRandomnessAndWaitForRequestedEvent(
+	_, err = vrfv2plus.RequestRandomness(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2PlusConsumer[0],
 		m.contracts.CoordinatorV2Plus,

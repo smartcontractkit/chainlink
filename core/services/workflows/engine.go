@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -25,7 +25,7 @@ const (
 type Engine struct {
 	services.StateMachine
 	logger              logger.Logger
-	registry            types.CapabilitiesRegistry
+	registry            core.CapabilitiesRegistry
 	workflow            *workflow
 	executionStates     *inMemoryStore
 	pendingStepRequests chan stepRequest
@@ -67,13 +67,13 @@ func (e *Engine) init(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(retrySec) * time.Second)
 	defer ticker.Stop()
 
-	initSuccessful := true
 LOOP:
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			initSuccessful := true
 			// Resolve the underlying capability for each trigger
 			for _, t := range e.workflow.triggers {
 				tg, err := e.registry.GetTrigger(ctx, t.Type)
@@ -82,8 +82,10 @@ LOOP:
 					e.logger.Errorf("failed to get trigger capability: %s, retrying in %d seconds", err, retrySec)
 					continue
 				}
-
 				t.trigger = tg
+			}
+			if !initSuccessful {
+				continue
 			}
 
 			// Walk the graph and register each step's capability to this workflow
@@ -181,10 +183,17 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 		Config: tc,
 		Inputs: triggerInputs,
 	}
-	err = t.trigger.RegisterTrigger(ctx, e.triggerEvents, triggerRegRequest)
+	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate trigger %s, %s", t.Type, err)
 	}
+
+	go func() {
+		for event := range eventsCh {
+			e.triggerEvents <- event
+		}
+	}()
+
 	return nil
 }
 
@@ -210,7 +219,12 @@ func (e *Engine) loop(ctx context.Context) {
 		case <-ctx.Done():
 			e.logger.Debugw("shutting down loop")
 			return
-		case resp := <-e.triggerEvents:
+		case resp, isOpen := <-e.triggerEvents:
+			if !isOpen {
+				e.logger.Errorf("trigger events channel is no longer open, skipping")
+				continue
+			}
+
 			if resp.Err != nil {
 				e.logger.Errorf("trigger event was an error; not executing", resp.Err)
 				continue
@@ -511,7 +525,15 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 		Inputs: triggerInputs,
 		Config: t.config,
 	}
-	return t.trigger.UnregisterTrigger(ctx, deregRequest)
+
+	// if t.trigger == nil, then we haven't initialized the workflow
+	// yet, and can safely consider the trigger deregistered with
+	// no further action.
+	if t.trigger != nil {
+		return t.trigger.UnregisterTrigger(ctx, deregRequest)
+	}
+
+	return nil
 }
 
 func (e *Engine) Close() error {
@@ -543,6 +565,13 @@ func (e *Engine) Close() error {
 				Config: s.config,
 			}
 
+			// if capability is nil, then we haven't initialized
+			// the workflow yet and can safely consider it deregistered
+			// with no further action.
+			if s.capability == nil {
+				return nil
+			}
+
 			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
 			if innerErr != nil {
 				return fmt.Errorf("failed to unregister from workflow: %+v", reg)
@@ -562,7 +591,7 @@ type Config struct {
 	Spec             string
 	WorkflowID       string
 	Lggr             logger.Logger
-	Registry         types.CapabilitiesRegistry
+	Registry         core.CapabilitiesRegistry
 	MaxWorkerLimit   int
 	QueueSize        int
 	NewWorkerTimeout time.Duration

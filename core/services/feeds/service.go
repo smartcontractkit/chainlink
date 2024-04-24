@@ -111,6 +111,7 @@ type service struct {
 	ocr1KeyStore        keystore.OCR
 	ocr2KeyStore        keystore.OCR2
 	jobSpawner          job.Spawner
+	gCfg                GeneralConfig
 	insecureCfg         InsecureConfig
 	jobCfg              JobConfig
 	ocrCfg              OCRConfig
@@ -129,6 +130,7 @@ func NewService(
 	db *sqlx.DB,
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
+	gCfg GeneralConfig,
 	insecureCfg InsecureConfig,
 	jobCfg JobConfig,
 	ocrCfg OCRConfig,
@@ -149,6 +151,7 @@ func NewService(
 		csaKeyStore:         keyStore.CSA(),
 		ocr1KeyStore:        keyStore.OCR(),
 		ocr2KeyStore:        keyStore.OCR2(),
+		gCfg:                gCfg,
 		insecureCfg:         insecureCfg,
 		jobCfg:              jobCfg,
 		ocrCfg:              ocrCfg,
@@ -732,7 +735,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	}
 
 	// Check that the bridges exist
-	if err = s.jobORM.AssertBridgesExist(j.Pipeline); err != nil {
+	if err = s.jobORM.AssertBridgesExist(ctx, j.Pipeline); err != nil {
 		logger.Errorw("Failed to approve job spec due to bridge check", "err", err.Error())
 
 		return errors.Wrap(err, "failed to approve job spec due to bridge check")
@@ -1137,7 +1140,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		if !s.ocrCfg.Enabled() {
 			return nil, ErrOCRDisabled
 		}
-		js, err = ocr.ValidatedOracleSpecToml(s.legacyChains, spec)
+		js, err = ocr.ValidatedOracleSpecToml(s.gCfg, s.legacyChains, spec)
 	case job.OffchainReporting2:
 		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled
@@ -1191,7 +1194,7 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 	}, nil
 }
 
-// newFMConfigMsg generates a FMConfig protobuf message. Flux Monitor does not
+// newFluxMonitorConfigMsg generates a FMConfig protobuf message. Flux Monitor does not
 // have any configuration but this is here for consistency.
 func (*service) newFluxMonitorConfigMsg(cfg FluxMonitorConfig) *pb.FluxMonitorConfig {
 	return &pb.FluxMonitorConfig{Enabled: cfg.Enabled}

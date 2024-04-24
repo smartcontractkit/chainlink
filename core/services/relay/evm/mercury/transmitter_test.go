@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	mercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	mocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -28,7 +28,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	codec := new(mockCodec)
-	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(db)
 	clients := map[string]wsrpc.Client{}
 
 	t.Run("with one mercury server", func(t *testing.T) {
@@ -109,7 +109,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	var jobID int32
 	codec := new(mockCodec)
 
-	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(db)
 	clients := map[string]wsrpc.Client{}
 
 	t.Run("successful query", func(t *testing.T) {
@@ -211,7 +211,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 	var jobID int32
 
 	codec := new(mockCodec)
-	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(db)
 	clients := map[string]wsrpc.Client{}
 
 	t.Run("successful query", func(t *testing.T) {
@@ -287,7 +287,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	var jobID int32
 	codec := new(mockCodec)
-	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(db)
 	clients := map[string]wsrpc.Client{}
 
 	t.Run("successful query", func(t *testing.T) {

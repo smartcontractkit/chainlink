@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"encoding/binary"
 	"math"
 	"sync"
@@ -12,29 +13,29 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-func (rs *RegistrySynchronizer) fullSync() {
+func (rs *RegistrySynchronizer) fullSync(ctx context.Context) {
 	rs.logger.Debugf("fullSyncing registry %s", rs.job.KeeperSpec.ContractAddress.Hex())
 
-	registry, err := rs.syncRegistry()
+	registry, err := rs.syncRegistry(ctx)
 	if err != nil {
 		rs.logger.Error(errors.Wrap(err, "failed to sync registry during fullSyncing registry"))
 		return
 	}
 
-	if err := rs.fullSyncUpkeeps(registry); err != nil {
+	if err := rs.fullSyncUpkeeps(ctx, registry); err != nil {
 		rs.logger.Error(errors.Wrap(err, "failed to sync upkeeps during fullSyncing registry"))
 		return
 	}
 	rs.logger.Debugf("fullSyncing registry successful %s", rs.job.KeeperSpec.ContractAddress.Hex())
 }
 
-func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
+func (rs *RegistrySynchronizer) syncRegistry(ctx context.Context) (Registry, error) {
 	registry, err := rs.newRegistryFromChain()
 	if err != nil {
 		return Registry{}, errors.Wrap(err, "failed to get new registry from chain")
 	}
 
-	err = rs.orm.UpsertRegistry(&registry)
+	err = rs.orm.UpsertRegistry(ctx, &registry)
 	if err != nil {
 		return Registry{}, errors.Wrap(err, "failed to upsert registry")
 	}
@@ -42,13 +43,13 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 	return registry, nil
 }
 
-func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
+func (rs *RegistrySynchronizer) fullSyncUpkeeps(ctx context.Context, reg Registry) error {
 	activeUpkeepIDs, err := rs.registryWrapper.GetActiveUpkeepIDs(nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to get active upkeep IDs")
 	}
 
-	existingUpkeepIDs, err := rs.orm.AllUpkeepIDsForRegistry(reg.ID)
+	existingUpkeepIDs, err := rs.orm.AllUpkeepIDsForRegistry(ctx, reg.ID)
 	if err != nil {
 		return errors.Wrap(err, "unable to fetch existing upkeep IDs from DB")
 	}
@@ -59,7 +60,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 		activeSet[upkeepID.String()] = true
 		allActiveUpkeeps = append(allActiveUpkeeps, *big.New(upkeepID))
 	}
-	rs.batchSyncUpkeepsOnRegistry(reg, allActiveUpkeeps)
+	rs.batchSyncUpkeepsOnRegistry(ctx, reg, allActiveUpkeeps)
 
 	// All upkeeps in existingUpkeepIDs, not in activeUpkeepIDs should be deleted
 	canceled := make([]big.Big, 0)
@@ -68,7 +69,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 			canceled = append(canceled, upkeepID)
 		}
 	}
-	if _, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, canceled); err != nil {
+	if _, err := rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled); err != nil {
 		return errors.Wrap(err, "failed to batch delete upkeeps from job")
 	}
 	return nil
@@ -76,28 +77,27 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 
 // batchSyncUpkeepsOnRegistry syncs <syncUpkeepQueueSize> upkeeps at a time in parallel
 // for all the IDs within newUpkeeps slice
-func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpkeeps []big.Big) {
+func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(ctx context.Context, reg Registry, newUpkeeps []big.Big) {
 	wg := sync.WaitGroup{}
-	wg.Add(len(newUpkeeps))
 	chSyncUpkeepQueue := make(chan struct{}, rs.syncUpkeepQueueSize)
 
 	done := func() { <-chSyncUpkeepQueue; wg.Done() }
 	for i := range newUpkeeps {
 		select {
-		case <-rs.chStop:
-			return
+		case <-ctx.Done():
 		case chSyncUpkeepQueue <- struct{}{}:
-			go rs.syncUpkeepWithCallback(&rs.registryWrapper, reg, &newUpkeeps[i], done)
+			wg.Add(1)
+			go rs.syncUpkeepWithCallback(ctx, &rs.registryWrapper, reg, &newUpkeeps[i], done)
 		}
 	}
 
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) syncUpkeepWithCallback(getter upkeepGetter, registry Registry, upkeepID *big.Big, doneCallback func()) {
+func (rs *RegistrySynchronizer) syncUpkeepWithCallback(ctx context.Context, getter upkeepGetter, registry Registry, upkeepID *big.Big, doneCallback func()) {
 	defer doneCallback()
 
-	if err := rs.syncUpkeep(getter, registry, upkeepID); err != nil {
+	if err := rs.syncUpkeep(ctx, getter, registry, upkeepID); err != nil {
 		rs.logger.With("err", err.Error()).With(
 			"upkeepID", NewUpkeepIdentifier(upkeepID).String(),
 			"registryContract", registry.ContractAddress.Hex(),
@@ -105,7 +105,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(getter upkeepGetter, regi
 	}
 }
 
-func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registry, upkeepID *big.Big) error {
+func (rs *RegistrySynchronizer) syncUpkeep(ctx context.Context, getter upkeepGetter, registry Registry, upkeepID *big.Big) error {
 	upkeep, err := getter.GetUpkeep(nil, upkeepID.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
@@ -126,11 +126,11 @@ func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registr
 		PositioningConstant: positioningConstant,
 		UpkeepID:            upkeepID,
 	}
-	if err := rs.orm.UpsertUpkeep(&newUpkeep); err != nil {
+	if err := rs.orm.UpsertUpkeep(ctx, &newUpkeep); err != nil {
 		return errors.Wrap(err, "failed to upsert upkeep")
 	}
 
-	if err := rs.orm.UpdateUpkeepLastKeeperIndex(rs.job.ID, upkeepID, types.EIP55AddressFromAddress(upkeep.LastKeeper)); err != nil {
+	if err := rs.orm.UpdateUpkeepLastKeeperIndex(ctx, rs.job.ID, upkeepID, types.EIP55AddressFromAddress(upkeep.LastKeeper)); err != nil {
 		return errors.Wrap(err, "failed to update upkeep last keeper index")
 	}
 
