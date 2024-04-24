@@ -111,6 +111,7 @@ type service struct {
 	ocr1KeyStore        keystore.OCR
 	ocr2KeyStore        keystore.OCR2
 	jobSpawner          job.Spawner
+	gCfg                GeneralConfig
 	insecureCfg         InsecureConfig
 	jobCfg              JobConfig
 	ocrCfg              OCRConfig
@@ -129,6 +130,7 @@ func NewService(
 	db *sqlx.DB,
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
+	gCfg GeneralConfig,
 	insecureCfg InsecureConfig,
 	jobCfg JobConfig,
 	ocrCfg OCRConfig,
@@ -149,6 +151,7 @@ func NewService(
 		csaKeyStore:         keyStore.CSA(),
 		ocr1KeyStore:        keyStore.OCR(),
 		ocr2KeyStore:        keyStore.OCR2(),
+		gCfg:                gCfg,
 		insecureCfg:         insecureCfg,
 		jobCfg:              jobCfg,
 		ocrCfg:              ocrCfg,
@@ -1137,7 +1140,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		if !s.ocrCfg.Enabled() {
 			return nil, ErrOCRDisabled
 		}
-		js, err = ocr.ValidatedOracleSpecToml(s.legacyChains, spec)
+		js, err = ocr.ValidatedOracleSpecToml(s.gCfg, s.legacyChains, spec)
 	case job.OffchainReporting2:
 		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled

@@ -9,10 +9,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-var _ types.TelemetryService = (*TelemetryAdapter)(nil)
+var _ core.TelemetryService = (*TelemetryAdapter)(nil)
 
 type TelemetryAdapter struct {
 	endpointGenerator telemetry.MonitoringEndpointGenerator
