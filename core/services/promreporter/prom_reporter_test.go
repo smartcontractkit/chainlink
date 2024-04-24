@@ -53,6 +53,7 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 		evmConfig,
 		evmConfig.GasEstimator(),
 		evmConfig.Transactions(),
+		nil,
 		dbConfig,
 		dbConfig.Listener(),
 		ethClient,
