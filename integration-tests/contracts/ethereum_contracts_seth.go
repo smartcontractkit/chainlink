@@ -608,6 +608,28 @@ func DeployLinkTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumLi
 	}, nil
 }
 
+func LoadLinkTokenContract(l zerolog.Logger, client *seth.Client, address common.Address) (*EthereumLinkToken, error) {
+	abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+	if err != nil {
+		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
+	}
+
+	client.ContractStore.AddABI("LinkToken", *abi)
+	client.ContractStore.AddBIN("LinkToken", common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
+
+	linkToken, err := link_token_interface.NewLinkToken(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumLinkToken{}, fmt.Errorf("failed to instantiate LinkToken instance: %w", err)
+	}
+
+	return &EthereumLinkToken{
+		client:   client,
+		instance: linkToken,
+		address:  address,
+		l:        l,
+	}, nil
+}
+
 // Fund the LINK Token contract with ETH to distribute the token
 func (l *EthereumLinkToken) Fund(_ *big.Float) error {
 	panic("do not use this function, use actions_seth.SendFunds instead")

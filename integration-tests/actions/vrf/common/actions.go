@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -62,7 +62,10 @@ func CreateAndFundSendingKeys(
 			return nil, fmt.Errorf("error creating transaction key - response code, err %d", response.StatusCode)
 		}
 		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.Attributes.Address)
-		err = actions.FundAddress(l, client, newTxKey.Data.Attributes.Address, conversions.EtherToWei(big.NewFloat(chainlinkNodeFunding)))
+		_, err = actions_seth.SendFunds(l, client, actions_seth.FundsToSendPayload{
+			ToAddress: common.HexToAddress(newTxKey.Data.Attributes.Address),
+			Amount:    conversions.EtherToWei(big.NewFloat(chainlinkNodeFunding)),
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -328,7 +331,10 @@ func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config
 				log.
 					Str("Funding Amount in ETH", fundingToSendWei.String()).
 					Msg("Funding Node's Sending Key")
-				err := actions.FundAddress(l, client, sendingKey, fundingToSendWei)
+				_, err := actions_seth.SendFunds(l, client, actions_seth.FundsToSendPayload{
+					ToAddress: common.HexToAddress(sendingKey),
+					Amount:    fundingToSendWei,
+				})
 				if err != nil {
 					return err
 				}
