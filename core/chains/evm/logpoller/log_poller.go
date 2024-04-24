@@ -398,13 +398,7 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // If ctx is cancelled before the replay request has been initiated, ErrReplayRequestAborted is returned.  If the replay
 // is already in progress, the replay will continue and ErrReplayInProgress will be returned.  If the client needs a
 // guarantee that the replay is complete before proceeding, it should either avoid cancelling or retry until nil is returned
-func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) (err error) {
-	defer func() {
-		if errors.Is(err, context.Canceled) {
-			err = ErrReplayRequestAborted
-		}
-	}()
-
+func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	lp.lggr.Debugf("Replaying from block %d", fromBlock)
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
@@ -414,26 +408,6 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) (err error) {
 		return pkgerrors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
 	}
 
-	// Backfill all logs up to the latest saved finalized block outside the LogPoller's main loop.
-	// This is safe, because chain cannot be rewinded deeper than that, so there must not be any race conditions.
-	savedFinalizedBlockNumber, err := lp.savedFinalizedBlockNumber(ctx)
-	if err != nil {
-		return err
-	}
-	if fromBlock <= savedFinalizedBlockNumber {
-		err = lp.backfill(ctx, fromBlock, savedFinalizedBlockNumber)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Poll everything after latest finalized block in main loop to avoid concurrent writes during reorg
-	// We assume that number of logs between saved finalized block and current head is small enough to be processed in main loop
-	fromBlock = mathutil.Max(fromBlock, savedFinalizedBlockNumber+1)
-	// Don't continue if latest block number is the same as saved finalized block number
-	if fromBlock > latest.Number {
-		return nil
-	}
 	// Block until replay notification accepted or cancelled.
 	select {
 	case lp.replayStart <- fromBlock:
@@ -659,23 +633,8 @@ func (lp *logPoller) backgroundWorkerRun() {
 }
 
 func (lp *logPoller) handleReplayRequest(fromBlockReq int64, filtersLoaded bool) {
-	fromBlock, err := lp.GetReplayFromBlock(lp.ctx, fromBlockReq)
-	if err == nil {
-		if !filtersLoaded {
-			lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
-			if err = lp.loadFilters(); err != nil {
-				lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
-			}
-		}
-		if err == nil {
-			// Serially process replay requests.
-			lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
-			lp.PollAndSaveLogs(lp.ctx, fromBlock)
-			lp.lggr.Infow("Executing replay finished", "fromBlock", fromBlock, "requested", fromBlockReq)
-		}
-	} else {
-		lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
-	}
+	err := lp.replay(fromBlockReq, filtersLoaded)
+
 	select {
 	case <-lp.ctx.Done():
 		// We're shutting down, notify client and exit
@@ -686,6 +645,46 @@ func (lp *logPoller) handleReplayRequest(fromBlockReq int64, filtersLoaded bool)
 		return
 	case lp.replayComplete <- err:
 	}
+}
+
+func (lp *logPoller) replay(fromBlockReq int64, filtersLoaded bool) error {
+	fromBlock, err := lp.GetReplayFromBlock(lp.ctx, fromBlockReq)
+	if err != nil {
+		lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
+		return err
+	}
+
+	if !filtersLoaded {
+		lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
+		if err = lp.loadFilters(); err != nil {
+			lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
+			return err
+		}
+	}
+
+	// Backfill all logs up to the latest saved finalized block outside the LogPoller's main loop.
+	// This is safe, because chain cannot be rewinded deeper than that, so there must not be any race conditions.
+	savedFinalizedBlockNumber, err := lp.savedFinalizedBlockNumber(lp.ctx)
+	if err != nil {
+		return err
+	}
+	if fromBlock <= savedFinalizedBlockNumber {
+		lp.lggr.Infow("Executing backfill up to finalized blocks", "fromBlock", fromBlock, "finalizedBlock", savedFinalizedBlockNumber)
+		err = lp.backfill(lp.ctx, fromBlock, savedFinalizedBlockNumber)
+		if err != nil {
+			lp.lggr.Errorw("Failed backfilling up to finalized blocks", "fromBlock", fromBlock, "finalizedBlock", savedFinalizedBlockNumber)
+			return err
+		}
+	}
+
+	// Poll everything after latest finalized block in main loop to avoid concurrent writes during reorg
+	// We assume that number of logs between saved finalized block and current head is small enough to be processed in main loop
+	fromBlock = mathutil.Max(fromBlock, savedFinalizedBlockNumber+1)
+
+	lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
+	lp.PollAndSaveLogs(lp.ctx, fromBlock)
+	lp.lggr.Infow("Executing replay finished", "fromBlock", fromBlock, "requested", fromBlockReq)
+	return nil
 }
 
 func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) {

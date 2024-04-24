@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -270,7 +270,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
-	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Twice()
+	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
 	ec.On("ConfiguredChainID").Return(chainID, nil)
 	lpOpts := Opts{
 		PollPeriod:               time.Hour,
@@ -312,7 +312,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			recvStartReplay(ctx, 2)
+			recvStartReplay(ctx, 1)
 			lp.replayComplete <- anyErr
 		}()
 		assert.ErrorIs(t, lp.Replay(ctx, 1), anyErr)
@@ -424,7 +424,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		lp.ReplayAsync(1)
 
-		recvStartReplay(testutils.Context(t), 2)
+		recvStartReplay(testutils.Context(t), 1)
 	})
 
 	t.Run("ReplayAsync error", func(t *testing.T) {
@@ -453,17 +453,6 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		lp.ReplayAsync(1)
 		recvStartReplay(testutils.Context(t), 1)
-	})
-
-	t.Run("run only backfill when everything is finalized", func(t *testing.T) {
-		err := lp.orm.DeleteLogsAndBlocksAfter(ctx, 0)
-		require.NoError(t, err)
-
-		err = lp.orm.InsertBlock(ctx, head.Hash, head.Number, head.Timestamp, head.Number)
-		require.NoError(t, err)
-
-		err = lp.Replay(ctx, 1)
-		require.NoError(t, err)
 	})
 }
 
