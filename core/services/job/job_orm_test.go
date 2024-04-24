@@ -40,7 +40,6 @@ import (
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -927,7 +926,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test ETH key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.EVM
+		jb.OCR2OracleSpec.Relay = types.NetworkEVM
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
 
@@ -938,7 +937,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Cosmos key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.Cosmos
+		jb.OCR2OracleSpec.Relay = types.NetworkCosmos
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
 
@@ -950,7 +949,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Solana key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.Solana
+		jb.OCR2OracleSpec.Relay = types.NetworkSolana
 
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
@@ -963,7 +962,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Starknet key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.StarkNet
+		jb.OCR2OracleSpec.Relay = types.NetworkStarkNet
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
 

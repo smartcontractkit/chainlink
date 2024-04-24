@@ -109,6 +109,42 @@ deployments:
           fsGroup: 999
 
         chainlink:
+          global:
+            overridesToml: |-
+              [Feature]
+              LogPoller = true
+              [Log]
+              Level = 'debug'
+              JSONConsole = true
+              [Log.File]
+              MaxSize = '0b'
+              [WebServer]
+              AllowOrigins = '*'
+              HTTPPort = 6688
+              SecureCookies = false
+              HTTPWriteTimeout = '1m'
+              [WebServer.RateLimit]
+              Authenticated = 2000
+              Unauthenticated = 1000
+              [WebServer.TLS]
+              HTTPSPort = 0
+              [Database]
+              MaxIdleConns = 50
+              MaxOpenConns = 50
+              MigrateOnStartup = true
+              [OCR2]
+              Enabled = true
+              DefaultTransactionQueueDepth = 0
+              [OCR]
+              Enabled = false
+              DefaultTransactionQueueDepth = 0
+              [P2P]
+              [P2P.V2]
+              Enabled = true
+              ListenAddresses = ['0.0.0.0:6690']
+              AnnounceAddresses = ['0.0.0.0:6690']
+              DeltaDial = '500ms'
+              DeltaReconcile = '5s'
           securityContext:
             capabilities:
               drop:
@@ -120,7 +156,7 @@ deployments:
           web_port: 6688
           p2p_port: 6690
           # extraEnvVars:
-            # "CL_MEDIAN_CMD": "chainlink-feeds"
+          # "CL_MEDIAN_CMD": "chainlink-feeds"
           nodes:
             - name: node-1
               image: ${runtime.images.app}
@@ -387,3 +423,13 @@ deployments:
         nodeSelector:
         tolerations:
         affinity:
+profiles:
+  - name: local-dev
+    patches:
+      # Remove the global overridesToml field.
+      # This will be configured via a values file.
+      - op: remove
+        path: deployments.app.helm.values.chainlink.global.overridesToml
+      - op: add
+        path: deployments.app.helm.valuesFiles
+        value: ["../charts/chainlink-cluster/values-profiles/values-dev.yaml"]
