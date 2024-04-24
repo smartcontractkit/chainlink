@@ -23,16 +23,14 @@ type ORM interface {
 }
 
 type orm struct {
-	ds      sqlutil.DataSource
-	lggr    logger.Logger
-	timeout time.Duration
+	ds   sqlutil.DataSource
+	lggr logger.Logger
 }
 
-func NewORM(ds sqlutil.DataSource, lggr logger.Logger, timeout time.Duration) *orm {
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger) *orm {
 	return &orm{
-		ds:      ds,
-		lggr:    lggr.Named("VersioningORM"),
-		timeout: timeout,
+		ds:   ds,
+		lggr: lggr.Named("VersioningORM"),
 	}
 }
 
@@ -47,8 +45,6 @@ func (o *orm) UpsertNodeVersion(ctx context.Context, version NodeVersion) error 
 		return errors.Wrapf(err, "%q is not valid semver", version.Version)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, o.timeout)
-	defer cancel()
 	return sqlutil.TransactDataSource(ctx, o.ds, nil, func(tx sqlutil.DataSource) error {
 		if _, _, err := CheckVersion(ctx, tx, logger.NullLogger, version.Version); err != nil {
 			return err

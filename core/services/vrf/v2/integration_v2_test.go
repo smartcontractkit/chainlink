@@ -574,7 +574,7 @@ func createVRFJobs(
 		jb, err := vrfcommon.ValidatedVRFSpec(spec)
 		require.NoError(t, err)
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
-		err = app.JobSpawner().CreateJob(&jb)
+		err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 		require.NoError(t, err)
 		registerProvingKeyHelper(t, uni, coordinator, vrfkey, ptr(gasLanePrices[i].ToInt().Uint64()))
 		jobs = append(jobs, jb)
@@ -1427,29 +1427,13 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	testSingleConsumerBigGasCallbackSandwich(
-		t,
-		ownerKey,
-		uni.coordinatorV2UniverseCommon,
-		uni.batchCoordinatorContractAddress,
-		false,
-		vrfcommon.V2,
-		false,
-	)
+	testSingleConsumerBigGasCallbackSandwich(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2, false)
 }
 
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	testSingleConsumerMultipleGasLanes(
-		t,
-		ownerKey,
-		uni.coordinatorV2UniverseCommon,
-		uni.batchCoordinatorContractAddress,
-		false,
-		vrfcommon.V2,
-		false,
-	)
+	testSingleConsumerMultipleGasLanes(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2, false)
 }
 
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {

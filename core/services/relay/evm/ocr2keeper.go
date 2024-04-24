@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -69,17 +68,15 @@ type ocr2keeperRelayer struct {
 	chain       legacyevm.Chain
 	lggr        logger.Logger
 	ethKeystore keystore.Eth
-	dbCfg       pg.QConfig
 }
 
 // NewOCR2KeeperRelayer is the constructor of ocr2keeperRelayer
-func NewOCR2KeeperRelayer(ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth, dbCfg pg.QConfig) OCR2KeeperRelayer {
+func NewOCR2KeeperRelayer(ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2KeeperRelayer {
 	return &ocr2keeperRelayer{
 		ds:          ds,
 		chain:       chain,
 		lggr:        lggr,
 		ethKeystore: ethKeystore,
-		dbCfg:       dbCfg,
 	}
 }
 

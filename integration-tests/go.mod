@@ -377,7 +377,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.10 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419131812-73d148593d92 // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419213354-ea34a948e2ee // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240422130241-13c17a91b2ab // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240422172640-59d47c73ba58 // indirect

@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 
@@ -25,7 +25,7 @@ func TestSessionsController_Create(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.AuthenticationProvider().CreateUser(ctx, &user))
@@ -44,6 +44,7 @@ func TestSessionsController_Create(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, test.email, test.password)
 			request, err := http.NewRequestWithContext(ctx, "POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
 			assert.NoError(t, err)
@@ -78,9 +79,10 @@ func TestSessionsController_Create(t *testing.T) {
 	}
 }
 
-func mustInsertSession(t *testing.T, q pg.Q, session *sessions.Session) {
+func mustInsertSession(t *testing.T, ds sqlutil.DataSource, session *sessions.Session) {
+	ctx := testutils.Context(t)
 	sql := "INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, $4) RETURNING *"
-	_, err := q.Exec(sql, session.ID, session.Email, session.LastUsed, session.CreatedAt)
+	_, err := ds.ExecContext(ctx, sql, session.ID, session.Email, session.LastUsed, session.CreatedAt)
 	require.NoError(t, err)
 }
 
@@ -97,8 +99,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
 	staleSession.Email = user.Email
-	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-	mustInsertSession(t, q, &staleSession)
+	mustInsertSession(t, app.GetDB(), &staleSession)
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, user.Email, cltest.Password)
 	req, err := http.NewRequestWithContext(ctx, "POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
@@ -127,15 +128,14 @@ func TestSessionsController_Destroy(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.AuthenticationProvider().CreateUser(ctx, &user))
 
 	correctSession := sessions.NewSession()
 	correctSession.Email = user.Email
-	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-	mustInsertSession(t, q, &correctSession)
+	mustInsertSession(t, app.GetDB(), &correctSession)
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	tests := []struct {
@@ -148,6 +148,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			cookie := cltest.MustGenerateSessionCookie(t, test.sessionID)
 			request, err := http.NewRequestWithContext(ctx, "DELETE", app.Server.URL+"/sessions", nil)
 			assert.NoError(t, err)
@@ -173,8 +174,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	app := cltest.NewApplicationEVMDisabled(t)
-	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.AuthenticationProvider().CreateUser(ctx, &user))
@@ -182,13 +182,13 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	correctSession := sessions.NewSession()
 	correctSession.Email = user.Email
 
-	mustInsertSession(t, q, &correctSession)
+	mustInsertSession(t, app.GetDB(), &correctSession)
 	cookie := cltest.MustGenerateSessionCookie(t, correctSession.ID)
 
 	staleSession := cltest.NewSession()
 	staleSession.Email = user.Email
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	mustInsertSession(t, q, &staleSession)
+	mustInsertSession(t, app.GetDB(), &staleSession)
 
 	request, err := http.NewRequestWithContext(ctx, "DELETE", app.Server.URL+"/sessions", nil)
 	assert.NoError(t, err)
