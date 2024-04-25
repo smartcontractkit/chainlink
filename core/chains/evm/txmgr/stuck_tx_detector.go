@@ -365,14 +365,13 @@ func (d *stuckTxDetector) SetPurgeBlockNum(fromAddress common.Address, blockNum 
 	d.purgeBlockNumMap[fromAddress] = blockNum
 }
 
-// TODO: Find better place to store error messages so they can be served through tx status function for product teams
 func (d *stuckTxDetector) StuckTxFatalError() *string {
 	var errorMsg string
 	switch d.chainType {
 	case config.ChainScroll, config.ChainZkEvm:
-		errorMsg = "transaction skipped due to ZK overflow"
+		errorMsg = "transaction skipped by chain"
 	default:
-		errorMsg = "purged terminally stuck transaction"
+		errorMsg = "transaction terminally stuck"
 	}
 
 	return &errorMsg

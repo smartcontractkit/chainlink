@@ -3225,7 +3225,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, dbTx)
 		require.Equal(t, txmgrcommon.TxFatalError, dbTx.State)
-		require.Equal(t, "purged terminally stuck transaction", dbTx.Error.String)
+		require.Equal(t, "transaction terminally stuck", dbTx.Error.String)
 	})
 }
 
