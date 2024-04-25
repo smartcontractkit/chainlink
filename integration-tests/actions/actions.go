@@ -28,6 +28,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
@@ -38,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/seth"
 )
 
 // ContractDeploymentInterval After how many contract actions to wait before starting any more

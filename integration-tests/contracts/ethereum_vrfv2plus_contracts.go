@@ -11,13 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/montanaflynn/stats"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
-	"github.com/smartcontractkit/seth"
 )
 
 type EthereumVRFCoordinatorV2_5 struct {
@@ -234,30 +235,24 @@ func (v *EthereumVRFCoordinatorV2_5) GetNativeTokenTotalBalance(ctx context.Cont
 // OwnerCancelSubscription cancels subscription by Coordinator owner
 // return funds to sub owner,
 // does not check if pending requests for a sub exist
-func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*types.Receipt, error) {
-	tx, err := v.client.Decode(v.coordinator.OwnerCancelSubscription(
+func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error) {
+	// Do not wrap in Decode() to avoid waiting until the transaction is mined
+	return v.coordinator.OwnerCancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
-	))
-	if err != nil {
-		return nil, err
-	}
-	return tx.Receipt, nil
+	)
 }
 
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
-func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to common.Address) (*types.Receipt, error) {
-	tx, err := v.client.Decode(v.coordinator.CancelSubscription(
+func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error) {
+	// Do not wrap in Decode() to avoid waiting until the transaction is mined
+	return v.coordinator.CancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
 		to,
-	))
-	if err != nil {
-		return nil, err
-	}
-	return tx.Receipt, nil
+	)
 }
 
 func (v *EthereumVRFCoordinatorV2_5) Withdraw(recipient common.Address) error {

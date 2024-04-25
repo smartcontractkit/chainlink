@@ -13,11 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
-	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -489,12 +490,12 @@ func (v *EthereumVRFCoordinatorV2) OracleWithdraw(recipient common.Address, amou
 // return funds to the subscription owner,
 // down not check if pending requests for a sub exist,
 // outstanding requests may fail onchain
-func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types.Receipt, error) {
-	tx, err := v.client.Decode(v.coordinator.OwnerCancelSubscription(
+func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types.Transaction, error) {
+	// Do not wrap in Decode() to avoid waiting until the transaction is mined
+	return v.coordinator.OwnerCancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
-	))
-	return tx.Receipt, err
+	)
 }
 
 func (v *EthereumVRFCoordinatorV2) ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
@@ -528,13 +529,13 @@ func (v *EthereumVRFCoordinatorV2) ParseLog(log types.Log) (generated.AbigenLog,
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
-func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Address) (*types.Receipt, error) {
-	tx, err := v.client.Decode(v.coordinator.CancelSubscription(
+func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error) {
+	// Do not wrap in Decode() to avoid waiting until the transaction is mined.
+	return v.coordinator.CancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
 		to,
-	))
-	return tx.Receipt, err
+	)
 }
 
 func (v *EthereumVRFCoordinatorV2) FindSubscriptionID(subID uint64) (uint64, error) {
@@ -1149,12 +1150,12 @@ func (v *EthereumVRFOwner) WaitForRandomWordsForcedEvent(requestIDs []*big.Int, 
 	}
 }
 
-func (v *EthereumVRFOwner) OwnerCancelSubscription(subID uint64) (*types.Receipt, error) {
-	tx, err := v.client.Decode(v.vrfOwner.OwnerCancelSubscription(
+func (v *EthereumVRFOwner) OwnerCancelSubscription(subID uint64) (*types.Transaction, error) {
+	// Do not wrap in Decode() to avoid waiting until the transaction is mined
+	return v.vrfOwner.OwnerCancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
-	))
-	return tx.Receipt, err
+	)
 }
 
 func (v *EthereumVRFMockETHLINKFeed) Address() string {

@@ -63,10 +63,6 @@ func CreateVRFV2Job(
 		spec.UseVRFOwner = true
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrParseJob, err)
-
-	}
 	job, err := chainlinkNode.MustCreateJob(spec)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2Job, err)
@@ -143,7 +139,7 @@ func SetupVRFV2Environment(
 
 	nodeTypeToNodeMap[vrfcommon.VRF].TXKeyAddressStrings = vrfTXKeyAddressStrings
 
-	vrfOwnerConfig, err := SetupVRFOwnerContractIfNeeded(useVRFOwner, env, chainID, vrfContracts, vrfTXKeyAddressStrings, vrfTXKeyAddresses, l)
+	vrfOwnerConfig, err := SetupVRFOwnerContractIfNeeded(useVRFOwner, chainID, vrfContracts, vrfTXKeyAddressStrings, vrfTXKeyAddresses, l)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -239,7 +235,6 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Conf
 func SetupVRFV2WrapperEnvironment(
 	ctx context.Context,
 	env *test_env.CLClusterTestEnv,
-	chainID int64,
 	vrfv2TestConfig tc.VRFv2TestConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
@@ -285,7 +280,7 @@ func SetupVRFV2WrapperEnvironment(
 	}
 
 	// Fund wrapper subscription
-	err = FundSubscriptions(env, chainID, big.NewFloat(*vrfv2Config.General.SubscriptionFundingAmountLink), linkToken, coordinator, []uint64{wrapperSubID})
+	err = FundSubscriptions(env, big.NewFloat(*vrfv2Config.General.SubscriptionFundingAmountLink), linkToken, coordinator, []uint64{wrapperSubID})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -311,7 +306,7 @@ func SetupVRFV2Universe(ctx context.Context, t *testing.T, testConfig tc.TestCon
 		err               error
 	)
 	if *testConfig.VRFv2.General.UseExistingEnv {
-		vrfContracts, vrfKey, env, err = SetupVRFV2ForExistingEnv(ctx, t, testConfig, chainID, cleanupFn, l)
+		vrfContracts, vrfKey, env, err = SetupVRFV2ForExistingEnv(t, testConfig, chainID, cleanupFn, l)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 for Existing env", err)
 		}
@@ -387,7 +382,7 @@ func SetupVRFV2ForNewEnv(
 	return vrfContracts, vrfKey, env, nodeTypeToNode, nil
 }
 
-func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.TestConfig, chainID int64, cleanupFn func(), l zerolog.Logger) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, error) {
+func SetupVRFV2ForExistingEnv(t *testing.T, testConfig tc.TestConfig, chainID int64, cleanupFn func(), l zerolog.Logger) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, error) {
 	commonExistingEnvConfig := testConfig.VRFv2.ExistingEnvConfig.ExistingEnvConfig
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
@@ -416,7 +411,7 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 		return nil, nil, nil, err
 	}
 
-	err = vrfcommon.FundNodesIfNeeded(ctx, commonExistingEnvConfig, sethClient, l)
+	err = vrfcommon.FundNodesIfNeeded(commonExistingEnvConfig, sethClient, l)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
 	}

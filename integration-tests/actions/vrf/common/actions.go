@@ -11,13 +11,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	vrf_common_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
-	"github.com/smartcontractkit/seth"
 )
 
 func CreateFundAndGetSendingKeys(
@@ -313,7 +314,7 @@ func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*client.VRFKey, 
 	return vrfKey, pubKeyCompressed, nil
 }
 
-func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config.ExistingEnvConfig, client *seth.Client, l zerolog.Logger) error {
+func FundNodesIfNeeded(existingEnvConfig *vrf_common_config.ExistingEnvConfig, client *seth.Client, l zerolog.Logger) error {
 	if *existingEnvConfig.NodeSendingKeyFundingMin > 0 {
 		for _, sendingKey := range existingEnvConfig.NodeSendingKeys {
 			address := common.HexToAddress(sendingKey)

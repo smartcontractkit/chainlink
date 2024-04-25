@@ -63,11 +63,11 @@ type VRFCoordinatorV2 interface {
 	GetSubscription(ctx context.Context, subID uint64) (Subscription, error)
 	GetOwner(ctx context.Context) (common.Address, error)
 	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
-	OwnerCancelSubscription(subID uint64) (*types.Receipt, error)
+	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
 	ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
 	ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error)
 	ParseLog(log types.Log) (generated.AbigenLog, error)
-	CancelSubscription(subID uint64, to common.Address) (*types.Receipt, error)
+	CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
 	FindSubscriptionID(subID uint64) (uint64, error)
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
@@ -110,8 +110,8 @@ type VRFCoordinatorV2_5 interface {
 	Address() string
 	PendingRequestsExist(ctx context.Context, subID *big.Int) (bool, error)
 	GetSubscription(ctx context.Context, subID *big.Int) (Subscription, error)
-	OwnerCancelSubscription(subID *big.Int) (*types.Receipt, error)
-	CancelSubscription(subID *big.Int, to common.Address) (*types.Receipt, error)
+	OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error)
+	CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error)
 	Withdraw(recipient common.Address) error
 	WithdrawNative(recipient common.Address) error
 	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
@@ -193,7 +193,7 @@ type VRFOwner interface {
 	SetAuthorizedSenders(senders []common.Address) error
 	AcceptVRFOwnership() error
 	WaitForRandomWordsForcedEvent(requestIDs []*big.Int, subIds []uint64, senders []common.Address, timeout time.Duration) (*vrf_owner.VRFOwnerRandomWordsForced, error)
-	OwnerCancelSubscription(subID uint64) (*types.Receipt, error)
+	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
 }
 
 type VRFConsumer interface {

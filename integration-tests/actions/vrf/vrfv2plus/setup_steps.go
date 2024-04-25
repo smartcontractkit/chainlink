@@ -341,7 +341,7 @@ func SetupVRFV2PlusUniverse(ctx context.Context, t *testing.T, testConfig tc.Tes
 		err            error
 	)
 	if *testConfig.VRFv2Plus.General.UseExistingEnv {
-		vrfContracts, vrfKey, env, err = SetupVRFV2PlusForExistingEnv(ctx, t, testConfig, chainID, cleanupFn, l)
+		vrfContracts, vrfKey, env, err = SetupVRFV2PlusForExistingEnv(t, testConfig, chainID, cleanupFn, l)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 Plus for Existing env", err)
 		}
@@ -411,7 +411,7 @@ func SetupVRFV2PlusForNewEnv(
 	return vrfContracts, vrfKey, env, nodeTypeToNode, nil
 }
 
-func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.TestConfig, chainID int64, cleanupFn func(), l zerolog.Logger) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, error) {
+func SetupVRFV2PlusForExistingEnv(t *testing.T, testConfig tc.TestConfig, chainID int64, cleanupFn func(), l zerolog.Logger) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, error) {
 	commonExistingEnvConfig := testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
@@ -436,7 +436,7 @@ func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig 
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 	}
 
-	err = vrfcommon.FundNodesIfNeeded(ctx, commonExistingEnvConfig, sethClient, l)
+	err = vrfcommon.FundNodesIfNeeded(commonExistingEnvConfig, sethClient, l)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
 	}

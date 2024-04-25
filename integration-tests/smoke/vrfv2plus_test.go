@@ -429,12 +429,14 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("Returning funds from SubID", subID.String()).
 			Str("Returning funds to", testWalletAddress.String()).
 			Msg("Canceling subscription and returning funds to subscription owner")
-		cancellationTxReceipt, err := vrfContracts.CoordinatorV2Plus.CancelSubscription(subID, testWalletAddress)
+		tx, err := vrfContracts.CoordinatorV2Plus.CancelSubscription(subID, testWalletAddress)
 		require.NoError(t, err, "Error canceling subscription")
 
 		subscriptionCanceledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForSubscriptionCanceledEvent(subID, time.Second*30)
 		require.NoError(t, err, "error waiting for subscription canceled event")
 
+		cancellationTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), tx.Hash())
+		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
 		// we don't have that information for older Geth versions
 		if cancellationTxReceipt.EffectiveGasPrice == nil {
@@ -568,12 +570,14 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("Returning funds from SubID", subID.String()).
 			Str("Returning funds to", sethClient.Addresses[0].Hex()).
 			Msg("Canceling subscription and returning funds to subscription owner")
-		cancellationTxReceipt, err := vrfContracts.CoordinatorV2Plus.OwnerCancelSubscription(subID)
+		tx, err := vrfContracts.CoordinatorV2Plus.OwnerCancelSubscription(subID)
 		require.NoError(t, err, "Error canceling subscription")
 
 		subscriptionCanceledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForSubscriptionCanceledEvent(subID, time.Second*30)
 		require.NoError(t, err, "error waiting for subscription canceled event")
 
+		cancellationTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), tx.Hash())
+		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
 		// we don't have that information for older Geth versions
 		if cancellationTxReceipt.EffectiveGasPrice == nil {

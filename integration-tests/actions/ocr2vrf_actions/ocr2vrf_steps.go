@@ -10,8 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
-	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 	"github.com/smartcontractkit/seth"
+
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -165,7 +166,7 @@ func SetAndGetOCR2VRFPluginConfig(
 	return ocr2VRFPluginConfig
 }
 
-func FundVRFCoordinatorV3Subscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV3, chainClient *seth.Client, subscriptionID, linkFundingAmount *big.Int) {
+func FundVRFCoordinatorV3Subscription(t *testing.T, linkToken contracts.LinkToken, coordinator contracts.VRFCoordinatorV3, subscriptionID, linkFundingAmount *big.Int) {
 	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint256"}]`, subscriptionID)
 	require.NoError(t, err, "Error Abi encoding subscriptionID")
 	_, err = linkToken.TransferAndCall(coordinator.Address(), big.NewInt(0).Mul(linkFundingAmount, big.NewInt(1e18)), encodedSubId)
@@ -310,7 +311,6 @@ func SetupOCR2VRFUniverse(
 		t,
 		linkToken,
 		coordinatorContract,
-		chainClient,
 		subID,
 		ocr2vrf_constants.LinkFundingAmount,
 	)

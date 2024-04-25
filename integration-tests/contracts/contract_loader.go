@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
-	"github.com/smartcontractkit/seth"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

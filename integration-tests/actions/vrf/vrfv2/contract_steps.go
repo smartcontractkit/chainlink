@@ -10,6 +10,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
@@ -21,7 +23,6 @@ import (
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
-	"github.com/smartcontractkit/seth"
 )
 
 func DeployVRFV2Contracts(
@@ -47,9 +48,6 @@ func DeployVRFV2Contracts(
 		testCoordinator, err := contracts.DeployVRFCoordinatorTestV2(sethClient, linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 		}
 		coordinatorAddress = testCoordinator.Address()
 	} else {
@@ -198,7 +196,7 @@ func SetupVRFV2Contracts(
 	return vrfContracts, nil
 }
 
-func setupVRFOwnerContract(env *test_env.CLClusterTestEnv, chainID int64, contracts *vrfcommon.VRFContracts, allNativeTokenKeyAddressStrings []string, allNativeTokenKeyAddresses []common.Address, l zerolog.Logger) error {
+func setupVRFOwnerContract(contracts *vrfcommon.VRFContracts, allNativeTokenKeyAddressStrings []string, allNativeTokenKeyAddresses []common.Address, l zerolog.Logger) error {
 	l.Info().Msg("Setting up VRFOwner contract")
 	l.Info().
 		Str("Coordinator", contracts.CoordinatorV2.Address()).
@@ -264,11 +262,11 @@ func CreateSubsAndFund(
 	coordinator contracts.VRFCoordinatorV2,
 	subAmountToCreate int,
 ) ([]uint64, error) {
-	subs, err := CreateSubs(env, chainID, coordinator, subAmountToCreate)
+	subs, err := CreateSubs(coordinator, subAmountToCreate)
 	if err != nil {
 		return nil, err
 	}
-	err = FundSubscriptions(env, chainID, subscriptionFundingAmountLink, linkToken, coordinator, subs)
+	err = FundSubscriptions(env, subscriptionFundingAmountLink, linkToken, coordinator, subs)
 	if err != nil {
 		return nil, err
 	}
@@ -276,15 +274,13 @@ func CreateSubsAndFund(
 }
 
 func CreateSubs(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
 	coordinator contracts.VRFCoordinatorV2,
 	subAmountToCreate int,
 ) ([]uint64, error) {
 	var subIDArr []uint64
 
 	for i := 0; i < subAmountToCreate; i++ {
-		subID, err := CreateSubAndFindSubID(env, chainID, coordinator)
+		subID, err := CreateSubAndFindSubID(coordinator)
 		if err != nil {
 			return nil, err
 		}
@@ -308,7 +304,7 @@ func AddConsumersToSubs(
 	return nil
 }
 
-func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordinator contracts.VRFCoordinatorV2) (uint64, error) {
+func CreateSubAndFindSubID(coordinator contracts.VRFCoordinatorV2) (uint64, error) {
 	receipt, err := coordinator.CreateSubscription()
 	if err != nil {
 		return 0, fmt.Errorf("%s, err %w", vrfcommon.ErrCreateVRFSubscription, err)
@@ -321,7 +317,6 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordi
 
 func FundSubscriptions(
 	env *test_env.CLClusterTestEnv,
-	chainID int64,
 	subscriptionFundingAmountLink *big.Float,
 	linkAddress contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2,
@@ -594,10 +589,10 @@ func WaitRandomWordsFulfilledEvent(
 	return randomWordsFulfilledEvent, err
 }
 
-func SetupVRFOwnerContractIfNeeded(useVRFOwner bool, env *test_env.CLClusterTestEnv, chainID int64, vrfContracts *vrfcommon.VRFContracts, vrfTXKeyAddressStrings []string, vrfTXKeyAddresses []common.Address, l zerolog.Logger) (*vrfcommon.VRFOwnerConfig, error) {
+func SetupVRFOwnerContractIfNeeded(useVRFOwner bool, chainID int64, vrfContracts *vrfcommon.VRFContracts, vrfTXKeyAddressStrings []string, vrfTXKeyAddresses []common.Address, l zerolog.Logger) (*vrfcommon.VRFOwnerConfig, error) {
 	var vrfOwnerConfig *vrfcommon.VRFOwnerConfig
 	if useVRFOwner {
-		err := setupVRFOwnerContract(env, chainID, vrfContracts, vrfTXKeyAddressStrings, vrfTXKeyAddresses, l)
+		err := setupVRFOwnerContract(vrfContracts, vrfTXKeyAddressStrings, vrfTXKeyAddresses, l)
 		if err != nil {
 			return nil, err
 		}

@@ -231,7 +231,6 @@ func TestVRFv2Basic(t *testing.T) {
 		wrapperContracts, wrapperSubID, err := vrfv2.SetupVRFV2WrapperEnvironment(
 			testcontext.Get(t),
 			testEnv,
-			chainID,
 			&configCopy,
 			vrfContracts.LinkToken,
 			vrfContracts.MockETHLINKFeed,
@@ -401,11 +400,14 @@ func TestVRFv2Basic(t *testing.T) {
 			Str("Returning funds to", testWalletAddress.String()).
 			Msg("Canceling subscription and returning funds to subscription owner")
 
-		cancellationTxReceipt, err := vrfContracts.CoordinatorV2.CancelSubscription(subIDForCancelling, testWalletAddress)
+		tx, err := vrfContracts.CoordinatorV2.CancelSubscription(subIDForCancelling, testWalletAddress)
 		require.NoError(t, err, "Error canceling subscription")
 
 		subscriptionCanceledEvent, err := vrfContracts.CoordinatorV2.WaitForSubscriptionCanceledEvent([]uint64{subIDForCancelling}, time.Second*30)
 		require.NoError(t, err, "error waiting for subscription canceled event")
+
+		cancellationTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), tx.Hash())
+		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
 		// we don't have that information for older Geth versions
@@ -509,12 +511,14 @@ func TestVRFv2Basic(t *testing.T) {
 			Msg("Canceling subscription and returning funds to subscription owner")
 
 		// Call OwnerCancelSubscription
-		cancellationTxReceipt, err := vrfContracts.CoordinatorV2.OwnerCancelSubscription(subIDForOwnerCancelling)
+		tx, err := vrfContracts.CoordinatorV2.OwnerCancelSubscription(subIDForOwnerCancelling)
 		require.NoError(t, err, "Error canceling subscription")
 
 		subscriptionCanceledEvent, err := vrfContracts.CoordinatorV2.WaitForSubscriptionCanceledEvent([]uint64{subIDForOwnerCancelling}, time.Second*30)
 		require.NoError(t, err, "error waiting for subscription canceled event")
 
+		cancellationTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), tx.Hash())
+		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
 		// we don't have that information for older Geth versions
 		if cancellationTxReceipt.EffectiveGasPrice == nil {
@@ -898,7 +902,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), sethClient, &wg, time.Second*260, t)
 		wg.Wait()
 		require.NoError(t, err)
-		err = vrfv2.FundSubscriptions(testEnv, chainID, big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDsForBHS)
+		err = vrfv2.FundSubscriptions(testEnv, big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDsForBHS)
 		require.NoError(t, err, "error funding subscriptions")
 		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2.WaitForRandomWordsFulfilledEvent(
 			contracts.RandomWordsFulfilledEventFilter{

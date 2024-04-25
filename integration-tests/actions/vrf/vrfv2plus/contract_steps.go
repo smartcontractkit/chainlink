@@ -10,6 +10,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
@@ -19,11 +21,9 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/seth"
 )
 
 func DeployVRFV2_5Contracts(
-	contractDeployer contracts.ContractDeployer,
 	chainClient *seth.Client,
 ) (*vrfcommon.VRFContracts, error) {
 	bhs, err := contracts.DeployBlockhashStore(chainClient)
@@ -526,7 +526,7 @@ func SetupVRFV2PlusContracts(
 	if err != nil {
 		return nil, err
 	}
-	vrfContracts, err := DeployVRFV2_5Contracts(env.ContractDeployer, sethClient)
+	vrfContracts, err := DeployVRFV2_5Contracts(sethClient)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployVRFV2_5Contracts, err)
 	}
