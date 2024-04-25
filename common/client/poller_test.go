@@ -2,7 +2,7 @@ package client
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"testing"
@@ -14,8 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-// TODO: Fix race conditions in tests!
-
 func Test_Poller(t *testing.T) {
 	lggr, err := logger.New()
 	require.NoError(t, err)
@@ -24,7 +22,7 @@ func Test_Poller(t *testing.T) {
 		// Mock polling function that returns a new value every time it's called
 		var pollNumber int
 		pollLock := sync.Mutex{}
-		pollFunc := func(ctx context.Context) (Head, error) {
+		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
 			pollLock.Lock()
 			defer pollLock.Unlock()
 			pollNumber++
@@ -37,34 +35,43 @@ func Test_Poller(t *testing.T) {
 
 		// data channel to receive updates from the poller
 		channel := make(chan Head, 1)
+		defer close(channel)
 
 		// Create poller and start to receive data
 		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
-		// Create goroutine to receive updates from the poller
+		// Monitor error channel
 		done := make(chan struct{})
-		go func() {
+		defer close(done)
+		monitorPollingErrors(t, poller.Err(), done)
+
+		// Receive updates from the poller
+		func() {
 			pollCount := 0
 			pollMax := 50
 			for ; pollCount < pollMax; pollCount++ {
 				h := <-channel
-				assert.Equal(t, int64(pollNumber), h.BlockNumber())
+				assert.Equal(t, int64(pollCount+1), h.BlockNumber())
 			}
-			close(done)
 		}()
-		<-done
 	})
 
 	t.Run("Test polling errors", func(t *testing.T) {
 		// Mock polling function that returns an error
-		pollFunc := func(ctx context.Context) (Head, error) {
-			return nil, errors.New("polling error")
+		var pollNumber int
+		pollLock := sync.Mutex{}
+		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
+			pollLock.Lock()
+			defer pollLock.Unlock()
+			pollNumber++
+			return nil, fmt.Errorf("polling error %d", pollNumber)
 		}
 
 		// data channel to receive updates from the poller
 		channel := make(chan Head, 1)
+		defer close(channel)
 
 		// Create poller and subscribe to receive data
 		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr)
@@ -72,8 +79,7 @@ func Test_Poller(t *testing.T) {
 		defer poller.Unsubscribe()
 
 		// Create goroutine to receive updates from the poller
-		done := make(chan struct{})
-		go func() {
+		func() {
 			pollCount := 0
 			pollMax := 50
 			for ; pollCount < pollMax; pollCount++ {
@@ -82,24 +88,88 @@ func Test_Poller(t *testing.T) {
 					require.Fail(t, "should not receive any data")
 				case err := <-poller.Err():
 					require.Error(t, err)
-					require.Equal(t, "polling error", err.Error())
+					require.Equal(t, fmt.Sprintf("polling error %d", pollCount+1), err.Error())
 				}
 			}
-			close(done)
 		}()
-		<-done
 	})
 
-	/* TODO
 	t.Run("Test polling timeout", func(t *testing.T) {
-		pollingTimeout := 10 * time.Millisecond
-		pollFunc := func(ctx context.Context) (Head, error) {
-			<-ctx.Done()
-			return nil, ctx.Err()
+		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
+			time.Sleep(10 * time.Millisecond)
+			return nil, nil
 		}
-	})
-	*/
 
+		// Set instant timeout
+		pollingTimeout := time.Duration(0)
+
+		// data channel to receive updates from the poller
+		channel := make(chan Head, 1)
+		defer close(channel)
+
+		// Create poller and subscribe to receive data
+		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, &lggr)
+		require.NoError(t, poller.Start())
+		defer poller.Unsubscribe()
+
+		// Create goroutine to receive updates from the poller
+		func() {
+			err := <-poller.Err()
+			require.Error(t, err)
+			require.Equal(t, "polling timeout exceeded", err.Error())
+		}()
+	})
+
+	t.Run("Test polling with args", func(t *testing.T) {
+		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
+			require.Equal(t, args[0], "arg1")
+			require.Equal(t, args[1], "arg2")
+			require.Equal(t, args[2], "arg3")
+			return nil, nil
+		}
+
+		// data channel to receive updates from the poller
+		channel := make(chan Head, 1)
+		defer close(channel)
+
+		// Create poller and subscribe to receive data
+		args := []interface{}{"arg1", "arg2", "arg3"}
+		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr, args...)
+		require.NoError(t, poller.Start())
+		defer poller.Unsubscribe()
+
+		// Ensure no errors are received
+		done := make(chan struct{})
+		defer close(done)
+		monitorPollingErrors(t, poller.Err(), done)
+
+		// Create goroutine to receive updates from the poller
+		func() {
+			h := <-channel
+			require.Nil(t, h)
+		}()
+	})
+
+	t.Run("Test panic in polling function", func(t *testing.T) {
+		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
+			panic("panic test")
+		}
+
+		// data channel to receive updates from the poller
+		channel := make(chan Head, 1)
+		defer close(channel)
+
+		// Create poller and subscribe to receive data
+		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr)
+		require.NoError(t, poller.Start())
+		defer poller.Unsubscribe()
+
+		// Create goroutine to receive updates from the poller
+		func() {
+			err := <-poller.Err()
+			require.Equal(t, "panic: panic test", err.Error())
+		}()
+	})
 }
 
 func Test_Poller_Unsubscribe(t *testing.T) {
@@ -112,10 +182,19 @@ func Test_Poller_Unsubscribe(t *testing.T) {
 	})
 
 	t.Run("Test unsubscribe with no subscribers", func(t *testing.T) {
-		// TODO: Add test case that ensures Unsubscribe exits even if no one is listening
 		poller := NewPoller[Head](time.Millisecond, nil, nil, nil, nil)
-		err := poller.Start()
-		require.NoError(t, err)
 		poller.Unsubscribe()
 	})
+}
+
+// monitorPollingErrors fails the test if an error is received on the error channel
+func monitorPollingErrors(t *testing.T, errCh <-chan error, done <-chan struct{}) {
+	go func() {
+		select {
+		case err := <-errCh:
+			require.NoError(t, err)
+		case <-done:
+			return
+		}
+	}()
 }
