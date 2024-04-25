@@ -35,48 +35,48 @@ func TestGasPrice_Check(t *testing.T) {
 		ParsingFailed          bool
 	}{
 		{
-			Name:    "no offchain config",
+			Name:           "no offchain config",
 			ExpectedResult: encoding.UpkeepFailureReasonNone,
 		},
 		{
-			Name:    "maxGasPrice not configured in offchain config",
-			NotConfigured: true,
+			Name:           "maxGasPrice not configured in offchain config",
+			NotConfigured:  true,
 			ExpectedResult: encoding.UpkeepFailureReasonNone,
 		},
 		{
-			Name:    "fail to parse offchain config",
-			ParsingFailed: true,
-			MaxGasPrice: big.NewInt(10_000_000_000),
+			Name:           "fail to parse offchain config",
+			ParsingFailed:  true,
+			MaxGasPrice:    big.NewInt(10_000_000_000),
 			ExpectedResult: encoding.UpkeepFailureReasonFailToParseOffchainConfig,
 		},
 		{
-			Name:    "fail to retrieve current gas price",
-			MaxGasPrice: big.NewInt(8_000_000_000),
+			Name:           "fail to retrieve current gas price",
+			MaxGasPrice:    big.NewInt(8_000_000_000),
 			ExpectedResult: encoding.UpkeepFailureReasonFailToRetrieveGasPrice,
 		},
 		{
-			Name:    "current gas price is too high - legacy",
-			MaxGasPrice: big.NewInt(10_000_000_000),
+			Name:                  "current gas price is too high - legacy",
+			MaxGasPrice:           big.NewInt(10_000_000_000),
 			CurrentLegacyGasPrice: big.NewInt(18_000_000_000),
-			ExpectedResult: encoding.UpkeepFailureReasonGasPriceTooHigh,
+			ExpectedResult:        encoding.UpkeepFailureReasonGasPriceTooHigh,
 		},
 		{
-			Name:    "current gas price is too high - dynamic",
-			MaxGasPrice: big.NewInt(10_000_000_000),
+			Name:                   "current gas price is too high - dynamic",
+			MaxGasPrice:            big.NewInt(10_000_000_000),
 			CurrentDynamicGasPrice: big.NewInt(15_000_000_000),
-			ExpectedResult: encoding.UpkeepFailureReasonGasPriceTooHigh,
+			ExpectedResult:         encoding.UpkeepFailureReasonGasPriceTooHigh,
 		},
 		{
-			Name:    "current gas price is less than user's max gas price - legacy",
-			MaxGasPrice: big.NewInt(8_000_000_000),
+			Name:                  "current gas price is less than user's max gas price - legacy",
+			MaxGasPrice:           big.NewInt(8_000_000_000),
 			CurrentLegacyGasPrice: big.NewInt(5_000_000_000),
-			ExpectedResult: encoding.UpkeepFailureReasonNone,
+			ExpectedResult:        encoding.UpkeepFailureReasonNone,
 		},
 		{
-			Name:    "current gas price is less than user's max gas price - dynamic",
-			MaxGasPrice: big.NewInt(10_000_000_000),
+			Name:                   "current gas price is less than user's max gas price - dynamic",
+			MaxGasPrice:            big.NewInt(10_000_000_000),
 			CurrentDynamicGasPrice: big.NewInt(8_000_000_000),
-			ExpectedResult: encoding.UpkeepFailureReasonNone,
+			ExpectedResult:         encoding.UpkeepFailureReasonNone,
 		},
 	}
 	for _, test := range tests {
@@ -112,7 +112,7 @@ func TestGasPrice_Check(t *testing.T) {
 			if test.ParsingFailed {
 				oc, _ = cbor.Marshal(WrongOffchainConfig{MaxGasPrice1: []int{1, 2, 3}})
 				oc[len(oc) - 1] = 0x99
-			} else if test.ParsingFailed {
+			} else if test.NotConfigured {
 				oc = []byte{1, 2, 3, 4} // parsing this will set maxGasPrice field to nil
 			} else if test.MaxGasPrice != nil {
 				oc, _ = cbor.Marshal(UpkeepOffchainConfig{MaxGasPrice: test.MaxGasPrice})

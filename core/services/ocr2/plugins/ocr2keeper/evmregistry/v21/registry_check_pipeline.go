@@ -24,12 +24,6 @@ const (
 	// we return a CheckBlockTooOld error
 	checkBlockTooOldRange = 128
 	zeroAddress           = "0x0000000000000000000000000000000000000000"
-	// feeLimit is a placeholder when getting current price from gas estimator. it does not impact gas price calculation
-	feeLimit              = 1_000_000
-	// maxFeePrice is a placeholder when getting current price from gas estimator. it caps the returned gas price from
-	// the estimator. it's set to a very high value because the gas price will be compared with user-defined gas price
-	// later.
-	maxFeePrice           = 1_000_000_000_000_000
 )
 
 type checkResult struct {

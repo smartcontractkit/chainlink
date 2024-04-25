@@ -13,11 +13,11 @@ import (
 
 const (
 	// feeLimit is a placeholder when getting current price from gas estimator. it does not impact gas price calculation
-	feeLimit              = uint64(1_000_000)
+	feeLimit     = uint64(1_000_000)
 	// maxFeePrice is a placeholder when getting current price from gas estimator. it caps the returned gas price from
 	// the estimator. it's set to a very high value because the gas price will be compared with user-defined gas price
 	// later.
-	maxFeePrice           = 1_000_000_000_000_000
+	maxFeePrice = 1_000_000_000_000_000
 )
 
 type UpkeepOffchainConfig struct {
@@ -53,18 +53,16 @@ func CheckGasPrice(ctx context.Context, upkeepId *big.Int, oc []byte, ge gas.Evm
 			// current gas price is higher than max gas price
 			lggr.Warnf("max gas price %s for %s is LOWER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.String())
 			return encoding.UpkeepFailureReasonGasPriceTooHigh
-		} else {
-			lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.String())
 		}
+		lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.String())
 	} else {
 		lggr.Infof("current gas price legacy is %s", fee.Legacy.String())
 		if fee.Legacy.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
 			// current gas price is higher than max gas price
 			lggr.Infof("max gas price %s for %s is LOWER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.String())
 			return encoding.UpkeepFailureReasonGasPriceTooHigh
-		} else {
-			lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.String())
 		}
+		lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.String())
 	}
 
 	return encoding.UpkeepFailureReasonNone
