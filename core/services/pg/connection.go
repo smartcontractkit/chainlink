@@ -1,6 +1,7 @@
 package pg
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -17,6 +18,10 @@ import (
 
 	"github.com/XSAM/otelsql"
 )
+
+// NOTE: This is the default level in Postgres anyway, we just make it
+// explicit here
+const defaultIsolation = sql.LevelReadCommitted
 
 var MinRequiredPGVersion = 110000
 

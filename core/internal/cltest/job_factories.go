@@ -7,8 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -43,30 +42,30 @@ func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress types.EIP55A
 	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, peerID, transmitterAddress.Hex(), keyBundleID)
 }
 
-func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec) {
+func MustInsertWebhookSpec(t *testing.T, ds sqlutil.DataSource) (job.Job, job.WebhookSpec) {
 	ctx := testutils.Context(t)
-	jobORM, pipelineORM := getORMs(t, db)
+	jobORM, pipelineORM := getORMs(t, ds)
 	webhookSpec := job.WebhookSpec{}
-	require.NoError(t, jobORM.InsertWebhookSpec(&webhookSpec))
+	require.NoError(t, jobORM.InsertWebhookSpec(ctx, &webhookSpec))
 
 	pSpec := pipeline.Pipeline{}
-	pipelineSpecID, err := pipelineORM.CreateSpec(ctx, nil, pSpec, 0)
+	pipelineSpecID, err := pipelineORM.CreateSpec(ctx, pSpec, 0)
 	require.NoError(t, err)
 
 	createdJob := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook",
 		ExternalJobID: uuid.New(), PipelineSpecID: pipelineSpecID}
-	require.NoError(t, jobORM.InsertJob(&createdJob))
+	require.NoError(t, jobORM.InsertJob(ctx, &createdJob))
 
 	return createdJob, webhookSpec
 }
 
-func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
+func getORMs(t *testing.T, ds sqlutil.DataSource) (jobORM job.ORM, pipelineORM pipeline.ORM) {
 	config := configtest.NewTestGeneralConfig(t)
-	keyStore := NewKeyStore(t, db)
+	keyStore := NewKeyStore(t, ds)
 	lggr := logger.TestLogger(t)
-	pipelineORM = pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
-	bridgeORM := bridges.NewORM(db)
-	jobORM = job.NewORM(db, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
+	pipelineORM = pipeline.NewORM(ds, lggr, config.JobPipeline().MaxSuccessfulRuns())
+	bridgeORM := bridges.NewORM(ds)
+	jobORM = job.NewORM(ds, pipelineORM, bridgeORM, keyStore, lggr)
 	t.Cleanup(func() { jobORM.Close() })
 	return
 }

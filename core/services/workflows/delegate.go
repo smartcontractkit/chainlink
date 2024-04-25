@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -15,7 +15,7 @@ import (
 )
 
 type Delegate struct {
-	registry        types.CapabilitiesRegistry
+	registry        core.CapabilitiesRegistry
 	logger          logger.Logger
 	legacyEVMChains legacyevm.LegacyChainContainer
 }
@@ -55,7 +55,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	return []job.ServiceCtx{engine}, nil
 }
 
-func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) *Delegate {
+func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) *Delegate {
 	return &Delegate{logger: logger, registry: registry, legacyEVMChains: legacyEVMChains}
 }
 

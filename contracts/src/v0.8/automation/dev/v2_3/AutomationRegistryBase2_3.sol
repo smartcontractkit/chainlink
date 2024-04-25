@@ -331,13 +331,18 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member index of oracle in s_signersList/s_transmittersList
    * @member balance a node's balance in LINK
    * @member lastCollected the total balance at which the node last withdrew
-   @ @dev uint96 is safe for balance / last collected because transmitters are only ever paid in LINK
+   * @dev uint96 is safe for balance / last collected because transmitters are only ever paid in LINK
    */
   struct Transmitter {
     bool active;
     uint8 index;
     uint96 balance;
     uint96 lastCollected;
+  }
+
+  struct TransmitterPayeeInfo {
+    address transmitterAddress;
+    address payeeAddress;
   }
 
   struct Signer {

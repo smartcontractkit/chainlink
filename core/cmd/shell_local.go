@@ -632,11 +632,12 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	s.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr)
+	orm := txmgr.NewTxStore(app.GetDB(), lggr)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config().EVM())
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
-	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, feeCfg, chain.Config().EVM().Transactions(), chain.Config().Database(), keyStore.Eth(), txBuilder, chain.Logger())
+	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
+		cfg, feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
@@ -922,7 +923,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err := migrate.Rollback(ctx, db.DB, s.Logger, version); err != nil {
+	if err := migrate.Rollback(ctx, db.DB, version); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
@@ -937,7 +938,7 @@ func (s *Shell) VersionDatabase(_ *cli.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	version, err := migrate.Current(ctx, db.DB, s.Logger)
+	version, err := migrate.Current(ctx, db.DB)
 	if err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
@@ -954,7 +955,7 @@ func (s *Shell) StatusDatabase(_ *cli.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Status(ctx, db.DB, s.Logger); err != nil {
+	if err = migrate.Status(ctx, db.DB); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
@@ -1098,7 +1099,7 @@ func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Migrate(ctx, db.DB, lggr); err != nil {
+	if err = migrate.Migrate(ctx, db.DB); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	return db.Close()
@@ -1109,10 +1110,10 @@ func downAndUpDB(ctx context.Context, cfg dbConfig, lggr logger.Logger, baseVers
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	if err = migrate.Rollback(ctx, db.DB, lggr, null.IntFrom(baseVersionID)); err != nil {
+	if err = migrate.Rollback(ctx, db.DB, null.IntFrom(baseVersionID)); err != nil {
 		return fmt.Errorf("test rollback failed: %v", err)
 	}
-	if err = migrate.Migrate(ctx, db.DB, lggr); err != nil {
+	if err = migrate.Migrate(ctx, db.DB); err != nil {
 		return fmt.Errorf("second migrateDB failed: %v", err)
 	}
 	return db.Close()
