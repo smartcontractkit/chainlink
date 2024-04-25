@@ -12,18 +12,18 @@ import (
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 )
 
-type LogEmitterContract struct {
+type LegacyLogEmitterContract struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *le.LogEmitter
 	l        zerolog.Logger
 }
 
-func (e *LogEmitterContract) Address() common.Address {
+func (e *LegacyLogEmitterContract) Address() common.Address {
 	return e.address
 }
 
-func (e *LogEmitterContract) EmitLogInts(ints []int) (*types.Transaction, error) {
+func (e *LegacyLogEmitterContract) EmitLogInts(ints []int) (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (e *LogEmitterContract) EmitLogInts(ints []int) (*types.Transaction, error)
 	return tx, e.client.ProcessTransaction(tx)
 }
 
-func (e *LogEmitterContract) EmitLogIntsIndexed(ints []int) (*types.Transaction, error) {
+func (e *LegacyLogEmitterContract) EmitLogIntsIndexed(ints []int) (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (e *LogEmitterContract) EmitLogIntsIndexed(ints []int) (*types.Transaction,
 	return tx, e.client.ProcessTransaction(tx)
 }
 
-func (e *LogEmitterContract) EmitLogIntMultiIndexed(ints int, ints2 int, count int) (*types.Transaction, error) {
+func (e *LegacyLogEmitterContract) EmitLogIntMultiIndexed(ints int, ints2 int, count int) (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (e *LogEmitterContract) EmitLogIntMultiIndexed(ints int, ints2 int, count i
 	return tx, e.client.ProcessTransaction(tx)
 }
 
-func (e *LogEmitterContract) EmitLogStrings(strings []string) (*types.Transaction, error) {
+func (e *LegacyLogEmitterContract) EmitLogStrings(strings []string) (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return nil, err
@@ -79,14 +79,27 @@ func (e *LogEmitterContract) EmitLogStrings(strings []string) (*types.Transactio
 	return tx, e.client.ProcessTransaction(tx)
 }
 
-func (e *LogEmitterContract) EmitLogInt(payload int) (*types.Transaction, error) {
+func (e *LegacyLogEmitterContract) EmitLogInt(payload int) (*types.Transaction, error) {
 	return e.EmitLogInts([]int{payload})
 }
 
-func (e *LogEmitterContract) EmitLogIntIndexed(payload int) (*types.Transaction, error) {
+func (e *LegacyLogEmitterContract) EmitLogIntIndexed(payload int) (*types.Transaction, error) {
 	return e.EmitLogIntsIndexed([]int{payload})
 }
 
-func (e *LogEmitterContract) EmitLogString(strings string) (*types.Transaction, error) {
+func (e *LegacyLogEmitterContract) EmitLogString(strings string) (*types.Transaction, error) {
 	return e.EmitLogStrings([]string{strings})
+}
+
+func (e *LegacyLogEmitterContract) EmitLogIntsFromKey(_ []int, _ int) (*types.Transaction, error) {
+	panic("only Seth-based contracts support this method")
+}
+func (e *LegacyLogEmitterContract) EmitLogIntsIndexedFromKey(_ []int, _ int) (*types.Transaction, error) {
+	panic("only Seth-based contracts support this method")
+}
+func (e *LegacyLogEmitterContract) EmitLogIntMultiIndexedFromKey(_ int, _ int, _ int, _ int) (*types.Transaction, error) {
+	panic("only Seth-based contracts support this method")
+}
+func (e *LegacyLogEmitterContract) EmitLogStringsFromKey(_ []string, _ int) (*types.Transaction, error) {
+	panic("only Seth-based contracts support this method")
 }

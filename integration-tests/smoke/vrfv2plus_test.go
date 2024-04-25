@@ -812,12 +812,13 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	vrfv2PlusConfig := config.VRFv2Plus
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
+	sethClient, err := env.GetSethClient(chainID)
+	require.NoError(t, err, "Getting Seth client shouldn't fail")
+
 	cleanupFn := func() {
-		evmClient, err := env.GetEVMClient(chainID)
-		require.NoError(t, err, "Getting EVM client shouldn't fail")
-		if evmClient.NetworkSimulated() {
+		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
-				Str("Network Name", evmClient.GetNetworkName()).
+				Str("Network Name", sethClient.Cfg.Network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
@@ -840,10 +841,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
-
-	evmClient, err := env.GetEVMClient(chainID)
-	require.NoError(t, err, "Getting EVM client shouldn't fail")
-	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 
 	// Migrate subscription from old coordinator to new coordinator, verify if balances
 	// are moved correctly and requests can be made successfully in the subscription in
@@ -877,11 +874,8 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.NoError(t, err, "error getting subscription information")
 
 		//Migration Process
-		newCoordinator, err := env.ContractDeployer.DeployVRFCoordinatorV2PlusUpgradedVersion(vrfContracts.BHS.Address())
+		newCoordinator, err := contracts.DeployVRFCoordinatorV2PlusUpgradedVersion(sethClient, vrfContracts.BHS.Address())
 		require.NoError(t, err, "error deploying VRF CoordinatorV2PlusUpgradedVersion")
-
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
 		_, err = vrfv2plus.VRFV2PlusUpgradedVersionRegisterProvingKey(vrfKey.VRFKey, newCoordinator, uint64(assets.GWei(*configCopy.VRFv2Plus.General.CLNodeMaxGasPriceGWei).Int64()))
 		require.NoError(t, err, fmt.Errorf("%s, err: %w", vrfcommon.ErrRegisteringProvingKey, err))
@@ -901,8 +895,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 		err = newCoordinator.SetLINKAndLINKNativeFeed(vrfContracts.LinkToken.Address(), vrfContracts.MockETHLINKFeed.Address())
 		require.NoError(t, err, vrfv2plus.ErrSetLinkNativeLinkFeed)
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
 		vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
 			ForwardingAllowed:             *configCopy.VRFv2Plus.General.VRFJobForwardingAllowed,
@@ -927,25 +919,17 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		err = vrfContracts.CoordinatorV2Plus.RegisterMigratableCoordinator(newCoordinator.Address())
 		require.NoError(t, err, "error registering migratable coordinator")
 
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
-
 		oldCoordinatorLinkTotalBalanceBeforeMigration, oldCoordinatorEthTotalBalanceBeforeMigration, err := vrfv2plus.GetCoordinatorTotalBalance(vrfContracts.CoordinatorV2Plus)
 		require.NoError(t, err)
 
 		migratedCoordinatorLinkTotalBalanceBeforeMigration, migratedCoordinatorEthTotalBalanceBeforeMigration, err := vrfv2plus.GetUpgradedCoordinatorTotalBalance(newCoordinator)
 		require.NoError(t, err)
 
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
-
 		err = vrfContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
 
 		require.NoError(t, err, "error migrating sub id ", subID.String(), " from ", vrfContracts.CoordinatorV2Plus.Address(), " to new Coordinator address ", newCoordinator.Address())
 		migrationCompletedEvent, err := vrfContracts.CoordinatorV2Plus.WaitForMigrationCompletedEvent(time.Minute * 1)
 		require.NoError(t, err, "error waiting for MigrationCompleted event")
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
 		vrfv2plus.LogMigrationCompletedEvent(l, migrationCompletedEvent, vrfContracts.CoordinatorV2Plus)
 
@@ -1061,11 +1045,8 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.NoError(t, err, "error getting subscription information")
 
 		//Migration Process
-		newCoordinator, err := env.ContractDeployer.DeployVRFCoordinatorV2PlusUpgradedVersion(vrfContracts.BHS.Address())
+		newCoordinator, err := contracts.DeployVRFCoordinatorV2PlusUpgradedVersion(sethClient, vrfContracts.BHS.Address())
 		require.NoError(t, err, "error deploying VRF CoordinatorV2PlusUpgradedVersion")
-
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
 		_, err = vrfv2plus.VRFV2PlusUpgradedVersionRegisterProvingKey(vrfKey.VRFKey, newCoordinator, uint64(assets.GWei(*configCopy.VRFv2Plus.General.CLNodeMaxGasPriceGWei).Int64()))
 		require.NoError(t, err, fmt.Errorf("%s, err: %w", vrfcommon.ErrRegisteringProvingKey, err))
@@ -1085,8 +1066,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 		err = newCoordinator.SetLINKAndLINKNativeFeed(vrfContracts.LinkToken.Address(), vrfContracts.MockETHLINKFeed.Address())
 		require.NoError(t, err, vrfv2plus.ErrSetLinkNativeLinkFeed)
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
 		vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
 			ForwardingAllowed:             *configCopy.VRFv2Plus.General.VRFJobForwardingAllowed,
@@ -1111,17 +1090,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		err = vrfContracts.CoordinatorV2Plus.RegisterMigratableCoordinator(newCoordinator.Address())
 		require.NoError(t, err, "error registering migratable coordinator")
 
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
-
 		oldCoordinatorLinkTotalBalanceBeforeMigration, oldCoordinatorEthTotalBalanceBeforeMigration, err := vrfv2plus.GetCoordinatorTotalBalance(vrfContracts.CoordinatorV2Plus)
 		require.NoError(t, err)
 
 		migratedCoordinatorLinkTotalBalanceBeforeMigration, migratedCoordinatorEthTotalBalanceBeforeMigration, err := vrfv2plus.GetUpgradedCoordinatorTotalBalance(newCoordinator)
 		require.NoError(t, err)
-
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
 		// Migrate wrapper's sub using coordinator's migrate method
 		err = vrfContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
@@ -1129,8 +1102,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.NoError(t, err, "error migrating sub id ", subID.String(), " from ", vrfContracts.CoordinatorV2Plus.Address(), " to new Coordinator address ", newCoordinator.Address())
 		migrationCompletedEvent, err := vrfContracts.CoordinatorV2Plus.WaitForMigrationCompletedEvent(time.Minute * 1)
 		require.NoError(t, err, "error waiting for MigrationCompleted event")
-		err = evmClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
 		vrfv2plus.LogMigrationCompletedEvent(l, migrationCompletedEvent, vrfContracts.CoordinatorV2Plus)
 

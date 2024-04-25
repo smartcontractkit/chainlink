@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -16,14 +15,14 @@ import (
 func LogRandRequest(
 	l zerolog.Logger,
 	consumer string,
-	coordinator *common.Address,
+	coordinator string,
 	subID *big.Int,
 	isNativeBilling bool,
 	keyHash [32]byte,
 	config *vrfv2plus_config.General) {
 	l.Info().
 		Str("Consumer", consumer).
-		Str("Coordinator", coordinator.Hex()).
+		Str("Coordinator", coordinator).
 		Str("SubID", subID.String()).
 		Bool("IsNativePayment", isNativeBilling).
 		Uint16("MinimumConfirmations", *config.MinimumConfirmations).
@@ -38,14 +37,14 @@ func LogRandRequest(
 func LogMigrationCompletedEvent(l zerolog.Logger, migrationCompletedEvent *vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, coordinator contracts.Coordinator) {
 	l.Info().
 		Str("Subscription ID", migrationCompletedEvent.SubId.String()).
-		Str("Migrated From Coordinator", coordinator.Address().Hex()).
+		Str("Migrated From Coordinator", coordinator.Address()).
 		Str("Migrated To Coordinator", migrationCompletedEvent.NewCoordinator.String()).
 		Msg("MigrationCompleted Event")
 }
 
 func LogSubDetailsAfterMigration(l zerolog.Logger, newCoordinator contracts.Coordinator, subID *big.Int, migratedSubscription vrf_v2plus_upgraded_version.GetSubscription) {
 	l.Info().
-		Str("New Coordinator", newCoordinator.Address().Hex()).
+		Str("New Coordinator", newCoordinator.Address()).
 		Str("Subscription ID", subID.String()).
 		Str("Juels Balance", migratedSubscription.Balance.String()).
 		Str("Native Token Balance", migratedSubscription.NativeBalance.String()).

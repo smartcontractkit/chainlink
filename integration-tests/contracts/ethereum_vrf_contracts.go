@@ -17,14 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_wrapper"
+	"github.com/smartcontractkit/seth"
 )
 
-// LegacyEthereumBatchBlockhashStore represents BatchBlockhashStore contract
-type LegacyEthereumBatchBlockhashStore struct {
-	address             *common.Address
-	client              blockchain.EVMClient
+// EthereumBatchBlockhashStore represents BatchBlockhashStore contract
+type EthereumBatchBlockhashStore struct {
+	address             common.Address
+	client              *seth.Client
 	batchBlockhashStore *batch_blockhash_store.BatchBlockhashStore
 }
 
@@ -95,24 +95,6 @@ func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error
 	}, err
 }
 
-// DeployVRFCoordinator deploys VRF coordinator contract
-func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return solidity_vrf_coordinator_interface.DeployVRFCoordinator(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &LegacyEthereumVRFCoordinator{
-		client:      e.client,
-		coordinator: instance.(*solidity_vrf_coordinator_interface.VRFCoordinator),
-		address:     address,
-	}, err
-}
-
 // DeployVRFConsumer deploys VRF consumer contract
 func (e *EthereumContractDeployer) DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFConsumer", func(
@@ -145,41 +127,6 @@ func (v *LegacyEthereumBlockhashStore) GetBlockHash(ctx context.Context, blockNu
 		return [32]byte{}, err
 	}
 	return blockHash, nil
-}
-
-func (v *LegacyEthereumVRFCoordinator) Address() string {
-	return v.address.Hex()
-}
-
-// HashOfKey get a hash of proving key to use it as a request ID part for VRF
-func (v *LegacyEthereumVRFCoordinator) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	hash, err := v.coordinator.HashOfKey(opts, pubKey)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	return hash, nil
-}
-
-// RegisterProvingKey register VRF proving key
-func (v *LegacyEthereumVRFCoordinator) RegisterProvingKey(
-	fee *big.Int,
-	oracleAddr string,
-	publicProvingKey [2]*big.Int,
-	jobID [32]byte,
-) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.RegisterProvingKey(opts, fee, common.HexToAddress(oracleAddr), publicProvingKey, jobID)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
 }
 
 func (v *LegacyEthereumVRFConsumer) Address() string {
@@ -309,6 +256,6 @@ func (v *LegacyEthereumVRF) ProofLength(ctxt context.Context) (*big.Int, error) 
 	return v.vrf.PROOFLENGTH(opts)
 }
 
-func (v *LegacyEthereumBatchBlockhashStore) Address() string {
+func (v *EthereumBatchBlockhashStore) Address() string {
 	return v.address.Hex()
 }

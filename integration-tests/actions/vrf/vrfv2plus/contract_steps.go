@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
@@ -25,31 +24,19 @@ import (
 
 func DeployVRFV2_5Contracts(
 	contractDeployer contracts.ContractDeployer,
-	chainClient blockchain.EVMClient,
+	chainClient *seth.Client,
 ) (*vrfcommon.VRFContracts, error) {
-	bhs, err := contractDeployer.DeployBlockhashStore()
+	bhs, err := contracts.DeployBlockhashStore(chainClient)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrDeployBlockHashStore, err)
 	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
-	batchBHS, err := contractDeployer.DeployBatchBlockhashStore(bhs.Address())
+	batchBHS, err := contracts.DeployBatchBlockhashStore(chainClient, bhs.Address())
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrDeployBatchBlockHashStore, err)
 	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("%s, batchBHS err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
-	coordinator, err := contractDeployer.DeployVRFCoordinatorV2_5(bhs.Address())
+	coordinator, err := contracts.DeployVRFCoordinatorV2_5(chainClient, bhs.Address())
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrDeployCoordinator, err)
-	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return &vrfcommon.VRFContracts{
 		CoordinatorV2Plus: coordinator,
@@ -112,7 +99,6 @@ func VRFV2PlusUpgradedVersionRegisterProvingKey(
 func FundVRFCoordinatorV2_5Subscription(
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
-	chainClient blockchain.EVMClient,
 	subscriptionID *big.Int,
 	linkFundingAmountJuels *big.Int,
 ) error {
@@ -124,7 +110,7 @@ func FundVRFCoordinatorV2_5Subscription(
 	if err != nil {
 		return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrSendingLinkToken, err)
 	}
-	return chainClient.WaitForEvents()
+	return nil
 }
 
 func CreateFundSubsAndAddConsumers(
@@ -297,7 +283,7 @@ func FundSubscriptions(
 		}
 		//Link Billing
 		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, evmClient, subID, amountJuels)
+		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFundSubWithLinkToken, err)
 		}
@@ -536,11 +522,11 @@ func SetupVRFV2PlusContracts(
 	l zerolog.Logger,
 ) (*vrfcommon.VRFContracts, error) {
 	l.Info().Msg("Deploying VRFV2 Plus contracts")
-	evmClient, err := env.GetEVMClient(chainID)
+	sethClient, err := env.GetSethClient(chainID)
 	if err != nil {
 		return nil, err
 	}
-	vrfContracts, err := DeployVRFV2_5Contracts(env.ContractDeployer, evmClient)
+	vrfContracts, err := DeployVRFV2_5Contracts(env.ContractDeployer, sethClient)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployVRFV2_5Contracts, err)
 	}
@@ -567,10 +553,6 @@ func SetupVRFV2PlusContracts(
 	err = vrfContracts.CoordinatorV2Plus.SetLINKAndLINKNativeFeed(linkToken.Address(), mockNativeLINKFeed.Address())
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetLinkNativeLinkFeed, err)
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	return vrfContracts, nil

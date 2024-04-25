@@ -379,14 +379,17 @@ func SetupVRFV2PlusForNewEnv(
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
 
-	env.ParallelTransactions(true)
+	sethClient, err := env.GetSethClient(chainID)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 
-	mockETHLinkFeed, err := env.ContractDeployer.DeployVRFMockETHLINKFeed(big.NewInt(*testConfig.VRFv2Plus.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := contracts.DeployVRFMockETHLINKFeed(sethClient, big.NewInt(*testConfig.VRFv2Plus.General.LinkNativeFeedResponse))
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying mock ETH/LINK feed", err)
 	}
 
-	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	linkToken, err := contracts.DeployLinkTokenContract(l, sethClient)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying LINK contract", err)
 	}
@@ -418,18 +421,19 @@ func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig 
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
-	coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2_5(*commonExistingEnvConfig.CoordinatorAddress)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2_5", err)
-	}
-	linkToken, err := env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
-	}
 
 	sethClient, err := env.GetSethClient(chainID)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	coordinator, err := contracts.LoadVRFCoordinatorV2_5(sethClient, *commonExistingEnvConfig.CoordinatorAddress)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2_5", err)
+	}
+	linkToken, err := contracts.LoadLinkTokenContract(l, sethClient, common.HexToAddress(*commonExistingEnvConfig.LinkAddress))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 	}
 
 	err = vrfcommon.FundNodesIfNeeded(ctx, commonExistingEnvConfig, sethClient, l)
@@ -466,6 +470,10 @@ func SetupSubsAndConsumersForExistingEnv(
 		consumers []contracts.VRFv2PlusLoadTestConsumer
 		err       error
 	)
+	sethClient, err := env.GetSethClient(chainID)
+	if err != nil {
+		return nil, nil, err
+	}
 	if *testConfig.VRFv2Plus.General.UseExistingEnv {
 		commonExistingEnvConfig := testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig
 		if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
@@ -483,7 +491,7 @@ func SetupSubsAndConsumersForExistingEnv(
 				return nil, nil, fmt.Errorf("err: %w", err)
 			}
 		} else {
-			consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(*commonExistingEnvConfig.ConsumerAddress)
+			consumer, err := contracts.LoadVRFv2PlusLoadTestConsumer(sethClient, *commonExistingEnvConfig.ConsumerAddress)
 			if err != nil {
 				return nil, nil, fmt.Errorf("err: %w", err)
 			}

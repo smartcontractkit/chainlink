@@ -78,7 +78,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
@@ -99,7 +98,6 @@ type ContractDeployer interface {
 	LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error)
 	DeployVRFContract() (VRF, error)
 	DeployMockETHLINKFeed(answer *big.Int) (MockETHLINKFeed, error)
-	DeployVRFMockETHLINKFeed(answer *big.Int) (VRFMockETHLINKFeed, error)
 	LoadETHLINKFeed(address common.Address) (MockETHLINKFeed, error)
 	DeployMockGasFeed(answer *big.Int) (MockGasFeed, error)
 	LoadGasFeed(address common.Address) (MockGasFeed, error)
@@ -125,20 +123,8 @@ type ContractDeployer interface {
 	DeployKeeperPerformDataChecker(expectedData []byte) (KeeperPerformDataChecker, error)
 	DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error)
 	DeployUpkeepPerformCounterRestrictive(testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error)
-	DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error)
-	DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error)
-	DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error)
-	DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2LoadTestConsumer, error)
-	DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error)
-	DeployVRFCoordinatorV2PlusUpgradedVersion(bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error)
-	DeployDKG() (DKG, error)
-	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string) (VRFCoordinatorV3, error)
-	DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error)
-	DeployVRFBeaconConsumer(vrfCoordinatorAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error)
-	DeployBlockhashStore() (BlockHashStore, error)
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployStaking(params eth_contracts.StakingPoolConstructorParams) (Staking, error)
-	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
 	DeployFunctionsLoadTestClient(router string) (FunctionsLoadTestClient, error)
 	DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error)
 	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
@@ -705,26 +691,9 @@ func (e *EthereumContractDeployer) DeployMockETHLINKFeed(answer *big.Int) (MockE
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumMockETHLINKFeed{
+	return &LegacyEthereumMockETHLINKFeed{
 		client:  e.client,
 		feed:    instance.(*mock_ethlink_aggregator_wrapper.MockETHLINKAggregator),
-		address: address,
-	}, err
-}
-
-func (e *EthereumContractDeployer) DeployVRFMockETHLINKFeed(answer *big.Int) (VRFMockETHLINKFeed, error) {
-	address, _, instance, err := e.client.DeployContract("VRFMockETHLINKAggregator", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_mock_ethlink_aggregator.DeployVRFMockETHLINKAggregator(auth, backend, answer)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFMockETHLINKFeed{
-		client:  e.client,
-		feed:    instance.(*vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregator),
 		address: address,
 	}, err
 }
@@ -740,7 +709,7 @@ func (e *EthereumContractDeployer) LoadETHLINKFeed(address common.Address) (Mock
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumMockETHLINKFeed{
+	return &LegacyEthereumMockETHLINKFeed{
 		address: &address,
 		client:  e.client,
 		feed:    instance.(*mock_ethlink_aggregator_wrapper.MockETHLINKAggregator),
@@ -1892,7 +1861,7 @@ func (e *EthereumContractDeployer) DeployLogEmitterContract() (LogEmitter, error
 	if err != nil {
 		return nil, err
 	}
-	return &LogEmitterContract{
+	return &LegacyLogEmitterContract{
 		client:   e.client,
 		instance: instance.(*le.LogEmitter),
 		address:  *address,

@@ -646,14 +646,14 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	}, nil
 }
 
-func DeployVRFCoordinatorV2PlusUpgradedVersion(seth *seth.Client, bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error) {
+func DeployVRFCoordinatorV2PlusUpgradedVersion(client *seth.Client, bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error) {
 	abi, err := vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMetaData.GetAbi()
 	if err != nil {
 		return &EthereumVRFCoordinatorV2PlusUpgradedVersion{}, fmt.Errorf("failed to get VRFCoordinatorV2PlusUpgradedVersion ABI: %w", err)
 	}
 
-	coordinatorDeploymentData, err := seth.DeployContract(
-		seth.NewTXOpts(),
+	data, err := client.DeployContract(
+		client.NewTXOpts(),
 		"VRFCoordinatorV2PlusUpgradedVersion",
 		*abi,
 		common.FromHex(vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMetaData.Bin),
@@ -662,15 +662,15 @@ func DeployVRFCoordinatorV2PlusUpgradedVersion(seth *seth.Client, bhsAddr string
 		return &EthereumVRFCoordinatorV2PlusUpgradedVersion{}, fmt.Errorf("VRFCoordinatorV2PlusUpgradedVersion instance deployment have failed: %w", err)
 	}
 
-	contract, err := vrf_v2plus_upgraded_version.NewVRFCoordinatorV2PlusUpgradedVersion(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	contract, err := vrf_v2plus_upgraded_version.NewVRFCoordinatorV2PlusUpgradedVersion(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumVRFCoordinatorV2PlusUpgradedVersion{}, fmt.Errorf("failed to instantiate VRFCoordinatorV2PlusUpgradedVersion instance: %w", err)
 	}
 
 	return &EthereumVRFCoordinatorV2PlusUpgradedVersion{
-		client:      seth,
+		client:      client,
 		coordinator: contract,
-		address:     coordinatorDeploymentData.Address,
+		address:     data.Address,
 	}, err
 }
 

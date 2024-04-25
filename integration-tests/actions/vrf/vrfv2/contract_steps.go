@@ -33,15 +33,14 @@ func DeployVRFV2Contracts(
 	useVRFOwner bool,
 	useTestCoordinator bool,
 ) (*vrfcommon.VRFContracts, error) {
-	bhs, err := env.ContractDeployer.DeployBlockhashStore()
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployBlockHashStore, err)
-	}
-
-	sethClient, err := env.GetSethClientForSelectedNetwork()
-	// evmClient, err := env.GetEVMClient(chainID)
+	sethClient, err := env.GetSethClient(chainID)
 	if err != nil {
 		return nil, err
+	}
+
+	bhs, err := contracts.DeployBlockhashStore(sethClient)
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployBlockHashStore, err)
 	}
 
 	var coordinatorAddress string
@@ -90,10 +89,10 @@ func DeployVRFV2Contracts(
 	}, nil
 }
 
-func DeployVRFV2Consumers(contractDeployer contracts.ContractDeployer, coordinatorAddress string, consumerContractsAmount int) ([]contracts.VRFv2LoadTestConsumer, error) {
+func DeployVRFV2Consumers(client *seth.Client, coordinatorAddress string, consumerContractsAmount int) ([]contracts.VRFv2LoadTestConsumer, error) {
 	var consumers []contracts.VRFv2LoadTestConsumer
 	for i := 1; i <= consumerContractsAmount; i++ {
-		loadTestConsumer, err := contractDeployer.DeployVRFv2LoadTestConsumer(coordinatorAddress)
+		loadTestConsumer, err := contracts.DeployVRFv2LoadTestConsumer(client, coordinatorAddress)
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", ErrAdvancedConsumer, err)
 		}
@@ -697,17 +696,13 @@ func SetupNewConsumersAndSubs(
 	numberOfSubToCreate int,
 	l zerolog.Logger,
 ) ([]contracts.VRFv2LoadTestConsumer, []uint64, error) {
-	consumers, err := DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address(), numberOfConsumerContractsToDeployAndAddToSub)
+	sethClient, err := env.GetSethClient(chainID)
+	if err != nil {
+		return nil, nil, err
+	}
+	consumers, err := DeployVRFV2Consumers(sethClient, coordinator.Address(), numberOfConsumerContractsToDeployAndAddToSub)
 	if err != nil {
 		return nil, nil, fmt.Errorf("err: %w", err)
-	}
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, []uint64{}, err
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err: %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 	l.Info().
 		Str("Coordinator", *testConfig.VRFv2.ExistingEnvConfig.ExistingEnvConfig.CoordinatorAddress).

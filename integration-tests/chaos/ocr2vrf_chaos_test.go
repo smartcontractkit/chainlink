@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
@@ -20,14 +19,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestOCR2VRFChaos(t *testing.T) {
@@ -155,33 +156,30 @@ func TestOCR2VRFChaos(t *testing.T) {
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 3, 5, ChaosGroupMajority)
 			require.NoError(t, err)
 
-			chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
-			require.NoError(t, err, "Error connecting to blockchain")
-			contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
-			require.NoError(t, err, "Error building contract deployer")
+			testNetwork = utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
+			chainClient, err := actions_seth.GetChainClientWithConfigFunction(testconfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+			require.NoError(t, err, "Error creating seth client")
+
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Error connecting to Chainlink nodes")
 			nodeAddresses, err := actions.ChainlinkNodeAddresses(chainlinkNodes)
 			require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &testconfig, chainClient)
+				err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &testconfig)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
-			chainClient.ParallelTransactions(true)
-
-			linkToken, err := contractDeployer.DeployLinkTokenContract()
+			linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 			require.NoError(t, err, "Error deploying LINK token")
 
-			mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
+			mockETHLinkFeed, err := contracts.DeployMockETHLINKFeed(chainClient, ocr2vrf_constants.LinkEthFeedResponse)
 			require.NoError(t, err, "Error deploying Mock ETH/LINK Feed")
 
 			_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf_actions.SetupOCR2VRFUniverse(
 				t,
 				linkToken,
 				mockETHLinkFeed,
-				contractDeployer,
 				chainClient,
 				nodeAddresses,
 				chainlinkNodes,
@@ -192,7 +190,6 @@ func TestOCR2VRFChaos(t *testing.T) {
 			requestID := ocr2vrf_actions.RequestAndRedeemRandomness(
 				t,
 				consumerContract,
-				chainClient,
 				vrfBeaconContract,
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
 				subID,
@@ -219,7 +216,6 @@ func TestOCR2VRFChaos(t *testing.T) {
 			requestID = ocr2vrf_actions.RequestAndRedeemRandomness(
 				t,
 				consumerContract,
-				chainClient,
 				vrfBeaconContract,
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
 				subID,

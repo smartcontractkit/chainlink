@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
@@ -688,6 +689,19 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 	return decodedTx.Transaction, nil
 }
 
+func (l *EthereumLinkToken) TransferAndCallFromKey(to string, amount *big.Int, data []byte, keyNum int) (*types.Transaction, error) {
+	l.l.Info().
+		Str("From", l.client.Addresses[keyNum].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring and Calling LINK")
+	decodedTx, err := l.client.Decode(l.instance.TransferAndCall(l.client.NewTXKeyOpts(keyNum), common.HexToAddress(to), amount, data))
+	if err != nil {
+		return nil, err
+	}
+	return decodedTx.Transaction, nil
+}
+
 // DeployFluxAggregatorContract deploys the Flux Aggregator Contract on an EVM chain
 func DeployFluxAggregatorContract(
 	seth *seth.Client,
@@ -814,6 +828,81 @@ func (f *EthereumFluxAggregator) LatestRoundData(ctx context.Context) (flux_aggr
 		From:    f.client.Addresses[0],
 		Context: ctx,
 	})
+}
+
+// EthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
+type EthereumMockETHLINKFeed struct {
+	client  *seth.Client
+	feed    *mock_ethlink_aggregator_wrapper.MockETHLINKAggregator
+	address *common.Address
+}
+
+func (v *EthereumMockETHLINKFeed) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.Ans, nil
+}
+
+func (v *EthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.UpdatedAt, nil
+}
+
+func DeployMockETHLINKFeed(client *seth.Client, answer *big.Int) (MockETHLINKFeed, error) {
+	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "MockETHLINKFeed", *abi, common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin), answer)
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("MockETHLINKFeed instance deployment have failed: %w", err)
+	}
+
+	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+	}
+
+	return &EthereumMockETHLINKFeed{
+		address: &data.Address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func LoadMockETHLINKFeed(client *seth.Client, address common.Address) (MockETHLINKFeed, error) {
+	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+	}
+	client.ContractStore.AddABI("MockETHLINKFeed", *abi)
+	client.ContractStore.AddBIN("MockETHLINKFeed", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
+
+	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+	}
+
+	return &EthereumMockETHLINKFeed{
+		address: &address,
+		client:  client,
+		feed:    instance,
+	}, nil
 }
 
 // GetContractData retrieves basic data for the flux aggregator contract

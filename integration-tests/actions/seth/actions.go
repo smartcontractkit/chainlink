@@ -5,25 +5,35 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
 	"github.com/test-go/testify/require"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var ContractDeploymentInterval = 200
@@ -52,8 +62,60 @@ func FundChainlinkNodes(
 	privateKey *ecdsa.PrivateKey,
 	amount *big.Float,
 ) error {
+	keyAddressFn := func(cl contracts.ChainlinkNodeWithKeysAndAddress) (string, error) {
+		return cl.PrimaryEthAddress()
+	}
+	return fundChainlinkNodesAtAnyKey(logger, client, nodes, privateKey, amount, keyAddressFn)
+}
+
+// FundChainlinkNodesAtKeyIndexFromRootAddress sends native token amount (expressed in human-scale) to each Chainlink Node
+// from root private key.It returns an error if any of the transactions failed. It sends the funds to
+// node address at keyIndex (as each node can have multiple addresses).
+func FundChainlinkNodesAtKeyIndexFromRootAddress(
+	logger zerolog.Logger,
+	client *seth.Client,
+	nodes []contracts.ChainlinkNodeWithKeysAndAddress,
+	amount *big.Float,
+	keyIndex int,
+) error {
+	if len(client.PrivateKeys) == 0 {
+		return errors.Wrap(errors.New(seth.ErrNoKeyLoaded), fmt.Sprintf("requested key: %d", 0))
+	}
+
+	return FundChainlinkNodesAtKeyIndex(logger, client, nodes, client.PrivateKeys[0], amount, keyIndex)
+}
+
+// FundChainlinkNodesAtKeyIndex sends native token amount (expressed in human-scale) to each Chainlink Node
+// from private key's address. It returns an error if any of the transactions failed. It sends the funds to
+// node address at keyIndex (as each node can have multiple addresses).
+func FundChainlinkNodesAtKeyIndex(
+	logger zerolog.Logger,
+	client *seth.Client,
+	nodes []contracts.ChainlinkNodeWithKeysAndAddress,
+	privateKey *ecdsa.PrivateKey,
+	amount *big.Float,
+	keyIndex int,
+) error {
+	keyAddressFn := func(cl contracts.ChainlinkNodeWithKeysAndAddress) (string, error) {
+		toAddress, err := cl.EthAddresses()
+		if err != nil {
+			return "", err
+		}
+		return toAddress[keyIndex], nil
+	}
+	return fundChainlinkNodesAtAnyKey(logger, client, nodes, privateKey, amount, keyAddressFn)
+}
+
+func fundChainlinkNodesAtAnyKey(
+	logger zerolog.Logger,
+	client *seth.Client,
+	nodes []contracts.ChainlinkNodeWithKeysAndAddress,
+	privateKey *ecdsa.PrivateKey,
+	amount *big.Float,
+	keyAddressFn func(contracts.ChainlinkNodeWithKeysAndAddress) (string, error),
+) error {
 	for _, cl := range nodes {
-		toAddress, err := cl.PrimaryEthAddress()
+		toAddress, err := keyAddressFn(cl)
 		if err != nil {
 			return err
 		}
@@ -188,6 +250,18 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		txTimeout = *payload.TxTimeout
 	}
 
+	logger.Debug().
+		Str("From", fromAddress.Hex()).
+		Str("To", payload.ToAddress.Hex()).
+		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
+		Uint64("Nonce", nonce).
+		Uint64("Gas Limit", gasLimit).
+		Str("Gas Price", gasPrice.String()).
+		Str("Gas Fee Cap", gasFeeCap.String()).
+		Str("Gas Tip Cap", gasTipCap.String()).
+		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
+		Msg("About to send funds")
+
 	ctx, cancel = context.WithTimeout(ctx, txTimeout)
 	defer cancel()
 	err = client.Client.SendTransaction(ctx, signedTx)
@@ -199,7 +273,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Str("From", fromAddress.Hex()).
 		Str("To", payload.ToAddress.Hex()).
 		Str("TxHash", signedTx.Hash().String()).
-		Str("Amount", conversions.WeiToEther(payload.Amount).String()).
+		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
 		Uint64("Nonce", nonce).
 		Uint64("Gas Limit", gasLimit).
 		Str("Gas Price", gasPrice.String()).
@@ -406,6 +480,43 @@ func ConfigureOCRv2AggregatorContracts(
 	return nil
 }
 
+// TeardownSuite tears down networks/clients and environment and creates a logs folder for failed tests in the
+// specified path. Can also accept a testreporter (if one was used) to log further results
+func TeardownSuite(
+	t *testing.T,
+	chainClient *seth.Client,
+	env *environment.Environment,
+	chainlinkNodes []*client.ChainlinkK8sClient,
+	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
+	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
+	grafnaUrlProvider testreporters.GrafanaURLProvider,
+) error {
+	l := logging.GetTestLogger(t)
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel, grafnaUrlProvider); err != nil {
+		return fmt.Errorf("Error dumping environment logs, leaving environment running for manual retrieval, err: %w", err)
+	}
+	// Delete all jobs to stop depleting the funds
+	err := DeleteAllJobs(chainlinkNodes)
+	if err != nil {
+		l.Warn().Msgf("Error deleting jobs %+v", err)
+	}
+
+	if chainlinkNodes != nil {
+		if err := ReturnFundsFromNodes(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
+			// This printed line is required for tests that use real funds to propagate the failure
+			// out to the system running the test. Do not remove
+			fmt.Println(environment.FAILED_FUND_RETURN)
+			l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+				Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
+					"Environment is left running so you can try manually!")
+		}
+	} else {
+		l.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
+	}
+
+	return env.Shutdown()
+}
+
 // TeardownRemoteSuite sends a report and returns funds from chainlink nodes to network's default wallet
 func TeardownRemoteSuite(
 	t *testing.T,
@@ -425,11 +536,12 @@ func TeardownRemoteSuite(
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if err = ReturnFunds(l, client, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
+	if err = ReturnFundsFromNodes(l, client, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
 		l.Error().Err(err).Str("Namespace", namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
 	}
+
 	return err
 }
 
@@ -646,4 +758,228 @@ func WatchNewFluxRound(
 			}
 		}
 	}
+}
+
+// EstimateCostForChainlinkOperations estimates the cost of running a number of operations on the Chainlink node based on estimated gas costs. It supports
+// both legacy and EIP-1559 transactions.
+func EstimateCostForChainlinkOperations(l zerolog.Logger, client *seth.Client, network blockchain.EVMNetwork, amountOfOperations int) (*big.Float, error) {
+	bigAmountOfOperations := big.NewInt(int64(amountOfOperations))
+	estimations := client.CalculateGasEstimations(client.NewDefaultGasEstimationRequest())
+
+	gasLimit := network.GasEstimationBuffer + network.ChainlinkTransactionLimit
+
+	var gasPriceInWei *big.Int
+	if client.Cfg.Network.EIP1559DynamicFees {
+		gasPriceInWei = estimations.GasFeeCap
+	} else {
+		gasPriceInWei = estimations.GasPrice
+	}
+
+	gasCostPerOperationWei := big.NewInt(1).Mul(big.NewInt(1).SetUint64(gasLimit), gasPriceInWei)
+	gasCostPerOperationETH := conversions.WeiToEther(gasCostPerOperationWei)
+	// total Wei needed for all TXs = total value for TX * number of TXs
+	totalWeiForAllOperations := big.NewInt(1).Mul(gasCostPerOperationWei, bigAmountOfOperations)
+	totalEthForAllOperations := conversions.WeiToEther(totalWeiForAllOperations)
+
+	l.Debug().
+		Int("Number of Operations", amountOfOperations).
+		Uint64("Gas Limit per Operation", gasLimit).
+		Str("Value per Operation (ETH)", gasCostPerOperationETH.String()).
+		Str("Total (ETH)", totalEthForAllOperations.String()).
+		Msg("Calculated ETH for Chainlink Operations")
+
+	return totalEthForAllOperations, nil
+}
+
+// GetLatestFinalizedBlockHeader returns latest finalised block header for given network (taking into account finality tag/depth)
+func GetLatestFinalizedBlockHeader(ctx context.Context, client *seth.Client, network blockchain.EVMNetwork) (*types.Header, error) {
+	if network.FinalityTag {
+		return client.Client.HeaderByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
+	}
+	if network.FinalityDepth == 0 {
+		return nil, fmt.Errorf("finality depth is 0 and finality tag is not enabled")
+	}
+	header, err := client.Client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	latestBlockNumber := header.Number.Uint64()
+	finalizedBlockNumber := latestBlockNumber - network.FinalityDepth
+	return client.Client.HeaderByNumber(ctx, big.NewInt(int64(finalizedBlockNumber)))
+}
+
+// SendLinkFundsToDeploymentAddresses deploys MultiCall contract to send LINK to Seth's ephemeral keys
+func SendLinkFundsToDeploymentAddresses(
+	chainClient *seth.Client,
+	concurrency,
+	totalUpkeeps,
+	operationsPerAddress int,
+	multicallAddress common.Address,
+	linkAmountPerUpkeep *big.Int,
+	linkToken contracts.LinkToken,
+) error {
+	var generateCallData = func(receiver common.Address, amount *big.Int) ([]byte, error) {
+		abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+		if err != nil {
+			return nil, err
+		}
+		data, err := abi.Pack("transfer", receiver, amount)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+
+	toTransferToMultiCallContract := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(totalUpkeeps+concurrency)))
+	toTransferPerClient := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(operationsPerAddress+1)))
+	err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+	if err != nil {
+		return errors.Wrapf(err, "Error transferring LINK to multicall contract")
+	}
+
+	balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
+	if err != nil {
+		return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
+	}
+
+	if toTransferToMultiCallContract.Cmp(balance) != 0 {
+		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected: %s. Got: %s", toTransferToMultiCallContract.String(), balance.String())
+	}
+
+	// Transfer LINK to ephemeral keys
+	multiCallData := make([][]byte, 0)
+	for i := 1; i <= concurrency; i++ {
+		data, err := generateCallData(chainClient.Addresses[i], toTransferPerClient)
+		if err != nil {
+			return errors.Wrapf(err, "Error generating call data for LINK transfer")
+		}
+		multiCallData = append(multiCallData, data)
+	}
+
+	var call []contracts.Call
+	for _, d := range multiCallData {
+		data := contracts.Call{Target: common.HexToAddress(linkToken.Address()), AllowFailure: false, CallData: d}
+		call = append(call, data)
+	}
+
+	multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
+	if err != nil {
+		return errors.Wrapf(err, "Error getting Multicall contract ABI")
+	}
+	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
+	// call aggregate3 to group all msg call data and send them in a single transaction
+	_, err = chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call))
+	if err != nil {
+		return errors.Wrapf(err, "Error calling Multicall contract")
+	}
+
+	for i := 1; i <= concurrency; i++ {
+		balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
+		if err != nil {
+			return errors.Wrapf(err, "Error getting LINK balance of ephemeral key %d", i)
+		}
+		if balance.Cmp(toTransferPerClient) < 0 {
+			return fmt.Errorf("Incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), balance.String())
+		}
+	}
+
+	return nil
+}
+
+var noOpSethConfigFn = func(cfg *seth.Config) error { return nil }
+
+type SethConfigFunction = func(*seth.Config) error
+
+// OneEphemeralKeysLiveTestnetCheckFn checks whether there's at least one ephemeral key on a simulated network or at least one static key on a live network,
+// and that there are no epehemeral keys on a live network. Root key is excluded from the check.
+var OneEphemeralKeysLiveTestnetCheckFn = func(sethCfg *seth.Config) error {
+	concurrency := sethCfg.GetMaxConcurrency()
+
+	if sethCfg.IsSimulatedNetwork() {
+		if concurrency < 1 {
+			return fmt.Errorf(INSUFFICIENT_EPHEMERAL_KEYS, 0)
+		}
+
+		return nil
+	}
+
+	if sethCfg.EphemeralAddrs != nil && int(*sethCfg.EphemeralAddrs) > 0 {
+		ephMsg := `
+			Error: Ephemeral Addresses Detected on Live Network
+
+			Ephemeral addresses are currently set for use on a live network, which is not permitted. The number of ephemeral addresses set is %d. Please make the following update to your TOML configuration file to correct this:
+			'[Seth] ephemeral_addresses_number = 0'
+
+			Additionally, ensure the following requirements are met to run this test on a live network:
+			1. Use more than one private key in your network configuration.
+			`
+
+		return errors.New(ephMsg)
+	}
+
+	if concurrency < 1 {
+		return fmt.Errorf(INSUFFICIENT_STATIC_KEYS, len(sethCfg.Network.PrivateKeys))
+	}
+
+	return nil
+}
+
+// OneEphemeralKeysLiveTestnetAutoFixFn checks whether there's at least one ephemeral key on a simulated network or at least one static key on a live network,
+// and that there are no epehemeral keys on a live network (if ephemeral keys count is different from zero, it will disable them). Root key is excluded from the check.
+var OneEphemeralKeysLiveTestnetAutoFixFn = func(sethCfg *seth.Config) error {
+	concurrency := sethCfg.GetMaxConcurrency()
+
+	if sethCfg.IsSimulatedNetwork() {
+		if concurrency < 1 {
+			return fmt.Errorf(INSUFFICIENT_EPHEMERAL_KEYS, 0)
+		}
+
+		return nil
+	}
+
+	if sethCfg.EphemeralAddrs != nil && int(*sethCfg.EphemeralAddrs) > 0 {
+		var zero int64 = 0
+		sethCfg.EphemeralAddrs = &zero
+	}
+
+	if concurrency < 1 {
+		return fmt.Errorf(INSUFFICIENT_STATIC_KEYS, len(sethCfg.Network.PrivateKeys))
+	}
+
+	return nil
+}
+
+// GetChainClient returns a seth client for the given network after validating the config
+func GetChainClient(config tc.SethConfig, network blockchain.EVMNetwork) (*seth.Client, error) {
+	return GetChainClientWithConfigFunction(config, network, noOpSethConfigFn)
+}
+
+// GetChainClientWithConfigFunction returns a seth client for the given network after validating the config and applying the config function
+func GetChainClientWithConfigFunction(config tc.SethConfig, network blockchain.EVMNetwork, configFn SethConfigFunction) (*seth.Client, error) {
+	readSethCfg := config.GetSethConfig()
+	if readSethCfg == nil {
+		return nil, fmt.Errorf("Seth config not found")
+	}
+
+	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error merging seth and evm network configs")
+	}
+
+	err = configFn(&sethCfg)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error applying seth config function")
+	}
+
+	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error validating seth network config")
+	}
+
+	chainClient, err := seth.NewClientWithConfig(&sethCfg)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error creating seth client")
+	}
+
+	return chainClient, nil
 }
