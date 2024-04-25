@@ -27,6 +27,7 @@ import (
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
@@ -536,6 +537,13 @@ func (d *Delegate) newServicesGenericPlugin(
 	// See: validate/validate.go's `validateSpec`.
 	pCfg := validate.OCR2GenericPluginConfig{}
 	err = json.Unmarshal(spec.PluginConfig.Bytes(), &pCfg)
+	if err != nil {
+		return nil, err
+	}
+	// NOTE: we don't need to validate the strategy, since that happens as part of creating the job.
+	// See: validate/validate.go's `validateSpec`.
+	onchainSigningStrategy := validate.OCR2OnchainSigningStrategy{}
+	err = json.Unmarshal(spec.OnchainSigningStrategy.Bytes(), &onchainSigningStrategy)
 	if err != nil {
 		return nil, err
 	}
