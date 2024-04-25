@@ -762,23 +762,23 @@ func (_m *EvmTxStore) FindTxesWithMetaFieldByStates(ctx context.Context, metaFie
 }
 
 // FindTxsByStateAndFromAddresses provides a mock function with given fields: ctx, addresses, state, chainID
-func (_m *EvmTxStore) FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state types.TxState, chainID *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, addresses, state, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxsByStateAndFromAddresses")
 	}
 
-	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, addresses, state, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, addresses, state, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
