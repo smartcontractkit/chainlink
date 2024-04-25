@@ -703,6 +703,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 			AllowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc: mockHttpClient,
+		bs: &BlockSubscriber{latestBlock: atomic.Pointer[ocr2keepers.BlockKey]{}},
 		ge: ge,
 	}
 	return r

@@ -47,7 +47,7 @@ func TestAdapter_Integration(t *testing.T) {
 	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger)
 	pipelineORM := pipeline.NewORM(db, logger, cfg.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
-	jobORM := job.NewORM(db, pipelineORM, bridgesORM, keystore, logger, cfg.Database())
+	jobORM := job.NewORM(db, pipelineORM, bridgesORM, keystore, logger)
 	pr := pipeline.NewRunner(
 		pipelineORM,
 		bridgesORM,
@@ -75,7 +75,7 @@ func TestAdapter_Integration(t *testing.T) {
 	jb.Name = null.StringFrom("Job 1")
 	jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jb.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
-	err = jobORM.CreateJob(&jb)
+	err = jobORM.CreateJob(ctx, &jb)
 	require.NoError(t, err)
 	pra := generic.NewPipelineRunnerAdapter(logger, jb, pr)
 	results, err := pra.ExecuteRun(testutils.Context(t), spec, core.Vars{Vars: map[string]interface{}{"val": 1}}, core.Options{})

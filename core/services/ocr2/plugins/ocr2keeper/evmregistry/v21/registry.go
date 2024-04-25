@@ -632,7 +632,8 @@ func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 }
 
 // fetchUpkeepOffchainConfig fetches upkeep offchain config in raw bytes for an upkeep.
-func (r *EvmRegistry) fetchUpkeepOffchainConfig(id *big.Int, opts *bind.CallOpts) ([]byte, error) {
+func (r *EvmRegistry) fetchUpkeepOffchainConfig(id *big.Int) ([]byte, error) {
+	opts := r.buildCallOpts(r.ctx, nil)
 	ui, err := r.registry.GetUpkeep(opts, id)
 	return ui.OffchainConfig, err
 }
