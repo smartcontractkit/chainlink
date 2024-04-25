@@ -16,7 +16,7 @@ CREATE TABLE workflow_executions (
 	status workflow_status NOT NULL,
 	created_at timestamp with time zone,
 	updated_at timestamp with time zone,
-	completed_at timestamp with time zone
+	finished_at timestamp with time zone
 );
 
 CREATE TABLE workflow_steps (
@@ -27,7 +27,6 @@ CREATE TABLE workflow_steps (
 	inputs bytea,
 	output_err text,
 	output_value bytea,
-	created_at timestamp with time zone,
 	updated_at timestamp with time zone
 );
 

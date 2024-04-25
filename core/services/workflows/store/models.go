@@ -26,7 +26,6 @@ type WorkflowExecutionStep struct {
 	Inputs  *values.Map
 	Outputs *StepOutput
 
-	CreatedAt *time.Time
 	UpdatedAt *time.Time
 }
 
@@ -35,8 +34,8 @@ type WorkflowExecution struct {
 	ExecutionID string
 	WorkflowID  string
 
-	Status      string
-	CreatedAt   *time.Time
-	UpdatedAt   *time.Time
-	CompletedAt *time.Time
+	Status     string
+	CreatedAt  *time.Time
+	UpdatedAt  *time.Time
+	FinishedAt *time.Time
 }

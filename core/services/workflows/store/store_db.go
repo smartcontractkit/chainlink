@@ -26,12 +26,12 @@ type DBStore struct {
 // `workflowExecutionRow` describes a row
 // of the `workflow_executions` table
 type workflowExecutionRow struct {
-	ID          string
-	WorkflowID  *string
-	Status      string
-	CreatedAt   *time.Time
-	UpdatedAt   *time.Time
-	CompletedAt *time.Time
+	ID         string
+	WorkflowID *string
+	Status     string
+	CreatedAt  *time.Time
+	UpdatedAt  *time.Time
+	FinishedAt *time.Time
 }
 
 // `workflowStepRow` describes a row
@@ -44,7 +44,6 @@ type workflowStepRow struct {
 	Inputs              []byte
 	OutputErr           *string    `db:"output_err"`
 	OutputValue         []byte     `db:"output_value"`
-	CreatedAt           *time.Time `db:"created_at"`
 	UpdatedAt           *time.Time `db:"updated_at"`
 }
 
@@ -52,9 +51,9 @@ type workflowStepRow struct {
 func (d *DBStore) UpdateStatus(ctx context.Context, executionID string, status string) error {
 	sql := `UPDATE workflow_executions SET status = $1, updated_at = $2 WHERE id = $3`
 
-	// If we're completing the workflow execution, let's also set a completed_at timestamp.
-	if status == StatusCompleted {
-		sql = "UPDATE workflow_executions SET status = $1, updated_at = $2, completed_at = $2 WHERE id = $3"
+	// If we're completing the workflow execution, let's also set a finished_at timestamp.
+	if status != StatusStarted {
+		sql = "UPDATE workflow_executions SET status = $1, updated_at = $2, finished_at = $2 WHERE id = $3"
 	}
 	_, err := d.db.ExecContext(ctx, sql, status, d.clock.Now(), executionID)
 	return err
@@ -112,7 +111,7 @@ func (d *DBStore) Get(ctx context.Context, executionID string) (WorkflowExecutio
 		Steps:       refToStep,
 		CreatedAt:   wex.CreatedAt,
 		UpdatedAt:   wex.UpdatedAt,
-		CompletedAt: wex.CompletedAt,
+		FinishedAt:  wex.FinishedAt,
 	}
 	return es, nil
 }
@@ -240,14 +239,13 @@ func (d *DBStore) Add(ctx context.Context, state *WorkflowExecution) error {
 func (d *DBStore) upsertSteps(ctx context.Context, steps []workflowStepRow) error {
 	for _, s := range steps {
 		now := d.clock.Now()
-		s.CreatedAt = &now
 		s.UpdatedAt = &now
 	}
 
 	sql := `
 	INSERT INTO
-	workflow_steps(workflow_execution_id, ref, status, inputs, output_err, output_value, created_at)
-	VALUES (:workflow_execution_id, :ref, :status, :inputs, :output_err, :output_value, :created_at)
+	workflow_steps(workflow_execution_id, ref, status, inputs, output_err, output_value, updated_at)
+	VALUES (:workflow_execution_id, :ref, :status, :inputs, :output_err, :output_value, :updated_at)
 	ON CONFLICT ON CONSTRAINT uniq_workflow_execution_id_ref
 	DO UPDATE SET
 		workflow_execution_id = EXCLUDED.workflow_execution_id,
@@ -298,14 +296,13 @@ func (d *DBStore) GetUnfinished(ctx context.Context, offset, limit int) ([]Workf
 		workflow_steps.inputs AS ws_inputs,
 		workflow_steps.output_err AS ws_output_err,
 		workflow_steps.output_value AS ws_output_value,
-		workflow_steps.created_at AS ws_created_at,
 		workflow_steps.updated_at AS ws_updated_at,
 		workflow_executions.id AS we_id,
 		workflow_executions.workflow_id AS we_workflow_id,
 		workflow_executions.status AS we_status,
 		workflow_executions.created_at AS we_created_at,
 		workflow_executions.updated_at AS we_updated_at,
-		workflow_executions.completed_at AS we_completed_at
+		workflow_executions.finished_at AS we_finished_at
 	FROM workflow_executions
 	JOIN workflow_steps
 	ON  workflow_steps.workflow_execution_id = workflow_executions.id
@@ -322,16 +319,15 @@ func (d *DBStore) GetUnfinished(ctx context.Context, offset, limit int) ([]Workf
 		WSInputs              []byte     `db:"ws_inputs"`
 		WSOutputErr           *string    `db:"ws_output_err"`
 		WSOutputValue         []byte     `db:"ws_output_value"`
-		WSCreatedAt           *time.Time `db:"ws_created_at"`
 		WSUpdatedAt           *time.Time `db:"ws_updated_at"`
 
 		// WorkflowExecution fields
-		WEID          string     `db:"we_id"`
-		WEWorkflowID  *string    `db:"we_workflow_id"`
-		WEStatus      string     `db:"we_status"`
-		WECreatedAt   *time.Time `db:"we_created_at"`
-		WEUpdatedAt   *time.Time `db:"we_updated_at"`
-		WECompletedAt *time.Time `db:"we_completed_at"`
+		WEID         string     `db:"we_id"`
+		WEWorkflowID *string    `db:"we_workflow_id"`
+		WEStatus     string     `db:"we_status"`
+		WECreatedAt  *time.Time `db:"we_created_at"`
+		WEUpdatedAt  *time.Time `db:"we_updated_at"`
+		WEFinishedAt *time.Time `db:"we_finished_at"`
 	}{}
 	err := d.db.SelectContext(ctx, &joinRecords, sql, "started", limit, offset)
 	if err != nil {
@@ -352,7 +348,7 @@ func (d *DBStore) GetUnfinished(ctx context.Context, offset, limit int) ([]Workf
 				Steps:       map[string]*WorkflowExecutionStep{},
 				CreatedAt:   jr.WECreatedAt,
 				UpdatedAt:   jr.WEUpdatedAt,
-				CompletedAt: jr.WECompletedAt,
+				FinishedAt:  jr.WEFinishedAt,
 			}
 		}
 
@@ -363,7 +359,6 @@ func (d *DBStore) GetUnfinished(ctx context.Context, offset, limit int) ([]Workf
 			OutputValue:         jr.WSOutputValue,
 			Inputs:              jr.WSInputs,
 			Status:              jr.WSStatus,
-			CreatedAt:           jr.WSCreatedAt,
 			UpdatedAt:           jr.WSUpdatedAt,
 		})
 		if err != nil {
