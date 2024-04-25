@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -36,13 +35,13 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	test_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
 	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 )
@@ -582,40 +581,22 @@ func calculateOCR3ConfigArgs(a *AutomationTest, S []int, oracleIdentities []conf
 	)
 }
 
+type registrationResult struct {
+	txHash common.Hash
+}
+
+func (r registrationResult) GetResult() common.Hash {
+	return r.txHash
+}
+
 func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common.Hash, error) {
-	registrationTxHashes := make([]common.Hash, 0)
 	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
 	if err != nil {
 		return nil, err
 	}
 
-	type result struct {
-		txHash common.Hash
-		err    error
-	}
-
-	resultCh := make(chan result, concurrency)
-
-	var wgProcesses sync.WaitGroup
-	wgProcesses.Add(len(upkeepConfigs))
-
-	failedRegistrations := make([]result, 0)
-
-	// process results of each upkeep registration attempt
-	go func() {
-		for r := range resultCh {
-			if r.err != nil {
-				a.Logger.Error().Err(r.err).Msg("Failed to register upkeep")
-				failedRegistrations = append(failedRegistrations, r)
-			} else {
-				a.Logger.Trace().Msg("Registered upkeep")
-				registrationTxHashes = append(registrationTxHashes, r.txHash)
-			}
-			wgProcesses.Done()
-		}
-	}()
-
-	var registerUpkeep = func(upkeepConfig UpkeepConfig, keyNum int, resultCh chan result) {
+	var registerUpkeep = func(resultCh chan registrationResult, errorCh chan error, executorNum int, upkeepConfig UpkeepConfig) {
+		keyNum := executorNum + 1 // key 0 is the root key
 		var registrationRequest []byte
 		var registrarABI *abi.ABI
 		var err error
@@ -623,7 +604,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 		case ethereum.RegistryVersion_2_0:
 			registrarABI, err = keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
 			if err != nil {
-				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to get registrar abi"))}
+				errorCh <- errors.Join(err, fmt.Errorf("failed to get registrar abi"))
 				return
 			}
 			registrationRequest, err = registrarABI.Pack(
@@ -638,12 +619,13 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 				upkeepConfig.FundingAmount,
 				a.ChainClient.Addresses[keyNum])
 			if err != nil {
-				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to pack registrar request"))}
+				errorCh <- errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+				return
 			}
 		case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
 			registrarABI, err = automation_registrar_wrapper2_1.AutomationRegistrarMetaData.GetAbi()
 			if err != nil {
-				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to get registrar abi"))}
+				errorCh <- errors.Join(err, fmt.Errorf("failed to get registrar abi"))
 				return
 			}
 			registrationRequest, err = registrarABI.Pack(
@@ -660,104 +642,58 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 				upkeepConfig.FundingAmount,
 				a.ChainClient.Addresses[keyNum])
 			if err != nil {
-				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to pack registrar request"))}
+				errorCh <- errors.Join(err, fmt.Errorf("failed to pack registrar request"))
 				return
 			}
 		default:
-			resultCh <- result{err: fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")}
+			errorCh <- fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 			return
 		}
 
 		tx, err := a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum)
 		if err != nil {
-			resultCh <- result{err: errors.Join(err, fmt.Errorf("client number %d failed to register upkeep %s", keyNum, upkeepConfig.UpkeepContract.Hex()))}
+			errorCh <- errors.Join(err, fmt.Errorf("client number %d failed to register upkeep %s", keyNum, upkeepConfig.UpkeepContract.Hex()))
 			return
 		}
 
-		resultCh <- result{txHash: tx.Hash()}
+		resultCh <- registrationResult{txHash: tx.Hash()}
 	}
 
-	dividedConfigs := test_utils.DivideSlice[UpkeepConfig](upkeepConfigs, concurrency)
-
-	for clientNum := 1; clientNum <= concurrency; clientNum++ {
-		go func(key int) {
-			configs := dividedConfigs[key-1]
-
-			if len(configs) == 0 {
-				return
-			}
-
-			a.Logger.Debug().
-				Int("Key Number", key).
-				Int("Number of Configs", len(configs)).
-				Msg("Started to register upkeeps")
-
-			for i := 0; i < len(configs); i++ {
-				registerUpkeep(configs[i], key, resultCh)
-				a.Logger.Trace().
-					Int("Key Number", key).
-					Str("Done/Total", fmt.Sprintf("%d/%d", (i+1), len(configs))).
-					Msg("Registered upkeep")
-			}
-
-			a.Logger.Debug().
-				Int("Key Number", key).
-				Msg("Finished to register upkeeps")
-		}(clientNum)
+	executor := ctf_concurrency.NewConcurrentExecutor[common.Hash, registrationResult, UpkeepConfig](a.Logger)
+	results, err := executor.Execute(concurrency, upkeepConfigs, registerUpkeep)
+	if err != nil {
+		return nil, err
 	}
 
-	wgProcesses.Wait()
-	close(resultCh)
-
-	if len(failedRegistrations) > 0 {
-		return nil, fmt.Errorf("failed registrations: %d | successful registrations: %d", len(failedRegistrations), len(registrationTxHashes))
-	}
-
-	if len(registrationTxHashes) != len(upkeepConfigs) {
-		return nil, fmt.Errorf("failed to register all upkeeps. Expected %d, got %d", len(upkeepConfigs), len(registrationTxHashes))
+	if len(results) != len(upkeepConfigs) {
+		return nil, fmt.Errorf("failed to register all upkeeps. Expected %d, got %d", len(upkeepConfigs), len(results))
 	}
 
 	a.Logger.Info().Msg("Successfully registered all upkeeps")
 
-	return registrationTxHashes, nil
+	return results, nil
+}
+
+type UpkeepId = *big.Int
+
+type confirmationResult struct {
+	upkeepID UpkeepId
+}
+
+func (c confirmationResult) GetResult() UpkeepId {
+	return c.upkeepID
 }
 
 func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.Hash) ([]*big.Int, error) {
-	upkeepIds := make([]*big.Int, 0)
-
 	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
 	if err != nil {
 		return nil, err
 	}
 
-	type result struct {
-		upkeepID *big.Int
-		err      error
-	}
-
-	resultCh := make(chan result, concurrency)
-	failedConfirmation := []result{}
-
-	var wgProcesses sync.WaitGroup
-	wgProcesses.Add(len(registrationTxHashes))
-
-	go func() {
-		for r := range resultCh {
-			if r.err != nil {
-				a.Logger.Error().Err(r.err).Msg("Failed to confirm registered upkeep")
-				failedConfirmation = append(failedConfirmation, r)
-			} else {
-				a.Logger.Trace().Msg("Registered upkeep")
-				upkeepIds = append(upkeepIds, r.upkeepID)
-			}
-			wgProcesses.Done()
-		}
-	}()
-
-	var confirmUpkeep = func(txHash common.Hash, keyNum int, resultCh chan result) {
+	var confirmUpkeep = func(resultCh chan confirmationResult, errorCh chan error, _ int, txHash common.Hash) {
 		receipt, err := a.ChainClient.Client.TransactionReceipt(context.Background(), txHash)
 		if err != nil {
-			resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to confirm upkeep registration"))}
+			errorCh <- errors.Join(err, fmt.Errorf("failed to confirm upkeep registration"))
 			return
 		}
 
@@ -770,54 +706,25 @@ func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.
 			}
 		}
 		if upkeepId == nil {
-			resultCh <- result{err: fmt.Errorf("failed to parse upkeep id from registration receipt")}
+			errorCh <- fmt.Errorf("failed to parse upkeep id from registration receipt")
 			return
 		}
-		resultCh <- result{upkeepID: upkeepId}
+		resultCh <- confirmationResult{upkeepID: upkeepId}
 	}
 
-	dividedHashes := test_utils.DivideSlice[common.Hash](registrationTxHashes, concurrency)
+	executor := ctf_concurrency.NewConcurrentExecutor[UpkeepId, confirmationResult, common.Hash](a.Logger)
+	results, err := executor.Execute(concurrency, registrationTxHashes, confirmUpkeep)
 
-	for clientNum := 1; clientNum <= concurrency; clientNum++ {
-		go func(key int) {
-			hashes := dividedHashes[key-1]
-
-			if len(hashes) == 0 {
-				return
-			}
-
-			a.Logger.Debug().
-				Int("Key Number", key).
-				Int("Number of Configs", len(hashes)).
-				Msg("Started to confirm upkeeps")
-
-			for i := 0; i < len(hashes); i++ {
-				confirmUpkeep(hashes[i], key, resultCh)
-				a.Logger.Trace().
-					Int("Key Number", key).
-					Str("Done/Total", fmt.Sprintf("%d/%d", (i+1), len(hashes))).
-					Msg("Confirmed upkeep")
-			}
-
-			a.Logger.Debug().
-				Int("Key Number", key).
-				Msg("Finished to confirm upkeeps")
-		}(clientNum)
+	if err != nil {
+		return nil, fmt.Errorf("failed confirmations: %d | successful confirmations: %d", len(executor.GetErrors()), len(results))
 	}
 
-	wgProcesses.Wait()
-	close(resultCh)
-
-	if len(failedConfirmation) > 0 {
-		return nil, fmt.Errorf("failed confirmations: %d | successful confirmations: %d", len(failedConfirmation), len(upkeepIds))
-	}
-
-	if len(registrationTxHashes) != len(upkeepIds) {
-		return nil, fmt.Errorf("failed to confirm all upkeeps. Expected %d, got %d", len(registrationTxHashes), len(upkeepIds))
+	if len(registrationTxHashes) != len(results) {
+		return nil, fmt.Errorf("failed to confirm all upkeeps. Expected %d, got %d", len(registrationTxHashes), len(results))
 	}
 
 	seen := make(map[*big.Int]bool)
-	for _, upkeepId := range upkeepIds {
+	for _, upkeepId := range results {
 		if seen[upkeepId] {
 			return nil, fmt.Errorf("duplicate upkeep id: %s. Something went wrong during upkeep confirmation. Please check the test code", upkeepId.String())
 		}
@@ -825,9 +732,9 @@ func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.
 	}
 
 	a.Logger.Info().Msg("Successfully confirmed all upkeeps")
-	a.UpkeepIDs = upkeepIds
+	a.UpkeepIDs = results
 
-	return upkeepIds, nil
+	return results, nil
 }
 
 func (a *AutomationTest) AddJobsAndSetConfig(t *testing.T) {
