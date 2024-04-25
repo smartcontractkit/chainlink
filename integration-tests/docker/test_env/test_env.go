@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
@@ -34,6 +35,7 @@ type CLClusterTestEnv struct {
 	Cfg           *TestEnvConfig
 	DockerNetwork *tc.DockerNetwork
 	LogStream     *logstream.LogStream
+	TestConfig    core_testconfig.GlobalTestConfig
 
 	/* components */
 	ClCluster              *ClCluster
@@ -201,7 +203,7 @@ func (te *CLClusterTestEnv) Terminate() error {
 func (te *CLClusterTestEnv) Cleanup() error {
 	te.l.Info().Msg("Cleaning up test environment")
 
-	runIdErr := runid.RemoveLocalRunId()
+	runIdErr := runid.RemoveLocalRunId(te.TestConfig.GetLoggingConfig().RunId)
 	if runIdErr != nil {
 		te.l.Warn().Msgf("Failed to remove .run.id file due to: %s (not a big deal, you can still remove it manually)", runIdErr.Error())
 	}

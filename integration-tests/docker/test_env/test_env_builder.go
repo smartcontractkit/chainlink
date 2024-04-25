@@ -223,6 +223,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 	}
+	b.te.TestConfig = b.testConfig
 
 	var err error
 	if b.t != nil {

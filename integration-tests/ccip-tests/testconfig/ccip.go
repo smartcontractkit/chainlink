@@ -8,6 +8,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
 	testutils "github.com/smartcontractkit/ccip/integration-tests/ccip-tests/utils"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -45,7 +46,6 @@ type CCIPTestConfig struct {
 	NetworkPairs                               []string                              `toml:",omitempty"`
 	NoOfNetworks                               int                                   `toml:",omitempty"`
 	NoOfRoutersPerPair                         int                                   `toml:",omitempty"`
-	Blockscout                                 bool                                  `toml:",omitempty"`
 	NoOfTokensPerChain                         int                                   `toml:",omitempty"`
 	NoOfTokensInMsg                            int                                   `toml:",omitempty"`
 	AmountPerToken                             int64                                 `toml:",omitempty"`

@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/foundry"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
@@ -418,11 +418,11 @@ func UpgradeNodes(
 		chartName := ccipEnv.CLNodes[0].ChartName
 		// explicitly set the env var into false to allow manifest update
 		// if tests are run in remote runner, it might be set to true to disable manifest update
-		err := os.Setenv(k8config.EnvVarNoManifestUpdate, "false")
+		err := os.Setenv(k8config.EnvVarSkipManifestUpdate, "false")
 		if err != nil {
 			return err
 		}
-		k8Env.Cfg.NoManifestUpdate = false
+		k8Env.Cfg.SkipManifestUpdate = false
 		lggr.Info().
 			Str("Chart Name", chartName).
 			Interface("Upgrade Details", props).
@@ -449,14 +449,41 @@ func DeployEnvironments(
 	envconfig *environment.Config,
 	testInputs *CCIPTestConfig,
 ) *environment.Environment {
-	useBlockscout := testInputs.TestGroupInput.Blockscout
 	selectedNetworks := testInputs.SelectedNetworks
 	testEnvironment := environment.New(envconfig)
 	numOfTxNodes := 1
-	for _, network := range selectedNetworks {
+	var charts []string
+	for i, network := range selectedNetworks {
+		if testInputs.EnvInput.Network.AnvilConfigs != nil {
+			// if forkconfig is specified for a network addhelm for anvil
+			if anvilConfig, exists := testInputs.EnvInput.Network.AnvilConfigs[strings.ToUpper(network.Name)]; exists {
+				charts = append(charts, foundry.ChartName)
+				testEnvironment.
+					AddHelm(foundry.New(&foundry.Props{
+						NetworkName: network.Name,
+						Values: map[string]interface{}{
+							"anvil": map[string]interface{}{
+								"chainId":                   network.ChainID,
+								"blockTime":                 anvilConfig.BlockTime,
+								"forkURL":                   anvilConfig.URL,
+								"forkBlockNumber":           anvilConfig.BlockNumber,
+								"forkRetries":               anvilConfig.Retries,
+								"forkTimeout":               anvilConfig.Timeout,
+								"forkComputeUnitsPerSecond": anvilConfig.ComputePerSecond,
+								"forkNoRateLimit":           anvilConfig.RateLimitDisabled,
+							},
+						},
+					}))
+				selectedNetworks[i].Simulated = true
+				continue
+			}
+		}
+
 		if !network.Simulated {
+			charts = append(charts, "")
 			continue
 		}
+		charts = append(charts, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
 		testEnvironment.
 			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: network.Name,
@@ -491,29 +518,29 @@ func DeployEnvironments(
 	if testEnvironment.WillUseRemoteRunner() {
 		return testEnvironment
 	}
-	urlFinder := func(network blockchain.EVMNetwork) ([]string, []string) {
+	urlFinder := func(network blockchain.EVMNetwork, chart string) ([]string, []string) {
 		if !network.Simulated {
 			return network.URLs, network.HTTPURLs
 		}
 		networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 		var internalWsURLs, internalHttpURLs []string
-		for i := 0; i < numOfTxNodes; i++ {
-			internalWsURLs = append(internalWsURLs, fmt.Sprintf("ws://%s-ethereum-geth:8546", networkName))
-			internalHttpURLs = append(internalHttpURLs, fmt.Sprintf("http://%s-ethereum-geth:8544", networkName))
+		switch chart {
+		case foundry.ChartName:
+			internalWsURLs = append(internalWsURLs, fmt.Sprintf("ws://%s-%s:8545", networkName, foundry.ChartName))
+			internalHttpURLs = append(internalHttpURLs, fmt.Sprintf("http://%s-%s:8545", networkName, foundry.ChartName))
+		case networkName:
+			for i := 0; i < numOfTxNodes; i++ {
+				internalWsURLs = append(internalWsURLs, fmt.Sprintf("ws://%s-ethereum-geth:8546", networkName))
+				internalHttpURLs = append(internalHttpURLs, fmt.Sprintf("http://%s-ethereum-geth:8544", networkName))
+			}
 		}
+
 		return internalWsURLs, internalHttpURLs
 	}
 	var nets []blockchain.EVMNetwork
 	for i := range selectedNetworks {
 		nets = append(nets, selectedNetworks[i])
-		nets[i].URLs, nets[i].HTTPURLs = urlFinder(selectedNetworks[i])
-		if useBlockscout {
-			testEnvironment.AddChart(blockscout.New(&blockscout.Props{
-				Name:    fmt.Sprintf("%s-blockscout", selectedNetworks[i].Name),
-				WsURL:   selectedNetworks[i].URLs[0],
-				HttpURL: selectedNetworks[i].HTTPURLs[0],
-			}))
-		}
+		nets[i].URLs, nets[i].HTTPURLs = urlFinder(selectedNetworks[i], charts[i])
 	}
 
 	err = testEnvironment.

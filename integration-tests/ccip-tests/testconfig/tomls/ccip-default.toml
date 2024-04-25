@@ -246,7 +246,6 @@ NoOfSendsInMulticall = 5            # if MulticallInOneTx=true , this denotes th
 NoOfNetworks = 2                    # this is used with Networks in `CCIP.Env`, `NoOfNetworks < len(CCIP.Env.Networks)` test only uses first NoOfNetworks from` CCIP.Env.Networks`.
 # This value is ignored if CCIP.Groups.<TestGroup>.NetworkPairs is provided
 
-Blockscout = false                  # if true, the test will use blockscout
 TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update to time-out.
 # Now testing only with dynamic price getter (no pipeline).
 # Could be removed once the pipeline is completely removed.
@@ -290,7 +289,6 @@ NoOfSendsInMulticall = 5    # same as above
 RequestPerUnitTime = [1] # number of ccip requests to be sent per unit time
 TimeUnit = '10s' # unit of time for RequestPerUnitTime
 NoOfNetworks = 2   # same as above
-Blockscout = false   # same as above
 WithPipeline = false
 TimeoutForPriceUpdate = '15m' # time to wait for price update
 
@@ -357,7 +355,6 @@ NoOfSendsInMulticall = 5
 RequestPerUnitTime = [1]
 TimeUnit = '1s'
 NoOfNetworks = 2
-Blockscout = false
 # chaos test settings
 ChaosDuration = '10m'               # Duration for whichever chaos will be injected; only valid for chaos tests
 WaitBetweenChaosDuringLoad = '2m'   # Duration to wait between each chaos injection during load test; only valid for chaos tests

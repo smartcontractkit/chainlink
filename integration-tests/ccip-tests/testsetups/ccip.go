@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
 
 	testutils "github.com/smartcontractkit/ccip/integration-tests/ccip-tests/utils"
@@ -225,7 +226,7 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 				networks.AdditionalSimulatedPvtKeys = append(networks.AdditionalSimulatedPvtKeys, networks.AdditionalSimulatedPvtKeys...)
 			}
 			c.SelectedNetworks = append(c.SelectedNetworks, blockchain.EVMNetwork{
-				Name:                      fmt.Sprintf("simulated-non-dev%d", len(c.SelectedNetworks)+1),
+				Name:                      fmt.Sprintf("private-chain-%d", len(c.SelectedNetworks)+1),
 				ChainID:                   chainID,
 				Simulated:                 true,
 				PrivateKeys:               []string{networks.AdditionalSimulatedPvtKeys[i]},
@@ -1125,7 +1126,7 @@ func createEnvironmentConfig(t *testing.T, envName string, testConfig *CCIPTestC
 	if existingEnv != "" {
 		envConfig.Namespace = existingEnv
 		envConfig.NamespacePrefix = ""
-		envConfig.NoManifestUpdate = true
+		envConfig.SkipManifestUpdate = true
 		envConfig.RunnerName = fmt.Sprintf("%s-%s", environment.REMOTE_RUNNER_NAME, uuid.NewString()[0:5])
 	}
 	if testConfig.EnvInput.TTL != nil {
