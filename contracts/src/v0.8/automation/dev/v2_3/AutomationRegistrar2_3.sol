@@ -393,6 +393,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   /**
    * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
+   * @dev safeApprove is deprecated and removed from the latest (v5) OZ release, Use safeIncreaseAllowance when we upgrade OZ (we are on v4.8)
+   * @dev we stick to the safeApprove because of the older version (v4.8) of safeIncreaseAllowance can't handle USDT correctly, but newer version can
    */
   function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
     IAutomationRegistryMaster2_3 registry = s_registry;
@@ -406,18 +408,17 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       params.triggerConfig,
       params.offchainConfig
     );
-    bool success;
+
     if (address(params.billingToken) == address(i_LINK)) {
-      success = i_LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
-    } else {
-      success = params.billingToken.approve(address(registry), params.amount);
-      if (success) {
-        registry.addFunds(upkeepId, params.amount);
+      bool success = i_LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
+      if (!success) {
+        revert TransferFailed(address(registry));
       }
+    } else {
+      params.billingToken.safeApprove(address(registry), params.amount);
+      registry.addFunds(upkeepId, params.amount);
     }
-    if (!success) {
-      revert TransferFailed(address(registry));
-    }
+
     emit RegistrationApproved(hash, params.name, upkeepId);
     return upkeepId;
   }
