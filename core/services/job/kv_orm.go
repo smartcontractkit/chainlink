@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // KVStore is a simple KV store that can store and retrieve serializable data.
@@ -21,17 +19,17 @@ type KVStore interface {
 
 type kVStore struct {
 	jobID int32
-	q     pg.Q
+	ds    sqlutil.DataSource
 	lggr  logger.SugaredLogger
 }
 
 var _ KVStore = (*kVStore)(nil)
 
-func NewKVStore(jobID int32, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger) kVStore {
+func NewKVStore(jobID int32, ds sqlutil.DataSource, lggr logger.Logger) kVStore {
 	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return kVStore{
 		jobID: jobID,
-		q:     pg.NewQ(db, namedLogger, cfg),
+		ds:    ds,
 		lggr:  namedLogger,
 	}
 }
@@ -45,7 +43,7 @@ func (kv kVStore) Store(ctx context.Context, key string, val []byte) error {
 				val_bytea = EXCLUDED.val_bytea,
 				updated_at = $4;`
 
-	if _, err := kv.q.ExecContext(ctx, sql, kv.jobID, key, val, time.Now()); err != nil {
+	if _, err := kv.ds.ExecContext(ctx, sql, kv.jobID, key, val, time.Now()); err != nil {
 		return fmt.Errorf("failed to store value: %s for key: %s for jobID: %d : %w", string(val), key, kv.jobID, err)
 	}
 	return nil
@@ -55,7 +53,7 @@ func (kv kVStore) Store(ctx context.Context, key string, val []byte) error {
 func (kv kVStore) Get(ctx context.Context, key string) ([]byte, error) {
 	var val []byte
 	sql := "SELECT val_bytea FROM job_kv_store WHERE job_id = $1 AND key = $2"
-	if err := kv.q.GetContext(ctx, &val, sql, kv.jobID, key); err != nil {
+	if err := kv.ds.GetContext(ctx, &val, sql, kv.jobID, key); err != nil {
 		return nil, fmt.Errorf("failed to get value by key: %s for jobID: %d : %w", key, kv.jobID, err)
 	}
 

@@ -24,7 +24,7 @@ func concatBytes[T bytesProducer](byteSlice []T) [][]byte {
 	return output
 }
 
-// queryArgs is a helper for building the arguments to a postgres query created by DbORM
+// queryArgs is a helper for building the arguments to a postgres query created by DSORM
 // Besides the convenience methods, it also keeps track of arguments validation and sanitization.
 type queryArgs struct {
 	args map[string]interface{}
