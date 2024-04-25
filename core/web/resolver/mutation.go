@@ -238,7 +238,7 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 		return nil, err
 	}
 
-	ccfg, err := fsvc.GetChainConfig(id)
+	ccfg, err := fsvc.GetChainConfig(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewCreateFeedsManagerChainConfigPayload(nil, err, nil), nil
@@ -267,7 +267,7 @@ func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struc
 
 	fsvc := r.App.GetFeedsService()
 
-	ccfg, err := fsvc.GetChainConfig(id)
+	ccfg, err := fsvc.GetChainConfig(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteFeedsManagerChainConfigPayload(nil, err), nil
@@ -367,7 +367,7 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 		return nil, err
 	}
 
-	ccfg, err := fsvc.GetChainConfig(id)
+	ccfg, err := fsvc.GetChainConfig(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateFeedsManagerChainConfigPayload(nil, err, nil), nil
@@ -418,7 +418,7 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	mgr, err := feedsService.GetManager(id)
+	mgr, err := feedsService.GetManager(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewCreateFeedsManagerPayload(nil, err, nil), nil
@@ -541,7 +541,7 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	mgr, err = feedsService.GetManager(id)
+	mgr, err = feedsService.GetManager(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateFeedsManagerPayload(nil, err, nil), nil
@@ -615,7 +615,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(string(args.ID))
+	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(ctx, string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -751,7 +751,7 @@ func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	spec, err := feedsSvc.GetSpec(id)
+	spec, err := feedsSvc.GetSpec(ctx, id)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -786,7 +786,7 @@ func (r *Resolver) CancelJobProposalSpec(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	spec, err := feedsSvc.GetSpec(id)
+	spec, err := feedsSvc.GetSpec(ctx, id)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -821,7 +821,7 @@ func (r *Resolver) RejectJobProposalSpec(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	spec, err := feedsSvc.GetSpec(id)
+	spec, err := feedsSvc.GetSpec(ctx, id)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -859,7 +859,7 @@ func (r *Resolver) UpdateJobProposalSpecDefinition(ctx context.Context, args str
 		return nil, err
 	}
 
-	spec, err := feedsSvc.GetSpec(id)
+	spec, err := feedsSvc.GetSpec(ctx, id)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -1039,7 +1039,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.VRF:
 		jb, err = vrfcommon.ValidatedVRFSpec(args.Input.TOML)
 	case job.Webhook:
-		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
+		jb, err = webhook.ValidatedWebhookSpec(ctx, args.Input.TOML, r.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
 	case job.BlockHeaderFeeder:
@@ -1085,7 +1085,7 @@ func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	j, err := r.App.JobORM().FindJobWithoutSpecErrors(id)
+	j, err := r.App.JobORM().FindJobWithoutSpecErrors(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteJobPayload(r.App, nil, err), nil
@@ -1119,7 +1119,7 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	specErr, err := r.App.JobORM().FindSpecError(id)
+	specErr, err := r.App.JobORM().FindSpecError(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDismissJobErrorPayload(nil, err), nil

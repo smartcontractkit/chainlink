@@ -16,11 +16,11 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 	"github.com/smartcontractkit/chainlink-vrf/types/hash"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -52,16 +52,16 @@ var (
 )
 
 type shareDB struct {
-	q         pg.Q
+	ds        sqlutil.DataSource
 	lggr      logger.Logger
 	chainID   *big.Int
 	chainType string
 }
 
 // NewShareDB creates a new DKG share database.
-func NewShareDB(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID *big.Int, chainType string) ocr2vrftypes.DKGSharePersistence {
+func NewShareDB(ds sqlutil.DataSource, lggr logger.Logger, chainID *big.Int, chainType string) ocr2vrftypes.DKGSharePersistence {
 	return &shareDB{
-		q:         pg.NewQ(db, lggr, cfg),
+		ds:        ds,
 		lggr:      lggr,
 		chainID:   chainID,
 		chainType: chainType,
@@ -134,13 +134,13 @@ func (s *shareDB) WriteShareRecords(
 
 	// Always upsert because we want the number of rows in the table to match
 	// the number of members of the committee.
-	query := `
+	_, err := s.ds.NamedExecContext(ctx, `
 INSERT INTO dkg_shares (config_digest, key_id, dealer, marshaled_share_record, record_hash)
 VALUES (:config_digest, :key_id, :dealer, :marshaled_share_record, :record_hash)
 ON CONFLICT ON CONSTRAINT dkg_shares_pkey
 DO UPDATE SET marshaled_share_record = EXCLUDED.marshaled_share_record, record_hash = EXCLUDED.record_hash
-`
-	return s.q.ExecQNamed(query, named[:])
+`, named[:])
+	return err
 }
 
 // ReadShareRecords retrieves any share records in the database that correspond
@@ -152,6 +152,7 @@ func (s *shareDB) ReadShareRecords(
 	retrievedShares []ocr2vrftypes.PersistentShareSetRecord,
 	err error,
 ) {
+	ctx := context.Background() //TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	lggr := s.lggr.With(
 		"configDigest", hexutil.Encode(cfgDgst[:]),
 		"keyID", hexutil.Encode(keyID[:]))
@@ -177,9 +178,9 @@ WHERE config_digest = :config_digest
 	if err != nil {
 		return nil, errors.Wrap(err, "sqlx Named")
 	}
-	query = s.q.Rebind(query)
+	query = s.ds.Rebind(query)
 	var dkgShares []dkgShare
-	err = s.q.Select(&dkgShares, query, args...)
+	err = s.ds.SelectContext(ctx, &dkgShares, query, args...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

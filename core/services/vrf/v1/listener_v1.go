@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -57,7 +56,6 @@ type Listener struct {
 	Coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
 	PipelineRunner pipeline.Runner
 	Job            job.Job
-	Q              pg.Q
 	GethKs         vrfcommon.GethKeyStore
 	MailMon        *mailbox.Monitor
 	ReqLogs        *mailbox.Mailbox[log.Broadcast]
@@ -285,6 +283,8 @@ func (lsn *Listener) RunHeadListener(unsubscribe func()) {
 }
 
 func (lsn *Listener) RunLogListener(unsubscribes []func(), minConfs uint32) {
+	ctx, cancel := lsn.ChStop.NewCtx()
+	defer cancel()
 	lsn.L.Infow("Listening for run requests",
 		"gasLimit", lsn.FeeCfg.LimitDefault(),
 		"minConfs", minConfs)
@@ -304,8 +304,6 @@ func (lsn *Listener) RunLogListener(unsubscribes []func(), minConfs uint32) {
 					break
 				}
 				recovery.WrapRecover(lsn.L, func() {
-					ctx, cancel := lsn.ChStop.NewCtx()
-					defer cancel()
 					lsn.handleLog(ctx, lb, minConfs)
 				})
 			}
@@ -488,8 +486,7 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
 	if _, err = lsn.PipelineRunner.Run(ctx, run, lggr, true, func(tx sqlutil.DataSource) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		//TODO restore tx https://smartcontract-it.atlassian.net/browse/BCF-2978
-		if err = lsn.Chain.LogBroadcaster().MarkConsumed(ctx, nil, req.lb); err != nil {
+		if err = lsn.Chain.LogBroadcaster().MarkConsumed(ctx, tx, req.lb); err != nil {
 			lggr.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil

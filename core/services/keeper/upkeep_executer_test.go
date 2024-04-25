@@ -83,7 +83,7 @@ func setup(t *testing.T, estimator gas.EvmFeeEstimator, overrideFn func(c *chain
 	txm := txmmocks.NewMockEvmTxManager(t)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg, GasEstimator: estimator})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), cfg.Database(), legacyChains, db, keyStore, nil, nil)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, legacyChains)
 	orm := keeper.NewORM(db, logger.TestLogger(t))
 	registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)

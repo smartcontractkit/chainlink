@@ -363,7 +363,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	isNativeBilling bool,
 	config *vrfv2plus_config.General,
 	l zerolog.Logger,
-) (*contracts.CoordinatorRandomWordsFulfilled, error) {
+) (*contracts.CoordinatorRandomWordsRequested, *contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := RequestRandomness(
 		consumer,
 		coordinator,
@@ -374,7 +374,7 @@ func RequestRandomnessAndWaitForFulfillment(
 		l,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	randomWordsFulfilledEvent, err := WaitRandomWordsFulfilledEvent(
@@ -386,9 +386,9 @@ func RequestRandomnessAndWaitForFulfillment(
 		l,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return randomWordsFulfilledEvent, nil
+	return randomWordsRequestedEvent, randomWordsFulfilledEvent, nil
 
 }
 

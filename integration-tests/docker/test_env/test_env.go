@@ -1,9 +1,14 @@
 package test_env
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -24,6 +29,7 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
 	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -199,8 +205,12 @@ func (te *CLClusterTestEnv) Terminate() error {
 	return nil
 }
 
+type CleanupOpts struct {
+	TestName string
+}
+
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
-func (te *CLClusterTestEnv) Cleanup() error {
+func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	te.l.Info().Msg("Cleaning up test environment")
 
 	runIdErr := runid.RemoveLocalRunId(te.TestConfig.GetLoggingConfig().RunId)
@@ -229,6 +239,11 @@ func (te *CLClusterTestEnv) Cleanup() error {
 		}
 	}
 
+	err := te.handleNodeCoverageReports(opts.TestName)
+	if err != nil {
+		te.l.Error().Err(err).Msg("Error handling node coverage reports")
+	}
+
 	// close EVMClient connections
 	for _, evmClient := range te.evmClients {
 		err := evmClient.Close()
@@ -240,6 +255,85 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	}
 
 	return nil
+}
+
+// handleNodeCoverageReports handles the coverage reports for the chainlink nodes
+func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
+	testName = strings.ReplaceAll(testName, "/", "_")
+	showHTMLCoverageReport := te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport
+	isCI := os.Getenv("CI") != ""
+
+	te.l.Info().
+		Bool("showCoverageReportFlag", showHTMLCoverageReport).
+		Bool("isCI", isCI).
+		Bool("show", showHTMLCoverageReport || isCI).
+		Msg("Checking if coverage report should be shown")
+
+	var covHelper *d.NodeCoverageHelper
+
+	if showHTMLCoverageReport || isCI {
+		// Stop all nodes in the chainlink cluster.
+		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
+		err := te.ClCluster.Stop()
+		if err != nil {
+			return err
+		}
+
+		clDir, err := getChainlinkDir()
+		if err != nil {
+			return err
+		}
+
+		var coverageRootDir string
+		if os.Getenv("GO_COVERAGE_DEST_DIR") != "" {
+			coverageRootDir = filepath.Join(os.Getenv("GO_COVERAGE_DEST_DIR"), testName)
+		} else {
+			coverageRootDir = filepath.Join(clDir, ".covdata", testName)
+		}
+
+		var containers []tc.Container
+		for _, node := range te.ClCluster.Nodes {
+			containers = append(containers, node.Container)
+		}
+
+		covHelper, err = d.NewNodeCoverageHelper(context.Background(), containers, clDir, coverageRootDir)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Show html coverage report when flag is set (local runs)
+	if showHTMLCoverageReport {
+		path, err := covHelper.SaveMergedHTMLReport()
+		if err != nil {
+			return err
+		}
+		te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage html report saved")
+	}
+
+	// Save percentage coverage report when running in CI
+	if isCI {
+		// Save coverage percentage to a file to show in the CI
+		path, err := covHelper.SaveMergedCoveragePercentage()
+		if err != nil {
+			te.l.Error().Err(err).Str("testName", testName).Msg("Failed to save coverage percentage for test")
+		} else {
+			te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage percentage report saved")
+		}
+	}
+
+	return nil
+}
+
+// getChainlinkDir returns the path to the chainlink directory
+func getChainlinkDir() (string, error) {
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		return "", fmt.Errorf("cannot determine the path of the calling file")
+	}
+	dir := filepath.Dir(filename)
+	chainlinkDir := filepath.Clean(filepath.Join(dir, "../../.."))
+	return chainlinkDir, nil
 }
 
 func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {

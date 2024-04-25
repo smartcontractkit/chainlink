@@ -58,9 +58,9 @@ func (_m *ORM) CreateRun(ctx context.Context, run *pipeline.Run) error {
 	return r0
 }
 
-// CreateSpec provides a mock function with given fields: ctx, ds, _a2, maxTaskTimeout
-func (_m *ORM) CreateSpec(ctx context.Context, ds pipeline.CreateDataSource, _a2 pipeline.Pipeline, maxTaskTimeout models.Interval) (int32, error) {
-	ret := _m.Called(ctx, ds, _a2, maxTaskTimeout)
+// CreateSpec provides a mock function with given fields: ctx, _a1, maxTaskTimeout
+func (_m *ORM) CreateSpec(ctx context.Context, _a1 pipeline.Pipeline, maxTaskTimeout models.Interval) (int32, error) {
+	ret := _m.Called(ctx, _a1, maxTaskTimeout)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateSpec")
@@ -68,17 +68,17 @@ func (_m *ORM) CreateSpec(ctx context.Context, ds pipeline.CreateDataSource, _a2
 
 	var r0 int32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.CreateDataSource, pipeline.Pipeline, models.Interval) (int32, error)); ok {
-		return rf(ctx, ds, _a2, maxTaskTimeout)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Pipeline, models.Interval) (int32, error)); ok {
+		return rf(ctx, _a1, maxTaskTimeout)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.CreateDataSource, pipeline.Pipeline, models.Interval) int32); ok {
-		r0 = rf(ctx, ds, _a2, maxTaskTimeout)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Pipeline, models.Interval) int32); ok {
+		r0 = rf(ctx, _a1, maxTaskTimeout)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.CreateDataSource, pipeline.Pipeline, models.Interval) error); ok {
-		r1 = rf(ctx, ds, _a2, maxTaskTimeout)
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Pipeline, models.Interval) error); ok {
+		r1 = rf(ctx, _a1, maxTaskTimeout)
 	} else {
 		r1 = ret.Error(1)
 	}
