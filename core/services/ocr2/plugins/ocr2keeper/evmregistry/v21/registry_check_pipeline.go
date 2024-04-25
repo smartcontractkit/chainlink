@@ -14,10 +14,9 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/cbor"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/gasprice"
 )
 
 const (
@@ -319,60 +318,18 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		opts := r.buildCallOpts(ctx, block)
 
-		oc, err := r.fetchUpkeepOffchainConfig(upkeepId)
+		oc, err := r.fetchUpkeepOffchainConfig(upkeepId, opts)
 		if err != nil {
 			r.lggr.Warnw("failed get offchain config for", "err", err, "upkeepId", upkeepId)
 			checkResults[i].Eligible = false
 			checkResults[i].PipelineExecutionState = uint8(encoding.UpkeepFailureReasonFailToRetrieveOffchainConfig)
 			continue
 		}
-
-		// if offchain config is set, decode and check gas price configured
-		if len(oc) != 0 {
-			// for testing purpose, put this here. after testing, this will be moved to after CBOR parsing
-			fee, _, err := r.ge.GetFee(ctx, []byte{}, feeLimit, assets.NewWei(big.NewInt(maxFeePrice)))
-			if err != nil {
-				r.lggr.Error("failed to get fee for %s", upkeepId.String())
-				checkResults[performToKeyIdx[i]].Eligible = false
-				checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonFailToRetrieveGasPrice)
-				continue
-			}
-
-			var offchainConfig UpkeepOffchainConfig
-			// if using UTF-8:
-			// if err = json.Unmarshal(upkeep.OffchainConfig, &offchainConfig); err != nil {
-			if err = cbor.ParseDietCBORToStruct(oc, &offchainConfig); err != nil {
-				r.lggr.Error("failed to parse upkeep offchain config for %s", upkeepId.String())
-				checkResults[performToKeyIdx[i]].Eligible = false
-				checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonFailToParseOffchainConfig)
-				continue
-			}
-			r.lggr.Infof("successfully decode offchain config for %s", upkeepId.String())
-			r.lggr.Infof("max gas price for %s is %s", upkeepId.String(), offchainConfig.MaxGasPrice.String())
-
-			if fee.ValidDynamic() {
-				r.lggr.Infof("current gas price EIP-1559 is fee cap %s, tip cap %s", fee.DynamicFeeCap.String(), fee.DynamicTipCap.String())
-				if fee.DynamicFeeCap.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
-					// current gas price is higher than max gas price
-					r.lggr.Warnf("max gas price %s for %s is LOWER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.String())
-					checkResults[performToKeyIdx[i]].Eligible = false
-					checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonGasPriceTooHigh)
-					continue
-				} else {
-					r.lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.String())
-				}
-			} else {
-				r.lggr.Infof("current gas price legacy is %s", fee.Legacy.String())
-				if fee.Legacy.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
-					// current gas price is higher than max gas price
-					r.lggr.Infof("max gas price %s for %s is LOWER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.String())
-					checkResults[performToKeyIdx[i]].Eligible = false
-					checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonGasPriceTooHigh)
-					continue
-				} else {
-					r.lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.String())
-				}
-			}
+		fr := gasprice.CheckGasPrice(ctx, upkeepId, oc, r.ge, r.lggr)
+		if fr != encoding.UpkeepFailureReasonNone {
+			checkResults[i].Eligible = false
+			checkResults[i].PipelineExecutionState = uint8(fr)
+			continue
 		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
