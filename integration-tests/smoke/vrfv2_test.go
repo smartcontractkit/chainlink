@@ -49,12 +49,12 @@ func TestVRFv2Basic(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
 	cleanupFn := func() {
-		evmClient, err := testEnv.GetEVMClient(chainID)
-		require.NoError(t, err, "Getting EVM client shouldn't fail")
+		sethClient, err := testEnv.GetSethClient(chainID)
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
 
-		if evmClient.NetworkSimulated() {
+		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
-				Str("Network Name", evmClient.GetNetworkName()).
+				Str("Network Name", sethClient.Cfg.Network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {

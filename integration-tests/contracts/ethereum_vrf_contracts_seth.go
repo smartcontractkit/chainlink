@@ -38,8 +38,8 @@ type EthereumVRFCoordinatorTestV2 struct {
 	coordinator *vrf_coordinator_test_v2.VRFCoordinatorTestV2
 }
 
-func (v *EthereumVRFCoordinatorTestV2) Address() *common.Address {
-	return v.address
+func (v *EthereumVRFCoordinatorTestV2) Address() string {
+	return v.address.Hex()
 }
 
 // EthereumVRFConsumer represents VRF consumer contract

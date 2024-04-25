@@ -8,13 +8,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
@@ -31,46 +29,46 @@ import (
 )
 
 type EthereumVRFOwner struct {
-	address  *common.Address
+	address  common.Address
 	client   *seth.Client
 	vrfOwner *vrf_owner.VRFOwner
 }
 
 type EthereumVRFCoordinatorV2 struct {
-	address     *common.Address
+	address     common.Address
 	client      *seth.Client
 	coordinator *vrf_coordinator_v2.VRFCoordinatorV2
 }
 
 // EthereumVRFConsumerV2 represents VRFv2 consumer contract
 type EthereumVRFConsumerV2 struct {
-	address  *common.Address
-	client   blockchain.EVMClient
+	address  common.Address
+	client   *seth.Client
 	consumer *vrf_consumer_v2.VRFConsumerV2
 }
 
 // EthereumVRFv2Consumer represents VRFv2 consumer contract
 type EthereumVRFv2Consumer struct {
-	address  *common.Address
-	client   blockchain.EVMClient
+	address  common.Address
+	client   *seth.Client
 	consumer *vrf_v2_consumer_wrapper.VRFv2Consumer
 }
 
 // EthereumVRFv2LoadTestConsumer represents VRFv2 consumer contract for performing Load Tests
 type EthereumVRFv2LoadTestConsumer struct {
-	address  *common.Address
+	address  common.Address
 	client   *seth.Client
 	consumer *vrf_load_test_with_metrics.VRFV2LoadTestWithMetrics
 }
 
 type EthereumVRFV2Wrapper struct {
-	address *common.Address
+	address common.Address
 	client  *seth.Client
 	wrapper *vrfv2_wrapper.VRFV2Wrapper
 }
 
 type EthereumVRFV2WrapperLoadTestConsumer struct {
-	address  *common.Address
+	address  common.Address
 	client   *seth.Client
 	consumer *vrfv2_wrapper_load_test_consumer.VRFV2WrapperLoadTestConsumer
 }
@@ -82,9 +80,9 @@ type GetRequestConfig struct {
 }
 
 type EthereumVRFMockETHLINKFeed struct {
-	client  blockchain.EVMClient
+	client  *seth.Client
 	feed    *vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregator
-	address *common.Address
+	address common.Address
 }
 
 func DeployVRFCoordinatorV2(seth *seth.Client, linkAddr, bhsAddr, linkEthFeedAddr string) (VRFCoordinatorV2, error) {
@@ -113,11 +111,11 @@ func DeployVRFCoordinatorV2(seth *seth.Client, linkAddr, bhsAddr, linkEthFeedAdd
 	return &EthereumVRFCoordinatorV2{
 		client:      seth,
 		coordinator: coordinator,
-		address:     &coordinatorDeploymentData.Address,
+		address:     coordinatorDeploymentData.Address,
 	}, err
 }
 
-func LoadVRFCoordinatorV2(seth *seth.Client, addr common.Address) (*EthereumVRFCoordinatorV2, error) {
+func LoadVRFCoordinatorV2(seth *seth.Client, address string) (*EthereumVRFCoordinatorV2, error) {
 	abi, err := vrf_coordinator_v2.VRFCoordinatorV2MetaData.GetAbi()
 	if err != nil {
 		return &EthereumVRFCoordinatorV2{}, fmt.Errorf("failed to get VRFCoordinatorV2 ABI: %w", err)
@@ -125,19 +123,19 @@ func LoadVRFCoordinatorV2(seth *seth.Client, addr common.Address) (*EthereumVRFC
 	seth.ContractStore.AddABI("VRFCoordinatorV2", *abi)
 	seth.ContractStore.AddBIN("VRFCoordinatorV2", common.FromHex(vrf_coordinator_v2.VRFCoordinatorV2MetaData.Bin))
 
-	contract, err := vrf_coordinator_v2.NewVRFCoordinatorV2(addr, seth.Client)
+	contract, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(address), seth.Client)
 	if err != nil {
 		return &EthereumVRFCoordinatorV2{}, fmt.Errorf("failed to instantiate VRFCoordinatorV2 instance: %w", err)
 	}
 
 	return &EthereumVRFCoordinatorV2{
 		client:      seth,
-		address:     &addr,
+		address:     common.HexToAddress(address),
 		coordinator: contract,
 	}, nil
 }
 
-func DeployVRFOwner(seth *seth.Client, coordinatorAddr common.Address) (VRFOwner, error) {
+func DeployVRFOwner(seth *seth.Client, coordinatorAddress string) (VRFOwner, error) {
 	abi, err := vrf_owner.VRFOwnerMetaData.GetAbi()
 	if err != nil {
 		return &EthereumVRFOwner{}, fmt.Errorf("failed to get VRFOwner ABI: %w", err)
@@ -148,7 +146,7 @@ func DeployVRFOwner(seth *seth.Client, coordinatorAddr common.Address) (VRFOwner
 		"VRFOwner",
 		*abi,
 		common.FromHex(vrf_owner.VRFOwnerMetaData.Bin),
-		coordinatorAddr)
+		common.HexToAddress(coordinatorAddress))
 	if err != nil {
 		return &EthereumVRFOwner{}, fmt.Errorf("VRFOwner instance deployment have failed: %w", err)
 	}
@@ -161,42 +159,65 @@ func DeployVRFOwner(seth *seth.Client, coordinatorAddr common.Address) (VRFOwner
 	return &EthereumVRFOwner{
 		client:   seth,
 		vrfOwner: contract,
-		address:  &data.Address,
+		address:  data.Address,
 	}, err
 }
 
 // DeployVRFConsumerV2 deploys VRFv@ consumer contract
-func (e *EthereumContractDeployer) DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error) {
-	address, _, instance, err := e.client.DeployContract("VRFConsumerV2", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_consumer_v2.DeployVRFConsumerV2(auth, backend, common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
-	})
+func DeployVRFConsumerV2(seth *seth.Client, linkAddr, coordinatorAddr common.Address) (VRFConsumerV2, error) {
+	abi, err := vrf_consumer_v2.VRFConsumerV2MetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumVRFConsumerV2{}, fmt.Errorf("failed to get VRFConsumerV2 ABI: %w", err)
 	}
+
+	data, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFConsumerV2",
+		*abi,
+		common.FromHex(vrf_consumer_v2.VRFConsumerV2MetaData.Bin),
+		coordinatorAddr,
+		linkAddr)
+	if err != nil {
+		return &EthereumVRFConsumerV2{}, fmt.Errorf("VRFConsumerV2 instance deployment have failed: %w", err)
+	}
+
+	contract, err := vrf_consumer_v2.NewVRFConsumerV2(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFConsumerV2{}, fmt.Errorf("failed to instantiate VRFConsumerV2 instance: %w", err)
+	}
+
 	return &EthereumVRFConsumerV2{
-		client:   e.client,
-		consumer: instance.(*vrf_consumer_v2.VRFConsumerV2),
-		address:  address,
+		client:   seth,
+		consumer: contract,
+		address:  data.Address,
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error) {
-	address, _, instance, err := e.client.DeployContract("VRFv2Consumer", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_v2_consumer_wrapper.DeployVRFv2Consumer(auth, backend, common.HexToAddress(coordinatorAddr))
-	})
+func DeployVRFv2Consumer(seth *seth.Client, coordinatorAddr common.Address) (VRFv2Consumer, error) {
+	abi, err := vrf_v2_consumer_wrapper.VRFv2ConsumerMetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumVRFv2Consumer{}, fmt.Errorf("failed to get VRFv2Consumer ABI: %w", err)
 	}
+
+	data, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFv2Consumer",
+		*abi,
+		common.FromHex(vrf_v2_consumer_wrapper.VRFv2ConsumerMetaData.Bin),
+		coordinatorAddr)
+	if err != nil {
+		return &EthereumVRFv2Consumer{}, fmt.Errorf("VRFv2Consumer instance deployment have failed: %w", err)
+	}
+
+	contract, err := vrf_v2_consumer_wrapper.NewVRFv2Consumer(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFv2Consumer{}, fmt.Errorf("failed to instantiate VRFv2Consumer instance: %w", err)
+	}
+
 	return &EthereumVRFv2Consumer{
-		client:   e.client,
-		consumer: instance.(*vrf_v2_consumer_wrapper.VRFv2Consumer),
-		address:  address,
+		client:   seth,
+		consumer: contract,
+		address:  data.Address,
 	}, err
 }
 
@@ -224,7 +245,7 @@ func DeployVRFv2LoadTestConsumer(client *seth.Client, coordinatorAddr string) (V
 	return &EthereumVRFv2LoadTestConsumer{
 		client:   client,
 		consumer: contract,
-		address:  &data.Address,
+		address:  data.Address,
 	}, err
 }
 
@@ -243,7 +264,7 @@ func LoadVRFv2LoadTestConsumer(seth *seth.Client, addr common.Address) (VRFv2Loa
 
 	return &EthereumVRFv2LoadTestConsumer{
 		client:   seth,
-		address:  &addr,
+		address:  addr,
 		consumer: contract,
 	}, nil
 }
@@ -274,7 +295,7 @@ func DeployVRFV2Wrapper(client *seth.Client, linkAddr string, linkEthFeedAddr st
 	return &EthereumVRFV2Wrapper{
 		client:  client,
 		wrapper: contract,
-		address: &data.Address,
+		address: data.Address,
 	}, err
 }
 
@@ -302,12 +323,12 @@ func DeployVRFV2WrapperLoadTestConsumer(client *seth.Client, linkAddr string, vr
 	return &EthereumVRFV2WrapperLoadTestConsumer{
 		client:   client,
 		consumer: contract,
-		address:  &data.Address,
+		address:  data.Address,
 	}, err
 }
 
-func (v *EthereumVRFCoordinatorV2) Address() *common.Address {
-	return v.address
+func (v *EthereumVRFCoordinatorV2) Address() string {
+	return v.address.Hex()
 }
 
 func (v *EthereumVRFCoordinatorV2) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
@@ -721,7 +742,7 @@ func (v *EthereumVRFConsumerV2) GetAllRandomWords(ctx context.Context, num int) 
 	words := make([]*big.Int, 0)
 	for i := 0; i < num; i++ {
 		word, err := v.consumer.SRandomWords(&bind.CallOpts{
-			From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+			From:    v.client.Addresses[0],
 			Context: ctx,
 		}, big.NewInt(int64(i)))
 		if err != nil {
@@ -733,42 +754,36 @@ func (v *EthereumVRFConsumerV2) GetAllRandomWords(ctx context.Context, num int) 
 }
 
 // LoadExistingConsumer loads an EthereumVRFConsumerV2 with a specified address
-func (v *EthereumVRFConsumerV2) LoadExistingConsumer(address string, client blockchain.EVMClient) error {
-	a := common.HexToAddress(address)
-	consumer, err := vrf_consumer_v2.NewVRFConsumerV2(a, client.(*blockchain.EthereumClient).Client)
+func (v *EthereumVRFConsumerV2) LoadExistingConsumer(seth *seth.Client, address common.Address) error {
+	abi, err := vrf_consumer_v2.VRFConsumerV2MetaData.GetAbi()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get VRFConsumerV2 ABI: %w", err)
 	}
-	v.client = client
-	v.consumer = consumer
-	v.address = &a
+	seth.ContractStore.AddABI("VRFConsumerV2", *abi)
+	seth.ContractStore.AddBIN("VRFConsumerV2", common.FromHex(vrf_consumer_v2.VRFConsumerV2MetaData.Bin))
+
+	contract, err := vrf_consumer_v2.NewVRFConsumerV2(address, seth.Client)
+	if err != nil {
+		return fmt.Errorf("failed to instantiate VRFConsumerV2 instance: %w", err)
+	}
+
+	v.client = seth
+	v.consumer = contract
+	v.address = address
+
 	return nil
 }
 
 // CreateFundedSubscription create funded subscription for VRFv2 randomness
 func (v *EthereumVRFConsumerV2) CreateFundedSubscription(funds *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.CreateSubscriptionAndFund(opts, funds)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.consumer.CreateSubscriptionAndFund(v.client.NewTXOpts(), funds))
+	return err
 }
 
 // TopUpSubscriptionFunds add funds to a VRFv2 subscription
 func (v *EthereumVRFConsumerV2) TopUpSubscriptionFunds(funds *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.TopUpSubscription(opts, funds)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.consumer.TopUpSubscription(v.client.NewTXOpts(), funds))
+	return err
 }
 
 func (v *EthereumVRFConsumerV2) Address() string {
@@ -782,7 +797,7 @@ func (v *EthereumVRFv2Consumer) Address() string {
 // CurrentSubscription get current VRFv2 subscription
 func (v *EthereumVRFConsumerV2) CurrentSubscription() (uint64, error) {
 	return v.consumer.SSubId(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: context.Background(),
 	})
 }
@@ -790,28 +805,18 @@ func (v *EthereumVRFConsumerV2) CurrentSubscription() (uint64, error) {
 // GasAvailable get available gas after randomness fulfilled
 func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
 	return v.consumer.SGasAvailable(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: context.Background(),
 	})
 }
 
 func (v *EthereumVRFConsumerV2) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
-		To: v.address,
-	})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
 // RequestRandomness request VRFv2 random words
 func (v *EthereumVRFConsumerV2) RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.RequestRandomness(opts, hash, subID, confs, gasLimit, numWords)
+	_, err := v.client.Decode(v.consumer.RequestRandomness(v.client.NewTXOpts(), hash, subID, confs, gasLimit, numWords))
 	if err != nil {
 		return err
 	}
@@ -822,16 +827,12 @@ func (v *EthereumVRFConsumerV2) RequestRandomness(hash [32]byte, subID uint64, c
 		Interface("KeyHash", hex.EncodeToString(hash[:])).
 		Interface("Consumer Contract", v.address).
 		Msg("RequestRandomness called")
-	return v.client.ProcessTransaction(tx)
+	return nil
 }
 
 // RequestRandomness request VRFv2 random words
 func (v *EthereumVRFv2Consumer) RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.RequestRandomWords(opts, subID, gasLimit, confs, numWords, hash)
+	_, err := v.client.Decode(v.consumer.RequestRandomWords(v.client.NewTXOpts(), subID, gasLimit, confs, numWords, hash))
 	if err != nil {
 		return err
 	}
@@ -842,13 +843,13 @@ func (v *EthereumVRFv2Consumer) RequestRandomness(hash [32]byte, subID uint64, c
 		Interface("KeyHash", hex.EncodeToString(hash[:])).
 		Interface("Consumer Contract", v.address).
 		Msg("RequestRandomness called")
-	return v.client.ProcessTransaction(tx)
+	return nil
 }
 
 // RandomnessOutput get VRFv2 randomness output (word)
 func (v *EthereumVRFConsumerV2) RandomnessOutput(ctx context.Context, arg0 *big.Int) (*big.Int, error) {
 	return v.consumer.SRandomWords(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}, arg0)
 }
@@ -909,14 +910,14 @@ func (v *EthereumVRFv2LoadTestConsumer) RequestRandomWordsWithForceFulfill(
 
 func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2_consumer_wrapper.GetRequestStatus, error) {
 	return v.consumer.GetRequestStatus(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}, requestID)
 }
 
 func (v *EthereumVRFv2Consumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
 	return v.consumer.LastRequestId(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	})
 }
@@ -1162,7 +1163,7 @@ func (v *EthereumVRFMockETHLINKFeed) Address() string {
 
 func (v *EthereumVRFMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 	data, err := v.feed.LatestRoundData(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: context.Background(),
 	})
 	if err != nil {
@@ -1173,7 +1174,7 @@ func (v *EthereumVRFMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 
 func (v *EthereumVRFMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
 	data, err := v.feed.LatestRoundData(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: context.Background(),
 	})
 	if err != nil {
@@ -1183,13 +1184,6 @@ func (v *EthereumVRFMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error
 }
 
 func (v *EthereumVRFMockETHLINKFeed) SetBlockTimestampDeduction(blockTimestampDeduction *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.feed.SetBlockTimestampDeduction(opts, blockTimestampDeduction)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.feed.SetBlockTimestampDeduction(v.client.NewTXOpts(), blockTimestampDeduction))
+	return err
 }

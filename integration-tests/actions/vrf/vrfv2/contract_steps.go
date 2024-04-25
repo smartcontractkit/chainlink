@@ -44,7 +44,7 @@ func DeployVRFV2Contracts(
 		return nil, err
 	}
 
-	var coordinatorAddress *common.Address
+	var coordinatorAddress string
 	if useTestCoordinator {
 		testCoordinator, err := contracts.DeployVRFCoordinatorTestV2(sethClient, linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 		if err != nil {
@@ -62,12 +62,12 @@ func DeployVRFV2Contracts(
 		coordinatorAddress = coordinator.Address()
 	}
 
-	coordinator, err := contracts.LoadVRFCoordinatorV2(sethClient, *coordinatorAddress)
+	coordinator, err := contracts.LoadVRFCoordinatorV2(sethClient, coordinatorAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrLoadingCoordinator, err)
 	}
 	if useVRFOwner {
-		vrfOwner, err := contracts.DeployVRFOwner(sethClient, *coordinatorAddress)
+		vrfOwner, err := contracts.DeployVRFOwner(sethClient, coordinatorAddress)
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
 		}
@@ -121,7 +121,7 @@ func DeployVRFV2DirectFundingContracts(
 	coordinator contracts.VRFCoordinatorV2,
 	consumerContractsAmount int,
 ) (*VRFV2WrapperContracts, error) {
-	vrfv2Wrapper, err := contracts.DeployVRFV2Wrapper(client, linkTokenAddress, linkEthFeedAddress, coordinator.Address().Hex())
+	vrfv2Wrapper, err := contracts.DeployVRFV2Wrapper(client, linkTokenAddress, linkEthFeedAddress, coordinator.Address())
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2Wrapper, err)
 	}
@@ -185,7 +185,7 @@ func SetupVRFV2Contracts(
 		ReqsForTier4:                   big.NewInt(*vrfv2Config.ReqsForTier4),
 		ReqsForTier5:                   big.NewInt(*vrfv2Config.ReqsForTier5)}
 
-	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2.Address().Hex()).Msg("Setting Coordinator Config")
+	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2.Address()).Msg("Setting Coordinator Config")
 	err = vrfContracts.CoordinatorV2.SetConfig(
 		*vrfv2Config.MinimumConfirmations,
 		*vrfv2Config.MaxGasLimitCoordinatorConfig,
@@ -213,7 +213,7 @@ func SetupVRFV2Contracts(
 func setupVRFOwnerContract(env *test_env.CLClusterTestEnv, chainID int64, contracts *vrfcommon.VRFContracts, allNativeTokenKeyAddressStrings []string, allNativeTokenKeyAddresses []common.Address, l zerolog.Logger) error {
 	l.Info().Msg("Setting up VRFOwner contract")
 	l.Info().
-		Str("Coordinator", contracts.CoordinatorV2.Address().Hex()).
+		Str("Coordinator", contracts.CoordinatorV2.Address()).
 		Str("VRFOwner", contracts.VRFOwner.Address()).
 		Msg("Transferring ownership of Coordinator to VRFOwner")
 	err := contracts.CoordinatorV2.TransferOwnership(common.HexToAddress(contracts.VRFOwner.Address()))
@@ -421,7 +421,7 @@ func FundVRFCoordinatorV2Subscription(
 	if err != nil {
 		return fmt.Errorf("%s, err %w", vrfcommon.ErrABIEncodingFunding, err)
 	}
-	_, err = linkToken.TransferAndCall(coordinator.Address().Hex(), linkFundingAmountJuels, encodedSubId)
+	_, err = linkToken.TransferAndCall(coordinator.Address(), linkFundingAmountJuels, encodedSubId)
 	if err != nil {
 		return fmt.Errorf("%s, err %w", vrfcommon.ErrSendingLinkToken, err)
 	}
@@ -697,7 +697,7 @@ func SetupNewConsumersAndSubs(
 	numberOfSubToCreate int,
 	l zerolog.Logger,
 ) ([]contracts.VRFv2LoadTestConsumer, []uint64, error) {
-	consumers, err := DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address().Hex(), numberOfConsumerContractsToDeployAndAddToSub)
+	consumers, err := DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address(), numberOfConsumerContractsToDeployAndAddToSub)
 	if err != nil {
 		return nil, nil, fmt.Errorf("err: %w", err)
 	}

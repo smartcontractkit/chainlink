@@ -114,7 +114,7 @@ func SetupVRFV2Environment(
 		return nil, nil, nil, err
 	}
 
-	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2.Address().Hex()).Msg("Registering Proving Key")
+	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2.Address()).Msg("Registering Proving Key")
 	provingKey, err := VRFV2RegisterProvingKey(vrfKey, registerProvingKeyAgainstAddress, vrfContracts.CoordinatorV2)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRegisteringProvingKey, err)
@@ -175,7 +175,7 @@ func SetupVRFV2Environment(
 				configGeneral.General,
 				numberOfTxKeysToCreate,
 				big.NewInt(chainID),
-				vrfContracts.CoordinatorV2.Address().Hex(),
+				vrfContracts.CoordinatorV2.Address(),
 				vrfContracts.BHS.Address(),
 				*vrfv2TestConfig.GetCommonConfig().ChainlinkNodeFunding,
 				l,
@@ -206,7 +206,7 @@ func SetupVRFV2Environment(
 func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Config *testconfig.General, pubKeyCompressed string, vrfOwnerConfig *vrfcommon.VRFOwnerConfig, l zerolog.Logger, vrfNode *vrfcommon.VRFNode) error {
 	vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
 		ForwardingAllowed:             *vrfv2Config.VRFJobForwardingAllowed,
-		CoordinatorAddress:            contracts.CoordinatorV2.Address().Hex(),
+		CoordinatorAddress:            contracts.CoordinatorV2.Address(),
 		FromAddresses:                 vrfNode.TXKeyAddressStrings,
 		EVMChainID:                    chainID.String(),
 		MinIncomingConfirmations:      int(*vrfv2Config.MinimumConfirmations),
@@ -410,8 +410,7 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	coordinatorAddr := common.HexToAddress(*commonExistingEnvConfig.ConsumerAddress)
-	coordinator, err := contracts.LoadVRFCoordinatorV2(client, coordinatorAddr)
+	coordinator, err := contracts.LoadVRFCoordinatorV2(client, *commonExistingEnvConfig.ConsumerAddress)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2", err)
 	}

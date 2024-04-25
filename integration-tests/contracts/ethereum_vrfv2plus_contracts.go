@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/montanaflynn/stats"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
@@ -22,32 +21,32 @@ import (
 )
 
 type EthereumVRFCoordinatorV2_5 struct {
-	address     *common.Address
-	client      blockchain.EVMClient
+	address     common.Address
+	client      *seth.Client
 	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface
 }
 
 type EthereumVRFCoordinatorV2PlusUpgradedVersion struct {
-	address     *common.Address
-	client      blockchain.EVMClient
+	address     common.Address
+	client      *seth.Client
 	coordinator *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersion
 }
 
 // EthereumVRFv2PlusLoadTestConsumer represents VRFv2Plus consumer contract for performing Load Tests
 type EthereumVRFv2PlusLoadTestConsumer struct {
-	address  *common.Address
+	address  common.Address
 	client   *seth.Client
 	consumer *vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetrics
 }
 
 type EthereumVRFV2PlusWrapperLoadTestConsumer struct {
-	address  *common.Address
+	address  common.Address
 	client   *seth.Client
 	consumer *vrfv2plus_wrapper_load_test_consumer.VRFV2PlusWrapperLoadTestConsumer
 }
 
 type EthereumVRFV2PlusWrapper struct {
-	address *common.Address
+	address common.Address
 	client  *seth.Client
 	wrapper *vrfv2plus_wrapper.VRFV2PlusWrapper
 }
@@ -103,20 +102,31 @@ func (v *EthereumVRFV2PlusWrapper) Coordinator(ctx context.Context) (common.Addr
 }
 
 // DeployVRFCoordinatorV2_5 deploys VRFV2_5 coordinator contract
-func (e *EthereumContractDeployer) DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV2Plus", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_coordinator_v2_5.DeployVRFCoordinatorV25(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(bhsAddr))
-	})
+func DeployVRFCoordinatorV2_5(seth *seth.Client, bhsAddr string) (VRFCoordinatorV2_5, error) {
+	abi, err := vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("failed to get VRFCoordinatorV2Plus ABI: %w", err)
 	}
+
+	coordinatorDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinatorV2Plus",
+		*abi,
+		common.FromHex(vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.Bin),
+		common.HexToAddress(bhsAddr))
+	if err != nil {
+		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("VRFCoordinatorV2Plus instance deployment have failed: %w", err)
+	}
+
+	contract, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("failed to instantiate VRFCoordinatorV2Plus instance: %w", err)
+	}
+
 	return &EthereumVRFCoordinatorV2_5{
-		client:      e.client,
-		coordinator: instance.(*vrf_coordinator_v2_5.VRFCoordinatorV25),
-		address:     address,
+		client:      seth,
+		coordinator: contract,
+		address:     coordinatorDeploymentData.Address,
 	}, err
 }
 
@@ -126,7 +136,7 @@ func (v *EthereumVRFCoordinatorV2_5) Address() string {
 
 func (v *EthereumVRFCoordinatorV2_5) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	hash, err := v.coordinator.HashOfKey(opts, pubKey)
@@ -138,7 +148,7 @@ func (v *EthereumVRFCoordinatorV2_5) HashOfKey(ctx context.Context, pubKey [2]*b
 
 func (v *EthereumVRFCoordinatorV2_5) GetActiveSubscriptionIds(ctx context.Context, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	activeSubscriptionIds, err := v.coordinator.GetActiveSubscriptionIds(opts, startIndex, maxCount)
@@ -150,7 +160,7 @@ func (v *EthereumVRFCoordinatorV2_5) GetActiveSubscriptionIds(ctx context.Contex
 
 func (v *EthereumVRFCoordinatorV2_5) PendingRequestsExist(ctx context.Context, subID *big.Int) (bool, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	pendingRequestExists, err := v.coordinator.PendingRequestExists(opts, subID)
@@ -182,7 +192,7 @@ func (v *EthereumVRFCoordinatorV2_5) ParseRandomWordsRequested(log types.Log) (*
 
 func (v *EthereumVRFCoordinatorV2_5) GetSubscription(ctx context.Context, subID *big.Int) (Subscription, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	subscription, err := v.coordinator.GetSubscription(opts, subID)
@@ -200,7 +210,7 @@ func (v *EthereumVRFCoordinatorV2_5) GetSubscription(ctx context.Context, subID 
 
 func (v *EthereumVRFCoordinatorV2_5) GetLinkTotalBalance(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	totalBalance, err := v.coordinator.STotalBalance(opts)
@@ -211,7 +221,7 @@ func (v *EthereumVRFCoordinatorV2_5) GetLinkTotalBalance(ctx context.Context) (*
 }
 func (v *EthereumVRFCoordinatorV2_5) GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	totalBalance, err := v.coordinator.STotalNativeBalance(opts)
@@ -225,67 +235,45 @@ func (v *EthereumVRFCoordinatorV2_5) GetNativeTokenTotalBalance(ctx context.Cont
 // return funds to sub owner,
 // does not check if pending requests for a sub exist
 func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error) {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return nil, err
-	}
-	tx, err := v.coordinator.OwnerCancelSubscription(
-		opts,
+	tx, err := v.client.Decode(v.coordinator.OwnerCancelSubscription(
+		v.client.NewTXOpts(),
 		subID,
-	)
+	))
 	if err != nil {
 		return nil, err
 	}
-	return tx, v.client.ProcessTransaction(tx)
+	return tx.Transaction, nil
 }
 
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
 func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error) {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return nil, err
-	}
-	tx, err := v.coordinator.CancelSubscription(
-		opts,
+	tx, err := v.client.Decode(v.coordinator.CancelSubscription(
+		v.client.NewTXOpts(),
 		subID,
 		to,
-	)
+	))
 	if err != nil {
 		return nil, err
 	}
-	return tx, v.client.ProcessTransaction(tx)
+	return tx.Transaction, nil
 }
 
 func (v *EthereumVRFCoordinatorV2_5) Withdraw(recipient common.Address) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.Withdraw(
-		opts,
+	_, err := v.client.Decode(v.coordinator.Withdraw(
+		v.client.NewTXOpts(),
 		recipient,
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) WithdrawNative(recipient common.Address) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.WithdrawNative(
-		opts,
+	_, err := v.client.Decode(v.coordinator.WithdrawNative(
+		v.client.NewTXOpts(),
 		recipient,
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) SetConfig(
@@ -298,12 +286,8 @@ func (v *EthereumVRFCoordinatorV2_5) SetConfig(
 	fulfillmentFlatFeeLinkDiscountPPM uint32,
 	nativePremiumPercentage uint8,
 	linkPremiumPercentage uint8) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.SetConfig(
-		opts,
+	_, err := v.client.Decode(v.coordinator.SetConfig(
+		v.client.NewTXOpts(),
 		minimumRequestConfirmations,
 		maxGasLimit,
 		stalenessSeconds,
@@ -313,114 +297,69 @@ func (v *EthereumVRFCoordinatorV2_5) SetConfig(
 		fulfillmentFlatFeeLinkDiscountPPM,
 		nativePremiumPercentage,
 		linkPremiumPercentage,
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) SetLINKAndLINKNativeFeed(linkAddress string, linkNativeFeedAddress string) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.SetLINKAndLINKNativeFeed(
-		opts,
+	_, err := v.client.Decode(v.coordinator.SetLINKAndLINKNativeFeed(
+		v.client.NewTXOpts(),
 		common.HexToAddress(linkAddress),
 		common.HexToAddress(linkNativeFeedAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) RegisterProvingKey(
 	publicProvingKey [2]*big.Int,
 	gasLaneMaxGas uint64,
 ) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.RegisterProvingKey(opts, publicProvingKey, gasLaneMaxGas)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.coordinator.RegisterProvingKey(v.client.NewTXOpts(), publicProvingKey, gasLaneMaxGas))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) CreateSubscription() (*types.Transaction, error) {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	tx, err := v.client.Decode(v.coordinator.CreateSubscription(v.client.NewTXOpts()))
 	if err != nil {
 		return nil, err
 	}
-	tx, err := v.coordinator.CreateSubscription(opts)
-	if err != nil {
-		return nil, err
-	}
-	return tx, v.client.ProcessTransaction(tx)
+	return tx.Transaction, nil
 }
 
 func (v *EthereumVRFCoordinatorV2_5) Migrate(subId *big.Int, coordinatorAddress string) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.Migrate(opts, subId, common.HexToAddress(coordinatorAddress))
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.coordinator.Migrate(v.client.NewTXOpts(), subId, common.HexToAddress(coordinatorAddress)))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) RegisterMigratableCoordinator(migratableCoordinatorAddress string) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.RegisterMigratableCoordinator(opts, common.HexToAddress(migratableCoordinatorAddress))
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.coordinator.RegisterMigratableCoordinator(v.client.NewTXOpts(), common.HexToAddress(migratableCoordinatorAddress)))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) AddConsumer(subId *big.Int, consumerAddress string) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.AddConsumer(
-		opts,
+	_, err := v.client.Decode(v.coordinator.AddConsumer(
+		v.client.NewTXOpts(),
 		subId,
 		common.HexToAddress(consumerAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) FundSubscriptionWithNative(subId *big.Int, nativeTokenAmount *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
+	opts := v.client.NewTXOpts()
 	opts.Value = nativeTokenAmount
-	tx, err := v.coordinator.FundSubscriptionWithNative(
+	_, err := v.client.Decode(v.coordinator.FundSubscriptionWithNative(
 		opts,
 		subId,
-	)
+	))
 	if err != nil {
 		return err
 	}
-	return v.client.ProcessTransaction(tx)
+	return nil
 }
 
 func (v *EthereumVRFCoordinatorV2_5) FindSubscriptionID(subID *big.Int) (*big.Int, error) {
-	owner := v.client.GetDefaultWallet().Address()
+	owner := v.client.Addresses[0]
 	subscriptionIterator, err := v.coordinator.FilterSubscriptionCreated(
 		nil,
 		[]*big.Int{subID},
@@ -707,20 +646,31 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	}, nil
 }
 
-func (e *EthereumContractDeployer) DeployVRFCoordinatorV2PlusUpgradedVersion(bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV2PlusUpgradedVersion", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_v2plus_upgraded_version.DeployVRFCoordinatorV2PlusUpgradedVersion(auth, backend, common.HexToAddress(bhsAddr))
-	})
+func DeployVRFCoordinatorV2PlusUpgradedVersion(seth *seth.Client, bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error) {
+	abi, err := vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumVRFCoordinatorV2PlusUpgradedVersion{}, fmt.Errorf("failed to get VRFCoordinatorV2PlusUpgradedVersion ABI: %w", err)
 	}
+
+	coordinatorDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinatorV2PlusUpgradedVersion",
+		*abi,
+		common.FromHex(vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMetaData.Bin),
+		common.HexToAddress(bhsAddr))
+	if err != nil {
+		return &EthereumVRFCoordinatorV2PlusUpgradedVersion{}, fmt.Errorf("VRFCoordinatorV2PlusUpgradedVersion instance deployment have failed: %w", err)
+	}
+
+	contract, err := vrf_v2plus_upgraded_version.NewVRFCoordinatorV2PlusUpgradedVersion(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFCoordinatorV2PlusUpgradedVersion{}, fmt.Errorf("failed to instantiate VRFCoordinatorV2PlusUpgradedVersion instance: %w", err)
+	}
+
 	return &EthereumVRFCoordinatorV2PlusUpgradedVersion{
-		client:      e.client,
-		coordinator: instance.(*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersion),
-		address:     address,
+		client:      seth,
+		coordinator: contract,
+		address:     coordinatorDeploymentData.Address,
 	}, err
 }
 
@@ -730,7 +680,7 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) Address() string {
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	hash, err := v.coordinator.HashOfKey(opts, pubKey)
@@ -742,7 +692,7 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) HashOfKey(ctx context.Cont
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetActiveSubscriptionIds(ctx context.Context, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	activeSubscriptionIds, err := v.coordinator.GetActiveSubscriptionIds(opts, startIndex, maxCount)
@@ -754,7 +704,7 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetActiveSubscriptionIds(c
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetSubscription(ctx context.Context, subID *big.Int) (vrf_v2plus_upgraded_version.GetSubscription, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	subscription, err := v.coordinator.GetSubscription(opts, subID)
@@ -775,12 +725,8 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) SetConfig(
 	nativePremiumPercentage uint8,
 	linkPremiumPercentage uint8,
 ) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.SetConfig(
-		opts,
+	_, err := v.client.Decode(v.coordinator.SetConfig(
+		v.client.NewTXOpts(),
 		minimumRequestConfirmations,
 		maxGasLimit,
 		stalenessSeconds,
@@ -790,59 +736,35 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) SetConfig(
 		fulfillmentFlatFeeLinkDiscountPPM,
 		nativePremiumPercentage,
 		linkPremiumPercentage,
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) SetLINKAndLINKNativeFeed(linkAddress string, linkNativeFeedAddress string) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.SetLINKAndLINKNativeFeed(
-		opts,
+	_, err := v.client.Decode(v.coordinator.SetLINKAndLINKNativeFeed(
+		v.client.NewTXOpts(),
 		common.HexToAddress(linkAddress),
 		common.HexToAddress(linkNativeFeedAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) RegisterProvingKey(
 	publicProvingKey [2]*big.Int,
 	gasLaneMaxGas uint64,
 ) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.RegisterProvingKey(opts, publicProvingKey, gasLaneMaxGas)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.coordinator.RegisterProvingKey(v.client.NewTXOpts(), publicProvingKey, gasLaneMaxGas))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) CreateSubscription() error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.CreateSubscription(opts)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.coordinator.CreateSubscription(v.client.NewTXOpts()))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetLinkTotalBalance(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	totalBalance, err := v.coordinator.STotalBalance(opts)
@@ -853,7 +775,7 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetLinkTotalBalance(ctx co
 }
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		From:    v.client.Addresses[0],
 		Context: ctx,
 	}
 	totalBalance, err := v.coordinator.STotalNativeBalance(opts)
@@ -864,63 +786,36 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetNativeTokenTotalBalance
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) Migrate(subId *big.Int, coordinatorAddress string) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.Migrate(opts, subId, common.HexToAddress(coordinatorAddress))
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.coordinator.Migrate(v.client.NewTXOpts(), subId, common.HexToAddress(coordinatorAddress)))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) RegisterMigratableCoordinator(migratableCoordinatorAddress string) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.RegisterMigratableCoordinator(opts, common.HexToAddress(migratableCoordinatorAddress))
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	_, err := v.client.Decode(v.coordinator.RegisterMigratableCoordinator(v.client.NewTXOpts(), common.HexToAddress(migratableCoordinatorAddress)))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) AddConsumer(subId *big.Int, consumerAddress string) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.AddConsumer(
-		opts,
+	_, err := v.client.Decode(v.coordinator.AddConsumer(
+		v.client.NewTXOpts(),
 		subId,
 		common.HexToAddress(consumerAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) FundSubscriptionWithNative(subId *big.Int, nativeTokenAmount *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
+	opts := v.client.NewTXOpts()
 	opts.Value = nativeTokenAmount
-	tx, err := v.coordinator.FundSubscriptionWithNative(
+	_, err := v.client.Decode(v.coordinator.FundSubscriptionWithNative(
 		opts,
 		subId,
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) FindSubscriptionID() (*big.Int, error) {
-	owner := v.client.GetDefaultWallet().Address()
+	owner := v.client.Addresses[0]
 	subscriptionIterator, err := v.coordinator.FilterSubscriptionCreated(
 		nil,
 		nil,
@@ -1058,7 +953,7 @@ func DeployVRFv2PlusLoadTestConsumer(seth *seth.Client, coordinatorAddr string) 
 	return &EthereumVRFv2PlusLoadTestConsumer{
 		client:   seth,
 		consumer: contract,
-		address:  &data.Address,
+		address:  data.Address,
 	}, err
 }
 
@@ -1087,7 +982,7 @@ func DeployVRFV2PlusWrapper(seth *seth.Client, linkAddr string, linkEthFeedAddr 
 	return &EthereumVRFV2PlusWrapper{
 		client:  seth,
 		wrapper: contract,
-		address: &data.Address,
+		address: data.Address,
 	}, err
 }
 
@@ -1097,7 +992,7 @@ func DeployVRFV2PlusWrapperLoadTestConsumer(seth *seth.Client, vrfV2PlusWrapperA
 		return &EthereumVRFV2PlusWrapperLoadTestConsumer{}, fmt.Errorf("failed to get VRFV2PlusWrapperLoadTestConsumer ABI: %w", err)
 	}
 
-	coordinatorDeploymentData, err := seth.DeployContract(
+	data, err := seth.DeployContract(
 		seth.NewTXOpts(),
 		"VRFV2PlusWrapperLoadTestConsumer",
 		*abi,
@@ -1107,7 +1002,7 @@ func DeployVRFV2PlusWrapperLoadTestConsumer(seth *seth.Client, vrfV2PlusWrapperA
 		return &EthereumVRFV2PlusWrapperLoadTestConsumer{}, fmt.Errorf("VRFV2PlusWrapperLoadTestConsumer instance deployment have failed: %w", err)
 	}
 
-	contract, err := vrfv2plus_wrapper_load_test_consumer.NewVRFV2PlusWrapperLoadTestConsumer(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	contract, err := vrfv2plus_wrapper_load_test_consumer.NewVRFV2PlusWrapperLoadTestConsumer(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return &EthereumVRFV2PlusWrapperLoadTestConsumer{}, fmt.Errorf("failed to instantiate VRFV2PlusWrapperLoadTestConsumer instance: %w", err)
 	}
@@ -1115,7 +1010,7 @@ func DeployVRFV2PlusWrapperLoadTestConsumer(seth *seth.Client, vrfV2PlusWrapperA
 	return &EthereumVRFV2PlusWrapperLoadTestConsumer{
 		client:   seth,
 		consumer: contract,
-		address:  &coordinatorDeploymentData.Address,
+		address:  data.Address,
 	}, err
 }
 
