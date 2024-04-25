@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 
-import "./testhelpers/Deployer.sol";
+import "./testhelpers/Deployer.t.sol";
 
 contract ForwarderTest is Deployer {
   function setUp() public {

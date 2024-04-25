@@ -6,7 +6,7 @@ import {Operator} from "../Operator.sol";
 import {ChainlinkClientHelper} from "./testhelpers/ChainlinkClientHelper.sol";
 import {LinkToken} from "../../shared/token/ERC677/LinkToken.sol";
 
-import "./testhelpers/Deployer.sol";
+import "./testhelpers/Deployer.t.sol";
 import "../AuthorizedReceiver.sol";
 
 contract OperatorTest is Deployer, AuthorizedReceiver {

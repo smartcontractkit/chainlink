@@ -1,6 +1,6 @@
 pragma solidity ^0.8.19;
 
-import "./testhelpers/Deployer.sol";
+import "./testhelpers/Deployer.t.sol";
 import "../AuthorizedReceiver.sol";
 import "../Operator.sol";
 
