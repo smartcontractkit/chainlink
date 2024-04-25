@@ -17,7 +17,7 @@ import (
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 )
 
 func newMockRpc(t *testing.T) *mocks.RPCClient {

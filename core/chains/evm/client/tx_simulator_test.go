@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 )
 
 func TestSimulateTx_Default(t *testing.T) {
