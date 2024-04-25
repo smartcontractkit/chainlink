@@ -99,8 +99,8 @@ deployments:
     helm:
       releaseName: "app"
       chart:
-        name: cl-cluster
-        path: ../charts/chainlink-cluster
+        name: ${CHAINLINK_CLUSTER_HELM_CHART_URI}
+        version: 0.5.0
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
