@@ -124,11 +124,6 @@ func SetupVRFV2Environment(
 		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrCreatingProvingKeyHash, err)
 	}
 
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
 	sethClient, err := env.GetSethClient(chainID)
 	if err != nil {
 		return nil, nil, nil, err
@@ -144,10 +139,6 @@ func SetupVRFV2Environment(
 	)
 	if err != nil {
 		return nil, nil, nil, err
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	nodeTypeToNodeMap[vrfcommon.VRF].TXKeyAddressStrings = vrfTXKeyAddressStrings

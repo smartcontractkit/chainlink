@@ -454,9 +454,9 @@ func (v *EthereumVRFCoordinatorV2) TransferOwnership(to common.Address) error {
 	return err
 }
 
-func (v *EthereumVRFCoordinatorV2) CreateSubscription() (*types.Transaction, error) {
+func (v *EthereumVRFCoordinatorV2) CreateSubscription() (*types.Receipt, error) {
 	tx, err := v.client.Decode(v.coordinator.CreateSubscription(v.client.NewTXOpts()))
-	return tx.Transaction, err
+	return tx.Receipt, err
 }
 
 func (v *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress string) error {
@@ -489,12 +489,12 @@ func (v *EthereumVRFCoordinatorV2) OracleWithdraw(recipient common.Address, amou
 // return funds to the subscription owner,
 // down not check if pending requests for a sub exist,
 // outstanding requests may fail onchain
-func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types.Transaction, error) {
+func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types.Receipt, error) {
 	tx, err := v.client.Decode(v.coordinator.OwnerCancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
 	))
-	return tx.Transaction, err
+	return tx.Receipt, err
 }
 
 func (v *EthereumVRFCoordinatorV2) ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
@@ -528,13 +528,13 @@ func (v *EthereumVRFCoordinatorV2) ParseLog(log types.Log) (generated.AbigenLog,
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
-func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error) {
+func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Address) (*types.Receipt, error) {
 	tx, err := v.client.Decode(v.coordinator.CancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
 		to,
 	))
-	return tx.Transaction, err
+	return tx.Receipt, err
 }
 
 func (v *EthereumVRFCoordinatorV2) FindSubscriptionID(subID uint64) (uint64, error) {
@@ -1149,12 +1149,12 @@ func (v *EthereumVRFOwner) WaitForRandomWordsForcedEvent(requestIDs []*big.Int, 
 	}
 }
 
-func (v *EthereumVRFOwner) OwnerCancelSubscription(subID uint64) (*types.Transaction, error) {
+func (v *EthereumVRFOwner) OwnerCancelSubscription(subID uint64) (*types.Receipt, error) {
 	tx, err := v.client.Decode(v.vrfOwner.OwnerCancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
 	))
-	return tx.Transaction, err
+	return tx.Receipt, err
 }
 
 func (v *EthereumVRFMockETHLINKFeed) Address() string {

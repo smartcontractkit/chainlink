@@ -60,6 +60,9 @@ func TestVRFV2Performance(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
 	updatedLabels := UpdateLabels(labels, t)
 
+	sethClient, err := testEnv.GetSethClient(chainID)
+	require.NoError(t, err, "Getting Seth client shouldn't fail")
+
 	l.Info().
 		Str("Test Type", testType).
 		Str("Test Duration", vrfv2Config.Performance.TestDuration.Duration.Truncate(time.Second).String()).
@@ -72,12 +75,9 @@ func TestVRFV2Performance(t *testing.T) {
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
-		evmClient, err := testEnv.GetEVMClient(chainID)
-		require.NoError(t, err, "error getting EVM client")
-
-		if evmClient.NetworkSimulated() {
+		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
-				Str("Network Name", evmClient.GetNetworkName()).
+				Str("Network Name", sethClient.Cfg.Network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
@@ -102,9 +102,6 @@ func TestVRFV2Performance(t *testing.T) {
 	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2 universe")
 
-	evmClient, err := testEnv.GetEVMClient(chainID)
-	require.NoError(t, err, "error getting EVM client")
-
 	var consumers []contracts.VRFv2LoadTestConsumer
 	subIDs, consumers, err := vrfv2.SetupSubsAndConsumersForExistingEnv(
 		testEnv,
@@ -126,7 +123,6 @@ func TestVRFV2Performance(t *testing.T) {
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 
 	vrfContracts.VRFV2Consumers = consumers
-	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
 	t.Run("vrfv2 performance test", func(t *testing.T) {
@@ -212,16 +208,15 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		Msg("Performance Test Configuration")
 
 	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
+	sethClient, err := testEnv.GetSethClient(chainID)
+	require.NoError(t, err, "Getting Seth client shouldn't fail")
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
-		evmClient, err := testEnv.GetEVMClient(chainID)
-		require.NoError(t, err, "error getting EVM client")
-
-		if evmClient.NetworkSimulated() {
+		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
-				Str("Network Name", evmClient.GetNetworkName()).
+				Str("Network Name", sethClient.Cfg.Network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
@@ -246,10 +241,6 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2 universe")
 
-	evmClient, err := testEnv.GetEVMClient(chainID)
-	require.NoError(t, err, "error getting EVM client")
-
-	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 	t.Run("vrfv2 and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
@@ -307,9 +298,9 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		var wgBlockNumberTobe sync.WaitGroup
 		wgBlockNumberTobe.Add(1)
 		//Wait at least 256 blocks
-		latestBlockNumber, err := evmClient.LatestBlockNumber(testcontext.Get(t))
-		require.NoError(t, err, "error getting latest block number")
-		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), evmClient, &wgBlockNumberTobe, configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration, t)
+		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
+		require.NoError(t, err)
+		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), sethClient, &wgBlockNumberTobe, configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration, t)
 		wgBlockNumberTobe.Wait()
 		require.NoError(t, err, "error waiting for block number to be")
 

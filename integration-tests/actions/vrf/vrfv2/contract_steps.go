@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
@@ -196,16 +195,6 @@ func SetupVRFV2Contracts(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrSetVRFCoordinatorConfig, err)
 	}
-
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
 	return vrfContracts, nil
 }
 
@@ -219,23 +208,10 @@ func setupVRFOwnerContract(env *test_env.CLClusterTestEnv, chainID int64, contra
 	if err != nil {
 		return nil
 	}
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return err
-	}
-
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil
-	}
 	l.Info().
 		Str("VRFOwner", contracts.VRFOwner.Address()).
 		Msg("Accepting VRF Ownership")
 	err = contracts.VRFOwner.AcceptVRFOwnership()
-	if err != nil {
-		return nil
-	}
-	err = evmClient.WaitForEvents()
 	if err != nil {
 		return nil
 	}
@@ -246,10 +222,6 @@ func setupVRFOwnerContract(env *test_env.CLClusterTestEnv, chainID int64, contra
 	err = contracts.VRFOwner.SetAuthorizedSenders(allNativeTokenKeyAddresses)
 	if err != nil {
 		return nil
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return err
 }
@@ -281,16 +253,6 @@ func CreateFundSubsAndAddConsumers(
 	if err != nil {
 		return nil, err
 	}
-
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
 	return subIDs, nil
 }
 
@@ -305,15 +267,6 @@ func CreateSubsAndFund(
 	subs, err := CreateSubs(env, chainID, coordinator, subAmountToCreate)
 	if err != nil {
 		return nil, err
-	}
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 	err = FundSubscriptions(env, chainID, subscriptionFundingAmountLink, linkToken, coordinator, subs)
 	if err != nil {
@@ -356,25 +309,10 @@ func AddConsumersToSubs(
 }
 
 func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordinator contracts.VRFCoordinatorV2) (uint64, error) {
-	tx, err := coordinator.CreateSubscription()
+	receipt, err := coordinator.CreateSubscription()
 	if err != nil {
 		return 0, fmt.Errorf("%s, err %w", vrfcommon.ErrCreateVRFSubscription, err)
 	}
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return 0, err
-	}
-
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return 0, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
-
-	receipt, err := evmClient.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return 0, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
-
 	//SubscriptionsCreated Log should be emitted with the subscription ID
 	subID := receipt.Logs[0].Topics[1].Big().Uint64()
 
@@ -389,22 +327,13 @@ func FundSubscriptions(
 	coordinator contracts.VRFCoordinatorV2,
 	subIDs []uint64,
 ) error {
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return err
-	}
-
 	for _, subID := range subIDs {
 		//Link Billing
 		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-		err := FundVRFCoordinatorV2Subscription(linkAddress, coordinator, evmClient, subID, amountJuels)
+		err := FundVRFCoordinatorV2Subscription(linkAddress, coordinator, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", vrfcommon.ErrFundSubWithLinkToken, err)
 		}
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return nil
 }
@@ -412,7 +341,6 @@ func FundSubscriptions(
 func FundVRFCoordinatorV2Subscription(
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2,
-	chainClient blockchain.EVMClient,
 	subscriptionID uint64,
 	linkFundingAmountJuels *big.Int,
 ) error {
@@ -424,7 +352,7 @@ func FundVRFCoordinatorV2Subscription(
 	if err != nil {
 		return fmt.Errorf("%s, err %w", vrfcommon.ErrSendingLinkToken, err)
 	}
-	return chainClient.WaitForEvents()
+	return nil
 }
 
 func DirectFundingRequestRandomnessAndWaitForFulfillment(

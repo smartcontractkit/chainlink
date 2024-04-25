@@ -57,17 +57,17 @@ type VRFCoordinatorV2 interface {
 	) error
 	TransferOwnership(to common.Address) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
-	CreateSubscription() (*types.Transaction, error)
+	CreateSubscription() (*types.Receipt, error)
 	AddConsumer(subId uint64, consumerAddress string) error
 	Address() string
 	GetSubscription(ctx context.Context, subID uint64) (Subscription, error)
 	GetOwner(ctx context.Context) (common.Address, error)
 	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
-	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
+	OwnerCancelSubscription(subID uint64) (*types.Receipt, error)
 	ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
 	ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error)
 	ParseLog(log types.Log) (generated.AbigenLog, error)
-	CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
+	CancelSubscription(subID uint64, to common.Address) (*types.Receipt, error)
 	FindSubscriptionID(subID uint64) (uint64, error)
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
@@ -193,7 +193,7 @@ type VRFOwner interface {
 	SetAuthorizedSenders(senders []common.Address) error
 	AcceptVRFOwnership() error
 	WaitForRandomWordsForcedEvent(requestIDs []*big.Int, subIds []uint64, senders []common.Address, timeout time.Duration) (*vrf_owner.VRFOwnerRandomWordsForced, error)
-	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
+	OwnerCancelSubscription(subID uint64) (*types.Receipt, error)
 }
 
 type VRFConsumer interface {

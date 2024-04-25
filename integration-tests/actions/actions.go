@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/seth"
 )
 
 // ContractDeploymentInterval After how many contract actions to wait before starting any more
@@ -476,14 +477,6 @@ func GetTxFromAddress(tx *types.Transaction) (string, error) {
 }
 
 // todo - move to CTF
-func GetTxByHash(ctx context.Context, client blockchain.EVMClient, hash common.Hash) (*types.Transaction, bool, error) {
-	return client.(*blockchain.EthereumMultinodeClient).
-		DefaultClient.(*blockchain.EthereumClient).
-		Client.
-		TransactionByHash(ctx, hash)
-}
-
-// todo - move to CTF
 func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, error) {
 	jsonABI, err := abi.JSON(strings.NewReader(abiString))
 	if err != nil {
@@ -505,7 +498,7 @@ func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, e
 // todo - move to EVMClient
 func WaitForBlockNumberToBe(
 	waitForBlockNumberToBe uint64,
-	client blockchain.EVMClient,
+	client *seth.Client,
 	wg *sync.WaitGroup,
 	timeout time.Duration,
 	t testing.TB,
@@ -527,7 +520,7 @@ func WaitForBlockNumberToBe(
 					waitForBlockNumberToBe, blockNumber)
 		case <-ticker.C:
 			go func() {
-				currentBlockNumber, err := client.LatestBlockNumber(testcontext.Get(t))
+				currentBlockNumber, err := client.Client.BlockNumber(testcontext.Get(t))
 				if err != nil {
 					errorChannel <- err
 				}
