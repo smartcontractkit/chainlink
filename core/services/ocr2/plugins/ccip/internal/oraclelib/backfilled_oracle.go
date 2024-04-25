@@ -74,13 +74,12 @@ func (r *BackfilledOracle) Run() {
 			errMu.Lock()
 			err = multierr.Combine(err, dstReplayErr)
 			errMu.Unlock()
-			r.lggr.Infow("finished replaying  dst chain", "time", time.Since(s))
+			r.lggr.Infow("finished replaying dst chain", "time", time.Since(s))
 		}()
 	}
 	wg.Wait()
 	if err != nil {
-		r.lggr.Errorw("unexpected error replaying", "err", err)
-		return
+		r.lggr.Criticalw("unexpected error replaying, continuing plugin boot without all the logs backfilled", "err", err)
 	}
 	if err := ctx.Err(); err != nil {
 		r.lggr.Errorw("context already cancelled", "err", err)

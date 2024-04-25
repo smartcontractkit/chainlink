@@ -42,14 +42,15 @@ func TestBackfilledOracle(t *testing.T) {
 	job2.Run()
 	assert.True(t, job2.IsRunning())
 
-	/// Replay fails, so no Start()
+	/// Replay fails, but it starts anyway
 	lp11 := lpmocks.NewLogPoller(t)
 	lp12 := lpmocks.NewLogPoller(t)
 	lp11.On("Replay", mock.Anything, int64(1)).Return(errors.New("Replay failed")).Once()
 	lp12.On("Replay", mock.Anything, int64(2)).Return(errors.New("Replay failed")).Once()
 
 	oracle := jobmocks.NewServiceCtx(t)
+	oracle.On("Start", mock.Anything).Return(nil).Once()
 	job3 := NewBackfilledOracle(logger.NullLogger, lp11, lp12, 1, 2, oracle)
 	job3.Run()
-	assert.False(t, job3.IsRunning())
+	assert.True(t, job3.IsRunning())
 }
