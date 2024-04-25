@@ -111,7 +111,9 @@ func TestGasPrice_Check(t *testing.T) {
 			var oc []byte
 			if test.ParsingFailed {
 				oc, _ = cbor.Marshal(WrongOffchainConfig{MaxGasPrice1: []int{1, 2, 3}})
-				oc[len(oc) - 1] = 0x99
+				if len(oc) > 0 {
+					oc[len(oc)-1] = 0x99
+				}
 			} else if test.NotConfigured {
 				oc = []byte{1, 2, 3, 4} // parsing this will set maxGasPrice field to nil
 			} else if test.MaxGasPrice != nil {
