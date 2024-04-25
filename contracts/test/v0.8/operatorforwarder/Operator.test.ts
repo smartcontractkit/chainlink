@@ -50,31 +50,31 @@ before(async () => {
 
   roles = users.roles
   basicConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/BasicConsumer.sol:BasicConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/BasicConsumer.sol:BasicConsumer',
   )
   multiWordConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/MultiWordConsumer.sol:MultiWordConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/MultiWordConsumer.sol:MultiWordConsumer',
   )
   gasGuzzlingConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/GasGuzzlingConsumer.sol:GasGuzzlingConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/GasGuzzlingConsumer.sol:GasGuzzlingConsumer',
   )
   getterSetterFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/GetterSetter.sol:GetterSetter',
+    'src/v0.8/operatorforwarder/test/testhelpers/GetterSetter.sol:GetterSetter',
   )
   maliciousRequesterFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/MaliciousRequester.sol:MaliciousRequester',
+    'src/v0.8/operatorforwarder/test/testhelpers/MaliciousRequester.sol:MaliciousRequester',
   )
   maliciousConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/MaliciousConsumer.sol:MaliciousConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/MaliciousConsumer.sol:MaliciousConsumer',
   )
   maliciousMultiWordConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/MaliciousMultiWordConsumer.sol:MaliciousMultiWordConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/MaliciousMultiWordConsumer.sol:MaliciousMultiWordConsumer',
   )
   operatorFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/Operator.sol:Operator',
+    'src/v0.8/operatorforwarder/Operator.sol:Operator',
   )
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/AuthorizedForwarder.sol:AuthorizedForwarder',
+    'src/v0.8/operatorforwarder/AuthorizedForwarder.sol:AuthorizedForwarder',
   )
   linkTokenFactory = await ethers.getContractFactory(
     'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
