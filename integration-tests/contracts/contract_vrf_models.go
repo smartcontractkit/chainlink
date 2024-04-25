@@ -110,8 +110,8 @@ type VRFCoordinatorV2_5 interface {
 	Address() string
 	PendingRequestsExist(ctx context.Context, subID *big.Int) (bool, error)
 	GetSubscription(ctx context.Context, subID *big.Int) (Subscription, error)
-	OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error)
-	CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error)
+	OwnerCancelSubscription(subID *big.Int) (*types.Receipt, error)
+	CancelSubscription(subID *big.Int, to common.Address) (*types.Receipt, error)
 	Withdraw(recipient common.Address) error
 	WithdrawNative(recipient common.Address) error
 	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)

@@ -234,7 +234,7 @@ func (v *EthereumVRFCoordinatorV2_5) GetNativeTokenTotalBalance(ctx context.Cont
 // OwnerCancelSubscription cancels subscription by Coordinator owner
 // return funds to sub owner,
 // does not check if pending requests for a sub exist
-func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error) {
+func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*types.Receipt, error) {
 	tx, err := v.client.Decode(v.coordinator.OwnerCancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
@@ -242,13 +242,13 @@ func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*t
 	if err != nil {
 		return nil, err
 	}
-	return tx.Transaction, nil
+	return tx.Receipt, nil
 }
 
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
-func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error) {
+func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to common.Address) (*types.Receipt, error) {
 	tx, err := v.client.Decode(v.coordinator.CancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
@@ -257,7 +257,7 @@ func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to commo
 	if err != nil {
 		return nil, err
 	}
-	return tx.Transaction, nil
+	return tx.Receipt, nil
 }
 
 func (v *EthereumVRFCoordinatorV2_5) Withdraw(recipient common.Address) error {

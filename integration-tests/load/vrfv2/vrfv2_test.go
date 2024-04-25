@@ -38,7 +38,6 @@ func TestVRFV2Performance(t *testing.T) {
 		testEnv                      *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 	)
 	l := logging.GetTestLogger(t)
@@ -60,9 +59,6 @@ func TestVRFV2Performance(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
 	updatedLabels := UpdateLabels(labels, t)
 
-	sethClient, err := testEnv.GetSethClient(chainID)
-	require.NoError(t, err, "Getting Seth client shouldn't fail")
-
 	l.Info().
 		Str("Test Type", testType).
 		Str("Test Duration", vrfv2Config.Performance.TestDuration.Duration.Truncate(time.Second).String()).
@@ -75,6 +71,9 @@ func TestVRFV2Performance(t *testing.T) {
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
+		sethClient, err := testEnv.GetSethClient(chainID)
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
+
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -82,7 +81,7 @@ func TestVRFV2Performance(t *testing.T) {
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
@@ -176,7 +175,6 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		testEnv                      *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 	)
 	l := logging.GetTestLogger(t)
@@ -208,12 +206,12 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		Msg("Performance Test Configuration")
 
 	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
-	sethClient, err := testEnv.GetSethClient(chainID)
-	require.NoError(t, err, "Getting Seth client shouldn't fail")
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
+		sethClient, err := testEnv.GetSethClient(chainID)
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -221,7 +219,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
@@ -298,6 +296,8 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		var wgBlockNumberTobe sync.WaitGroup
 		wgBlockNumberTobe.Add(1)
 		//Wait at least 256 blocks
+		sethClient, err := testEnv.GetSethClient(chainID)
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 		require.NoError(t, err)
 		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), sethClient, &wgBlockNumberTobe, configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration, t)

@@ -37,7 +37,6 @@ func TestVRFv2Basic(t *testing.T) {
 		testEnv                      *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
@@ -51,7 +50,6 @@ func TestVRFv2Basic(t *testing.T) {
 	cleanupFn := func() {
 		sethClient, err := testEnv.GetSethClient(chainID)
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
-
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -59,7 +57,7 @@ func TestVRFv2Basic(t *testing.T) {
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
@@ -77,6 +75,9 @@ func TestVRFv2Basic(t *testing.T) {
 
 	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
+
+	sethClient, err := testEnv.GetSethClient(chainID)
+	require.NoError(t, err, "Getting Seth client shouldn't fail")
 
 	t.Run("Request Randomness", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -294,18 +295,18 @@ func TestVRFv2Basic(t *testing.T) {
 
 		amountToWithdrawLink := fulfilledEventLink.Payment
 
-		defaultWalletBalanceLinkBeforeOracleWithdraw, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		defaultWalletBalanceLinkBeforeOracleWithdraw, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.Addresses[0].Hex())
 		require.NoError(t, err)
 
 		l.Info().
-			Str("Returning to", defaultWalletAddress).
+			Str("Returning to", sethClient.Addresses[0].Hex()).
 			Str("Amount", amountToWithdrawLink.String()).
 			Msg("Invoking Oracle Withdraw for LINK")
 
-		err = vrfContracts.CoordinatorV2.OracleWithdraw(common.HexToAddress(defaultWalletAddress), amountToWithdrawLink)
+		err = vrfContracts.CoordinatorV2.OracleWithdraw(sethClient.Addresses[0], amountToWithdrawLink)
 		require.NoError(t, err, "Error withdrawing LINK from coordinator to default wallet")
 
-		defaultWalletBalanceLinkAfterOracleWithdraw, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		defaultWalletBalanceLinkAfterOracleWithdraw, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.Addresses[0].Hex())
 		require.NoError(t, err)
 
 		require.Equal(
@@ -446,7 +447,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, pendingRequestsExist, "Pending requests should exist after unfilfulled requests due to low sub balance")
 
-		walletBalanceLinkBeforeSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		walletBalanceLinkBeforeSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.Addresses[0].Hex())
 		require.NoError(t, err)
 
 		subscriptionForCancelling, err = vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForOwnerCancelling)
@@ -456,7 +457,7 @@ func TestVRFv2Basic(t *testing.T) {
 		l.Info().
 			Str("Subscription Amount Link", subBalanceLink.String()).
 			Uint64("Returning funds from SubID", subIDForOwnerCancelling).
-			Str("Returning funds to", defaultWalletAddress).
+			Str("Returning funds to", sethClient.Addresses[0].Hex()).
 			Msg("Canceling subscription and returning funds to subscription owner")
 
 		// Call OwnerCancelSubscription
@@ -487,7 +488,7 @@ func TestVRFv2Basic(t *testing.T) {
 
 		require.Equal(t, subBalanceLink, subscriptionCanceledEvent.Amount, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
 
-		walletBalanceLinkAfterSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), defaultWalletAddress)
+		walletBalanceLinkAfterSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.Addresses[0].Hex())
 		require.NoError(t, err)
 
 		// Verify that subscription was deleted from Coordinator contract
@@ -518,7 +519,6 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		testEnv                      *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
@@ -530,9 +530,10 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	}
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 	vrfv2Config := config.VRFv2
-	sethClient, err := testEnv.GetSethClient(chainID)
-	require.NoError(t, err, "Getting Seth client shouldn't fail")
+
 	cleanupFn := func() {
+		sethClient, err := testEnv.GetSethClient(chainID)
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -540,7 +541,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
@@ -600,7 +601,8 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 				configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-
+			sethClient, err := testEnv.GetSethClient(chainID)
+			require.NoError(t, err, "Getting Seth client shouldn't fail")
 			fulfillmentTx, _, err := sethClient.Client.TransactionByHash(testcontext.Get(t), randomWordsFulfilledEvent.Raw.TxHash)
 			require.NoError(t, err, "error getting tx from hash")
 			fulfillmentTxFromAddress, err := actions.GetTxFromAddress(fulfillmentTx)
@@ -624,7 +626,6 @@ func TestVRFOwner(t *testing.T) {
 		testEnv                      *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 	)
 	l := logging.GetTestLogger(t)
@@ -633,6 +634,7 @@ func TestVRFOwner(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 	vrfv2Config := config.VRFv2
+
 	cleanupFn := func() {
 		sethClient, err := testEnv.GetSethClient(chainID)
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
@@ -643,7 +645,7 @@ func TestVRFOwner(t *testing.T) {
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
@@ -756,7 +758,6 @@ func TestVRFV2WithBHS(t *testing.T) {
 		testEnv                      *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
@@ -767,10 +768,9 @@ func TestVRFV2WithBHS(t *testing.T) {
 	vrfv2Config := config.VRFv2
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
-	sethClient, err := testEnv.GetSethClient(chainID)
-	require.NoError(t, err, "Getting Seth client shouldn't fail")
-
 	cleanupFn := func() {
+		sethClient, err := testEnv.GetSethClient(chainID)
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -778,7 +778,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
@@ -845,6 +845,8 @@ func TestVRFV2WithBHS(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//Wait at least 256 blocks
+		sethClient, err := testEnv.GetSethClient(chainID)
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), sethClient, &wg, time.Second*260, t)
 		wg.Wait()
 		require.NoError(t, err)
@@ -905,6 +907,9 @@ func TestVRFV2WithBHS(t *testing.T) {
 
 		_, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
 		require.Error(t, err, "error not occurred when getting blockhash for a blocknumber which was not stored in BHS contract")
+
+		sethClient, err := testEnv.GetSethClient(chainID)
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
 
 		var wg sync.WaitGroup
 		wg.Add(1)
