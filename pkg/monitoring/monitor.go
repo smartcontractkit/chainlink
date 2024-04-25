@@ -183,15 +183,21 @@ func (m Monitor) Run() {
 		100, // bufferCapacity for source pollers
 	)
 	subs.Go(func() {
-		m.Manager.Run(rootCtx, func(localCtx context.Context, data RDDData) {
-			m.ChainMetrics.SetNewFeedConfigsDetected(float64(len(data.Feeds)))
-			monitor.Run(localCtx, data)
-
+		m.Manager.Run(rootCtx,
+			// run per-feed monitors
+			func(localCtx context.Context, data RDDData) {
+				m.ChainMetrics.SetNewFeedConfigsDetected(float64(len(data.Feeds)))
+				m.Log.Infow("Starting Feed Monitor", "exporters", len(m.ExporterFactories), "sources", len(instrumentedSourceFactories), "feeds", len(data.Feeds))
+				monitor.Run(localCtx, data) // blocking func controlled by ctx
+			},
 			// run network monitor if factories present
-			if len(m.NetworkExporterFactories) != 0 || len(m.NetworkSourceFactories) != 0 {
-				networkMonitor.Run(localCtx, data)
-			}
-		})
+			func(localCtx context.Context, data RDDData) {
+				if len(m.NetworkExporterFactories) != 0 || len(m.NetworkSourceFactories) != 0 {
+					m.Log.Infow("Starting Network Monitor", "exporters", len(m.NetworkExporterFactories), "sources", len(m.NetworkSourceFactories))
+					networkMonitor.Run(localCtx, data) // blocking func controlled by ctx
+				}
+			},
+		)
 	})
 
 	subs.Go(func() {

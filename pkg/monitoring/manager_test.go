@@ -13,7 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 const numPollerUpdates = 10
@@ -123,4 +125,48 @@ func TestManager(t *testing.T) {
 		require.Equal(t, len(decodedData.Feeds), len(feeds))
 		require.Equal(t, len(decodedData.Nodes), len(nodes))
 	})
+
+	t.Run("manager can manage multiple functions", func(t *testing.T) {
+		defer goleak.VerifyNone(t)
+
+		var subs utils.Subprocesses
+		ctx, cancel := context.WithCancel(tests.Context(t))
+
+		poller := &fakePoller{ch: make(chan interface{})}
+
+		manager := NewManager(logger.Test(t), poller)
+
+		// run two managed funcs
+		var createWG sync.WaitGroup
+		var closeWG sync.WaitGroup
+		managed := func(ctx context.Context, _ RDDData) {
+			createWG.Done()
+			<-ctx.Done()
+			closeWG.Done()
+		}
+		managedNonBlocking := func(_ context.Context, _ RDDData) {
+			createWG.Done()
+			closeWG.Done()
+		}
+		subs.Go(func() {
+			manager.Run(ctx, managed, managed, managedNonBlocking)
+		})
+
+		// send RDD update to create multiple managed funcs
+		createWG.Add(3) // expect to see 3 created
+		closeWG.Add(3)  // expect to see 3 closed on restart
+		poller.ch <- RDDData{Feeds: []FeedConfig{generateFeedConfig()}}
+		createWG.Wait() // wait for created
+
+		// ensure stop + restarting works
+		createWG.Add(3)                                                 // expect 3 new created
+		closeWG.Add(3)                                                  // expect 3 closed on shutdown
+		poller.ch <- RDDData{Feeds: []FeedConfig{generateFeedConfig()}} // trigger restart
+		createWG.Wait()
+
+		cancel()       // shutdown
+		closeWG.Wait() // wait for managed funcs
+		subs.Wait()    // wait for manager
+	})
+
 }

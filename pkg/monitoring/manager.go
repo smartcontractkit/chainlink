@@ -16,7 +16,7 @@ import (
 // In order to not be coupled with the MultiFeedMonitor component, it simply runs a function
 // every time the feed configuration has changed. This is hooked up to the MultiFeedMonitor.Run method in the Monitor.
 type Manager interface {
-	Run(backgroundCtx context.Context, managed ManagedFunc)
+	Run(backgroundCtx context.Context, managed ...ManagedFunc)
 	HTTPHandler() http.Handler
 }
 
@@ -42,7 +42,7 @@ type managerImpl struct {
 	currentDataMu sync.Mutex
 }
 
-func (m *managerImpl) Run(backgroundCtx context.Context, managed ManagedFunc) {
+func (m *managerImpl) Run(backgroundCtx context.Context, managed ...ManagedFunc) {
 	var localCtx context.Context
 	var localCtxCancel context.CancelFunc
 	var localSubs *utils.Subprocesses
@@ -75,9 +75,13 @@ func (m *managerImpl) Run(backgroundCtx context.Context, managed ManagedFunc) {
 			// Start new managed function
 			localCtx, localCtxCancel = context.WithCancel(backgroundCtx)
 			localSubs = &utils.Subprocesses{}
-			localSubs.Go(func() {
-				managed(localCtx, updatedData)
-			})
+			m.log.Infow("starting managed funcs", "count", len(managed))
+			for i := range managed {
+				i := i // copy i to prevent race
+				localSubs.Go(func() {
+					managed[i](localCtx, updatedData)
+				})
+			}
 		case <-backgroundCtx.Done():
 			if localCtxCancel != nil {
 				localCtxCancel()
