@@ -1166,7 +1166,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d")
 				}
-			}, "4m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
+			}, "3m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
 			// set the maxGasPrice to 1 wei
 			uoc, _ := cbor.Marshal(gasprice.UpkeepOffchainConfig{MaxGasPrice: big.NewInt(1)})
@@ -1178,9 +1178,9 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 			}
 
 			// Store how many times each upkeep performed once their offchain config is set with maxGasPrice = 1 wei
-			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
+			var countersAfterSettingLowMaxGasPrice = make([]*big.Int, len(upkeepIDs))
 			for i := 0; i < len(upkeepIDs); i++ {
-				countersAfterPause[i], err = consumers[i].Counter(testcontext.Get(t))
+				countersAfterSettingLowMaxGasPrice[i], err = consumers[i].Counter(testcontext.Get(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			}
 
@@ -1189,11 +1189,38 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err := consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterPause[i].Int64()),
+					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterSettingLowMaxGasPrice[i].Int64()),
 						"Expected consumer counter to remain constant at %d, but got %d",
-						countersAfterPause[i].Int64(), latestCounter.Int64())
+						countersAfterSettingLowMaxGasPrice[i].Int64(), latestCounter.Int64())
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, "2m", "1s").Should(gomega.Succeed())
+
+			// setting offchain config with a high max gas price for the first upkeep, it should perform again while
+			// other upkeeps should not perform
+			// set the maxGasPrice to 500 gwei
+			uoc, _ = cbor.Marshal(gasprice.UpkeepOffchainConfig{MaxGasPrice: big.NewInt(500_000_000_000)})
+			err = a.Registry.SetUpkeepOffchainConfig(upkeepIDs[0], uoc)
+			require.NoError(t, err, "Error setting upkeep offchain config")
+
+			// the counters of all other upkeeps should stay constant because their max gas price remains very low
+			gom.Consistently(func(g gomega.Gomega) {
+				for i := 1; i < len(upkeepIDs); i++ {
+					latestCounter, err := consumers[i].Counter(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterSettingLowMaxGasPrice[i].Int64()),
+						"Expected consumer counter to remain constant at %d, but got %d",
+						countersAfterSettingLowMaxGasPrice[i].Int64(), latestCounter.Int64())
+				}
+			}, "2m", "1s").Should(gomega.Succeed())
+
+			// Observe that the first upkeep should start performing again
+			gom.Eventually(func(g gomega.Gomega) {
+				latestCounter, err := consumers[0].Counter(testcontext.Get(t))
+				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index 0")
+				g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically(">", countersAfterSettingLowMaxGasPrice[0].Int64()),
+					"Expected consumer counter to be greater than %d, but got %d",
+					countersAfterSettingLowMaxGasPrice[0].Int64(), latestCounter.Int64())
+			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 		})
 	}
 }
