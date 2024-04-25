@@ -13,7 +13,7 @@ import (
 
 const (
 	// feeLimit is a placeholder when getting current price from gas estimator. it does not impact gas price calculation
-	feeLimit     = uint64(1_000_000)
+	feeLimit    = uint64(1_000_000)
 	// maxFeePrice is a placeholder when getting current price from gas estimator. it caps the returned gas price from
 	// the estimator. it's set to a very high value because the gas price will be compared with user-defined gas price
 	// later.
