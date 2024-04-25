@@ -703,6 +703,23 @@ contract SetConfig is SetUp {
     );
   }
 
+  function testSetConfigOnTransmittersAndPayees() public {
+    AutomationRegistryBase2_3.TransmitterPayeeInfo[] memory transmitterPayeeInfos = registry
+      .getTransmittersWithPayees();
+    assertEq(transmitterPayeeInfos.length, TRANSMITTERS.length);
+
+    for (uint256 i = 0; i < transmitterPayeeInfos.length; i++) {
+      address transmitterAddress = transmitterPayeeInfos[i].transmitterAddress;
+      address payeeAddress = transmitterPayeeInfos[i].payeeAddress;
+
+      address expectedTransmitter = TRANSMITTERS[i];
+      address expectedPayee = PAYEES[i];
+
+      assertEq(transmitterAddress, expectedTransmitter);
+      assertEq(payeeAddress, expectedPayee);
+    }
+  }
+
   function testSetConfigWithNewTransmittersSuccess() public {
     registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
@@ -923,6 +940,9 @@ contract NOPsSettlement is SetUp {
       assertEq(i, index);
       assertEq(0, balance);
     }
+
+    // after the offchain settlement, the total reserve amount of LINK should be 0
+    assertEq(registry.getReserveAmount(address(linkToken)), 0);
   }
 
   function testSettleNOPsOffchainForDeactivatedTransmittersSuccess() public {
@@ -1018,6 +1038,9 @@ contract NOPsSettlement is SetUp {
       assertEq(i, index);
       assertEq(0, balance);
     }
+
+    // after the offchain settlement, the total reserve amount of LINK should be 0
+    assertEq(registry.getReserveAmount(address(linkToken)), 0);
   }
 
   function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {

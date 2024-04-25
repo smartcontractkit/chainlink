@@ -2,12 +2,12 @@ package promreporter
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
@@ -28,7 +28,7 @@ import (
 type (
 	promReporter struct {
 		services.StateMachine
-		db           *sql.DB
+		ds           sqlutil.DataSource
 		chains       legacyevm.LegacyChainContainer
 		lggr         logger.Logger
 		backend      PrometheusBackend
@@ -92,7 +92,7 @@ func (defaultBackend) SetPipelineTaskRunsQueued(n int) {
 	promPipelineRunsQueued.Set(float64(n))
 }
 
-func NewPromReporter(db *sql.DB, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) *promReporter {
+func NewPromReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) *promReporter {
 	var backend PrometheusBackend = defaultBackend{}
 	period := 15 * time.Second
 	for _, opt := range opts {
@@ -106,7 +106,7 @@ func NewPromReporter(db *sql.DB, chainContainer legacyevm.LegacyChainContainer, 
 
 	chStop := make(chan struct{})
 	return &promReporter{
-		db:           db,
+		ds:           ds,
 		chains:       chainContainer,
 		lggr:         lggr.Named("PromReporter"),
 		backend:      backend,
@@ -242,7 +242,7 @@ func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *ev
 }
 
 func (pr *promReporter) reportPipelineRunStats(ctx context.Context) (err error) {
-	rows, err := pr.db.QueryContext(ctx, `
+	rows, err := pr.ds.QueryContext(ctx, `
 SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL
 `)
 	if err != nil {

@@ -82,6 +82,7 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	t.Parallel()
 
+	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -175,7 +176,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 			require.NoError(t, err)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
-		err := app.BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
+		err := app.BridgeORM().CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName("substrate-adapter1"),
 			URL:  models.WebURL(*u),
 		})
@@ -205,7 +206,7 @@ observationSource   = """
 """
     `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec))
 
-		_, err := webhook.ValidatedWebhookSpec(tomlSpec, app.GetExternalInitiatorManager())
+		_, err := webhook.ValidatedWebhookSpec(ctx, tomlSpec, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		jobID = job.ID
@@ -227,7 +228,7 @@ observationSource   = """
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, 401)
 
-		cltest.AssertCountStays(t, app.GetSqlxDB(), "pipeline_runs", 0)
+		cltest.AssertCountStays(t, app.GetDB(), "pipeline_runs", 0)
 	})
 
 	t.Run("calling webhook_spec with matching external_initiator_id works", func(t *testing.T) {
@@ -236,9 +237,9 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM := bridges.NewORM(app.GetSqlxDB())
-		jobORM := job.NewORM(app.GetSqlxDB(), pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
+		pipelineORM := pipeline.NewORM(app.GetDB(), logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM := bridges.NewORM(app.GetDB())
+		jobORM := job.NewORM(app.GetDB(), pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t))
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -992,8 +993,9 @@ observationSource = """
 				return answer.String()
 			}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
 
+			ctx := testutils.Context(t)
 			for _, app := range apps {
-				jobs, _, err := app.JobORM().FindJobs(0, 1000)
+				jobs, _, err := app.JobORM().FindJobs(ctx, 0, 1000)
 				require.NoError(t, err)
 				// No spec errors
 				for _, j := range jobs {
@@ -1220,8 +1222,9 @@ observationSource = """
 			return answer.String()
 		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
 
+		ctx := testutils.Context(t)
 		for _, app := range apps {
-			jobs, _, err := app.JobORM().FindJobs(0, 1000)
+			jobs, _, err := app.JobORM().FindJobs(ctx, 0, 1000)
 			require.NoError(t, err)
 			// No spec errors
 			for _, j := range jobs {

@@ -51,6 +51,7 @@ output.txt
 race.*
 golangci-lint-output.txt
 /golangci-lint/
+.covdata
 
 # DB state
 ./db/
