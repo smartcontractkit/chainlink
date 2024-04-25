@@ -1,8 +1,12 @@
 # Changelog Chainlink Core
 
+
 ## 2.11.0 - UNRELEASED
 
 ### Minor Changes
+
+- [#12920](https://github.com/smartcontractkit/chainlink/pull/12920) [`2d2a42876d`](https://github.com/smartcontractkit/chainlink/commit/2d2a42876de5285618c9a9de4b834d078ae8a8cc) Thanks [@ilija42](https://github.com/ilija42)! - Move JuelsPerFeeCoinCacheDuration under JuelsPerFeeCoinCache struct in config. Rename JuelsPerFeeCoinCacheDuration to updateInterval. Add stalenessAlertThreshold to JuelsPerFeeCoinCache config.
+  StalenessAlertThreshold cfg option has a default of 24 hours which means that it doesn't have to be set unless we want to override the duration after which a stale cache should start throwing errors.
 
 - [#12920](https://github.com/smartcontractkit/chainlink/pull/12920) [`2d2a42876d`](https://github.com/smartcontractkit/chainlink/commit/2d2a42876de5285618c9a9de4b834d078ae8a8cc) Thanks [@ilija42](https://github.com/ilija42)! - Move JuelsPerFeeCoinCacheDuration under JuelsPerFeeCoinCache struct in config. Rename JuelsPerFeeCoinCacheDuration to updateInterval. Add stalenessAlertThreshold to JuelsPerFeeCoinCache config.
   StalenessAlertThreshold cfg option has a default of 24 hours which means that it doesn't have to be set unless we want to override the duration after which a stale cache should start throwing errors.
@@ -38,6 +42,10 @@
 - [#12578](https://github.com/smartcontractkit/chainlink/pull/12578) [`ffd492295f`](https://github.com/smartcontractkit/chainlink/commit/ffd492295f03de8c3b946a003dacbded731d7899) Thanks [@RensR](https://github.com/RensR)! - Remove 0.6 and 0.7 Solidity source code
 
 ### Patch Changes
+
+- [#12920](https://github.com/smartcontractkit/chainlink/pull/12920) [`be50a8370a`](https://github.com/smartcontractkit/chainlink/commit/be50a8370a0f604fbe9612e38479ccfa5ceb1ebd) Thanks [@ilija42](https://github.com/ilija42)! - Fix in memory data source cache changes/bug that only allowed pipeline results where none of the data sources failed. #bugfix
+
+- [#12973](https://github.com/smartcontractkit/chainlink/pull/12973) [`02d3f2fee9`](https://github.com/smartcontractkit/chainlink/commit/02d3f2fee9269b85e9500ae720d15bec6c5e0d63) Thanks [@george-dorin](https://github.com/george-dorin)! - #added JuelsPerFeeCoinCache is enabled by default for OCR2 jobs, added `Disable` field under [pluginConfig.JuelsPerFeeCoinCache] tag to disable this feature (e.g. Disable=true)
 
 - [#12920](https://github.com/smartcontractkit/chainlink/pull/12920) [`be50a8370a`](https://github.com/smartcontractkit/chainlink/commit/be50a8370a0f604fbe9612e38479ccfa5ceb1ebd) Thanks [@ilija42](https://github.com/ilija42)! - Fix in memory data source cache changes/bug that only allowed pipeline results where none of the data sources failed. #bugfix
 
