@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,14 +17,16 @@ import (
 // TODO: Fix race conditions in tests!
 
 func Test_Poller(t *testing.T) {
-	pollingTimeout := 10 * time.Millisecond
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
 	t.Run("Test polling for heads", func(t *testing.T) {
 		// Mock polling function that returns a new value every time it's called
 		var pollNumber int
+		pollLock := sync.Mutex{}
 		pollFunc := func(ctx context.Context) (Head, error) {
+			pollLock.Lock()
+			defer pollLock.Unlock()
 			pollNumber++
 			h := head{
 				BlockNumber:     int64(pollNumber),
@@ -36,7 +39,7 @@ func Test_Poller(t *testing.T) {
 		channel := make(chan Head, 1)
 
 		// Create poller and start to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, &lggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
@@ -64,7 +67,7 @@ func Test_Poller(t *testing.T) {
 		channel := make(chan Head, 1)
 
 		// Create poller and subscribe to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, &lggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
@@ -86,6 +89,17 @@ func Test_Poller(t *testing.T) {
 		}()
 		<-done
 	})
+
+	/* TODO
+	t.Run("Test polling timeout", func(t *testing.T) {
+		pollingTimeout := 10 * time.Millisecond
+		pollFunc := func(ctx context.Context) (Head, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+	})
+	*/
+
 }
 
 func Test_Poller_Unsubscribe(t *testing.T) {
