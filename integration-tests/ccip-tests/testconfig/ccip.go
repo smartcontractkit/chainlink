@@ -23,6 +23,13 @@ const (
 	CONTRACTS_OVERRIDE_CONFIG = "BASE64_CCIP_CONFIG_OVERRIDE_CONTRACTS"
 )
 
+type OffRampConfig struct {
+	MaxDataBytes   *uint32          `toml:",omitempty"`
+	BatchGasLimit  *uint32          `toml:",omitempty"`
+	InflightExpiry *config.Duration `toml:",omitempty"`
+	RootSnooze     *config.Duration `toml:",omitempty"`
+}
+
 type CCIPTestConfig struct {
 	KeepEnvAlive                               *bool                                 `toml:",omitempty"`
 	BiDirectionalLane                          *bool                                 `toml:",omitempty"`
@@ -59,8 +66,8 @@ type CCIPTestConfig struct {
 	SendMaxDataInEveryMsgCount                 *int64                                `toml:",omitempty"`
 	CommitOCRParams                            *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
 	ExecOCRParams                              *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
+	OffRampConfig                              *OffRampConfig                        `toml:",omitempty"`
 	CommitInflightExpiry                       *config.Duration                      `toml:",omitempty"`
-	ExecInflightExpiry                         *config.Duration                      `toml:",omitempty"`
 	OptimizeSpace                              *bool                                 `toml:",omitempty"`
 	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration                      `toml:",omitempty"`
 	StoreLaneConfig                            *bool                                 `toml:",omitempty"`

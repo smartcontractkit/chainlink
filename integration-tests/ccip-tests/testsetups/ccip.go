@@ -299,8 +299,21 @@ func (c *CCIPTestConfig) SetOCRParams() error {
 			return err
 		}
 	}
-	if c.TestGroupInput.ExecInflightExpiry != nil && c.TestGroupInput.ExecInflightExpiry.Duration() > 0 {
-		actions.InflightExpiryExec = c.TestGroupInput.ExecInflightExpiry.Duration()
+	if c.TestGroupInput.OffRampConfig != nil {
+		if c.TestGroupInput.OffRampConfig.InflightExpiry != nil &&
+			c.TestGroupInput.OffRampConfig.InflightExpiry.Duration() > 0 {
+			actions.InflightExpiryExec = c.TestGroupInput.OffRampConfig.InflightExpiry.Duration()
+		}
+		if pointer.GetUint32(c.TestGroupInput.OffRampConfig.BatchGasLimit) > 0 {
+			actions.BatchGasLimit = pointer.GetUint32(c.TestGroupInput.OffRampConfig.BatchGasLimit)
+		}
+		if pointer.GetUint32(c.TestGroupInput.OffRampConfig.MaxDataBytes) > 0 {
+			actions.MaxDataBytes = pointer.GetUint32(c.TestGroupInput.OffRampConfig.MaxDataBytes)
+		}
+		if c.TestGroupInput.OffRampConfig.RootSnooze != nil &&
+			c.TestGroupInput.OffRampConfig.RootSnooze.Duration() > 0 {
+			actions.RootSnoozeTime = c.TestGroupInput.OffRampConfig.RootSnooze.Duration()
+		}
 	}
 	if c.TestGroupInput.CommitInflightExpiry != nil && c.TestGroupInput.CommitInflightExpiry.Duration() > 0 {
 		actions.InflightExpiryCommit = c.TestGroupInput.CommitInflightExpiry.Duration()

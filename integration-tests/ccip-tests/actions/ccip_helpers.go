@@ -36,6 +36,7 @@ import (
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
@@ -70,7 +71,6 @@ const (
 	ChaosGroupCCIPGeth                = "CCIPGeth"                        // both source and destination simulated geth networks
 	ChaosGroupNetworkACCIPGeth        = "CCIPNetworkAGeth"
 	ChaosGroupNetworkBCCIPGeth        = "CCIPNetworkBGeth"
-	RootSnoozeTimeSimulated           = 3 * time.Minute
 	// The higher the load/throughput, the higher value we might need here to guarantee that nonces are not blocked
 	// 1 day should be enough for most of the cases
 	PermissionlessExecThreshold = 60 * 60 * 24 // 1 day
@@ -92,7 +92,12 @@ var (
 	}
 	InflightExpiryExec   = 3 * time.Minute
 	InflightExpiryCommit = 3 * time.Minute
-	GethLabel            = func(name string) string {
+	BatchGasLimit        = uint32(7_000_000)
+
+	MaxDataBytes = uint32(50_000)
+
+	RootSnoozeTime = 3 * time.Minute
+	GethLabel      = func(name string) string {
 		return fmt.Sprintf("%s-ethereum-geth", name)
 	}
 	// ApprovedAmountToRouter is the default amount which gets approved for router so that it can transfer token and use the fee token for fee payment
@@ -3233,12 +3238,8 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 // SetOCR2Configs sets the oracle config in ocr2 contracts
 // nil value in execNodes denotes commit and execution jobs are to be set up in same DON
 func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP DestCCIPModule) error {
-	rootSnooze := commonconfig.MustNewDuration(7 * time.Minute)
 	inflightExpiryExec := commonconfig.MustNewDuration(InflightExpiryExec)
 	inflightExpiryCommit := commonconfig.MustNewDuration(InflightExpiryCommit)
-	if destCCIP.Common.ChainClient.NetworkSimulated() {
-		rootSnooze = commonconfig.MustNewDuration(RootSnoozeTimeSimulated)
-	}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := contracts.NewOffChainAggregatorV2ConfigForCCIPPlugin(
 		commitNodes, testhelpers.NewCommitOffchainConfig(
@@ -3269,16 +3270,16 @@ func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP D
 		signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err = contracts.NewOffChainAggregatorV2ConfigForCCIPPlugin(
 			nodes, testhelpers.NewExecOffchainConfig(
 				1,
-				7_000_000,
+				BatchGasLimit,
 				0.7,
 				*inflightExpiryExec,
-				*rootSnooze,
+				*commonconfig.MustNewDuration(RootSnoozeTime),
 			), testhelpers.NewExecOnchainConfig(
 				PermissionlessExecThreshold,
 				destCCIP.Common.Router.EthAddress,
 				destCCIP.Common.PriceRegistry.EthAddress,
 				MaxNoOfTokensInMsg,
-				50000,
+				MaxDataBytes,
 				200_000,
 			), contracts.OCR2ParamsForExec, 3*time.Minute)
 		if err != nil {
