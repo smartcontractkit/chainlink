@@ -139,7 +139,7 @@ func SetupVRFV2Environment(
 
 	nodeTypeToNodeMap[vrfcommon.VRF].TXKeyAddressStrings = vrfTXKeyAddressStrings
 
-	vrfOwnerConfig, err := SetupVRFOwnerContractIfNeeded(useVRFOwner, chainID, vrfContracts, vrfTXKeyAddressStrings, vrfTXKeyAddresses, l)
+	vrfOwnerConfig, err := SetupVRFOwnerContractIfNeeded(useVRFOwner, vrfContracts, vrfTXKeyAddressStrings, vrfTXKeyAddresses, l)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -280,7 +280,7 @@ func SetupVRFV2WrapperEnvironment(
 	}
 
 	// Fund wrapper subscription
-	err = FundSubscriptions(env, big.NewFloat(*vrfv2Config.General.SubscriptionFundingAmountLink), linkToken, coordinator, []uint64{wrapperSubID})
+	err = FundSubscriptions(big.NewFloat(*vrfv2Config.General.SubscriptionFundingAmountLink), linkToken, coordinator, []uint64{wrapperSubID})
 	if err != nil {
 		return nil, nil, err
 	}

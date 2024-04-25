@@ -1013,7 +1013,7 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Fund(ethAmount *big.Float) error {
+func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Fund(_ *big.Float) error {
 	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 

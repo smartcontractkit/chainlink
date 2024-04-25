@@ -902,7 +902,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), sethClient, &wg, time.Second*260, t)
 		wg.Wait()
 		require.NoError(t, err)
-		err = vrfv2.FundSubscriptions(testEnv, big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDsForBHS)
+		err = vrfv2.FundSubscriptions(big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDsForBHS)
 		require.NoError(t, err, "error funding subscriptions")
 		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2.WaitForRandomWordsFulfilledEvent(
 			contracts.RandomWordsFulfilledEventFilter{

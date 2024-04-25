@@ -225,15 +225,13 @@ func setupVRFOwnerContract(contracts *vrfcommon.VRFContracts, allNativeTokenKeyA
 }
 
 func CreateFundSubsAndAddConsumers(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
 	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2,
 	consumers []contracts.VRFv2LoadTestConsumer,
 	numberOfSubToCreate int,
 ) ([]uint64, error) {
-	subIDs, err := CreateSubsAndFund(env, chainID, subscriptionFundingAmountLink, linkToken, coordinator, numberOfSubToCreate)
+	subIDs, err := CreateSubsAndFund(subscriptionFundingAmountLink, linkToken, coordinator, numberOfSubToCreate)
 	if err != nil {
 		return nil, err
 	}
@@ -255,8 +253,6 @@ func CreateFundSubsAndAddConsumers(
 }
 
 func CreateSubsAndFund(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
 	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2,
@@ -266,7 +262,7 @@ func CreateSubsAndFund(
 	if err != nil {
 		return nil, err
 	}
-	err = FundSubscriptions(env, subscriptionFundingAmountLink, linkToken, coordinator, subs)
+	err = FundSubscriptions(subscriptionFundingAmountLink, linkToken, coordinator, subs)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +312,6 @@ func CreateSubAndFindSubID(coordinator contracts.VRFCoordinatorV2) (uint64, erro
 }
 
 func FundSubscriptions(
-	env *test_env.CLClusterTestEnv,
 	subscriptionFundingAmountLink *big.Float,
 	linkAddress contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2,
@@ -589,7 +584,7 @@ func WaitRandomWordsFulfilledEvent(
 	return randomWordsFulfilledEvent, err
 }
 
-func SetupVRFOwnerContractIfNeeded(useVRFOwner bool, chainID int64, vrfContracts *vrfcommon.VRFContracts, vrfTXKeyAddressStrings []string, vrfTXKeyAddresses []common.Address, l zerolog.Logger) (*vrfcommon.VRFOwnerConfig, error) {
+func SetupVRFOwnerContractIfNeeded(useVRFOwner bool, vrfContracts *vrfcommon.VRFContracts, vrfTXKeyAddressStrings []string, vrfTXKeyAddresses []common.Address, l zerolog.Logger) (*vrfcommon.VRFOwnerConfig, error) {
 	var vrfOwnerConfig *vrfcommon.VRFOwnerConfig
 	if useVRFOwner {
 		err := setupVRFOwnerContract(vrfContracts, vrfTXKeyAddressStrings, vrfTXKeyAddresses, l)
@@ -632,8 +627,6 @@ func SetupNewConsumersAndSubs(
 		Int("Number of Subs to create", numberOfSubToCreate).
 		Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 	subIDs, err := CreateFundSubsAndAddConsumers(
-		env,
-		chainID,
 		big.NewFloat(*testConfig.VRFv2.General.SubscriptionFundingAmountLink),
 		linkToken,
 		coordinator,

@@ -64,7 +64,7 @@ type LegacyEthereumVRF struct {
 func (e *EthereumContractDeployer) DeployVRFContract() (VRF, error) {
 	address, _, instance, err := e.client.DeployContract("VRF", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return solidity_vrf_wrapper.DeployVRF(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
@@ -82,7 +82,7 @@ func (e *EthereumContractDeployer) DeployVRFContract() (VRF, error) {
 func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error) {
 	address, _, instance, err := e.client.DeployContract("BlockhashStore", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return blockhash_store.DeployBlockhashStore(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
@@ -100,7 +100,7 @@ func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error
 func (e *EthereumContractDeployer) DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFConsumer", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return solidity_vrf_consumer_interface.DeployVRFConsumer(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
 	})

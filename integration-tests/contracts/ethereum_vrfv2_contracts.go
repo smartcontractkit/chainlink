@@ -811,7 +811,7 @@ func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
 	})
 }
 
-func (v *EthereumVRFConsumerV2) Fund(ethAmount *big.Float) error {
+func (v *EthereumVRFConsumerV2) Fund(_ *big.Float) error {
 	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
@@ -1022,7 +1022,7 @@ func (v *EthereumVRFV2WrapperLoadTestConsumer) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVRFV2WrapperLoadTestConsumer) Fund(ethAmount *big.Float) error {
+func (v *EthereumVRFV2WrapperLoadTestConsumer) Fund(_ *big.Float) error {
 	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
