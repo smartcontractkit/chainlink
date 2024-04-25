@@ -3171,7 +3171,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		// Create attempts so that the oldest broadcast attempt's block num is what meets the threshold check
 		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
-		tx := mustInsertUnconfirmedTxWithXBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
+		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
 
 		head := evmtypes.Head{
 			Hash:   utils.NewHash(),

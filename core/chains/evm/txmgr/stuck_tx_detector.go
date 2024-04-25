@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -30,7 +31,7 @@ type stuckTxDetectorClient interface {
 }
 
 type stuckTxDetectorTxStore interface {
-	FindUnconfirmedTxsByFromAddresses(ctx context.Context, addresses []common.Address, chainID *big.Int) (txs []Tx, err error)
+	FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state types.TxState, chainID *big.Int) (txs []*Tx, err error)
 }
 
 type stuckTxDetectorConfig interface {
@@ -59,7 +60,6 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.C
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DisableCompression = true
 	httpClient := &http.Client{Transport: t}
-	// TODO: Load purgeBlockNumMap with some DB state or confirm rate limit is not needed on first purge after restart
 	return &stuckTxDetector{
 		lggr:             lggr,
 		chainID:          chainID,
@@ -71,6 +71,35 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.C
 		httpClient:       httpClient,
 		purgeBlockNumMap: make(map[common.Address]int64),
 	}
+}
+
+func (d *stuckTxDetector) LoadPurgeBlockNumMap(ctx context.Context, addresses []common.Address) error {
+	d.purgeBlockNumLock.Lock()
+	defer d.purgeBlockNumLock.Unlock()
+	// Ok to reset the map here since this method could be reloaded with a new list of from addresses
+	d.purgeBlockNumMap = make(map[common.Address]int64)
+	for _, address := range addresses {
+		d.purgeBlockNumMap[address] = 0
+	}
+
+	// Find all fatal error transactions to see if any were from previous purges to properly set the map
+	txs, err := d.txStore.FindTxsByStateAndFromAddresses(ctx, addresses, txmgr.TxFatalError, d.chainID)
+	if err != nil {
+		return fmt.Errorf("failed to query fatal error transactions from the txstore: %w", err)
+	}
+
+	// Set the purgeBlockNumMap with the receipt block num of purge attempts
+	for _, tx := range txs {
+		for _, attempt := range tx.TxAttempts {
+			if attempt.IsPurgeAttempt && len(attempt.Receipts) > 0 {
+				// There should only be 1 receipt in an attempt for a transaction
+				d.purgeBlockNumMap[tx.FromAddress] = attempt.Receipts[0].GetBlockNumber().Int64()
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 // If the AutoPurgeStuckTxs feature is enabled, finds terminally stuck transactions
@@ -100,7 +129,7 @@ func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAd
 
 	for _, stuckTx := range stuckTxs {
 		lggr := stuckTx.GetLogger(d.lggr)
-		lggr.Errorw("marking transaction as terminally stuck", "etx", stuckTx)
+		lggr.Debugw("marking transaction as terminally stuck", "etx", stuckTx)
 	}
 
 	return stuckTxs, err
@@ -110,7 +139,7 @@ func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAd
 // Only the earliest transaction can be considered terminally stuck. All others may be valid and just stuck behind the nonce
 func (d *stuckTxDetector) FindPotentialStuckTxs(ctx context.Context, enabledAddresses []common.Address) ([]Tx, error) {
 	// Loads attempts within tx
-	txs, err := d.txStore.FindUnconfirmedTxsByFromAddresses(ctx, enabledAddresses, d.chainID)
+	txs, err := d.txStore.FindTxsByStateAndFromAddresses(ctx, enabledAddresses, txmgr.TxUnconfirmed, d.chainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve unconfirmed transactions for enabled addresses: %w", err)
 	}
@@ -118,9 +147,9 @@ func (d *stuckTxDetector) FindPotentialStuckTxs(ctx context.Context, enabledAddr
 	lowestNonceTxMap := make(map[common.Address]Tx)
 	for _, tx := range txs {
 		if _, ok := lowestNonceTxMap[tx.FromAddress]; !ok {
-			lowestNonceTxMap[tx.FromAddress] = tx
+			lowestNonceTxMap[tx.FromAddress] = *tx
 		} else if lowestNonceTx := lowestNonceTxMap[tx.FromAddress]; *lowestNonceTx.Sequence > *tx.Sequence {
-			lowestNonceTxMap[tx.FromAddress] = tx
+			lowestNonceTxMap[tx.FromAddress] = *tx
 		}
 	}
 

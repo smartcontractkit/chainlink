@@ -56,7 +56,7 @@ type TxStoreWebApi interface {
 	TransactionsWithAttempts(ctx context.Context, offset, limit int) ([]Tx, int, error)
 	FindTxAttempt(ctx context.Context, hash common.Hash) (*TxAttempt, error)
 	FindTxWithAttempts(ctx context.Context, etxID int64) (etx Tx, err error)
-	FindUnconfirmedTxsByFromAddresses(ctx context.Context, addresses []common.Address, chainID *big.Int) (txs []Tx, err error)
+	FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state txmgrtypes.TxState, chainID *big.Int) (txs []*Tx, err error)
 }
 
 type TestEvmTxStore interface {
@@ -828,8 +828,9 @@ ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas
 	return
 }
 
-// Returns the latest attempt for the lowest nonce unconfirmed transaction in the DB if it is not marked as insufficient eth or for purge already
-func (o *evmTxStore) FindUnconfirmedTxsByFromAddresses(ctx context.Context, addresses []common.Address, chainID *big.Int) (txs []Tx, err error) {
+// Returns the transaction by state and from addresses
+// Loads attempt and receipts in the transactions
+func (o *evmTxStore) FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state txmgrtypes.TxState, chainID *big.Int) (txs []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -837,21 +838,24 @@ func (o *evmTxStore) FindUnconfirmedTxsByFromAddresses(ctx context.Context, addr
 	for i, addr := range addresses {
 		enabledAddrsBytea[i] = addr.Bytes()
 	}
-	err = o.Transaction(ctx, true, func(orm *evmTxStore) error {
-		var dbTxs []DbEthTx
-		err = orm.q.SelectContext(ctx, &dbTxs, `
-SELECT evm.txes.* FROM evm.txes
-WHERE evm.txes.state = 'unconfirmed' AND evm.txes.from_address = ANY($1) AND evm.txes.evm_chain_id = $2
-`, enabledAddrsBytea, chainID.String())
+	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
+		var dbEtxs []DbEthTx
+		err = orm.q.SelectContext(ctx, &dbEtxs, `SELECT * FROM evm.txes WHERE state = $1 AND from_address = ANY($2) AND evm_chain_id = $3`, state, enabledAddrsBytea, chainID.String())
 		if err != nil {
-			return fmt.Errorf("FindTxAttemptsForPurge failed to load evm.tx_attempts: %w", err)
+			return fmt.Errorf("FindTxsByStateAndFromAddresses failed to load evm.txes: %w", err)
 		}
-		if len(dbTxs) == 0 {
+		if len(dbEtxs) == 0 {
 			return nil
 		}
-		txs = dbEthTxsToEvmEthTxs(dbTxs)
-		err = orm.preloadTxAttempts(ctx, txs)
-		return pkgerrors.Wrap(err, "FindTxAttemptsForPurge failed to load evm.txes")
+		txs = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txs)
+		if err = orm.LoadTxesAttempts(ctx, txs); err != nil {
+			return fmt.Errorf("FindTxsByStateAndFromAddresses failed to load evm.tx_attempts: %w", err)
+		}
+		if err = orm.loadEthTxesAttemptsReceipts(ctx, txs); err != nil {
+			return fmt.Errorf("FindTxsByStateAndFromAddresses failed to load evm.receipts: %w", err)
+		}
+		return nil
 	})
 	return
 }

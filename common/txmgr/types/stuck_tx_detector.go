@@ -15,6 +15,7 @@ type StuckTxDetector[
 	FEE feetypes.Fee, // FEE - chain fee type
 ] interface {
 	DetectStuckTransactions(ctx context.Context, enabledAddresses []ADDR, blockNum int64) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
+	LoadPurgeBlockNumMap(ctx context.Context, addresses []ADDR) error
 	SetPurgeBlockNum(fromAddress ADDR, blockNum int64)
 	StuckTxFatalError() *string
 }
