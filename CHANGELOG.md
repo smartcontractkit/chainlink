@@ -1,5 +1,6 @@
 # Changelog Chainlink Core
 
+
 ## 2.11.0 - UNRELEASED
 
 ### Minor Changes
@@ -38,6 +39,8 @@
 - [#12578](https://github.com/smartcontractkit/chainlink/pull/12578) [`ffd492295f`](https://github.com/smartcontractkit/chainlink/commit/ffd492295f03de8c3b946a003dacbded731d7899) Thanks [@RensR](https://github.com/RensR)! - Remove 0.6 and 0.7 Solidity source code
 
 ### Patch Changes
+
+- [#12973](https://github.com/smartcontractkit/chainlink/pull/12973) [`02d3f2fee9`](https://github.com/smartcontractkit/chainlink/commit/02d3f2fee9269b85e9500ae720d15bec6c5e0d63) Thanks [@george-dorin](https://github.com/george-dorin)! - #added JuelsPerFeeCoinCache is enabled by default for OCR2 jobs, added `Disable` field under [pluginConfig.JuelsPerFeeCoinCache] tag to disable this feature (e.g. Disable=true)
 
 - [#12920](https://github.com/smartcontractkit/chainlink/pull/12920) [`be50a8370a`](https://github.com/smartcontractkit/chainlink/commit/be50a8370a0f604fbe9612e38479ccfa5ceb1ebd) Thanks [@ilija42](https://github.com/ilija42)! - Fix in memory data source cache changes/bug that only allowed pipeline results where none of the data sources failed. #bugfix
 
