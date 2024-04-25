@@ -549,12 +549,12 @@ func WaitForBlockNumberToBe(
 // todo - move to EVMClient
 func RewindSimulatedChainToBlockNumber(
 	ctx context.Context,
-	evmClient blockchain.EVMClient,
+	client *seth.Client,
 	rpcURL string,
 	rewindChainToBlockNumber uint64,
 	l zerolog.Logger,
 ) (uint64, error) {
-	latestBlockNumberBeforeReorg, err := evmClient.LatestBlockNumber(ctx)
+	latestBlockNumberBeforeReorg, err := client.Client.BlockNumber(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("error getting latest block number: %w", err)
 	}
@@ -571,12 +571,7 @@ func RewindSimulatedChainToBlockNumber(
 		return 0, fmt.Errorf("error making reorg: %w", err)
 	}
 
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return 0, fmt.Errorf("error waiting for events: %w", err)
-	}
-
-	latestBlockNumberAfterReorg, err := evmClient.LatestBlockNumber(ctx)
+	latestBlockNumberAfterReorg, err := client.Client.BlockNumber(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("error getting latest block number: %w", err)
 	}

@@ -1882,12 +1882,11 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
 	cleanupFn := func() {
-		evmClient, err := env.GetEVMClient(chainID)
-		require.NoError(t, err, "Getting EVM client shouldn't fail")
-
-		if evmClient.NetworkSimulated() {
+		sethClient, err := env.GetSethClient(chainID)
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
+		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
-				Str("Network Name", evmClient.GetNetworkName()).
+				Str("Network Name", sethClient.Cfg.Network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
@@ -1911,11 +1910,10 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 	env, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFv2Plus universe")
 
-	evmClient, err := env.GetEVMClient(chainID)
-	require.NoError(t, err, "Getting EVM client shouldn't fail")
-	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
-
 	var isNativeBilling = true
+
+	sethClient, err := env.GetSethClient(chainID)
+	require.NoError(t, err, "Getting Seth client shouldn't fail")
 
 	consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 		env,
@@ -1957,7 +1955,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		require.NoError(t, err, "error getting rpc url")
 
 		//2. rewind chain by n number of blocks - basically, mimicking reorg scenario
-		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), evmClient, rpcUrl, rewindChainToBlock, l)
+		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlock, l)
 		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlock))
 
 		//3.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
@@ -2002,7 +2000,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		require.NoError(t, err, "error getting rpc url")
 
 		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
-		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), evmClient, rpcUrl, rewindChainToBlockNumber, l)
+		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlockNumber, l)
 		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlockNumber))
 
 		//4. ensure that chain is reorged and latest block number is less than the block number when request was made
