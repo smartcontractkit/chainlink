@@ -310,11 +310,9 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		block, _, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
 
-		opts := r.buildCallOpts(ctx, block)
-
-		oc, err := r.fetchUpkeepOffchainConfig(upkeepId, opts)
+		oc, err := r.fetchUpkeepOffchainConfig(upkeepId)
 		if err != nil {
-			r.lggr.Warnw("failed get offchain config for", "err", err, "upkeepId", upkeepId)
+			r.lggr.Warnw("failed get offchain config", "err", err, "upkeepId", upkeepId, "block", block)
 			checkResults[i].Eligible = false
 			checkResults[i].PipelineExecutionState = uint8(encoding.UpkeepFailureReasonFailToRetrieveOffchainConfig)
 			continue
@@ -336,6 +334,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			continue
 		}
 
+		opts := r.buildCallOpts(ctx, block)
 		var result string
 		performReqs = append(performReqs, rpc.BatchElem{
 			Method: "eth_call",
