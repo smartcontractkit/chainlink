@@ -12,10 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/dkg"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon_consumer"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
