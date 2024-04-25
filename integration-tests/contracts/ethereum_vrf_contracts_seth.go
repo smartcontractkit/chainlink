@@ -244,7 +244,7 @@ func DeployVRFMockETHLINKFeed(seth *seth.Client, answer *big.Int) (VRFMockETHLIN
 		seth.NewTXOpts(),
 		"VRFMockETHLINKAggregator",
 		*abi,
-		common.FromHex(solidity_vrf_consumer_interface.VRFConsumerMetaData.Bin),
+		common.FromHex(vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregatorMetaData.Bin),
 		answer,
 	)
 	if err != nil {
