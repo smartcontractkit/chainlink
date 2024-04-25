@@ -281,7 +281,10 @@ func (k *KeeperBenchmarkTest) Run() {
 				)
 
 				k.log.Debug().Str("UpkeepID", upkeepIDCopy.String()).Msg("Subscribing to new headers for upkeep observation")
-				headerCh := make(chan *types.Header)
+				// hard to say what should be the buffer size, we want it big, but too big as we might run out of memory
+				// but on L2s with super fast block times, we might run into `subscription queue overflow` errors, when this
+				// buffer is too small
+				headerCh := make(chan *types.Header, 5000)
 				sub, err := k.chainClient.Client.SubscribeNewHead(context.Background(), headerCh)
 				if err != nil {
 					return err
