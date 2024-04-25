@@ -3,14 +3,14 @@ pragma solidity 0.8.19;
 
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import {LinkTokenReceiver} from "./LinkTokenReceiver.sol";
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
+import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 import {AuthorizedReceiverInterface} from "./interfaces/AuthorizedReceiverInterface.sol";
-import {OperatorInterface} from "../../interfaces/OperatorInterface.sol";
-import {IOwnable} from "../../shared/interfaces/IOwnable.sol";
+import {OperatorInterface} from "../interfaces/OperatorInterface.sol";
+import {IOwnable} from "../shared/interfaces/IOwnable.sol";
 import {WithdrawalInterface} from "./interfaces/WithdrawalInterface.sol";
-import {OracleInterface} from "../../interfaces/OracleInterface.sol";
-import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {OracleInterface} from "../interfaces/OracleInterface.sol";
+import {SafeCast} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 // @title The Chainlink Operator contract
 // @notice Node operators can deploy this contract to fulfill requests sent to them

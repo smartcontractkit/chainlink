@@ -2,7 +2,7 @@ pragma solidity ^0.8.0;
 
 import {MaliciousChainlink} from "./MaliciousChainlink.sol";
 import {Chainlinked, Chainlink} from "./Chainlinked.sol";
-import {LinkTokenInterface} from "../../../../shared/interfaces/LinkTokenInterface.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 
 // solhint-disable
 contract MaliciousChainlinked is Chainlinked {

@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {Test} from "forge-std/Test.sol";
 import {Operator} from "../Operator.sol";
 import {ChainlinkClientHelper} from "./testhelpers/ChainlinkClientHelper.sol";
-import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
+import {LinkToken} from "../../shared/token/ERC677/LinkToken.sol";
 
 contract Operator_cancelRequest is Test {
   address public s_link;
