@@ -8,7 +8,7 @@ import {AggregateRateLimiter} from "../../AggregateRateLimiter.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {USDPriceWith18Decimals} from "../../libraries/USDPriceWith18Decimals.sol";
 import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
-import {TokenAdminRegistry} from "../../pools/TokenAdminRegistry.sol";
+import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
 import {MockTokenPool} from "../mocks/MockTokenPool.sol";
 import "./EVM2EVMOnRampSetup.t.sol";
@@ -885,6 +885,19 @@ contract EVM2EVMOnRamp_getDataAvailabilityCost is EVM2EVMOnRamp_getFeeSetup {
       dataAvailabilityGasPrice * dataAvailabilityGas * destDataAvailabilityMultiplierBps * 1e14;
 
     assertEq(expectedDataAvailabilityCostUSD, dataAvailabilityCostUSD);
+  }
+}
+
+contract EVM2EVMOnRamp_getSupportedTokens is EVM2EVMOnRampSetup {
+  function test_GetSupportedTokens_Success() public view {
+    address[] memory tokens = s_onRamp.getSupportedTokens(DEST_CHAIN_SELECTOR);
+
+    address[] memory expected = new address[](4);
+    expected[0] = s_sourceTokens[0];
+    expected[1] = s_sourceTokens[1];
+    expected[2] = s_destTokens[0];
+    expected[3] = s_destTokens[1];
+    assertEq(expected, tokens);
   }
 }
 

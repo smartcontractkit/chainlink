@@ -685,15 +685,14 @@ contract Router_setWrappedNative is EVM2EVMOnRampSetup {
 /// @notice #getSupportedTokens
 contract Router_getSupportedTokens is EVM2EVMOnRampSetup {
   function test_GetSupportedTokens_Success() public view {
-    address[] memory supportedTokens = s_sourceRouter.getSupportedTokens(DEST_CHAIN_SELECTOR);
-    assertEq(s_sourceTokens[0], supportedTokens[0]);
-    assertEq(s_sourceTokens[1], supportedTokens[1]);
+    address[] memory tokens = s_sourceRouter.getSupportedTokens(DEST_CHAIN_SELECTOR);
 
-    // The function will return every single token configured on the registry.
-    // Due to source and dest being emulated on the same "fake chain", both
-    // will be present in the supported tokens.
-    assertEq(s_destTokens[0], supportedTokens[2]);
-    assertEq(s_destTokens[1], supportedTokens[3]);
+    address[] memory expected = new address[](4);
+    expected[0] = s_sourceTokens[0];
+    expected[1] = s_sourceTokens[1];
+    expected[2] = s_destTokens[0];
+    expected[3] = s_destTokens[1];
+    assertEq(expected, tokens);
   }
 }
 

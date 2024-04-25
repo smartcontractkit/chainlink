@@ -9,15 +9,16 @@ interface IRouterClient {
   error InvalidMsgValue();
 
   /// @notice Checks if the given chain ID is supported for sending/receiving.
-  /// @param chainSelector The chain to check.
+  /// @param destChainSelector The chain to check.
   /// @return supported is true if it is supported, false if not.
-  function isChainSupported(uint64 chainSelector) external view returns (bool supported);
+  function isChainSupported(uint64 destChainSelector) external view returns (bool supported);
 
-  /// @notice Gets a list of all supported tokens which can be sent or received
-  /// to/from a given chain id.
-  /// @param chainSelector The chainSelector.
-  /// @return tokens The addresses of all tokens that are supported.
-  function getSupportedTokens(uint64 chainSelector) external view returns (address[] memory tokens);
+  /// @notice Gets a list of all tokens that have been configured through permissioned methods
+  /// for the local chain. Do note that this list may not be exhaustive as some tokens may be
+  /// supported permissionlessly. The list does not take the destChainSelector into account.
+  /// @param destChainSelector No longer used.
+  /// @return tokens The addresses of the tokens that are supported.
+  function getSupportedTokens(uint64 destChainSelector) external view returns (address[] memory tokens);
 
   /// @param destinationChainSelector The destination chainSelector
   /// @param message The cross-chain CCIP message including data and/or tokens

@@ -6,9 +6,9 @@ import {IARM} from "../interfaces/IARM.sol";
 import {IAny2EVMMessageReceiver} from "../interfaces/IAny2EVMMessageReceiver.sol";
 import {IAny2EVMOffRamp} from "../interfaces/IAny2EVMOffRamp.sol";
 import {ICommitStore} from "../interfaces/ICommitStore.sol";
+import {IPool} from "../interfaces/IPool.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
-import {IPool} from "../interfaces/pools/IPool.sol";
 
 import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
 import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
@@ -19,7 +19,6 @@ import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {OCR2BaseNoChecks} from "../ocr/OCR2BaseNoChecks.sol";
 
 import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
-import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice EVM2EVMOffRamp enables OCR networks to execute multiple messages
 /// in an OffRamp in a single transaction.
@@ -491,29 +490,19 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   }
 
   /// @notice Get all tokens which are included in Aggregate Rate Limiting.
-  /// @param startIndex starting index in list
-  /// @param maxCount max count to retrieve (0 = unlimited)
   /// @return sourceTokens The source representation of the tokens that are rate limited.
   /// @return destTokens The destination representation of the tokens that are rate limited.
-  /// @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
-  /// should consider keeping the blockheight constant to ensure a holistic picture of the contract state
-  function getAllRateLimitTokens(
-    uint256 startIndex,
-    uint256 maxCount
-  ) external view returns (address[] memory sourceTokens, address[] memory destTokens) {
-    uint256 length = s_rateLimitedTokensDestToSource.length();
-    if (length == 0) return (sourceTokens, destTokens);
-    if (startIndex >= length) revert IndexOutOfRange();
-    uint256 endIndex = startIndex + maxCount;
-    endIndex = endIndex > length || maxCount == 0 ? length : endIndex;
-    sourceTokens = new address[](endIndex - startIndex);
-    destTokens = new address[](endIndex - startIndex);
-    for (uint256 i = 0; i < sourceTokens.length; ++i) {
-      (address destToken, address sourceToken) = s_rateLimitedTokensDestToSource.at(i + startIndex);
+  /// @dev the order of IDs in the list is **not guaranteed**, therefore, if ordering matters when
+  /// making successive calls, one should keep the blockheight constant to ensure a consistent result.
+  function getAllRateLimitTokens() external view returns (address[] memory sourceTokens, address[] memory destTokens) {
+    sourceTokens = new address[](s_rateLimitedTokensDestToSource.length());
+    destTokens = new address[](s_rateLimitedTokensDestToSource.length());
+
+    for (uint256 i = 0; i < s_rateLimitedTokensDestToSource.length(); ++i) {
+      (address destToken, address sourceToken) = s_rateLimitedTokensDestToSource.at(i);
       sourceTokens[i] = sourceToken;
       destTokens[i] = destToken;
     }
-
     return (sourceTokens, destTokens);
   }
 

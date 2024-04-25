@@ -18,7 +18,7 @@ contract Pool__generatePoolReturnDataV1 is BaseTest {
     assertEq(poolReturnDataV1.destPoolData, destPoolData);
   }
 
-  function test_fuzz__generatePoolReturnDataV1_Success(
+  function test_Fuzz__generatePoolReturnDataV1_Success(
     bytes memory destPoolData,
     bytes memory remotePoolAddress
   ) public pure {
@@ -46,7 +46,7 @@ contract Pool__decodePoolReturnDataV1 is BaseTest {
 }
 
 contract Pool__removeFirstFourBytes is BaseTest {
-  function test_fuzz__removeFirstFourBytes_Success(bytes calldata data) public {
+  function test_Fuzz__removeFirstFourBytes_Success(bytes calldata data) public {
     if (data.length < 4) {
       vm.expectRevert(abi.encodeWithSelector(Pool.MalformedPoolReturnData.selector, data));
       Pool._removeFirstFourBytes(data);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IPool} from "../interfaces/pools/IPool.sol";
+import {IPool} from "../interfaces/IPool.sol";
 
 import {ARM} from "../ARM.sol";
 import {Internal} from "../libraries/Internal.sol";

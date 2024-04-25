@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IPool} from "./pools/IPool.sol";
+import {IPool} from "./IPool.sol";
 
 import {Client} from "../libraries/Client.sol";
 

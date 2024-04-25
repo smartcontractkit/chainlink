@@ -480,9 +480,9 @@ func (_m *EVM2EVMOffRampInterface) FilterTransmitted(opts *bind.FilterOpts) (*ev
 	return r0, r1
 }
 
-// GetAllRateLimitTokens provides a mock function with given fields: opts, startIndex, maxCount
-func (_m *EVM2EVMOffRampInterface) GetAllRateLimitTokens(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) (evm_2_evm_offramp.GetAllRateLimitTokens, error) {
-	ret := _m.Called(opts, startIndex, maxCount)
+// GetAllRateLimitTokens provides a mock function with given fields: opts
+func (_m *EVM2EVMOffRampInterface) GetAllRateLimitTokens(opts *bind.CallOpts) (evm_2_evm_offramp.GetAllRateLimitTokens, error) {
+	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAllRateLimitTokens")
@@ -490,17 +490,17 @@ func (_m *EVM2EVMOffRampInterface) GetAllRateLimitTokens(opts *bind.CallOpts, st
 
 	var r0 evm_2_evm_offramp.GetAllRateLimitTokens
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, *big.Int) (evm_2_evm_offramp.GetAllRateLimitTokens, error)); ok {
-		return rf(opts, startIndex, maxCount)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp.GetAllRateLimitTokens, error)); ok {
+		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, *big.Int) evm_2_evm_offramp.GetAllRateLimitTokens); ok {
-		r0 = rf(opts, startIndex, maxCount)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp.GetAllRateLimitTokens); ok {
+		r0 = rf(opts)
 	} else {
 		r0 = ret.Get(0).(evm_2_evm_offramp.GetAllRateLimitTokens)
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int, *big.Int) error); ok {
-		r1 = rf(opts, startIndex, maxCount)
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
 	} else {
 		r1 = ret.Error(1)
 	}

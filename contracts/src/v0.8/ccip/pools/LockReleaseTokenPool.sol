@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {ILiquidityContainer} from "../../rebalancer/interfaces/ILiquidityContainer.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {IPool} from "../interfaces/pools/IPool.sol";
+import {IPool} from "../interfaces/IPool.sol";
 
 import {Pool} from "../libraries/Pool.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";

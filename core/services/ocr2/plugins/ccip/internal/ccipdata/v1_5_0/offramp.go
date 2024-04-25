@@ -48,7 +48,7 @@ func (o *OffRamp) GetTokens(ctx context.Context) (cciptypes.OffRampTokens, error
 
 func (o *OffRamp) GetSourceToDestTokensMapping(ctx context.Context) (map[cciptypes.Address]cciptypes.Address, error) {
 	cachedTokens, err := o.cachedRateLimitTokens.Get(ctx, func(ctx context.Context) (cciptypes.OffRampTokens, error) {
-		tokens, err := o.offRampV150.GetAllRateLimitTokens(&bind.CallOpts{Context: ctx}, big.NewInt(0), big.NewInt(0))
+		tokens, err := o.offRampV150.GetAllRateLimitTokens(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return cciptypes.OffRampTokens{}, err
 		}

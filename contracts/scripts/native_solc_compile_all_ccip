@@ -57,7 +57,8 @@ compileContract ccip/pools/TokenPool.sol
 compileContract shared/token/ERC677/BurnMintERC677.sol
 compileContract ccip/ARM.sol
 compileContract ccip/ARMProxy.sol
-compileContract ccip/pools/TokenAdminRegistry.sol
+compileContract ccip/tokenAdminRegistry/TokenAdminRegistry.sol
+compileContract ccip/tokenAdminRegistry/RegistryModuleOwnerCustom.sol
 
 # Test helpers
 compileContract ccip/test/helpers/BurnMintERC677Helper.sol

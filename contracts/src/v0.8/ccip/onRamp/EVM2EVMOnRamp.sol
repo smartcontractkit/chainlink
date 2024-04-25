@@ -5,10 +5,10 @@ import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IARM} from "../interfaces/IARM.sol";
 import {IEVM2AnyOnRamp} from "../interfaces/IEVM2AnyOnRamp.sol";
 import {IEVM2AnyOnRampClient} from "../interfaces/IEVM2AnyOnRampClient.sol";
+import {IPool} from "../interfaces/IPool.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 import {ILinkAvailable} from "../interfaces/automation/ILinkAvailable.sol";
-import {IPool} from "../interfaces/pools/IPool.sol";
 
 import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
 import {Client} from "../libraries/Client.sol";
@@ -54,6 +54,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   error CannotSendZeroTokens();
   error SourceTokenDataTooLarge(address token);
   error InvalidChainSelector(uint64 chainSelector);
+  error GetSupportedTokensFunctionalityRemoved();
 
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event NopPaid(address indexed nop, uint256 amount);
@@ -454,7 +455,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   /// @inheritdoc IEVM2AnyOnRampClient
   function getSupportedTokens(uint64 /*destChainSelector*/ ) external view returns (address[] memory) {
-    return ITokenAdminRegistry(s_dynamicConfig.tokenAdminRegistry).getAllConfiguredTokens();
+    return ITokenAdminRegistry(s_dynamicConfig.tokenAdminRegistry).getPermissionedTokens();
   }
 
   // ================================================================

@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
-import {IPool} from "../../interfaces/pools/IPool.sol";
+import {IPool} from "../../interfaces/IPool.sol";
 
 import {CallWithExactGas} from "../../../shared/call/CallWithExactGas.sol";
 
@@ -1159,7 +1159,6 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     s_priceRegistry.updatePrices(priceUpdates);
 
     Client.EVMTokenAmount[] memory srcTokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
-    IERC20 dstToken1 = IERC20(s_destFeeToken);
     uint256 amount1 = 100;
     srcTokenAmounts[0].amount = amount1;
 
@@ -1280,7 +1279,6 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     s_priceRegistry.updatePrices(getSingleTokenPriceUpdateStruct(s_destFeeToken, 0));
 
     Client.EVMTokenAmount[] memory srcTokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
-    IERC20 dstToken1 = IERC20(s_destFeeToken);
     uint256 amount1 = 100;
     srcTokenAmounts[0].amount = amount1;
 
@@ -1297,10 +1295,10 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
   }
 
   /// forge-config: default.fuzz.runs = 32
-  /// forge-config: ccip.fuzz.runs = 10024
-  function test_fuzz__releaseOrMintTokens_AnyRevertIsCaught_Success(uint256 destPool) public {
-    // TODO handle 447301751254033913445893214690834296930546521452, which is 4E59B44847B379578588920CA78FBF26C0B4956C
-    // which triggers some Create2Deployer and causes it to fail
+  /// forge-config: ccip.fuzz.runs = 1024
+  function test_Fuzz__releaseOrMintTokens_AnyRevertIsCaught_Success(uint256 destPool) public {
+    // Input 447301751254033913445893214690834296930546521452, which is 0x4E59B44847B379578588920CA78FBF26C0B4956C
+    // triggers some Create2Deployer and causes it to fail
     vm.assume(destPool != 447301751254033913445893214690834296930546521452);
     bytes memory unusedVar = abi.encode(makeAddr("unused"));
     // Uint256 gives a good range of values to test, both inside and outside of the eth address space.
@@ -1330,47 +1328,12 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
 contract EVM2EVMOffRamp_getAllRateLimitTokens is EVM2EVMOffRampSetup {
   function test_GetAllRateLimitTokens_Success() public view {
     // Gets all when maxCount is 0
-    (address[] memory sourceTokens, address[] memory destTokens) = s_offRamp.getAllRateLimitTokens(0, 0);
+    (address[] memory sourceTokens, address[] memory destTokens) = s_offRamp.getAllRateLimitTokens();
 
     for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
       assertEq(s_sourceTokens[i], sourceTokens[i]);
       assertEq(s_destTokens[i], destTokens[i]);
     }
-
-    // Gets batches
-    uint256 batchSize = 1;
-    bool continueQuery = true;
-    uint256 lastIndex = 0;
-    address[] memory sourceTokens2 = new address[](s_sourceTokens.length);
-    address[] memory destTokens2 = new address[](s_sourceTokens.length);
-    while (continueQuery) {
-      try s_offRamp.getAllRateLimitTokens(lastIndex, batchSize) returns (
-        address[] memory sourceTokensBatch, address[] memory destTokensBatch
-      ) {
-        for (uint256 i = 0; i < sourceTokensBatch.length; ++i) {
-          sourceTokens2[i + lastIndex] = sourceTokensBatch[i];
-          destTokens2[i + lastIndex] = destTokensBatch[i];
-        }
-        lastIndex += sourceTokensBatch.length;
-      } catch {
-        continueQuery = false;
-      }
-    }
-
-    for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
-      assertEq(s_sourceTokens[i], sourceTokens2[i]);
-      assertEq(s_destTokens[i], destTokens2[i]);
-    }
-  }
-
-  // Reverts
-
-  function test_IndexOutOfRange_Revert() public {
-    vm.startPrank(STRANGER);
-
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.IndexOutOfRange.selector));
-
-    s_offRamp.getAllRateLimitTokens(s_sourceTokens.length, 10);
   }
 }
 
@@ -1400,7 +1363,7 @@ contract EVM2EVMOffRamp_updateRateLimitTokens is EVM2EVMOffRampSetup {
 
     s_offRamp.updateRateLimitTokens(new EVM2EVMOffRamp.RateLimitToken[](0), adds);
 
-    (address[] memory sourceTokens, address[] memory destTokens) = s_offRamp.getAllRateLimitTokens(0, 0);
+    (address[] memory sourceTokens, address[] memory destTokens) = s_offRamp.getAllRateLimitTokens();
 
     for (uint256 i = 0; i < adds.length; ++i) {
       assertEq(adds[i].sourceToken, sourceTokens[i]);
@@ -1430,7 +1393,7 @@ contract EVM2EVMOffRamp_updateRateLimitTokens is EVM2EVMOffRampSetup {
 
     s_offRamp.updateRateLimitTokens(removes, new EVM2EVMOffRamp.RateLimitToken[](0));
 
-    (address[] memory sourceTokens, address[] memory destTokens) = s_offRamp.getAllRateLimitTokens(0, 0);
+    (address[] memory sourceTokens, address[] memory destTokens) = s_offRamp.getAllRateLimitTokens();
 
     assertEq(1, sourceTokens.length);
     assertEq(adds[1].sourceToken, sourceTokens[0]);

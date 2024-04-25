@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {IPool} from "../../interfaces/pools/IPool.sol";
+import {IPool} from "../../interfaces/IPool.sol";
 import {IMessageTransmitter} from "./IMessageTransmitter.sol";
 import {ITokenMessenger} from "./ITokenMessenger.sol";
 

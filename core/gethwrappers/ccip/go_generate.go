@@ -14,6 +14,7 @@ package ccip
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/ARMProxy/ARMProxy.abi ../../../contracts/solc/v0.8.19/ARMProxy/ARMProxy.bin ARMProxyContract arm_proxy_contract
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/MockARM/MockARM.abi ../../../contracts/solc/v0.8.19/MockARM/MockARM.bin MockARMContract mock_arm_contract
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/TokenAdminRegistry/TokenAdminRegistry.abi ../../../contracts/solc/v0.8.19/TokenAdminRegistry/TokenAdminRegistry.bin TokenAdminRegistry token_admin_registry
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.abi ../../../contracts/solc/v0.8.19/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.bin RegistryModuleOwnerCustom registry_module_owner_custom
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.abi ../../../contracts/solc/v0.8.19/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.bin MockE2EUSDCTokenMessenger mock_usdc_token_messenger
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.abi ../../../contracts/solc/v0.8.19/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.bin MockE2EUSDCTransmitter mock_usdc_token_transmitter
 
