@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -206,6 +206,13 @@ func WrapperConfigure(
 		uint8(maxNumWords))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func PrintWrapperConfig(wrapper *vrfv2_wrapper.VRFV2Wrapper) {
+	cfg, err := wrapper.GetConfig(nil)
+	helpers.PanicErr(err)
+	fmt.Printf("Wrapper config: %+v\n", cfg)
+	fmt.Printf("Wrapper Keyhash: %s\n", fmt.Sprintf("0x%x", cfg.KeyHash))
 }
 
 func WrapperConsumerDeploy(
