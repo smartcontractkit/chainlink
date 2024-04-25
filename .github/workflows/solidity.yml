@@ -258,10 +258,7 @@ jobs:
         uses: smartcontractkit/.github/actions/ci-publish-npm@4b0ab756abcb1760cb82e1e87b94ff431905bffc # ci-publish-npm@0.4.0
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          github-release-tag-name: ${{ github.ref_name }}
-          github-release-changelog-path: "contracts/CHANGELOG.md"
-          create-github-release: true
+          create-github-release: false
           publish-command: "pnpm publish-prod --no-git-checks"
           package-json-directory: contracts
 
