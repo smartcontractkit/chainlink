@@ -1112,7 +1112,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			}
 
 			t.Run("with erroring callback bails out", func(t *testing.T) {
-				require.NoError(t, txStore.InsertTx(ctx, &etx))
+				require.NoError(t, txStore.InsertTx(testutils.Context(t), &etx))
 				fn := func(ctx context.Context, id uuid.UUID, result interface{}, err error) error {
 					return errors.New("something exploded in the callback")
 				}

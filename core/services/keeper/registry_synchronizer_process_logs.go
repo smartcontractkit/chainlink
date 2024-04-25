@@ -82,6 +82,9 @@ func (rs *RegistrySynchronizer) processLogs(ctx context.Context) {
 		}
 
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			rs.logger.Error(err)
 		}
 

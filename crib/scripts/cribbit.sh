@@ -143,15 +143,33 @@ fi
 # AWS ECR Login
 ##
 
+# Function to extract the host URI of the ECR registry from OCI URI
+extract_ecr_host_uri() {
+    local ecr_uri="$1"
+    # Regex to capture the ECR host URI
+    if [[ $ecr_uri =~ oci:\/\/([0-9]+\.dkr\.ecr\.[a-zA-Z0-9-]+\.amazonaws\.com) ]]; then
+        echo "${BASH_REMATCH[1]}"
+    else
+        echo "No valid ECR host URI found in the URI."
+        echo "Have you set CHAINLINK_CLUSTER_HELM_CHART_URI env var?"
+        exit 1
+    fi
+}
+
 # Set env var CRIB_SKIP_ECR_LOGIN=true to skip ECR login.
 if [[ -n "${CRIB_SKIP_ECR_LOGIN:-}" ]]; then
   echo "Info: Skipping ECR login."
 else
-  echo "Info: Logging into AWS ECR registry."
+  echo "Info: Logging docker into AWS ECR registry."
   aws ecr get-login-password \
     --region "${AWS_REGION}" \
       | docker login --username AWS \
         --password-stdin "${aws_account_id_ecr_registry}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+  echo "Info: Logging helm into AWS ECR registry."
+  helm_registry_uri=$(extract_ecr_host_uri "${CHAINLINK_CLUSTER_HELM_CHART_URI}")
+  aws ecr get-login-password --region "${AWS_REGION}" \
+   | helm registry login "$helm_registry_uri" --username AWS --password-stdin
 fi
 
 ##
