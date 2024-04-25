@@ -57,8 +57,8 @@ func logID(l logpoller.Log) string {
 	return hex.EncodeToString(ext.LogIdentifier())
 }
 
-// latestBlockNumber returns the latest block number from the given logs
-func latestBlockNumber(logs ...logpoller.Log) (int64, map[int64]bool) {
+// blockStatistics returns the latest block number from the given logs, and a map of unique block numbers
+func blockStatistics(logs ...logpoller.Log) (int64, map[int64]bool) {
 	var latest int64
 	uniqueBlocks := map[int64]bool{}
 
@@ -68,5 +68,6 @@ func latestBlockNumber(logs ...logpoller.Log) (int64, map[int64]bool) {
 		}
 		uniqueBlocks[l.BlockNumber] = true
 	}
+
 	return latest, uniqueBlocks
 }

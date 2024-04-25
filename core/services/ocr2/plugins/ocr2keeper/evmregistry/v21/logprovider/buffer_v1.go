@@ -103,17 +103,33 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		b.setUpkeepQueue(uid, buf)
 	}
 
-	latestLogBlock, uniqueBlocks := latestBlockNumber(logs...)
+	latestLogBlock, uniqueBlocks := blockStatistics(logs...)
 	if lastBlockSeen := b.lastBlockSeen.Load(); lastBlockSeen < latestLogBlock {
 		b.lastBlockSeen.Store(latestLogBlock)
 	} else if latestLogBlock < lastBlockSeen {
 		b.lggr.Debugw("enqueuing logs from a block older than latest seen block", "logBlock", latestLogBlock, "lastBlockSeen", lastBlockSeen)
 	}
 
+	b.trackBlockNumbersForUpkeep(uid, uniqueBlocks)
+
+	blockThreshold := b.lastBlockSeen.Load() - int64(b.opts.lookback.Load())
+	if blockThreshold <= 0 {
+		blockThreshold = 1
+	}
+
+	return buf.enqueue(blockThreshold, logs...)
+}
+
+// trackBlockNumbersForUpkeep keeps track of the number of times we enqueue logs for an upkeep,
+// for a specific block number. The expectation is that we will only enqueue logs for an upkeep for a
+// specific block number once, i.e. all logs for an upkeep for a block, will be enqueued in a single
+// enqueue call. In the event that we see upkeep logs enqueued for a particular block more than once,
+// we log a message.
+func (b *logBuffer) trackBlockNumbersForUpkeep(uid *big.Int, uniqueBlocks map[int64]bool) {
 	for blockNumber := range uniqueBlocks {
 		if blockNumbers, ok := b.enqueuedBlocks[blockNumber]; ok {
-			if count, ok := blockNumbers[uid.String()]; ok {
-				blockNumbers[uid.String()] = count + 1
+			if upkeepBlockInstances, ok := blockNumbers[uid.String()]; ok {
+				blockNumbers[uid.String()] = upkeepBlockInstances + 1
 				b.lggr.Debugw("enqueuing logs again for a previously seen block for this upkeep", "blockNumber", blockNumber, "numberOfEnqueues", b.enqueuedBlocks[blockNumber], "upkeepID", uid.String())
 			} else {
 				blockNumbers[uid.String()] = 1
@@ -125,12 +141,6 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 			}
 		}
 	}
-
-	blockThreshold := b.lastBlockSeen.Load() - int64(b.opts.lookback.Load())
-	if blockThreshold <= 0 {
-		blockThreshold = 1
-	}
-	return buf.enqueue(blockThreshold, logs...)
 }
 
 // Dequeue greedly pulls logs from the buffers.
