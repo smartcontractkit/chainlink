@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
+
+# Function to extract the host URI of the ECR registry from OCI URI
+extract_ecr_host_uri() {
+    local ecr_uri="$1"
+    # Regex to capture the ECR host URI
+    if [[ $ecr_uri =~ oci:\/\/([0-9]+\.dkr\.ecr\.[a-zA-Z0-9-]+\.amazonaws\.com) ]]; then
+        echo "${BASH_REMATCH[1]}"
+    else
+        echo "No valid ECR host URI found in the URI."
+        echo "Have you set CHAINLINK_CLUSTER_HELM_CHART_URI env var?"
+        exit 1
+    fi
+}
+
 user_home="$HOME"
 file_path="$user_home/.aws/config"
 image=""
@@ -33,5 +47,12 @@ else
   echo "Docker daemon is not running, exiting"
   exit 1
 fi
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${registry_id}.dkr.ecr.us-west-2.amazonaws.com
-devspace use namespace $1
+
+# Login to docker ECR registry
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin "${registry_id}".dkr.ecr.us-west-2.amazonaws.com
+
+# Login to helm ECR registry
+helm_registry_uri=$(extract_ecr_host_uri "${CHAINLINK_CLUSTER_HELM_CHART_URI}")
+aws ecr get-login-password --region us-west-2  | helm registry login "$helm_registry_uri" --username AWS --password-stdin
+
+devspace use namespace "$1"
