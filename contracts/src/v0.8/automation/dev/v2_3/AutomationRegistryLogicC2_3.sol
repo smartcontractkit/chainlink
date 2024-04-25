@@ -6,7 +6,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IAutomationV21PlusCommon} from "../../interfaces/IAutomationV21PlusCommon.sol";
 
 contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
@@ -166,6 +166,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     uint256 length = activeTransmittersLength + deactivatedTransmittersLength;
     uint256[] memory payments = new uint256[](length);
     address[] memory payees = new address[](length);
+
     for (uint256 i = 0; i < activeTransmittersLength; i++) {
       address transmitterAddr = s_transmittersList[i];
       uint96 balance = _updateTransmitterBalanceFromPool(
@@ -173,18 +174,27 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
         s_hotVars.totalPremium,
         uint96(activeTransmittersLength)
       );
+
       payments[i] = balance;
       payees[i] = s_transmitterPayees[transmitterAddr];
       s_transmitters[transmitterAddr].balance = 0;
     }
+
     for (uint256 i = 0; i < deactivatedTransmittersLength; i++) {
       address deactivatedAddr = s_deactivatedTransmitters.at(i);
       Transmitter memory transmitter = s_transmitters[deactivatedAddr];
+
       payees[i + activeTransmittersLength] = s_transmitterPayees[deactivatedAddr];
       payments[i + activeTransmittersLength] = transmitter.balance;
       s_transmitters[deactivatedAddr].balance = 0;
     }
-    delete s_deactivatedTransmitters;
+
+    // reserve amount of LINK is reset to 0 since no user deposits of LINK are expected in offchain mode
+    s_reserveAmounts[IERC20(address(i_link))] = 0;
+
+    for (uint256 idx = s_deactivatedTransmitters.length(); idx > 0; idx--) {
+      s_deactivatedTransmitters.remove(s_deactivatedTransmitters.at(idx - 1));
+    }
 
     emit NOPsSettledOffchain(payees, payments);
   }
@@ -578,5 +588,36 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
    */
   function linkAvailableForPayment() public view returns (int256) {
     return _linkAvailableForPayment();
+  }
+
+  /**
+   * @notice returns the BillingOverrides config for a given upkeep
+   */
+  function getBillingOverrides(uint256 upkeepID) external view returns (BillingOverrides memory) {
+    return s_billingOverrides[upkeepID];
+  }
+
+  /**
+   * @notice returns the BillingConfig for a given billing token, this includes decimals and price feed etc
+   */
+  function getBillingConfig(IERC20 billingToken) external view returns (BillingConfig memory) {
+    return s_billingConfigs[billingToken];
+  }
+
+  /**
+   * @notice returns all active transmitters with their associated payees
+   */
+  function getTransmittersWithPayees() external view returns (TransmitterPayeeInfo[] memory) {
+    uint256 transmitterCount = s_transmittersList.length;
+    TransmitterPayeeInfo[] memory transmitters = new TransmitterPayeeInfo[](transmitterCount);
+
+    for (uint256 i = 0; i < transmitterCount; i++) {
+      address transmitterAddress = s_transmittersList[i];
+      address payeeAddress = s_transmitterPayees[transmitterAddress];
+
+      transmitters[i] = TransmitterPayeeInfo(transmitterAddress, payeeAddress);
+    }
+
+    return transmitters;
   }
 }

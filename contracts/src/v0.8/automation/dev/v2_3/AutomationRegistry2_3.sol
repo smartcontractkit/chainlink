@@ -9,7 +9,7 @@ import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
@@ -355,7 +355,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       offchainConfig
     );
 
-    delete s_registrars;
+    for (uint256 idx = s_registrars.length(); idx > 0; idx--) {
+      s_registrars.remove(s_registrars.at(idx - 1));
+    }
 
     for (uint256 idx = 0; idx < onchainConfig.registrars.length; idx++) {
       s_registrars.add(onchainConfig.registrars[idx]);

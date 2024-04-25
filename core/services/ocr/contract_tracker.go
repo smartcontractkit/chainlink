@@ -90,8 +90,9 @@ type (
 	}
 
 	OCRContractTrackerDB interface {
-		SaveLatestRoundRequested(ctx context.Context, tx sqlutil.DataSource, rr offchainaggregator.OffchainAggregatorRoundRequested) error
+		SaveLatestRoundRequested(ctx context.Context, rr offchainaggregator.OffchainAggregatorRoundRequested) error
 		LoadLatestRoundRequested(ctx context.Context) (rr offchainaggregator.OffchainAggregatorRoundRequested, err error)
+		WithDataSource(sqlutil.DataSource) OCRContractTrackerDB
 	}
 )
 
@@ -293,7 +294,7 @@ func (t *OCRContractTracker) HandleLog(ctx context.Context, lb log.Broadcast) {
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
 			err = sqlutil.TransactDataSource(ctx, t.ds, nil, func(tx sqlutil.DataSource) error {
-				if err = t.ocrDB.SaveLatestRoundRequested(ctx, tx, *rr); err != nil {
+				if err = t.ocrDB.WithDataSource(tx).SaveLatestRoundRequested(ctx, *rr); err != nil {
 					return err
 				}
 				return t.logBroadcaster.MarkConsumed(ctx, tx, lb)

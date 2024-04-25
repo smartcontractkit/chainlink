@@ -67,6 +67,7 @@ type vrfUniverse struct {
 }
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
+	ctx := testutils.Context(t)
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
@@ -80,22 +81,22 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
-	txm, err := txmgr.NewTxm(db, db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
+	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
-	jrm := job.NewORM(db, prm, btORM, ks, lggr, cfg.Database())
+	jrm := job.NewORM(db, prm, btORM, ks, lggr)
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
-	require.NoError(t, ks.Unlock(testutils.Password))
+	require.NoError(t, ks.Unlock(ctx, testutils.Password))
 	k, err2 := ks.Eth().Create(testutils.Context(t), testutils.FixtureChainID)
 	require.NoError(t, err2)
 	submitter := k.Address
 	require.NoError(t, err)
-	vrfkey, err3 := ks.VRF().Create()
+	vrfkey, err3 := ks.VRF().Create(ctx)
 	require.NoError(t, err3)
 
 	return vrfUniverse{
@@ -164,7 +165,8 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String(), EVMChainID: testutils.FixtureChainID.String()})
 	jb, err := vrfcommon.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
-	err = vuni.jrm.CreateJob(&jb)
+	ctx := testutils.Context(t)
+	err = vuni.jrm.CreateJob(ctx, &jb)
 	require.NoError(t, err)
 	vl, err := vd.ServicesForSpec(testutils.Context(t), jb)
 	require.NoError(t, err)
@@ -559,11 +561,11 @@ decode_log->vrf->encode_tx->submit_tx
 
 func Test_CheckFromAddressesExist(t *testing.T) {
 	t.Run("from addresses exist", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
-		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
-		require.NoError(t, ks.Unlock(testutils.Password))
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
 		for i := 0; i < 3; i++ {
@@ -587,11 +589,11 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 	})
 
 	t.Run("one of from addresses doesn't exist", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
-		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
-		require.NoError(t, ks.Unlock(testutils.Password))
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
 		for i := 0; i < 3; i++ {
@@ -700,7 +702,8 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(toml)
 	require.NoError(t, err)
-	err = vuni.jrm.CreateJob(&jb)
+	ctx := testutils.Context(t)
+	err = vuni.jrm.CreateJob(ctx, &jb)
 	require.NoError(t, err)
 	_, err = vd.ServicesForSpec(testutils.Context(t), jb)
 	require.Error(t, err)

@@ -89,7 +89,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	lggr := logger.TestLogger(t)
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
@@ -99,14 +99,14 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
+	jobORM := job.NewORM(db, pipelineORM, bridgeORM, keyStore, lggr)
 	orm := newORM(t, db, nil)
 
 	address := testutils.NewAddress()
 	var roundID uint32 = 1
 
 	jb := makeJob(t)
-	require.NoError(t, jobORM.CreateJob(jb))
+	require.NoError(t, jobORM.CreateJob(ctx, jb))
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()
@@ -172,8 +172,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewQConfig(true)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	strategy := commontxmmocks.NewTxStrategy(t)
 

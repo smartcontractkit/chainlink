@@ -20,7 +20,6 @@ import (
 
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -55,13 +54,10 @@ type contractTrackerUni struct {
 }
 
 func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
-	var cfg evmconfig.ChainScopedConfig
 	var filterer *offchainaggregator.OffchainAggregatorFilterer
 	var contract *offchain_aggregator_wrapper.OffchainAggregator
 	for _, opt := range opts {
 		switch v := opt.(type) {
-		case evmconfig.ChainScopedConfig:
-			cfg = v
 		case *offchainaggregator.OffchainAggregatorFilterer:
 			filterer = v
 		case *offchain_aggregator_wrapper.OffchainAggregator:
@@ -70,9 +66,8 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 			t.Fatalf("unrecognised option type %T", v)
 		}
 	}
-	if cfg == nil {
-		cfg = evmtest.NewChainScopedConfig(t, configtest.NewTestGeneralConfig(t))
-	}
+	gcfg := configtest.NewTestGeneralConfig(t)
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	if filterer == nil {
 		filterer = mustNewFilterer(t)
 	}
@@ -229,9 +224,10 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 1 && rr.Round == 1
 		})).Return(nil)
+		uni.db.On("WithDataSource", mock.Anything).Return(uni.db)
 
 		uni.tracker.HandleLog(testutils.Context(t), logBroadcast)
 
@@ -249,7 +245,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 1 && rr.Round == 9
 		})).Return(nil)
 
@@ -278,7 +274,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 2 && rr.Round == 1
 		})).Return(nil)
 
@@ -300,7 +296,8 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		logBroadcast.On("String").Return("").Maybe()
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("something exploded"))
+		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
+		uni.db.On("WithDataSource", mock.Anything).Return(uni.db)
 
 		uni.tracker.HandleLog(testutils.Context(t), logBroadcast)
 

@@ -100,8 +100,9 @@ func setupDKGEncryptKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner,
 	t.Helper()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	require.NoError(t, app.KeyStore.DKGEncrypt().Add(cltest.DefaultDKGEncryptKey))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.Start(ctx))
+	require.NoError(t, app.KeyStore.DKGEncrypt().Add(ctx, cltest.DefaultDKGEncryptKey))
 
 	client := app.NewHTTPClient(nil)
 
