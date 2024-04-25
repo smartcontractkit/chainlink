@@ -506,7 +506,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
 	randomWordsFulfilledEventTimeout time.Duration,
-) (*contracts.CoordinatorRandomWordsFulfilled, error) {
+) (*contracts.CoordinatorRandomWordsRequested, *contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := RequestRandomness(
 		l,
 		consumer,
@@ -520,18 +520,18 @@ func RequestRandomnessAndWaitForFulfillment(
 		randomnessRequestCountPerRequestDeviation,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	fulfillmentEvents, err := WaitRandomWordsFulfilledEvent(
+	randomWordsFulfilledEvent, err := WaitRandomWordsFulfilledEvent(
 		coordinator,
 		randomWordsRequestedEvent.RequestId,
 		randomWordsFulfilledEventTimeout,
 		l,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return fulfillmentEvents, nil
+	return randomWordsRequestedEvent, randomWordsFulfilledEvent, nil
 }
 
 func RequestRandomness(

@@ -407,7 +407,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 
 	t.Run("saves latest round requested", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		err := odb.SaveLatestRoundRequested(ctx, sqlDB, rr)
+		err := odb.SaveLatestRoundRequested(ctx, rr)
 		require.NoError(t, err)
 
 		rawLog.Index = 42
@@ -421,7 +421,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 			Raw:          rawLog,
 		}
 
-		err = odb.SaveLatestRoundRequested(ctx, sqlDB, rr)
+		err = odb.SaveLatestRoundRequested(ctx, rr)
 		require.NoError(t, err)
 	})
 

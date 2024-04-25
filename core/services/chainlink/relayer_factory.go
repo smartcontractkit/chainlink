@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -68,9 +67,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DB:             ccOpts.SqlxDB,
-			DS:             ccOpts.DB,
-			QConfig:        ccOpts.AppConfig.Database(),
+			DS:             ccOpts.DS,
 			CSAETHKeystore: config.CSAETHKeystore,
 			MercuryPool:    r.MercuryPool,
 		}
@@ -239,8 +236,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 type CosmosFactoryConfig struct {
 	Keystore keystore.Cosmos
 	coscfg.TOMLConfigs
-	*sqlx.DB
-	pg.QConfig
+	DS sqlutil.DataSource
 }
 
 func (c CosmosFactoryConfig) Validate() error {
@@ -251,11 +247,8 @@ func (c CosmosFactoryConfig) Validate() error {
 	if len(c.TOMLConfigs) == 0 {
 		err = errors.Join(err, fmt.Errorf("no CosmosConfigs provided"))
 	}
-	if c.DB == nil {
-		err = errors.Join(err, fmt.Errorf("nil DB"))
-	}
-	if c.QConfig == nil {
-		err = errors.Join(err, fmt.Errorf("nil QConfig"))
+	if c.DS == nil {
+		err = errors.Join(err, fmt.Errorf("nil DataStore"))
 	}
 
 	if err != nil {
@@ -284,7 +277,7 @@ func (r *RelayerFactory) NewCosmos(config CosmosFactoryConfig) (map[types.RelayI
 
 		opts := cosmos.ChainOpts{
 			Logger:   lggr,
-			DB:       config.DB,
+			DS:       config.DS,
 			KeyStore: loopKs,
 		}
 
