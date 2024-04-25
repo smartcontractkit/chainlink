@@ -7,10 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 type blockHistoryConfig struct {
@@ -34,7 +35,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.PriceDefaultF = assets.NewWeiI(42)
 		config.PriceMaxF = maxGasPrice
 
-		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, maxGasPrice)
+		gasPrice, gasLimit, err := f.GetLegacyGas(tests.Context(t), nil, 100000, maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, 100000, int(gasLimit))
 		assert.Equal(t, assets.NewWeiI(42), gasPrice)
@@ -48,7 +49,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), l1Oracle)
 
-		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
+		gasPrice, gasLimit, err := f.GetLegacyGas(tests.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
 		assert.Equal(t, 100000, int(gasLimit))
 		assert.Equal(t, assets.NewWeiI(30), gasPrice)
@@ -61,7 +62,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), l1Oracle)
-		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
+		gasPrice, gasLimit, err := f.GetLegacyGas(tests.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
 		assert.Equal(t, 100000, int(gasLimit))
 		assert.Equal(t, assets.NewWeiI(20), gasPrice)
@@ -78,7 +79,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		lggr := logger.TestSugared(t)
 		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, l1Oracle)
 
-		gasPrice, gasLimit, err := f.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
+		gasPrice, gasLimit, err := f.BumpLegacyGas(tests.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 		require.NoError(t, err)
 
 		expectedGasPrice, err := gas.BumpLegacyGasPriceOnly(config, lggr, nil, assets.NewWeiI(42), maxGasPrice)
@@ -99,7 +100,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		lggr := logger.Test(t)
 		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, l1Oracle)
 
-		fee, err := f.GetDynamicFee(testutils.Context(t), maxGasPrice)
+		fee, err := f.GetDynamicFee(tests.Context(t), maxGasPrice)
 		require.NoError(t, err)
 
 		assert.Equal(t, assets.NewWeiI(52), fee.TipCap)
@@ -108,14 +109,14 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		// Gas bumping disabled
 		config.BumpThresholdF = uint64(0)
 
-		fee, err = f.GetDynamicFee(testutils.Context(t), maxGasPrice)
+		fee, err = f.GetDynamicFee(tests.Context(t), maxGasPrice)
 		require.NoError(t, err)
 
 		assert.Equal(t, assets.NewWeiI(52), fee.TipCap)
 		assert.Equal(t, maxGasPrice, fee.FeeCap)
 
 		// override max gas price
-		fee, err = f.GetDynamicFee(testutils.Context(t), assets.NewWeiI(10))
+		fee, err = f.GetDynamicFee(tests.Context(t), assets.NewWeiI(10))
 		require.NoError(t, err)
 
 		assert.Equal(t, assets.NewWeiI(52), fee.TipCap)
@@ -134,7 +135,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, l1Oracle)
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
-		fee, err := f.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, nil)
+		fee, err := f.BumpDynamicFee(tests.Context(t), originalFee, maxGasPrice, nil)
 		require.NoError(t, err)
 
 		expectedFee, err := gas.BumpDynamicFeeOnly(config, 0, lggr, nil, nil, originalFee, maxGasPrice)

@@ -98,7 +98,7 @@ type estimatorGasEstimatorConfig interface {
 type BlockHistoryEstimator struct {
 	services.StateMachine
 	ethClient feeEstimatorClient
-	chainID   big.Int
+	chainID   *big.Int
 	config    chainConfig
 	eConfig   estimatorGasEstimatorConfig
 	bhConfig  BlockHistoryConfig
@@ -127,7 +127,7 @@ type BlockHistoryEstimator struct {
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID *big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	b := &BlockHistoryEstimator{

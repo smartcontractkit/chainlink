@@ -1030,20 +1030,6 @@ func LegacyTransactionsFromGasPricesTxType(code evmtypes.TxType, gasPrices ...in
 	return txs
 }
 
-// DynamicFeeTransactionsFromTipCaps returns EIP-1559 transactions with the
-// given TipCaps (FeeCap is arbitrary)
-func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []evmtypes.Transaction {
-	return DynamicFeeTransactionsFromTipCapsTxType(0x02, tipCaps...)
-}
-
-func DynamicFeeTransactionsFromTipCapsTxType(code evmtypes.TxType, tipCaps ...int64) []evmtypes.Transaction {
-	txs := make([]evmtypes.Transaction, len(tipCaps))
-	for i, tipCap := range tipCaps {
-		txs[i] = evmtypes.Transaction{Type: code, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
-	}
-	return txs
-}
-
 type TransactionReceipter interface {
 	TransactionReceipt(context.Context, common.Hash) (*types.Receipt, error)
 }
