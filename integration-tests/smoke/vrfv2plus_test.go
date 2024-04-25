@@ -1320,8 +1320,6 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		wg.Wait()
 		require.NoError(t, err)
 		err = vrfv2plus.FundSubscriptions(
-			env,
-			chainID,
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,
@@ -1539,8 +1537,6 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			Float64("SubscriptionFundingAmountLink", *configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink).
 			Msg("Funding subscription")
 		err = vrfv2plus.FundSubscriptions(
-			env,
-			chainID,
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,
@@ -1702,8 +1698,6 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 
 		// 5. fund sub so that node can fulfill request
 		err = vrfv2plus.FundSubscriptions(
-			env,
-			chainID,
 			fundingLinkAmt,
 			fundingNativeAmt,
 			vrfContracts.LinkToken,

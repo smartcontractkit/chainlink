@@ -303,8 +303,6 @@ func SetupVRFV2PlusWrapperEnvironment(
 	}
 
 	err = FundSubscriptions(
-		env,
-		chainID,
 		big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
 		big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink),
 		linkToken,

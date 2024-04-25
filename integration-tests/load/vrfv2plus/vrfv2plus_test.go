@@ -316,8 +316,6 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 			Strs("SubIDs", subIDsString).
 			Msg("Funding Subscriptions with Link and Native Tokens")
 		err = vrfv2plus.FundSubscriptions(
-			testEnv,
-			chainID,
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,

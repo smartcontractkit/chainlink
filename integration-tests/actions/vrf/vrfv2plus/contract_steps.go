@@ -146,20 +146,8 @@ func CreateFundSubsAndAddConsumers(
 		subToConsumersMap,
 		coordinator,
 	)
-	if err != nil {
-		return nil, err
-	}
 
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
-	return subIDs, nil
+	return subIDs, err
 }
 
 func CreateSubsAndFund(
@@ -175,18 +163,7 @@ func CreateSubsAndFund(
 	if err != nil {
 		return nil, err
 	}
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
 	err = FundSubscriptions(
-		env,
-		chainID,
 		subscriptionFundingAmountNative,
 		subscriptionFundingAmountLink,
 		linkToken,
@@ -237,16 +214,11 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordi
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrCreateVRFSubscription, err)
 	}
-	evmClient, err := env.GetEVMClient(chainID)
+	sethClient, err := env.GetSethClient(chainID)
 	if err != nil {
 		return nil, err
 	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
-
-	receipt, err := evmClient.GetTxReceipt(tx.Hash())
+	receipt, err := sethClient.Client.TransactionReceipt(context.Background(), tx.Hash())
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
@@ -258,19 +230,12 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordi
 }
 
 func FundSubscriptions(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
 	linkAddress contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subIDs []*big.Int,
 ) error {
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return err
-	}
-
 	for _, subID := range subIDs {
 		//Native Billing
 		amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
@@ -287,10 +252,6 @@ func FundSubscriptions(
 		if err != nil {
 			return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFundSubWithLinkToken, err)
 		}
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return nil
 }
