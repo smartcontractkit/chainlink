@@ -1,31 +1,31 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
-import "../../AuthorizedForwarder.sol";
-import "../../Operator.sol";
-import "../../OperatorFactory.sol";
+import {AuthorizedForwarder} from "../../AuthorizedForwarder.sol";
+import {Operator} from "../../Operator.sol";
+import {OperatorFactory} from "../../OperatorFactory.sol";
 
-import "./MockReceiver.sol";
+import {MockReceiver} from "./MockReceiver.sol";
 
-import "../../../mocks/MockLinkToken.sol";
+import {MockLinkToken} from "../../../mocks/MockLinkToken.sol";
 
 abstract contract Deployer is Test {
-  OperatorFactory factory;
-  Operator operator;
-  AuthorizedForwarder forwarder;
+  OperatorFactory public factory;
+  Operator public operator;
+  AuthorizedForwarder public forwarder;
 
   MockLinkToken public link;
-  MockReceiver mockReceiver;
+  MockReceiver public mockReceiver;
 
-  address owner = address(uint160(uint256(keccak256("owner"))));
-  address alice = address(uint160(uint256(keccak256("alice"))));
-  address bob = address(uint160(uint256(keccak256("bob"))));
+  address public owner = address(uint160(uint256(keccak256("owner"))));
+  address public alice = address(uint160(uint256(keccak256("alice"))));
+  address public bob = address(uint160(uint256(keccak256("bob"))));
 
-  address sender1 = address(uint160(uint256(keccak256("sender1"))));
-  address sender2 = address(uint160(uint256(keccak256("sender2"))));
-  address sender3 = address(uint160(uint256(keccak256("sender3"))));
+  address public sender1 = address(uint160(uint256(keccak256("sender1"))));
+  address public sender2 = address(uint160(uint256(keccak256("sender2"))));
+  address public sender3 = address(uint160(uint256(keccak256("sender3"))));
 
   function _setUp() internal {
     _deploy();
