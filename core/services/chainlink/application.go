@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -189,9 +190,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 	registry := capabilities.NewRegistry(globalLogger)
 
+	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
-		externalPeerWrapper := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
-		signer := externalPeerWrapper
+		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		signer := externalPeer
+		externalPeerWrapper = externalPeer
+
 		srvcs = append(srvcs, externalPeerWrapper)
 
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
@@ -367,14 +371,24 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				streamRegistry,
 				pipelineRunner,
-				cfg.JobPipeline()),
-			job.Workflow: workflows.NewDelegate(
-				globalLogger,
-				registry,
-				legacyEVMChains,
+				cfg.JobPipeline(),
 			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
+	)
+
+	delegates[job.Workflow] = workflows.NewDelegate(
+		globalLogger,
+		registry,
+		legacyEVMChains,
+		func() *p2ptypes.PeerID {
+			if externalPeerWrapper == nil {
+				return nil
+			}
+
+			peerID := externalPeerWrapper.GetPeer().ID()
+			return &peerID
+		},
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate

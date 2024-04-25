@@ -10,6 +10,8 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/shopspring/decimal"
 	"sigs.k8s.io/yaml"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 )
 
 func GenerateJsonSchema() ([]byte, error) {
@@ -47,22 +49,30 @@ type workflowSpecYaml struct {
 func (w workflowSpecYaml) toWorkflowSpec() workflowSpec {
 	triggers := make([]stepDefinition, 0, len(w.Triggers))
 	for _, t := range w.Triggers {
-		triggers = append(triggers, t.toStepDefinition())
+		sd := t.toStepDefinition()
+		sd.CapabilityType = capabilities.CapabilityTypeTrigger
+		triggers = append(triggers, sd)
 	}
 
 	actions := make([]stepDefinition, 0, len(w.Actions))
 	for _, a := range w.Actions {
-		actions = append(actions, a.toStepDefinition())
+		sd := a.toStepDefinition()
+		sd.CapabilityType = capabilities.CapabilityTypeAction
+		actions = append(actions, sd)
 	}
 
 	consensus := make([]stepDefinition, 0, len(w.Consensus))
 	for _, c := range w.Consensus {
-		consensus = append(consensus, c.toStepDefinition())
+		sd := c.toStepDefinition()
+		sd.CapabilityType = capabilities.CapabilityTypeConsensus
+		consensus = append(consensus, sd)
 	}
 
 	targets := make([]stepDefinition, 0, len(w.Targets))
 	for _, t := range w.Targets {
-		targets = append(targets, t.toStepDefinition())
+		sd := t.toStepDefinition()
+		sd.CapabilityType = capabilities.CapabilityTypeTarget
+		targets = append(targets, sd)
 	}
 
 	return workflowSpec{
