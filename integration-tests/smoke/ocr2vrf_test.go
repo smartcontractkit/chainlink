@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
@@ -36,7 +35,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	config, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +98,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	config, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +158,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 
 func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	if ocr2vrfSmokeConfig == nil {
-		c, err := testconfig.GetConfig("Smoke", tc.OCR2VRF)
+		c, err := testconfig.GetConfig("Smoke", testconfig.OCR2VRF)
 		if err != nil {
 			t.Fatal(err)
 		}

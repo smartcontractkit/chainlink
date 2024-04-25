@@ -388,6 +388,7 @@ func SetupVRFV2ForExistingEnv(t *testing.T, testConfig tc.TestConfig, chainID in
 		WithTestInstance(t).
 		WithTestConfig(&testConfig).
 		WithCustomCleanup(cleanupFn).
+		WithSeth().
 		Build()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
@@ -461,7 +462,7 @@ func SetupSubsAndConsumersForExistingEnv(
 				return nil, nil, fmt.Errorf("err: %w", err)
 			}
 		} else {
-			client, err := env.GetSethClientForSelectedNetwork()
+			client, err := env.GetSethClient(chainID)
 			if err != nil {
 				return nil, nil, err
 			}

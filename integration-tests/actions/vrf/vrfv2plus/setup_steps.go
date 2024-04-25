@@ -374,6 +374,7 @@ func SetupVRFV2PlusForNewEnv(
 		WithCLNodes(len(newEnvConfig.NodesToCreate)).
 		WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
 		WithCustomCleanup(cleanupFn).
+		WithSeth().
 		Build()
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
@@ -417,6 +418,7 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, testConfig tc.TestConfig, chainI
 		WithTestInstance(t).
 		WithTestConfig(&testConfig).
 		WithCustomCleanup(cleanupFn).
+		WithSeth().
 		Build()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)

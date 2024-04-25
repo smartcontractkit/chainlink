@@ -64,8 +64,9 @@ func CreateAndFundSendingKeys(
 		}
 		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.Attributes.Address)
 		_, err = actions_seth.SendFunds(l, client, actions_seth.FundsToSendPayload{
-			ToAddress: common.HexToAddress(newTxKey.Data.Attributes.Address),
-			Amount:    conversions.EtherToWei(big.NewFloat(chainlinkNodeFunding)),
+			ToAddress:  common.HexToAddress(newTxKey.Data.Attributes.Address),
+			Amount:     conversions.EtherToWei(big.NewFloat(chainlinkNodeFunding)),
+			PrivateKey: client.PrivateKeys[0],
 		})
 		if err != nil {
 			return nil, err
@@ -333,8 +334,9 @@ func FundNodesIfNeeded(existingEnvConfig *vrf_common_config.ExistingEnvConfig, c
 					Str("Funding Amount in wei", fundingToSendWei.String()).
 					Msg("Funding Node's Sending Key")
 				_, err := actions_seth.SendFunds(l, client, actions_seth.FundsToSendPayload{
-					ToAddress: common.HexToAddress(sendingKey),
-					Amount:    fundingToSendWei,
+					ToAddress:  common.HexToAddress(sendingKey),
+					Amount:     fundingToSendWei,
+					PrivateKey: client.PrivateKeys[0],
 				})
 				if err != nil {
 					return err
