@@ -1,8 +1,8 @@
 # Crib Devspace Setup
 
-CRIB is a devspace configuration to launch CCIP enabled chainlink cluster 
+CRIB is a devspace configuration to launch CCIP enabled chainlink cluster
 
- CL nodes cluster for system level tests
+CL nodes cluster for system level tests
 
 Install `kubefwd` (no nixpkg for it yet, planned)
 
@@ -28,16 +28,17 @@ Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./val
 
 Set up your K8s access
 
-```
-export DEVSPACE_IMAGE="..."
-./setup.sh ${my-personal-namespace-name-crib}
-```
-
-Create a .env file based on the .env.sample file
+Copy the `.env.example` file to `.env` and fill in the required values
 
 ```sh
-cp .env.sample .env
-# Fill in the required values in .env
+cp crib/.env.example crib/.env
+```
+
+```
+cd crib/
+nix develop
+# Pro tip: use `crib-` as a prefix for your namespace.
+cribbit.sh <your crib namespace>
 ```
 
 Build and deploy the current state of your repository
@@ -86,7 +87,8 @@ devspace purge
 ```
 
 ## CCIP Contracts and Jobs Deployment
-By default, the root helm chart includes a post install hook defined in the ccip-scripts-deploy job. 
+
+By default, the root helm chart includes a post install hook defined in the ccip-scripts-deploy job.
 It will deploy contracts and jobs to make the CCIP enabled cluster operational.
 
 `ccip-scripts-deploy` job usually takes around 6 minutes to complete.
