@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -2359,7 +2360,7 @@ func NewKeeperConsumerBenchmarkkUpkeepObserver(
 
 // ReceiveHeader will query the latest Keeper round and check to see whether upkeep was performed, it returns
 // true when observation has finished.
-func (o *KeeperConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader *types.Header) (bool, error) {
+func (o *KeeperConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader *blockchain.SafeEVMHeader) (bool, error) {
 	if receivedHeader.Number.Uint64() <= o.lastBlockNum { // Uncle / reorg we won't count
 		return false, nil
 	}
