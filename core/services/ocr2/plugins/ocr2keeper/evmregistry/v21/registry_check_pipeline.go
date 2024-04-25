@@ -31,10 +31,6 @@ type checkResult struct {
 	err error
 }
 
-type UpkeepOffchainConfig struct {
-	MaxGasPrice *big.Int `json:"maxGasPrice" cbor:"maxGasPrice"`
-}
-
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	r.lggr.Debugw("Checking upkeeps", "upkeeps", keys)
 	for i := range keys {

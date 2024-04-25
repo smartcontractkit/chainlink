@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/gasprice"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 )
 
@@ -1116,6 +1118,82 @@ func TestUpdateCheckData(t *testing.T) {
 					l.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
+		})
+	}
+}
+
+func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
+	t.Parallel()
+	registryVersions := map[string]ethereum.KeeperRegistryVersion{
+		// registry20 also has upkeep offchain config but the max gas price check is not implemented
+		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
+	}
+
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
+			a := setupAutomationTestDocker(
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+			)
+
+			consumers, upkeepIDs := actions.DeployConsumers(
+				t,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
+				defaultAmountOfUpkeeps,
+				big.NewInt(automationDefaultLinkFunds),
+				automationDefaultUpkeepGasLimit,
+				false,
+				false,
+			)
+			gom := gomega.NewGomegaWithT(t)
+
+			// Observe that the upkeeps which are initially registered are performing
+			gom.Eventually(func(g gomega.Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
+						"Expected consumer counter to be greater than 0, but got %d")
+				}
+			}, "4m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
+
+			// set the maxGasPrice to 1 wei
+			uoc, _ := cbor.Marshal(gasprice.UpkeepOffchainConfig{MaxGasPrice: big.NewInt(1)})
+			for _, uid := range upkeepIDs {
+				err = a.Registry.SetUpkeepOffchainConfig(uid, uoc)
+				require.NoError(t, err, "Error setting upkeep offchain config")
+				err = a.ChainClient.WaitForEvents()
+				require.NoError(t, err, "Error waiting for events from setting upkeep offchain config")
+			}
+
+			// Store how many times each upkeep performed once their offchain config is set with maxGasPrice = 1 wei
+			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
+			for i := 0; i < len(upkeepIDs); i++ {
+				countersAfterPause[i], err = consumers[i].Counter(testcontext.Get(t))
+				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+			}
+
+			// the counters of all the upkeeps should stay constant because they are no longer getting serviced
+			gom.Consistently(func(g gomega.Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					latestCounter, err := consumers[i].Counter(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterPause[i].Int64()),
+						"Expected consumer counter to remain constant at %d, but got %d",
+						countersAfterPause[i].Int64(), latestCounter.Int64())
+				}
+			}, "1m", "1s").Should(gomega.Succeed())
 		})
 	}
 }
