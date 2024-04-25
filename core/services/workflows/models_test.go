@@ -8,6 +8,7 @@ import (
 )
 
 func TestParse_Graph(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name   string
 		yaml   string

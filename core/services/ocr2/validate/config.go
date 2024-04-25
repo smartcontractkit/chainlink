@@ -7,9 +7,9 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // OCR2Config contains OCR2 configurations for a job.
@@ -19,6 +19,8 @@ type OCR2Config interface {
 	ContractPollInterval() time.Duration
 	ContractTransmitterTransmitTimeout() time.Duration
 	DatabaseTimeout() time.Duration
+	DefaultTransactionQueueDepth() uint32
+	SimulateTransactions() bool
 	TraceLogging() bool
 }
 
@@ -49,7 +51,7 @@ func ToLocalConfig(ocr2Config OCR2Config, insConf InsecureConfig, spec job.OCR2O
 		ContractTransmitterTransmitTimeout: ocr2Config.ContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                    ocr2Config.DatabaseTimeout(),
 	}
-	if spec.Relay == relay.Solana && env.MedianPlugin.Cmd.Get() != "" {
+	if spec.Relay == commontypes.NetworkSolana && env.MedianPlugin.Cmd.Get() != "" {
 		// Work around for Solana Feeds configured with zero values to support LOOP Plugins.
 		minOCR2MaxDurationQuery, err := getMinOCR2MaxDurationQuery()
 		if err != nil {

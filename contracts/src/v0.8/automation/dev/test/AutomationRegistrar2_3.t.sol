@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {BaseTest} from "./BaseTest.t.sol";
 import {IAutomationRegistryMaster2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 
@@ -51,8 +51,8 @@ contract RegisterUpkeep is SetUp {
   function testUSDToken_autoApproveOff_happy() external {
     vm.startPrank(UPKEEP_ADMIN);
 
-    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(usdToken));
-    usdToken.approve(address(registrar), amount);
+    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(usdToken18));
+    usdToken18.approve(address(registrar), amount);
 
     registrar.registerUpkeep(
       AutomationRegistrar2_3.RegistrationParams({
@@ -61,7 +61,7 @@ contract RegisterUpkeep is SetUp {
         adminAddress: UPKEEP_ADMIN,
         gasLimit: 10_000,
         triggerType: 0,
-        billingToken: usdToken,
+        billingToken: usdToken18,
         name: "foobar",
         encryptedEmail: "",
         checkData: bytes("check data"),
@@ -70,7 +70,7 @@ contract RegisterUpkeep is SetUp {
       })
     );
 
-    assertEq(usdToken.balanceOf(address(registrar)), amount);
+    assertEq(usdToken18.balanceOf(address(registrar)), amount);
     assertEq(registry.getNumUpkeeps(), 0);
   }
 
@@ -106,8 +106,8 @@ contract RegisterUpkeep is SetUp {
     registrar.setTriggerConfig(0, AutomationRegistrar2_3.AutoApproveType.ENABLED_ALL, 1000);
 
     vm.startPrank(UPKEEP_ADMIN);
-    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(usdToken));
-    usdToken.approve(address(registrar), amount);
+    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(usdToken18));
+    usdToken18.approve(address(registrar), amount);
 
     registrar.registerUpkeep(
       AutomationRegistrar2_3.RegistrationParams({
@@ -116,7 +116,7 @@ contract RegisterUpkeep is SetUp {
         adminAddress: UPKEEP_ADMIN,
         gasLimit: 10_000,
         triggerType: 0,
-        billingToken: usdToken,
+        billingToken: usdToken18,
         name: "foobar",
         encryptedEmail: "",
         checkData: bytes("check data"),
@@ -125,8 +125,8 @@ contract RegisterUpkeep is SetUp {
       })
     );
 
-    assertEq(usdToken.balanceOf(address(registrar)), 0);
-    assertEq(usdToken.balanceOf(address(registry)), amount);
+    assertEq(usdToken18.balanceOf(address(registrar)), 0);
+    assertEq(usdToken18.balanceOf(address(registry)), amount);
     assertEq(registry.getNumUpkeeps(), 1);
   }
 
@@ -210,5 +210,35 @@ contract RegisterUpkeep is SetUp {
 
     assertEq(weth.balanceOf(address(registrar)), amount);
     assertEq(registry.getNumUpkeeps(), 0);
+  }
+
+  function testLink_autoApproveOff_revertOnDuplicateEntry() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    uint96 amount = uint96(registrar.getMinimumRegistrationAmount(IERC20(address(linkToken))));
+    linkToken.approve(address(registrar), amount * 2);
+
+    AutomationRegistrar2_3.RegistrationParams memory params = AutomationRegistrar2_3.RegistrationParams({
+      upkeepContract: address(TARGET1),
+      amount: amount,
+      adminAddress: UPKEEP_ADMIN,
+      gasLimit: 10_000,
+      triggerType: 0,
+      billingToken: IERC20(address(linkToken)),
+      name: "foobar",
+      encryptedEmail: "",
+      checkData: bytes("check data"),
+      triggerConfig: "",
+      offchainConfig: ""
+    });
+
+    registrar.registerUpkeep(params);
+
+    assertEq(linkToken.balanceOf(address(registrar)), amount);
+    assertEq(registry.getNumUpkeeps(), 0);
+
+    // attempt to register the same upkeep again
+    vm.expectRevert(AutomationRegistrar2_3.DuplicateEntry.selector);
+    registrar.registerUpkeep(params);
   }
 }

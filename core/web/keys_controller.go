@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,9 +17,9 @@ import (
 type Keystore[K keystore.Key] interface {
 	Get(id string) (K, error)
 	GetAll() ([]K, error)
-	Create() (K, error)
-	Delete(id string) (K, error)
-	Import(keyJSON []byte, password string) (K, error)
+	Create(context.Context) (K, error)
+	Delete(ctx context.Context, id string) (K, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (K, error)
 	Export(id string, password string) ([]byte, error)
 }
 
@@ -73,7 +74,8 @@ func (kc *keysController[K, R]) Index(c *gin.Context) {
 }
 
 func (kc *keysController[K, R]) Create(c *gin.Context) {
-	key, err := kc.ks.Create()
+	ctx := c.Request.Context()
+	key, err := kc.ks.Create(ctx)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -88,13 +90,14 @@ func (kc *keysController[K, R]) Create(c *gin.Context) {
 }
 
 func (kc *keysController[K, R]) Delete(c *gin.Context) {
+	ctx := c.Request.Context()
 	keyID := c.Param("keyID")
 	key, err := kc.ks.Get(keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	_, err = kc.ks.Delete(key.ID())
+	_, err = kc.ks.Delete(ctx, key.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -110,6 +113,7 @@ func (kc *keysController[K, R]) Delete(c *gin.Context) {
 
 func (kc *keysController[K, R]) Import(c *gin.Context) {
 	defer kc.lggr.ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
+	ctx := c.Request.Context()
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -117,7 +121,7 @@ func (kc *keysController[K, R]) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	key, err := kc.ks.Import(bytes, oldPassword)
+	key, err := kc.ks.Import(ctx, bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

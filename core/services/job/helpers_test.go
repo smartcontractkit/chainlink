@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -214,10 +213,10 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		ExternalJobID: uuid.New(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
-	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
+	keyStore := cltest.NewKeyStore(t, db)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	_, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+	_, err := ocr.ValidatedOracleSpecToml(cfg, legacyChains, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)
@@ -269,9 +268,9 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	return &jb
 }
 
-func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, cfg chainlink.GeneralConfig,
-	transmitter common.Address, chainID *big.Int, fromBlock uint64) *job.Job {
+func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int, fromBlock uint64) *job.Job {
 	t.Helper()
+	ctx := testutils.Context(t)
 
 	useForwarders := false
 	_, beacon := cltest.MustInsertRandomKey(t, ks.Eth())
@@ -279,7 +278,7 @@ func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, cfg chainlink.GeneralC
 	_, feed := cltest.MustInsertRandomKey(t, ks.Eth())
 	_, dkg := cltest.MustInsertRandomKey(t, ks.Eth())
 	sendingKeys := fmt.Sprintf(`"%s"`, transmitter)
-	kb, _ := ks.OCR2().Create(chaintype.EVM)
+	kb, _ := ks.OCR2().Create(ctx, chaintype.EVM)
 
 	vrfKey := make([]byte, 32)
 	_, err := rand.Read(vrfKey)

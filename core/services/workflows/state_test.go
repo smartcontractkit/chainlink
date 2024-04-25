@@ -11,6 +11,7 @@ import (
 )
 
 func TestInterpolateKey(t *testing.T) {
+	t.Parallel()
 	val, err := values.NewMap(
 		map[string]any{
 			"reports": map[string]any{
@@ -202,6 +203,7 @@ func TestInterpolateKey(t *testing.T) {
 }
 
 func TestInterpolateInputsFromState(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		inputs   map[string]any

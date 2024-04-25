@@ -6,8 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -16,13 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-func NewTestORM(t *testing.T, db *sqlx.DB, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, cfg pg.QConfig) job.ORM {
-	o := job.NewORM(db, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t), cfg)
+func NewTestORM(t *testing.T, ds sqlutil.DataSource, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master) job.ORM {
+	o := job.NewORM(ds, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t))
 	t.Cleanup(func() { assert.NoError(t, o.Close()) })
 	return o
 }
@@ -34,13 +32,13 @@ func TestLoadConfigVarsLocalOCR(t *testing.T) {
 	chainConfig := evmtest.NewChainScopedConfig(t, config)
 	jobSpec := &job.OCROracleSpec{}
 
-	jobSpec = job.LoadConfigVarsLocalOCR(chainConfig.EVM().OCR(), *jobSpec, chainConfig.OCR())
+	jobSpec = job.LoadConfigVarsLocalOCR(chainConfig.EVM().OCR(), *jobSpec, config.OCR())
 
-	require.Equal(t, models.Interval(chainConfig.OCR().ObservationTimeout()), jobSpec.ObservationTimeout)
-	require.Equal(t, models.Interval(chainConfig.OCR().BlockchainTimeout()), jobSpec.BlockchainTimeout)
-	require.Equal(t, models.Interval(chainConfig.OCR().ContractSubscribeInterval()), jobSpec.ContractConfigTrackerSubscribeInterval)
-	require.Equal(t, models.Interval(chainConfig.OCR().ContractPollInterval()), jobSpec.ContractConfigTrackerPollInterval)
-	require.Equal(t, chainConfig.OCR().CaptureEATelemetry(), jobSpec.CaptureEATelemetry)
+	require.Equal(t, models.Interval(config.OCR().ObservationTimeout()), jobSpec.ObservationTimeout)
+	require.Equal(t, models.Interval(config.OCR().BlockchainTimeout()), jobSpec.BlockchainTimeout)
+	require.Equal(t, models.Interval(config.OCR().ContractSubscribeInterval()), jobSpec.ContractConfigTrackerSubscribeInterval)
+	require.Equal(t, models.Interval(config.OCR().ContractPollInterval()), jobSpec.ContractConfigTrackerPollInterval)
+	require.Equal(t, config.OCR().CaptureEATelemetry(), jobSpec.CaptureEATelemetry)
 
 	require.Equal(t, chainConfig.EVM().OCR().ContractConfirmations(), jobSpec.ContractConfigConfirmations)
 	require.Equal(t, models.Interval(chainConfig.EVM().OCR().DatabaseTimeout()), *jobSpec.DatabaseTimeout)
