@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
@@ -172,6 +173,40 @@ func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type onchainSigningStrategyInner struct {
+	StrategyName string         `json:"strategyName"`
+	Config       job.JSONConfig `json:"config"`
+}
+
+type OCR2OnchainSigningStrategy struct {
+	onchainSigningStrategyInner
+}
+
+func (o *OCR2OnchainSigningStrategy) UnmarshalJSON(data []byte) error {
+	err := json.Unmarshal(data, &o.onchainSigningStrategyInner)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (o *OCR2OnchainSigningStrategy) IsMultiChain() bool {
+	return o.StrategyName == "multi-chain"
+}
+
+func (o *OCR2OnchainSigningStrategy) PublicKey() (string, error) {
+	pk, ok := o.Config["publicKey"]
+	if !ok {
+		return "", nil
+	}
+	name, ok := pk.(string)
+	if !ok {
+		return "", fmt.Errorf("expected string publicKey value, but got: %T", pk)
+	}
+	return name, nil
+}
+
 func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc plugins.RegistrarConfig) error {
 	p := OCR2GenericPluginConfig{}
 	err := json.Unmarshal(spec.PluginConfig.Bytes(), &p)
@@ -185,6 +220,19 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 
 	if p.OCRVersion != 2 && p.OCRVersion != 3 {
 		return errors.New("generic config invalid: only OCR version 2 and 3 are supported")
+	}
+
+	onchainSigningStrategy := OCR2OnchainSigningStrategy{}
+	err = json.Unmarshal(spec.OnchainSigningStrategy.Bytes(), &onchainSigningStrategy)
+	if err != nil {
+		return err
+	}
+	pk, err := onchainSigningStrategy.PublicKey()
+	if err != nil {
+		return err
+	}
+	if pk == "" {
+		return errors.New("generic config invalid: must provide public key for the onchain signing strategy")
 	}
 
 	plugEnv := env.NewPlugin(p.PluginName)

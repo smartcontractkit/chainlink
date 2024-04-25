@@ -66,6 +66,11 @@ observationSource = """
 chainID = 1
 fromBlock = 1000
 
+[onchainSigningStrategy]
+strategyName = 'single-chain'
+[onchainSigningStrategy.config]
+publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+
 [pluginConfig]
 serverURL = 'wss://localhost:8080'
 serverPubKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
