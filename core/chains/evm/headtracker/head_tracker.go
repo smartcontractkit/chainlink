@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -20,8 +21,8 @@ import (
 func NewHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
-	config Config,
-	htConfig HeadTrackerConfig,
+	config commontypes.Config,
+	htConfig commontypes.HeadTrackerConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
 	mailMon *mailbox.Monitor,
