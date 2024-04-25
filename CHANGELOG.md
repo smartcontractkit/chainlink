@@ -8,9 +8,6 @@
 - [#12920](https://github.com/smartcontractkit/chainlink/pull/12920) [`2d2a42876d`](https://github.com/smartcontractkit/chainlink/commit/2d2a42876de5285618c9a9de4b834d078ae8a8cc) Thanks [@ilija42](https://github.com/ilija42)! - Move JuelsPerFeeCoinCacheDuration under JuelsPerFeeCoinCache struct in config. Rename JuelsPerFeeCoinCacheDuration to updateInterval. Add stalenessAlertThreshold to JuelsPerFeeCoinCache config.
   StalenessAlertThreshold cfg option has a default of 24 hours which means that it doesn't have to be set unless we want to override the duration after which a stale cache should start throwing errors.
 
-- [#12920](https://github.com/smartcontractkit/chainlink/pull/12920) [`2d2a42876d`](https://github.com/smartcontractkit/chainlink/commit/2d2a42876de5285618c9a9de4b834d078ae8a8cc) Thanks [@ilija42](https://github.com/ilija42)! - Move JuelsPerFeeCoinCacheDuration under JuelsPerFeeCoinCache struct in config. Rename JuelsPerFeeCoinCacheDuration to updateInterval. Add stalenessAlertThreshold to JuelsPerFeeCoinCache config.
-  StalenessAlertThreshold cfg option has a default of 24 hours which means that it doesn't have to be set unless we want to override the duration after which a stale cache should start throwing errors.
-
 - [#12348](https://github.com/smartcontractkit/chainlink/pull/12348) [`efead72965`](https://github.com/smartcontractkit/chainlink/commit/efead72965fec7e822a16f4d50cc0e5a27dd4640) Thanks [@reductionista](https://github.com/reductionista)! - Update config for zkevm polygon chains
 
 - [#12082](https://github.com/smartcontractkit/chainlink/pull/12082) [`608ea0a467`](https://github.com/smartcontractkit/chainlink/commit/608ea0a467ee36e15fdc654a88494ae579d778a6) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - HeadTracker now respects the `FinalityTagEnabled` config option. If the flag is enabled, HeadTracker backfills blocks up to the latest finalized block provided by the corresponding RPC call. To address potential misconfigurations, `HistoryDepth` is now calculated from the latest finalized block instead of the head. NOTE: Consumers (e.g. TXM and LogPoller) do not fully utilize Finality Tag yet.
@@ -42,8 +39,6 @@
 - [#12578](https://github.com/smartcontractkit/chainlink/pull/12578) [`ffd492295f`](https://github.com/smartcontractkit/chainlink/commit/ffd492295f03de8c3b946a003dacbded731d7899) Thanks [@RensR](https://github.com/RensR)! - Remove 0.6 and 0.7 Solidity source code
 
 ### Patch Changes
-
-- [#12920](https://github.com/smartcontractkit/chainlink/pull/12920) [`be50a8370a`](https://github.com/smartcontractkit/chainlink/commit/be50a8370a0f604fbe9612e38479ccfa5ceb1ebd) Thanks [@ilija42](https://github.com/ilija42)! - Fix in memory data source cache changes/bug that only allowed pipeline results where none of the data sources failed. #bugfix
 
 - [#12973](https://github.com/smartcontractkit/chainlink/pull/12973) [`02d3f2fee9`](https://github.com/smartcontractkit/chainlink/commit/02d3f2fee9269b85e9500ae720d15bec6c5e0d63) Thanks [@george-dorin](https://github.com/george-dorin)! - #added JuelsPerFeeCoinCache is enabled by default for OCR2 jobs, added `Disable` field under [pluginConfig.JuelsPerFeeCoinCache] tag to disable this feature (e.g. Disable=true)
 
