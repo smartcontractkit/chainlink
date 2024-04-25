@@ -322,7 +322,8 @@ func (v *EthereumVRFCoordinatorV2_5) CreateSubscription() (*types.Transaction, e
 }
 
 func (v *EthereumVRFCoordinatorV2_5) Migrate(subId *big.Int, coordinatorAddress string) error {
-	_, err := v.client.Decode(v.coordinator.Migrate(v.client.NewTXOpts(), subId, common.HexToAddress(coordinatorAddress)))
+	// Do not wrap in Decode() to avoid waiting until the transaction is mined.
+	_, err := v.coordinator.Migrate(v.client.NewTXOpts(), subId, common.HexToAddress(coordinatorAddress))
 	return err
 }
 

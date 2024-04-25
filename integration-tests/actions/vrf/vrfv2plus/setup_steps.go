@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -238,6 +240,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *v
 
 func SetupVRFV2PlusWrapperEnvironment(
 	ctx context.Context,
+	l zerolog.Logger,
 	env *test_env.CLClusterTestEnv,
 	chainID int64,
 	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
@@ -323,7 +326,11 @@ func SetupVRFV2PlusWrapperEnvironment(
 	}
 
 	//fund consumer with Eth
-	err = wrapperContracts.LoadTestConsumers[0].Fund(big.NewFloat(*vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken))
+	_, err = actions_seth.SendFunds(l, sethClient, actions_seth.FundsToSendPayload{
+		ToAddress:  common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()),
+		Amount:     conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken)),
+		PrivateKey: sethClient.PrivateKeys[0],
+	})
 	if err != nil {
 		return nil, nil, err
 	}

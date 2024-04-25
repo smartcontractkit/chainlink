@@ -280,6 +280,7 @@ func TestVRFv2Plus(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			testcontext.Get(t),
+			l,
 			env,
 			chainID,
 			&configCopy,
@@ -1052,6 +1053,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			testcontext.Get(t),
+			l,
 			env,
 			chainID,
 			&configCopy,
