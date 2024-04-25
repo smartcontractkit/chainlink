@@ -253,7 +253,7 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
 		a, err := cks.NewPurgeTxAttempt(ctx, etx, lggr)
 		require.NoError(t, err)
-		// The fee limit is overriden with LimitDefault since purge attempts are just empty attempts
+		// The fee limit is overridden with LimitDefault since purge attempts are just empty attempts
 		require.Equal(t, gc.limitDefault, a.ChainSpecificFeeLimit)
 		require.NotNil(t, a.TxFee.Legacy)
 		require.Equal(t, bumpedLegacy.String(), a.TxFee.Legacy.String())
@@ -272,7 +272,7 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
 		a, err := cks.NewPurgeTxAttempt(ctx, etx, lggr)
 		require.NoError(t, err)
-		// The fee limit is overriden with LimitDefault since purge attempts are just empty attempts
+		// The fee limit is overridden with LimitDefault since purge attempts are just empty attempts
 		require.Equal(t, gc.limitDefault, a.ChainSpecificFeeLimit)
 		require.Nil(t, a.TxFee.Legacy)
 		require.NotNil(t, a.TxFee.DynamicTipCap)
@@ -295,7 +295,7 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 		etx.TxAttempts = append(etx.TxAttempts, purgeAttempt)
 		bumpAttempt, _, _, _, err := cks.NewBumpTxAttempt(ctx, etx, purgeAttempt, etx.TxAttempts, lggr)
 		require.NoError(t, err)
-		// The fee limit is overriden with LimitDefault since purge attempts are just empty attempts
+		// The fee limit is overridden with LimitDefault since purge attempts are just empty attempts
 		require.Equal(t, gc.limitDefault, bumpAttempt.ChainSpecificFeeLimit)
 		require.NotNil(t, bumpAttempt.TxFee.Legacy)
 		require.Equal(t, bumpedLegacy.String(), bumpAttempt.TxFee.Legacy.String())

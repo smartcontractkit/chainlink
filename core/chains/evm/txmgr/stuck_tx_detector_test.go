@@ -78,7 +78,8 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		mustInsertFatalErrorTxWithError(t, txStore, 0, fromAddress, blockNum)
 
-		stuckTxDetector.LoadPurgeBlockNumMap(ctx, []common.Address{fromAddress})
+		err := stuckTxDetector.LoadPurgeBlockNumMap(ctx, []common.Address{fromAddress})
+		require.NoError(t, err)
 
 		enabledAddresses := []common.Address{fromAddress}
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
