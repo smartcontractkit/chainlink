@@ -6,12 +6,17 @@ import {Operator} from "../Operator.sol";
 import {ChainlinkClientHelper} from "./testhelpers/ChainlinkClientHelper.sol";
 import {LinkToken} from "../../shared/token/ERC677/LinkToken.sol";
 
-contract Operator_cancelRequest is Test {
+import "./testhelpers/Deployer.sol";
+import "../AuthorizedReceiver.sol";
+
+contract OperatorTest is Deployer, AuthorizedReceiver {
   address public s_link;
+  uint256 private dataReceived;
   ChainlinkClientHelper public s_client;
   Operator public s_operator;
 
   function setUp() public {
+    _setUp();
     s_link = address(new LinkToken());
     s_client = new ChainlinkClientHelper(s_link);
 
@@ -19,12 +24,26 @@ contract Operator_cancelRequest is Test {
     auth[0] = address(this);
     s_operator = new Operator(s_link, address(this));
     s_operator.setAuthorizedSenders(auth);
+
+    dataReceived = 0;
+  }
+
+  // Callback function for oracle request fulfillment
+  function callback(bytes32 _requestId) public {
+    require(msg.sender == address(s_operator), "Only Operator can call this function");
+    dataReceived += 1;
+  }
+
+  // @notice concrete implementation of AuthorizedReceiver
+  // @return bool of whether sender is authorized
+  function _canSetAuthorizedSenders() internal view override returns (bool) {
+    return true;
   }
 
   function test_Success(uint96 payment) public {
     payment = uint96(bound(payment, 1, type(uint96).max));
     deal(s_link, address(s_client), payment);
-    // We're going to cancel one request and fulfil the other
+    // We're going to cancel one request and fulfill the other
     bytes32 requestIdToCancel = s_client.sendRequest(address(s_operator), payment);
 
     // Nothing withdrawable
@@ -96,5 +115,135 @@ contract Operator_cancelRequest is Test {
     assertEq(s_operator.withdrawable(), 0);
     assertEq(LinkToken(s_link).balanceOf(address(s_operator)), 0);
     assertEq(LinkToken(s_link).balanceOf(address(s_client)), 2 * payment);
+  }
+
+  function test_oracleRequestFlow() public {
+    // Define some mock values
+    bytes32 specId = keccak256("testSpec");
+    bytes4 callbackFunctionId = bytes4(keccak256("callback(bytes32)"));
+    uint256 nonce = 0;
+    uint256 dataVersion = 1;
+    bytes memory data = "";
+
+    uint256 initialLinkBalance = LinkToken(s_link).balanceOf(address(s_operator));
+    uint256 payment = 1 ether; // Mock payment value
+
+    uint256 withdrawableBefore = s_operator.withdrawable();
+
+    // Send LINK tokens to the Operator contract using `transferAndCall`
+    deal(s_link, address(alice), payment);
+    assertEq(LinkToken(s_link).balanceOf(address(alice)), 1 ether, "balance update failed");
+
+    vm.prank(alice);
+    LinkToken(s_link).transferAndCall(address(s_operator), payment, abi.encodeWithSignature("oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)", address(this), payment, specId, address(this), callbackFunctionId, nonce, dataVersion, data));
+
+    // Check that the LINK tokens were transferred to the Operator contract
+    assertEq(LinkToken(s_link).balanceOf(address(s_operator)), initialLinkBalance + payment);
+    // No withdrawable LINK as it's all locked
+    assertEq(s_operator.withdrawable(), withdrawableBefore);
+  }
+
+  function test_fulfillOracleRequest() public {
+    // This test file is the callback target and actual sender contract
+    // so we should enable it to set Authorised senders to itself
+    address[] memory senders = new address[](2);
+    senders[0] = address(this);
+    senders[0] = address(bob);
+
+    s_operator.setAuthorizedSenders(senders);
+
+    uint256 withdrawableBefore = s_operator.withdrawable();
+
+    // Define mock values for creating a new oracle request
+    bytes32 specId = keccak256("testSpecForFulfill");
+    bytes4 callbackFunctionId = bytes4(keccak256("callback(bytes32)"));
+    uint256 nonce = 1; 
+    uint256 dataVersion = 1;
+    bytes memory dataBytes = ""; 
+    uint256 payment = 1 ether;
+    uint256 expiration = block.timestamp + 5 minutes;
+
+    // Convert bytes to bytes32
+    bytes32 data = bytes32(uint256(keccak256(dataBytes)));
+
+    // Send LINK tokens to the Operator contract using `transferAndCall`
+    deal(s_link, address(bob), payment);
+    vm.prank(bob);
+    LinkToken(s_link).transferAndCall(address(s_operator), payment, abi.encodeWithSignature("oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)", address(this), payment, specId, address(this), callbackFunctionId, nonce, dataVersion, dataBytes));
+
+
+    // Fulfill the request using the operator
+    bytes32 requestId = keccak256(abi.encodePacked(bob, nonce));
+    vm.prank(bob);
+    s_operator.fulfillOracleRequest(requestId, payment, address(this), callbackFunctionId, expiration, data);
+
+    assertEq(dataReceived, 1, "Oracle request was not fulfilled");
+
+    // Withdrawable balance
+    assertEq(s_operator.withdrawable(), withdrawableBefore + payment, "Internal accounting not updated correctly");
+  }
+
+  function test_cancelOracleRequest() public {
+    // Define mock values for creating a new oracle request
+    bytes32 specId = keccak256("testSpecForCancel");
+    bytes4 callbackFunctionId = bytes4(keccak256("callback(bytes32)"));
+    uint256 nonce = 2;
+    uint256 dataVersion = 1;
+    bytes memory dataBytes = "";
+    uint256 payment = 1 ether;
+    uint256 expiration = block.timestamp + 5 minutes; 
+    
+    uint256 withdrawableBefore = s_operator.withdrawable();
+
+    // Convert bytes to bytes32
+    bytes32 data = bytes32(uint256(keccak256(dataBytes)));
+
+    // Send LINK tokens to the Operator contract using `transferAndCall`
+    deal(s_link, address(bob), payment);
+    vm.prank(bob);
+    LinkToken(s_link).transferAndCall(address(s_operator), payment, abi.encodeWithSignature("oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)", address(bob), payment, specId, address(bob), callbackFunctionId, nonce, dataVersion, dataBytes));
+
+    // No withdrawable balance as it's all locked
+    assertEq(s_operator.withdrawable(), withdrawableBefore, "Internal accounting not updated correctly");
+
+    bytes32 requestId = keccak256(abi.encodePacked(bob, nonce));
+
+    vm.startPrank(alice);
+    vm.expectRevert(bytes("Params do not match request ID"));
+    s_operator.cancelOracleRequest(requestId, payment, callbackFunctionId, expiration);
+    vm.stopPrank();
+    
+    vm.startPrank(bob);
+    vm.expectRevert(bytes("Request is not expired"));
+    s_operator.cancelOracleRequest(requestId, payment, callbackFunctionId, expiration);
+
+    vm.warp(expiration);
+    s_operator.cancelOracleRequest(requestId, payment, callbackFunctionId, expiration);
+    vm.stopPrank();
+
+    // Check if the LINK tokens were refunded to the sender (bob in this case)
+    assertEq(LinkToken(s_link).balanceOf(address(bob)), 1 ether, "Oracle request was not canceled properly");
+
+    assertEq(s_operator.withdrawable(), withdrawableBefore, "Internal accounting not updated correctly");
+  }
+
+  function test_unauthorizedFulfillment() public {
+    bytes32 specId = keccak256("unauthorizedFulfillSpec");
+    bytes4 callbackFunctionId = bytes4(keccak256("callback(bytes32)"));
+    uint256 nonce = 5;
+    uint256 dataVersion = 1;
+    bytes memory dataBytes = "";
+    uint256 payment = 1 ether;
+    uint256 expiration = block.timestamp + 5 minutes;
+
+    deal(s_link, address(alice), payment);
+    vm.prank(alice);
+    LinkToken(s_link).transferAndCall(address(s_operator), payment, abi.encodeWithSignature("oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)", address(alice), payment, specId, address(this), callbackFunctionId, nonce, dataVersion, dataBytes));
+
+    bytes32 requestId = keccak256(abi.encodePacked(alice, nonce));
+
+    vm.prank(address(bob));
+    vm.expectRevert(bytes("Not authorized sender"));
+    s_operator.fulfillOracleRequest(requestId, payment, address(this), callbackFunctionId, expiration, bytes32(uint256(keccak256(dataBytes))));
   }
 }

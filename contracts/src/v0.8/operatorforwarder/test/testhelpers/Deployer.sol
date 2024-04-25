@@ -3,13 +3,13 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 
-import "../../../AuthorizedForwarder.sol";
-import "../../../Operator.sol";
-import "../../../OperatorFactory.sol";
+import "../../AuthorizedForwarder.sol";
+import "../../Operator.sol";
+import "../../OperatorFactory.sol";
 
 import "./MockReceiver.sol";
 
-import "../../../../mocks/MockLinkToken.sol";
+import "../../../mocks/MockLinkToken.sol";
 
 abstract contract Deployer is Test {
 

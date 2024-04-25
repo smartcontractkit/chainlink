@@ -1,8 +1,8 @@
 pragma solidity ^0.8.19;
 
-import "../helpers/Deployer.sol";
-import "../../../AuthorizedReceiver.sol";
-import "../../../Operator.sol";
+import "./testhelpers/Deployer.sol";
+import "../AuthorizedReceiver.sol";
+import "../Operator.sol";
 
 contract FuzzTokenReceiver is Test {
 
@@ -15,7 +15,7 @@ contract FuzzTokenReceiver is Test {
 
     address _spoofedLinkToken = address(0xCCBBAA);
     
-    function testFuzzOnTokenTransferFromLink(
+    function test_FuzzOnTokenTransferFromLink(
         address _actualSender,
         uint256 _actualAmount,
         address _sender,

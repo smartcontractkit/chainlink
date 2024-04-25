@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 
-import "../helpers/Deployer.sol";
+import "./testhelpers/Deployer.sol";
 
 contract FactoryTest is Deployer {
 
@@ -14,7 +14,7 @@ contract FactoryTest is Deployer {
     /**
      * @dev Test the deployment of a new operator.
      */
-    function testDeployNewOperator() public {
+    function test_DeployNewOperator() public {
         vm.prank(alice);
         // Deploy a new operator using the factory.
         address newOperator = factory.deployNewOperator();
@@ -27,7 +27,7 @@ contract FactoryTest is Deployer {
     /**
      * @dev Test the deployment of a new operator and a new forwarder.
      */
-    function testDeployNewOperatorAndForwarder() public {
+    function test_DeployNewOperatorAndForwarder() public {
         vm.prank(alice);
         // Deploy both a new operator and a new forwarder using the factory.
         (address newOperator, address newForwarder) = factory.deployNewOperatorAndForwarder();
@@ -49,7 +49,7 @@ contract FactoryTest is Deployer {
     /**
      * @dev Test the deployment of a new forwarder.
      */
-    function testDeployNewForwarder() public {
+    function test_DeployNewForwarder() public {
         vm.prank(alice);
         // Deploy a new forwarder using the factory.
         address newForwarder = factory.deployNewForwarder();
@@ -62,7 +62,7 @@ contract FactoryTest is Deployer {
     /**
      * @dev Test the deployment of a new forwarder and then transfer its ownership.
      */
-    function testDeployNewForwarderAndTransferOwnership() public {
+    function test_DeployNewForwarderAndTransferOwnership() public {
         vm.prank(alice);
         // Deploy a new forwarder with a proposal to transfer its ownership to Bob.
         address newForwarder = factory.deployNewForwarderAndTransferOwnership(bob, new bytes(0));

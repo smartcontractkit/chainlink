@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 
-import "../helpers/Deployer.sol";
+import "./testhelpers/Deployer.sol";
 
 contract ForwarderTest is Deployer {
 
@@ -17,7 +17,7 @@ contract ForwarderTest is Deployer {
     /**
      * @dev Tests the functionality of setting authorized senders.
      */
-    function testSetAuthorizedSenders() public {
+    function test_SetAuthorizedSenders() public {
         address[] memory senders;
 
         // Expect a revert when trying to set an empty list of authorized senders
@@ -76,7 +76,7 @@ contract ForwarderTest is Deployer {
     /**
      * @dev Tests the behavior of single forward
      */
-    function testForward(uint256 _value) public {
+    function test_Forward(uint256 _value) public {
         _addSenders();
 
         vm.expectRevert("Not authorized sender");
@@ -104,7 +104,7 @@ contract ForwarderTest is Deployer {
         require(mockReceiver.value() == _value);
     }
 
-    function testMultiForward(uint256 _value1, uint256 _value2) public {
+    function test_MultiForward(uint256 _value1, uint256 _value2) public {
         _addSenders();
 
         address[] memory tos;
@@ -152,7 +152,7 @@ contract ForwarderTest is Deployer {
      * @dev tests the difference between ownerForward and forward
      * specifically owner can forward to link token
      */
-    function testOwnerForward() public {
+    function test_OwnerForward() public {
         vm.expectRevert("Only callable by owner");
         forwarder.ownerForward(address(0), new bytes(0));
 
@@ -167,7 +167,7 @@ contract ForwarderTest is Deployer {
     /**
      * @dev Tests the behavior of transfer and accept ownership of the contract.
      */
-    function testTransferOwnershipWithMessage() public {
+    function test_TransferOwnershipWithMessage() public {
         vm.prank(bob);
         vm.expectRevert("Only callable by owner");
         forwarder.transferOwnershipWithMessage(bob, new bytes(0));
