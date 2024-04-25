@@ -106,11 +106,11 @@ func (p *Poller[T]) pollingLoop() {
 			select {
 			case <-pollingCtx.Done():
 				cancelPolling()
-				p.writeError(errors.New("polling timeout exceeded"))
+				p.logError(errors.New("polling timeout exceeded"))
 			case <-pollingDone:
 				cancelPolling()
 				if err != nil {
-					p.writeError(err)
+					p.logError(err)
 					continue
 				}
 				// Send result to channel or block if channel is full
@@ -124,14 +124,8 @@ func (p *Poller[T]) pollingLoop() {
 	}
 }
 
-func (p *Poller[T]) writeError(err error) {
+func (p *Poller[T]) logError(err error) {
 	if p.logger != nil {
-		(*p.logger).Warnw("Polling error", "error", err)
-	}
-	// Send error to channel or block if channel is full
-	select {
-	case p.errCh <- err:
-	case <-p.stopCh:
-		return
+		(*p.logger).Errorf("polling error: %v", err)
 	}
 }

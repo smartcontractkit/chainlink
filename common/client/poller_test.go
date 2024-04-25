@@ -10,13 +10,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func Test_Poller(t *testing.T) {
-	lggr, err := logger.New()
-	require.NoError(t, err)
+	lggr := logger.Test(t)
 
 	t.Run("Test polling for heads", func(t *testing.T) {
 		// Mock polling function that returns a new value every time it's called
@@ -41,11 +41,6 @@ func Test_Poller(t *testing.T) {
 		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
-
-		// Monitor error channel
-		done := make(chan struct{})
-		defer close(done)
-		monitorPollingErrors(t, poller.Err(), done)
 
 		// Receive updates from the poller
 		func() {
@@ -73,25 +68,24 @@ func Test_Poller(t *testing.T) {
 		channel := make(chan Head, 1)
 		defer close(channel)
 
+		olggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
+
 		// Create poller and subscribe to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &olggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
-		// Create goroutine to receive updates from the poller
-		func() {
-			pollCount := 0
-			pollMax := 50
-			for ; pollCount < pollMax; pollCount++ {
-				select {
-				case <-channel:
-					require.Fail(t, "should not receive any data")
-				case err := <-poller.Err():
-					require.Error(t, err)
-					require.Equal(t, fmt.Sprintf("polling error %d", pollCount+1), err.Error())
+		// Ensure that all errors were logged as expected
+		logsSeen := func() bool {
+			for pollCount := 0; pollCount < 50; pollCount++ {
+				numLogs := observedLogs.FilterMessage(fmt.Sprintf("polling error: polling error %d", pollCount+1)).Len()
+				if numLogs != 1 {
+					return false
 				}
 			}
-		}()
+			return true
+		}
+		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
 	})
 
 	t.Run("Test polling timeout", func(t *testing.T) {
@@ -107,17 +101,18 @@ func Test_Poller(t *testing.T) {
 		channel := make(chan Head, 1)
 		defer close(channel)
 
+		olggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
+
 		// Create poller and subscribe to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, &lggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, &olggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
 		// Create goroutine to receive updates from the poller
-		func() {
-			err := <-poller.Err()
-			require.Error(t, err)
-			require.Equal(t, "polling timeout exceeded", err.Error())
-		}()
+		logsSeen := func() bool {
+			return observedLogs.FilterMessage("polling error: polling timeout exceeded").Len() > 10
+		}
+		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
 	})
 
 	t.Run("Test polling with args", func(t *testing.T) {
@@ -138,16 +133,8 @@ func Test_Poller(t *testing.T) {
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
-		// Ensure no errors are received
-		done := make(chan struct{})
-		defer close(done)
-		monitorPollingErrors(t, poller.Err(), done)
-
-		// Create goroutine to receive updates from the poller
-		func() {
-			h := <-channel
-			require.Nil(t, h)
-		}()
+		h := <-channel
+		require.Nil(t, h)
 	})
 
 	t.Run("Test panic in polling function", func(t *testing.T) {
@@ -159,16 +146,18 @@ func Test_Poller(t *testing.T) {
 		channel := make(chan Head, 1)
 		defer close(channel)
 
+		olggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
+
 		// Create poller and subscribe to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &olggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
-		// Create goroutine to receive updates from the poller
-		func() {
-			err := <-poller.Err()
-			require.Equal(t, "panic: panic test", err.Error())
-		}()
+		// Ensure that panic is caught and logged
+		logsSeen := func() bool {
+			return observedLogs.FilterMessage("polling error: panic: panic test").Len() > 10
+		}
+		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
 	})
 }
 
@@ -185,16 +174,4 @@ func Test_Poller_Unsubscribe(t *testing.T) {
 		poller := NewPoller[Head](time.Millisecond, nil, nil, nil, nil)
 		poller.Unsubscribe()
 	})
-}
-
-// monitorPollingErrors fails the test if an error is received on the error channel
-func monitorPollingErrors(t *testing.T, errCh <-chan error, done <-chan struct{}) {
-	go func() {
-		select {
-		case err := <-errCh:
-			require.NoError(t, err)
-		case <-done:
-			return
-		}
-	}()
 }
