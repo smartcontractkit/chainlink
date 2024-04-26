@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -248,10 +249,12 @@ func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool
 
 	// NOTE: Uses database time for all calculations since it's conceivable
 	// that node local times might be skewed compared to each other
-	err = sqlxTransactionQ(ctx, l.conn, l.logger, func(tx Queryer) error {
+	err = sqlutil.TransactConn(ctx, func(ds sqlutil.DataSource) sqlutil.DataSource {
+		return ds
+	}, l.conn, nil, func(tx sqlutil.DataSource) error {
 		if isInitial {
 			for _, query := range initialSQL {
-				if _, err = tx.Exec(query); err != nil {
+				if _, err = tx.ExecContext(ctx, query); err != nil {
 					return errors.Wrap(err, "failed to create initial lease_lock table")
 				}
 			}
@@ -259,7 +262,7 @@ func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool
 
 		// Upsert the lease_lock, only overwriting an existing one if the existing one has expired
 		var res sql.Result
-		res, err = tx.Exec(`
+		res, err = tx.ExecContext(ctx, `
 INSERT INTO lease_lock (client_id, expires_at) VALUES ($1, NOW()+$2::interval) ON CONFLICT ((client_id IS NOT NULL)) DO UPDATE SET
 client_id = EXCLUDED.client_id,
 expires_at = EXCLUDED.expires_at
