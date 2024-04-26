@@ -44,6 +44,8 @@ type LogPoller interface {
 	GetFilters() map[string]Filter
 	LatestBlock(ctx context.Context) (LogPollerBlock, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64) ([]LogPollerBlock, error)
+	FindLCA(ctx context.Context) (*LogPollerBlock, error)
+	DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
 
 	// General querying
 	Logs(ctx context.Context, start, end int64, eventSig common.Hash, address common.Address) ([]Log, error)
@@ -1420,6 +1422,103 @@ func validateBlockResponse(r rpc.BatchElem) (*evmtypes.Head, error) {
 // The order of events is not significant. Both logs must be inside the block range and have the minimum number of confirmations
 func (lp *logPoller) IndexedLogsWithSigsExcluding(ctx context.Context, address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs Confirmations) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsWithSigsExcluding(ctx, eventSigA, eventSigB, topicIndex, address, fromBlock, toBlock, confs)
+}
+
+// DeleteLogsAndBlocksAfter - removes blocks and logs starting from the specified block
+func (lp *logPoller) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
+	return lp.orm.DeleteLogsAndBlocksAfter(ctx, start)
+}
+
+func (lp *logPoller) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
+	latest, err := lp.orm.SelectLatestBlock(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to select the latest block: %w", err)
+	}
+
+	oldest, err := lp.orm.SelectOldestBlock(ctx, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to select the oldest block: %w", err)
+	}
+
+	if latest == nil || oldest == nil {
+		return nil, fmt.Errorf("expected at least one block to be present in DB")
+	}
+
+	lp.lggr.Debugf("Received request to find LCA. Searching in range [%d, %d]", oldest.BlockNumber, latest.BlockNumber)
+
+	// Find the largest block number for which block hash stored in the DB matches one that we get from the RPC.
+	// `sort.Find` expects slice of following format s = [1, 0, -1] and returns smallest index i for which s[i] = 0.
+	// To utilise `sort.Find` we represent range of blocks as slice [latestBlock, latestBlock-1, ..., olderBlock+1, oldestBlock]
+	// and return 1 if DB block was reorged or 0 if it's still present on chain.
+	lcaI, found := sort.Find(int(latest.BlockNumber-oldest.BlockNumber)+1, func(i int) int {
+		const notFound = 1
+		const found = 0
+		// if there is an error - stop the search
+		if err != nil {
+			return notFound
+		}
+
+		// canceled search
+		if ctx.Err() != nil {
+			err = fmt.Errorf("aborted, FindLCA request cancelled: %w", ctx.Err())
+			return notFound
+		}
+		iBlockNumber := latest.BlockNumber - int64(i)
+		var dbBlock *LogPollerBlock
+		// Block with specified block number might not exist in the database, to address that we check closest child
+		// of the iBlockNumber. If the child is present on chain, it's safe to assume that iBlockNumber is present too
+		dbBlock, err = lp.orm.SelectOldestBlock(ctx, iBlockNumber)
+		if err != nil {
+			err = fmt.Errorf("failed to select block %d by number: %w", iBlockNumber, err)
+			return notFound
+		}
+
+		if dbBlock == nil {
+			err = fmt.Errorf("expected block to exist with blockNumber >= %d as observed block with number %d", iBlockNumber, latest.BlockNumber)
+			return notFound
+		}
+
+		lp.lggr.Debugf("Looking for matching block on chain blockNumber: %d blockHash: %s",
+			dbBlock.BlockNumber, dbBlock.BlockHash)
+		var chainBlock *evmtypes.Head
+		chainBlock, err = lp.ec.HeadByHash(ctx, dbBlock.BlockHash)
+		// our block in DB does not exist on chain
+		if (chainBlock == nil && err == nil) || errors.Is(err, ethereum.NotFound) {
+			err = nil
+			return notFound
+		}
+		if err != nil {
+			err = fmt.Errorf("failed to get block %s from RPC: %w", dbBlock.BlockHash, err)
+			return notFound
+		}
+
+		if chainBlock.BlockNumber() != dbBlock.BlockNumber {
+			err = fmt.Errorf("expected block numbers to match (db: %d, chain: %d), if block hashes match "+
+				"(db: %s, chain: %s)", dbBlock.BlockNumber, chainBlock.BlockNumber(), dbBlock.BlockHash, chainBlock.Hash)
+			return notFound
+		}
+
+		return found
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find: %w", err)
+	}
+
+	if !found {
+		return nil, fmt.Errorf("failed to find LCA, this means that whole database LogPoller state was reorged out of chain or RPC/Core node is misconfigured")
+	}
+
+	lcaBlockNumber := latest.BlockNumber - int64(lcaI)
+	lca, err := lp.orm.SelectBlockByNumber(ctx, lcaBlockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to select lca from db: %w", err)
+	}
+
+	if lca == nil {
+		return nil, fmt.Errorf("expected lca (blockNum: %d) to exist in DB", lcaBlockNumber)
+	}
+
+	return lca, nil
 }
 
 func EvmWord(i uint64) common.Hash {

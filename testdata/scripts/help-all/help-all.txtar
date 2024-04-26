@@ -16,6 +16,7 @@ admin users list # Lists all API users and their roles
 attempts # Commands for managing Ethereum Transaction Attempts
 attempts list # List the Transaction Attempts in descending order
 blocks # Commands for managing blocks
+blocks find-lca # Find latest common block stored in DB and on chain
 blocks replay # Replays block data from the given number
 bridges # Commands for Bridges communicating with External Adapters
 bridges create # Create a new Bridge to an External Adapter
@@ -132,6 +133,7 @@ node db status # Display the current database migration status.
 node db version # Display the current database version.
 node profile # Collects profile metrics from the node.
 node rebroadcast-transactions # Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
+node remove-blocks # Deletes block range and all associated data
 node start # Run the Chainlink node
 node status # Displays the health of various services running inside the node.
 node validate # Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included
