@@ -151,6 +151,7 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 			})
@@ -165,7 +166,7 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 			require.NoError(t, err)
 
 			var exi bridges.ExternalInitiator
-			err = app.GetSqlxDB().Get(&exi, `SELECT * FROM external_initiators WHERE name = $1`, test.args[0])
+			err = app.GetDB().GetContext(ctx, &exi, `SELECT * FROM external_initiators WHERE name = $1`, test.args[0])
 			require.NoError(t, err)
 
 			if len(test.args) > 1 {
@@ -195,7 +196,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 			})
 			client, _ := app.NewShellAndRenderer()
 
-			initialExis := len(cltest.AllExternalInitiators(t, app.GetSqlxDB()))
+			initialExis := len(cltest.AllExternalInitiators(t, app.GetDB()))
 
 			set := flag.NewFlagSet("create", 0)
 			flagSetApplyFromAction(client.CreateExternalInitiator, set, "")
@@ -206,7 +207,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 			err := client.CreateExternalInitiator(c)
 			assert.Error(t, err)
 
-			exis := cltest.AllExternalInitiators(t, app.GetSqlxDB())
+			exis := cltest.AllExternalInitiators(t, app.GetDB())
 			assert.Len(t, exis, initialExis)
 		})
 	}
@@ -565,6 +566,7 @@ func TestShell_ConfigV2(t *testing.T) {
 
 func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.OCR.Enabled = ptr(true)
@@ -577,10 +579,10 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	})
 	client, _ := app.NewShellAndRenderer()
 
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{})
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
@@ -668,7 +670,7 @@ func TestShell_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 
 	// Expire the session and then try again
-	pgtest.MustExec(t, app.GetSqlxDB(), "delete from sessions where email = $1", user.Email)
+	pgtest.MustExec(t, app.GetDB(), "delete from sessions where email = $1", user.Email)
 	err = client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }

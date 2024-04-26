@@ -702,6 +702,69 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 	}
 }
 
+type ClientErrors struct {
+	NonceTooLow                       *string `toml:",omitempty"`
+	NonceTooHigh                      *string `toml:",omitempty"`
+	ReplacementTransactionUnderpriced *string `toml:",omitempty"`
+	LimitReached                      *string `toml:",omitempty"`
+	TransactionAlreadyInMempool       *string `toml:",omitempty"`
+	TerminallyUnderpriced             *string `toml:",omitempty"`
+	InsufficientEth                   *string `toml:",omitempty"`
+	TxFeeExceedsCap                   *string `toml:",omitempty"`
+	L2FeeTooLow                       *string `toml:",omitempty"`
+	L2FeeTooHigh                      *string `toml:",omitempty"`
+	L2Full                            *string `toml:",omitempty"`
+	TransactionAlreadyMined           *string `toml:",omitempty"`
+	Fatal                             *string `toml:",omitempty"`
+	ServiceUnavailable                *string `toml:",omitempty"`
+}
+
+func (r *ClientErrors) setFrom(f *ClientErrors) bool {
+	if v := f.NonceTooLow; v != nil {
+		r.NonceTooLow = v
+	}
+	if v := f.NonceTooHigh; v != nil {
+		r.NonceTooHigh = v
+	}
+	if v := f.ReplacementTransactionUnderpriced; v != nil {
+		r.ReplacementTransactionUnderpriced = v
+	}
+	if v := f.LimitReached; v != nil {
+		r.LimitReached = v
+	}
+	if v := f.TransactionAlreadyInMempool; v != nil {
+		r.TransactionAlreadyInMempool = v
+	}
+	if v := f.TerminallyUnderpriced; v != nil {
+		r.TerminallyUnderpriced = v
+	}
+	if v := f.InsufficientEth; v != nil {
+		r.InsufficientEth = v
+	}
+	if v := f.TxFeeExceedsCap; v != nil {
+		r.TxFeeExceedsCap = v
+	}
+	if v := f.L2FeeTooLow; v != nil {
+		r.L2FeeTooLow = v
+	}
+	if v := f.L2FeeTooHigh; v != nil {
+		r.L2FeeTooHigh = v
+	}
+	if v := f.L2Full; v != nil {
+		r.L2Full = v
+	}
+	if v := f.TransactionAlreadyMined; v != nil {
+		r.TransactionAlreadyMined = v
+	}
+	if v := f.Fatal; v != nil {
+		r.Fatal = v
+	}
+	if v := f.ServiceUnavailable; v != nil {
+		r.ServiceUnavailable = v
+	}
+	return true
+}
+
 type NodePool struct {
 	PollFailureThreshold       *uint32
 	PollInterval               *commonconfig.Duration
@@ -710,6 +773,7 @@ type NodePool struct {
 	LeaseDuration              *commonconfig.Duration
 	NodeIsSyncingEnabled       *bool
 	FinalizedBlockPollInterval *commonconfig.Duration
+	Errors                     ClientErrors `toml:",omitempty"`
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -734,6 +798,7 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
 	}
+	p.Errors.setFrom(&f.Errors)
 }
 
 type OCR struct {

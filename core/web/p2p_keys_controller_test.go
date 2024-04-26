@@ -91,12 +91,13 @@ func TestP2PKeysController_Delete_InvalidPeerID(t *testing.T) {
 
 func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	client, keyStore := setupP2PKeysControllerTests(t)
 
 	keys, _ := keyStore.P2P().GetAll()
 	initialLength := len(keys)
-	key, _ := keyStore.P2P().Create()
+	key, _ := keyStore.P2P().Create(ctx)
 
 	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/p2p/%s", key.ID()))
 	t.Cleanup(cleanup)
@@ -109,11 +110,12 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 
 func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
+	require.NoError(t, app.Start(ctx))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.P2P().Add(ctx, cltest.DefaultP2PKey))
 
 	client := app.NewHTTPClient(nil)
 

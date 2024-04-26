@@ -44,7 +44,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
 
@@ -85,12 +85,12 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon, KeyStore: keyStore.Eth()})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
-	jobORM := job.NewORM(db, orm, btORM, keyStore, lggr, cfg.Database())
+	jobORM := job.NewORM(db, orm, btORM, keyStore, lggr)
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	delegate := directrequest.NewDelegate(lggr, runner, orm, legacyChains, mailMon)
 
@@ -99,8 +99,9 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	if specF != nil {
 		specF(jb)
 	}
-	require.NoError(t, jobORM.CreateJob(jb))
-	serviceArray, err := delegate.ServicesForSpec(testutils.Context(t), *jb)
+	ctx := testutils.Context(t)
+	require.NoError(t, jobORM.CreateJob(ctx, jb))
+	serviceArray, err := delegate.ServicesForSpec(ctx, *jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]

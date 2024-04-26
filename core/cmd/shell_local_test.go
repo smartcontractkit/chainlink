@@ -81,7 +81,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
-			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+			keyStore := cltest.NewKeyStore(t, db)
 			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
 			lggr := logger.TestLogger(t)
@@ -92,8 +92,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig: cfg,
 					MailMon:   &mailbox.Monitor{},
-					SqlxDB:    db,
-					DB:        db,
+					DS:        db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -182,7 +181,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			// create/run with a new admin user
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
-			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+			keyStore := cltest.NewKeyStore(t, db)
 			_, err := keyStore.Eth().Create(testutils.Context(t), &cltest.FixtureChainID)
 			require.NoError(t, err)
 
@@ -197,8 +196,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig: cfg,
 					MailMon:   &mailbox.Monitor{},
-					SqlxDB:    db,
-					DB:        db,
+					DS:        db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -291,7 +289,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 		// seems to be needed for config validate
 		c.Insecure.OCRDevelopmentMode = nil
 	})
-	keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
+	keyStore := cltest.NewKeyStore(t, sqlxDB)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 	txStore := cltest.NewTestTxStore(t, sqlxDB)
@@ -300,9 +298,10 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	app := mocks.NewApplication(t)
-	app.On("GetSqlxDB").Return(sqlxDB)
+	app.On("GetDB").Return(sqlxDB)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("ID").Maybe().Return(uuid.New())
+	app.On("GetConfig").Return(config)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
@@ -371,7 +370,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 
-			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
+			keyStore := cltest.NewKeyStore(t, sqlxDB)
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
@@ -381,9 +380,10 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			app := mocks.NewApplication(t)
-			app.On("GetSqlxDB").Return(sqlxDB)
+			app.On("GetDB").Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
+			app.On("GetConfig").Return(config)
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
@@ -447,7 +447,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 
-			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
+			keyStore := cltest.NewKeyStore(t, sqlxDB)
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
@@ -459,7 +459,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			app := mocks.NewApplication(t)
-			app.On("GetSqlxDB").Maybe().Return(sqlxDB)
+			app.On("GetDB").Maybe().Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -488,6 +488,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			if test.shouldError {
 				require.ErrorContains(t, client.RebroadcastTransactions(c), test.errorContains)
 			} else {
+				app.On("GetConfig").Return(config).Once()
 				require.NoError(t, client.RebroadcastTransactions(c))
 			}
 

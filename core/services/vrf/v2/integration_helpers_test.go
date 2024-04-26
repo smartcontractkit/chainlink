@@ -1207,7 +1207,6 @@ func testSingleConsumerBigGasCallbackSandwich(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
@@ -1324,7 +1323,6 @@ func testSingleConsumerMultipleGasLanes(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
@@ -1672,9 +1670,9 @@ func testMaliciousConsumer(
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
 	require.NoError(t, app.Start(ctx))
 
-	err := app.GetKeyStore().Unlock(cltest.Password)
+	err := app.GetKeyStore().Unlock(ctx, cltest.Password)
 	require.NoError(t, err)
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 
 	jid := uuid.New()
@@ -1694,7 +1692,7 @@ func testMaliciousConsumer(
 	}).Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(s)
 	require.NoError(t, err)
-	err = app.JobSpawner().CreateJob(&jb)
+	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
 
@@ -1796,7 +1794,7 @@ func testReplayOldRequestsOnStartUp(
 	require.NoError(t, app.Start(ctx))
 
 	// Create VRF Key, register it to coordinator and export
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni, coordinator, vrfkey, &defaultMaxGasPrice)
 	keyHash := vrfkey.PublicKey.MustHash()
@@ -1833,7 +1831,7 @@ func testReplayOldRequestsOnStartUp(
 
 	require.NoError(t, app.Start(ctx))
 
-	vrfKey, err := app.GetKeyStore().VRF().Import(encodedVrfKey, testutils.Password)
+	vrfKey, err := app.GetKeyStore().VRF().Import(ctx, encodedVrfKey, testutils.Password)
 	require.NoError(t, err)
 
 	incomingConfs := 2
@@ -1861,7 +1859,7 @@ func testReplayOldRequestsOnStartUp(
 	jb, err := vrfcommon.ValidatedVRFSpec(spec)
 	require.NoError(t, err)
 	t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfKey.PublicKey.MustHash())
-	err = app.JobSpawner().CreateJob(&jb)
+	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 
 	// Wait until all jobs are active and listening for logs

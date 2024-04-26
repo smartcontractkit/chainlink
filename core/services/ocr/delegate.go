@@ -10,14 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -35,7 +34,7 @@ import (
 )
 
 type Delegate struct {
-	db                    *sqlx.DB
+	ds                    sqlutil.DataSource
 	jobORM                job.ORM
 	keyStore              keystore.Master
 	pipelineRunner        pipeline.Runner
@@ -52,7 +51,7 @@ var _ job.Delegate = (*Delegate)(nil)
 const ConfigOverriderPollInterval = 30 * time.Second
 
 func NewDelegate(
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	jobORM job.ORM,
 	keyStore keystore.Master,
 	pipelineRunner pipeline.Runner,
@@ -64,7 +63,7 @@ func NewDelegate(
 	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
-		db:                    db,
+		ds:                    ds,
 		jobORM:                jobORM,
 		keyStore:              keyStore,
 		pipelineRunner:        pipelineRunner,
@@ -95,7 +94,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec, err := job.LoadConfigVarsOCR(chain.Config().EVM().OCR(), chain.Config().OCR(), *jb.OCROracleSpec)
+	concreteSpec, err := job.LoadConfigVarsOCR(chain.Config().EVM().OCR(), d.cfg.OCR(), *jb.OCROracleSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +119,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrDB := NewDB(d.db, concreteSpec.ID, lggr)
+	ocrDB := NewDB(d.ds, concreteSpec.ID, lggr)
 
 	tracker := NewOCRContractTracker(
 		contract,
@@ -130,7 +129,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		chain.LogBroadcaster(),
 		jb.ID,
 		lggr,
-		d.db,
+		d.ds,
 		ocrDB,
 		chain.Config().EVM(),
 		chain.HeadBroadcaster(),
@@ -156,11 +155,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		v2Bootstrappers = peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 	}
 
-	ocrLogger := commonlogger.NewOCRWrapper(lggr, chain.Config().OCR().TraceLogging(), func(msg string) {
-		d.jobORM.TryRecordError(jb.ID, msg)
+	ocrLogger := commonlogger.NewOCRWrapper(lggr, d.cfg.OCR().TraceLogging(), func(msg string) {
+		d.jobORM.TryRecordError(ctx, jb.ID, msg)
 	})
 
-	lc := toLocalConfig(chain.Config().EVM(), chain.Config().EVM().OCR(), chain.Config().Insecure(), *concreteSpec, chain.Config().OCR())
+	lc := toLocalConfig(chain.Config().EVM(), chain.Config().EVM().OCR(), d.cfg.Insecure(), *concreteSpec, d.cfg.OCR())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -196,11 +195,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		cfg := chain.Config()
-		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCR().DefaultTransactionQueueDepth())
+		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, d.cfg.OCR().DefaultTransactionQueueDepth())
 
 		var checker txmgr.TransmitCheckerSpec
-		if chain.Config().OCR().SimulateTransactions() {
+		if d.cfg.OCR().SimulateTransactions() {
 			checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 		}
 
@@ -254,8 +252,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		saver := ocrcommon.NewResultRunSaver(
 			d.pipelineRunner,
 			lggr,
-			cfg.JobPipeline().MaxSuccessfulRuns(),
-			cfg.JobPipeline().ResultWriteQueueDepth(),
+			d.cfg.JobPipeline().MaxSuccessfulRuns(),
+			d.cfg.JobPipeline().ResultWriteQueueDepth(),
 		)
 
 		var configOverrider ocrtypes.ConfigOverrider
@@ -277,7 +275,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 			configOverrider = configOverriderService
 		}
 
-		jb.OCROracleSpec.CaptureEATelemetry = chain.Config().OCR().CaptureEATelemetry()
+		jb.OCROracleSpec.CaptureEATelemetry = d.cfg.OCR().CaptureEATelemetry()
 		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
 		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), concreteSpec.ContractAddress.String(), synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
