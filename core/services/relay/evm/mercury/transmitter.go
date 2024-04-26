@@ -34,12 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// var (
-//     maxTransmitQueueSize = 10_000
-//     maxDeleteQueueSize   = 10_000
-//     transmitTimeout      = 5 * time.Second
-// )
-
 const (
 	// Mercury server error codes
 	DuplicateReport = 2
