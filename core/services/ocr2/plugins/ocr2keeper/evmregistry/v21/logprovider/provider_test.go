@@ -3,6 +3,7 @@ package logprovider
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"runtime"
 	"testing"
@@ -314,6 +315,110 @@ func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upk
 		topics:   topics,
 	}
 	return cfg, f
+}
+
+func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
+	upkeepIDs := []*big.Int{
+		big.NewInt(1),
+		big.NewInt(2),
+		big.NewInt(3),
+		big.NewInt(4),
+		big.NewInt(5),
+	}
+
+	filterStore := NewUpkeepFilterStore()
+
+	logGenerator := func(start, end int64) []logpoller.Log {
+		var res []logpoller.Log
+		for i := start; i < end; i++ {
+			for j := 0; j < 100; j++ {
+				res = append(res, logpoller.Log{
+					LogIndex:    int64(j),
+					BlockHash:   common.HexToHash(fmt.Sprintf("%d", i+100)),
+					BlockNumber: i + 100,
+				})
+			}
+		}
+		return res
+	}
+
+	logPoller := &mockLogPoller{
+		LatestBlockFn: func(ctx context.Context) (int64, error) {
+			return 100, nil
+		},
+		LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+			return logGenerator(start, end), nil
+		},
+	}
+
+	filterStore.AddActiveUpkeeps(
+		upkeepFilter{
+			addr:     []byte("1"),
+			upkeepID: big.NewInt(1),
+			topics: []common.Hash{
+				common.HexToHash("1"),
+			},
+		},
+		upkeepFilter{
+			addr:     []byte("2"),
+			upkeepID: big.NewInt(2),
+			topics: []common.Hash{
+				common.HexToHash("2"),
+			},
+		},
+		upkeepFilter{
+			addr:     []byte("3"),
+			upkeepID: big.NewInt(3),
+			topics: []common.Hash{
+				common.HexToHash("3"),
+			},
+		},
+		upkeepFilter{
+			addr:     []byte("4"),
+			upkeepID: big.NewInt(4),
+			topics: []common.Hash{
+				common.HexToHash("4"),
+			},
+		},
+		upkeepFilter{
+			addr:     []byte("5"),
+			upkeepID: big.NewInt(5),
+			topics: []common.Hash{
+				common.HexToHash("5"),
+			},
+		},
+	)
+
+	opts := NewOptions(200, big.NewInt(1))
+	opts.BufferVersion = "v1"
+
+	provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(1), &mockedPacker{}, filterStore, opts)
+
+	ctx := context.Background()
+
+	err := provider.ReadLogs(ctx, upkeepIDs...)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 5, provider.bufferV1.NumOfUpkeeps())
+
+	bufV1 := provider.bufferV1.(*logBuffer)
+
+	assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
+	assert.Equal(t, 10000, len(bufV1.queues["2"].logs))
+	assert.Equal(t, 10000, len(bufV1.queues["3"].logs))
+	assert.Equal(t, 10000, len(bufV1.queues["4"].logs))
+	assert.Equal(t, 10000, len(bufV1.queues["5"].logs))
+
+	payloads, err := provider.GetLatestPayloads(ctx)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 100, len(payloads))
+
+	assert.Equal(t, 9980, len(bufV1.queues["1"].logs))
+	assert.Equal(t, 9980, len(bufV1.queues["2"].logs))
+	assert.Equal(t, 9980, len(bufV1.queues["3"].logs))
+	assert.Equal(t, 9980, len(bufV1.queues["4"].logs))
+	assert.Equal(t, 9980, len(bufV1.queues["5"].logs))
 }
 
 type mockedPacker struct {

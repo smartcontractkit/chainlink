@@ -219,6 +219,7 @@ func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 	for _, id := range b.queueIDs {
 		if id == uid.String() {
 			found = true
+			break
 		}
 	}
 	if !found {
