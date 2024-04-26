@@ -13,6 +13,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     string name;
   }
 
+  // CapabilityResponseType indicates whether remote response requires
+  // aggregation or is an already aggregated report. There are multiple
+  // possible ways to aggregate.
+  enum CapabilityResponseType {
+    // No additional aggregation is needed on the remote response.
+    REPORT,
+    // A number of identical observations need to be aggregated.
+    OBSERVATION_IDENTICAL
+  }
+
   struct Capability {
     // Capability type, e.g. "data-streams-reports"
     // bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
@@ -21,6 +31,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     // Semver, e.g., "1.2.3"
     // bytes32(string); must be valid Semver + max 32 characters.
     bytes32 version;
+    // responseType indicates whether remote response requires
+    // aggregation or is an OCR report. There are multiple possible
+    // ways to aggregate.
+    CapabilityResponseType responseType;
+    // An address to the capability configuration contract. Having this defined
+    // on a capability enforces consistent configuration across DON instances
+    // serving the same capability. Configuration contract MUST implement
+    // CapabilityConfigurationContractInterface.
+    //
+    // The main use cases are:
+    // 1) Sharing capability configuration across DON instances
+    // 2) Inspect and modify on-chain configuration without off-chain
+    // capability code.
+    //
+    // It is not recommended to store configuration which requires knowledge of
+    // the DON membership.
+    address configurationContract;
   }
 
   /// @notice This error is thrown when trying to set a node operator's
