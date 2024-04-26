@@ -27,7 +27,6 @@ import (
 	libocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -74,7 +73,7 @@ var (
 			ID:         7,
 			ContractID: "phony",
 			FeedID:     ptr(common.BytesToHash([]byte{1, 2, 3})),
-			Relay:      relay.EVM,
+			Relay:      commontypes.NetworkEVM,
 			ChainID:    "1",
 		},
 		PipelineSpec:   &pipeline.Spec{},

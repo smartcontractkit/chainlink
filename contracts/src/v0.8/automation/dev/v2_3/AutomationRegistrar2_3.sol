@@ -81,7 +81,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   }
   /**
    * @member upkeepContract address to perform upkeep on
-   * @member amount quantity of LINK upkeep is funded with (specified in wei)
+   * @member amount quantity of billing token upkeep is funded with (specified in the billing token's decimals)
    * @member adminAddress address to cancel upkeep and withdraw remaining funds
    * @member gasLimit amount of gas to provide the target contract when performing upkeep
    * @member triggerType the type of trigger for the upkeep
@@ -204,19 +204,17 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   /**
    * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
    * @param requestParams struct of all possible registration parameters
-   * @param hash the committment of the registration request
    */
-  function approve(RegistrationParams calldata requestParams, bytes32 hash) external onlyOwner {
+  function approve(RegistrationParams calldata requestParams) external onlyOwner {
+    bytes32 hash = keccak256(abi.encode(requestParams));
+
     PendingRequest memory request = s_pendingRequests[hash];
     if (request.admin == address(0)) {
       revert RequestNotFound();
     }
-    bytes32 expectedHash = keccak256(abi.encode(requestParams));
-    if (hash != expectedHash) {
-      revert HashMismatch();
-    }
+
     delete s_pendingRequests[hash];
-    _approve(requestParams, expectedHash);
+    _approve(requestParams, hash);
   }
 
   /**
@@ -393,6 +391,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   /**
    * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
+   * @dev safeApprove is deprecated and removed from the latest (v5) OZ release, Use safeIncreaseAllowance when we upgrade OZ (we are on v4.8)
+   * @dev we stick to the safeApprove because of the older version (v4.8) of safeIncreaseAllowance can't handle USDT correctly, but newer version can
    */
   function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
     IAutomationRegistryMaster2_3 registry = s_registry;
@@ -406,18 +406,17 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       params.triggerConfig,
       params.offchainConfig
     );
-    bool success;
+
     if (address(params.billingToken) == address(i_LINK)) {
-      success = i_LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
-    } else {
-      success = params.billingToken.approve(address(registry), params.amount);
-      if (success) {
-        registry.addFunds(upkeepId, params.amount);
+      bool success = i_LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
+      if (!success) {
+        revert TransferFailed(address(registry));
       }
+    } else {
+      params.billingToken.safeApprove(address(registry), params.amount);
+      registry.addFunds(upkeepId, params.amount);
     }
-    if (!success) {
-      revert TransferFailed(address(registry));
-    }
+
     emit RegistrationApproved(hash, params.name, upkeepId);
     return upkeepId;
   }

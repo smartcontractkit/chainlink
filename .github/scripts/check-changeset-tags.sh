@@ -29,6 +29,14 @@ if [[ ! -f "$CHANGESET_FILE_PATH" ]]; then
   exit 1
 fi
 
+changeset_content=$(sed -n '/^---$/,/^---$/{ /^---$/!p; }' $CHANGESET_FILE_PATH)
+semvar_value=$(echo "$changeset_content" | awk -F": " '/"chainlink"/ {print $2}')
+
+if [[ "$semvar_value" != "major" && "$semvar_value" != "minor" && "$semvar_value" != "patch" ]]; then
+  echo "Invalid changeset semvar value for 'chainlink'. Must be 'major', 'minor', or 'patch'."
+  exit 1
+fi
+
 while IFS= read -r line; do
   for tag in "${tags_list[@]}"; do
     if [[ "$line" == *"$tag"* ]]; then

@@ -5,20 +5,26 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
+type DelegateConfig interface {
+	FluxMonitor() config.FluxMonitor
+	JobPipeline() config.JobPipeline
+}
+
 // Delegate represents a Flux Monitor delegate
 type Delegate struct {
-	db             *sqlx.DB
+	cfg            DelegateConfig
+	ds             sqlutil.DataSource
 	ethKeyStore    keystore.Eth
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
@@ -31,16 +37,18 @@ var _ job.Delegate = (*Delegate)(nil)
 
 // NewDelegate constructs a new delegate
 func NewDelegate(
+	cfg DelegateConfig,
 	ethKeyStore keystore.Eth,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
-		db:             db,
+		cfg:            cfg,
+		ds:             ds,
 		ethKeyStore:    ethKeyStore,
 		jobORM:         jobORM,
 		pipelineORM:    pipelineORM,
@@ -69,17 +77,16 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if err != nil {
 		return nil, err
 	}
-	cfg := chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FluxMonitor().DefaultTransactionQueueDepth())
+	strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, d.cfg.FluxMonitor().DefaultTransactionQueueDepth())
 	var checker txmgr.TransmitCheckerSpec
-	if chain.Config().FluxMonitor().SimulateTransactions() {
+	if d.cfg.FluxMonitor().SimulateTransactions() {
 		checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 	}
 
 	fm, err := NewFromJobSpec(
 		jb,
-		d.db,
-		NewORM(d.db, d.lggr, chain.TxManager(), strategy, checker),
+		d.ds,
+		NewORM(d.ds, d.lggr, chain.TxManager(), strategy, checker),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),
@@ -88,7 +95,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		d.pipelineRunner,
 		chain.Config().EVM(),
 		chain.Config().EVM().GasEstimator(),
-		chain.Config().JobPipeline(),
+		d.cfg.JobPipeline(),
 		d.lggr,
 	)
 	if err != nil {

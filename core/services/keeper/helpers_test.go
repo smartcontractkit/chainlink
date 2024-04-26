@@ -12,6 +12,10 @@ func (rs *RegistrySynchronizer) ExportedFullSync(ctx context.Context) {
 	rs.fullSync(ctx)
 }
 
+func (rs *RegistrySynchronizer) ExportedProcessLogs(ctx context.Context) {
+	rs.processLogs(ctx)
+}
+
 func (rw *RegistryWrapper) GetUpkeepIdFromRawRegistrationLog(rawLog types.Log) (*big.Int, error) {
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:

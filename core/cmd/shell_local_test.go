@@ -91,8 +91,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig: cfg,
 					MailMon:   &mailbox.Monitor{},
-					SqlxDB:    db,
-					DB:        db,
+					DS:        db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -196,8 +195,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig: cfg,
 					MailMon:   &mailbox.Monitor{},
-					SqlxDB:    db,
-					DB:        db,
+					DS:        db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -299,9 +297,10 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	app := mocks.NewApplication(t)
-	app.On("GetSqlxDB").Return(sqlxDB)
+	app.On("GetDB").Return(sqlxDB)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("ID").Maybe().Return(uuid.New())
+	app.On("GetConfig").Return(config)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
@@ -380,9 +379,10 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			app := mocks.NewApplication(t)
-			app.On("GetSqlxDB").Return(sqlxDB)
+			app.On("GetDB").Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
+			app.On("GetConfig").Return(config)
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
@@ -458,7 +458,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			app := mocks.NewApplication(t)
-			app.On("GetSqlxDB").Maybe().Return(sqlxDB)
+			app.On("GetDB").Maybe().Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -487,6 +487,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			if test.shouldError {
 				require.ErrorContains(t, client.RebroadcastTransactions(c), test.errorContains)
 			} else {
+				app.On("GetConfig").Return(config).Once()
 				require.NoError(t, client.RebroadcastTransactions(c))
 			}
 

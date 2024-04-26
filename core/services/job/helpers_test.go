@@ -216,7 +216,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 	keyStore := cltest.NewKeyStore(t, db)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	_, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+	_, err := ocr.ValidatedOracleSpecToml(cfg, legacyChains, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)
@@ -268,8 +268,7 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	return &jb
 }
 
-func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, cfg chainlink.GeneralConfig,
-	transmitter common.Address, chainID *big.Int, fromBlock uint64) *job.Job {
+func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int, fromBlock uint64) *job.Job {
 	t.Helper()
 	ctx := testutils.Context(t)
 
