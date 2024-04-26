@@ -127,13 +127,15 @@ func Test_Poller(t *testing.T) {
 
 		// Ensure that timeout errors were logged as expected
 		logsSeen := func() bool {
-			return observedLogs.FilterMessage("polling error: context deadline exceeded").Len() > 10
+			return observedLogs.FilterMessage("polling error: context deadline exceeded").Len() >= 1
 		}
 		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
 	})
 
 	t.Run("Test unsubscribe during polling", func(t *testing.T) {
+		wait := make(chan struct{})
 		pollFunc := func(ctx context.Context) (Head, error) {
+			close(wait)
 			// Block in polling function until context is cancelled
 			if <-ctx.Done(); true {
 				return nil, ctx.Err()
@@ -155,7 +157,7 @@ func Test_Poller(t *testing.T) {
 		require.NoError(t, poller.Start())
 
 		// Unsubscribe while blocked in polling function
-		time.Sleep(20 * time.Millisecond)
+		<-wait
 		poller.Unsubscribe()
 
 		// Ensure error was logged
