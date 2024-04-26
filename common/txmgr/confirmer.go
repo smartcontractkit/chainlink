@@ -483,6 +483,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 				errMu.Unlock()
 				return
 			}
+			lggr.Warnw("marked transaction as terminally stuck", "etx", tx)
 			// Send purge attempt
 			if err := ec.handleInProgressAttempt(ctx, lggr, tx, purgeAttempt, blockNum); err != nil {
 				errMu.Lock()

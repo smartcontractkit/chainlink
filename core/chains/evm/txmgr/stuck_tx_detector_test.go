@@ -118,7 +118,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 
 	t.Run("returns empty list if no unconfimed transactions found", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-		stuckTxs, err := stuckTxDetector.FindPotentialStuckTxs(ctx, []common.Address{fromAddress})
+		stuckTxs, err := stuckTxDetector.FindUnconfirmedTxWithLowestNonce(ctx, []common.Address{fromAddress})
 		require.NoError(t, err)
 		require.Len(t, stuckTxs, 0)
 	})
@@ -131,7 +131,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress1)
 		// Insert 1 tx for other from address, should return a tx
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress2)
-		stuckTxs, err := stuckTxDetector.FindPotentialStuckTxs(ctx, []common.Address{fromAddress1, fromAddress2})
+		stuckTxs, err := stuckTxDetector.FindUnconfirmedTxWithLowestNonce(ctx, []common.Address{fromAddress1, fromAddress2})
 		require.NoError(t, err)
 
 		require.Len(t, stuckTxs, 2)
@@ -150,7 +150,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	t.Run("excludes transactions already marked for purge", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		mustInsertUnconfirmedEthTxWithBroadcastPurgeAttempt(t, txStore, 0, fromAddress)
-		stuckTxs, err := stuckTxDetector.FindPotentialStuckTxs(ctx, []common.Address{fromAddress})
+		stuckTxs, err := stuckTxDetector.FindUnconfirmedTxWithLowestNonce(ctx, []common.Address{fromAddress})
 		require.NoError(t, err)
 		require.Len(t, stuckTxs, 0)
 	})

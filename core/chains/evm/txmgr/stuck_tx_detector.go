@@ -111,36 +111,28 @@ func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAd
 	if !d.cfg.AutoPurgeStuckTxs() {
 		return nil, nil
 	}
-	txs, err := d.FindPotentialStuckTxs(ctx, enabledAddresses)
+	txs, err := d.FindUnconfirmedTxWithLowestNonce(ctx, enabledAddresses)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find potential stuck transactions: %w", err)
+		return nil, fmt.Errorf("failed to get list of transactions waiting confirmations with lowest nonce for distinct from addresses: %w", err)
 	}
 	// No transactions found
 	if len(txs) == 0 {
 		return nil, nil
 	}
 
-	var stuckTxs []Tx
 	switch d.chainType {
 	case config.ChainScroll:
-		stuckTxs, err = d.detectStuckTransactionsScroll(ctx, txs)
+		return d.detectStuckTransactionsScroll(ctx, txs)
 	case config.ChainZkEvm:
-		stuckTxs, err = d.detectStuckTransactionsZkEVM(ctx, txs)
+		return d.detectStuckTransactionsZkEVM(ctx, txs)
 	default:
-		stuckTxs, err = d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
+		return d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
 	}
-
-	for _, stuckTx := range stuckTxs {
-		lggr := stuckTx.GetLogger(d.lggr)
-		lggr.Debugw("marking transaction as terminally stuck", "etx", stuckTx)
-	}
-
-	return stuckTxs, err
 }
 
 // Finds the lowest nonce Unconfirmed transaction for each enabled address
 // Only the earliest transaction can be considered terminally stuck. All others may be valid and just stuck behind the nonce
-func (d *stuckTxDetector) FindPotentialStuckTxs(ctx context.Context, enabledAddresses []common.Address) ([]Tx, error) {
+func (d *stuckTxDetector) FindUnconfirmedTxWithLowestNonce(ctx context.Context, enabledAddresses []common.Address) ([]Tx, error) {
 	// Loads attempts within tx
 	txs, err := d.txStore.FindTxsByStateAndFromAddresses(ctx, enabledAddresses, txmgr.TxUnconfirmed, d.chainID)
 	if err != nil {
