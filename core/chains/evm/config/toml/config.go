@@ -401,6 +401,44 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: "must be greater than or equal to 1"})
 	}
 
+	// AutoPurge configs depend on ChainType so handling validation on per chain basis
+	if c.Transactions.AutoPurge.AutoPurgeStuckTxs != nil && *c.Transactions.AutoPurge.AutoPurgeStuckTxs {
+		switch chainType {
+		case config.ChainScroll:
+			if c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.AutoPurgeDetectionApiUrl", Msg: fmt.Sprintf("must be set for %s", chainType)})
+			} else if c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl.IsZero(){
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.AutoPurgeDetectionApiUrl", Value: c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl, Msg: fmt.Sprintf("must be set for %s", chainType)})
+			} else {
+				switch c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl.Scheme {
+				case "http", "https":
+				default:
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.AutoPurgeDetectionApiUrl", Value: c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl.Scheme, Msg: "must be http or https"})
+				}
+			}
+		case config.ChainZkEvm:
+			// No other configs are needed
+		default:
+			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist
+			if c.GasEstimator.BumpThreshold == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "GasEstimator.BumpThreshold", Msg: fmt.Sprintf("must be set if AutoPurgeStuckTxs is enabled for %s", chainType)})
+			} else if *c.GasEstimator.BumpThreshold == 0 {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpThreshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if AutoPurgeStuckTxs is enabled for %s", chainType)})
+			}
+			if c.Transactions.AutoPurge.AutoPurgeThreshold == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.AutoPurgeThreshold", Msg: fmt.Sprintf("needs to be set if AutoPurgeStuckTxs is enabled for %s", chainType)})
+			} else if *c.Transactions.AutoPurge.AutoPurgeThreshold == 0 {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.AutoPurgeThreshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if AutoPurgeStuckTxs is enabled for %s", chainType)})
+			}
+			if c.Transactions.AutoPurge.AutoPurgeMinAttempts == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.AutoPurgeMinAttempts", Msg: fmt.Sprintf("needs to be set if AutoPurgeStuckTxs is enabled for %s", chainType)})
+			} else if *c.Transactions.AutoPurge.AutoPurgeMinAttempts == 0 {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.AutoPurgeMinAttempts", Value: 0, Msg: fmt.Sprintf("cannot be 0 if AutoPurgeStuckTxs is enabled for %s", chainType)})
+			}
+		}
+	}
+	
+
 	return
 }
 
@@ -442,34 +480,6 @@ type AutoPurgeConfig struct {
 	AutoPurgeThreshold       *uint32
 	AutoPurgeMinAttempts     *uint32
 	AutoPurgeDetectionApiUrl *commonconfig.URL
-}
-
-func (a *AutoPurgeConfig) ValidateConfig() (err error) {
-	if a.AutoPurgeStuckTxs == nil || !*a.AutoPurgeStuckTxs {
-		return
-	}
-
-	if a.AutoPurgeDetectionApiUrl != nil && !a.AutoPurgeDetectionApiUrl.IsZero() {
-		switch a.AutoPurgeDetectionApiUrl.Scheme {
-		case "http", "https":
-			return
-		default:
-			return commonconfig.ErrInvalid{Name: "AutoPurgeDetectionApiUrl", Value: a.AutoPurgeDetectionApiUrl.Scheme, Msg: "must be http or https"}
-		}
-	}
-
-	if a.AutoPurgeThreshold == nil {
-		err = errors.Join(err, commonconfig.ErrMissing{Name: "AutoPurgeThreshold", Msg: "needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
-	} else if *a.AutoPurgeThreshold == 0 {
-		err = errors.Join(err, commonconfig.ErrInvalid{Name: "AutoPurgeThreshold", Value: *a.AutoPurgeThreshold, Msg: "cannot be 0 if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
-	}
-	if a.AutoPurgeMinAttempts == nil {
-		err = errors.Join(err, commonconfig.ErrMissing{Name: "AutoPurgeMinAttempts", Msg: "needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set"})
-	} else if *a.AutoPurgeMinAttempts == 0 {
-		err = errors.Join(err, commonconfig.ErrInvalid{Name: "AutoPurgeMinAttempts", Value: *a.AutoPurgeMinAttempts, Msg: "cannot be 0 if AutoPurgeStuckTxs is enable and AutoPurgeDetectionApiUrl not setd"})
-	}
-
-	return
 }
 
 func (a *AutoPurgeConfig) setFrom(f *AutoPurgeConfig) {

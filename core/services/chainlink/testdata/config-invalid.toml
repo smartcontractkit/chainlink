@@ -102,6 +102,19 @@ WSURL = 'ws://dupe.com'
 
 [[EVM]]
 
+[[EVM]]
+ChainID = '534352'
+ChainType = 'scroll'
+
+[EVM.Transactions.AutoPurge]
+AutoPurgeStuckTxs = true
+AutoPurgeDetectionApiUrl = ''
+
+[[EVM.Nodes]]
+Name = 'scroll node'
+WSURL = 'ws://foo.bar'
+HTTPURl = 'http://foo.bar'
+
 [[Cosmos]]
 ChainID = 'Malaga-420'
 

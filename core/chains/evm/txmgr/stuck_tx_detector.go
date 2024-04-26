@@ -74,7 +74,8 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.C
 }
 
 func (d *stuckTxDetector) LoadPurgeBlockNumMap(ctx context.Context, addresses []common.Address) error {
-	if !d.cfg.AutoPurgeStuckTxs() {
+	// Skip loading purge block num map if auto-purge feature disabled or AutoPurgeThreshold is set to 0
+	if !d.cfg.AutoPurgeStuckTxs() || d.cfg.AutoPurgeThreshold() == 0 {
 		return nil
 	}
 	d.purgeBlockNumLock.Lock()

@@ -1258,7 +1258,7 @@ func TestConfig_Validate(t *testing.T) {
 		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
 		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP RunUserGroupCN can not be empty
 		- LDAP.ReadUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
-	- EVM: 8 errors:
+	- EVM: 9 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
 		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
@@ -1276,14 +1276,14 @@ func TestConfig_Validate(t *testing.T) {
 					- WSURL: missing: required for primary nodes
 					- HTTPURL: missing: required for all nodes
 				- 1.HTTPURL: missing: required for all nodes
-		- 1: 7 errors:
+		- 1: 9 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
 			- ChainType: invalid value (Foo): must be one of arbitrum, celo, gnosis, kroma, metis, optimismBedrock, scroll, wemix, zkevm, zksync or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
-			- Transactions.AutoPurge: 2 errors:
-					- AutoPurgeThreshold: missing: needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set
-					- AutoPurgeMinAttempts: missing: needs to be set if AutoPurgeStuckTxs is enabled and AutoPurgeDetectionApiUrl not set
+			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if AutoPurgeStuckTxs is enabled for Foo
+			- Transactions.AutoPurge.AutoPurgeThreshold: missing: needs to be set if AutoPurgeStuckTxs is enabled for Foo
+			- Transactions.AutoPurge.AutoPurgeMinAttempts: missing: needs to be set if AutoPurgeStuckTxs is enabled for Foo
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
@@ -1312,6 +1312,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 4: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
+		- 5.Transactions.AutoPurge.AutoPurgeDetectionApiUrl: invalid value (): must be set for scroll
 	- Cosmos: 5 errors:
 		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
