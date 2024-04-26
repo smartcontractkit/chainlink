@@ -282,7 +282,26 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("Sent funds")
 
-	return client.WaitMined(ctx, logger, client.Client, signedTx)
+	receipt, receiptErr := client.WaitMined(ctx, logger, client.Client, signedTx)
+	if receiptErr != nil {
+		return nil, errors.Wrap(receiptErr, "failed to wait for transaction to be mined")
+	}
+
+	if receipt.Status == 1 {
+		return receipt, nil
+	}
+
+	tx, _, err := client.Client.TransactionByHash(ctx, signedTx.Hash())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get transaction by hash ")
+	}
+
+	_, err = client.Decode(tx, receiptErr)
+	if err != nil {
+		return nil, err
+	}
+
+	return receipt, nil
 }
 
 // DeployForwarderContracts first deploys Operator Factory and then uses it to deploy given number of
