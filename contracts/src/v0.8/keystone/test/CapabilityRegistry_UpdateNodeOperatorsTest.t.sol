@@ -40,18 +40,6 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
   }
 
-  function test_RevertWhen_NodeOperatorIsNotUpdated() public {
-    changePrank(ADMIN);
-    vm.expectRevert(CapabilityRegistry.InvalidNodeOperatorUpdate.selector);
-
-    CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
-    nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: NODE_OPERATOR_ONE_ADMIN, name: NODE_OPERATOR_ONE_NAME});
-
-    uint256[] memory nodeOperatorIds = new uint256[](1);
-    nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;
-    s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
-  }
-
   function test_UpdatesNodeOperator() public {
     changePrank(ADMIN);
 

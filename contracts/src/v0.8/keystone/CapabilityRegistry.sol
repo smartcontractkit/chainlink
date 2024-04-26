@@ -37,10 +37,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// admin address to the zero address
   error InvalidNodeOperatorAdmin();
 
-  /// @notice This error is thrown when the updated node operator
-  /// parameters are the same as the existing node operator parameters
-  error InvalidNodeOperatorUpdate();
-
   /// @notice This event is emitted when a new node operator is added
   /// @param nodeOperatorId The ID of the newly added node operator
   /// @param admin The address of the admin that can manage the node
@@ -110,14 +106,13 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (msg.sender != nodeOperator.admin && msg.sender != owner()) revert AccessForbidden();
 
       if (
-        s_nodeOperators[nodeOperatorId].admin == nodeOperator.admin &&
-        keccak256(abi.encode(s_nodeOperators[nodeOperatorId].name)) == keccak256(abi.encode(nodeOperator.name))
+        s_nodeOperators[nodeOperatorId].admin != nodeOperator.admin ||
+        keccak256(abi.encode(s_nodeOperators[nodeOperatorId].name)) != keccak256(abi.encode(nodeOperator.name))
       ) {
-        revert InvalidNodeOperatorUpdate();
+        s_nodeOperators[nodeOperatorId].admin = nodeOperator.admin;
+        s_nodeOperators[nodeOperatorId].name = nodeOperator.name;
+        emit NodeOperatorUpdated(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
       }
-      s_nodeOperators[nodeOperatorId].admin = nodeOperator.admin;
-      s_nodeOperators[nodeOperatorId].name = nodeOperator.name;
-      emit NodeOperatorUpdated(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
     }
   }
 
