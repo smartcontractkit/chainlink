@@ -19,23 +19,23 @@ func TestParse_Graph(t *testing.T) {
 			name: "basic example",
 			yaml: `
 triggers:
-  - type: "a-trigger"
+  - id: "a-trigger"
 
 actions:
-  - type: "an-action"
+  - id: "an-action"
     ref: "an-action"
     inputs:
       trigger_output: $(trigger.outputs)
 
 consensus:
-  - type: "a-consensus"
+  - id: "a-consensus"
     ref: "a-consensus"
     inputs:
       trigger_output: $(trigger.outputs)
       an-action_output: $(an-action.outputs)
 
 targets:
-  - type: "a-target"
+  - id: "a-target"
     ref: "a-target"
     inputs: 
       consensus_output: $(a-consensus.outputs)
@@ -58,28 +58,28 @@ targets:
 			name: "circular relationship",
 			yaml: `
 triggers:
-  - type: "a-trigger"
+  - id: "a-trigger"
 
 actions:
-  - type: "an-action"
+  - id: "an-action"
     ref: "an-action"
     inputs:
       trigger_output: $(trigger.outputs)
       output: $(a-second-action.outputs)
-  - type: "a-second-action"
+  - id: "a-second-action"
     ref: "a-second-action"
     inputs:
       output: $(an-action.outputs)
 
 consensus:
-  - type: "a-consensus"
+  - id: "a-consensus"
     ref: "a-consensus"
     inputs:
       trigger_output: $(trigger.outputs)
       an-action_output: $(an-action.outputs)
 
 targets:
-  - type: "a-target"
+  - id: "a-target"
     ref: "a-target"
     inputs: 
       consensus_output: $(a-consensus.outputs)
@@ -90,32 +90,32 @@ targets:
 			name: "indirect circular relationship",
 			yaml: `
 triggers:
-  - type: "a-trigger"
+  - id: "a-trigger"
 
 actions:
-  - type: "an-action"
+  - id: "an-action"
     ref: "an-action"
     inputs:
       trigger_output: $(trigger.outputs)
       action_output: $(a-third-action.outputs)
-  - type: "a-second-action"
+  - id: "a-second-action"
     ref: "a-second-action"
     inputs:
       output: $(an-action.outputs)
-  - type: "a-third-action"
+  - id: "a-third-action"
     ref: "a-third-action"
     inputs:
       output: $(a-second-action.outputs)
 
 consensus:
-  - type: "a-consensus"
+  - id: "a-consensus"
     ref: "a-consensus"
     inputs:
       trigger_output: $(trigger.outputs)
       an-action_output: $(an-action.outputs)
 
 targets:
-  - type: "a-target"
+  - id: "a-target"
     ref: "a-target"
     inputs: 
       consensus_output: $(a-consensus.outputs)
@@ -126,23 +126,23 @@ targets:
 			name: "relationship doesn't exist",
 			yaml: `
 triggers:
-  - type: "a-trigger"
+  - id: "a-trigger"
 
 actions:
-  - type: "an-action"
+  - id: "an-action"
     ref: "an-action"
     inputs:
       trigger_output: $(trigger.outputs)
       action_output: $(missing-action.outputs)
 
 consensus:
-  - type: "a-consensus"
+  - id: "a-consensus"
     ref: "a-consensus"
     inputs:
       an-action_output: $(an-action.outputs)
 
 targets:
-  - type: "a-target"
+  - id: "a-target"
     ref: "a-target"
     inputs: 
       consensus_output: $(a-consensus.outputs)
@@ -153,23 +153,23 @@ targets:
 			name: "two trigger nodes",
 			yaml: `
 triggers:
-  - type: "a-trigger"
-  - type: "a-second-trigger"
+  - id: "a-trigger"
+  - id: "a-second-trigger"
 
 actions:
-  - type: "an-action"
+  - id: "an-action"
     ref: "an-action"
     inputs:
       trigger_output: $(trigger.outputs)
 
 consensus:
-  - type: "a-consensus"
+  - id: "a-consensus"
     ref: "a-consensus"
     inputs:
       an-action_output: $(an-action.outputs)
 
 targets:
-  - type: "a-target"
+  - id: "a-target"
     ref: "a-target"
     inputs:
       consensus_output: $(a-consensus.outputs)
@@ -191,21 +191,21 @@ targets:
 			name: "non-trigger step with no dependent refs",
 			yaml: `
 triggers:
-  - type: "a-trigger"
-  - type: "a-second-trigger"
+  - id: "a-trigger"
+  - id: "a-second-trigger"
 actions:
-  - type: "an-action"
+  - id: "an-action"
     ref: "an-action"
     inputs:
       hello: "world"
 consensus:
-  - type: "a-consensus"
+  - id: "a-consensus"
     ref: "a-consensus"
     inputs:
       trigger_output: $(trigger.outputs)
       action_output: $(an-action.outputs)
 targets:
-  - type: "a-target"
+  - id: "a-target"
     ref: "a-target"
     inputs:
       consensus_output: $(a-consensus.outputs)

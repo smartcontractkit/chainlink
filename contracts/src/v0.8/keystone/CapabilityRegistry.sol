@@ -39,8 +39,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   event NodeOperatorRemoved(uint256 nodeOperatorId);
 
   /// @notice This event is emitted when a new capability is added
-  /// @param capabilityId The ID of the newly added capability
-  event CapabilityAdded(bytes32 indexed capabilityId);
+  /// @param compressedCapabilityId The ID of the newly added capability
+  event CapabilityAdded(bytes32 indexed compressedCapabilityId);
 
   mapping(bytes32 => Capability) private s_capabilities;
 
@@ -86,18 +86,19 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   function addCapability(Capability calldata capability) external onlyOwner {
-    bytes32 capabilityId = getCapabilityID(capability.capabilityType, capability.version);
-    s_capabilities[capabilityId] = capability;
-    emit CapabilityAdded(capabilityId);
+    bytes32 compressedId = getCompressedCapabilityID(capability.labelledName, capability.version);
+    s_capabilities[compressedId] = capability;
+    emit CapabilityAdded(compressedId);
   }
 
-  function getCapability(bytes32 capabilityID) public view returns (Capability memory) {
-    return s_capabilities[capabilityID];
+  /// @notice This function returns a Capability by its compressed ID. Use `getCompressedCapabilityID` to get the compressed ID.
+  function getCapability(bytes32 compressedId) public view returns (Capability memory) {
+    return s_capabilities[compressedId];
   }
 
   /// @notice This functions returns a Capability ID packed into a bytes32 for cheaper access
   /// @return bytes32 A unique identifier for the capability
-  function getCapabilityID(bytes32 capabilityType, bytes32 version) public pure returns (bytes32) {
-    return keccak256(abi.encodePacked(capabilityType, version));
+  function getCompressedCapabilityID(bytes32 labeledName, bytes32 version) public pure returns (bytes32) {
+    return keccak256(abi.encodePacked(labeledName, version));
   }
 }
