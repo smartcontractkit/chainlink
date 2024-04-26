@@ -1,17 +1,16 @@
 package automationv2_1
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
-	"sync"
-	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/slack-go/slack"
 	"github.com/smartcontractkit/seth"
 
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -80,6 +79,21 @@ type DeploymentData struct {
 	LoadConfigs       []aconfig.Load
 }
 
+type deployedContractData struct {
+	consumerContract contracts.KeeperConsumer
+	triggerContract  contracts.LogEmitter
+	triggerAddress   common.Address
+	loadConfig       aconfig.Load
+}
+
+func (d deployedContractData) GetResult() deployedContractData {
+	return d
+}
+
+type task struct {
+	deployTrigger bool
+}
+
 func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load, chainClient *seth.Client, multicallAddress common.Address, automationDefaultLinkFunds *big.Int, linkToken contracts.LinkToken) (DeploymentData, error) {
 	data := DeploymentData{}
 
@@ -88,44 +102,33 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 		return DeploymentData{}, err
 	}
 
-	type deployedContractData struct {
-		consumerContract contracts.KeeperConsumer
-		triggerContract  contracts.LogEmitter
-		triggerAddress   common.Address
-		loadConfig       aconfig.Load
-		err              error
-	}
-
 	l.Debug().
 		Int("Number of Upkeeps", *loadConfig.NumberOfUpkeeps).
 		Int("Concurrency", concurrency).
 		Msg("Deployment parallelisation info")
 
-	// used only for logging/visibility
-	atomicCounter := atomic.Uint64{}
-	var deplymentErr error
-	deployedContractCh := make(chan deployedContractData, concurrency)
-	stopCh := make(chan struct{})
+	tasks := []task{}
+	for i := 0; i < *loadConfig.NumberOfUpkeeps; i++ {
+		if *loadConfig.SharedTrigger {
+			if i == 0 {
+				tasks = append(tasks, task{deployTrigger: true})
+			} else {
+				tasks = append(tasks, task{deployTrigger: false})
+			}
+			continue
+		}
+		tasks = append(tasks, task{deployTrigger: true})
+	}
 
-	var deployContractFn = func(deployedCh chan deployedContractData, keyNum int) {
+	var deployContractFn = func(deployedCh chan deployedContractData, errorCh chan error, keyNum int, task task) {
 		data := deployedContractData{}
 		consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumerFromKey(chainClient, *loadConfig.IsStreamsLookup, keyNum)
 		if err != nil {
-			data.err = err
-			deployedCh <- data
+			errorCh <- errors.Wrapf(err, "Error deploying simple log trigger contract")
 			return
 		}
 
 		data.consumerContract = consumerContract
-
-		atomicCounter.Add(1)
-
-		l.Debug().
-			Str("Contract Address", consumerContract.Address()).
-			Int("Number", int(atomicCounter.Load())).
-			Int("Out Of", *loadConfig.NumberOfUpkeeps).
-			Int("Key Number", keyNum).
-			Msg("Deployed Automation Log Trigger Consumer Contract")
 
 		loadCfg := aconfig.Load{
 			NumberOfEvents:                loadConfig.NumberOfEvents,
@@ -144,95 +147,35 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 
 		data.loadConfig = loadCfg
 
-		// deploy only 1 trigger contract if it's a shared trigger
-		if *loadConfig.SharedTrigger && atomicCounter.Load() > 1 {
+		if !task.deployTrigger {
 			deployedCh <- data
 			return
 		}
 
 		triggerContract, err := contracts.DeployLogEmitterContractFromKey(l, chainClient, keyNum)
 		if err != nil {
-			data.err = err
-			deployedCh <- data
+			errorCh <- errors.Wrapf(err, "Error deploying log emitter contract")
 			return
 		}
 
 		data.triggerContract = triggerContract
 		data.triggerAddress = triggerContract.Address()
-		l.Debug().
-			Str("Contract Address", triggerContract.Address().Hex()).
-			Int("Number", int(atomicCounter.Load())).
-			Int("Out Of", *loadConfig.NumberOfUpkeeps).
-			Int("Key Number", keyNum).
-			Msg("Deployed Automation Log Trigger Emitter Contract")
-
 		deployedCh <- data
 	}
 
-	var wgProcess sync.WaitGroup
-	wgProcess.Add(*loadConfig.NumberOfUpkeeps)
-
-	go func() {
-		defer l.Debug().Msg("Finished listening to results of deploying consumer/trigger contracts")
-		for contractData := range deployedContractCh {
-			if contractData.err != nil {
-				l.Error().Err(contractData.err).Msg("Error deploying customer/trigger contract")
-				deplymentErr = contractData.err
-				close(stopCh)
-				return
-			}
-			if contractData.triggerContract != nil {
-				data.TriggerContracts = append(data.TriggerContracts, contractData.triggerContract)
-				data.TriggerAddresses = append(data.TriggerAddresses, contractData.triggerAddress)
-			}
-			data.ConsumerContracts = append(data.ConsumerContracts, contractData.consumerContract)
-			data.LoadConfigs = append(data.LoadConfigs, contractData.loadConfig)
-			wgProcess.Done()
-		}
-	}()
-
-	operationsPerClient := *loadConfig.NumberOfUpkeeps / concurrency
-	extraOperations := *loadConfig.NumberOfUpkeeps % concurrency
-
-	for clientNum := 1; clientNum <= concurrency; clientNum++ {
-		go func(key int) {
-			numTasks := operationsPerClient
-			if key <= extraOperations {
-				numTasks++
-			}
-
-			if numTasks == 0 {
-				return
-			}
-
-			l.Debug().
-				Int("Key Number", key).
-				Int("Number of Tasks", numTasks).
-				Msg("Started deploying consumer/trigger contracts")
-
-			for i := 0; i < numTasks; i++ {
-				select {
-				case <-stopCh:
-					return
-				default:
-					deployContractFn(deployedContractCh, key)
-					l.Trace().
-						Int("Key Number", key).
-						Msgf("Finished consumer/trigger contract deployment task %d/%d", (i + 1), numTasks)
-				}
-			}
-
-			l.Debug().
-				Int("Key Number", key).
-				Msg("Finished deploying consumer/trigger contracts")
-		}(clientNum)
+	executor := ctf_concurrency.NewConcurrentExecutor[deployedContractData, deployedContractData, task](l)
+	results, err := executor.Execute(concurrency, tasks, deployContractFn)
+	if err != nil {
+		return DeploymentData{}, err
 	}
 
-	wgProcess.Wait()
-	close(deployedContractCh)
-
-	if deplymentErr != nil {
-		return DeploymentData{}, deplymentErr
+	for _, result := range results {
+		if result.GetResult().triggerContract != nil {
+			data.TriggerContracts = append(data.TriggerContracts, result.GetResult().triggerContract)
+			data.TriggerAddresses = append(data.TriggerAddresses, result.GetResult().triggerAddress)
+		}
+		data.ConsumerContracts = append(data.ConsumerContracts, result.GetResult().consumerContract)
+		data.LoadConfigs = append(data.LoadConfigs, result.GetResult().loadConfig)
 	}
 
 	// if there's more than 1 upkeep and it's a shared trigger, then we should use only the first address in triggerAddresses
@@ -248,7 +191,7 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 		}
 	}
 
-	sendErr := actions_seth.SendLinkFundsToDeploymentAddresses(chainClient, concurrency, *loadConfig.NumberOfUpkeeps, operationsPerClient, multicallAddress, automationDefaultLinkFunds, linkToken)
+	sendErr := actions_seth.SendLinkFundsToDeploymentAddresses(chainClient, concurrency, *loadConfig.NumberOfUpkeeps, *loadConfig.NumberOfUpkeeps/concurrency, multicallAddress, automationDefaultLinkFunds, linkToken)
 	if sendErr != nil {
 		return DeploymentData{}, sendErr
 	}
