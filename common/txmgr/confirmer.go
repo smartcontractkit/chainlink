@@ -209,8 +209,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sta
 	if err != nil {
 		return fmt.Errorf("Confirmer: failed to load EnabledAddressesForChain: %w", err)
 	}
-	err = ec.stuckTxDetector.LoadPurgeBlockNumMap(ctx, ec.enabledAddresses)
-	if err != nil {
+	if err = ec.stuckTxDetector.LoadPurgeBlockNumMap(ctx, ec.enabledAddresses); err != nil {
 		ec.lggr.Debugf("Confirmer: failed to load the last purged block num for enabled addresses. Process can continue as normal but purge rate limiting may be affected.")
 	}
 

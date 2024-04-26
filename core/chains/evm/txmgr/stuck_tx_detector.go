@@ -74,6 +74,9 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.C
 }
 
 func (d *stuckTxDetector) LoadPurgeBlockNumMap(ctx context.Context, addresses []common.Address) error {
+	if !d.cfg.AutoPurgeStuckTxs() {
+		return nil
+	}
 	d.purgeBlockNumLock.Lock()
 	defer d.purgeBlockNumLock.Unlock()
 	// Ok to reset the map here since this method could be reloaded with a new list of from addresses

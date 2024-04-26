@@ -62,17 +62,26 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	_, config := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := testutils.Context(t)
 	blockNum := int64(100)
-	marketGasPrice := assets.GWei(15)
+	
 
 	lggr := logger.Test(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
+	marketGasPrice := assets.GWei(15)
+	fee := gas.EvmFee{Legacy: marketGasPrice}
+	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything).Return(fee, uint64(0), nil)
+	autoPurgeThreshold := uint32(5)
+	autoPurgeMinAttempts := uint32(3)
+	autoPurgeCfg := testAutoPurgeConfig{
+		autoPurgeStuckTxs:    true, // Enable auto-purge feature for testing
+		autoPurgeThreshold:   autoPurgeThreshold,
+		autoPurgeMinAttempts: autoPurgeMinAttempts,
+	}
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", autoPurgeCfg, feeEstimator, txStore, ethClient)
 
 	t.Run("purge num map loaded on startup rate limits new purges on startup", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -85,7 +94,7 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
 		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
 		// Create attempts so that the latest has a higher gas price than the market to ensure the gas price check is not being triggered
-		mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 1, fromAddress, 3, blockNum-5, marketGasPrice.Add(oneGwei))
+		mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 1, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
 
 		// Run detection logic on autoPurgeThreshold blocks past the latest broadcast attempt
 		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, enabledAddresses, blockNum)
