@@ -18,11 +18,28 @@ import (
 func Test_Poller(t *testing.T) {
 	lggr := logger.Test(t)
 
+	t.Run("Test multiple start", func(t *testing.T) {
+		pollFunc := func(ctx context.Context) (Head, error) {
+			return nil, nil
+		}
+
+		channel := make(chan Head, 1)
+		defer close(channel)
+
+		poller := NewPoller[Head](time.Millisecond, pollFunc, time.Second, channel, &lggr)
+		err := poller.Start()
+		require.NoError(t, err)
+
+		err = poller.Start()
+		require.Error(t, err)
+		poller.Unsubscribe()
+	})
+
 	t.Run("Test polling for heads", func(t *testing.T) {
 		// Mock polling function that returns a new value every time it's called
 		var pollNumber int
 		pollLock := sync.Mutex{}
-		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
+		pollFunc := func(ctx context.Context) (Head, error) {
 			pollLock.Lock()
 			defer pollLock.Unlock()
 			pollNumber++
@@ -38,26 +55,24 @@ func Test_Poller(t *testing.T) {
 		defer close(channel)
 
 		// Create poller and start to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, time.Second, channel, &lggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
 		// Receive updates from the poller
-		func() {
-			pollCount := 0
-			pollMax := 50
-			for ; pollCount < pollMax; pollCount++ {
-				h := <-channel
-				assert.Equal(t, int64(pollCount+1), h.BlockNumber())
-			}
-		}()
+		pollCount := 0
+		pollMax := 50
+		for ; pollCount < pollMax; pollCount++ {
+			h := <-channel
+			assert.Equal(t, int64(pollCount+1), h.BlockNumber())
+		}
 	})
 
 	t.Run("Test polling errors", func(t *testing.T) {
 		// Mock polling function that returns an error
 		var pollNumber int
 		pollLock := sync.Mutex{}
-		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
+		pollFunc := func(ctx context.Context) (Head, error) {
 			pollLock.Lock()
 			defer pollLock.Unlock()
 			pollNumber++
@@ -71,7 +86,7 @@ func Test_Poller(t *testing.T) {
 		olggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 
 		// Create poller and subscribe to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &olggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, time.Second, channel, &olggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
@@ -89,8 +104,10 @@ func Test_Poller(t *testing.T) {
 	})
 
 	t.Run("Test polling timeout", func(t *testing.T) {
-		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
-			time.Sleep(10 * time.Millisecond)
+		pollFunc := func(ctx context.Context) (Head, error) {
+			if <-ctx.Done(); true {
+				return nil, ctx.Err()
+			}
 			return nil, nil
 		}
 
@@ -104,43 +121,34 @@ func Test_Poller(t *testing.T) {
 		olggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 
 		// Create poller and subscribe to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, &pollingTimeout, channel, &olggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, pollingTimeout, channel, &olggr)
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
-		// Create goroutine to receive updates from the poller
+		// Ensure that timeout errors were logged as expected
 		logsSeen := func() bool {
-			return observedLogs.FilterMessage("polling error: polling timeout exceeded").Len() > 10
+			return observedLogs.FilterMessage("polling error: context deadline exceeded").Len() > 10
 		}
 		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
 	})
 
-	t.Run("Test polling with args", func(t *testing.T) {
-		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
-			require.Equal(t, args[0], "arg1")
-			require.Equal(t, args[1], "arg2")
-			require.Equal(t, args[2], "arg3")
-			return nil, nil
+	t.Run("Test unsubscribe during polling", func(t *testing.T) {
+		pollFunc := func(ctx context.Context) (Head, error) {
+			time.Sleep(10 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+				h := head{
+					BlockNumber:     0,
+					BlockDifficulty: big.NewInt(0),
+				}
+				return h.ToMockHead(t), nil
+			}
 		}
 
-		// data channel to receive updates from the poller
-		channel := make(chan Head, 1)
-		defer close(channel)
-
-		// Create poller and subscribe to receive data
-		args := []interface{}{"arg1", "arg2", "arg3"}
-		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &lggr, args...)
-		require.NoError(t, poller.Start())
-		defer poller.Unsubscribe()
-
-		h := <-channel
-		require.Nil(t, h)
-	})
-
-	t.Run("Test panic in polling function", func(t *testing.T) {
-		pollFunc := func(ctx context.Context, args ...interface{}) (Head, error) {
-			panic("panic test")
-		}
+		// Set long timeout
+		pollingTimeout := time.Minute
 
 		// data channel to receive updates from the poller
 		channel := make(chan Head, 1)
@@ -149,29 +157,55 @@ func Test_Poller(t *testing.T) {
 		olggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 
 		// Create poller and subscribe to receive data
-		poller := NewPoller[Head](time.Millisecond, pollFunc, nil, channel, &olggr)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, pollingTimeout, channel, &olggr)
 		require.NoError(t, poller.Start())
-		defer poller.Unsubscribe()
 
-		// Ensure that panic is caught and logged
+		// Unsubscribe during polling
+		time.Sleep(10 * time.Millisecond)
+		poller.Unsubscribe()
+
+		// Ensure that timeout errors were logged as expected
 		logsSeen := func() bool {
-			return observedLogs.FilterMessage("polling error: panic: panic test").Len() > 10
+			return observedLogs.FilterMessage("polling error: context canceled").Len() > 1
 		}
 		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
 	})
 }
 
 func Test_Poller_Unsubscribe(t *testing.T) {
+	lggr := logger.Test(t)
+	pollFunc := func(ctx context.Context) (Head, error) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			h := head{
+				BlockNumber:     0,
+				BlockDifficulty: big.NewInt(0),
+			}
+			return h.ToMockHead(t), nil
+		}
+	}
+
 	t.Run("Test multiple unsubscribe", func(t *testing.T) {
-		poller := NewPoller[Head](time.Millisecond, nil, nil, nil, nil)
+		channel := make(chan Head, 1)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, time.Second, channel, &lggr)
 		err := poller.Start()
 		require.NoError(t, err)
+
+		<-channel
 		poller.Unsubscribe()
 		poller.Unsubscribe()
 	})
 
-	t.Run("Test unsubscribe with no subscribers", func(t *testing.T) {
-		poller := NewPoller[Head](time.Millisecond, nil, nil, nil, nil)
+	t.Run("Test unsubscribe with closed channel", func(t *testing.T) {
+		channel := make(chan Head, 1)
+		poller := NewPoller[Head](time.Millisecond, pollFunc, time.Second, channel, &lggr)
+		err := poller.Start()
+		require.NoError(t, err)
+
+		<-channel
+		close(channel)
 		poller.Unsubscribe()
 	})
 }
