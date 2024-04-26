@@ -134,17 +134,11 @@ func Test_Poller(t *testing.T) {
 
 	t.Run("Test unsubscribe during polling", func(t *testing.T) {
 		pollFunc := func(ctx context.Context) (Head, error) {
-			time.Sleep(10 * time.Millisecond)
-			select {
-			case <-ctx.Done():
+			// Block in polling function until context is cancelled
+			if <-ctx.Done(); true {
 				return nil, ctx.Err()
-			default:
-				h := head{
-					BlockNumber:     0,
-					BlockDifficulty: big.NewInt(0),
-				}
-				return h.ToMockHead(t), nil
 			}
+			return nil, nil
 		}
 
 		// Set long timeout
@@ -160,13 +154,13 @@ func Test_Poller(t *testing.T) {
 		poller := NewPoller[Head](time.Millisecond, pollFunc, pollingTimeout, channel, &olggr)
 		require.NoError(t, poller.Start())
 
-		// Unsubscribe during polling
-		time.Sleep(10 * time.Millisecond)
+		// Unsubscribe while blocked in polling function
+		time.Sleep(20 * time.Millisecond)
 		poller.Unsubscribe()
 
-		// Ensure that timeout errors were logged as expected
+		// Ensure error was logged
 		logsSeen := func() bool {
-			return observedLogs.FilterMessage("polling error: context canceled").Len() > 1
+			return observedLogs.FilterMessage("polling error: context canceled").Len() >= 1
 		}
 		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
 	})
