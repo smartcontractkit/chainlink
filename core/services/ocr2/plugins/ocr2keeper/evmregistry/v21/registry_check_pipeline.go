@@ -14,9 +14,9 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/gasprice"
 )
 
 const (
@@ -310,19 +310,18 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		block, _, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
 
-		opts := r.buildCallOpts(ctx, block)
-
-		fee, _, err := r.ge.GetFee(ctx, []byte{}, uint64(10_000_000), assets.NewWei(big.NewInt(1_000_000_000_000_000)))
+		oc, err := r.fetchUpkeepOffchainConfig(upkeepId)
 		if err != nil {
-			r.lggr.Error("failed to get fee for %s", upkeepId.String())
-			checkResults[performToKeyIdx[i]].Eligible = false
-			checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
+			r.lggr.Warnw("failed get offchain config", "err", err, "upkeepId", upkeepId, "block", block)
+			checkResults[i].Eligible = false
+			checkResults[i].PipelineExecutionState = uint8(encoding.UpkeepFailureReasonFailToRetrieveOffchainConfig)
 			continue
 		}
-		if fee.ValidDynamic() {
-			r.lggr.Infof("current gas price EIP-1559 is fee cap %s, tip cap %s", fee.DynamicFeeCap.String(), fee.DynamicTipCap.String())
-		} else {
-			r.lggr.Infof("current gas price legacy is %s", fee.Legacy.String())
+		fr := gasprice.CheckGasPrice(ctx, upkeepId, oc, r.ge, r.lggr)
+		if fr != encoding.UpkeepFailureReasonNone {
+			checkResults[i].Eligible = false
+			checkResults[i].PipelineExecutionState = uint8(fr)
+			continue
 		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
@@ -335,6 +334,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			continue
 		}
 
+		opts := r.buildCallOpts(ctx, block)
 		var result string
 		performReqs = append(performReqs, rpc.BatchElem{
 			Method: "eth_call",

@@ -22,9 +22,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -654,6 +652,13 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 				}).Once()
 			e.client = client
 
+			mockReg := mocks.NewRegistry(t)
+			mockReg.On("GetUpkeep", mock.Anything, mock.Anything).Return(
+				encoding.UpkeepInfo{OffchainConfig: make([]byte, 0)},
+				nil,
+			).Times(2)
+			e.registry = mockReg
+
 			results, err := e.simulatePerformUpkeeps(testutils.Context(t), tc.inputs)
 			assert.Equal(t, tc.results, results)
 			assert.Equal(t, tc.err, err)
@@ -674,15 +679,6 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	mockHttpClient := mocks.NewHttpClient(t)
 	client := evmClientMocks.NewClient(t)
 	ge := gasMocks.NewEvmFeeEstimator(t)
-	ge.On("GetFee", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("uint64"), mock.Anything).Return(
-		gas.EvmFee{
-			Legacy:        nil,
-			DynamicFeeCap: assets.NewWei(big.NewInt(10_000_000_000)),
-			DynamicTipCap: assets.NewWei(big.NewInt(1_000_000_000)),
-		},
-		uint64(5_000_000),
-		nil,
-	)
 
 	r := &EvmRegistry{
 		lggr:         lggr,
@@ -707,6 +703,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 			AllowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc: mockHttpClient,
+		bs: &BlockSubscriber{latestBlock: atomic.Pointer[ocr2keepers.BlockKey]{}},
 		ge: ge,
 	}
 	return r
