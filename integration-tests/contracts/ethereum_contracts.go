@@ -753,18 +753,18 @@ func (f *EthereumKeeperGasWrapperMock) SetMeasureCheckGasResult(result bool, pay
 	return f.client.ProcessTransaction(tx)
 }
 
-// EthereumFunctionsV1EventsMock represents the basic functions v1 events mock contract
-type EthereumFunctionsV1EventsMock struct {
+// LegacyEthereumFunctionsV1EventsMock represents the basic functions v1 events mock contract
+type LegacyEthereumFunctionsV1EventsMock struct {
 	client     blockchain.EVMClient
 	eventsMock *functions_v1_events_mock.FunctionsV1EventsMock
 	address    *common.Address
 }
 
-func (f *EthereumFunctionsV1EventsMock) Address() string {
+func (f *LegacyEthereumFunctionsV1EventsMock) Address() string {
 	return f.address.Hex()
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitRequestProcessed(requestId [32]byte, subscriptionId uint64, totalCostJuels *big.Int, transmitter common.Address, resultCode uint8, response []byte, errByte []byte, callbackReturnData []byte) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitRequestProcessed(requestId [32]byte, subscriptionId uint64, totalCostJuels *big.Int, transmitter common.Address, resultCode uint8, response []byte, errByte []byte, callbackReturnData []byte) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -776,7 +776,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitRequestProcessed(requestId [32]byte,
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitRequestStart(requestId [32]byte, donId [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestingContract common.Address, requestInitiator common.Address, data []byte, dataVersion uint16, callbackGasLimit uint32, estimatedTotalCostJuels *big.Int) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitRequestStart(requestId [32]byte, donId [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestingContract common.Address, requestInitiator common.Address, data []byte, dataVersion uint16, callbackGasLimit uint32, estimatedTotalCostJuels *big.Int) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -788,7 +788,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitRequestStart(requestId [32]byte, don
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionCanceled(subscriptionId uint64, fundsRecipient common.Address, fundsAmount *big.Int) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitSubscriptionCanceled(subscriptionId uint64, fundsRecipient common.Address, fundsAmount *big.Int) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -800,7 +800,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionCanceled(subscriptionId 
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionConsumerAdded(subscriptionId uint64, consumer common.Address) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitSubscriptionConsumerAdded(subscriptionId uint64, consumer common.Address) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -812,7 +812,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionConsumerAdded(subscripti
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionConsumerRemoved(subscriptionId uint64, consumer common.Address) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitSubscriptionConsumerRemoved(subscriptionId uint64, consumer common.Address) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -824,7 +824,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionConsumerRemoved(subscrip
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionCreated(subscriptionId uint64, owner common.Address) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitSubscriptionCreated(subscriptionId uint64, owner common.Address) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -836,7 +836,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionCreated(subscriptionId u
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitSubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -848,7 +848,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionFunded(subscriptionId ui
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferred(subscriptionId uint64, from common.Address, to common.Address) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferred(subscriptionId uint64, from common.Address, to common.Address) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -860,7 +860,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferred(subscri
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferRequested(subscriptionId uint64, from common.Address, to common.Address) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferRequested(subscriptionId uint64, from common.Address, to common.Address) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -872,7 +872,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferRequested(s
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitRequestNotProcessed(requestId [32]byte, coordinator common.Address, transmitter common.Address, resultCode uint8) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitRequestNotProcessed(requestId [32]byte, coordinator common.Address, transmitter common.Address, resultCode uint8) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -884,7 +884,7 @@ func (f *EthereumFunctionsV1EventsMock) EmitRequestNotProcessed(requestId [32]by
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsV1EventsMock) EmitContractUpdated(id [32]byte, from common.Address, to common.Address) error {
+func (f *LegacyEthereumFunctionsV1EventsMock) EmitContractUpdated(id [32]byte, from common.Address, to common.Address) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err

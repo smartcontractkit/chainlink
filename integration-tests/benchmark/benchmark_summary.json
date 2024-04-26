@@ -1,0 +1,52 @@
+{
+  "load": {
+    "totalCheckGasPerBlock": 3000000,
+    "totalPerformGasPerBlock": 75000,
+    "averageExpectedPerformsPerBlock": 1.5
+  },
+  "config": {
+    "chainlink": {
+      "node": {
+        "cpu": "1",
+        "memory": "4Gi"
+      }
+    },
+    "geth": {
+      "geth-network": {
+        "cpu": "4",
+        "memory": "4Gi"
+      }
+    }
+  },
+  "metrics": {
+    "delay": {
+      "90p": 62,
+      "99p": 62,
+      "max": 62,
+      "mean": 27.2,
+      "median": 17
+    },
+    "percentWithinSLA": 100,
+    "percentRevert": 0,
+    "percentStale": 0,
+    "totalTimesEligible": 143,
+    "totalTimesPerformed": 113,
+    "totalStaleReports": 0,
+    "averageActualPerformsPerBlock": 1.13
+  },
+  "testInputs": {
+    "BlockCountPerTurn": 100,
+    "BlockInterval": 20,
+    "BlockRange": 100,
+    "CheckGasLimit": 45000000,
+    "CheckGasToBurn": 100000,
+    "FirstEligibleBuffer": 1,
+    "MaxPerformGas": 5000000,
+    "NumberOfRegistries": 1,
+    "NumberOfUpkeeps": 30,
+    "PerformGasToBurn": 50000,
+    "UpkeepSLA": 120
+  },
+  "startTime": 1714060065288,
+  "endTime": 1714060468388
+}

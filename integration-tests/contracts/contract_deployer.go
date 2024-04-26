@@ -452,7 +452,7 @@ func (e *EthereumContractDeployer) DeployFunctionsV1EventsMock() (FunctionsV1Eve
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsV1EventsMock{
+	return &LegacyEthereumFunctionsV1EventsMock{
 		client:     e.client,
 		eventsMock: instance.(*functions_v1_events_mock.FunctionsV1EventsMock),
 		address:    address,

@@ -52,6 +52,9 @@ replace (
 	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
+
+		// Fixes mod/github.com/grafana/loki@v1.6.2-0.20230403212622-90888a0cc737/pkg/util/metrics_helper.go:798:39: too many arguments in call to lbls.Labels
+	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.47.2-0.20231010075449-4b9c19fe5510
 )
 
 require (
