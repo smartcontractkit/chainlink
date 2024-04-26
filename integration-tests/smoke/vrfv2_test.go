@@ -231,6 +231,7 @@ func TestVRFv2Basic(t *testing.T) {
 		wrapperContracts, wrapperSubID, err := vrfv2.SetupVRFV2WrapperEnvironment(
 			testcontext.Get(t),
 			testEnv,
+			chainID,
 			&configCopy,
 			vrfContracts.LinkToken,
 			vrfContracts.MockETHLINKFeed,
