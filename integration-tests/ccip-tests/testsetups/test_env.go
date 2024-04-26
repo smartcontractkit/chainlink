@@ -508,11 +508,13 @@ func DeployEnvironments(
 				},
 			}))
 	}
-
-	err := testEnvironment.
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		Run()
+	if pointer.GetBool(testInputs.TestGroupInput.USDCMockDeployment) ||
+		pointer.GetBool(testInputs.TestGroupInput.WithPipeline) {
+		testEnvironment.
+			AddHelm(mockservercfg.New(nil)).
+			AddHelm(mockserver.New(nil))
+	}
+	err := testEnvironment.Run()
 	require.NoError(t, err)
 
 	if testEnvironment.WillUseRemoteRunner() {

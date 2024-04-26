@@ -28,6 +28,8 @@ import (
 	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -3547,11 +3549,13 @@ func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
 		c.CLNodes = chainlinkK8sNodes
-		mockServer, err := ctfClient.ConnectMockServer(c.K8Env)
-		if err != nil {
-			return fmt.Errorf("failed to connect to mock server: %w", err)
+		if _, exists := c.K8Env.URLs[mockserver.InternalURLsKey]; exists {
+			mockServer, err := ctfClient.ConnectMockServer(c.K8Env)
+			if err != nil {
+				return fmt.Errorf("failed to connect to mock server: %w", err)
+			}
+			c.MockServer = mockServer
 		}
-		c.MockServer = mockServer
 	}
 	return nil
 }
