@@ -5,7 +5,7 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
-import {ICapabilityConfigurationContract} from "./interfaces/ICapabilityConfigurationContract.sol";
+import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.sol";
 
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
@@ -138,7 +138,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (
         capability.configurationContract.code.length == 0 ||
         !IERC165(capability.configurationContract).supportsInterface(
-          ICapabilityConfigurationContract.getCapabilityConfiguration.selector
+          ICapabilityConfiguration.getCapabilityConfiguration.selector
         )
       ) revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
     }
