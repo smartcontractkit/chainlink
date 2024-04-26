@@ -261,7 +261,7 @@ func (k *KeeperBenchmarkTest) Run() {
 			} else {
 				err = kr.SetConfigTypeSafe(ocrConfig)
 			}
-			require.NoError(k.t, err, "Registry config should be be set successfully")
+			require.NoError(k.t, err, "Registry config should be set successfully")
 			// Give time for OCR nodes to bootstrap
 			time.Sleep(1 * time.Minute)
 		} else {
@@ -668,7 +668,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		} else {
 			err = registry.SetConfigTypeSafe(ocrConfig)
 		}
-		require.NoError(k.t, err, "Registry config should be be set successfully")
+		require.NoError(k.t, err, "Registry config should be set successfully")
 
 	}
 
