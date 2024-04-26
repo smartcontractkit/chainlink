@@ -100,7 +100,7 @@ deployments:
       releaseName: "app"
       chart:
         name: ${CHAINLINK_CLUSTER_HELM_CHART_URI}
-        version: 0.5.0
+        version: 0.6.0
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
@@ -421,4 +421,4 @@ profiles:
         path: deployments.app.helm.values.chainlink.global.overridesToml
       - op: add
         path: deployments.app.helm.valuesFiles
-        value: ["../charts/chainlink-cluster/values-profiles/values-dev.yaml"]
+        value: ["./values-profiles/values-dev.yaml"]
