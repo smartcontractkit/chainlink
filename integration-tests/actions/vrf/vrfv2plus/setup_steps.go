@@ -334,6 +334,16 @@ func SetupVRFV2PlusWrapperEnvironment(
 	if err != nil {
 		return nil, nil, err
 	}
+
+	wrapperConsumerBalanceBeforeRequestWei, err := sethClient.Client.BalanceAt(context.Background(), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()), nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	l.Info().
+		Str("WrapperConsumerBalanceBeforeRequestWei", wrapperConsumerBalanceBeforeRequestWei.String()).
+		Str("WrapperConsumerAddress", wrapperContracts.LoadTestConsumers[0].Address()).
+		Msg("WrapperConsumerBalanceBeforeRequestWei")
+
 	return wrapperContracts, wrapperSubID, nil
 }
 
