@@ -42,8 +42,8 @@ type mercuryTransmitterConfig struct {
 	c toml.MercuryTransmitter
 }
 
-func (m *mercuryTransmitterConfig) MaxTransmitQueueSize() uint32 {
-	return *m.c.MaxTransmitQueueSize
+func (m *mercuryTransmitterConfig) TransmitQueueMaxSize() uint32 {
+	return *m.c.TransmitQueueMaxSize
 }
 
 func (m *mercuryTransmitterConfig) TransmitTimeout() commonconfig.Duration {

@@ -100,7 +100,7 @@ type TransmitterReportDecoder interface {
 var _ Transmitter = (*mercuryTransmitter)(nil)
 
 type TransmitterConfig interface {
-	MaxTransmitQueueSize() uint32
+	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
 }
 
@@ -280,14 +280,14 @@ func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[strin
 	servers := make(map[string]*server, len(clients))
 	for serverURL, client := range clients {
 		cLggr := lggr.Named(serverURL).With("serverURL", serverURL)
-		pm := NewPersistenceManager(cLggr, serverURL, orm, jobID, int(cfg.MaxTransmitQueueSize()), flushDeletesFrequency, pruneFrequency)
+		pm := NewPersistenceManager(cLggr, serverURL, orm, jobID, int(cfg.TransmitQueueMaxSize()), flushDeletesFrequency, pruneFrequency)
 		servers[serverURL] = &server{
 			cLggr,
 			cfg.TransmitTimeout().Duration(),
 			client,
 			pm,
-			NewTransmitQueue(cLggr, serverURL, feedIDHex, int(cfg.MaxTransmitQueueSize()), pm),
-			make(chan *pb.TransmitRequest, int(cfg.MaxTransmitQueueSize())),
+			NewTransmitQueue(cLggr, serverURL, feedIDHex, int(cfg.TransmitQueueMaxSize()), pm),
+			make(chan *pb.TransmitRequest, int(cfg.TransmitQueueMaxSize())),
 			transmitSuccessCount.WithLabelValues(feedIDHex, serverURL),
 			transmitDuplicateCount.WithLabelValues(feedIDHex, serverURL),
 			transmitConnectionErrorCount.WithLabelValues(feedIDHex, serverURL),

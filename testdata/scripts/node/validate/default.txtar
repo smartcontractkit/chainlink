@@ -243,7 +243,7 @@ LatestReportDeadline = '5s'
 CertFile = ''
 
 [Mercury.Transmitter]
-MaxTransmitQueueSize = 10000
+TransmitQueueMaxSize = 10000
 TransmitTimeout = '5s'
 
 [Capabilities]

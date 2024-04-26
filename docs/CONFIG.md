@@ -1701,16 +1701,16 @@ CertFile is the path to a PEM file of trusted root certificate authority certifi
 ## Mercury.Transmitter
 ```toml
 [Mercury.Transmitter]
-MaxTransmitQueueSize = 10_000 # Default
+TransmitQueueMaxSize = 10_000 # Default
 TransmitTimeout = "5s" # Default
 ```
 Mercury.Transmitter controls settings for the mercury transmitter
 
-### MaxTransmitQueueSize
+### TransmitQueueMaxSize
 ```toml
-MaxTransmitQueueSize = 10_000 # Default
+TransmitQueueMaxSize = 10_000 # Default
 ```
-MaxTransmitQueueSize controls the size of the transmit queue. This is scoped
+TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
 per OCR instance. If the queue is full, the transmitter will start dropping
 the oldest messages in order to make space.
 

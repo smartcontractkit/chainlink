@@ -25,7 +25,7 @@ import (
 
 type mockCfg struct{}
 
-func (m mockCfg) MaxTransmitQueueSize() uint32 {
+func (m mockCfg) TransmitQueueMaxSize() uint32 {
 	return 10_000
 }
 

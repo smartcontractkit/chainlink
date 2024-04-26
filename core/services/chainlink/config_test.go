@@ -711,7 +711,7 @@ func TestConfig_Marshal(t *testing.T) {
 			CertFile: ptr("/path/to/cert.pem"),
 		},
 		Transmitter: toml.MercuryTransmitter{
-			MaxTransmitQueueSize: ptr(uint32(123)),
+			TransmitQueueMaxSize: ptr(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 		},
 	}
@@ -1171,7 +1171,7 @@ LatestReportDeadline = '1m42s'
 CertFile = '/path/to/cert.pem'
 
 [Mercury.Transmitter]
-MaxTransmitQueueSize = 123
+TransmitQueueMaxSize = 123
 TransmitTimeout = '3m54s'
 `},
 		{"full", full, fullTOML},
