@@ -57,6 +57,7 @@ type staticPluginRelayerConfig struct {
 	agnosticProvider  testtypes.PluginProviderTester
 	mercuryProvider   mercurytest.MercuryProviderTester
 	executionProvider cciptest.ExecProviderTester
+	commitProvider    cciptest.CommitProviderTester
 	configProvider    ocr2test.ConfigProviderTester
 	// Note: add other Provider testers here when we implement them
 	// eg Functions, Automation, etc
@@ -175,13 +176,25 @@ func (s staticPluginRelayer) NewMercuryProvider(ctx context.Context, r types.Rel
 func (s staticPluginRelayer) NewExecutionProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.CCIPExecProvider, error) {
 	if s.StaticChecks {
 		if !equalRelayArgs(r, cciptest.ExecutionRelayArgs) {
-			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", mercurytest.RelayArgs, r)
+			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", cciptest.ExecutionRelayArgs, r)
 		}
 		if !reflect.DeepEqual(cciptest.ExecutionPluginArgs, p) {
-			return nil, fmt.Errorf("expected plugin args %v but got %v", mercurytest.PluginArgs, p)
+			return nil, fmt.Errorf("expected plugin args %v but got %v", cciptest.ExecutionPluginArgs, p)
 		}
 	}
 	return s.executionProvider, nil
+}
+
+func (s staticPluginRelayer) NewCommitProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.CCIPCommitProvider, error) {
+	if s.StaticChecks {
+		if !equalRelayArgs(r, cciptest.CommitRelayArgs) {
+			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", cciptest.CommitRelayArgs, r)
+		}
+		if !reflect.DeepEqual(cciptest.CommitPluginArgs, p) {
+			return nil, fmt.Errorf("expected plugin args %v but got %v", cciptest.CommitPluginArgs, p)
+		}
+	}
+	return s.commitProvider, nil
 }
 
 func (s staticPluginRelayer) NewLLOProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.LLOProvider, error) {

@@ -94,6 +94,7 @@ type RelayerTester interface {
 	looptypes.MercuryProvider
 	looptypes.MedianProvider
 	looptypes.CCIPExecProvider
+	looptypes.CCIPCommitProvider
 
 	AssertEqualer[looptypes.Relayer]
 }

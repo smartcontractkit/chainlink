@@ -31,6 +31,10 @@ type CCIPExecProvider interface {
 	NewExecutionProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.CCIPExecProvider, error)
 }
 
+type CCIPCommitProvider interface {
+	NewCommitProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.CCIPCommitProvider, error)
+}
+
 // Relayer is like types.Relayer, but with a dynamic NewPluginProvider method.
 type Relayer interface {
 	types.ChainService

@@ -372,6 +372,12 @@ func (r *relayerServer) NewPluginProvider(ctx context.Context, request *pb.NewPl
 			return nil, err
 		}
 		return &pb.NewPluginProviderReply{PluginProviderID: id}, nil
+	case string(types.CCIPCommit):
+		id, err := r.newCommitProvider(ctx, relayArgs, pluginArgs)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.NewPluginProviderReply{PluginProviderID: id}, nil
 	case string(types.CCIPExecution):
 		id, err := r.newExecProvider(ctx, relayArgs, pluginArgs)
 		if err != nil {
@@ -479,6 +485,34 @@ func (r *relayerServer) newExecProvider(ctx context.Context, relayArgs types.Rel
 	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
 		ocr2.RegisterPluginProviderServices(s, provider)
 		ccip.RegisterExecutionProviderServices(s, provider, r.BrokerExt)
+	}, providerRes)
+	if err != nil {
+		return 0, err
+	}
+
+	return id, err
+}
+
+func (r *relayerServer) newCommitProvider(ctx context.Context, relayArgs types.RelayArgs, pluginArgs types.PluginArgs) (uint32, error) {
+	i, ok := r.impl.(looptypes.CCIPCommitProvider)
+	if !ok {
+		return 0, status.Error(codes.Unimplemented, fmt.Sprintf("ccip execution not supported by %T", r.impl))
+	}
+
+	provider, err := i.NewCommitProvider(ctx, relayArgs, pluginArgs)
+	if err != nil {
+		return 0, err
+	}
+	err = provider.Start(ctx)
+	if err != nil {
+		return 0, err
+	}
+	const name = "CCIPCommitProvider"
+	providerRes := net.Resource{Name: name, Closer: provider}
+
+	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
+		ocr2.RegisterPluginProviderServices(s, provider)
+		ccip.RegisterCommitProviderServices(s, provider, r.BrokerExt)
 	}, providerRes)
 	if err != nil {
 		return 0, err
