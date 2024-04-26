@@ -1,4 +1,5 @@
 ChainID = '196'
+ChainType = 'xlayer'
 FinalityDepth = 500
 NoNewHeadsThreshold = '6m'
 MinIncomingConfirmations = 1
@@ -11,6 +12,11 @@ ContractConfirmations = 1
 
 [Transactions]
 ResendAfterThreshold = '3m'
+
+[GasEstimator]
+PriceMin = '100 mwei'
+BumpPercent = 40
+BumpMin = '100 mwei'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 12
