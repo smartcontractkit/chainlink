@@ -30,16 +30,14 @@ func TestResolver_GetOCRKeyBundles(t *testing.T) {
 
 	fakeKeys := []ocrkey.KeyV2{}
 	expectedBundles := []map[string]string{}
-	for i := 0; i < 2; i++ {
-		k := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-		fakeKeys = append(fakeKeys, k)
-		expectedBundles = append(expectedBundles, map[string]string{
-			"id":                    k.ID(),
-			"configPublicKey":       ocrkey.ConfigPublicKey(k.PublicKeyConfig()).String(),
-			"offChainPublicKey":     k.OffChainSigning.PublicKey().String(),
-			"onChainSigningAddress": k.OnChainSigning.Address().String(),
-		})
-	}
+	k := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	fakeKeys = append(fakeKeys, k)
+	expectedBundles = append(expectedBundles, map[string]string{
+		"id":                    k.ID(),
+		"configPublicKey":       ocrkey.ConfigPublicKey(k.PublicKeyConfig()).String(),
+		"offChainPublicKey":     k.OffChainSigning.PublicKey().String(),
+		"onChainSigningAddress": k.OnChainSigning.Address().String(),
+	})
 
 	d, err := json.Marshal(map[string]interface{}{
 		"ocrKeyBundles": map[string]interface{}{
