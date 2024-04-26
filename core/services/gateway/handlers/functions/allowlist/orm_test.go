@@ -128,6 +128,15 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 		require.Equal(t, expected[0], results[0])
 		require.Equal(t, expected[1], results[1])
 	})
+
+	// this scenario can happen if the allowlist is empty but we call CreateAllowedSenders
+	t.Run("OK-empty_list", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		err = orm.CreateAllowedSenders(ctx, []common.Address{})
+		require.NoError(t, err)
+	})
 }
 
 func TestORM_DeleteAllowedSenders(t *testing.T) {
