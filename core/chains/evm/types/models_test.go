@@ -18,13 +18,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
@@ -55,11 +56,11 @@ func TestHead_GreaterThan(t *testing.T) {
 		greater bool
 	}{
 		{"nil nil", nil, nil, false},
-		{"present nil", cltest.Head(1), nil, true},
-		{"nil present", nil, cltest.Head(1), false},
-		{"less", cltest.Head(1), cltest.Head(2), false},
-		{"equal", cltest.Head(2), cltest.Head(2), false},
-		{"greater", cltest.Head(2), cltest.Head(1), true},
+		{"present nil", testutils.Head(1), nil, true},
+		{"nil present", nil, testutils.Head(1), false},
+		{"less", testutils.Head(1), testutils.Head(2), false},
+		{"equal", testutils.Head(2), testutils.Head(2), false},
+		{"greater", testutils.Head(2), testutils.Head(1), true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -76,7 +77,7 @@ func TestHead_NextInt(t *testing.T) {
 		want *big.Int
 	}{
 		{"nil", nil, nil},
-		{"one", cltest.Head(1), big.NewInt(2)},
+		{"one", testutils.Head(1), big.NewInt(2)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -98,7 +99,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 
 	chainID := big.NewInt(3)
 
-	signedTx, err := ethKeyStore.SignTx(testutils.Context(t), fromAddress, tx, chainID)
+	signedTx, err := ethKeyStore.SignTx(tests.Context(t), fromAddress, tx, chainID)
 	require.NoError(t, err)
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
