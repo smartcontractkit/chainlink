@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
+  // Add the library methods
+  using EnumerableSet for EnumerableSet.Bytes32Set;
+
   struct NodeOperator {
     /// @notice The address of the admin that can manage a node
     /// operator
@@ -54,6 +59,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// admin address to the zero address
   error InvalidNodeOperatorAdmin();
 
+  /// @notice This error is thrown when trying add a capability that already
+  /// exists.
+  error CapabilityAlreadyExists();
+
   /// @notice This event is emitted when a new node operator is added
   /// @param nodeOperatorId The ID of the newly added node operator
   /// @param admin The address of the admin that can manage the node
@@ -70,6 +79,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   event CapabilityAdded(bytes32 indexed capabilityId);
 
   mapping(bytes32 => Capability) private s_capabilities;
+  EnumerableSet.Bytes32Set private s_capabilityIds;
 
   /// @notice Mapping of node operators
   mapping(uint256 nodeOperatorId => NodeOperator) private s_nodeOperators;
@@ -114,7 +124,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   function addCapability(Capability calldata capability) external onlyOwner {
     bytes32 capabilityId = getCapabilityID(capability.capabilityType, capability.version);
+
+    if (s_capabilityIds.contains(capabilityId)) revert CapabilityAlreadyExists();
+
+    s_capabilityIds.add(capabilityId);
     s_capabilities[capabilityId] = capability;
+
     emit CapabilityAdded(capabilityId);
   }
 
