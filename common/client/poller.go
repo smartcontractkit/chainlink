@@ -84,7 +84,7 @@ func (p *Poller[T]) pollingLoop() {
 			result, err := p.pollingFunc(pollingCtx)
 			cancelPolling()
 			if err != nil {
-				p.logger.Errorf("polling error: %v", err)
+				p.logger.Warnf("polling error: %v", err)
 				continue
 			}
 			// Send result to channel or block if channel is full
