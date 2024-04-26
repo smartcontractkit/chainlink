@@ -71,5 +71,5 @@ func MultiCallLogTriggerLoadGen(
 		call = append(call, data)
 	}
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	return boundContract.Transact(client.NewTXKeyOpts(client.AnySyncedKey()), "aggregate3", call)
+	return boundContract.Transact(client.NewTXOpts(), "aggregate3", call)
 }
