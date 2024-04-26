@@ -19,7 +19,7 @@ type Poller[T any] struct {
 	pollingInterval time.Duration
 	pollingFunc     func(ctx context.Context) (T, error)
 	pollingTimeout  time.Duration
-	logger          *logger.Logger
+	logger          logger.Logger
 	channel         chan<- T
 	errCh           chan error
 
@@ -30,7 +30,7 @@ type Poller[T any] struct {
 // NewPoller creates a new Poller instance
 func NewPoller[
 	T any,
-](pollingInterval time.Duration, pollingFunc func(ctx context.Context) (T, error), pollingTimeout time.Duration, channel chan<- T, logger *logger.Logger) Poller[T] {
+](pollingInterval time.Duration, pollingFunc func(ctx context.Context) (T, error), pollingTimeout time.Duration, channel chan<- T, logger logger.Logger) Poller[T] {
 	return Poller[T]{
 		pollingInterval: pollingInterval,
 		pollingFunc:     pollingFunc,
@@ -84,7 +84,7 @@ func (p *Poller[T]) pollingLoop() {
 			result, err := p.pollingFunc(pollingCtx)
 			cancelPolling()
 			if err != nil {
-				p.logError(err)
+				p.logger.Errorf("polling error: %v", err)
 				continue
 			}
 			// Send result to channel or block if channel is full
@@ -94,11 +94,5 @@ func (p *Poller[T]) pollingLoop() {
 				return
 			}
 		}
-	}
-}
-
-func (p *Poller[T]) logError(err error) {
-	if p.logger != nil {
-		(*p.logger).Errorf("polling error: %v", err)
 	}
 }
