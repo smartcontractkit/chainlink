@@ -23,18 +23,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bytes32 version;
   }
 
-  /// @notice This error is thrown when a caller is not allowed
-  /// to execute the transaction
-  error AccessForbidden();
-
   /// @notice This error is thrown when trying to set a node operator's
   /// admin address to the zero address
   error InvalidNodeOperatorAdmin();
-
-  /// @notice This error is thrown when trying to perform an action
-  /// on a non existent node operator
-  /// @param nodeOperatorId The ID of the non existent node operator
-  error NonExistentNodeOperator(uint256 nodeOperatorId);
 
   /// @notice This event is emitted when a new node operator is added
   /// @param nodeOperatorId The ID of the newly added node operator
@@ -79,12 +70,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Removes a node operator
   /// @param nodeOperatorIds The IDs of the node operators to remove
-  function removeNodeOperators(uint256[] calldata nodeOperatorIds) external {
+  function removeNodeOperators(uint256[] calldata nodeOperatorIds) external onlyOwner {
     for (uint256 i; i < nodeOperatorIds.length; ++i) {
       uint256 nodeOperatorId = nodeOperatorIds[i];
-      NodeOperator memory nodeOperator = s_nodeOperators[nodeOperatorId];
-      if (nodeOperator.admin == address(0)) revert NonExistentNodeOperator(nodeOperatorId);
-      if (msg.sender != nodeOperator.admin && msg.sender != owner()) revert AccessForbidden();
       delete s_nodeOperators[nodeOperatorId];
       emit NodeOperatorRemoved(nodeOperatorId);
     }

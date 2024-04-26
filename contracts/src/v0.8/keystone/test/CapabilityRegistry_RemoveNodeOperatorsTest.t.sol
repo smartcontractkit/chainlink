@@ -16,19 +16,11 @@ contract CapabilityRegistry_RemoveNodeOperatorsTest is BaseTest {
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
   }
 
-  function test_RevertWhen_CalledByNonAdminAndNonOwner() public {
+  function test_RevertWhen_CalledByNonOwner() public {
     changePrank(STRANGER);
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
+    vm.expectRevert("Only callable by owner");
     uint256[] memory nodeOperatorsToRemove = new uint256[](2);
     nodeOperatorsToRemove[1] = 1;
-    s_capabilityRegistry.removeNodeOperators(nodeOperatorsToRemove);
-  }
-
-  function test_RevertWhen_NodeOperatorDoesNotExist() public {
-    changePrank(ADMIN);
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NonExistentNodeOperator.selector, 2));
-    uint256[] memory nodeOperatorsToRemove = new uint256[](2);
-    nodeOperatorsToRemove[1] = 2;
     s_capabilityRegistry.removeNodeOperators(nodeOperatorsToRemove);
   }
 
