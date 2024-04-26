@@ -388,7 +388,10 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 						},
 					},
 					"geth": map[string]interface{}{
-						"blocktime": blockTime,
+						"blocktime":      blockTime,
+						"capacity":       "20Gi",
+						"startGaslimit":  "20000000",
+						"targetGasLimit": "30000000",
 					},
 				},
 			}))
