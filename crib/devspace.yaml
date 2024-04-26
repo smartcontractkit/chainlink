@@ -74,7 +74,7 @@ images:
         docker push $image
 hooks:
   - command: ./scripts/check_env_vars.sh
-    events: [ "before:deploy:app" ]
+    events: ["before:deploy:app"]
   - wait:
       running: true
       terminatedWithCode: 0
@@ -217,8 +217,6 @@ deployments:
               image: ${runtime.images.app}
             - name: node-5
               image: ${runtime.images.app}
-            - name: node-6
-              image: ${runtime.images.app}
 
         # each CL node have a dedicated PostgreSQL 11.15
         # use StatefulSet by setting:
@@ -346,15 +344,6 @@ deployments:
                     backend:
                       service:
                         name: app-node-5
-                        port:
-                          number: 6688
-            - host: ${DEVSPACE_NAMESPACE}-node6.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              http:
-                paths:
-                  - path: /
-                    backend:
-                      service:
-                        name: app-node-6
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-geth-1337-http.${DEVSPACE_INGRESS_BASE_DOMAIN}
