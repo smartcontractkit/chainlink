@@ -66,7 +66,6 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := testutils.Context(t)
 	blockNum := int64(100)
-	
 
 	lggr := logger.Test(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
