@@ -92,7 +92,6 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 		return fmt.Errorf("failed to resolve triggers")
 	}
 
-	//
 	// Step 2. Walk the graph and register each step's capability to this workflow
 	//
 	// This means:
@@ -107,48 +106,57 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 			return nil
 		}
 
-		// If the capability already exists, that means we've already registered it
-		if s.capability != nil {
-			return nil
-		}
-
-		cp, err := e.registry.Get(ctx, s.Type)
+		err := e.initializeCapability(ctx, s)
 		if err != nil {
-			return fmt.Errorf("failed to get capability with ref %s: %s", s.Type, err)
+			return err
 		}
-		// We configure actions, consensus and targets here, and
-		// they all satisfy the `CallbackCapability` interface
-		cc, ok := cp.(capabilities.CallbackCapability)
-		if !ok {
-			return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.Type)
-		}
-
-		if s.config == nil {
-			configMap, newMapErr := values.NewMap(s.Config)
-			if newMapErr != nil {
-				return fmt.Errorf("failed to convert config to values.Map: %s", newMapErr)
-			}
-			s.config = configMap
-		}
-
-		registrationRequest := capabilities.RegisterToWorkflowRequest{
-			Metadata: capabilities.RegistrationMetadata{
-				WorkflowID: e.workflow.id,
-			},
-			Config: s.config,
-		}
-
-		err = cc.RegisterToWorkflow(ctx, registrationRequest)
-		if err != nil {
-			return fmt.Errorf("failed to register to workflow (%+v): %w", registrationRequest, err)
-		}
-
-		s.capability = cc
 
 		return e.initializeExecutionStrategy(s)
 	})
 
 	return capabilityRegistrationErr
+}
+
+func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
+	// If the capability already exists, that means we've already registered it
+	if s.capability != nil {
+		return nil
+	}
+
+	cp, err := e.registry.Get(ctx, s.Type)
+	if err != nil {
+		return fmt.Errorf("failed to get capability with ref %s: %s", s.Type, err)
+	}
+
+	// We configure actions, consensus and targets here, and
+	// they all satisfy the `CallbackCapability` interface
+	cc, ok := cp.(capabilities.CallbackCapability)
+	if !ok {
+		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.Type)
+	}
+
+	if s.config == nil {
+		configMap, newMapErr := values.NewMap(s.Config)
+		if newMapErr != nil {
+			return fmt.Errorf("failed to convert config to values.Map: %s", newMapErr)
+		}
+		s.config = configMap
+	}
+
+	registrationRequest := capabilities.RegisterToWorkflowRequest{
+		Metadata: capabilities.RegistrationMetadata{
+			WorkflowID: e.workflow.id,
+		},
+		Config: s.config,
+	}
+
+	err = cc.RegisterToWorkflow(ctx, registrationRequest)
+	if err != nil {
+		return fmt.Errorf("failed to register to workflow (%+v): %w", registrationRequest, err)
+	}
+
+	s.capability = cc
+	return nil
 }
 
 // init does the following:
