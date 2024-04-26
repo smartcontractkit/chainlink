@@ -34,6 +34,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param name The human readable name of the node operator
   event NodeOperatorAdded(uint256 nodeOperatorId, address indexed admin, string name);
 
+  /// @notice This event is emitted when a node operator is removed
+  /// @param nodeOperatorId The ID of the node operator that was removed
+  event NodeOperatorRemoved(uint256 nodeOperatorId);
+
   /// @notice This event is emitted when a new capability is added
   /// @param capabilityId The ID of the newly added capability
   event CapabilityAdded(bytes32 indexed capabilityId);
@@ -61,6 +65,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       s_nodeOperators[nodeOperatorId] = NodeOperator({admin: nodeOperator.admin, name: nodeOperator.name});
       ++s_nodeOperatorId;
       emit NodeOperatorAdded(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
+    }
+  }
+
+  /// @notice Removes a node operator
+  /// @param nodeOperatorIds The IDs of the node operators to remove
+  function removeNodeOperators(uint256[] calldata nodeOperatorIds) external onlyOwner {
+    for (uint256 i; i < nodeOperatorIds.length; ++i) {
+      uint256 nodeOperatorId = nodeOperatorIds[i];
+      delete s_nodeOperators[nodeOperatorId];
+      emit NodeOperatorRemoved(nodeOperatorId);
     }
   }
 

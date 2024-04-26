@@ -207,13 +207,13 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
             report.upkeepIds[i],
             upkeepTransmitInfo[i].upkeep
           );
-          transmitVars.totalPremium += receipt.premiumJuels;
-          transmitVars.totalReimbursement += receipt.gasReimbursementJuels;
+          transmitVars.totalPremium += receipt.premiumInJuels;
+          transmitVars.totalReimbursement += receipt.gasReimbursementInJuels;
 
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the LINK amount, but may change to billing token
+            receipt.gasReimbursementInJuels + receipt.premiumInJuels, // TODO - this is currently the LINK amount, but may change to billing token
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
@@ -320,6 +320,10 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       chainModule: onchainConfig.chainModule
     });
 
+    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
+    uint32 newLatestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
+    uint32 newConfigCount = s_storage.configCount + 1;
+
     s_storage = Storage({
       checkGasLimit: onchainConfig.checkGasLimit,
       maxPerformGas: onchainConfig.maxPerformGas,
@@ -330,16 +334,12 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       upkeepPrivilegeManager: onchainConfig.upkeepPrivilegeManager,
       financeAdmin: onchainConfig.financeAdmin,
       nonce: s_storage.nonce,
-      configCount: s_storage.configCount,
-      latestConfigBlockNumber: s_storage.latestConfigBlockNumber
+      configCount: newConfigCount,
+      latestConfigBlockNumber: newLatestConfigBlockNumber
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
     s_fallbackNativePrice = onchainConfig.fallbackNativePrice;
-
-    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
-    s_storage.configCount += 1;
 
     bytes memory onchainConfigBytes = abi.encode(onchainConfig);
 

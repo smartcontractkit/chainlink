@@ -713,6 +713,10 @@ func TestConfig_Marshal(t *testing.T) {
 		TLS: toml.MercuryTLS{
 			CertFile: ptr("/path/to/cert.pem"),
 		},
+		Transmitter: toml.MercuryTransmitter{
+			TransmitQueueMaxSize: ptr(uint32(123)),
+			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
+		},
 	}
 
 	for _, tt := range []struct {
@@ -1171,6 +1175,10 @@ LatestReportDeadline = '1m42s'
 
 [Mercury.TLS]
 CertFile = '/path/to/cert.pem'
+
+[Mercury.Transmitter]
+TransmitQueueMaxSize = 123
+TransmitTimeout = '3m54s'
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},
