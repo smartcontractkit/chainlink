@@ -14,7 +14,56 @@ import (
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
+
+const hardcodedWorkflow = `
+triggers:
+  - type: "mercury-trigger"
+    config:
+      feedIds:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000"
+        - "0x2222222222222222222200000000000000000000000000000000000000000000"
+        - "0x3333333333333333333300000000000000000000000000000000000000000000"
+
+consensus:
+  - type: "offchain_reporting"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - type: "write_polygon-testnet-mumbai"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+  - type: "write_ethereum-testnet-sepolia"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
 
 type mockCapability struct {
 	capabilities.CapabilityInfo
@@ -31,16 +80,18 @@ func newMockCapability(info capabilities.CapabilityInfo, transform func(capabili
 	}
 }
 
-func (m *mockCapability) Execute(ctx context.Context, ch chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	cr, err := m.transform(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	ch := make(chan capabilities.CapabilityResponse, 10)
+
+	m.response <- cr
 	ch <- cr
 	close(ch)
-	m.response <- cr
-	return nil
+	return ch, nil
 }
 
 func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -54,13 +105,14 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 type mockTriggerCapability struct {
 	capabilities.CapabilityInfo
 	triggerEvent capabilities.CapabilityResponse
+	ch           chan capabilities.CapabilityResponse
 }
 
 var _ capabilities.TriggerCapability = (*mockTriggerCapability)(nil)
 
-func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, ch chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
-	ch <- m.triggerEvent
-	return nil
+func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	m.ch <- m.triggerEvent
+	return m.ch, nil
 }
 
 func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {
@@ -68,6 +120,7 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -84,6 +137,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting ethereum sepolia testnet",
 			"v1.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
@@ -95,10 +149,13 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, target2))
 
 	lggr := logger.TestLogger(t)
+	peerID := p2ptypes.PeerID{}
 	cfg := Config{
 		Lggr:     lggr,
 		Registry: reg,
 		Spec:     hardcodedWorkflow,
+		DONInfo:  nil,
+		PeerID:   func() *p2ptypes.PeerID { return &peerID },
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
@@ -120,7 +177,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 const (
 	simpleWorkflow = `
 triggers:
-  - type: "on_mercury_report"
+  - type: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -163,11 +220,13 @@ targets:
 func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.CapabilityResponse) {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"on_mercury_report",
+			"mercury-trigger",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			"v1.0.0",
+			nil,
 		),
+		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
 	resp, err := values.NewMap(map[string]any{
 		"123": decimal.NewFromFloat(1.00),
@@ -189,6 +248,7 @@ func mockFailingConsensus() *mockCapability {
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			"v3.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{}, errors.New("fatal consensus error")
@@ -203,6 +263,7 @@ func mockConsensus() *mockCapability {
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			"v3.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			obs := req.Inputs.Underlying["observations"]
@@ -229,6 +290,7 @@ func mockTarget() *mockCapability {
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
 			"v1.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
@@ -240,6 +302,7 @@ func mockTarget() *mockCapability {
 }
 
 func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -249,10 +312,13 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockFailingConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
+	peerID := p2ptypes.PeerID{}
 	cfg := Config{
 		Lggr:     logger.TestLogger(t),
 		Registry: reg,
 		Spec:     simpleWorkflow,
+		DONInfo:  nil,
+		PeerID:   func() *p2ptypes.PeerID { return &peerID },
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
@@ -273,7 +339,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 const (
 	multiStepWorkflow = `
 triggers:
-  - type: "on_mercury_report"
+  - type: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -329,6 +395,7 @@ func mockAction() (*mockCapability, values.Value) {
 			capabilities.CapabilityTypeAction,
 			"a read chain action",
 			"v1.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 
@@ -340,6 +407,7 @@ func mockAction() (*mockCapability, values.Value) {
 }
 
 func TestEngine_MultiStepDependencies(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -352,10 +420,13 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	action, out := mockAction()
 	require.NoError(t, reg.Add(ctx, action))
 
+	peerID := p2ptypes.PeerID{}
 	cfg := Config{
 		Lggr:     logger.TestLogger(t),
 		Registry: reg,
 		Spec:     multiStepWorkflow,
+		DONInfo:  nil,
+		PeerID:   func() *p2ptypes.PeerID { return &peerID },
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)

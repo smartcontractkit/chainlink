@@ -180,11 +180,11 @@ func addConfirmedEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, 
 }
 
 func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
+	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	cfg := pgtest.NewQConfig(false)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
-	require.NoError(t, ks.Unlock("blah"))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
 	k, err := ks.Eth().Create(testutils.Context(t), chainID)
 	require.NoError(t, err)
@@ -205,8 +205,6 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 		job:       j,
 		chain:     chain,
 	}
-
-	ctx := testutils.Context(t)
 
 	// Insert an unstarted eth tx with link metadata
 	addEthTx(t, txstore, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
@@ -262,11 +260,11 @@ func TestMaybeSubtractReservedLinkV2Plus(t *testing.T) {
 }
 
 func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version) {
+	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	cfg := pgtest.NewQConfig(false)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
-	require.NoError(t, ks.Unlock("blah"))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
 	k, err := ks.Eth().Create(testutils.Context(t), chainID)
 	require.NoError(t, err)
@@ -288,8 +286,6 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 		job:       j,
 		chain:     chain,
 	}
-
-	ctx := testutils.Context(t)
 
 	// Insert an unstarted eth tx with native metadata
 	addEthTxNativePayment(t, txstore, k.Address, txmgrcommon.TxUnstarted, "10000", subID, reqTxHash, vrfVersion)
@@ -341,11 +337,11 @@ func TestMaybeSubtractReservedNativeV2Plus(t *testing.T) {
 }
 
 func TestMaybeSubtractReservedNativeV2(t *testing.T) {
+	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	cfg := pgtest.NewQConfig(false)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
-	require.NoError(t, ks.Unlock("blah"))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
 	subID := new(big.Int).SetUint64(1)
 

@@ -63,7 +63,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
 	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", true, "whether to deploy VRF owner contracts")
-	useTestCoordinator := deployCmd.Bool("use-test-coordinator", true, "whether to use test coordinator")
+	useTestCoordinator := deployCmd.Bool("use-test-coordinator", false, "whether to use test coordinator")
 	simulationBlock := deployCmd.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	// optional flags

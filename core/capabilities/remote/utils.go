@@ -10,6 +10,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -60,16 +62,29 @@ func NewDefaultModeAggregator(minIdenticalResponses uint32) *defaultModeAggregat
 	}
 }
 
-func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) ([]byte, error) {
+func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) (commoncap.CapabilityResponse, error) {
+	found, err := AggregateModeRaw(responses, a.minIdenticalResponses)
+	if err != nil {
+		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to aggregate responses, err: %w", err)
+	}
+
+	unmarshaled, err := pb.UnmarshalCapabilityResponse(found)
+	if err != nil {
+		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to unmarshal aggregated responses, err: %w", err)
+	}
+	return unmarshaled, nil
+}
+
+func AggregateModeRaw(elemList [][]byte, minIdenticalResponses uint32) ([]byte, error) {
 	hashToCount := make(map[string]uint32)
 	var found []byte
-	for _, resp := range responses {
+	for _, elem := range elemList {
 		hasher := sha256.New()
-		hasher.Write(resp)
+		hasher.Write(elem)
 		sha := hex.EncodeToString(hasher.Sum(nil))
 		hashToCount[sha]++
-		if hashToCount[sha] >= a.minIdenticalResponses {
-			found = resp
+		if hashToCount[sha] >= minIdenticalResponses {
+			found = elem
 			break
 		}
 	}

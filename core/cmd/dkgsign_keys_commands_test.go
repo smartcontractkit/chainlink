@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -58,18 +60,20 @@ func TestShell_DKGSignKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().DKGSign()
 	cleanup := func() {
+		ctx := context.Background()
 		keys, err := ks.GetAll()
 		assert.NoError(t, err)
 		for _, key := range keys {
-			assert.NoError(t, utils.JustError(ks.Delete(key.ID())))
+			assert.NoError(t, utils.JustError(ks.Delete(ctx, key.ID())))
 		}
 		requireDKGSignKeyCount(t, app, 0)
 	}
 
 	t.Run("ListDKGSignKeys", func(tt *testing.T) {
 		defer cleanup()
+		ctx := testutils.Context(t)
 		client, r := app.NewShellAndRenderer()
-		key, err := app.GetKeyStore().DKGSign().Create()
+		key, err := app.GetKeyStore().DKGSign().Create(ctx)
 		assert.NoError(tt, err)
 		requireDKGSignKeyCount(t, app, 1)
 		assert.Nil(t, cmd.NewDKGSignKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
@@ -89,8 +93,9 @@ func TestShell_DKGSignKeys(t *testing.T) {
 
 	t.Run("DeleteDKGSignKey", func(tt *testing.T) {
 		defer cleanup()
+		ctx := testutils.Context(t)
 		client, _ := app.NewShellAndRenderer()
-		key, err := app.GetKeyStore().DKGSign().Create()
+		key, err := app.GetKeyStore().DKGSign().Create(ctx)
 		assert.NoError(tt, err)
 		requireDKGSignKeyCount(tt, app, 1)
 		set := flag.NewFlagSet("test", 0)
@@ -109,9 +114,10 @@ func TestShell_DKGSignKeys(t *testing.T) {
 	t.Run("ImportExportDKGSignKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(tt)
+		ctx := testutils.Context(t)
 		client, _ := app.NewShellAndRenderer()
 
-		_, err := app.GetKeyStore().DKGSign().Create()
+		_, err := app.GetKeyStore().DKGSign().Create(ctx)
 		require.NoError(tt, err)
 
 		keys := requireDKGSignKeyCount(tt, app, 1)
@@ -145,7 +151,7 @@ func TestShell_DKGSignKeys(t *testing.T) {
 		require.NoError(tt, cmd.NewDKGSignKeysClient(client).ExportKey(c))
 		require.NoError(tt, utils.JustError(os.Stat(keyName)))
 
-		require.NoError(tt, utils.JustError(app.GetKeyStore().DKGSign().Delete(key.ID())))
+		require.NoError(tt, utils.JustError(app.GetKeyStore().DKGSign().Delete(ctx, key.ID())))
 		requireDKGSignKeyCount(tt, app, 0)
 
 		set = flag.NewFlagSet("test DKGSign import", 0)

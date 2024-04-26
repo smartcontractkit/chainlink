@@ -19,8 +19,8 @@ type mockCapability struct {
 	capabilities.CapabilityInfo
 }
 
-func (m *mockCapability) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
-	return nil
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	return nil, nil
 }
 
 func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -42,6 +42,7 @@ func TestRegistry(t *testing.T) {
 		capabilities.CapabilityTypeAction,
 		"capability-1-description",
 		"v1.0.0",
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -70,6 +71,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 		capabilities.CapabilityTypeAction,
 		"capability-1-description",
 		"v1.0.0",
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -82,6 +84,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 		capabilities.CapabilityTypeConsensus,
 		"capability-2-description",
 		"v1.0.0",
+		nil,
 	)
 	require.NoError(t, err)
 	c2 := &mockCapability{CapabilityInfo: ci}
@@ -106,6 +109,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 					capabilities.CapabilityTypeAction,
 					"capability-1-description",
 					"v1.0.0",
+					nil,
 				)
 				require.NoError(t, err)
 
@@ -126,6 +130,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 					capabilities.CapabilityTypeTarget,
 					"capability-1-description",
 					"v1.0.0",
+					nil,
 				)
 				require.NoError(t, err)
 
@@ -140,7 +145,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "trigger",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				odt := triggers.NewOnDemand()
+				odt := triggers.NewOnDemand(logger.TestLogger(t))
 				info, err := odt.Info(ctx)
 				require.NoError(t, err)
 				return info.ID, reg.Add(ctx, odt)
@@ -159,6 +164,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 					capabilities.CapabilityTypeConsensus,
 					"capability-1-description",
 					"v1.0.0",
+					nil,
 				)
 				require.NoError(t, err)
 

@@ -64,6 +64,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	finalityDepth, backfillBatchSize,
 	rpcBatchSize, keepFinalizedBlocksDepth int64,
 	mockChainUpdateFn func(*evmmocks.Chain, *vrfLogPollerListenerTH)) *vrfLogPollerListenerTH {
+	ctx := testutils.Context(t)
 
 	lggr := logger.TestLogger(t)
 	chainID := testutils.NewRandomEVMChainID()
@@ -111,9 +112,8 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	ec.Commit()
 
 	// Log Poller Listener
-	cfg := pgtest.NewQConfig(false)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
-	require.NoError(t, ks.Unlock("blah"))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	require.NoError(t, ks.Unlock(ctx, "blah"))
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 		EVMChainID:          chainID.String(),
@@ -134,7 +134,6 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		inflightCache: vrfcommon.NewInflightCache(10),
 		chStop:        make(chan struct{}),
 	}
-	ctx := testutils.Context(t)
 
 	// Filter registration is idempotent, so we can just call it every time
 	// and retry on errors using the ticker.

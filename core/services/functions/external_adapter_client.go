@@ -53,7 +53,7 @@ var _ ExternalAdapterClient = (*externalAdapterClient)(nil)
 
 //go:generate mockery --quiet --name BridgeAccessor --output ./mocks/ --case=underscore
 type BridgeAccessor interface {
-	NewExternalAdapterClient() (ExternalAdapterClient, error)
+	NewExternalAdapterClient(context.Context) (ExternalAdapterClient, error)
 }
 
 type bridgeAccessor struct {
@@ -267,8 +267,8 @@ func NewBridgeAccessor(bridgeORM bridges.ORM, bridgeName string, maxResponseByte
 	}
 }
 
-func (b *bridgeAccessor) NewExternalAdapterClient() (ExternalAdapterClient, error) {
-	bridge, err := b.bridgeORM.FindBridge(bridges.BridgeName(b.bridgeName))
+func (b *bridgeAccessor) NewExternalAdapterClient(ctx context.Context) (ExternalAdapterClient, error) {
+	bridge, err := b.bridgeORM.FindBridge(ctx, bridges.BridgeName(b.bridgeName))
 	if err != nil {
 		return nil, err
 	}
