@@ -2,6 +2,8 @@
 "chainlink": patch
 ---
 
+#added
+
 Add configurability to mercury transmitter
 
 ```toml
