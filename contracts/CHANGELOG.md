@@ -1,4 +1,4 @@
-# @chainlink/contracts CHANGELOG.md
+# @chainlink/contracts
 
 ## 1.1.0
 
