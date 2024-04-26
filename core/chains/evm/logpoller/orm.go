@@ -38,6 +38,7 @@ type ORM interface {
 	SelectBlockByNumber(ctx context.Context, blockNumber int64) (*LogPollerBlock, error)
 	SelectBlockByHash(ctx context.Context, hash common.Hash) (*LogPollerBlock, error)
 	SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error)
+	SelectOldestBlock(ctx context.Context, minAllowedBlockNumber int64) (*LogPollerBlock, error)
 
 	SelectLogs(ctx context.Context, start, end int64, address common.Address, eventSig common.Hash) ([]Log, error)
 	SelectLogsWithSigs(ctx context.Context, start, end int64, address common.Address, eventSigs []common.Hash) ([]Log, error)
@@ -197,6 +198,14 @@ func (o *DSORM) SelectBlockByNumber(ctx context.Context, n int64) (*LogPollerBlo
 func (o *DSORM) SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error) {
 	var b LogPollerBlock
 	if err := o.ds.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1`, ubig.New(o.chainID)); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (o *DSORM) SelectOldestBlock(ctx context.Context, minAllowedBlockNumber int64) (*LogPollerBlock, error) {
+	var b LogPollerBlock
+	if err := o.ds.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE evm_chain_id = $1 AND block_number >= $2 ORDER BY block_number ASC LIMIT 1`, ubig.New(o.chainID), minAllowedBlockNumber); err != nil {
 		return nil, err
 	}
 	return &b, nil
