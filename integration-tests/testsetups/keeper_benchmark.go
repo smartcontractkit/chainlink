@@ -292,7 +292,7 @@ func (k *KeeperBenchmarkTest) Run() {
 		for {
 			select {
 			case header := <-headerCh:
-				k.log.Debug().Int64("Number", header.Number.Int64()).Msg("Fanning out new header")
+				k.log.Trace().Int64("Number", header.Number.Int64()).Msg("Fanning out new header")
 				for _, ch := range contractChannels {
 					ch <- header
 				}
@@ -346,7 +346,7 @@ func (k *KeeperBenchmarkTest) Run() {
 						k.log.Error().Err(errCtx.Err()).Str("UpkeepID", upkeepIDCopy.String()).Msg("Stopping obervations due to error in one of the goroutines")
 						return nil
 					case header := <-contractChannels[chIndex]: // new block, check if upkeep was performed
-						k.log.Debug().Interface("Header number", header.Number).Str("UpkeepID", upkeepIDCopy.String()).Msg("Started processing new header")
+						k.log.Trace().Interface("Header number", header.Number).Str("UpkeepID", upkeepIDCopy.String()).Msg("Started processing new header")
 						finished, headerErr := confirmer.ReceiveHeader(header)
 						if headerErr != nil {
 							return headerErr
@@ -362,7 +362,7 @@ func (k *KeeperBenchmarkTest) Run() {
 							}
 							return fmt.Errorf("confimer has finished, but without completing observation, this should never happen. Review your code. UpkdeepID: %s", upkeepIDCopy.String())
 						}
-						k.log.Debug().Interface("Header number", header.Number).Str("UpkeepID", upkeepIDCopy.String()).Msg("Finished processing new header")
+						k.log.Trace().Interface("Header number", header.Number).Str("UpkeepID", upkeepIDCopy.String()).Msg("Finished processing new header")
 					}
 				}
 			})
