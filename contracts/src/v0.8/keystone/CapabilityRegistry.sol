@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
-import {ICapabilityConfigurationContract} from "./interfaces/ICapabilityConfigurationContract.sol";
 import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
-
-import "forge-std/console.sol";
+import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+import {ICapabilityConfigurationContract} from "./interfaces/ICapabilityConfigurationContract.sol";
 
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
@@ -138,33 +135,13 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     if (s_capabilityIds.contains(capabilityId)) revert CapabilityAlreadyExists();
 
     if (capability.configurationContract != address(0)) {
-      console.log("capability.configurationContract: ", capability.configurationContract);
-
       if (
         capability.configurationContract.code.length == 0 ||
         !IERC165(capability.configurationContract).supportsInterface(
           ICapabilityConfigurationContract.getCapabilityConfiguration.selector
         )
       ) revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
-
-      // try
-      //   IERC165(capability.configurationContract).supportsInterface(
-      //     bytes4(keccak256("getCapabilityConfiguration(bytes32)"))
-      //     //
-      //   )
-      // returns (bool result) {
-      //   console.log("result: ", result);
-      //   // if (!result) {
-      //   //   revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
-      //   // }
-      // } catch Error(string memory reason) {
-      //   console.log("catch");
-
-      //   // revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
-      // }
     }
-
-    console.log("success");
 
     s_capabilityIds.add(capabilityId);
     s_capabilities[capabilityId] = capability;
