@@ -135,8 +135,6 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
 		if !upkeepSelector(q.id) {
-			// if the upkeep is not selected, skip it, but count the logs in range for this upkeep in remaining logs
-			remainingLogs += q.sizeOfRange(start, end)
 			continue
 		}
 		selectedUpkeeps = append(selectedUpkeeps, q.id.String())

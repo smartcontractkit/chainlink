@@ -208,9 +208,9 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 
 		logs, remaining := buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
 
-		// we should dequeue 5 logs, and the block window should have 95 logs remaining
+		// we should dequeue 5 logs, and the block window should have 15 logs remaining for this selector
 		assert.Equal(t, 5, len(logs))
-		assert.Equal(t, 95, remaining)
+		assert.Equal(t, 15, remaining)
 
 		assert.Equal(t, 100, len(bufV1.queues["1"].logs))
 		assert.Equal(t, 100, len(bufV1.queues["2"].logs))
@@ -224,9 +224,9 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 
 		logs, remaining = buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
 
-		// we should dequeue 5 logs, and the block window should have 90 logs remaining
+		// we should dequeue 5 logs, and the block window should have 15 logs remaining for this selector
 		assert.Equal(t, 5, len(logs))
-		assert.Equal(t, 90, remaining)
+		assert.Equal(t, 15, remaining)
 
 		assert.Equal(t, 95, len(bufV1.queues["1"].logs))
 		assert.Equal(t, 100, len(bufV1.queues["2"].logs))
@@ -240,9 +240,9 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 
 		logs, remaining = buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
 
-		// we should dequeue 5 logs, and the block window should have 85 logs remaining
+		// we should dequeue 5 logs, and the block window should have 15 logs remaining for this selector
 		assert.Equal(t, 5, len(logs))
-		assert.Equal(t, 85, remaining)
+		assert.Equal(t, 15, remaining)
 
 		assert.Equal(t, 95, len(bufV1.queues["1"].logs))
 		assert.Equal(t, 95, len(bufV1.queues["2"].logs))
@@ -256,9 +256,9 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 
 		logs, remaining = buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
 
-		// we should dequeue 5 logs, and the block window should have 80 logs remaining
+		// we should dequeue 5 logs, and the block window should have 15 logs remaining for this selector
 		assert.Equal(t, 5, len(logs))
-		assert.Equal(t, 80, remaining)
+		assert.Equal(t, 15, remaining)
 
 		assert.Equal(t, 95, len(bufV1.queues["1"].logs))
 		assert.Equal(t, 95, len(bufV1.queues["2"].logs))
@@ -272,9 +272,9 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 
 		logs, remaining = buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
 
-		// we should dequeue 5 logs, and the block window should have 75 logs remaining
+		// we should dequeue 5 logs, and the block window should have 15 logs remaining for this selector
 		assert.Equal(t, 5, len(logs))
-		assert.Equal(t, 75, remaining)
+		assert.Equal(t, 15, remaining)
 
 		assert.Equal(t, 95, len(bufV1.queues["1"].logs))
 		assert.Equal(t, 95, len(bufV1.queues["2"].logs))
