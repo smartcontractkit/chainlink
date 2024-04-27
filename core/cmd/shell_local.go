@@ -580,11 +580,6 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		}
 	}
 
-	err = s.Config.Validate()
-	if err != nil {
-		return err
-	}
-
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
 	db, err := pg.OpenUnlockedDB(s.Config.AppID(), s.Config.Database())
 	if err != nil {
