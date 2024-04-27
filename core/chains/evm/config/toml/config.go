@@ -407,7 +407,7 @@ func (c *Chain) ValidateConfig() (err error) {
 		case config.ChainScroll:
 			if c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl == nil {
 				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.AutoPurgeDetectionApiUrl", Msg: fmt.Sprintf("must be set for %s", chainType)})
-			} else if c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl.IsZero(){
+			} else if c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl.IsZero() {
 				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.AutoPurgeDetectionApiUrl", Value: c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl, Msg: fmt.Sprintf("must be set for %s", chainType)})
 			} else {
 				switch c.Transactions.AutoPurge.AutoPurgeDetectionApiUrl.Scheme {
@@ -437,7 +437,6 @@ func (c *Chain) ValidateConfig() (err error) {
 			}
 		}
 	}
-	
 
 	return
 }
