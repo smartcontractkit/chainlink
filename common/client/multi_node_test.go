@@ -796,13 +796,13 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		Name                string
 		ExpectedTxResult    string
 		ExpectedCriticalErr string
-		ResultsByCode       sendTxErrors
+		ResultsByCode       map[SendTxReturnCode][]error
 	}{
 		{
 			Name:                "Returns success and logs critical error on success and Fatal",
 			ExpectedTxResult:    "success",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: map[SendTxReturnCode][]error{
 				Successful: {errors.New("success")},
 				Fatal:      {errors.New("fatal")},
 			},
@@ -811,7 +811,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Returns TransactionAlreadyKnown and logs critical error on TransactionAlreadyKnown and Fatal",
 			ExpectedTxResult:    "tx_already_known",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: map[SendTxReturnCode][]error{
 				TransactionAlreadyKnown: {errors.New("tx_already_known")},
 				Unsupported:             {errors.New("unsupported")},
 			},
@@ -820,7 +820,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Prefers sever error to temporary",
 			ExpectedTxResult:    "underpriced",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: map[SendTxReturnCode][]error{
 				Retryable:   {errors.New("retryable")},
 				Underpriced: {errors.New("underpriced")},
 			},
@@ -829,7 +829,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Returns temporary error",
 			ExpectedTxResult:    "retryable",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: map[SendTxReturnCode][]error{
 				Retryable: {errors.New("retryable")},
 			},
 		},
@@ -837,7 +837,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Insufficient funds is treated as  error",
 			ExpectedTxResult:    "",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: map[SendTxReturnCode][]error{
 				Successful:        {nil},
 				InsufficientFunds: {errors.New("insufficientFunds")},
 			},
@@ -846,13 +846,13 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Logs critical error on empty ResultsByCode",
 			ExpectedTxResult:    "expected at least one response on SendTransaction",
 			ExpectedCriticalErr: "expected at least one response on SendTransaction",
-			ResultsByCode:       sendTxErrors{},
+			ResultsByCode:       map[SendTxReturnCode][]error{},
 		},
 		{
 			Name:                "Zk out of counter error",
 			ExpectedTxResult:    "not enough keccak counters to continue the execution",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: map[SendTxReturnCode][]error{
 				OutOfCounters: {errors.New("not enough keccak counters to continue the execution")},
 			},
 		},
@@ -870,9 +870,6 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 				assert.EqualError(t, txResult, testCase.ExpectedTxResult)
 			}
 
-			logger.Sugared(logger.Test(t)).Info("Map: " + fmt.Sprint(testCase.ResultsByCode))
-			logger.Sugared(logger.Test(t)).Criticalw("observed invariant violation on SendTransaction", "resultsByCode", testCase.ResultsByCode, "err", err)
-
 			if testCase.ExpectedCriticalErr == "" {
 				assert.NoError(t, err)
 			} else {
@@ -887,4 +884,5 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		delete(codesToCover, codeToIgnore)
 	}
 	assert.Empty(t, codesToCover, "all of the SendTxReturnCode must be covered by this test")
+
 }
