@@ -1698,33 +1698,6 @@ CertFile = "/path/to/client/certs.pem" # Example
 ```
 CertFile is the path to a PEM file of trusted root certificate authority certificates
 
-## Mercury.Transmitter
-```toml
-[Mercury.Transmitter]
-TransmitQueueMaxSize = 10_000 # Default
-TransmitTimeout = "5s" # Default
-```
-Mercury.Transmitter controls settings for the mercury transmitter
-
-### TransmitQueueMaxSize
-```toml
-TransmitQueueMaxSize = 10_000 # Default
-```
-TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
-per OCR instance. If the queue is full, the transmitter will start dropping
-the oldest messages in order to make space.
-
-This is useful if mercury server goes offline and the nop needs to buffer
-transmissions.
-
-### TransmitTimeout
-```toml
-TransmitTimeout = "5s" # Default
-```
-TransmitTimeout controls how long the transmitter will wait for a response
-when sending a message to the mercury server, before aborting and considering
-the transmission to be failed.
-
 ## EVM
 EVM defaults depend on ChainID:
 

@@ -198,7 +198,6 @@ type mercuryConfig interface {
 	Credentials(credName string) *types.MercuryCredentials
 	Cache() coreconfig.MercuryCache
 	TLS() coreconfig.MercuryTLS
-	Transmitter() coreconfig.MercuryTransmitter
 }
 
 type thresholdConfig interface {

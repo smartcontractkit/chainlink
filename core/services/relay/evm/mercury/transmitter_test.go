@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -13,7 +12,6 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -22,16 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
-
-type mockCfg struct{}
-
-func (m mockCfg) TransmitQueueMaxSize() uint32 {
-	return 10_000
-}
-
-func (m mockCfg) TransmitTimeout() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(1 * time.Hour)
-}
 
 func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -48,7 +36,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			report := sampleV1Report
 			c := &mocks.MockWSRPCClient{}
 			clients[sURL] = c
-			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+			mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 			// init the queue since we skipped starting transmitter
 			mt.servers[sURL].q.Init([]*Transmission{})
 			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
@@ -62,7 +50,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			report := sampleV2Report
 			c := &mocks.MockWSRPCClient{}
 			clients[sURL] = c
-			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+			mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 			// init the queue since we skipped starting transmitter
 			mt.servers[sURL].q.Init([]*Transmission{})
 			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
@@ -76,7 +64,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			report := sampleV3Report
 			c := &mocks.MockWSRPCClient{}
 			clients[sURL] = c
-			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+			mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 			// init the queue since we skipped starting transmitter
 			mt.servers[sURL].q.Init([]*Transmission{})
 			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
@@ -95,7 +83,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 		clients[sURL2] = c
 		clients[sURL3] = c
 
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		// init the queue since we skipped starting transmitter
 		mt.servers[sURL].q.Init([]*Transmission{})
 		mt.servers[sURL2].q.Init([]*Transmission{})
@@ -137,7 +125,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -153,7 +141,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -167,7 +155,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		_, err := mt.LatestTimestamp(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -197,7 +185,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -240,7 +228,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 
 		t.Run("BenchmarkPriceFromReport succeeds", func(t *testing.T) {
 			codec.val = originalPrice
@@ -271,7 +259,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		price, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.NoError(t, err)
 
@@ -285,7 +273,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		_, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -315,7 +303,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -331,7 +319,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -344,7 +332,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -362,7 +350,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 			},
 		}
 		clients[sURL] = c
-		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
+		mt := NewTransmitter(lggr, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec)
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "latestReport failed; mismatched feed IDs, expected: 0x1c916b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472, got: 0x")

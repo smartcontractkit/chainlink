@@ -78,8 +78,7 @@ type Relayer struct {
 	codec       commontypes.Codec
 
 	// Mercury
-	mercuryORM     mercury.ORM
-	transmitterCfg mercury.TransmitterConfig
+	mercuryORM mercury.ORM
 
 	// LLO/data streams
 	cdcFactory llo.ChannelDefinitionCacheFactory
@@ -94,8 +93,7 @@ type CSAETHKeystore interface {
 type RelayerOpts struct {
 	DS sqlutil.DataSource
 	CSAETHKeystore
-	MercuryPool       wsrpc.Pool
-	TransmitterConfig mercury.TransmitterConfig
+	MercuryPool wsrpc.Pool
 }
 
 func (c RelayerOpts) Validate() error {
@@ -124,15 +122,14 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	lloORM := llo.NewORM(opts.DS, chain.ID())
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
 	return &Relayer{
-		ds:             opts.DS,
-		chain:          chain,
-		lggr:           lggr,
-		ks:             opts.CSAETHKeystore,
-		mercuryPool:    opts.MercuryPool,
-		cdcFactory:     cdcFactory,
-		lloORM:         lloORM,
-		mercuryORM:     mercuryORM,
-		transmitterCfg: opts.TransmitterConfig,
+		ds:          opts.DS,
+		chain:       chain,
+		lggr:        lggr,
+		ks:          opts.CSAETHKeystore,
+		mercuryPool: opts.MercuryPool,
+		cdcFactory:  cdcFactory,
+		lloORM:      lloORM,
+		mercuryORM:  mercuryORM,
 	}, nil
 }
 
@@ -249,7 +246,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	default:
 		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
 	}
-	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec)
+	transmitter := mercury.NewTransmitter(lggr, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec)
 
 	return NewMercuryProvider(cp, r.chainReader, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
