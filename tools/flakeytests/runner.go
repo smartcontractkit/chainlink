@@ -238,7 +238,7 @@ func (r *Runner) runTests(rep *Report) (*Report, error) {
 
 	for pkg := range rep.packagePanics {
 		for i := 0; i < r.numReruns; i++ {
-		log.Printf("[PACKAGE_PANIC]: Executing test command with parameters: pkg=%s, numReruns=%d currentRun=%d\n", pkg, r.numReruns, i)
+			log.Printf("[PACKAGE_PANIC]: Executing test command with parameters: pkg=%s, numReruns=%d currentRun=%d\n", pkg, r.numReruns, i)
 			pr, err := r.runTest(pkg, []string{})
 			if err != nil {
 				return report, err
