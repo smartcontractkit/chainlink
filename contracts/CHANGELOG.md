@@ -1,6 +1,6 @@
-# @chainlink/contracts
+# @chainlink/contracts CHANGELOG.md
 
-## 1.1.0 - 2024-04-23
+## 1.1.0
 
 ### Minor Changes
 
