@@ -117,21 +117,23 @@ type logEventProvider struct {
 	chainID *big.Int
 
 	currentIteration    int
+	calculateIterations bool
 	iterations          int
 	previousStartWindow *int64
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
-		threadCtrl:  utils.NewThreadControl(),
-		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
-		packer:      packer,
-		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:    NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
-		poller:      poller,
-		opts:        opts,
-		filterStore: filterStore,
-		chainID:     chainID,
+		threadCtrl:          utils.NewThreadControl(),
+		lggr:                lggr.Named("KeepersRegistry.LogEventProvider"),
+		packer:              packer,
+		buffer:              newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
+		bufferV1:            NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
+		poller:              poller,
+		opts:                opts,
+		filterStore:         filterStore,
+		chainID:             chainID,
+		calculateIterations: true,
 	}
 }
 
@@ -292,34 +294,28 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 
 	switch p.opts.BufferVersion {
 	case BufferVersionV1:
-		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
 		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
+
+		if p.iterations == p.currentIteration {
+			p.calculateIterations = true
+		}
+
+		if p.calculateIterations {
+			p.calculateIterations = false
+			p.currentIteration = 0
+			p.iterations = int(math.Ceil(float64(p.bufferV1.NumOfUpkeeps()*logLimitLow) / float64(maxResults)))
+		}
+
+		upkeepSelectorFn := func(id *big.Int) bool {
+			return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
+		}
+
 		for len(payloads) < maxResults && start <= latestBlock {
 			startWindow, end := getBlockWindow(start, blockRate)
 
-			if p.previousStartWindow == nil {
-				p.previousStartWindow = &startWindow
-			} else if startWindow != *p.previousStartWindow {
-				p.lggr.Debugw("new block window", "windowStart", startWindow)
-				p.currentIteration = 0
-				p.previousStartWindow = &startWindow
-			}
-
-			if p.currentIteration == 0 {
-				p.iterations = int(math.Ceil(float64(p.bufferV1.NumOfUpkeeps()*logLimitLow) / float64(maxResults)))
-				if p.iterations == 0 {
-					p.iterations = 1
-				}
-				p.lggr.Debugw("calculated iterations", "iterations", p.iterations, "upkeeps", p.bufferV1.NumOfUpkeeps(), "logLimitLow", logLimitLow, "maxResults", maxResults)
-			}
-
-			upkeepSelectorFn := func(id *big.Int) bool {
-				return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
-			}
-
 			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
 			if len(logs) > 0 {
-				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs), "iterations", p.iterations, "currentIteration", p.currentIteration)
+				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 			}
 			for _, l := range logs {
 				payload, err := p.createPayload(l.ID, l.Log)
@@ -328,22 +324,16 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 				}
 			}
 
-			p.currentIteration++
-
-			if p.currentIteration == p.iterations {
-				p.lggr.Debugw("Reached maximum iterations, bumping window", "start", start, "latestBlock", latestBlock, "currentIteration", p.currentIteration, "iterations", p.iterations)
-
-				start += int64(blockRate)
-				continue
-			}
-
 			if remaining > 0 {
 				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
 				// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
 				continue
 			}
+
 			start += int64(blockRate)
+
 		}
+		p.currentIteration++
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
 		for _, l := range logs {
