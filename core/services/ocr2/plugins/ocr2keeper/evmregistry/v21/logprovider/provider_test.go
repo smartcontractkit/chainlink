@@ -3,11 +3,12 @@ package logprovider
 import (
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
