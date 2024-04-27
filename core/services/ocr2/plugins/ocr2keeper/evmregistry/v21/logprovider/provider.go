@@ -119,7 +119,6 @@ type logEventProvider struct {
 	currentIteration    int
 	calculateIterations bool
 	iterations          int
-	previousStartWindow *int64
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {

@@ -731,6 +731,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 9998, len(bufV1.queues["101"].logs))
 		assert.Equal(t, 9997, len(bufV1.queues["150"].logs))
 		assert.Equal(t, 9999, len(bufV1.queues["250"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["296"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["297"].logs))
+		assert.Equal(t, 9999, len(bufV1.queues["298"].logs))
+		assert.Equal(t, 10000, len(bufV1.queues["299"].logs))
 		assert.Equal(t, 9999, len(bufV1.queues["300"].logs))
 	})
 }
