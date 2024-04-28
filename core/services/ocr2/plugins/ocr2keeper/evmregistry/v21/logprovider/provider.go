@@ -305,14 +305,14 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 			p.iterations = int(math.Ceil(float64(p.bufferV1.NumOfUpkeeps()*logLimitLow) / float64(maxResults)))
 		}
 
-		//upkeepSelectorFn := func(id *big.Int) bool {
-		//	return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
-		//}
+		upkeepSelectorFn := func(id *big.Int) bool {
+			return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
+		}
 
 		for len(payloads) < maxResults && start <= latestBlock {
 			startWindow, end := getBlockWindow(start, blockRate)
 
-			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
+			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 			}

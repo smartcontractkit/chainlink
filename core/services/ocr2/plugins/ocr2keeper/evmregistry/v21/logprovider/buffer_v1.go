@@ -78,9 +78,9 @@ type logBuffer struct {
 	// last block number seen by the buffer
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
-	queueIDs []string
-	queues   map[string]*upkeepLogQueue
-	lock     sync.RWMutex
+	//queueIDs []string
+	queues map[string]*upkeepLogQueue
+	lock   sync.RWMutex
 }
 
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
@@ -88,8 +88,8 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogB
 		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV1"),
 		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
 		lastBlockSeen: new(atomic.Int64),
-		queueIDs:      []string{},
-		queues:        make(map[string]*upkeepLogQueue),
+		//queueIDs:      []string{},
+		queues: make(map[string]*upkeepLogQueue),
 	}
 }
 
@@ -132,8 +132,7 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 	var remainingLogs int
 	selectedUpkeeps := []string{}
 	numLogs := 0
-	for _, qid := range b.queueIDs {
-		q := b.queues[qid]
+	for _, q := range b.queues {
 		if !upkeepSelector(q.id) {
 			continue
 		}
@@ -189,7 +188,7 @@ func (b *logBuffer) SyncFilters(filterStore UpkeepFilterStore) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	for _, upkeepID := range b.queueIDs {
+	for upkeepID := range b.queues {
 		uid := new(big.Int)
 		_, ok := uid.SetString(upkeepID, 10)
 		if ok && !filterStore.Has(uid) {
@@ -213,16 +212,16 @@ func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	found := false
-	for _, id := range b.queueIDs {
-		if id == uid.String() {
-			found = true
-			break
-		}
-	}
-	if !found {
-		b.queueIDs = append(b.queueIDs, uid.String())
-	}
+	//found := false
+	//for _, id := range b.queueIDs {
+	//	if id == uid.String() {
+	//		found = true
+	//		break
+	//	}
+	//}
+	//if !found {
+	//	b.queueIDs = append(b.queueIDs, uid.String())
+	//}
 	b.queues[uid.String()] = buf
 }
 
