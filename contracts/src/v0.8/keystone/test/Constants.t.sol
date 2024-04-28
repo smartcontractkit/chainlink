@@ -10,4 +10,6 @@ contract Constants {
   string internal NODE_OPERATOR_ONE_NAME = "node-operator-one";
   address internal NODE_OPERATOR_TWO_ADMIN = address(4);
   string internal NODE_OPERATOR_TWO_NAME = "node-operator-two";
+
+  string internal P2P_ID = "12D3KooWRAw36ARW7T81yb7Ss5WPqGV7AnLcTmK1nApkbMS6s9cx";
 }
