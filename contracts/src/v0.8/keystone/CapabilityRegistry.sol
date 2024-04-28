@@ -99,11 +99,13 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   function updateNodeOperators(uint256[] calldata nodeOperatorIds, NodeOperator[] calldata nodeOperators) external {
     if (nodeOperatorIds.length != nodeOperators.length)
       revert LengthMismatch(nodeOperatorIds.length, nodeOperators.length);
+    
+    address owner = owner();
     for (uint256 i; i < nodeOperatorIds.length; ++i) {
       uint256 nodeOperatorId = nodeOperatorIds[i];
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      if (msg.sender != nodeOperator.admin && msg.sender != owner()) revert AccessForbidden();
+      if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden();
 
       if (
         s_nodeOperators[nodeOperatorId].admin != nodeOperator.admin ||
