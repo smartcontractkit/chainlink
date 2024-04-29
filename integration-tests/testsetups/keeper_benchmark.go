@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -279,6 +280,8 @@ func (k *KeeperBenchmarkTest) Run() {
 	// signals all goroutines to stop when subscription error occurs
 	stopAllGoroutinesCh := make(chan struct{})
 
+	retryLimit := 5
+
 	// this goroutine fans out headers to goroutines in the background
 	// and exists when all goroutines are done or when an error occurs
 	go func() {
@@ -304,10 +307,25 @@ func (k *KeeperBenchmarkTest) Run() {
 				return
 			case err := <-sub.Err():
 				// no need to unsubscribe, subscripion errored
-				k.log.Err(err).Msg("header subscription failed. Exiting")
-				// close channel to signal all goroutines they should exit
-				close(stopAllGoroutinesCh)
-				return
+				k.log.Error().Err(err).Msg("header subscription failed. Trying to reconnect...")
+				startErr := retry.Do(func() error {
+					sub, err = k.chainClient.Client.Client().EthSubscribe(context.Background(), headerCh, "newHeads")
+					return err
+				},
+					retry.Attempts(uint(retryLimit)),
+					retry.Delay(1*time.Second),
+					retry.OnRetry(func(n uint, err error) {
+						k.log.Info().
+							Str("Attempt", fmt.Sprintf("%d/%d", n+1, retryLimit)).
+							Msg("Trying to reconnect to header subscription")
+					}),
+				)
+				if startErr != nil {
+					// close channel to signal all goroutines they should exit, but only if we failed to reconnect
+					close(stopAllGoroutinesCh)
+					return
+				}
+				k.log.Info().Msg("Reconnected to header subscription")
 			}
 		}
 	}()
