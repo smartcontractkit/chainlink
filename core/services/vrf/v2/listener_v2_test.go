@@ -21,6 +21,7 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -35,7 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master) txmgrcommon.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee] {
+func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master) txmgrcommon.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee, *client.SendError] {
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	ec := evmtest.NewEthClientMockWithDefaultChain(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
