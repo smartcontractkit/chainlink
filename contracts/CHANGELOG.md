@@ -1,5 +1,19 @@
 # @chainlink/contracts
 
+## 1.1.1
+
+### Patch Changes
+
+- [#12812](https://github.com/smartcontractkit/chainlink/pull/12812) [`5b33a3296f`](https://github.com/smartcontractkit/chainlink/commit/5b33a3296f895cec8a23ba2e235989868f398ddb) Thanks [@shileiwill](https://github.com/shileiwill)! - Support decimals #added
+
+- [#12979](https://github.com/smartcontractkit/chainlink/pull/12979) [`0c4c24ad8c`](https://github.com/smartcontractkit/chainlink/commit/0c4c24ad8c95e505cd2a29be711cc40e612658b0) Thanks [@cds95](https://github.com/cds95)! - Add function to remove node operators from capability registry
+
+- [#12991](https://github.com/smartcontractkit/chainlink/pull/12991) [`929312681f`](https://github.com/smartcontractkit/chainlink/commit/929312681fb27529915912e8bd6e4000559ea77f) Thanks [@cds95](https://github.com/cds95)! - Add function to update node operator'
+
+- [#12669](https://github.com/smartcontractkit/chainlink/pull/12669) [`3134ce8868`](https://github.com/smartcontractkit/chainlink/commit/3134ce8868ccc22bd4ae670c8b0bfda5fa78a332) Thanks [@leeyikjiun](https://github.com/leeyikjiun)! - vrfv2plus - account for num words in coordinator gas overhead in v2plus wrapper
+
+- [#12906](https://github.com/smartcontractkit/chainlink/pull/12906) [`365c38be8b`](https://github.com/smartcontractkit/chainlink/commit/365c38be8b589d5ffa0b21755dcb40e2e4205652) Thanks [@cds95](https://github.com/cds95)! - Implement function to add node operators to the capability registry'
+
 ## 1.1.0 - 2024-04-23
 
 ### Minor Changes
@@ -80,7 +94,6 @@
 - [#12477](https://github.com/smartcontractkit/chainlink/pull/12477) [`b2576475fc`](https://github.com/smartcontractkit/chainlink/commit/b2576475fc5c8ac037fc569fddc56e9d515ae7ca) Thanks [@shileiwill](https://github.com/shileiwill)! - support native payment
 
 - [#12531](https://github.com/smartcontractkit/chainlink/pull/12531) [`88e010d604`](https://github.com/smartcontractkit/chainlink/commit/88e010d604682c54c4f99e0a0916f94c0d13ece6) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - increase num optimizations to 500 for v2.5 coordinator
-
 
 ## 1.0.0 - 2024-03-25
 
