@@ -18,7 +18,6 @@ jobs:
       id-token: write
       contents: read
       actions: read
-      repository-projects: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -54,7 +53,7 @@ jobs:
       - name: Get release version
         if: steps.changeset-added.outputs.core-changeset == 'true'
         id: get-release-version
-        run: VERSION=$(jq -r '.version' package.json) >> $GITHUB_OUTPUT
+        run: echo "version=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
 
       - name: cicd-changesets
         if: steps.changeset-added.outputs.core-changeset == 'true'
@@ -65,7 +64,7 @@ jobs:
           git-email: app-token-issuer-releng[bot]@users.noreply.github.com
           pnpm-use-cache: false
           pr-draft: true
-          pr-title: "[DO NOT MERGE] Changeset Release Preview - v${{ steps.get-release-version.outputs.VERSION }}"
+          pr-title: "[DO NOT MERGE] Changeset Release Preview - v${{ steps.get-release-version.outputs.version }}"
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
