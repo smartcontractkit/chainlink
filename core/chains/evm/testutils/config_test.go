@@ -3,8 +3,9 @@ package testutils
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 func TestNewTestChainScopedConfigOverride(t *testing.T) {
