@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/keyvalue"
-
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/keyvalue"
+	relayersetpb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/relayerset"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayerset"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/capability"
@@ -44,6 +46,7 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 	errorLog core.ErrorLog,
 	capRegistry core.CapabilitiesRegistry,
 	keyValueStore core.KeyValueStore,
+	relayerSet core.RelayerSet,
 ) (core.OCR3ReportingPluginFactory, error) {
 	cc := o.NewClientConn("ReportingPluginServiceFactory", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		providerID, providerRes, err := o.Serve("PluginProvider", proxy.NewProxy(grpcProvider))
@@ -92,6 +95,22 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 		}
 		deps.Add(keyValueStoreRes)
 
+		relayerSetServer, relayerSetServerRes := relayerset.NewRelayerSetServer(o.Logger, relayerSet, o.BrokerExt)
+		if err != nil {
+			return 0, nil, fmt.Errorf("failed to create new relayer set: %w", err)
+		}
+
+		relayerSetID, relayerSetRes, err := o.ServeNew("RelayerSet", func(s *grpc.Server) {
+			relayersetpb.RegisterRelayerSetServer(s, relayerSetServer)
+		})
+
+		if err != nil {
+			return 0, nil, fmt.Errorf("failed to serve new relayer set: %w", err)
+		}
+
+		deps.Add(relayerSetRes)
+		deps.Add(relayerSetServerRes)
+
 		reply, err := o.reportingPluginService.NewReportingPluginFactory(ctx, &pb.NewReportingPluginFactoryRequest{
 			ReportingPluginServiceConfig: &pb.ReportingPluginServiceConfig{
 				ProviderType:  config.ProviderType,
@@ -106,6 +125,7 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 			TelemetryID:      telemetryID,
 			CapRegistryID:    capRegistryID,
 			KeyValueStoreID:  keyValueStoreID,
+			RelayerSetID:     relayerSetID,
 		})
 		if err != nil {
 			return 0, nil, err
@@ -207,16 +227,25 @@ func (m reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Cont
 		TelemetryType: request.ReportingPluginServiceConfig.TelemetryType,
 	}
 
-	factory, err := m.impl.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetry, errorLog, capRegistry, keyValueStore)
+	relayersetConn, err := m.Dial(request.RelayerSetID)
 	if err != nil {
-		m.CloseAll(providerRes, errorLogRes, pipelineRunnerRes, telemetryRes, capRegistryRes)
+		m.CloseAll(errorLogRes, providerRes, pipelineRunnerRes, telemetryRes, keyValueStoreRes)
+		return nil, net.ErrConnDial{Name: "RelayerSet", ID: request.RelayerSetID, Err: err}
+	}
+	relayerSetRes := net.Resource{Closer: relayersetConn, Name: "RelayerSet"}
+	relayerSet := relayerset.NewRelayerSetClient(m.Logger, m.BrokerExt, relayersetConn)
+
+	factory, err := m.impl.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetry, errorLog, capRegistry, keyValueStore,
+		relayerSet)
+	if err != nil {
+		m.CloseAll(providerRes, errorLogRes, pipelineRunnerRes, telemetryRes, capRegistryRes, relayerSetRes)
 		return nil, err
 	}
 
 	id, _, err := m.ServeNew("ReportingPluginProvider", func(s *grpc.Server) {
 		pb.RegisterServiceServer(s, &goplugin.ServiceServer{Srv: factory})
 		ocr3pb.RegisterReportingPluginFactoryServer(s, newReportingPluginFactoryServer(factory, m.BrokerExt))
-	}, providerRes, errorLogRes, pipelineRunnerRes, telemetryRes, capRegistryRes, keyValueStoreRes)
+	}, providerRes, errorLogRes, pipelineRunnerRes, telemetryRes, capRegistryRes, keyValueStoreRes, relayerSetRes)
 	if err != nil {
 		return nil, err
 	}

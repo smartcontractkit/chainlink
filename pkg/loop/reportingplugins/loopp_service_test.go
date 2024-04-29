@@ -17,6 +17,7 @@ import (
 	nettest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 
+	relayersettest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/relayerset/test"
 	reportingplugintest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -57,7 +58,8 @@ func TestLOOPPService(t *testing.T) {
 			pipelinetest.PipelineRunner,
 			telemetrytest.Telemetry,
 			errorlogtest.ErrorLog,
-			keyvaluestoretest.KeyValueStore{})
+			keyvaluestoretest.KeyValueStore{},
+			relayersettest.RelayerSet{})
 		hook := looppSvc.XXXTestHook()
 		servicetest.Run(t, looppSvc)
 
@@ -100,7 +102,8 @@ func TestLOOPPService_recovery(t *testing.T) {
 		pipelinetest.PipelineRunner,
 		telemetrytest.Telemetry,
 		errorlogtest.ErrorLog,
-		keyvaluestoretest.KeyValueStore{})
+		keyvaluestoretest.KeyValueStore{},
+		relayersettest.RelayerSet{})
 	servicetest.Run(t, looppSvc)
 
 	reportingplugintest.RunFactory(t, looppSvc)

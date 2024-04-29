@@ -3,8 +3,9 @@ package core
 import (
 	"context"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/grpc"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -21,7 +22,7 @@ type ReportingPluginServiceConfig struct {
 // ReportingPluginClient is the client interface to a plugin running
 // as a generic job (job type = GenericPlugin) inside the core node.
 type ReportingPluginClient interface {
-	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, grpcProvider grpc.ClientConnInterface, pipelineRunner PipelineRunnerService, telemetry TelemetryService, errorLog ErrorLog, keyValueStore KeyValueStore) (types.ReportingPluginFactory, error)
+	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, grpcProvider grpc.ClientConnInterface, pipelineRunner PipelineRunnerService, telemetry TelemetryService, errorLog ErrorLog, keyValueStore KeyValueStore, relayerSet RelayerSet) (types.ReportingPluginFactory, error)
 	NewValidationService(ctx context.Context) (ValidationService, error)
 }
 
@@ -30,17 +31,17 @@ type ReportingPluginClient interface {
 // with the passthrough provider connection converted to the provider
 // expected by the plugin.
 type ReportingPluginServer[T types.PluginProvider] interface {
-	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, provider T, pipelineRunner PipelineRunnerService, telemetry TelemetryClient, errorLog ErrorLog, keyValueStore KeyValueStore) (types.ReportingPluginFactory, error)
+	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, provider T, pipelineRunner PipelineRunnerService, telemetry TelemetryClient, errorLog ErrorLog, keyValueStore KeyValueStore, relayerSet RelayerSet) (types.ReportingPluginFactory, error)
 	NewValidationService(ctx context.Context) (ValidationService, error)
 }
 
 type OCR3ReportingPluginClient interface {
-	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, grpcProvider grpc.ClientConnInterface, pipelineRunner PipelineRunnerService, telemetry TelemetryService, errorLog ErrorLog, capRegistry CapabilitiesRegistry, keyValueStore KeyValueStore) (OCR3ReportingPluginFactory, error)
+	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, grpcProvider grpc.ClientConnInterface, pipelineRunner PipelineRunnerService, telemetry TelemetryService, errorLog ErrorLog, capRegistry CapabilitiesRegistry, keyValueStore KeyValueStore, relayerSet RelayerSet) (OCR3ReportingPluginFactory, error)
 	NewValidationService(ctx context.Context) (ValidationService, error)
 }
 
 type OCR3ReportingPluginServer[T types.PluginProvider] interface {
-	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, provider T, pipelineRunner PipelineRunnerService, telemetry TelemetryClient, errorLog ErrorLog, capRegistry CapabilitiesRegistry, keyValueStore KeyValueStore) (OCR3ReportingPluginFactory, error)
+	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, provider T, pipelineRunner PipelineRunnerService, telemetry TelemetryClient, errorLog ErrorLog, capRegistry CapabilitiesRegistry, keyValueStore KeyValueStore, relayerSet RelayerSet) (OCR3ReportingPluginFactory, error)
 	NewValidationService(ctx context.Context) (ValidationService, error)
 }
 

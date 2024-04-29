@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os/exec"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/grpc"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -40,13 +41,15 @@ func NewLOOPPService(
 	telemetryService core.TelemetryService,
 	errorLog core.ErrorLog,
 	keyValueStore core.KeyValueStore,
+	relayerSet core.RelayerSet,
 ) *LOOPPService {
 	newService := func(ctx context.Context, instance any) (types.ReportingPluginFactory, error) {
 		plug, ok := instance.(core.ReportingPluginClient)
 		if !ok {
 			return nil, fmt.Errorf("expected GenericPluginClient but got %T", instance)
 		}
-		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetryService, errorLog, keyValueStore)
+		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetryService, errorLog, keyValueStore,
+			relayerSet)
 	}
 	stopCh := make(chan struct{})
 	lggr = logger.Named(lggr, "GenericService")

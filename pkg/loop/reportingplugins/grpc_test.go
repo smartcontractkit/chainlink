@@ -11,6 +11,7 @@ import (
 	errorlogtest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/errorlog/test"
 	keyvaluestoretest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/keyvalue/test"
 	pipelinetest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/pipeline/test"
+	relayersettest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/relayerset/test"
 	ocr2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/reportingplugin/ocr2/test"
 	telemetrytest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/telemetry/test"
 	nettest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net/test"
@@ -40,6 +41,7 @@ func PluginGenericTest(t *testing.T, p core.ReportingPluginClient) {
 			telemetrytest.Telemetry,
 			errorlogtest.ErrorLog,
 			keyvaluestoretest.KeyValueStore{},
+			relayersettest.RelayerSet{},
 		)
 
 		require.NoError(t, err)

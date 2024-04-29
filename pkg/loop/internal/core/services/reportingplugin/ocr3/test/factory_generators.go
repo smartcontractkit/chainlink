@@ -46,7 +46,10 @@ func (s medianServer) ConnToProvider(conn grpc.ClientConnInterface, broker net.B
 	return s.medianProvider
 }
 
-func (s medianServer) NewReportingPluginFactory(ctx context.Context, config core.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient, errorLog core.ErrorLog, capRegistry core.CapabilitiesRegistry, keyValueStore core.KeyValueStore) (core.OCR3ReportingPluginFactory, error) {
+func (s medianServer) NewReportingPluginFactory(ctx context.Context, config core.ReportingPluginServiceConfig,
+	provider types.MedianProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient,
+	errorLog core.ErrorLog, capRegistry core.CapabilitiesRegistry,
+	keyValueStore core.KeyValueStore, relayerSet core.RelayerSet) (core.OCR3ReportingPluginFactory, error) {
 	err := s.medianProvider.Evaluate(ctx, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate median provider: %w", err)
@@ -87,7 +90,10 @@ func (s agnosticPluginServer) ConnToProvider(conn grpc.ClientConnInterface, brok
 	return s.provider
 }
 
-func (s agnosticPluginServer) NewReportingPluginFactory(ctx context.Context, config core.ReportingPluginServiceConfig, provider types.PluginProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient, errorLog core.ErrorLog, capRegistry core.CapabilitiesRegistry, keyValueStore core.KeyValueStore) (core.OCR3ReportingPluginFactory, error) {
+func (s agnosticPluginServer) NewReportingPluginFactory(ctx context.Context, config core.ReportingPluginServiceConfig,
+	provider types.PluginProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient,
+	errorLog core.ErrorLog, capRegistry core.CapabilitiesRegistry,
+	keyValueStore core.KeyValueStore, relayerSet core.RelayerSet) (core.OCR3ReportingPluginFactory, error) {
 	err := s.provider.Evaluate(ctx, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate agnostic provider: %w", err)

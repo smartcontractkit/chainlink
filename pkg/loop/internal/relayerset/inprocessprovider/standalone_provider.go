@@ -1,4 +1,4 @@
-package loop
+package inprocessprovider
 
 import (
 	"fmt"

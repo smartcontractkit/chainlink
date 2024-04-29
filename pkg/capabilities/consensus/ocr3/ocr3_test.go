@@ -29,10 +29,11 @@ func TestOCR3_ReportingFactoryAddsCapability(t *testing.T) {
 	var tc core.TelemetryClient
 	var el core.ErrorLog
 	var kv core.KeyValueStore
+	var rs core.RelayerSet
 	r := mocks.NewCapabilitiesRegistry(t)
 	r.On("Add", mock.Anything, o.config.capability).Return(nil)
 
-	_, err := o.NewReportingPluginFactory(ctx, core.ReportingPluginServiceConfig{}, p, pr, tc, el, r, kv)
+	_, err := o.NewReportingPluginFactory(ctx, core.ReportingPluginServiceConfig{}, p, pr, tc, el, r, kv, rs)
 	require.NoError(t, err)
 }
 
@@ -51,10 +52,11 @@ func TestOCR3_ReportingFactoryIsAService(t *testing.T) {
 	var tc core.TelemetryClient
 	var el core.ErrorLog
 	var kv core.KeyValueStore
+	var rs core.RelayerSet
 	r := mocks.NewCapabilitiesRegistry(t)
 	r.On("Add", mock.Anything, o.config.capability).Return(nil)
 
-	factory, err := o.NewReportingPluginFactory(ctx, core.ReportingPluginServiceConfig{}, p, pr, tc, el, r, kv)
+	factory, err := o.NewReportingPluginFactory(ctx, core.ReportingPluginServiceConfig{}, p, pr, tc, el, r, kv, rs)
 	require.NoError(t, err)
 
 	require.NoError(t, factory.Start(ctx))

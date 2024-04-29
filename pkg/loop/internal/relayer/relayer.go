@@ -216,16 +216,27 @@ func (r *relayerClient) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return reply.PluginProviderID, nil, nil
 	})
 
+	broker := r.BrokerExt
+
+	return WrapProviderClientConnection(rargs.ProviderType, cc, broker)
+}
+
+type PluginProviderClient interface {
+	types.PluginProvider
+	goplugin.GRPCClientConn
+}
+
+func WrapProviderClientConnection(providerType string, cc grpc.ClientConnInterface, broker *net.BrokerExt) (PluginProviderClient, error) {
 	// TODO: Remove this when we have fully transitioned all relayers to running in LOOPPs.
 	// This allows callers to type assert a PluginProvider into a product provider type (eg. MedianProvider)
 	// for interoperability with legacy code.
-	switch rargs.ProviderType {
+	switch providerType {
 	case string(types.Median):
-		return median.NewProviderClient(r.BrokerExt, cc), nil
+		return median.NewProviderClient(broker, cc), nil
 	case string(types.GenericPlugin):
-		return ocr2.NewPluginProviderClient(r.BrokerExt, cc), nil
+		return ocr2.NewPluginProviderClient(broker, cc), nil
 	case string(types.Mercury):
-		return mercury.NewProviderClient(r.BrokerExt, cc), nil
+		return mercury.NewProviderClient(broker, cc), nil
 	case string(types.CCIPExecution):
 		// TODO BCF-3061
 		// what do i do here? for the local embedded relayer, we are using the broker
@@ -236,9 +247,9 @@ func (r *relayerClient) NewPluginProvider(ctx context.Context, rargs types.Relay
 		// even make sense to me because the relayer client will in the reporting plugin loop
 		// for now we return an error and test for the this error case
 		// return nil, fmt.Errorf("need to fix BCF-3061")
-		return ccip.NewExecProviderClient(r.BrokerExt, cc), fmt.Errorf("need to fix BCF-3061")
+		return ccip.NewExecProviderClient(broker, cc), fmt.Errorf("need to fix BCF-3061")
 	default:
-		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
+		return nil, fmt.Errorf("provider type not supported: %s", providerType)
 	}
 }
 
@@ -336,21 +347,24 @@ func (r *relayerServer) NewConfigProvider(ctx context.Context, request *pb.NewCo
 }
 
 func (r *relayerServer) NewPluginProvider(ctx context.Context, request *pb.NewPluginProviderRequest) (*pb.NewPluginProviderReply, error) {
-	exJobID, err := uuid.FromBytes(request.RelayArgs.ExternalJobID)
+	rargs := request.RelayArgs
+	pargs := request.PluginArgs
+
+	exJobID, err := uuid.FromBytes(rargs.ExternalJobID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid uuid bytes for ExternalJobID: %w", err)
 	}
 	relayArgs := types.RelayArgs{
 		ExternalJobID: exJobID,
-		JobID:         request.RelayArgs.JobID,
-		ContractID:    request.RelayArgs.ContractID,
-		New:           request.RelayArgs.New,
-		RelayConfig:   request.RelayArgs.RelayConfig,
-		ProviderType:  request.RelayArgs.ProviderType,
+		JobID:         rargs.JobID,
+		ContractID:    rargs.ContractID,
+		New:           rargs.New,
+		RelayConfig:   rargs.RelayConfig,
+		ProviderType:  rargs.ProviderType,
 	}
 	pluginArgs := types.PluginArgs{
-		TransmitterID: request.PluginArgs.TransmitterID,
-		PluginConfig:  request.PluginArgs.PluginConfig,
+		TransmitterID: pargs.TransmitterID,
+		PluginConfig:  pargs.PluginConfig,
 	}
 
 	switch request.RelayArgs.ProviderType {

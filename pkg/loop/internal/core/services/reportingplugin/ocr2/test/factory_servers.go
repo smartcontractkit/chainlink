@@ -51,7 +51,9 @@ func (s medianFactoryServer) ConnToProvider(conn grpc.ClientConnInterface, broke
 	return s.medianProvider
 }
 
-func (s medianFactoryServer) NewReportingPluginFactory(ctx context.Context, config core.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient, errorLog core.ErrorLog, keyValueStore core.KeyValueStore) (types.ReportingPluginFactory, error) {
+func (s medianFactoryServer) NewReportingPluginFactory(ctx context.Context, config core.ReportingPluginServiceConfig,
+	provider types.MedianProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient,
+	errorLog core.ErrorLog, keyValueStore core.KeyValueStore, relayerSet core.RelayerSet) (types.ReportingPluginFactory, error) {
 	err := s.medianProvider.Evaluate(ctx, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate median provider: %w", err)
@@ -94,7 +96,9 @@ func (s agnosticPluginFactoryServer) ConnToProvider(conn grpc.ClientConnInterfac
 	return s.provider
 }
 
-func (s agnosticPluginFactoryServer) NewReportingPluginFactory(ctx context.Context, config core.ReportingPluginServiceConfig, provider types.PluginProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient, errorLog core.ErrorLog, keyValueStore core.KeyValueStore) (types.ReportingPluginFactory, error) {
+func (s agnosticPluginFactoryServer) NewReportingPluginFactory(ctx context.Context, config core.ReportingPluginServiceConfig,
+	provider types.PluginProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient,
+	errorLog core.ErrorLog, keyValueStore core.KeyValueStore, relayerSet core.RelayerSet) (types.ReportingPluginFactory, error) {
 	err := s.provider.Evaluate(ctx, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate agnostic provider: %w", err)

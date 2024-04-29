@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/keyvalue"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/keyvalue"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayerset"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/errorlog"
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
+	relayersetpb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/relayerset"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -44,6 +46,7 @@ func (m *ReportingPluginServiceClient) NewReportingPluginFactory(
 	telemetryService core.TelemetryService,
 	errorLog core.ErrorLog,
 	keyValueStore core.KeyValueStore,
+	relayerSet core.RelayerSet,
 ) (types.ReportingPluginFactory, error) {
 	cc := m.NewClientConn("ReportingPluginServiceFactory", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		providerID, providerRes, err := m.Serve("PluginProvider", proxy.NewProxy(grpcProvider))
@@ -86,6 +89,22 @@ func (m *ReportingPluginServiceClient) NewReportingPluginFactory(
 
 		deps.Add(keyValueStoreRes)
 
+		relayerSetServer, relayerSetServerRes := relayerset.NewRelayerSetServer(m.Logger, relayerSet, m.BrokerExt)
+		if err != nil {
+			return 0, nil, fmt.Errorf("failed to create new relayer set: %w", err)
+		}
+
+		relayerSetID, relayerSetRes, err := m.ServeNew("RelayerSet", func(s *grpc.Server) {
+			relayersetpb.RegisterRelayerSetServer(s, relayerSetServer)
+		})
+
+		if err != nil {
+			return 0, nil, fmt.Errorf("failed to serve new relayer set: %w", err)
+		}
+
+		deps.Add(relayerSetRes)
+		deps.Add(relayerSetServerRes)
+
 		reply, err := m.reportingPluginService.NewReportingPluginFactory(ctx, &pb.NewReportingPluginFactoryRequest{
 			ReportingPluginServiceConfig: &pb.ReportingPluginServiceConfig{
 				ProviderType:  config.ProviderType,
@@ -99,6 +118,7 @@ func (m *ReportingPluginServiceClient) NewReportingPluginFactory(
 			PipelineRunnerID: pipelineRunnerID,
 			TelemetryID:      telemetryID,
 			KeyValueStoreID:  keyValueStoreID,
+			RelayerSetID:     relayerSetID,
 		})
 		if err != nil {
 			return 0, nil, err
@@ -176,6 +196,14 @@ func (m *reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Con
 	keyValueStoreRes := net.Resource{Closer: keyValueStoreConn, Name: "KeyValueStore"}
 	keyValueStore := keyvalue.NewClient(keyValueStoreConn)
 
+	relayersetConn, err := m.Dial(request.RelayerSetID)
+	if err != nil {
+		m.CloseAll(errorLogRes, providerRes, pipelineRunnerRes, telemetryRes, keyValueStoreRes)
+		return nil, net.ErrConnDial{Name: "RelayerSet", ID: request.RelayerSetID, Err: err}
+	}
+	relayerSetRes := net.Resource{Closer: relayersetConn, Name: "RelayerSet"}
+	relayerSet := relayerset.NewRelayerSetClient(m.Logger, m.BrokerExt, relayersetConn)
+
 	config := core.ReportingPluginServiceConfig{
 		ProviderType:  request.ReportingPluginServiceConfig.ProviderType,
 		PluginConfig:  request.ReportingPluginServiceConfig.PluginConfig,
@@ -184,16 +212,17 @@ func (m *reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Con
 		TelemetryType: request.ReportingPluginServiceConfig.TelemetryType,
 	}
 
-	factory, err := m.impl.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetry, errorLog, keyValueStore)
+	factory, err := m.impl.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetry, errorLog,
+		keyValueStore, relayerSet)
 	if err != nil {
-		m.CloseAll(providerRes, errorLogRes, pipelineRunnerRes, telemetryRes, keyValueStoreRes)
+		m.CloseAll(providerRes, errorLogRes, pipelineRunnerRes, telemetryRes, keyValueStoreRes, relayerSetRes)
 		return nil, err
 	}
 
 	id, _, err := m.ServeNew("ReportingPluginProvider", func(s *grpc.Server) {
 		pb.RegisterServiceServer(s, &goplugin.ServiceServer{Srv: factory})
 		pb.RegisterReportingPluginFactoryServer(s, NewReportingPluginFactoryServer(factory, m.BrokerExt))
-	}, providerRes, errorLogRes, pipelineRunnerRes, telemetryRes)
+	}, providerRes, errorLogRes, pipelineRunnerRes, telemetryRes, keyValueStoreRes, relayerSetRes)
 	if err != nil {
 		return nil, err
 	}

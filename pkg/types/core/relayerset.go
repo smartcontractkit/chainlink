@@ -12,7 +12,7 @@ type RelayerSet interface {
 
 	// List lists the relayers corresponding to `...types.RelayID`
 	// returning all relayers if len(...types.RelayID) == 0.
-	List(ctx context.Context, relayIDs ...types.RelayID) ([]Relayer, error)
+	List(ctx context.Context, relayIDs ...types.RelayID) (map[types.RelayID]Relayer, error)
 }
 
 type PluginArgs struct {
@@ -27,7 +27,8 @@ type RelayArgs struct {
 	MercuryCredentials *types.MercuryCredentials
 }
 
+//go:generate mockery --quiet --name Relayer --output ./mocks/ --case=underscore
 type Relayer interface {
 	services.Service
-	NewPluginProvider(rargs RelayArgs, pargs PluginArgs) (types.PluginProvider, error)
+	NewPluginProvider(context.Context, RelayArgs, PluginArgs) (types.PluginProvider, error)
 }

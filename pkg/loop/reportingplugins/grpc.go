@@ -53,6 +53,7 @@ type serverAdapter struct {
 		ts core.TelemetryService,
 		errorLog core.ErrorLog,
 		kv core.KeyValueStore,
+		rs core.RelayerSet,
 	) (types.ReportingPluginFactory, error)
 
 	ValidateConfigService
@@ -73,8 +74,9 @@ func (s serverAdapter) NewReportingPluginFactory(
 	ts core.TelemetryService,
 	errorLog core.ErrorLog,
 	kv core.KeyValueStore,
+	rs core.RelayerSet,
 ) (types.ReportingPluginFactory, error) {
-	return s.NewReportingPluginFactoryFn(ctx, config, conn, pr, ts, errorLog, kv)
+	return s.NewReportingPluginFactoryFn(ctx, config, conn, pr, ts, errorLog, kv, rs)
 }
 
 func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
@@ -86,10 +88,11 @@ func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Serv
 		ts core.TelemetryService,
 		el core.ErrorLog,
 		kv core.KeyValueStore,
+		rs core.RelayerSet,
 	) (types.ReportingPluginFactory, error) {
 		provider := g.PluginServer.ConnToProvider(conn, broker, g.BrokerConfig)
 		tc := telemetry.NewTelemetryClient(ts)
-		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, tc, el, kv)
+		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, tc, el, kv, rs)
 	}
 
 	return ocr2.RegisterReportingPluginServiceServer(server, broker, g.BrokerConfig, serverAdapter{

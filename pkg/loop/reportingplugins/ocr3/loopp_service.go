@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/grpc"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -32,13 +33,14 @@ func NewLOOPPService(
 	errorLog core.ErrorLog,
 	capRegistry core.CapabilitiesRegistry,
 	keyValueStore core.KeyValueStore,
+	relayerSet core.RelayerSet,
 ) *LOOPPService {
 	newService := func(ctx context.Context, instance any) (core.OCR3ReportingPluginFactory, error) {
 		plug, ok := instance.(core.OCR3ReportingPluginClient)
 		if !ok {
 			return nil, fmt.Errorf("expected OCR3ReportingPluginClient but got %T", instance)
 		}
-		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetryService, errorLog, capRegistry, keyValueStore)
+		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetryService, errorLog, capRegistry, keyValueStore, relayerSet)
 	}
 
 	stopCh := make(chan struct{})

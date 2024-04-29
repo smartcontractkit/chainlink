@@ -4,9 +4,10 @@ import (
 	"slices"
 	"strings"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // The bootstrap jobs only watch config.

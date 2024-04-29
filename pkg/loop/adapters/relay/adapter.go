@@ -1,8 +1,9 @@
-package loop
+package relay
 
 import (
 	"context"
 
+	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -13,7 +14,7 @@ type RelayerExt interface {
 	ID() string
 }
 
-var _ Relayer = (*RelayerAdapter)(nil)
+var _ looptypes.Relayer = (*RelayerAdapter)(nil)
 
 // RelayerAdapter adapts a [types.Relayer] and [RelayerExt] to implement [Relayer].
 type RelayerAdapter struct {
