@@ -25,7 +25,6 @@ func NewReportSerializer(encryptionGroup kyber.Group) types.ReportSerializer {
 
 // SerializeReport serializes an abstract report into abi-encoded bytes.
 func (serializer *reportSerializer) SerializeReport(r types.AbstractReport) ([]byte, error) {
-
 	packed, err := serializer.e.SerializeReport(r)
 
 	if err != nil {

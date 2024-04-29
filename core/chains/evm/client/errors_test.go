@@ -94,7 +94,6 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("IsReplacementUnderpriced", func(t *testing.T) {
-
 		tests := []errorCase{
 			{"replacement transaction underpriced", true, "geth"},
 			{"Replacement transaction underpriced", true, "Besu"},

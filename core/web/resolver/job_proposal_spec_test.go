@@ -160,7 +160,6 @@ func TestResolver_CancelJobProposalSpec(t *testing.T) {
 				f.Mocks.feedsSvc.On("GetSpec", mock.Anything, specID).Return(&feeds.JobProposalSpec{
 					ID: specID,
 				}, nil)
-
 			},
 			query:     mutation,
 			variables: variables,
@@ -349,7 +348,6 @@ func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateSpecDefinition", mock.Anything, specID, "").Return(sql.ErrNoRows)
-
 			},
 			query:     mutation,
 			variables: variables,
