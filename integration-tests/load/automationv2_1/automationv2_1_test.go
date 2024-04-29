@@ -423,8 +423,10 @@ Load Config:
 		expectedTotalUpkeepCount += *u.NumberOfUpkeeps
 	}
 
+	maxDeploymentConcurrency := 100
+
 	for _, u := range loadedTestConfig.Automation.Load {
-		deploymentData, err := deployConsumerAndTriggerContracts(l, u, a.ChainClient, multicallAddress, automationDefaultLinkFunds, a.LinkToken)
+		deploymentData, err := deployConsumerAndTriggerContracts(l, u, a.ChainClient, multicallAddress, maxDeploymentConcurrency, automationDefaultLinkFunds, a.LinkToken)
 		require.NoError(t, err, "Error deploying consumer and trigger contracts")
 
 		consumerContracts = append(consumerContracts, deploymentData.ConsumerContracts...)
@@ -480,10 +482,10 @@ Load Config:
 	}
 
 	require.Equal(t, expectedTotalUpkeepCount, len(upkeepConfigs), "Incorrect number of upkeep configs created")
-	registrationTxHashes, err := a.RegisterUpkeeps(upkeepConfigs)
+	registrationTxHashes, err := a.RegisterUpkeeps(upkeepConfigs, maxDeploymentConcurrency)
 	require.NoError(t, err, "Error registering upkeeps")
 
-	upkeepIds, err := a.ConfirmUpkeepsRegistered(registrationTxHashes)
+	upkeepIds, err := a.ConfirmUpkeepsRegistered(registrationTxHashes, maxDeploymentConcurrency)
 	require.NoError(t, err, "Error confirming upkeeps registered")
 	require.Equal(t, expectedTotalUpkeepCount, len(upkeepIds), "Incorrect number of upkeeps registered")
 

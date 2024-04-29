@@ -94,12 +94,18 @@ type task struct {
 	deployTrigger bool
 }
 
-func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load, chainClient *seth.Client, multicallAddress common.Address, automationDefaultLinkFunds *big.Int, linkToken contracts.LinkToken) (DeploymentData, error) {
+func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load, chainClient *seth.Client, multicallAddress common.Address, maxConcurrency int, automationDefaultLinkFunds *big.Int, linkToken contracts.LinkToken) (DeploymentData, error) {
 	data := DeploymentData{}
 
 	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(chainClient, 1)
 	if err != nil {
 		return DeploymentData{}, err
+	}
+
+	if concurrency > maxConcurrency {
+		concurrency = maxConcurrency
+		l.Debug().
+			Msgf("Concurrency is higher than max concurrency, setting concurrency to %d", concurrency)
 	}
 
 	l.Debug().

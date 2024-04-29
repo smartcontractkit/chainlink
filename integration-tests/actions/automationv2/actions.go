@@ -589,10 +589,16 @@ func (r registrationResult) GetResult() common.Hash {
 	return r.txHash
 }
 
-func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common.Hash, error) {
+func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcurrency int) ([]common.Hash, error) {
 	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
 	if err != nil {
 		return nil, err
+	}
+
+	if concurrency > maxConcurrency {
+		concurrency = maxConcurrency
+		a.Logger.Debug().
+			Msgf("Concurrency is higher than max concurrency, setting concurrency to %d", concurrency)
 	}
 
 	var registerUpkeep = func(resultCh chan registrationResult, errorCh chan error, executorNum int, upkeepConfig UpkeepConfig) {
@@ -684,10 +690,16 @@ func (c confirmationResult) GetResult() UpkeepId {
 	return c.upkeepID
 }
 
-func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.Hash) ([]*big.Int, error) {
+func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.Hash, maxConcurrency int) ([]*big.Int, error) {
 	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
 	if err != nil {
 		return nil, err
+	}
+
+	if concurrency > maxConcurrency {
+		concurrency = maxConcurrency
+		a.Logger.Debug().
+			Msgf("Concurrency is higher than max concurrency, setting concurrency to %d", concurrency)
 	}
 
 	var confirmUpkeep = func(resultCh chan confirmationResult, errorCh chan error, _ int, txHash common.Hash) {
