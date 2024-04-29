@@ -253,23 +253,21 @@ jobs:
           LOG_POLLER_MATRIX_JSON=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
           echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
 
-          echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
-
-          # # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
-          # if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
-          #   echo "We are in a merge_group event, run both automation and keepers tests"
-          #   echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
-          # else
-          #   echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
-          #   target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
-          #   if [[ "$target_branch" == "develop" ]]; then
-          #     echo "only run automation tests"
-          #     echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
-          #   else
-          #     echo "run both automation and keepers tests"
-          #     echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
-          #   fi
-          # fi
+          # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
+          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+            echo "We are in a merge_group event, run both automation and keepers tests"
+            echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+          else
+            echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
+            target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
+            if [[ "$target_branch" == "develop" ]]; then
+              echo "only run automation tests"
+              echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
+            else
+              echo "run both automation and keepers tests"
+              echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+            fi
+          fi
 
   eth-smoke-tests-matrix-automation:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -470,7 +468,7 @@ jobs:
         with:
           name: cl-node-coverage-data-${{ matrix.product.name }}
           path: .covdata
-          retention-days: 1          
+          retention-days: 1
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -798,7 +796,7 @@ jobs:
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
   eth-smoke-go-mod-cache:
-    
+
     environment: integration
     needs: [eth-smoke-tests]
     runs-on: ubuntu-latest
@@ -919,7 +917,7 @@ jobs:
         with:
           name: cl-node-coverage-data-migration-tests
           path: .covdata
-          retention-days: 1          
+          retention-days: 1
       - name: Notify Slack
         if: failure() && github.event_name != 'workflow_dispatch'
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -1217,12 +1215,12 @@ jobs:
           QA_KUBECONFIG: ""
           run_setup: false
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/.covdata          
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: cl-node-coverage-data-solana-tests
           path: .covdata
-          retention-days: 1          
+          retention-days: 1
 
