@@ -264,6 +264,7 @@ func ReturnFundsFromNodes(log zerolog.Logger, client *seth.Client, chainlinkNode
 
 			err = sendAllFundsIfPossible(log, client, decryptedKey.PrivateKey)
 			if err != nil {
+				log.Error().Err(err).Msg("Failed to return funds from Chainlink node to default network wallet")
 				publicKey := decryptedKey.PrivateKey.Public()
 				publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 				if !ok {
