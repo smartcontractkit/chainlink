@@ -73,6 +73,8 @@ images:
         MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk IMAGE=$image ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
         docker push $image
 hooks:
+  - command: ./scripts/check_env_vars.sh
+    events: [ "before:deploy:app" ]
   - wait:
       running: true
       terminatedWithCode: 0
@@ -97,8 +99,8 @@ deployments:
     helm:
       releaseName: "app"
       chart:
-        name: cl-cluster
-        path: ../charts/chainlink-cluster
+        name: ${CHAINLINK_CLUSTER_HELM_CHART_URI}
+        version: 0.5.0
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy

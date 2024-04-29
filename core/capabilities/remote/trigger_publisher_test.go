@@ -29,12 +29,12 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	require.NoError(t, p1.UnmarshalText([]byte(peerID1)))
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(peerID2)))
-	capDonInfo := remotetypes.DON{
+	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
 	}
-	workflowDonInfo := remotetypes.DON{
+	workflowDonInfo := commoncap.DON{
 		ID:      "workflow-don",
 		Members: []p2ptypes.PeerID{p2},
 		F:       0,
@@ -47,7 +47,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiryMs:         100_000,
 	}
-	workflowDONs := map[string]remotetypes.DON{
+	workflowDONs := map[string]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 	underlying := &testTrigger{

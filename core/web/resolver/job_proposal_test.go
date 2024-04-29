@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
@@ -64,13 +65,13 @@ func TestResolver_GetJobProposal(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.feedsSvc.On("ListManagersByIDs", []int64{1}).Return([]feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("ListManagersByIDs", mock.Anything, []int64{1}).Return([]feeds.FeedsManager{
 					{
 						ID:   1,
 						Name: "manager",
 					},
 				}, nil)
-				f.Mocks.feedsSvc.On("GetJobProposal", jpID).Return(&feeds.JobProposal{
+				f.Mocks.feedsSvc.On("GetJobProposal", mock.Anything, jpID).Return(&feeds.JobProposal{
 					ID:             jpID,
 					Name:           null.StringFrom(name),
 					Status:         feeds.JobProposalStatusApproved,
@@ -89,7 +90,7 @@ func TestResolver_GetJobProposal(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.feedsSvc.On("GetJobProposal", jpID).Return(nil, sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("GetJobProposal", mock.Anything, jpID).Return(nil, sql.ErrNoRows)
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 			},
 			query: query,

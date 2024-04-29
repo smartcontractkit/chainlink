@@ -6,6 +6,7 @@ go 1.21.7
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
 require (
+	github.com/avast/retry-go/v4 v4.5.1
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/cli/go-gh/v2 v2.0.0
 	github.com/ethereum/go-ethereum v1.13.8
@@ -25,9 +26,9 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240419205832-845fa69af8d9
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240424132620-add4946c1c73
 	github.com/smartcontractkit/chainlink-testing-framework v1.28.7-0.20240426090923-904b8dd184d8
-	github.com/smartcontractkit/chainlink-vrf v0.0.0-20240222010609-cd67d123c772
+	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
 	github.com/smartcontractkit/seth v0.1.6-0.20240426090349-4ca87b1f9c8c
@@ -88,7 +89,6 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
-	github.com/avast/retry-go/v4 v4.5.1 // indirect
 	github.com/aws/aws-sdk-go v1.45.25 // indirect
 	github.com/aws/constructs-go/constructs/v10 v10.1.255 // indirect
 	github.com/aws/jsii-runtime-go v1.75.0 // indirect
@@ -373,7 +373,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.10 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419131812-73d148593d92 // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419213354-ea34a948e2ee // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240422130241-13c17a91b2ab // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240422172640-59d47c73ba58 // indirect

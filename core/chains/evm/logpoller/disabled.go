@@ -114,3 +114,11 @@ func (d disabled) LatestBlockByEventSigsAddrsWithConfs(ctx context.Context, from
 func (d disabled) LogsDataWordBetween(ctx context.Context, eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs Confirmations) ([]Log, error) {
 	return nil, ErrDisabled
 }
+
+func (d disabled) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
+	return nil, ErrDisabled
+}
+
+func (d disabled) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
+	return ErrDisabled
+}
