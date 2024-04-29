@@ -43,16 +43,16 @@ func (d *TestDatabaseConfig) Listener() config.Listener {
 
 type TestEvmConfig struct {
 	evmconfig.EVM
-	MaxInFlight              uint32
-	ReaperInterval           time.Duration
-	ReaperThreshold          time.Duration
-	ResendAfterThreshold     time.Duration
-	BumpThreshold            uint64
-	MaxQueued                uint64
-	AutoPurgeStuckTxs        bool
-	AutoPurgeThreshold       uint32
-	AutoPurgeMinAttempts     uint32
-	AutoPurgeDetectionApiUrl *url.URL
+	MaxInFlight          uint32
+	ReaperInterval       time.Duration
+	ReaperThreshold      time.Duration
+	ResendAfterThreshold time.Duration
+	BumpThreshold        uint64
+	MaxQueued            uint64
+	Enabled              bool
+	Threshold            uint32
+	MinAttempts          uint32
+	DetectionApiUrl      *url.URL
 }
 
 func (e *TestEvmConfig) Transactions() evmconfig.Transactions {
@@ -134,12 +134,11 @@ func (t *transactionsConfig) ReaperThreshold() time.Duration       { return t.e.
 func (t *transactionsConfig) ResendAfterThreshold() time.Duration  { return t.e.ResendAfterThreshold }
 func (t *transactionsConfig) AutoPurge() evmconfig.AutoPurgeConfig { return t.autoPurge }
 
-type autoPurgeConfig struct{}
+type autoPurgeConfig struct {
+	evmconfig.AutoPurgeConfig
+}
 
-func (a *autoPurgeConfig) AutoPurgeStuckTxs() bool            { return false }
-func (a *autoPurgeConfig) AutoPurgeThreshold() uint32         { return 0 }
-func (a *autoPurgeConfig) AutoPurgeMinAttempts() uint32       { return 0 }
-func (a *autoPurgeConfig) AutoPurgeDetectionApiUrl() *url.URL { return &url.URL{} }
+func (a *autoPurgeConfig) Enabled() bool { return false }
 
 type MockConfig struct {
 	EvmConfig           *TestEvmConfig

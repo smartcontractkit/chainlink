@@ -47,7 +47,7 @@ func TestStuckTxDetector_Disabled(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	autoPurgeCfg := testAutoPurgeConfig{
-		autoPurgeStuckTxs: false,
+		enabled: false,
 	}
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", autoPurgeCfg, feeEstimator, txStore, ethClient)
 
@@ -76,9 +76,9 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 	autoPurgeThreshold := uint32(5)
 	autoPurgeMinAttempts := uint32(3)
 	autoPurgeCfg := testAutoPurgeConfig{
-		autoPurgeStuckTxs:    true, // Enable auto-purge feature for testing
-		autoPurgeThreshold:   autoPurgeThreshold,
-		autoPurgeMinAttempts: autoPurgeMinAttempts,
+		enabled:     true, // Enable auto-purge feature for testing
+		threshold:   autoPurgeThreshold,
+		minAttempts: autoPurgeMinAttempts,
 	}
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", autoPurgeCfg, feeEstimator, txStore, ethClient)
 
@@ -174,14 +174,14 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	autoPurgeThreshold := uint32(5)
 	autoPurgeMinAttempts := uint32(3)
 	autoPurgeCfg := testAutoPurgeConfig{
-		autoPurgeStuckTxs:    true, // Enable auto-purge feature for testing
-		autoPurgeThreshold:   autoPurgeThreshold,
-		autoPurgeMinAttempts: autoPurgeMinAttempts,
+		enabled:     true, // Enable auto-purge feature for testing
+		threshold:   autoPurgeThreshold,
+		minAttempts: autoPurgeMinAttempts,
 	}
 	blockNum := int64(100)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", autoPurgeCfg, feeEstimator, txStore, ethClient)
 
-	t.Run("not stuck, AutoPurgeThreshold amount of blocks have not passed since broadcast", func(t *testing.T) {
+	t.Run("not stuck, Threshold amount of blocks have not passed since broadcast", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		enabledAddresses := []common.Address{fromAddress}
 		// Create attempts broadcasted at the current broadcast number to test the block num threshold check
@@ -195,7 +195,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 		require.Len(t, txs, 0)
 	})
 
-	t.Run("not stuck, AutoPurgeThreshold amount of blocks have not passed since last purge", func(t *testing.T) {
+	t.Run("not stuck, Threshold amount of blocks have not passed since last purge", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		enabledAddresses := []common.Address{fromAddress}
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
@@ -212,7 +212,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 		require.Len(t, txs, 0)
 	})
 
-	t.Run("not stuck, AutoPurgeMinAttempts amount of attempts have not been broadcasted", func(t *testing.T) {
+	t.Run("not stuck, MinAttempts amount of attempts have not been broadcasted", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		enabledAddresses := []common.Address{fromAddress}
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
@@ -267,7 +267,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	autoPurgeCfg := testAutoPurgeConfig{
-		autoPurgeStuckTxs: true,
+		enabled: true,
 	}
 	blockNum := int64(100)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, commonconfig.ChainZkEvm, autoPurgeCfg, feeEstimator, txStore, ethClient)
@@ -350,8 +350,8 @@ func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 		require.NoError(t, err)
 
 		autoPurgeCfg := testAutoPurgeConfig{
-			autoPurgeStuckTxs:        true,
-			autoPurgeDetectionApiUrl: testUrl,
+			enabled:         true,
+			detectionApiUrl: testUrl,
 		}
 		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, commonconfig.ChainScroll, autoPurgeCfg, feeEstimator, txStore, ethClient)
 
@@ -421,13 +421,13 @@ func mustInsertUnconfirmedEthTxWithBroadcastPurgeAttempt(t *testing.T, txStore t
 }
 
 type testAutoPurgeConfig struct {
-	autoPurgeStuckTxs        bool
-	autoPurgeThreshold       uint32
-	autoPurgeMinAttempts     uint32
-	autoPurgeDetectionApiUrl *url.URL
+	enabled         bool
+	threshold       uint32
+	minAttempts     uint32
+	detectionApiUrl *url.URL
 }
 
-func (t testAutoPurgeConfig) AutoPurgeStuckTxs() bool            { return t.autoPurgeStuckTxs }
-func (t testAutoPurgeConfig) AutoPurgeThreshold() uint32         { return t.autoPurgeThreshold }
-func (t testAutoPurgeConfig) AutoPurgeMinAttempts() uint32       { return t.autoPurgeMinAttempts }
-func (t testAutoPurgeConfig) AutoPurgeDetectionApiUrl() *url.URL { return t.autoPurgeDetectionApiUrl }
+func (t testAutoPurgeConfig) Enabled() bool             { return t.enabled }
+func (t testAutoPurgeConfig) Threshold() uint32         { return t.threshold }
+func (t testAutoPurgeConfig) MinAttempts() uint32       { return t.minAttempts }
+func (t testAutoPurgeConfig) DetectionApiUrl() *url.URL { return t.detectionApiUrl }

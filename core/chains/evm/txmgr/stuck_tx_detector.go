@@ -35,10 +35,10 @@ type stuckTxDetectorTxStore interface {
 }
 
 type stuckTxDetectorConfig interface {
-	AutoPurgeStuckTxs() bool
-	AutoPurgeThreshold() uint32
-	AutoPurgeMinAttempts() uint32
-	AutoPurgeDetectionApiUrl() *url.URL
+	Enabled() bool
+	Threshold() uint32
+	MinAttempts() uint32
+	DetectionApiUrl() *url.URL
 }
 
 type stuckTxDetector struct {
@@ -74,8 +74,8 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.C
 }
 
 func (d *stuckTxDetector) LoadPurgeBlockNumMap(ctx context.Context, addresses []common.Address) error {
-	// Skip loading purge block num map if auto-purge feature disabled or AutoPurgeThreshold is set to 0
-	if !d.cfg.AutoPurgeStuckTxs() || d.cfg.AutoPurgeThreshold() == 0 {
+	// Skip loading purge block num map if auto-purge feature disabled or Threshold is set to 0
+	if !d.cfg.Enabled() || d.cfg.Threshold() == 0 {
 		return nil
 	}
 	d.purgeBlockNumLock.Lock()
@@ -106,10 +106,10 @@ func (d *stuckTxDetector) LoadPurgeBlockNumMap(ctx context.Context, addresses []
 	return nil
 }
 
-// If the AutoPurgeStuckTxs feature is enabled, finds terminally stuck transactions
+// If the auto-purge feature is enabled, finds terminally stuck transactions
 // Uses a chain specific method for detection, or if one does not exist, applies a general heuristic
 func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAddresses []common.Address, blockNum int64) ([]Tx, error) {
-	if !d.cfg.AutoPurgeStuckTxs() {
+	if !d.cfg.Enabled() {
 		return nil, nil
 	}
 	txs, err := d.FindUnconfirmedTxWithLowestNonce(ctx, enabledAddresses)
@@ -163,9 +163,9 @@ func (d *stuckTxDetector) FindUnconfirmedTxWithLowestNonce(ctx context.Context, 
 
 // Uses a heuristic to determine a stuck transaction potentially due to overflow
 // This method can be unreliable and may result in false positives but it is best effort to keep the TXM from getting blocked
-// 1. Check if AutoPurgeThreshold amount of blocks have passed since the last purge of a tx for the same fromAddress
-// 2. If 1 is true, check if AutoPurgeThreshold amount of blocks have passed since the initial broadcast
-// 3. If 2 is true, check if the transaction has at least AutoPurgeMinAttempts amount of broadcasted attempts
+// 1. Check if Threshold amount of blocks have passed since the last purge of a tx for the same fromAddress
+// 2. If 1 is true, check if Threshold amount of blocks have passed since the initial broadcast
+// 3. If 2 is true, check if the transaction has at least MinAttempts amount of broadcasted attempts
 // 4. If 3 is true, check if the latest attempt's gas price is higher than what our gas estimator's GetFee method returns
 // 5. If 4 is true, the transaction is likely stuck due to overflow
 func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, txs []Tx, blockNum int64) ([]Tx, error) {
@@ -179,22 +179,22 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 	}
 	var stuckTxs []Tx
 	for _, tx := range txs {
-		// 1. Check if AutoPurgeThreshold amount of blocks have passed since the last purge of a tx for the same fromAddress
+		// 1. Check if Threshold amount of blocks have passed since the last purge of a tx for the same fromAddress
 		// Used to rate limit purging to prevent a potential valid tx that was stuck behind an overflow tx from also getting purged without having enough time to be confirmed
 		d.purgeBlockNumLock.RLock()
 		lastPurgeBlockNum := d.purgeBlockNumMap[tx.FromAddress]
 		d.purgeBlockNumLock.RUnlock()
-		if lastPurgeBlockNum > blockNum-int64(d.cfg.AutoPurgeThreshold()) {
+		if lastPurgeBlockNum > blockNum-int64(d.cfg.Threshold()) {
 			continue
 		}
 		// Tx attempts are loaded from newest to oldest
 		oldestBroadcastAttempt, newestBroadcastAttempt, broadcastedAttemptsCount := findBroadcastedAttempts(tx)
-		// 2. Check if AutoPurgeThreshold amount of blocks have passed since the oldest attempt's broadcast block num
-		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(d.cfg.AutoPurgeThreshold()) {
+		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
+		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(d.cfg.Threshold()) {
 			continue
 		}
-		// 3. Check if the transaction has at least AutoPurgeMinAttempts amount of broadcasted attempts
-		if broadcastedAttemptsCount < d.cfg.AutoPurgeMinAttempts() {
+		// 3. Check if the transaction has at least MinAttempts amount of broadcasted attempts
+		if broadcastedAttemptsCount < d.cfg.MinAttempts() {
 			continue
 		}
 		// 4. Check if the newest broadcasted attempt's gas price is higher than what our gas estimator's GetFee method returns
@@ -247,8 +247,8 @@ type scrollResponse struct {
 
 // Uses the custom Scroll skipped endpoint to determine an overflow transaction
 func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs []Tx) ([]Tx, error) {
-	if d.cfg.AutoPurgeDetectionApiUrl() == nil {
-		return nil, fmt.Errorf("expected AutoPurgeDetectionApiUrl config to be set for chain type: %s", d.chainType)
+	if d.cfg.DetectionApiUrl() == nil {
+		return nil, fmt.Errorf("expected DetectionApiUrl config to be set for chain type: %s", d.chainType)
 	}
 
 	attemptHashMap := make(map[string]Tx)
@@ -270,7 +270,7 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 	}
 
 	// Build http post request
-	url := fmt.Sprintf("%s/v1/sequencer/tx/skipped", d.cfg.AutoPurgeDetectionApiUrl())
+	url := fmt.Sprintf("%s/v1/sequencer/tx/skipped", d.cfg.DetectionApiUrl())
 	bodyReader := bytes.NewReader(jsonReq)
 	postReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bodyReader)
 	if err != nil {

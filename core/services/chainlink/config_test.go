@@ -568,7 +568,7 @@ func TestConfig_Marshal(t *testing.T) {
 					ResendAfterThreshold: &hour,
 					ForwardersEnabled:    ptr(true),
 					AutoPurge: evmcfg.AutoPurgeConfig{
-						AutoPurgeStuckTxs: ptr(false),
+						Enabled: ptr(false),
 					},
 				},
 
@@ -992,7 +992,7 @@ ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
 
 [EVM.Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -1223,14 +1223,14 @@ func TestConfig_full(t *testing.T) {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
 			}
 		}
-		if got.EVM[c].Transactions.AutoPurge.AutoPurgeThreshold == nil {
-			got.EVM[c].Transactions.AutoPurge.AutoPurgeThreshold = ptr(uint32(0))
+		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
+			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))
 		}
-		if got.EVM[c].Transactions.AutoPurge.AutoPurgeMinAttempts == nil {
-			got.EVM[c].Transactions.AutoPurge.AutoPurgeMinAttempts = ptr(uint32(0))
+		if got.EVM[c].Transactions.AutoPurge.MinAttempts == nil {
+			got.EVM[c].Transactions.AutoPurge.MinAttempts = ptr(uint32(0))
 		}
-		if got.EVM[c].Transactions.AutoPurge.AutoPurgeDetectionApiUrl == nil {
-			got.EVM[c].Transactions.AutoPurge.AutoPurgeDetectionApiUrl = new(commoncfg.URL)
+		if got.EVM[c].Transactions.AutoPurge.DetectionApiUrl == nil {
+			got.EVM[c].Transactions.AutoPurge.DetectionApiUrl = new(commoncfg.URL)
 		}
 	}
 
@@ -1281,9 +1281,9 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: must have at least one node
 			- ChainType: invalid value (Foo): must be one of arbitrum, celo, gnosis, kroma, metis, optimismBedrock, scroll, wemix, zkevm, zksync or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
-			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if AutoPurgeStuckTxs is enabled for Foo
-			- Transactions.AutoPurge.AutoPurgeThreshold: missing: needs to be set if AutoPurgeStuckTxs is enabled for Foo
-			- Transactions.AutoPurge.AutoPurgeMinAttempts: missing: needs to be set if AutoPurgeStuckTxs is enabled for Foo
+			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
+			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
+			- Transactions.AutoPurge.MinAttempts: missing: needs to be set if auto-purge feature is enabled for Foo
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
@@ -1312,7 +1312,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 4: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
-		- 5.Transactions.AutoPurge.AutoPurgeDetectionApiUrl: invalid value (): must be set for scroll
+		- 5.Transactions.AutoPurge.DetectionApiUrl: invalid value (): must be set for scroll
 	- Cosmos: 5 errors:
 		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique

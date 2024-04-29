@@ -24,7 +24,7 @@ ReaperThreshold = '168h'
 ResendAfterThreshold = '1m'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true

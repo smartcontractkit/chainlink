@@ -1759,7 +1759,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -1847,7 +1847,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -1935,7 +1935,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2023,7 +2023,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2112,7 +2112,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2200,7 +2200,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2288,7 +2288,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2377,7 +2377,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2465,7 +2465,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2552,7 +2552,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2639,7 +2639,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2727,7 +2727,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2816,7 +2816,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2904,7 +2904,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -2992,7 +2992,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3080,7 +3080,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3168,7 +3168,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3256,7 +3256,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3344,7 +3344,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3432,7 +3432,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3521,7 +3521,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3609,7 +3609,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3696,7 +3696,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3784,7 +3784,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3871,7 +3871,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -3959,7 +3959,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4047,7 +4047,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4134,7 +4134,7 @@ ReaperThreshold = '0s'
 ResendAfterThreshold = '0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4221,7 +4221,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4309,7 +4309,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4396,7 +4396,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4484,7 +4484,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4571,7 +4571,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4659,7 +4659,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4747,7 +4747,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4836,7 +4836,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -4924,7 +4924,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5012,7 +5012,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5100,7 +5100,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5188,7 +5188,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5275,7 +5275,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5362,7 +5362,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5449,7 +5449,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5537,7 +5537,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5625,7 +5625,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5712,7 +5712,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5800,7 +5800,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5888,7 +5888,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -5977,7 +5977,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6066,7 +6066,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6154,7 +6154,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6242,8 +6242,8 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = true
-AutoPurgeDetectionApiUrl = 'https://sepolia-venus.scroll.io'
+Enabled = true
+DetectionApiUrl = 'https://sepolia-venus.scroll.io'
 
 [BalanceMonitor]
 Enabled = true
@@ -6331,8 +6331,8 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = true
-AutoPurgeDetectionApiUrl = 'https://venus.scroll.io'
+Enabled = true
+DetectionApiUrl = 'https://venus.scroll.io'
 
 [BalanceMonitor]
 Enabled = true
@@ -6420,7 +6420,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6508,7 +6508,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6596,7 +6596,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6684,7 +6684,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6977,36 +6977,36 @@ ResendAfterThreshold controls how long to wait before re-broadcasting a transact
 ## EVM.Transactions.AutoPurge
 ```toml
 [EVM.Transactions.AutoPurge]
-AutoPurgeStuckTxs = false # Default
-AutoPurgeDetectionApiUrl = 'https://venus.scroll.io' # Example
-AutoPurgeThreshold = 5 # Example
-AutoPurgeMinAttempts = 3 # Example
+Eanbled = false # Default
+DetectionApiUrl = 'https://venus.scroll.io' # Example
+Threshold = 5 # Example
+MinAttempts = 3 # Example
 ```
 
 
-### AutoPurgeStuckTxs
+### Eanbled
 ```toml
-AutoPurgeStuckTxs = false # Default
+Eanbled = false # Default
 ```
-AutoPurgeStuckTxs enables or disables automatically purging transactions that have been idenitified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
+Eanbled enables or disables automatically purging transactions that have been idenitified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
 
-### AutoPurgeDetectionApiUrl
+### DetectionApiUrl
 ```toml
-AutoPurgeDetectionApiUrl = 'https://venus.scroll.io' # Example
+DetectionApiUrl = 'https://venus.scroll.io' # Example
 ```
-AutoPurgeDetectionApiUrl configures the base url of a custom endpoint used to identify terminally stuck transactions.
+DetectionApiUrl configures the base url of a custom endpoint used to identify terminally stuck transactions.
 
-### AutoPurgeThreshold
+### Threshold
 ```toml
-AutoPurgeThreshold = 5 # Example
+Threshold = 5 # Example
 ```
-AutoPurgeThreshold configures the number of blocks a transaction has to remain unconfirmed before it is evaluated for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain.
+Threshold configures the number of blocks a transaction has to remain unconfirmed before it is evaluated for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain.
 
-### AutoPurgeMinAttempts
+### MinAttempts
 ```toml
-AutoPurgeMinAttempts = 3 # Example
+MinAttempts = 3 # Example
 ```
-AutoPurgeMinAttempts cnofigures the minimum number of broadcasted attempts a transaction has to have before it is evaluated further for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain.
+MinAttempts cnofigures the minimum number of broadcasted attempts a transaction has to have before it is evaluated further for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain.
 
 ## EVM.BalanceMonitor
 ```toml

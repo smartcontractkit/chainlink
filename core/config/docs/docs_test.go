@@ -87,9 +87,9 @@ func TestDoc(t *testing.T) {
 		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
 
 		// Transactions.AutoPurge configs are only set if the feature is enabled
-		docDefaults.Transactions.AutoPurge.AutoPurgeDetectionApiUrl = nil
-		docDefaults.Transactions.AutoPurge.AutoPurgeThreshold = nil
-		docDefaults.Transactions.AutoPurge.AutoPurgeMinAttempts = nil
+		docDefaults.Transactions.AutoPurge.DetectionApiUrl = nil
+		docDefaults.Transactions.AutoPurge.Threshold = nil
+		docDefaults.Transactions.AutoPurge.MinAttempts = nil
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

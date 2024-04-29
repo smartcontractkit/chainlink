@@ -22,5 +22,5 @@ BlockHistorySize = 0
 HistoryDepth = 50
 
 [Transactions.AutoPurge]
-AutoPurgeStuckTxs = true
-AutoPurgeDetectionApiUrl = 'https://sepolia-venus.scroll.io'
+Enabled = true
+DetectionApiUrl = 'https://sepolia-venus.scroll.io'

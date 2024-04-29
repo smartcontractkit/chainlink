@@ -55,7 +55,7 @@ ChainType = 'Foo'
 FinalityDepth = 32
 
 [EVM.Transactions.AutoPurge]
-AutoPurgeStuckTxs = true
+Enabled = true
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
@@ -107,8 +107,8 @@ ChainID = '534352'
 ChainType = 'scroll'
 
 [EVM.Transactions.AutoPurge]
-AutoPurgeStuckTxs = true
-AutoPurgeDetectionApiUrl = ''
+Enabled = true
+DetectionApiUrl = ''
 
 [[EVM.Nodes]]
 Name = 'scroll node'

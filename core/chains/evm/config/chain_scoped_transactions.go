@@ -43,18 +43,18 @@ type autoPurgeConfig struct {
 	c toml.AutoPurgeConfig
 }
 
-func (a *autoPurgeConfig) AutoPurgeStuckTxs() bool {
-	return *a.c.AutoPurgeStuckTxs
+func (a *autoPurgeConfig) Enabled() bool {
+	return *a.c.Enabled
 }
 
-func (a *autoPurgeConfig) AutoPurgeThreshold() uint32 {
-	return *a.c.AutoPurgeThreshold
+func (a *autoPurgeConfig) Threshold() uint32 {
+	return *a.c.Threshold
 }
 
-func (a *autoPurgeConfig) AutoPurgeMinAttempts() uint32 {
-	return *a.c.AutoPurgeMinAttempts
+func (a *autoPurgeConfig) MinAttempts() uint32 {
+	return *a.c.MinAttempts
 }
 
-func (a *autoPurgeConfig) AutoPurgeDetectionApiUrl() *url.URL {
-	return a.c.AutoPurgeDetectionApiUrl.URL()
+func (a *autoPurgeConfig) DetectionApiUrl() *url.URL {
+	return a.c.DetectionApiUrl.URL()
 }

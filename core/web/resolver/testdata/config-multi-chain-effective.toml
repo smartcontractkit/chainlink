@@ -279,7 +279,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [EVM.Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -373,7 +373,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [EVM.Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -461,7 +461,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [EVM.Transactions.AutoPurge]
-AutoPurgeStuckTxs = false
+Enabled = false
 
 [EVM.BalanceMonitor]
 Enabled = true

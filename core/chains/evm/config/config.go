@@ -105,10 +105,10 @@ type Transactions interface {
 }
 
 type AutoPurgeConfig interface {
-	AutoPurgeStuckTxs() bool
-	AutoPurgeThreshold() uint32
-	AutoPurgeMinAttempts() uint32
-	AutoPurgeDetectionApiUrl() *url.URL
+	Enabled() bool
+	Threshold() uint32
+	MinAttempts() uint32
+	DetectionApiUrl() *url.URL
 }
 
 //go:generate mockery --quiet --name GasEstimator --output ./mocks/ --case=underscore

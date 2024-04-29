@@ -3152,9 +3152,9 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	limitDefault := uint64(100)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr(limitDefault)
-		c.EVM[0].Transactions.AutoPurge.AutoPurgeStuckTxs = ptr(true)
-		c.EVM[0].Transactions.AutoPurge.AutoPurgeThreshold = ptr(autoPurgeThreshold)
-		c.EVM[0].Transactions.AutoPurge.AutoPurgeMinAttempts = ptr(autoPurgeMinAttempts)
+		c.EVM[0].Transactions.AutoPurge.Enabled = ptr(true)
+		c.EVM[0].Transactions.AutoPurge.Threshold = ptr(autoPurgeThreshold)
+		c.EVM[0].Transactions.AutoPurge.MinAttempts = ptr(autoPurgeMinAttempts)
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ge := evmcfg.EVM().GasEstimator()
