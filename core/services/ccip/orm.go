@@ -1,16 +1,15 @@
 package ccip
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type GasPrice struct {
@@ -27,18 +26,18 @@ type TokenPrice struct {
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 type ORM interface {
-	GetGasPricesByDestChain(destChainSelector uint64, qopts ...pg.QOpt) ([]GasPrice, error)
-	GetTokenPricesByDestChain(destChainSelector uint64, qopts ...pg.QOpt) ([]TokenPrice, error)
+	GetGasPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]GasPrice, error)
+	GetTokenPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]TokenPrice, error)
 
-	InsertGasPricesForDestChain(destChainSelector uint64, jobId int32, gasPrices []GasPrice, qopts ...pg.QOpt) error
-	InsertTokenPricesForDestChain(destChainSelector uint64, jobId int32, tokenPrices []TokenPrice, qopts ...pg.QOpt) error
+	InsertGasPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, gasPrices []GasPrice) error
+	InsertTokenPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, tokenPrices []TokenPrice) error
 
-	ClearGasPricesByDestChain(destChainSelector uint64, to time.Time, qopts ...pg.QOpt) error
-	ClearTokenPricesByDestChain(destChainSelector uint64, to time.Time, qopts ...pg.QOpt) error
+	ClearGasPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error
+	ClearTokenPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error
 }
 
 type orm struct {
-	q    pg.Q
+	ds   sqlutil.DataSource
 	lggr logger.Logger
 }
 
@@ -49,20 +48,20 @@ const (
 	tokenTableName = "ccip.observed_token_prices"
 )
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) (ORM, error) {
-	if db == nil || lggr == nil || cfg == nil {
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger) (ORM, error) {
+	if ds == nil || lggr == nil {
 		return nil, fmt.Errorf("params to CCIP NewORM cannot be nil")
 	}
 
 	namedLogger := lggr.Named("CCIP_ORM")
 
 	return &orm{
-		q:    pg.NewQ(db, namedLogger, cfg),
+		ds:   ds,
 		lggr: namedLogger,
 	}, nil
 }
 
-func (o *orm) GetGasPricesByDestChain(destChainSelector uint64, qopts ...pg.QOpt) ([]GasPrice, error) {
+func (o *orm) GetGasPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]GasPrice, error) {
 	var gasPrices []GasPrice
 	stmt := fmt.Sprintf(`
 		SELECT DISTINCT ON (source_chain_selector)
@@ -71,7 +70,7 @@ func (o *orm) GetGasPricesByDestChain(destChainSelector uint64, qopts ...pg.QOpt
 		WHERE chain_selector = $1
 		ORDER BY source_chain_selector, created_at DESC;
 	`, gasTableName)
-	err := o.q.WithOpts(qopts...).Select(&gasPrices, stmt, destChainSelector)
+	err := o.ds.SelectContext(ctx, &gasPrices, stmt, destChainSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +78,7 @@ func (o *orm) GetGasPricesByDestChain(destChainSelector uint64, qopts ...pg.QOpt
 	return gasPrices, nil
 }
 
-func (o *orm) GetTokenPricesByDestChain(destChainSelector uint64, qopts ...pg.QOpt) ([]TokenPrice, error) {
+func (o *orm) GetTokenPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]TokenPrice, error) {
 	var tokenPrices []TokenPrice
 	stmt := fmt.Sprintf(`
 		SELECT DISTINCT ON (token_addr)
@@ -89,7 +88,7 @@ func (o *orm) GetTokenPricesByDestChain(destChainSelector uint64, qopts ...pg.QO
 		ORDER BY token_addr, created_at DESC;
 
 	`, tokenTableName)
-	err := o.q.WithOpts(qopts...).Select(&tokenPrices, stmt, destChainSelector)
+	err := o.ds.SelectContext(ctx, &tokenPrices, stmt, destChainSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +96,7 @@ func (o *orm) GetTokenPricesByDestChain(destChainSelector uint64, qopts ...pg.QO
 	return tokenPrices, nil
 }
 
-func (o *orm) InsertGasPricesForDestChain(destChainSelector uint64, jobId int32, gasPrices []GasPrice, qopts ...pg.QOpt) error {
+func (o *orm) InsertGasPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, gasPrices []GasPrice) error {
 	if len(gasPrices) == 0 {
 		return nil
 	}
@@ -116,17 +115,14 @@ func (o *orm) InsertGasPricesForDestChain(destChainSelector uint64, jobId int32,
 		VALUES %s;`,
 		gasTableName, sqlStr)
 
-	_, err := o.q.WithOpts(qopts...).Exec(
-		stmt,
-		values...,
-	)
+	_, err := o.ds.ExecContext(ctx, stmt, values...)
 	if err != nil {
 		o.lggr.Errorf("Error inserting gas prices for job %d: %v", jobId, err)
 	}
 	return err
 }
 
-func (o *orm) InsertTokenPricesForDestChain(destChainSelector uint64, jobId int32, tokenPrices []TokenPrice, qopts ...pg.QOpt) error {
+func (o *orm) InsertTokenPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, tokenPrices []TokenPrice) error {
 	if len(tokenPrices) == 0 {
 		return nil
 	}
@@ -145,34 +141,23 @@ func (o *orm) InsertTokenPricesForDestChain(destChainSelector uint64, jobId int3
 		VALUES %s;`,
 		tokenTableName, sqlStr)
 
-	_, err := o.q.WithOpts(qopts...).Exec(
-		stmt,
-		values...,
-	)
+	_, err := o.ds.ExecContext(ctx, stmt, values...)
 	if err != nil {
 		o.lggr.Errorf("Error inserting token prices for job %d: %v", jobId, err)
 	}
 	return err
 }
 
-func (o *orm) ClearGasPricesByDestChain(destChainSelector uint64, to time.Time, qopts ...pg.QOpt) error {
+func (o *orm) ClearGasPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error {
 	stmt := fmt.Sprintf(`DELETE FROM %s WHERE chain_selector = $1 AND created_at < $2`, gasTableName)
 
-	_, err := o.q.WithOpts(qopts...).Exec(
-		stmt,
-		destChainSelector,
-		to,
-	)
+	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, to)
 	return err
 }
 
-func (o *orm) ClearTokenPricesByDestChain(destChainSelector uint64, to time.Time, qopts ...pg.QOpt) error {
+func (o *orm) ClearTokenPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error {
 	stmt := fmt.Sprintf(`DELETE FROM %s WHERE chain_selector = $1 AND created_at < $2`, tokenTableName)
 
-	_, err := o.q.WithOpts(qopts...).Exec(
-		stmt,
-		destChainSelector,
-		to,
-	)
+	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, to)
 	return err
 }
