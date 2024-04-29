@@ -39,6 +39,7 @@ jobs:
               - '**/*go.sum'
               - '**/*go.mod'
               - '.github/workflows/integration-tests.yml'
+              - '.github/workflows/ccip-client-compatibility-tests.yml'
               - '**/*Dockerfile'
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
@@ -156,16 +157,41 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       - name: Get latest docker images from ECR
         run: |
-          geth_tag=$(aws ecr describe-images --repository-name ethereum/client-go --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+          function get_latest_version_tag() {
+            local repository_name="$1"
+            local grep_string="$2"
+            local tag
+
+            # get the list of images with aws cli
+            # jq then filters out only the first tags
+            # sort the semantic tags into order
+            # grep only the versions that fit the regex
+            # then take the first one
+            tag=$(aws ecr describe-images --repository-name ${repository_name} --region ${{ secrets.QA_AWS_REGION }} --output json --query 'imageDetails[?imageTags!=`null` && imageTags!=`[]`]' |\
+              jq -r '.[] | .imageTags[0]' |\
+              sort -rV |\
+              grep -E ${grep_string} |\
+              head -n 1)
+            if [ -z "$tag" ]; then
+              echo "Failed to get latest ${repository_name} tag"
+              exit 1
+            fi
+            echo $tag
+          }
+
+          geth_tag=$(get_latest_version_tag ethereum/client-go '^v[0-9]+\.[0-9]+\.[0-9]+$')
           echo "GETH_TAG=$geth_tag" >> $GITHUB_ENV
           echo "Geth latest tag: $geth_tag"
-          nethermind_tag=$(aws ecr describe-images --repository-name nethermind/nethermind --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+
+          nethermind_tag=$(get_latest_version_tag nethermind/nethermind '^[0-9]+\.[0-9]+\.[0-9]+$')
           echo "NETHERMIND_TAG=$nethermind_tag" >> $GITHUB_ENV
           echo "Nethermind latest tag: $nethermind_tag"
-          besu_tag=$(aws ecr describe-images --repository-name hyperledger/besu --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+
+          besu_tag=$(get_latest_version_tag hyperledger/besu '^[0-9]+\.[0-9]+$')
           echo "BESU_TAG=$besu_tag" >> $GITHUB_ENV
           echo "Besu latest tag: $besu_tag"
-          erigon_tag=$(aws ecr describe-images --repository-name thorax/erigon --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json |jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+
+          erigon_tag=$(get_latest_version_tag thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$')
           echo "ERIGON_TAG=$erigon_tag" >> $GITHUB_ENV
           echo "Erigon latest tag: $erigon_tag"
 
