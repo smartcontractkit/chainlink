@@ -5,10 +5,14 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
-  function test_ReturnsCapabilities() public {
+  function setUp() public override {
+    BaseTest.setUp();
+
     s_capabilityRegistry.addCapability(s_basicCapability);
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+  }
 
+  function test_ReturnsCapabilities() public {
     CapabilityRegistry.Capability[] memory capabilities = s_capabilityRegistry.getCapabilities();
 
     assertEq(capabilities.length, 2);
@@ -25,5 +29,24 @@ contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
       uint256(CapabilityRegistry.CapabilityResponseType.OBSERVATION_IDENTICAL)
     );
     assertEq(capabilities[1].configurationContract, address(s_capabilityConfigurationContract));
+  }
+
+  function test_ExcludesDeprecatedCapabilities() public {
+    bytes32 capabilityId = s_capabilityRegistry.getCapabilityID(
+      s_basicCapability.capabilityType,
+      s_basicCapability.version
+    );
+    s_capabilityRegistry.deprecateCapability(capabilityId);
+
+    CapabilityRegistry.Capability[] memory capabilities = s_capabilityRegistry.getCapabilities();
+    assertEq(capabilities.length, 1);
+
+    assertEq(capabilities[0].capabilityType, "read-ethereum-mainnet-gas-price");
+    assertEq(capabilities[0].version, "1.0.2");
+    assertEq(
+      uint256(capabilities[0].responseType),
+      uint256(CapabilityRegistry.CapabilityResponseType.OBSERVATION_IDENTICAL)
+    );
+    assertEq(capabilities[0].configurationContract, address(s_capabilityConfigurationContract));
   }
 }
