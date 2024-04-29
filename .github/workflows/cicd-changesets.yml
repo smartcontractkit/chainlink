@@ -17,8 +17,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-      users: read
-      statuses: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -47,6 +45,8 @@ jobs:
 
       - name: Run changeset version
         run: pnpm install && pnpm changeset version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         if: steps.changeset-added.outputs.core-changeset == 'true'
 
       - name: Get release version
