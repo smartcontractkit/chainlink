@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
-
-	pkgerrors "github.com/pkg/errors"
 )
 
 // defaultErrorBufferCap is the default cap on the errors an error buffer can store at any time
@@ -80,7 +78,7 @@ func (once *StateMachine) StartOnce(name string, fn func() error) error {
 	success := once.state.CompareAndSwap(int32(stateUnstarted), int32(stateStarting))
 
 	if !success {
-		return pkgerrors.Errorf("%v has already been started once; state=%v", name, state(once.state.Load()))
+		return fmt.Errorf("%v has already been started once; state=%v", name, state(once.state.Load()))
 	}
 
 	once.Lock()
@@ -119,11 +117,11 @@ func (once *StateMachine) StopOnce(name string, fn func() error) error {
 		s := once.loadState()
 		switch s {
 		case stateStopped:
-			return pkgerrors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
+			return fmt.Errorf("%s has already been stopped: %w", name, ErrAlreadyStopped)
 		case stateUnstarted:
-			return pkgerrors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
+			return fmt.Errorf("%s has not been started: %w", name, ErrCannotStopUnstarted)
 		default:
-			return pkgerrors.Errorf("%v cannot be stopped from this state; state=%v", name, s)
+			return fmt.Errorf("%v cannot be stopped from this state; state=%v", name, s)
 		}
 	}
 

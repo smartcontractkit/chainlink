@@ -2,14 +2,14 @@ package assets
 
 import (
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
-
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 )
 
 var ErrNoQuotesForCurrency = errors.New("cannot unmarshal json.Number into currency")
@@ -128,12 +128,12 @@ func (l *Link) UnmarshalText(text []byte) error {
 		s = strings.TrimSuffix(s, " ")
 		d, err := decimal.NewFromString(s)
 		if err != nil {
-			return errors.Wrapf(err, "assets: cannot unmarshal %q into a *assets.Link", text)
+			return fmt.Errorf("assets: cannot unmarshal %q into a *assets.Link: %w", text, err)
 		}
 		d = d.Mul(decimal.New(1, 18))
 		if !d.IsInteger() {
 			err := errors.New("maximum precision is juels")
-			return errors.Wrapf(err, "assets: cannot unmarshal %q into a *assets.Link", text)
+			return fmt.Errorf("assets: cannot unmarshal %q into a *assets.Link: %w", text, err)
 		}
 		l.Set((*Link)(d.Rat().Num()))
 		return nil
@@ -143,7 +143,7 @@ func (l *Link) UnmarshalText(text []byte) error {
 		s = strings.TrimSuffix(s, " ")
 	}
 	if _, ok := l.SetString(s, 10); !ok {
-		return errors.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
+		return fmt.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
 	}
 	return nil
 }

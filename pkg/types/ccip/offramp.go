@@ -2,11 +2,10 @@ package ccip
 
 import (
 	"context"
+	"errors"
 	"io"
 	"math/big"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )

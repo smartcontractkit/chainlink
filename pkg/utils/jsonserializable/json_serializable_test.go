@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -66,7 +65,7 @@ func TestMarshalJSONSerializable_replaceBytesWithHex(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			bytes, err := test.input.MarshalJSON()
 			assert.Equal(t, test.expected, string(bytes))
-			assert.Equal(t, test.err, errors.Cause(err))
+			assert.ErrorIs(t, test.err, err)
 		})
 	}
 }

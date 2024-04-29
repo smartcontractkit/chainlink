@@ -14,6 +14,7 @@ linters:
     - sqlclosecheck
     - noctx
     - whitespace
+    - depguard
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
@@ -87,8 +88,9 @@ linters-settings:
         deny:
           - pkg: "cosmossdk.io/errors"
             desc: Use the standard library instead
-          - pkg: "github.com/ethereum/go-ethereum"
-            desc: This is a chain-agnostic repo
+# TODO re-enable geth exclusion https://smartcontract-it.atlassian.net/browse/BCF-3197
+#          - pkg: "github.com/ethereum/go-ethereum"
+#            desc: This is a chain-agnostic repo
           - pkg: "github.com/go-gorm/gorm"
             desc: Use github.com/jmoiron/sqlx directly instead
           - pkg: "github.com/gofrs/uuid"

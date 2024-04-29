@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // Duration is a non-negative time duration.
@@ -88,7 +86,7 @@ func (d *Duration) Scan(v interface{}) (err error) {
 		*d, err = NewDuration(time.Duration(tv))
 		return err
 	default:
-		return errors.Errorf(`don't know how to parse "%s" of type %T as a `+
+		return fmt.Errorf(`don't know how to parse "%s" of type %T as a `+
 			`models.Duration`, tv, tv)
 	}
 }

@@ -5,12 +5,12 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"reflect"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	pkgerrors "github.com/pkg/errors"
 )
 
 type JSONSerializable struct {
@@ -94,7 +94,7 @@ func (js *JSONSerializable) Scan(value interface{}) error {
 	}
 	bytes, ok := value.([]byte)
 	if !ok {
-		return pkgerrors.Errorf("JSONSerializable#Scan received a value of type %T", value)
+		return fmt.Errorf("JSONSerializable#Scan received a value of type %T", value)
 	}
 	if js == nil {
 		*js = JSONSerializable{}
@@ -199,7 +199,7 @@ func getJSONNumberValue(value json.Number) (interface{}, error) {
 	} else {
 		f, err := value.Float64()
 		if err != nil {
-			return nil, pkgerrors.Errorf("failed to parse json.Value: %v", err)
+			return nil, fmt.Errorf("failed to parse json.Value: %w", err)
 		}
 		result = f
 	}
