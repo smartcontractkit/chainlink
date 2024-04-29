@@ -50,7 +50,6 @@ jobs:
               - '!core/**/*.json'
               - '!core/chainlink.goreleaser.Dockerfile'
               - '!core/chainlink.Dockerfile'
-              - '!core/gethwrappers/keystone/**' # Ignore Keystone changes as they are WIP
             contracts:
               - contracts/**/*.sol
               - '!contracts/**/*.t.sol'
