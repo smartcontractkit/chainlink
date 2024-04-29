@@ -6977,18 +6977,18 @@ ResendAfterThreshold controls how long to wait before re-broadcasting a transact
 ## EVM.Transactions.AutoPurge
 ```toml
 [EVM.Transactions.AutoPurge]
-Eanbled = false # Default
+Enabled = false # Default
 DetectionApiUrl = 'https://venus.scroll.io' # Example
 Threshold = 5 # Example
 MinAttempts = 3 # Example
 ```
 
 
-### Eanbled
+### Enabled
 ```toml
-Eanbled = false # Default
+Enabled = false # Default
 ```
-Eanbled enables or disables automatically purging transactions that have been idenitified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
+Enabled enables or disables automatically purging transactions that have been idenitified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
 
 ### DetectionApiUrl
 ```toml
