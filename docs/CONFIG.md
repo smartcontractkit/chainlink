@@ -3848,6 +3848,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'zkevm'
 FinalityDepth = 500
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -4198,6 +4199,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'zkevm'
 FinalityDepth = 500
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -4373,6 +4375,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'zkevm'
 FinalityDepth = 500
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -6242,8 +6245,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-Enabled = true
-DetectionApiUrl = 'https://sepolia-venus.scroll.io'
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
@@ -6331,8 +6333,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-Enabled = true
-DetectionApiUrl = 'https://venus.scroll.io'
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true
