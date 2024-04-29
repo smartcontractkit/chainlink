@@ -14,6 +14,10 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers20coordinator "github.com/smartcontractkit/chainlink-automation/pkg/v2/coordinator"
@@ -72,9 +76,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
-	"github.com/smartcontractkit/libocr/commontypes"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type ErrJobSpecNoRelayer struct {
