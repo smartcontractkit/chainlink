@@ -333,7 +333,11 @@ func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 }
 
 func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
-	csf := newChainIDSubForwarder(client.ConfiguredChainID(), ch)
+	chainID := client.ConfiguredChainID()
+	csf := newSubForwarder(ch, func(head *evmtypes.Head) *evmtypes.Head {
+		head.EVMChainID = ubig.New(chainID)
+		return head
+	}, nil)
 	err := csf.start(client.pool.EthSubscribe(ctx, csf.srcCh, "newHeads"))
 	if err != nil {
 		return nil, err

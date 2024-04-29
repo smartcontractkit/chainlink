@@ -57,6 +57,18 @@ type ChainConfig interface {
 	ChainType() commonconfig.ChainType
 }
 
+type RPCChainInfo struct {
+	// MostRecentBlockNumber - latest block number
+	MostRecentBlockNumber int64
+	// HighestBlockNumber - maximum block number ever observed
+	HighestBlockNumber int64
+	// MostRecentlyFinalizedBlockNum - latest finalized block number
+	MostRecentlyFinalizedBlockNum int64
+	// HighestFinalizedBlockNum - maximum block number ever observed for finalized block
+	HighestFinalizedBlockNum int64
+	TotalDifficulty          *big.Int
+}
+
 //go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
 type Node[
 	CHAIN_ID types.ID,
@@ -319,13 +331,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyConn(ctx context.Context, lggr logger.
 	}
 
 	return nodeStateAlive
-}
-
-// disconnectAll disconnects all clients connected to the node
-// WARNING: NOT THREAD-SAFE
-// This must be called from within the n.stateMu lock
-func (n *node[CHAIN_ID, HEAD, RPC]) disconnectAll() {
-	n.rpc.DisconnectAll()
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Order() int32 {

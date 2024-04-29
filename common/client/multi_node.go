@@ -788,12 +788,12 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return n.RPC().SimulateTransaction(ctx, tx)
 }
 
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (s types.Subscription, err error) {
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) SubscribeNewHead(ctx context.Context, channel chan<- HEAD) (s types.Subscription, err error) {
 	n, err := c.selectNode()
 	if err != nil {
 		return s, err
 	}
-	return n.RPC().Subscribe(ctx, channel, args...)
+	return n.RPC().SubscribeNewHead(ctx, channel)
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) TokenBalance(ctx context.Context, account ADDR, tokenAddr ADDR) (b *big.Int, err error) {

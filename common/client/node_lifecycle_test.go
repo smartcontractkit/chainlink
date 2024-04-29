@@ -50,8 +50,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 
 		expectedError := errors.New("failed to subscribe to rpc")
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(nil, expectedError).Once()
-		rpc.On("DisconnectAll").Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, expectedError).Once()
+		rpc.On("Close").Once()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
@@ -76,10 +76,10 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		close(errChan)
 		sub.On("Err").Return((<-chan error)(errChan)).Once()
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
 		// disconnects all on transfer to unreachable
-		rpc.On("DisconnectAll").Once()
+		rpc.On("Close").Once()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
@@ -91,7 +91,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		opts.rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		opts.rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		opts.rpc.On("SetAliveLoopSub", sub).Once()
 		return newDialedNode(t, opts)
 	}
@@ -169,7 +169,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		pollError := errors.New("failed to get ClientVersion")
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
 		// disconnects all on transfer to unreachable
-		rpc.On("DisconnectAll").Once()
+		rpc.On("Close").Once()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
@@ -226,7 +226,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			assert.Equal(t, nodeStateOutOfSync, node.State())
 		}).Once()
 		// disconnects all on transfer to unreachable or outOfSync
-		rpc.On("DisconnectAll").Maybe()
+		rpc.On("Close").Maybe()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Run(func(_ mock.Arguments) {
 			require.Equal(t, nodeStateOutOfSync, node.State())
@@ -297,7 +297,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			assert.Equal(t, nodeStateOutOfSync, node.State())
 		}).Once()
 		// disconnects all on transfer to unreachable or outOfSync
-		rpc.On("DisconnectAll").Maybe()
+		rpc.On("Close").Maybe()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
@@ -334,7 +334,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			close(ch)
 		}).Return(sub, nil).Once()
@@ -350,7 +350,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		// disconnects all on transfer to unreachable or outOfSync
-		rpc.On("DisconnectAll").Once()
+		rpc.On("Close").Once()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
@@ -366,7 +366,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub.On("Unsubscribe").Once()
 		expectedBlockNumber := rand.Int64()
 		expectedDiff := big.NewInt(rand.Int64())
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			go writeHeads(t, ch, head{BlockNumber: expectedBlockNumber, BlockDifficulty: expectedDiff})
 		}).Return(sub, nil).Once()
@@ -391,7 +391,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const blockNumber = 1000
 		const finalityDepth = 10
 		const expectedBlock = 990
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			go writeHeads(t, ch, head{BlockNumber: blockNumber - 1}, head{BlockNumber: blockNumber}, head{BlockNumber: blockNumber - 1})
 		}).Return(sub, nil).Once()
@@ -421,7 +421,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
@@ -447,7 +447,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
@@ -474,7 +474,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			// ensure that "calculated" finalized head is larger than actual, to ensure we are correctly setting
 			// the metric
@@ -535,7 +535,7 @@ func setupRPCForAliveLoop(t *testing.T, rpc *mockNodeClient[types.ID, Head]) {
 	aliveSubscription := mocks.NewSubscription(t)
 	aliveSubscription.On("Err").Return((<-chan error)(nil)).Maybe()
 	aliveSubscription.On("Unsubscribe").Maybe()
-	rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(aliveSubscription, nil).Maybe()
+	rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(aliveSubscription, nil).Maybe()
 	rpc.On("SetAliveLoopSub", mock.Anything).Maybe()
 }
 
@@ -546,7 +546,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node := newTestNode(t, opts)
 		opts.rpc.On("Close").Return(nil).Once()
 		// disconnects all on transfer to unreachable or outOfSync
-		opts.rpc.On("DisconnectAll")
+		opts.rpc.On("Close")
 		node.setState(nodeStateAlive)
 		return node
 	}
@@ -581,7 +581,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		heads := []head{{BlockNumber: 7}, {BlockNumber: 11}, {BlockNumber: 13}}
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			go writeHeads(t, ch, heads...)
 		}).Return(outOfSyncSubscription, nil).Once()
@@ -705,7 +705,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 		expectedError := errors.New("failed to subscribe")
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(nil, expectedError)
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, expectedError)
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertEventually(t, func() bool {
@@ -732,7 +732,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		errChan <- errors.New("subscription was terminate")
 		sub.On("Err").Return((<-chan error)(errChan))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertLogEventually(t, observedLogs, "Subscription was terminated")
@@ -758,7 +758,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			close(ch)
 		}).Return(sub, nil).Once()
@@ -789,7 +789,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		const highestBlock = 1000
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			go writeHeads(t, ch, head{BlockNumber: highestBlock - 1}, head{BlockNumber: highestBlock})
 		}).Return(outOfSyncSubscription, nil).Once()
@@ -829,7 +829,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription := mocks.NewSubscription(t)
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(outOfSyncSubscription, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(outOfSyncSubscription, nil).Once()
 
 		setupRPCForAliveLoop(t, rpc)
 
@@ -848,7 +848,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		node := newTestNode(t, opts)
 		opts.rpc.On("Close").Return(nil).Once()
 		// disconnects all on transfer to unreachable
-		opts.rpc.On("DisconnectAll")
+		opts.rpc.On("Close")
 
 		node.setState(nodeStateAlive)
 		return node
@@ -1006,7 +1006,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	newDialedNode := func(t *testing.T, opts testNodeOpts) testNode {
 		node := newTestNode(t, opts)
 		opts.rpc.On("Close").Return(nil).Once()
-		opts.rpc.On("DisconnectAll")
+		opts.rpc.On("Close")
 
 		node.setState(nodeStateDialed)
 		return node
@@ -1149,7 +1149,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
 		// disconnects all on transfer to unreachable
-		rpc.On("DisconnectAll")
+		rpc.On("Close")
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
@@ -1174,7 +1174,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 			assert.Equal(t, nodeStateDialed, node.State())
 		}).Return(nodeChainID, errors.New("failed to get chain id"))
 		// disconnects all on transfer to unreachable
-		rpc.On("DisconnectAll")
+		rpc.On("Close")
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Failed to verify chain ID for node")
@@ -1196,7 +1196,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil)
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
 		// disconnects all on transfer to unreachable
-		rpc.On("DisconnectAll")
+		rpc.On("Close")
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
@@ -1222,7 +1222,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		}).Return(nodeChainID, nil).Once()
 		rpc.On("IsSyncing", mock.Anything).Return(false, errors.New("failed to check syncing status"))
 		// disconnects all on transfer to unreachable
-		rpc.On("DisconnectAll")
+		rpc.On("Close")
 		// fail to redial to stay in unreachable state
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial"))
 		err := node.Start(tests.Context(t))
@@ -1247,7 +1247,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		rpc.On("IsSyncing", mock.Anything).Return(true, nil)
 		// disconnects all on transfer to unreachable
-		rpc.On("DisconnectAll")
+		rpc.On("Close")
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
@@ -1442,7 +1442,7 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		opts.config.nodeIsSyncingEnabled = true
 		node := newTestNode(t, opts)
 		opts.rpc.On("Close").Return(nil).Once()
-		opts.rpc.On("DisconnectAll")
+		opts.rpc.On("Close")
 
 		node.setState(nodeStateDialed)
 		return node

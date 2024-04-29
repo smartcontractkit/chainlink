@@ -303,11 +303,6 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 	return r0
 }
 
-// DisconnectAll provides a mock function with given fields:
-func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) DisconnectAll() {
-	_m.Called()
-}
-
 // EstimateGas provides a mock function with given fields: ctx, call
 func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) EstimateGas(ctx context.Context, call interface{}) (uint64, error) {
 	ret := _m.Called(ctx, call)
@@ -637,32 +632,29 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 	return r0
 }
 
-// Subscribe provides a mock function with given fields: ctx, channel, args
-func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error) {
-	var _ca []interface{}
-	_ca = append(_ca, ctx, channel)
-	_ca = append(_ca, args...)
-	ret := _m.Called(_ca...)
+// SubscribeNewHead provides a mock function with given fields: ctx, channel
+func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) SubscribeNewHead(ctx context.Context, channel chan<- HEAD) (types.Subscription, error) {
+	ret := _m.Called(ctx, channel)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Subscribe")
+		panic("no return value specified for SubscribeNewHead")
 	}
 
 	var r0 types.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- HEAD, ...interface{}) (types.Subscription, error)); ok {
-		return rf(ctx, channel, args...)
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- HEAD) (types.Subscription, error)); ok {
+		return rf(ctx, channel)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- HEAD, ...interface{}) types.Subscription); ok {
-		r0 = rf(ctx, channel, args...)
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- HEAD) types.Subscription); ok {
+		r0 = rf(ctx, channel)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(types.Subscription)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- HEAD, ...interface{}) error); ok {
-		r1 = rf(ctx, channel, args...)
+	if rf, ok := ret.Get(1).(func(context.Context, chan<- HEAD) error); ok {
+		r1 = rf(ctx, channel)
 	} else {
 		r1 = ret.Error(1)
 	}

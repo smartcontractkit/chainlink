@@ -230,12 +230,7 @@ func (c *chainClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 }
 
 func (c *chainClient) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
-	csf := newChainIDSubForwarder(c.ConfiguredChainID(), ch)
-	err := csf.start(c.multiNode.Subscribe(ctx, csf.srcCh, "newHeads"))
-	if err != nil {
-		return nil, err
-	}
-	return csf, nil
+	return c.multiNode.SubscribeNewHead(ctx, ch)
 }
 
 func (c *chainClient) SuggestGasPrice(ctx context.Context) (p *big.Int, err error) {

@@ -56,6 +56,7 @@ type RPCClient interface {
 	SuggestGasPrice(ctx context.Context) (p *big.Int, err error)
 	SuggestGasTipCap(ctx context.Context) (t *big.Int, err error)
 	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error)
+	GetInterceptedChainInfo() commonclient.RPCChainInfo
 }
 
 type rpcClient struct {
@@ -81,6 +82,9 @@ type rpcClient struct {
 	// this rpcClient. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as rpcClient Close.
 	chStopInFlight chan struct{}
+
+	// intercepted values seen by callers of the rpcClient. Need to ensure MultiNode provides repeatable read guarantee
+	chainInfo commonclient.RPCChainInfo
 }
 
 // NewRPCCLient returns a new *rpcClient as commonclient.RPC
@@ -111,6 +115,7 @@ func NewRPCClient(
 		"evmChainID", chainID,
 	)
 	r.rpcLog = logger.Sugared(lggr).Named("RPC")
+	r.chainInfo.TotalDifficulty = big.NewInt(0)
 
 	return r
 }
@@ -180,6 +185,9 @@ func (r *rpcClient) Close() {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
 	r.cancelInflightRequests()
+	r.unsubscribeAll()
+	r.chainInfo.MostRecentlyFinalizedBlockNum = 0
+	r.chainInfo.MostRecentBlockNumber = 0
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
@@ -242,17 +250,6 @@ func (r *rpcClient) registerSub(sub ethereum.Subscription) {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
 	r.subs = append(r.subs, sub)
-}
-
-// disconnectAll disconnects all clients connected to the rpcClient
-// WARNING: NOT THREAD-SAFE
-// This must be called from within the r.stateMu lock
-func (r *rpcClient) DisconnectAll() {
-	if r.ws.rpc != nil {
-		r.ws.rpc.Close()
-	}
-	r.cancelInflightRequests()
-	r.unsubscribeAll()
 }
 
 // unsubscribeAll unsubscribes all subscriptions
@@ -341,25 +338,32 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	return err
 }
 
-func (r *rpcClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error) {
+func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtypes.Head) (commontypes.Subscription, error) {
 	ctx, cancel, ws, _, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
+	args := []interface{}{"newHeads"}
 	lggr := r.newRqLggr().With("args", args)
 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
-	sub, err := ws.rpc.EthSubscribe(ctx, channel, args...)
+	requestCh := r.getChStopInflight()
+	subForwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
+		head.EVMChainID = ubig.New(r.chainID)
+		r.oneNewHead(head, requestCh)
+		return head
+	}, nil)
+	err = subForwarder.start(ws.rpc.EthSubscribe(ctx, subForwarder.srcCh, args...))
 	if err == nil {
-		r.registerSub(sub)
+		r.registerSub(subForwarder)
 	}
 	duration := time.Since(start)
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
 
-	return sub, err
+	return subForwarder, err
 }
 
 // GethClient wrappers
@@ -480,7 +484,14 @@ func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 }
 
 func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
-	return r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+	requestCh := r.getChStopInflight()
+	block, err := r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+	if err != nil {
+		return nil, err
+	}
+
+	r.oneNewFinalizedHead(block, requestCh)
+	return block, nil
 }
 
 func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
@@ -1112,4 +1123,62 @@ func (r *rpcClient) Name() string {
 
 func Name(r *rpcClient) string {
 	return r.name
+}
+
+// skipChainInfoUpdate - returns true, if data, received within requestChan lifetime, no longer accurately represents
+// RPC's view on chain. This check helps us avoid following race condition:
+// 1. rpcClient instance received request data, but have not processed it yet
+// 2. RPC goes down and Node transitions to an unhealthy state
+// 3. rpcClient processes data received on step 1
+// 4. New RPC starts with outdated state
+// 5. rpcClient becomes alive, but chainInfo represents state of a different RPC instance
+func skipChainInfoUpdate(requestChan chan struct{}) bool {
+	select {
+	case <-requestChan:
+		// channel is closed
+		return true
+	default:
+		return false
+	}
+}
+
+func (r *rpcClient) oneNewHead(head *evmtypes.Head, requestChan chan struct{}) {
+	if head == nil {
+		return
+	}
+
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
+	if !skipChainInfoUpdate(requestChan) {
+		r.chainInfo.MostRecentBlockNumber = head.Number
+	}
+	r.chainInfo.HighestBlockNumber = max(r.chainInfo.HighestBlockNumber, head.Number)
+	if head.TotalDifficulty != nil {
+		r.chainInfo.TotalDifficulty = big.NewInt(0).Set(head.TotalDifficulty)
+	}
+}
+
+func (r *rpcClient) oneNewFinalizedHead(head *evmtypes.Head, requestChan chan struct{}) {
+	if head == nil {
+		return
+	}
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
+	if !skipChainInfoUpdate(requestChan) {
+		r.chainInfo.MostRecentlyFinalizedBlockNum = head.Number
+	}
+	r.chainInfo.HighestFinalizedBlockNum = max(r.chainInfo.HighestFinalizedBlockNum, head.Number)
+}
+
+func (r *rpcClient) GetInterceptedChainInfo() commonclient.RPCChainInfo {
+	r.stateMu.RLock()
+	result := commonclient.RPCChainInfo{
+		MostRecentBlockNumber:         r.chainInfo.MostRecentBlockNumber,
+		HighestBlockNumber:            r.chainInfo.HighestBlockNumber,
+		MostRecentlyFinalizedBlockNum: r.chainInfo.MostRecentlyFinalizedBlockNum,
+		HighestFinalizedBlockNum:      r.chainInfo.HighestFinalizedBlockNum,
+		TotalDifficulty:               big.NewInt(0).Set(r.chainInfo.TotalDifficulty),
+	}
+	r.stateMu.RUnlock()
+	return result
 }

@@ -66,7 +66,6 @@ type NodeClient[
 	connection[CHAIN_ID, HEAD]
 
 	DialHTTP() error
-	DisconnectAll()
 	Close()
 	ClientVersion(context.Context) (string, error)
 	SubscribersCount() int32
@@ -145,5 +144,5 @@ type connection[
 ] interface {
 	ChainID(ctx context.Context) (CHAIN_ID, error)
 	Dial(ctx context.Context) error
-	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error)
+	SubscribeNewHead(ctx context.Context, channel chan<- HEAD) (types.Subscription, error)
 }
