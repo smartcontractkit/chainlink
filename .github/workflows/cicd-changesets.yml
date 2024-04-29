@@ -9,7 +9,6 @@ on:
   push:
     branches:
       - develop
-      - re-2553/add-version-release-preview-pr # remove after testing
 
 jobs:
   cicd-changesets:
