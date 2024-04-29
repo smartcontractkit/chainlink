@@ -28,6 +28,35 @@ var sendTxSevereErrors = []SendTxReturnCode{Fatal, Underpriced, Unsupported, Exc
 // sendTxSuccessfulCodes - error codes which signal that transaction was accepted by the node
 var sendTxSuccessfulCodes = []SendTxReturnCode{Successful, TransactionAlreadyKnown}
 
+func (c SendTxReturnCode) String() string {
+	switch c {
+	case Successful:
+		return "Successful"
+	case Fatal:
+		return "Fatal"
+	case Retryable:
+		return "Retryable"
+	case Underpriced:
+		return "Underpriced"
+	case Unknown:
+		return "Unknown"
+	case Unsupported:
+		return "Unsupported"
+	case TransactionAlreadyKnown:
+		return "TransactionAlreadyKnown"
+	case InsufficientFunds:
+		return "InsufficientFunds"
+	case ExceedsMaxFee:
+		return "ExceedsMaxFee"
+	case FeeOutOfValidRange:
+		return "FeeOutOfValidRange"
+	case OutOfCounters:
+		return "OutOfCounters"
+	default:
+		return fmt.Sprintf("SendTxReturnCode(%d)", c)
+	}
+}
+
 type NodeTier int
 
 const (

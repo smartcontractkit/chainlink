@@ -32,7 +32,5 @@ if [[ $EXITCODE != 0 ]]; then
   echo "Encountered test failures."
 else
   echo "All tests passed!"
-  # uploading coverage.txt to CodeCov
-  $(dirname "$0")/codecov -f coverage.txt
 fi
 exit $EXITCODE
