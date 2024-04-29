@@ -103,8 +103,9 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
     return i_armProxy;
   }
 
-  /// @inheritdoc IPool
-  function getToken() public view override returns (IERC20 token) {
+  /// @notice Gets the IERC20 token that this pool can lock or burn.
+  /// @return token The IERC20 token representation.
+  function getToken() public view returns (IERC20 token) {
     return i_token;
   }
 
@@ -140,7 +141,8 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
   // │                     Chain permissions                        │
   // ================================================================
 
-  /// @inheritdoc IPool
+  /// @notice Gets the pool address on the remote chain.
+  /// @param remoteChainSelector Destination chain selector.
   function getRemotePool(uint64 remoteChainSelector) public view returns (bytes memory) {
     return s_remoteChainConfigs[remoteChainSelector].remotePoolAddress;
   }

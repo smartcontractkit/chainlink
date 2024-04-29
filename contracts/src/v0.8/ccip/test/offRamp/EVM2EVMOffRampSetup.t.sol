@@ -97,7 +97,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
       IPool.SourceTokenData memory sourceTokenData = abi.decode(original.sourceTokenData[i], (IPool.SourceTokenData));
 
       address destPoolAddress = abi.decode(sourceTokenData.destPoolAddress, (address));
-      IPool pool = IPool(destPoolAddress);
+      TokenPool pool = TokenPool(destPoolAddress);
       destTokenAmounts[i].token = address(pool.getToken());
       destTokenAmounts[i].amount = original.tokenAmounts[i].amount;
     }

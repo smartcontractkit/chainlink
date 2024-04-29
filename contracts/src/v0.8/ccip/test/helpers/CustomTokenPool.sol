@@ -35,8 +35,8 @@ contract CustomTokenPool is TokenPool {
     uint64 remoteChainSelector,
     SourceTokenData memory,
     bytes memory
-  ) external override whenHealthy onlyOffRamp(remoteChainSelector) returns (address) {
+  ) external override whenHealthy onlyOffRamp(remoteChainSelector) returns (address, uint256) {
     emit SynthMinted(amount);
-    return address(i_token);
+    return (address(i_token), amount);
   }
 }

@@ -32,7 +32,8 @@ interface IPool {
   /// @notice Releases or mints tokens to the receiver address.
   /// @param originalSender Original sender of the tokens.
   /// @param receiver Receiver of the tokens.
-  /// @param amount Amount to release or mint.
+  /// @param amount Amount to release or mint, denominated in the tokens shared denomination when applicable.
+  /// This means that for some tokens, the amount may need to be converted to the local token's decimals.
   /// @param remoteChainSelector Source chain Id.
   /// @param sourceTokenData The source and dest pool addresses, as well as any additional data
   /// from calling lockOrBurn on the source chain.
@@ -41,6 +42,8 @@ interface IPool {
   /// third party API.
   /// @dev offchainData can come from any untrusted source.
   /// @return localToken The address of the local token.
+  /// @return destinationAmount The amount of tokens released or minted on the destination chain,
+  /// denominated in the local token's decimals.
   function releaseOrMint(
     bytes memory originalSender,
     address receiver,
@@ -48,13 +51,5 @@ interface IPool {
     uint64 remoteChainSelector,
     SourceTokenData memory sourceTokenData,
     bytes memory offchainTokenData
-  ) external returns (address localToken);
-
-  /// @notice Gets the IERC20 token that this pool can lock or burn.
-  /// @return token The IERC20 token representation.
-  function getToken() external view returns (IERC20 token);
-
-  /// @notice Gets the pool address on the remote chain.
-  /// @param remoteChainSelector Destination chain selector.
-  function getRemotePool(uint64 remoteChainSelector) external view returns (bytes memory);
+  ) external returns (address localToken, uint256 destinationAmount);
 }

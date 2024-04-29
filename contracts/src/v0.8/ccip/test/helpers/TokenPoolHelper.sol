@@ -34,9 +34,9 @@ contract TokenPoolHelper is TokenPool {
     uint64,
     IPool.SourceTokenData memory,
     bytes memory
-  ) external override returns (address) {
+  ) external override returns (address, uint256) {
     emit ReleaseOrMint(receiver, amount);
-    return address(i_token);
+    return (address(i_token), amount);
   }
 
   function onlyOnRampModifier(uint64 remoteChainSelector) external onlyOnRamp(remoteChainSelector) {}
