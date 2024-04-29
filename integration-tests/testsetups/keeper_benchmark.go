@@ -2,7 +2,6 @@ package testsetups
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -19,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
@@ -354,7 +354,7 @@ func (k *KeeperBenchmarkTest) Run() {
 					k.log,
 				)
 
-				k.log.Debug().Str("UpkeepID", upkeepIDCopy.String()).Msg("Subscribing to new headers for upkeep observation")
+				k.log.Debug().Str("UpkeepID", upkeepIDCopy.String()).Msg("Stared listening to new headers for upkeep observation")
 
 				for {
 					select {
@@ -367,7 +367,8 @@ func (k *KeeperBenchmarkTest) Run() {
 						k.log.Trace().Interface("Header number", header.Number).Str("UpkeepID", upkeepIDCopy.String()).Msg("Started processing new header")
 						finished, headerErr := confirmer.ReceiveHeader(header)
 						if headerErr != nil {
-							return headerErr
+							k.log.Err(headerErr).Str("UpkeepID", upkeepIDCopy.String()).Msg("Error processing header")
+							return errors.Wrapf(headerErr, "error processing header for upkeep %s", upkeepIDCopy.String())
 						}
 
 						if finished { // observations should be completed as we are beyond block range, if there are not there's a bug in test code
