@@ -76,9 +76,9 @@ type ObservedORM struct {
 
 // NewObservedORM creates an observed version of log poller's ORM created by NewORM
 // Please see ObservedLogPoller for more details on how latencies are measured
-func NewObservedORM(chainID *big.Int, db sqlutil.DataSource, lggr logger.Logger) *ObservedORM {
+func NewObservedORM(chainID *big.Int, ds sqlutil.DataSource, lggr logger.Logger) *ObservedORM {
 	return &ObservedORM{
-		ORM:            NewORM(chainID, db, lggr),
+		ORM:            NewORM(chainID, ds, lggr),
 		queryDuration:  lpQueryDuration,
 		datasetSize:    lpQueryDataSets,
 		logsInserted:   lpLogsInserted,
@@ -148,6 +148,12 @@ func (o *ObservedORM) SelectBlockByNumber(ctx context.Context, n int64) (*LogPol
 func (o *ObservedORM) SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error) {
 	return withObservedQuery(o, "SelectLatestBlock", func() (*LogPollerBlock, error) {
 		return o.ORM.SelectLatestBlock(ctx)
+	})
+}
+
+func (o *ObservedORM) SelectOldestBlock(ctx context.Context, minAllowedBlockNumber int64) (*LogPollerBlock, error) {
+	return withObservedQuery(o, "SelectOldestBlock", func() (*LogPollerBlock, error) {
+		return o.ORM.SelectOldestBlock(ctx, minAllowedBlockNumber)
 	})
 }
 

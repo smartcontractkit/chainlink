@@ -1698,6 +1698,33 @@ CertFile = "/path/to/client/certs.pem" # Example
 ```
 CertFile is the path to a PEM file of trusted root certificate authority certificates
 
+## Mercury.Transmitter
+```toml
+[Mercury.Transmitter]
+TransmitQueueMaxSize = 10_000 # Default
+TransmitTimeout = "5s" # Default
+```
+Mercury.Transmitter controls settings for the mercury transmitter
+
+### TransmitQueueMaxSize
+```toml
+TransmitQueueMaxSize = 10_000 # Default
+```
+TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
+per OCR instance. If the queue is full, the transmitter will start dropping
+the oldest messages in order to make space.
+
+This is useful if mercury server goes offline and the nop needs to buffer
+transmissions.
+
+### TransmitTimeout
+```toml
+TransmitTimeout = "5s" # Default
+```
+TransmitTimeout controls how long the transmitter will wait for a response
+when sending a message to the mercury server, before aborting and considering
+the transmission to be failed.
+
 ## EVM
 EVM defaults depend on ChainID:
 
@@ -7243,6 +7270,111 @@ If `FinalityTagEnabled = false`, poll is not performed and `pool_rpc_node_highes
 reported based on latest block and finality depth.
 
 Set to 0 to disable.
+
+## EVM.NodePool.Errors
+:warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
+```toml
+[EVM.NodePool.Errors]
+NonceTooLow = '(: |^)nonce too low' # Example
+NonceTooHigh = '(: |^)nonce too high' # Example
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Example
+LimitReached = '(: |^)limit reached' # Example
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
+TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
+InsufficientEth = '(: |^)insufficeint eth' # Example
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
+L2FeeTooLow = '(: |^)l2 fee too low' # Example
+L2FeeTooHigh = '(: |^)l2 fee too high' # Example
+L2Full = '(: |^)l2 full' # Example
+TransactionAlreadyMined = '(: |^)transaction already mined' # Example
+Fatal = '(: |^)fatal' # Example
+ServiceUnavailable = '(: |^)service unavailable' # Example
+```
+Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
+
+### NonceTooLow
+```toml
+NonceTooLow = '(: |^)nonce too low' # Example
+```
+NonceTooLow is a regex pattern to match against nonce too low errors.
+
+### NonceTooHigh
+```toml
+NonceTooHigh = '(: |^)nonce too high' # Example
+```
+NonceTooHigh is a regex pattern to match against nonce too high errors.
+
+### ReplacementTransactionUnderpriced
+```toml
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Example
+```
+ReplacementTransactionUnderpriced is a regex pattern to match against replacement transaction underpriced errors.
+
+### LimitReached
+```toml
+LimitReached = '(: |^)limit reached' # Example
+```
+LimitReached is a regex pattern to match against limit reached errors.
+
+### TransactionAlreadyInMempool
+```toml
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
+```
+TransactionAlreadyInMempool is a regex pattern to match against transaction already in mempool errors.
+
+### TerminallyUnderpriced
+```toml
+TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
+```
+TerminallyUnderpriced is a regex pattern to match against terminally underpriced errors.
+
+### InsufficientEth
+```toml
+InsufficientEth = '(: |^)insufficeint eth' # Example
+```
+InsufficientEth is a regex pattern to match against insufficient eth errors.
+
+### TxFeeExceedsCap
+```toml
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
+```
+TxFeeExceedsCap is a regex pattern to match against tx fee exceeds cap errors.
+
+### L2FeeTooLow
+```toml
+L2FeeTooLow = '(: |^)l2 fee too low' # Example
+```
+L2FeeTooLow is a regex pattern to match against l2 fee too low errors.
+
+### L2FeeTooHigh
+```toml
+L2FeeTooHigh = '(: |^)l2 fee too high' # Example
+```
+L2FeeTooHigh is a regex pattern to match against l2 fee too high errors.
+
+### L2Full
+```toml
+L2Full = '(: |^)l2 full' # Example
+```
+L2Full is a regex pattern to match against l2 full errors.
+
+### TransactionAlreadyMined
+```toml
+TransactionAlreadyMined = '(: |^)transaction already mined' # Example
+```
+TransactionAlreadyMined is a regex pattern to match against transaction already mined errors.
+
+### Fatal
+```toml
+Fatal = '(: |^)fatal' # Example
+```
+Fatal is a regex pattern to match against fatal errors.
+
+### ServiceUnavailable
+```toml
+ServiceUnavailable = '(: |^)service unavailable' # Example
+```
+ServiceUnavailable is a regex pattern to match against service unavailable errors.
 
 ## EVM.OCR
 ```toml

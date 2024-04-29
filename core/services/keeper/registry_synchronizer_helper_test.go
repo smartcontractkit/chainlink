@@ -46,7 +46,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), cfg.Database(), legacyChains, db, keyStore, nil, nil)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 
 	switch version {

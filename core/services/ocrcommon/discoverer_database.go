@@ -2,25 +2,26 @@ package ocrcommon
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 var _ ocrnetworking.DiscovererDatabase = &DiscovererDatabase{}
 
 type DiscovererDatabase struct {
-	db     *sql.DB
+	ds     sqlutil.DataSource
 	peerID string
 }
 
-func NewDiscovererDatabase(db *sql.DB, peerID string) *DiscovererDatabase {
+func NewDiscovererDatabase(ds sqlutil.DataSource, peerID string) *DiscovererDatabase {
 	return &DiscovererDatabase{
-		db,
+		ds,
 		peerID,
 	}
 }
@@ -28,7 +29,7 @@ func NewDiscovererDatabase(db *sql.DB, peerID string) *DiscovererDatabase {
 // StoreAnnouncement has key-value-store semantics and stores a peerID (key) and an associated serialized
 // announcement (value).
 func (d *DiscovererDatabase) StoreAnnouncement(ctx context.Context, peerID string, ann []byte) error {
-	_, err := d.db.ExecContext(ctx, `
+	_, err := d.ds.ExecContext(ctx, `
 INSERT INTO ocr_discoverer_announcements (local_peer_id, remote_peer_id, ann, created_at, updated_at)
 VALUES ($1,$2,$3,NOW(),NOW()) ON CONFLICT (local_peer_id, remote_peer_id) DO UPDATE SET 
 ann = EXCLUDED.ann,
@@ -40,7 +41,7 @@ updated_at = EXCLUDED.updated_at
 // ReadAnnouncements returns one serialized announcement (if available) for each of the peerIDs in the form of a map
 // keyed by each announcement's corresponding peer ID.
 func (d *DiscovererDatabase) ReadAnnouncements(ctx context.Context, peerIDs []string) (results map[string][]byte, err error) {
-	rows, err := d.db.QueryContext(ctx, `
+	rows, err := d.ds.QueryContext(ctx, `
 SELECT remote_peer_id, ann FROM ocr_discoverer_announcements WHERE remote_peer_id = ANY($1) AND local_peer_id = $2`, pq.Array(peerIDs), d.peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "DiscovererDatabase failed to ReadAnnouncements")
