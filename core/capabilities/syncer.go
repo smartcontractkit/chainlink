@@ -3,10 +3,15 @@ package capabilities
 import (
 	"context"
 	"slices"
+	"sync"
+	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -19,7 +24,7 @@ import (
 
 type registrySyncer struct {
 	peerWrapper p2ptypes.PeerWrapper
-	registry    types.CapabilitiesRegistry
+	registry    core.CapabilitiesRegistry
 	dispatcher  remotetypes.Dispatcher
 	subServices []services.Service
 	lggr        logger.Logger
@@ -32,17 +37,17 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 	OutgoingMessageBufferSize: 1000000,
 	MaxMessageLenBytes:        100000,
 	MessageRateLimiter: ragep2p.TokenBucketParams{
-		Rate:     10.0,
+		Rate:     100.0,
 		Capacity: 1000,
 	},
 	BytesRateLimiter: ragep2p.TokenBucketParams{
-		Rate:     10.0,
-		Capacity: 1000,
+		Rate:     100000.0,
+		Capacity: 1000000,
 	},
 }
 
 // RegistrySyncer updates local Registry to match its onchain counterpart
-func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry types.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger) *registrySyncer {
+func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger) *registrySyncer {
 	return &registrySyncer{
 		peerWrapper: peerWrapper,
 		registry:    registry,
@@ -54,17 +59,19 @@ func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry types.Capabili
 func (s *registrySyncer) Start(ctx context.Context) error {
 	// NOTE: temporary hard-coded DONs
 	workflowDONPeers := []string{
-		"12D3KooWF3dVeJ6YoT5HFnYhmwQWWMoEwVFzJQ5kKCMX3ZityxMC",
-		"12D3KooWQsmok6aD8PZqt3RnJhQRrNzKHLficq7zYFRp7kZ1hHP8",
-		"12D3KooWJbZLiMuGeKw78s3LM5TNgBTJHcF39DraxLu14bucG9RN",
-		"12D3KooWGqfSPhHKmQycfhRjgUDE2vg9YWZN27Eue8idb2ZUk6EH",
+		"12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N",
+		"12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
+		"12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92mywwpuqkEtz8XWyv",
+		"12D3KooW9zYWQv3STmDeNDidyzxsJSTxoCTLicafgfeEz9nhwhC4",
 	}
-	capabilityDONPeers := []string{
-		"12D3KooWHCcyTPmYFB1ydNvNcXw5WyAomRzGSFu1B7hpB4yi8Smf",
-		"12D3KooWPv6eqJvYz7TcQWk4Y4XjZ1uQ7mUKahdDXj65ht95zH6a",
+	triggerDONPeers := []string{
+		"12D3KooWJrthXtnPHw7xyHFAxo6NxifYTvc8igKYaA6wRRRqtsMb",
+		"12D3KooWFQekP9sGex4XhqEJav5EScjTpDVtDqJFg1JvrePBCEGJ",
+		"12D3KooWFLEq4hYtdyKWwe47dXGEbSiHMZhmr5xLSJNhpfiEz8NF",
+		"12D3KooWN2hztiXNNS1jMQTTvvPRYcarK1C7T3Mdqk4x4gwyo5WS",
 	}
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
-	addPeersToDONInfo := func(peers []string, donInfo *remotetypes.DON) error {
+	addPeersToDONInfo := func(peers []string, donInfo *capabilities.DON) error {
 		for _, peerID := range peers {
 			var p ragetypes.PeerID
 			err := p.UnmarshalText([]byte(peerID))
@@ -76,12 +83,12 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		}
 		return nil
 	}
-	workflowDonInfo := remotetypes.DON{ID: "workflowDon1"}
+	workflowDonInfo := capabilities.DON{ID: "workflowDon1", F: 1}
 	if err := addPeersToDONInfo(workflowDONPeers, &workflowDonInfo); err != nil {
 		return err
 	}
-	capabilityDonInfo := remotetypes.DON{ID: "capabilityDon1"}
-	if err := addPeersToDONInfo(capabilityDONPeers, &capabilityDonInfo); err != nil {
+	triggerCapabilityDonInfo := capabilities.DON{ID: "capabilityDon1", F: 1}
+	if err := addPeersToDONInfo(triggerDONPeers, &triggerCapabilityDonInfo); err != nil {
 		return err
 	}
 	err := s.peerWrapper.GetPeer().UpdateConnections(allPeers)
@@ -89,45 +96,52 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		return err
 	}
 	// NOTE: temporary hard-coded capabilities
-	capId := "sample_remote_trigger"
+	capId := "mercury-trigger"
 	triggerInfo := commoncap.CapabilityInfo{
 		ID:             capId,
 		CapabilityType: commoncap.CapabilityTypeTrigger,
 		Description:    "Remote Trigger",
 		Version:        "0.0.1",
+		DON:            &triggerCapabilityDonInfo,
 	}
 	myId := s.peerWrapper.GetPeer().ID().String()
 	config := remotetypes.RemoteTriggerConfig{
-		RegistrationRefreshMs: 20000,
+		RegistrationRefreshMs:   20000,
+		MinResponsesToAggregate: uint32(triggerCapabilityDonInfo.F) + 1,
 	}
 	if slices.Contains(workflowDONPeers, myId) {
 		s.lggr.Info("member of a workflow DON - starting remote subscribers")
-		triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, capabilityDonInfo, workflowDonInfo, s.dispatcher, nil, s.lggr)
+		aggregator := triggers.NewMercuryRemoteAggregator(s.lggr)
+		triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, triggerCapabilityDonInfo, workflowDonInfo, s.dispatcher, aggregator, s.lggr)
 		err = s.registry.Add(ctx, triggerCap)
 		if err != nil {
 			s.lggr.Errorw("failed to add remote target capability to registry", "error", err)
 			return err
 		}
-		err = s.dispatcher.SetReceiver(capId, capabilityDonInfo.ID, triggerCap)
+		err = s.dispatcher.SetReceiver(capId, triggerCapabilityDonInfo.ID, triggerCap)
 		if err != nil {
-			s.lggr.Errorw("failed to set receiver", "capabilityId", capId, "donId", capabilityDonInfo.ID, "error", err)
+			s.lggr.Errorw("workflow DON failed to set receiver", "capabilityId", capId, "donId", triggerCapabilityDonInfo.ID, "error", err)
 			return err
 		}
 		s.subServices = append(s.subServices, triggerCap)
 	}
-	if slices.Contains(capabilityDONPeers, myId) {
+	if slices.Contains(triggerDONPeers, myId) {
 		s.lggr.Info("member of a capability DON - starting remote publishers")
-		workflowDONs := map[string]remotetypes.DON{
+		workflowDONs := map[string]capabilities.DON{
 			workflowDonInfo.ID: workflowDonInfo,
 		}
-		underlying := &noOpTrigger{info: triggerInfo, lggr: s.lggr}
-		triggerCap := remote.NewTriggerPublisher(config, underlying, triggerInfo, capabilityDonInfo, workflowDONs, s.dispatcher, s.lggr)
-		err = s.dispatcher.SetReceiver(capId, capabilityDonInfo.ID, triggerCap)
+		underlying := triggers.NewMercuryTriggerService(1000, s.lggr)
+		triggerCap := remote.NewTriggerPublisher(config, underlying, triggerInfo, triggerCapabilityDonInfo, workflowDONs, s.dispatcher, s.lggr)
+		err = s.dispatcher.SetReceiver(capId, triggerCapabilityDonInfo.ID, triggerCap)
 		if err != nil {
-			s.lggr.Errorw("failed to set receiver", "capabilityId", capId, "donId", capabilityDonInfo.ID, "error", err)
+			s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", triggerCapabilityDonInfo.ID, "error", err)
 			return err
 		}
+		s.subServices = append(s.subServices, underlying)
 		s.subServices = append(s.subServices, triggerCap)
+		// NOTE: temporary mock Mercury data producer
+		mockMercuryDataProducer := NewMockMercuryDataProducer(underlying, s.lggr)
+		s.subServices = append(s.subServices, mockMercuryDataProducer)
 	}
 	// NOTE: temporary service start - should be managed by capability creation
 	for _, srv := range s.subServices {
@@ -163,21 +177,86 @@ func (s *registrySyncer) Name() string {
 	return "RegistrySyncer"
 }
 
-type noOpTrigger struct {
-	info commoncap.CapabilityInfo
-	lggr logger.Logger
+type mockMercuryDataProducer struct {
+	trigger *triggers.MercuryTriggerService
+	wg      sync.WaitGroup
+	closeCh chan struct{}
+	lggr    logger.Logger
 }
 
-func (t *noOpTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
-	return t.info, nil
+var _ services.Service = &mockMercuryDataProducer{}
+
+func NewMockMercuryDataProducer(trigger *triggers.MercuryTriggerService, lggr logger.Logger) *mockMercuryDataProducer {
+	return &mockMercuryDataProducer{
+		trigger: trigger,
+		closeCh: make(chan struct{}),
+		lggr:    lggr,
+	}
 }
 
-func (t *noOpTrigger) RegisterTrigger(_ context.Context, _ chan<- commoncap.CapabilityResponse, request commoncap.CapabilityRequest) error {
-	t.lggr.Infow("no-op trigger RegisterTrigger", "workflowID", request.Metadata.WorkflowID)
+func (m *mockMercuryDataProducer) Start(ctx context.Context) error {
+	m.wg.Add(1)
+	go m.loop()
 	return nil
 }
 
-func (t *noOpTrigger) UnregisterTrigger(_ context.Context, request commoncap.CapabilityRequest) error {
-	t.lggr.Infow("no-op trigger RegisterTrigger", "workflowID", request.Metadata.WorkflowID)
+func (m *mockMercuryDataProducer) loop() {
+	defer m.wg.Done()
+
+	sleepSec := 60
+	ticker := time.NewTicker(time.Duration(sleepSec) * time.Second)
+	defer ticker.Stop()
+
+	prices := []int64{300000, 40000, 5000000}
+
+	for range ticker.C {
+		for i := range prices {
+			prices[i] = prices[i] + 1
+		}
+
+		reports := []mercury.FeedReport{
+			{
+				FeedID:               "0x1111111111111111111100000000000000000000000000000000000000000000",
+				FullReport:           []byte{0x11, 0xaa, 0xbb, 0xcc},
+				BenchmarkPrice:       prices[0],
+				ObservationTimestamp: time.Now().Unix(),
+			},
+			{
+				FeedID:               "0x2222222222222222222200000000000000000000000000000000000000000000",
+				FullReport:           []byte{0x22, 0xaa, 0xbb, 0xcc},
+				BenchmarkPrice:       prices[1],
+				ObservationTimestamp: time.Now().Unix(),
+			},
+			{
+				FeedID:               "0x3333333333333333333300000000000000000000000000000000000000000000",
+				FullReport:           []byte{0x33, 0xaa, 0xbb, 0xcc},
+				BenchmarkPrice:       prices[2],
+				ObservationTimestamp: time.Now().Unix(),
+			},
+		}
+
+		m.lggr.Infow("New set of Mercury reports", "timestamp", time.Now().Unix(), "payload", reports)
+		err := m.trigger.ProcessReport(reports)
+		if err != nil {
+			m.lggr.Errorw("failed to process Mercury reports", "err", err, "timestamp", time.Now().Unix(), "payload", reports)
+		}
+	}
+}
+
+func (m *mockMercuryDataProducer) Close() error {
+	close(m.closeCh)
+	m.wg.Wait()
 	return nil
+}
+
+func (m *mockMercuryDataProducer) HealthReport() map[string]error {
+	return nil
+}
+
+func (m *mockMercuryDataProducer) Ready() error {
+	return nil
+}
+
+func (m *mockMercuryDataProducer) Name() string {
+	return "mockMercuryDataProducer"
 }

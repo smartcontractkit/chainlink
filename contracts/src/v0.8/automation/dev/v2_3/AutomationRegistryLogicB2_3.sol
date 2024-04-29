@@ -6,7 +6,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 

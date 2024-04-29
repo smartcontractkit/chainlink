@@ -2,6 +2,7 @@ package loadvrfv2
 
 import (
 	"math/big"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -26,12 +27,6 @@ import (
 )
 
 var (
-	testEnv          *test_env.CLClusterTestEnv
-	vrfContracts     *vrfcommon.VRFContracts
-	vrfKey           *vrfcommon.VRFKeyData
-	subIDs           []uint64
-	eoaWalletAddress string
-
 	labels = map[string]string{
 		"branch": "vrfv2_healthcheck",
 		"commit": "vrfv2_healthcheck",
@@ -39,24 +34,30 @@ var (
 )
 
 func TestVRFV2Performance(t *testing.T) {
+	var (
+		testEnv                      *test_env.CLClusterTestEnv
+		vrfContracts                 *vrfcommon.VRFContracts
+		subIDsForCancellingAfterTest []uint64
+		defaultWalletAddress         string
+		vrfKey                       *vrfcommon.VRFKeyData
+	)
 	l := logging.GetTestLogger(t)
-
 	testType, err := tc.GetConfigurationNameFromEnv()
 	require.NoError(t, err)
 	testConfig, err := tc.GetConfig(testType, tc.VRFv2)
 	require.NoError(t, err)
-
-	testReporter := &testreporters.VRFV2TestReporter{}
-	vrfv2Config := testConfig.VRFv2
-
 	cfgl := testConfig.Logging.Loki
+
+	vrfv2Config := testConfig.VRFv2
+	testReporter := &testreporters.VRFV2TestReporter{}
+
 	lokiConfig := wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken)
 	lc, err := wasp.NewLokiClient(lokiConfig)
 	if err != nil {
 		l.Error().Err(err).Msg(ErrLokiClient)
 		return
 	}
-
+	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
 	updatedLabels := UpdateLabels(labels, t)
 
 	l.Info().
@@ -68,9 +69,6 @@ func TestVRFV2Performance(t *testing.T) {
 		Uint16("RandomnessRequestCountPerRequestDeviation", *vrfv2Config.General.RandomnessRequestCountPerRequestDeviation).
 		Bool("UseExistingEnv", *vrfv2Config.General.UseExistingEnv).
 		Msg("Performance Test Configuration")
-
-	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
-
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
@@ -84,11 +82,11 @@ func TestVRFV2Performance(t *testing.T) {
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -108,7 +106,7 @@ func TestVRFV2Performance(t *testing.T) {
 	require.NoError(t, err, "error getting EVM client")
 
 	var consumers []contracts.VRFv2LoadTestConsumer
-	subIDs, consumers, err = vrfv2.SetupSubsAndConsumersForExistingEnv(
+	subIDs, consumers, err := vrfv2.SetupSubsAndConsumersForExistingEnv(
 		testEnv,
 		chainID,
 		vrfContracts.CoordinatorV2,
@@ -118,16 +116,17 @@ func TestVRFV2Performance(t *testing.T) {
 		testConfig,
 		l,
 	)
-	vrfContracts.VRFV2Consumers = consumers
-
-	eoaWalletAddress = evmClient.GetDefaultWallet().Address()
-
-	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
+	require.NoError(t, err, "error setting up new consumers and subs")
 	for _, subID := range subIDs {
 		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
 		require.NoError(t, err, "error getting subscription information for subscription %d", subID)
-		vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
+		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subID, 10), vrfContracts.CoordinatorV2)
 	}
+	subIDsForCancellingAfterTest = subIDs
+	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
+
+	vrfContracts.VRFV2Consumers = consumers
+	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
 	t.Run("vrfv2 performance test", func(t *testing.T) {
@@ -177,16 +176,21 @@ func TestVRFV2Performance(t *testing.T) {
 }
 
 func TestVRFV2BHSPerformance(t *testing.T) {
+	var (
+		testEnv                      *test_env.CLClusterTestEnv
+		vrfContracts                 *vrfcommon.VRFContracts
+		subIDsForCancellingAfterTest []uint64
+		defaultWalletAddress         string
+		vrfKey                       *vrfcommon.VRFKeyData
+	)
 	l := logging.GetTestLogger(t)
 
 	testType, err := tc.GetConfigurationNameFromEnv()
 	require.NoError(t, err)
 	testConfig, err := tc.GetConfig(testType, tc.VRFv2)
 	require.NoError(t, err)
-
-	testReporter := &testreporters.VRFV2TestReporter{}
 	vrfv2Config := testConfig.VRFv2
-
+	testReporter := &testreporters.VRFV2TestReporter{}
 	cfgl := testConfig.Logging.Loki
 	lokiConfig := wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken)
 	lc, err := wasp.NewLokiClient(lokiConfig)
@@ -222,11 +226,11 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -245,43 +249,29 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 	evmClient, err := testEnv.GetEVMClient(chainID)
 	require.NoError(t, err, "error getting EVM client")
 
-	var consumers []contracts.VRFv2LoadTestConsumer
-	subIDs, consumers, err = vrfv2.SetupSubsAndConsumersForExistingEnv(
-		testEnv,
-		chainID,
-		vrfContracts.CoordinatorV2,
-		vrfContracts.LinkToken,
-		1,
-		*vrfv2Config.General.NumberOfSubToCreate,
-		testConfig,
-		l,
-	)
-	vrfContracts.VRFV2Consumers = consumers
-
-	eoaWalletAddress = evmClient.GetDefaultWallet().Address()
-
-	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
-	for _, subID := range subIDs {
-		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
-		require.NoError(t, err, "error getting subscription information for subscription %d", subID)
-		vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
-	}
-
+	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 	t.Run("vrfv2 and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
-		consumers, subIDs, err = vrfv2.SetupNewConsumersAndSubs(
+		underfundedSubIDs, consumers, err := vrfv2.SetupSubsAndConsumersForExistingEnv(
 			testEnv,
 			chainID,
 			vrfContracts.CoordinatorV2,
-			configCopy,
 			vrfContracts.LinkToken,
 			1,
-			*configCopy.VRFv2.General.NumberOfSubToCreate,
+			*vrfv2Config.General.NumberOfSubToCreate,
+			configCopy,
 			l,
 		)
-		require.NoError(t, err, "error setting up new consumers and subscriptions")
+		require.NoError(t, err, "error setting up new consumers and subs")
+		for _, subID := range underfundedSubIDs {
+			subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
+			require.NoError(t, err, "error getting subscription information for subscription %d", subID)
+			vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subID, 10), vrfContracts.CoordinatorV2)
+		}
+		subIDsForCancellingAfterTest = underfundedSubIDs
+		l.Debug().Int("Number of Subs", len(underfundedSubIDs)).Msg("Subs involved in the test")
 		vrfContracts.VRFV2Consumers = consumers
 		require.Len(t, vrfContracts.VRFV2Consumers, 1, "only one consumer should be created for Load Test")
 		err = vrfContracts.VRFV2Consumers[0].ResetMetrics()
@@ -296,7 +286,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 			Gun: NewBHSTestGun(
 				vrfContracts,
 				vrfKey.KeyHash,
-				subIDs,
+				underfundedSubIDs,
 				configCopy.VRFv2,
 				l,
 			),
@@ -322,8 +312,27 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), evmClient, &wgBlockNumberTobe, configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration, t)
 		wgBlockNumberTobe.Wait()
 		require.NoError(t, err, "error waiting for block number to be")
-		err = vrfv2.FundSubscriptions(testEnv, chainID, big.NewFloat(*configCopy.VRFv2.General.SubscriptionRefundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDs)
+
+		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
+		require.NoError(t, err)
+		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(0)), "Fulfilment count should be 0 since sub is underfunded. Check if the sub is actually funded")
+
+		var subIDsString []uint64
+		subIDsString = append(subIDsString, underfundedSubIDs...)
+		l.Info().
+			Float64("SubscriptionRefundingAmountLink", *configCopy.VRFv2.General.SubscriptionRefundingAmountLink).
+			Uints64("SubIDs", subIDsString).
+			Msg("Funding Subscriptions with Link and Native Tokens")
+		err = vrfv2.FundSubscriptions(
+			testEnv,
+			chainID,
+			big.NewFloat(*configCopy.VRFv2.General.SubscriptionRefundingAmountLink),
+			vrfContracts.LinkToken,
+			vrfContracts.CoordinatorV2,
+			underfundedSubIDs,
+		)
 		require.NoError(t, err, "error funding subscriptions")
+
 		var wgAllRequestsFulfilled sync.WaitGroup
 		wgAllRequestsFulfilled.Add(1)
 		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), vrfContracts.VRFV2Consumers[0], 2*time.Minute, &wgAllRequestsFulfilled)

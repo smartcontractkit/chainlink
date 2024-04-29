@@ -1,10 +1,10 @@
 package s4
 
 import (
+	"context"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // Row represents a data row persisted by ORM.
@@ -36,26 +36,26 @@ type ORM interface {
 	// Get reads a row for the given address and slotId combination.
 	// If such row does not exist, ErrNotFound is returned.
 	// There is no filter on Expiration.
-	Get(address *big.Big, slotId uint, qopts ...pg.QOpt) (*Row, error)
+	Get(ctx context.Context, address *big.Big, slotId uint) (*Row, error)
 
 	// Update inserts or updates the row identified by (Address, SlotId) pair.
 	// When updating, the new row must have greater or equal version,
 	// otherwise ErrVersionTooLow is returned.
 	// UpdatedAt field value is ignored.
-	Update(row *Row, qopts ...pg.QOpt) error
+	Update(ctx context.Context, row *Row) error
 
 	// DeleteExpired deletes any entries having Expiration < utcNow,
 	// up to the given limit.
 	// Returns the number of deleted rows.
-	DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) (int64, error)
+	DeleteExpired(ctx context.Context, limit uint, utcNow time.Time) (int64, error)
 
 	// GetSnapshot selects all non-expired row versions for the given addresses range.
 	// For the full address range, use NewFullAddressRange().
-	GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error)
+	GetSnapshot(ctx context.Context, addressRange *AddressRange) ([]*SnapshotRow, error)
 
 	// GetUnconfirmedRows selects all non-expired, non-confirmed rows ordered by UpdatedAt.
 	// The number of returned rows is limited to the given limit.
-	GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error)
+	GetUnconfirmedRows(ctx context.Context, limit uint) ([]*Row, error)
 }
 
 func (r Row) Clone() *Row {

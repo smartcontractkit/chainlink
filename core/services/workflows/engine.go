@@ -10,9 +10,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 const (
@@ -21,12 +22,18 @@ const (
 	mockedWorkflowID = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 )
 
+type donInfo struct {
+	*capabilities.DON
+	PeerID func() *p2ptypes.PeerID
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
 	logger              logger.Logger
-	registry            types.CapabilitiesRegistry
+	registry            core.CapabilitiesRegistry
 	workflow            *workflow
+	donInfo             donInfo
 	executionStates     *inMemoryStore
 	pendingStepRequests chan stepRequest
 	triggerEvents       chan capabilities.CapabilityResponse
@@ -88,7 +95,11 @@ LOOP:
 				continue
 			}
 
-			// Walk the graph and register each step's capability to this workflow
+			// Walk the graph and initialize each step.
+			// This means:
+			// - fetching the capability
+			// - register the capability to this workflow
+			// - initializing the step's executionStrategy
 			err := e.workflow.walkDo(keywordTrigger, func(s *step) error {
 				// The graph contains a dummy step for triggers, but
 				// we handle triggers separately since there might be more than one.
@@ -96,45 +107,12 @@ LOOP:
 					return nil
 				}
 
-				// If the capability already exists, that means we've already registered it
-				if s.capability != nil {
-					return nil
+				err := e.initializeCapability(ctx, s, retrySec)
+				if err != nil {
+					return err
 				}
 
-				cp, innerErr := e.registry.Get(ctx, s.Type)
-				if innerErr != nil {
-					return fmt.Errorf("failed to get capability with ref %s: %s, retrying in %d seconds", s.Type, innerErr, retrySec)
-				}
-
-				// We only need to configure actions, consensus and targets here, and
-				// they all satisfy the `CallbackExecutable` interface
-				cc, ok := cp.(capabilities.CallbackExecutable)
-				if !ok {
-					return fmt.Errorf("could not coerce capability %s to CallbackExecutable", s.Type)
-				}
-
-				if s.config == nil {
-					configMap, ierr := values.NewMap(s.Config)
-					if ierr != nil {
-						return fmt.Errorf("failed to convert config to values.Map: %s", ierr)
-					}
-					s.config = configMap
-				}
-
-				reg := capabilities.RegisterToWorkflowRequest{
-					Metadata: capabilities.RegistrationMetadata{
-						WorkflowID: e.workflow.id,
-					},
-					Config: s.config,
-				}
-
-				innerErr = cc.RegisterToWorkflow(ctx, reg)
-				if innerErr != nil {
-					return fmt.Errorf("failed to register to workflow (%+v): %w", reg, innerErr)
-				}
-
-				s.capability = cc
-				return nil
+				return e.initializeExecutionStrategy(s)
 			})
 			if err != nil {
 				initSuccessful = false
@@ -156,6 +134,101 @@ LOOP:
 	}
 
 	e.logger.Info("engine initialized")
+}
+
+func (e *Engine) initializeCapability(ctx context.Context, s *step, retrySec int) error {
+	// If the capability already exists, that means we've already registered it
+	if s.capability != nil {
+		return nil
+	}
+
+	cp, innerErr := e.registry.Get(ctx, s.Type)
+	if innerErr != nil {
+		return fmt.Errorf("failed to get capability with ref %s: %s, retrying in %d seconds", s.Type, innerErr, retrySec)
+	}
+
+	// We only need to configure actions, consensus and targets here, and
+	// they all satisfy the `CallbackCapability` interface
+	cc, ok := cp.(capabilities.CallbackCapability)
+	if !ok {
+		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.Type)
+	}
+
+	if s.config == nil {
+		configMap, ierr := values.NewMap(s.Config)
+		if ierr != nil {
+			return fmt.Errorf("failed to convert config to values.Map: %s", ierr)
+		}
+		s.config = configMap
+	}
+
+	reg := capabilities.RegisterToWorkflowRequest{
+		Metadata: capabilities.RegistrationMetadata{
+			WorkflowID: e.workflow.id,
+		},
+		Config: s.config,
+	}
+
+	innerErr = cc.RegisterToWorkflow(ctx, reg)
+	if innerErr != nil {
+		return fmt.Errorf("failed to register to workflow (%+v): %w", reg, innerErr)
+	}
+
+	s.capability = cc
+	return nil
+}
+
+// initializeExecutionStrategy for `step`.
+// Broadly speaking, we'll use `immediateExecution` for non-target steps
+// and `scheduledExecution` for targets. If we don't have the necessary
+// config to initialize a scheduledExecution for a target, we'll fallback to
+// using `immediateExecution`.
+func (e *Engine) initializeExecutionStrategy(step *step) error {
+	if step.executionStrategy != nil {
+		return nil
+	}
+
+	// If donInfo has no peerID, then the peer wrapper hasn't been initialized.
+	// Let's error and try again next time around.
+	if e.donInfo.PeerID() == nil {
+		return fmt.Errorf("failed to initialize execution strategy: peer ID %s has not been initialized", e.donInfo.PeerID())
+	}
+
+	ie := immediateExecution{}
+	if step.CapabilityType != capabilities.CapabilityTypeTarget {
+		e.logger.Debugf("initializing step %+v with immediate execution strategy: not a target", step)
+		step.executionStrategy = ie
+		return nil
+	}
+
+	dinfo := e.donInfo
+	if dinfo.DON == nil {
+		e.logger.Debugf("initializing target step with immediate execution strategy: donInfo %+v", e.donInfo)
+		step.executionStrategy = ie
+		return nil
+	}
+
+	var position *int
+	for i, w := range dinfo.Members {
+		if w == *dinfo.PeerID() {
+			idx := i
+			position = &idx
+		}
+	}
+
+	if position == nil {
+		e.logger.Debugf("initializing step %+v with immediate execution strategy: position not found in donInfo %+v", step, e.donInfo)
+		step.executionStrategy = ie
+		return nil
+	}
+
+	step.executionStrategy = scheduledExecution{
+		DON:      e.donInfo.DON,
+		Position: *position,
+		PeerID:   e.donInfo.PeerID(),
+	}
+	e.logger.Debugf("initializing step %+v with scheduled execution strategy", step)
+	return nil
 }
 
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
@@ -183,10 +256,17 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 		Config: tc,
 		Inputs: triggerInputs,
 	}
-	err = t.trigger.RegisterTrigger(ctx, e.triggerEvents, triggerRegRequest)
+	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate trigger %s, %s", t.Type, err)
 	}
+
+	go func() {
+		for event := range eventsCh {
+			e.triggerEvents <- event
+		}
+	}()
+
 	return nil
 }
 
@@ -212,7 +292,12 @@ func (e *Engine) loop(ctx context.Context) {
 		case <-ctx.Done():
 			e.logger.Debugw("shutting down loop")
 			return
-		case resp := <-e.triggerEvents:
+		case resp, isOpen := <-e.triggerEvents:
+			if !isOpen {
+				e.logger.Errorf("trigger events channel is no longer open, skipping")
+				continue
+			}
+
 			if resp.Err != nil {
 				e.logger.Errorf("trigger event was an error; not executing", resp.Err)
 				continue
@@ -424,20 +509,24 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	defer func() { e.newWorkerCh <- struct{}{} }()
 	defer e.wg.Done()
 
-	e.logger.Debugw("executing on a step event", "stepRef", msg.stepRef, "executionID", msg.state.executionID)
+	// Instantiate a child logger; in addition to the WorkflowID field the workflow
+	// logger will already have, this adds the `stepRef` and `executionID`
+	l := e.logger.With("stepRef", msg.stepRef, "executionID", msg.state.executionID)
+
+	l.Debugw("executing on a step event")
 	stepState := &stepState{
 		outputs:     &stepOutput{},
 		executionID: msg.state.executionID,
 		ref:         msg.stepRef,
 	}
 
-	inputs, outputs, err := e.executeStep(ctx, msg)
+	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	if err != nil {
-		e.logger.Errorf("error executing step request: %s", err, "executionID", msg.state.executionID, "stepRef", msg.stepRef)
+		l.Errorf("error executing step request: %s", err)
 		stepState.outputs.err = err
 		stepState.status = statusErrored
 	} else {
-		e.logger.Infow("step executed successfully", "executionID", msg.state.executionID, "stepRef", msg.stepRef, "outputs", outputs)
+		l.Infow("step executed successfully", "outputs", outputs)
 		stepState.outputs.value = outputs
 		stepState.status = statusCompleted
 	}
@@ -452,13 +541,13 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// like this one will get picked up again and will be reprocessed.
 	select {
 	case <-ctx.Done():
-		e.logger.Errorf("context canceled before step update could be issued", err, "executionID", msg.state.executionID, "stepRef", msg.stepRef)
+		l.Errorf("context canceled before step update could be issued", err)
 	case e.stepUpdateCh <- *stepState:
 	}
 }
 
 // executeStep executes the referenced capability within a step and returns the result.
-func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map, values.Value, error) {
+func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepRequest) (*values.Map, values.Value, error) {
 	step, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
 		return nil, nil, err
@@ -483,18 +572,12 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		},
 	}
 
-	resp, err := capabilities.ExecuteSync(ctx, step.capability, tr)
+	output, err := step.executionStrategy.Apply(ctx, l, step.capability, tr)
 	if err != nil {
 		return inputs, nil, err
 	}
 
-	// `ExecuteSync` returns a `values.List` even if there was
-	// just one return value. If that is the case, let's unwrap the
-	// single value to make it easier to use in -- for example -- variable interpolation.
-	if len(resp.Underlying) > 1 {
-		return inputs, resp, err
-	}
-	return inputs, resp.Underlying[0], err
+	return inputs, output, err
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) error {
@@ -513,7 +596,15 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 		Inputs: triggerInputs,
 		Config: t.config,
 	}
-	return t.trigger.UnregisterTrigger(ctx, deregRequest)
+
+	// if t.trigger == nil, then we haven't initialized the workflow
+	// yet, and can safely consider the trigger deregistered with
+	// no further action.
+	if t.trigger != nil {
+		return t.trigger.UnregisterTrigger(ctx, deregRequest)
+	}
+
+	return nil
 }
 
 func (e *Engine) Close() error {
@@ -545,6 +636,13 @@ func (e *Engine) Close() error {
 				Config: s.config,
 			}
 
+			// if capability is nil, then we haven't initialized
+			// the workflow yet and can safely consider it deregistered
+			// with no further action.
+			if s.capability == nil {
+				return nil
+			}
+
 			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
 			if innerErr != nil {
 				return fmt.Errorf("failed to unregister from workflow: %+v", reg)
@@ -564,10 +662,12 @@ type Config struct {
 	Spec             string
 	WorkflowID       string
 	Lggr             logger.Logger
-	Registry         types.CapabilitiesRegistry
+	Registry         core.CapabilitiesRegistry
 	MaxWorkerLimit   int
 	QueueSize        int
 	NewWorkerTimeout time.Duration
+	DONInfo          *capabilities.DON
+	PeerID           func() *p2ptypes.PeerID
 }
 
 const (
@@ -611,9 +711,13 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	engine = &Engine{
-		logger:               cfg.Lggr.Named("WorkflowEngine"),
-		registry:             cfg.Registry,
-		workflow:             workflow,
+		logger:   cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
+		registry: cfg.Registry,
+		workflow: workflow,
+		donInfo: donInfo{
+			DON:    cfg.DONInfo,
+			PeerID: cfg.PeerID,
+		},
 		executionStates:      newInMemoryStore(),
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		newWorkerCh:          newWorkerCh,

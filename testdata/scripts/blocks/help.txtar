@@ -9,7 +9,8 @@ USAGE:
    chainlink blocks command [command options] [arguments...]
 
 COMMANDS:
-   replay  Replays block data from the given number
+   replay    Replays block data from the given number
+   find-lca  Find latest common block stored in DB and on chain
 
 OPTIONS:
    --help, -h  show help
