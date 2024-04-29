@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 
 import {CBOREncoder} from "./CBOREncoder.sol";
 
-// forge test --match-path src/v0.8/automation/dev/CBOREncoder.t.sol
+// forge test --match-path src/v0.8/automation/dev/CBOREncoder.t.sol -vvvv
 
 contract SetUp is Test {
   CBOREncoder internal encoder;
@@ -17,7 +17,7 @@ contract SetUp is Test {
 
 contract CBOREncode is SetUp {
   function testEncode() public {
-    (bytes memory data, uint256 depth) = encoder.encode(1_000_000_000_000, 16);
+    (bytes memory data, uint256 depth) = encoder.encode(100_000_000, 256);
 
     assertEq(depth, 0);
   }
