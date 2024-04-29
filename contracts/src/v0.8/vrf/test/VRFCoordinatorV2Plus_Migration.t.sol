@@ -1,14 +1,14 @@
 pragma solidity 0.8.19;
 
 import "./BaseTest.t.sol";
-import {VRFCoordinatorV2Plus_V2Example} from "../dev/testhelpers/VRFCoordinatorV2Plus_V2Example.sol";
-import {ExposedVRFCoordinatorV2_5} from "../dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
-import {VRFCoordinatorV2_5} from "../dev/VRFCoordinatorV2_5.sol";
-import {SubscriptionAPI} from "../dev/SubscriptionAPI.sol";
-import {VRFV2PlusConsumerExample} from "../dev/testhelpers/VRFV2PlusConsumerExample.sol";
+import {VRFCoordinatorV2Plus_V2Example} from "../testhelpers/VRFCoordinatorV2Plus_V2Example.sol";
+import {ExposedVRFCoordinatorV2_5} from "../testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {VRFCoordinatorV2_5} from "../VRFCoordinatorV2_5.sol";
+import {SubscriptionAPI} from "../SubscriptionAPI.sol";
+import {VRFV2PlusConsumerExample} from "../testhelpers/VRFV2PlusConsumerExample.sol";
 import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
-import {VRFV2PlusMaliciousMigrator} from "../dev/testhelpers/VRFV2PlusMaliciousMigrator.sol";
+import {VRFV2PlusMaliciousMigrator} from "../testhelpers/VRFV2PlusMaliciousMigrator.sol";
 
 contract VRFCoordinatorV2Plus_Migration is BaseTest {
   uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 LINK
