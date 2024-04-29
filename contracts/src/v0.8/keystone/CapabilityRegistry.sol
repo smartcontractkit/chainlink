@@ -193,10 +193,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     return s_capabilities[capabilityID];
   }
 
-  /// @notice Returns all capability IDs. This operation will copy the entire
-  /// storage to memory, which can be quite expensive. This is designed to
-  /// mostly be used by view accessors that are queried without any gas fees.
-  /// @return bytes32[] An array of all capability IDs
+  /// @notice Returns all capabilities. This operation will copy capabilities
+  /// to memory, which can be quite expensive. This is designed to mostly be
+  /// used by view accessors that are queried without any gas fees.
+  /// @return Capability[] An array of capabilities
   function getCapabilities() external view returns (Capability[] memory) {
     bytes32[] memory capabilityIds = s_capabilityIds.values();
     Capability[] memory capabilities = new Capability[](capabilityIds.length);
