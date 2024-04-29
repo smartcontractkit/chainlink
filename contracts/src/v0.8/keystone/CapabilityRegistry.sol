@@ -99,7 +99,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   function updateNodeOperators(uint256[] calldata nodeOperatorIds, NodeOperator[] calldata nodeOperators) external {
     if (nodeOperatorIds.length != nodeOperators.length)
       revert LengthMismatch(nodeOperatorIds.length, nodeOperators.length);
-    
+
     address owner = owner();
     for (uint256 i; i < nodeOperatorIds.length; ++i) {
       uint256 nodeOperatorId = nodeOperatorIds[i];
