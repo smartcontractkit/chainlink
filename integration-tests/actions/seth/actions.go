@@ -846,8 +846,8 @@ func SendLinkFundsToDeploymentAddresses(
 		return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
 	}
 
-	if toTransferToMultiCallContract.Cmp(balance) != 0 {
-		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected: %s. Got: %s", toTransferToMultiCallContract.String(), balance.String())
+	if balance.Cmp(toTransferToMultiCallContract) < 0 {
+		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected at least: %s. Got: %s", toTransferToMultiCallContract.String(), balance.String())
 	}
 
 	// Transfer LINK to ephemeral keys

@@ -106,6 +106,7 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 		}(a, m)
 	}
 	wg.Wait()
+	close(resultCh)
 
 	r := &wasp.Response{}
 	for result := range resultCh {
