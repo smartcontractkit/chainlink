@@ -7,6 +7,8 @@ import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfac
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.sol";
 
+// Test to ensure changeset is not required
+
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
