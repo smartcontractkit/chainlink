@@ -366,14 +366,14 @@ func (f *EthereumStakingEventsMock) FeedOperatorsSet(feedOperators []common.Addr
 }
 
 func DeployStakingEventsMock(client *seth.Client) (StakingEventsMock, error) {
-	abi, err := eth_contracts.StakingMetaData.GetAbi()
+	abi, err := eth_contracts.StakingEventsMockMetaData.GetAbi()
 	if err != nil {
 		return &EthereumStakingEventsMock{}, fmt.Errorf("failed to get StakingEventsMock ABI: %w", err)
 	}
 	client.ContractStore.AddABI("StakingEventsMock", *abi)
-	client.ContractStore.AddBIN("StakingEventsMock", common.FromHex(eth_contracts.StakingMetaData.Bin))
+	client.ContractStore.AddBIN("StakingEventsMock", common.FromHex(eth_contracts.StakingEventsMockMetaData.Bin))
 
-	data, err := client.DeployContract(client.NewTXOpts(), "StakingEventsMock", *abi, common.FromHex(eth_contracts.StakingMetaData.Bin))
+	data, err := client.DeployContract(client.NewTXOpts(), "StakingEventsMock", *abi, common.FromHex(eth_contracts.StakingEventsMockMetaData.Bin))
 
 	if err != nil {
 		return &EthereumStakingEventsMock{}, fmt.Errorf("StakingEventsMock instance deployment have failed: %w", err)
