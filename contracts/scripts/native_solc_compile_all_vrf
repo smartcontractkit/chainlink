@@ -94,24 +94,24 @@ export SOLC_VERSION=$SOLC_VERSION
 
 # v0.8.19
 # VRF V2 Plus
-compileContract vrf/dev/interfaces/IVRFCoordinatorV2PlusInternal.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol
-compileContractAltOpts vrf/dev/VRFCoordinatorV2_5.sol 500
-compileContract vrf/dev/BatchVRFCoordinatorV2Plus.sol
-compileContract vrf/dev/VRFV2PlusWrapper.sol
-compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
-compileContract vrf/dev/testhelpers/VRFMaliciousConsumerV2Plus.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusExternalSubOwnerExample.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusSingleConsumerExample.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusRevertingExample.sol
-compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusMaliciousMigrator.sol
-compileContract vrf/dev/libraries/VRFV2PlusClient.sol
-compileContract vrf/dev/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
-compileContract vrf/dev/TrustedBlockhashStore.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
-compileContractAltOpts vrf/dev/testhelpers/VRFCoordinatorV2PlusUpgradedVersion.sol 5
-compileContract vrf/dev/testhelpers/VRFV2PlusWrapperLoadTestConsumer.sol
+compileContract vrf/interfaces/IVRFCoordinatorV2PlusInternal.sol
+compileContract vrf/testhelpers/VRFV2PlusConsumerExample.sol
+compileContractAltOpts vrf/VRFCoordinatorV2_5.sol 500
+compileContract vrf/BatchVRFCoordinatorV2Plus.sol
+compileContract vrf/VRFV2PlusWrapper.sol
+compileContract vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
+compileContract vrf/testhelpers/VRFMaliciousConsumerV2Plus.sol
+compileContract vrf/testhelpers/VRFV2PlusExternalSubOwnerExample.sol
+compileContract vrf/testhelpers/VRFV2PlusSingleConsumerExample.sol
+compileContract vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol
+compileContract vrf/testhelpers/VRFV2PlusRevertingExample.sol
+compileContract vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
+compileContract vrf/testhelpers/VRFV2PlusMaliciousMigrator.sol
+compileContract vrf/libraries/VRFV2PlusClient.sol
+compileContract vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
+compileContract vrf/TrustedBlockhashStore.sol
+compileContract vrf/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
+compileContractAltOpts vrf/testhelpers/VRFCoordinatorV2PlusUpgradedVersion.sol 5
+compileContract vrf/testhelpers/VRFV2PlusWrapperLoadTestConsumer.sol
 compileContract vrf/BatchBlockhashStore.sol
-compileContract vrf/dev/BlockhashStore.sol
+compileContract vrf/BlockhashStore.sol

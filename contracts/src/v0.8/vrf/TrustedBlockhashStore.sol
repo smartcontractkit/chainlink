@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {BlockhashStore} from "./BlockhashStore.sol";
 
 contract TrustedBlockhashStore is ConfirmedOwner, BlockhashStore {
