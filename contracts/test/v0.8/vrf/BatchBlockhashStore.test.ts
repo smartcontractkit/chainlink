@@ -17,7 +17,7 @@ describe('BatchBlockhashStore', () => {
     owner = accounts[0]
 
     const bhFactory = await ethers.getContractFactory(
-      'src/v0.8/vrf/dev/BlockhashStore.sol:BlockhashStore',
+      'src/v0.8/vrf/BlockhashStore.sol:BlockhashStore',
       accounts[0],
     )
 
