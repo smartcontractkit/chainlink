@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -146,7 +145,7 @@ func (s *Server) NewPluginProvider(ctx context.Context, req *relayerset.NewPlugi
 // enable the medianpoc for EVM and not touch the other providers.
 // TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
 func (s *Server) getProviderConnection(pluginProvider types.PluginProvider, providerType string) (grpc.ClientConnInterface, error) {
-	log.Info("wrapping provider %s in an in process provider server as it is not a LOOPP provider, ", pluginProvider.Name())
+	s.log.Info("wrapping provider %s in an in process provider server as it is not a LOOPP provider, ", pluginProvider.Name())
 
 	ps, err := inprocessprovider.NewProviderServer(pluginProvider, types.OCR2PluginType(providerType), s.log)
 	if err != nil {
