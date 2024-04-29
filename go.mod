@@ -353,7 +353,4 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
-
-	// Fixes mod/github.com/grafana/loki@v1.6.2-0.20230403212622-90888a0cc737/pkg/util/metrics_helper.go:798:39: too many arguments in call to lbls.Labels
-	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.47.2-0.20231010075449-4b9c19fe5510
 )
