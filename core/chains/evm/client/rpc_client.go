@@ -187,7 +187,6 @@ func (r *rpcClient) Close() {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
 	r.cancelInflightRequests()
-	r.unsubscribeAll()
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
