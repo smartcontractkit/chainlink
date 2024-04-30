@@ -31,8 +31,10 @@ var (
 )
 
 type CapabilityRegistryCapability struct {
-	CapabilityType [32]byte
-	Version        [32]byte
+	CapabilityType        [32]byte
+	Version               [32]byte
+	ResponseType          uint8
+	ConfigurationContract common.Address
 }
 
 type CapabilityRegistryNodeOperator struct {
@@ -41,8 +43,8 @@ type CapabilityRegistryNodeOperator struct {
 }
 
 var CapabilityRegistryMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"InvalidNodeOperatorAdmin\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"capabilityId\",\"type\":\"bytes32\"}],\"name\":\"CapabilityAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nodeOperatorId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"name\":\"NodeOperatorAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nodeOperatorId\",\"type\":\"uint256\"}],\"name\":\"NodeOperatorRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityType\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"version\",\"type\":\"bytes32\"}],\"internalType\":\"structCapabilityRegistry.Capability\",\"name\":\"capability\",\"type\":\"tuple\"}],\"name\":\"addCapability\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"internalType\":\"structCapabilityRegistry.NodeOperator[]\",\"name\":\"nodeOperators\",\"type\":\"tuple[]\"}],\"name\":\"addNodeOperators\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityID\",\"type\":\"bytes32\"}],\"name\":\"getCapability\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityType\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"version\",\"type\":\"bytes32\"}],\"internalType\":\"structCapabilityRegistry.Capability\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityType\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"version\",\"type\":\"bytes32\"}],\"name\":\"getCapabilityID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"nodeOperatorId\",\"type\":\"uint256\"}],\"name\":\"getNodeOperator\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"internalType\":\"structCapabilityRegistry.NodeOperator\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256[]\",\"name\":\"nodeOperatorIds\",\"type\":\"uint256[]\"}],\"name\":\"removeNodeOperators\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b5033806000816100675760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615610097576100978161009f565b505050610148565b336001600160a01b038216036100f75760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161005e565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b610ef1806101576000396000f3fe608060405234801561001057600080fd5b50600436106100be5760003560e01c80636e5f2869116100765780638da5cb5b1161005b5780638da5cb5b146101b65780639cb7c5f4146101de578063f2fde38b1461024557600080fd5b80636e5f28691461019b57806379ba5097146101ae57600080fd5b8063229111f5116100a7578063229111f514610120578063398f37731461016857806365c14dc71461017b57600080fd5b8063181f5a77146100c35780631cdf63431461010b575b600080fd5b604080518082018252601881527f4361706162696c697479526567697374727920312e302e300000000000000000602082015290516101029190610957565b60405180910390f35b61011e6101193660046109bd565b610258565b005b61015a61012e3660046109ff565b604080516020808201949094528082019290925280518083038201815260609092019052805191012090565b604051908152602001610102565b61011e6101763660046109bd565b61031b565b61018e610189366004610a21565b6104b4565b6040516101029190610a3a565b61011e6101a9366004610a7d565b61059a565b61011e610617565b60005460405173ffffffffffffffffffffffffffffffffffffffff9091168152602001610102565b61022a6101ec366004610a21565b604080518082019091526000808252602082015250600090815260026020908152604091829020825180840190935280548352600101549082015290565b60408051825181526020928301519281019290925201610102565b61011e610253366004610abe565b610719565b61026061072d565b60005b8181101561031657600083838381811061027f5761027f610ad9565b60209081029290920135600081815260039093526040832080547fffffffffffffffffffffffff00000000000000000000000000000000000000001681559093509190506102d060018301826108a5565b50506040518181527f1e5877d7b3001d1569bf733b76c7eceda58bd6c031e5b8d0b7042308ba2e9d4f9060200160405180910390a15061030f81610b08565b9050610263565b505050565b61032361072d565b60005b8181101561031657600083838381811061034257610342610ad9565b90506020028101906103549190610b67565b61035d90610c4c565b805190915073ffffffffffffffffffffffffffffffffffffffff166103ae576040517feeacd93900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600454604080518082018252835173ffffffffffffffffffffffffffffffffffffffff908116825260208086015181840190815260008681526003909252939020825181547fffffffffffffffffffffffff0000000000000000000000000000000000000000169216919091178155915190919060018201906104319082610db1565b5090505060046000815461044490610b08565b909155508151602083015160405173ffffffffffffffffffffffffffffffffffffffff909216917fda6697b182650034bd205cdc2dbfabb06bdb3a0a83a2b45bfefa3c4881284e0b9161049991859190610ecb565b60405180910390a25050806104ad90610b08565b9050610326565b6040805180820190915260008152606060208201526000828152600360209081526040918290208251808401909352805473ffffffffffffffffffffffffffffffffffffffff168352600181018054919284019161051190610d16565b80601f016020809104026020016040519081016040528092919081815260200182805461053d90610d16565b801561058a5780601f1061055f5761010080835404028352916020019161058a565b820191906000526020600020905b81548152906001019060200180831161056d57829003601f168201915b5050505050815250509050919050565b6105a261072d565b60408051823560208083018290528085013583850181905284518085038601815260609094018086528451948301949094206000818152600290935294822092835560019092019190915582917f65610e5677eedff94555572640e442f89848a109ef8593fa927ac30b2565ff069190a25050565b60015473ffffffffffffffffffffffffffffffffffffffff16331461069d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e65720000000000000000000060448201526064015b60405180910390fd5b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b61072161072d565b61072a816107b0565b50565b60005473ffffffffffffffffffffffffffffffffffffffff1633146107ae576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e6572000000000000000000006044820152606401610694565b565b3373ffffffffffffffffffffffffffffffffffffffff82160361082f576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c660000000000000000006044820152606401610694565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b5080546108b190610d16565b6000825580601f106108c1575050565b601f01602090049060005260206000209081019061072a91905b808211156108ef57600081556001016108db565b5090565b6000815180845260005b81811015610919576020818501810151868301820152016108fd565b5060006020828601015260207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f83011685010191505092915050565b60208152600061096a60208301846108f3565b9392505050565b60008083601f84011261098357600080fd5b50813567ffffffffffffffff81111561099b57600080fd5b6020830191508360208260051b85010111156109b657600080fd5b9250929050565b600080602083850312156109d057600080fd5b823567ffffffffffffffff8111156109e757600080fd5b6109f385828601610971565b90969095509350505050565b60008060408385031215610a1257600080fd5b50508035926020909101359150565b600060208284031215610a3357600080fd5b5035919050565b6020815273ffffffffffffffffffffffffffffffffffffffff825116602082015260006020830151604080840152610a7560608401826108f3565b949350505050565b600060408284031215610a8f57600080fd5b50919050565b803573ffffffffffffffffffffffffffffffffffffffff81168114610ab957600080fd5b919050565b600060208284031215610ad057600080fd5b61096a82610a95565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610b60577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b5060010190565b600082357fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc1833603018112610b9b57600080fd5b9190910192915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6040805190810167ffffffffffffffff81118282101715610bf757610bf7610ba5565b60405290565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff81118282101715610c4457610c44610ba5565b604052919050565b600060408236031215610c5e57600080fd5b610c66610bd4565b610c6f83610a95565b815260208084013567ffffffffffffffff80821115610c8d57600080fd5b9085019036601f830112610ca057600080fd5b813581811115610cb257610cb2610ba5565b610ce2847fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f84011601610bfd565b91508082523684828501011115610cf857600080fd5b80848401858401376000908201840152918301919091525092915050565b600181811c90821680610d2a57607f821691505b602082108103610a8f577f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b601f82111561031657600081815260208120601f850160051c81016020861015610d8a5750805b601f850160051c820191505b81811015610da957828155600101610d96565b505050505050565b815167ffffffffffffffff811115610dcb57610dcb610ba5565b610ddf81610dd98454610d16565b84610d63565b602080601f831160018114610e325760008415610dfc5750858301515b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600386901b1c1916600185901b178555610da9565b6000858152602081207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe08616915b82811015610e7f57888601518255948401946001909101908401610e60565b5085821015610ebb57878501517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600388901b60f8161c191681555b5050505050600190811b01905550565b828152604060208201526000610a7560408301846108f356fea164736f6c6343000813000a",
+	ABI: "[{\"inputs\":[],\"name\":\"AccessForbidden\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityId\",\"type\":\"bytes32\"}],\"name\":\"CapabilityAlreadyDeprecated\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CapabilityAlreadyExists\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityId\",\"type\":\"bytes32\"}],\"name\":\"CapabilityDoesNotExist\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"proposedConfigurationContract\",\"type\":\"address\"}],\"name\":\"InvalidCapabilityConfigurationContractInterface\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidNodeOperatorAdmin\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"lengthOne\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"lengthTwo\",\"type\":\"uint256\"}],\"name\":\"LengthMismatch\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"capabilityId\",\"type\":\"bytes32\"}],\"name\":\"CapabilityAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"capabilityId\",\"type\":\"bytes32\"}],\"name\":\"CapabilityDeprecated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nodeOperatorId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"name\":\"NodeOperatorAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nodeOperatorId\",\"type\":\"uint256\"}],\"name\":\"NodeOperatorRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nodeOperatorId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"name\":\"NodeOperatorUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityType\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"version\",\"type\":\"bytes32\"},{\"internalType\":\"enumCapabilityRegistry.CapabilityResponseType\",\"name\":\"responseType\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"configurationContract\",\"type\":\"address\"}],\"internalType\":\"structCapabilityRegistry.Capability\",\"name\":\"capability\",\"type\":\"tuple\"}],\"name\":\"addCapability\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"internalType\":\"structCapabilityRegistry.NodeOperator[]\",\"name\":\"nodeOperators\",\"type\":\"tuple[]\"}],\"name\":\"addNodeOperators\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityId\",\"type\":\"bytes32\"}],\"name\":\"deprecateCapability\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCapabilities\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityType\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"version\",\"type\":\"bytes32\"},{\"internalType\":\"enumCapabilityRegistry.CapabilityResponseType\",\"name\":\"responseType\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"configurationContract\",\"type\":\"address\"}],\"internalType\":\"structCapabilityRegistry.Capability[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityID\",\"type\":\"bytes32\"}],\"name\":\"getCapability\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityType\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"version\",\"type\":\"bytes32\"},{\"internalType\":\"enumCapabilityRegistry.CapabilityResponseType\",\"name\":\"responseType\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"configurationContract\",\"type\":\"address\"}],\"internalType\":\"structCapabilityRegistry.Capability\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityType\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"version\",\"type\":\"bytes32\"}],\"name\":\"getCapabilityID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"nodeOperatorId\",\"type\":\"uint256\"}],\"name\":\"getNodeOperator\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"internalType\":\"structCapabilityRegistry.NodeOperator\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"capabilityId\",\"type\":\"bytes32\"}],\"name\":\"isCapabilityDeprecated\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256[]\",\"name\":\"nodeOperatorIds\",\"type\":\"uint256[]\"}],\"name\":\"removeNodeOperators\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256[]\",\"name\":\"nodeOperatorIds\",\"type\":\"uint256[]\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"internalType\":\"structCapabilityRegistry.NodeOperator[]\",\"name\":\"nodeOperators\",\"type\":\"tuple[]\"}],\"name\":\"updateNodeOperators\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b5033806000816100675760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615610097576100978161009f565b505050610148565b336001600160a01b038216036100f75760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161005e565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b611a7d80620001586000396000f3fe608060405234801561001057600080fd5b50600436106100ea5760003560e01c806365c14dc71161008c5780639cb7c5f4116100665780639cb7c5f41461023c578063ae3c241c1461025c578063ddbe4f821461026f578063f2fde38b1461028457600080fd5b806365c14dc7146101ec57806379ba50971461020c5780638da5cb5b1461021457600080fd5b8063181f5a77116100c8578063181f5a771461013f5780631cdf63431461017e578063229111f514610191578063398f3773146101d957600080fd5b80630c5801e3146100ef578063117392ce146101045780631257001114610117575b600080fd5b6101026100fd36600461120e565b610297565b005b61010261011236600461127a565b6105a8565b61012a610125366004611292565b6107f3565b60405190151581526020015b60405180910390f35b604080518082018252601881527f4361706162696c697479526567697374727920312e302e30000000000000000060208201529051610136919061130f565b61010261018c366004611322565b610806565b6101cb61019f366004611364565b604080516020808201949094528082019290925280518083038201815260609092019052805191012090565b604051908152602001610136565b6101026101e7366004611322565b6108c9565b6101ff6101fa366004611292565b610a62565b6040516101369190611386565b610102610b48565b60005460405173ffffffffffffffffffffffffffffffffffffffff9091168152602001610136565b61024f61024a366004611292565b610c45565b6040516101369190611468565b61010261026a366004611292565b610cef565b610277610dba565b6040516101369190611476565b6101026102923660046114e6565b610eff565b8281146102df576040517fab8b67c600000000000000000000000000000000000000000000000000000000815260048101849052602481018290526044015b60405180910390fd5b6000805473ffffffffffffffffffffffffffffffffffffffff16905b848110156105a057600086868381811061031757610317611503565b905060200201359050600085858481811061033457610334611503565b90506020028101906103469190611532565b61034f90611617565b805190915073ffffffffffffffffffffffffffffffffffffffff166103a0576040517feeacd93900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b805173ffffffffffffffffffffffffffffffffffffffff1633148015906103dd57503373ffffffffffffffffffffffffffffffffffffffff851614155b15610414576040517fef67f5d800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b805160008381526007602052604090205473ffffffffffffffffffffffffffffffffffffffff90811691161415806104c6575060208082015160405161045a920161130f565b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe081840301815282825280516020918201206000868152600783529290922091926104ad926001019101611730565b6040516020818303038152906040528051906020012014155b1561058d578051600083815260076020908152604090912080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff909316929092178255820151600190910190610533908261181f565b50806000015173ffffffffffffffffffffffffffffffffffffffff167f14c8f513e8a6d86d2d16b0cb64976de4e72386c4f8068eca3b7354373f8fe97a838360200151604051610584929190611939565b60405180910390a25b50508061059990611981565b90506102fb565b505050505050565b6105b0610f13565b6040805182356020828101919091528084013582840152825180830384018152606090920190925280519101206105e8600382610f96565b1561061f576040517fe288638f00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600061063160808401606085016114e6565b73ffffffffffffffffffffffffffffffffffffffff161461079c5761065c60808301606084016114e6565b73ffffffffffffffffffffffffffffffffffffffff163b158061073c575061068a60808301606084016114e6565b6040517f01ffc9a70000000000000000000000000000000000000000000000000000000081527f884efe6100000000000000000000000000000000000000000000000000000000600482015273ffffffffffffffffffffffffffffffffffffffff91909116906301ffc9a790602401602060405180830381865afa158015610716573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061073a91906119b9565b155b1561079c5761075160808301606084016114e6565b6040517fabb5e3fd00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff90911660048201526024016102d6565b6107a7600382610fb1565b50600081815260026020526040902082906107c282826119db565b505060405181907f65610e5677eedff94555572640e442f89848a109ef8593fa927ac30b2565ff0690600090a25050565b6000610800600583610f96565b92915050565b61080e610f13565b60005b818110156108c457600083838381811061082d5761082d611503565b60209081029290920135600081815260079093526040832080547fffffffffffffffffffffffff000000000000000000000000000000000000000016815590935091905061087e6001830182611174565b50506040518181527f1e5877d7b3001d1569bf733b76c7eceda58bd6c031e5b8d0b7042308ba2e9d4f9060200160405180910390a1506108bd81611981565b9050610811565b505050565b6108d1610f13565b60005b818110156108c45760008383838181106108f0576108f0611503565b90506020028101906109029190611532565b61090b90611617565b805190915073ffffffffffffffffffffffffffffffffffffffff1661095c576040517feeacd93900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600854604080518082018252835173ffffffffffffffffffffffffffffffffffffffff908116825260208086015181840190815260008681526007909252939020825181547fffffffffffffffffffffffff0000000000000000000000000000000000000000169216919091178155915190919060018201906109df908261181f565b509050506008600081546109f290611981565b909155508151602083015160405173ffffffffffffffffffffffffffffffffffffffff909216917fda6697b182650034bd205cdc2dbfabb06bdb3a0a83a2b45bfefa3c4881284e0b91610a4791859190611939565b60405180910390a2505080610a5b90611981565b90506108d4565b6040805180820190915260008152606060208201526000828152600760209081526040918290208251808401909352805473ffffffffffffffffffffffffffffffffffffffff1683526001810180549192840191610abf906116e3565b80601f0160208091040260200160405190810160405280929190818152602001828054610aeb906116e3565b8015610b385780601f10610b0d57610100808354040283529160200191610b38565b820191906000526020600020905b815481529060010190602001808311610b1b57829003601f168201915b5050505050815250509050919050565b60015473ffffffffffffffffffffffffffffffffffffffff163314610bc9576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e65720000000000000000000060448201526064016102d6565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b604080516080808201835260008083526020808401829052838501829052606084018290528582526002808252918590208551938401865280548452600180820154928501929092529182015493949293919284019160ff1690811115610cae57610cae6113c9565b6001811115610cbf57610cbf6113c9565b815260029190910154610100900473ffffffffffffffffffffffffffffffffffffffff1660209091015292915050565b610cf7610f13565b610d02600382610f96565b610d3b576040517fe181733f000000000000000000000000000000000000000000000000000000008152600481018290526024016102d6565b610d46600582610f96565b15610d80576040517f16950d1d000000000000000000000000000000000000000000000000000000008152600481018290526024016102d6565b610d8b600582610fb1565b5060405181907fdcea1b78b6ddc31592a94607d537543fcaafda6cc52d6d5cc7bbfca1422baf2190600090a250565b60606000610dc86003610fbd565b90506000610dd66005610fca565b8251610de29190611a5d565b67ffffffffffffffff811115610dfa57610dfa611570565b604051908082528060200260200182016040528015610e6a57816020015b6040805160808101825260008082526020808301829052928201819052606082015282527fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff909201910181610e185790505b5090506000805b8351811015610ef6576000848281518110610e8e57610e8e611503565b60200260200101519050610eac816005610f9690919063ffffffff16565b610ee557610eb981610c45565b848481518110610ecb57610ecb611503565b60200260200101819052508280610ee190611981565b9350505b50610eef81611981565b9050610e71565b50909392505050565b610f07610f13565b610f1081610fd4565b50565b60005473ffffffffffffffffffffffffffffffffffffffff163314610f94576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000060448201526064016102d6565b565b600081815260018301602052604081205415155b9392505050565b6000610faa83836110c9565b60606000610faa83611118565b6000610800825490565b3373ffffffffffffffffffffffffffffffffffffffff821603611053576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c6600000000000000000060448201526064016102d6565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b600081815260018301602052604081205461111057508154600181810184556000848152602080822090930184905584548482528286019093526040902091909155610800565b506000610800565b60608160000180548060200260200160405190810160405280929190818152602001828054801561116857602002820191906000526020600020905b815481526020019060010190808311611154575b50505050509050919050565b508054611180906116e3565b6000825580601f10611190575050565b601f016020900490600052602060002090810190610f1091905b808211156111be57600081556001016111aa565b5090565b60008083601f8401126111d457600080fd5b50813567ffffffffffffffff8111156111ec57600080fd5b6020830191508360208260051b850101111561120757600080fd5b9250929050565b6000806000806040858703121561122457600080fd5b843567ffffffffffffffff8082111561123c57600080fd5b611248888389016111c2565b9096509450602087013591508082111561126157600080fd5b5061126e878288016111c2565b95989497509550505050565b60006080828403121561128c57600080fd5b50919050565b6000602082840312156112a457600080fd5b5035919050565b6000815180845260005b818110156112d1576020818501810151868301820152016112b5565b5060006020828601015260207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f83011685010191505092915050565b602081526000610faa60208301846112ab565b6000806020838503121561133557600080fd5b823567ffffffffffffffff81111561134c57600080fd5b611358858286016111c2565b90969095509350505050565b6000806040838503121561137757600080fd5b50508035926020909101359150565b6020815273ffffffffffffffffffffffffffffffffffffffff8251166020820152600060208301516040808401526113c160608401826112ab565b949350505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b8051825260208101516020830152604081015160028110611442577f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b604083015260609081015173ffffffffffffffffffffffffffffffffffffffff16910152565b6080810161080082846113f8565b6020808252825182820181905260009190848201906040850190845b818110156114b8576114a58385516113f8565b9284019260809290920191600101611492565b50909695505050505050565b73ffffffffffffffffffffffffffffffffffffffff81168114610f1057600080fd5b6000602082840312156114f857600080fd5b8135610faa816114c4565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b600082357fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc183360301811261156657600080fd5b9190910192915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6040805190810167ffffffffffffffff811182821017156115c2576115c2611570565b60405290565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff8111828210171561160f5761160f611570565b604052919050565b60006040823603121561162957600080fd5b61163161159f565b823561163c816114c4565b815260208381013567ffffffffffffffff8082111561165a57600080fd5b9085019036601f83011261166d57600080fd5b81358181111561167f5761167f611570565b6116af847fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f840116016115c8565b915080825236848285010111156116c557600080fd5b80848401858401376000908201840152918301919091525092915050565b600181811c908216806116f757607f821691505b60208210810361128c577f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b6000602080835260008454611744816116e3565b80848701526040600180841660008114611765576001811461179d576117cb565b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff008516838a01528284151560051b8a010195506117cb565b896000528660002060005b858110156117c35781548b82018601529083019088016117a8565b8a0184019650505b509398975050505050505050565b601f8211156108c457600081815260208120601f850160051c810160208610156118005750805b601f850160051c820191505b818110156105a05782815560010161180c565b815167ffffffffffffffff81111561183957611839611570565b61184d8161184784546116e3565b846117d9565b602080601f8311600181146118a0576000841561186a5750858301515b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600386901b1c1916600185901b1785556105a0565b6000858152602081207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe08616915b828110156118ed578886015182559484019460019091019084016118ce565b508582101561192957878501517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600388901b60f8161c191681555b5050505050600190811b01905550565b8281526040602082015260006113c160408301846112ab565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff82036119b2576119b2611952565b5060010190565b6000602082840312156119cb57600080fd5b81518015158114610faa57600080fd5b8135815560208201356001820155600281016040830135600281106119ff57600080fd5b81546060850135611a0f816114c4565b74ffffffffffffffffffffffffffffffffffffffff008160081b1660ff84167fffffffffffffffffffffff000000000000000000000000000000000000000000841617178455505050505050565b818103818111156108005761080061195256fea164736f6c6343000813000a",
 }
 
 var CapabilityRegistryABI = CapabilityRegistryMetaData.ABI
@@ -181,6 +183,28 @@ func (_CapabilityRegistry *CapabilityRegistryTransactorRaw) Transact(opts *bind.
 	return _CapabilityRegistry.Contract.contract.Transact(opts, method, params...)
 }
 
+func (_CapabilityRegistry *CapabilityRegistryCaller) GetCapabilities(opts *bind.CallOpts) ([]CapabilityRegistryCapability, error) {
+	var out []interface{}
+	err := _CapabilityRegistry.contract.Call(opts, &out, "getCapabilities")
+
+	if err != nil {
+		return *new([]CapabilityRegistryCapability), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]CapabilityRegistryCapability)).(*[]CapabilityRegistryCapability)
+
+	return out0, err
+
+}
+
+func (_CapabilityRegistry *CapabilityRegistrySession) GetCapabilities() ([]CapabilityRegistryCapability, error) {
+	return _CapabilityRegistry.Contract.GetCapabilities(&_CapabilityRegistry.CallOpts)
+}
+
+func (_CapabilityRegistry *CapabilityRegistryCallerSession) GetCapabilities() ([]CapabilityRegistryCapability, error) {
+	return _CapabilityRegistry.Contract.GetCapabilities(&_CapabilityRegistry.CallOpts)
+}
+
 func (_CapabilityRegistry *CapabilityRegistryCaller) GetCapability(opts *bind.CallOpts, capabilityID [32]byte) (CapabilityRegistryCapability, error) {
 	var out []interface{}
 	err := _CapabilityRegistry.contract.Call(opts, &out, "getCapability", capabilityID)
@@ -245,6 +269,28 @@ func (_CapabilityRegistry *CapabilityRegistrySession) GetNodeOperator(nodeOperat
 
 func (_CapabilityRegistry *CapabilityRegistryCallerSession) GetNodeOperator(nodeOperatorId *big.Int) (CapabilityRegistryNodeOperator, error) {
 	return _CapabilityRegistry.Contract.GetNodeOperator(&_CapabilityRegistry.CallOpts, nodeOperatorId)
+}
+
+func (_CapabilityRegistry *CapabilityRegistryCaller) IsCapabilityDeprecated(opts *bind.CallOpts, capabilityId [32]byte) (bool, error) {
+	var out []interface{}
+	err := _CapabilityRegistry.contract.Call(opts, &out, "isCapabilityDeprecated", capabilityId)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+func (_CapabilityRegistry *CapabilityRegistrySession) IsCapabilityDeprecated(capabilityId [32]byte) (bool, error) {
+	return _CapabilityRegistry.Contract.IsCapabilityDeprecated(&_CapabilityRegistry.CallOpts, capabilityId)
+}
+
+func (_CapabilityRegistry *CapabilityRegistryCallerSession) IsCapabilityDeprecated(capabilityId [32]byte) (bool, error) {
+	return _CapabilityRegistry.Contract.IsCapabilityDeprecated(&_CapabilityRegistry.CallOpts, capabilityId)
 }
 
 func (_CapabilityRegistry *CapabilityRegistryCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
@@ -327,6 +373,18 @@ func (_CapabilityRegistry *CapabilityRegistryTransactorSession) AddNodeOperators
 	return _CapabilityRegistry.Contract.AddNodeOperators(&_CapabilityRegistry.TransactOpts, nodeOperators)
 }
 
+func (_CapabilityRegistry *CapabilityRegistryTransactor) DeprecateCapability(opts *bind.TransactOpts, capabilityId [32]byte) (*types.Transaction, error) {
+	return _CapabilityRegistry.contract.Transact(opts, "deprecateCapability", capabilityId)
+}
+
+func (_CapabilityRegistry *CapabilityRegistrySession) DeprecateCapability(capabilityId [32]byte) (*types.Transaction, error) {
+	return _CapabilityRegistry.Contract.DeprecateCapability(&_CapabilityRegistry.TransactOpts, capabilityId)
+}
+
+func (_CapabilityRegistry *CapabilityRegistryTransactorSession) DeprecateCapability(capabilityId [32]byte) (*types.Transaction, error) {
+	return _CapabilityRegistry.Contract.DeprecateCapability(&_CapabilityRegistry.TransactOpts, capabilityId)
+}
+
 func (_CapabilityRegistry *CapabilityRegistryTransactor) RemoveNodeOperators(opts *bind.TransactOpts, nodeOperatorIds []*big.Int) (*types.Transaction, error) {
 	return _CapabilityRegistry.contract.Transact(opts, "removeNodeOperators", nodeOperatorIds)
 }
@@ -349,6 +407,18 @@ func (_CapabilityRegistry *CapabilityRegistrySession) TransferOwnership(to commo
 
 func (_CapabilityRegistry *CapabilityRegistryTransactorSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
 	return _CapabilityRegistry.Contract.TransferOwnership(&_CapabilityRegistry.TransactOpts, to)
+}
+
+func (_CapabilityRegistry *CapabilityRegistryTransactor) UpdateNodeOperators(opts *bind.TransactOpts, nodeOperatorIds []*big.Int, nodeOperators []CapabilityRegistryNodeOperator) (*types.Transaction, error) {
+	return _CapabilityRegistry.contract.Transact(opts, "updateNodeOperators", nodeOperatorIds, nodeOperators)
+}
+
+func (_CapabilityRegistry *CapabilityRegistrySession) UpdateNodeOperators(nodeOperatorIds []*big.Int, nodeOperators []CapabilityRegistryNodeOperator) (*types.Transaction, error) {
+	return _CapabilityRegistry.Contract.UpdateNodeOperators(&_CapabilityRegistry.TransactOpts, nodeOperatorIds, nodeOperators)
+}
+
+func (_CapabilityRegistry *CapabilityRegistryTransactorSession) UpdateNodeOperators(nodeOperatorIds []*big.Int, nodeOperators []CapabilityRegistryNodeOperator) (*types.Transaction, error) {
+	return _CapabilityRegistry.Contract.UpdateNodeOperators(&_CapabilityRegistry.TransactOpts, nodeOperatorIds, nodeOperators)
 }
 
 type CapabilityRegistryCapabilityAddedIterator struct {
@@ -472,6 +542,133 @@ func (_CapabilityRegistry *CapabilityRegistryFilterer) WatchCapabilityAdded(opts
 func (_CapabilityRegistry *CapabilityRegistryFilterer) ParseCapabilityAdded(log types.Log) (*CapabilityRegistryCapabilityAdded, error) {
 	event := new(CapabilityRegistryCapabilityAdded)
 	if err := _CapabilityRegistry.contract.UnpackLog(event, "CapabilityAdded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type CapabilityRegistryCapabilityDeprecatedIterator struct {
+	Event *CapabilityRegistryCapabilityDeprecated
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *CapabilityRegistryCapabilityDeprecatedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(CapabilityRegistryCapabilityDeprecated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(CapabilityRegistryCapabilityDeprecated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *CapabilityRegistryCapabilityDeprecatedIterator) Error() error {
+	return it.fail
+}
+
+func (it *CapabilityRegistryCapabilityDeprecatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type CapabilityRegistryCapabilityDeprecated struct {
+	CapabilityId [32]byte
+	Raw          types.Log
+}
+
+func (_CapabilityRegistry *CapabilityRegistryFilterer) FilterCapabilityDeprecated(opts *bind.FilterOpts, capabilityId [][32]byte) (*CapabilityRegistryCapabilityDeprecatedIterator, error) {
+
+	var capabilityIdRule []interface{}
+	for _, capabilityIdItem := range capabilityId {
+		capabilityIdRule = append(capabilityIdRule, capabilityIdItem)
+	}
+
+	logs, sub, err := _CapabilityRegistry.contract.FilterLogs(opts, "CapabilityDeprecated", capabilityIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &CapabilityRegistryCapabilityDeprecatedIterator{contract: _CapabilityRegistry.contract, event: "CapabilityDeprecated", logs: logs, sub: sub}, nil
+}
+
+func (_CapabilityRegistry *CapabilityRegistryFilterer) WatchCapabilityDeprecated(opts *bind.WatchOpts, sink chan<- *CapabilityRegistryCapabilityDeprecated, capabilityId [][32]byte) (event.Subscription, error) {
+
+	var capabilityIdRule []interface{}
+	for _, capabilityIdItem := range capabilityId {
+		capabilityIdRule = append(capabilityIdRule, capabilityIdItem)
+	}
+
+	logs, sub, err := _CapabilityRegistry.contract.WatchLogs(opts, "CapabilityDeprecated", capabilityIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(CapabilityRegistryCapabilityDeprecated)
+				if err := _CapabilityRegistry.contract.UnpackLog(event, "CapabilityDeprecated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_CapabilityRegistry *CapabilityRegistryFilterer) ParseCapabilityDeprecated(log types.Log) (*CapabilityRegistryCapabilityDeprecated, error) {
+	event := new(CapabilityRegistryCapabilityDeprecated)
+	if err := _CapabilityRegistry.contract.UnpackLog(event, "CapabilityDeprecated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -718,6 +915,135 @@ func (_CapabilityRegistry *CapabilityRegistryFilterer) WatchNodeOperatorRemoved(
 func (_CapabilityRegistry *CapabilityRegistryFilterer) ParseNodeOperatorRemoved(log types.Log) (*CapabilityRegistryNodeOperatorRemoved, error) {
 	event := new(CapabilityRegistryNodeOperatorRemoved)
 	if err := _CapabilityRegistry.contract.UnpackLog(event, "NodeOperatorRemoved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type CapabilityRegistryNodeOperatorUpdatedIterator struct {
+	Event *CapabilityRegistryNodeOperatorUpdated
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *CapabilityRegistryNodeOperatorUpdatedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(CapabilityRegistryNodeOperatorUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(CapabilityRegistryNodeOperatorUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *CapabilityRegistryNodeOperatorUpdatedIterator) Error() error {
+	return it.fail
+}
+
+func (it *CapabilityRegistryNodeOperatorUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type CapabilityRegistryNodeOperatorUpdated struct {
+	NodeOperatorId *big.Int
+	Admin          common.Address
+	Name           string
+	Raw            types.Log
+}
+
+func (_CapabilityRegistry *CapabilityRegistryFilterer) FilterNodeOperatorUpdated(opts *bind.FilterOpts, admin []common.Address) (*CapabilityRegistryNodeOperatorUpdatedIterator, error) {
+
+	var adminRule []interface{}
+	for _, adminItem := range admin {
+		adminRule = append(adminRule, adminItem)
+	}
+
+	logs, sub, err := _CapabilityRegistry.contract.FilterLogs(opts, "NodeOperatorUpdated", adminRule)
+	if err != nil {
+		return nil, err
+	}
+	return &CapabilityRegistryNodeOperatorUpdatedIterator{contract: _CapabilityRegistry.contract, event: "NodeOperatorUpdated", logs: logs, sub: sub}, nil
+}
+
+func (_CapabilityRegistry *CapabilityRegistryFilterer) WatchNodeOperatorUpdated(opts *bind.WatchOpts, sink chan<- *CapabilityRegistryNodeOperatorUpdated, admin []common.Address) (event.Subscription, error) {
+
+	var adminRule []interface{}
+	for _, adminItem := range admin {
+		adminRule = append(adminRule, adminItem)
+	}
+
+	logs, sub, err := _CapabilityRegistry.contract.WatchLogs(opts, "NodeOperatorUpdated", adminRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(CapabilityRegistryNodeOperatorUpdated)
+				if err := _CapabilityRegistry.contract.UnpackLog(event, "NodeOperatorUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_CapabilityRegistry *CapabilityRegistryFilterer) ParseNodeOperatorUpdated(log types.Log) (*CapabilityRegistryNodeOperatorUpdated, error) {
+	event := new(CapabilityRegistryNodeOperatorUpdated)
+	if err := _CapabilityRegistry.contract.UnpackLog(event, "NodeOperatorUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1000,10 +1326,14 @@ func (_CapabilityRegistry *CapabilityRegistry) ParseLog(log types.Log) (generate
 	switch log.Topics[0] {
 	case _CapabilityRegistry.abi.Events["CapabilityAdded"].ID:
 		return _CapabilityRegistry.ParseCapabilityAdded(log)
+	case _CapabilityRegistry.abi.Events["CapabilityDeprecated"].ID:
+		return _CapabilityRegistry.ParseCapabilityDeprecated(log)
 	case _CapabilityRegistry.abi.Events["NodeOperatorAdded"].ID:
 		return _CapabilityRegistry.ParseNodeOperatorAdded(log)
 	case _CapabilityRegistry.abi.Events["NodeOperatorRemoved"].ID:
 		return _CapabilityRegistry.ParseNodeOperatorRemoved(log)
+	case _CapabilityRegistry.abi.Events["NodeOperatorUpdated"].ID:
+		return _CapabilityRegistry.ParseNodeOperatorUpdated(log)
 	case _CapabilityRegistry.abi.Events["OwnershipTransferRequested"].ID:
 		return _CapabilityRegistry.ParseOwnershipTransferRequested(log)
 	case _CapabilityRegistry.abi.Events["OwnershipTransferred"].ID:
@@ -1018,12 +1348,20 @@ func (CapabilityRegistryCapabilityAdded) Topic() common.Hash {
 	return common.HexToHash("0x65610e5677eedff94555572640e442f89848a109ef8593fa927ac30b2565ff06")
 }
 
+func (CapabilityRegistryCapabilityDeprecated) Topic() common.Hash {
+	return common.HexToHash("0xdcea1b78b6ddc31592a94607d537543fcaafda6cc52d6d5cc7bbfca1422baf21")
+}
+
 func (CapabilityRegistryNodeOperatorAdded) Topic() common.Hash {
 	return common.HexToHash("0xda6697b182650034bd205cdc2dbfabb06bdb3a0a83a2b45bfefa3c4881284e0b")
 }
 
 func (CapabilityRegistryNodeOperatorRemoved) Topic() common.Hash {
 	return common.HexToHash("0x1e5877d7b3001d1569bf733b76c7eceda58bd6c031e5b8d0b7042308ba2e9d4f")
+}
+
+func (CapabilityRegistryNodeOperatorUpdated) Topic() common.Hash {
+	return common.HexToHash("0x14c8f513e8a6d86d2d16b0cb64976de4e72386c4f8068eca3b7354373f8fe97a")
 }
 
 func (CapabilityRegistryOwnershipTransferRequested) Topic() common.Hash {
@@ -1039,11 +1377,15 @@ func (_CapabilityRegistry *CapabilityRegistry) Address() common.Address {
 }
 
 type CapabilityRegistryInterface interface {
+	GetCapabilities(opts *bind.CallOpts) ([]CapabilityRegistryCapability, error)
+
 	GetCapability(opts *bind.CallOpts, capabilityID [32]byte) (CapabilityRegistryCapability, error)
 
 	GetCapabilityID(opts *bind.CallOpts, capabilityType [32]byte, version [32]byte) ([32]byte, error)
 
 	GetNodeOperator(opts *bind.CallOpts, nodeOperatorId *big.Int) (CapabilityRegistryNodeOperator, error)
+
+	IsCapabilityDeprecated(opts *bind.CallOpts, capabilityId [32]byte) (bool, error)
 
 	Owner(opts *bind.CallOpts) (common.Address, error)
 
@@ -1055,15 +1397,25 @@ type CapabilityRegistryInterface interface {
 
 	AddNodeOperators(opts *bind.TransactOpts, nodeOperators []CapabilityRegistryNodeOperator) (*types.Transaction, error)
 
+	DeprecateCapability(opts *bind.TransactOpts, capabilityId [32]byte) (*types.Transaction, error)
+
 	RemoveNodeOperators(opts *bind.TransactOpts, nodeOperatorIds []*big.Int) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
+
+	UpdateNodeOperators(opts *bind.TransactOpts, nodeOperatorIds []*big.Int, nodeOperators []CapabilityRegistryNodeOperator) (*types.Transaction, error)
 
 	FilterCapabilityAdded(opts *bind.FilterOpts, capabilityId [][32]byte) (*CapabilityRegistryCapabilityAddedIterator, error)
 
 	WatchCapabilityAdded(opts *bind.WatchOpts, sink chan<- *CapabilityRegistryCapabilityAdded, capabilityId [][32]byte) (event.Subscription, error)
 
 	ParseCapabilityAdded(log types.Log) (*CapabilityRegistryCapabilityAdded, error)
+
+	FilterCapabilityDeprecated(opts *bind.FilterOpts, capabilityId [][32]byte) (*CapabilityRegistryCapabilityDeprecatedIterator, error)
+
+	WatchCapabilityDeprecated(opts *bind.WatchOpts, sink chan<- *CapabilityRegistryCapabilityDeprecated, capabilityId [][32]byte) (event.Subscription, error)
+
+	ParseCapabilityDeprecated(log types.Log) (*CapabilityRegistryCapabilityDeprecated, error)
 
 	FilterNodeOperatorAdded(opts *bind.FilterOpts, admin []common.Address) (*CapabilityRegistryNodeOperatorAddedIterator, error)
 
@@ -1076,6 +1428,12 @@ type CapabilityRegistryInterface interface {
 	WatchNodeOperatorRemoved(opts *bind.WatchOpts, sink chan<- *CapabilityRegistryNodeOperatorRemoved) (event.Subscription, error)
 
 	ParseNodeOperatorRemoved(log types.Log) (*CapabilityRegistryNodeOperatorRemoved, error)
+
+	FilterNodeOperatorUpdated(opts *bind.FilterOpts, admin []common.Address) (*CapabilityRegistryNodeOperatorUpdatedIterator, error)
+
+	WatchNodeOperatorUpdated(opts *bind.WatchOpts, sink chan<- *CapabilityRegistryNodeOperatorUpdated, admin []common.Address) (event.Subscription, error)
+
+	ParseNodeOperatorUpdated(log types.Log) (*CapabilityRegistryNodeOperatorUpdated, error)
 
 	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*CapabilityRegistryOwnershipTransferRequestedIterator, error)
 

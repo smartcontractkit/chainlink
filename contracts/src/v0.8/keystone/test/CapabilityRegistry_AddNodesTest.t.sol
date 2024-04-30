@@ -52,14 +52,14 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
 
   function test_AddsNode() public {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
-    
+
     CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
     string[] memory capabilityIds = new string[](1);
     capabilityIds[0] = "ccip-exec-0.0.1";
 
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
-      p2pId: bytes(""),
+      p2pId: bytes(P2P_ID),
       supportedCapabilityIds: capabilityIds
     });
 
