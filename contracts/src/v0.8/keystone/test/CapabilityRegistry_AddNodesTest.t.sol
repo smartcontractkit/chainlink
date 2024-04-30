@@ -49,7 +49,24 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     });
     s_capabilityRegistry.addNodes(nodes);
 
-    vm.expectRevert(CapabilityRegistry.InvalidNodeP2PId.selector);
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, P2P_ID));
+    s_capabilityRegistry.addNodes(nodes);
+  }
+
+  function test_RevertWhen_P2PIDEmpty() public {
+    changePrank(NODE_OPERATOR_ONE_ADMIN);
+    CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
+
+    bytes32[] memory capabilityIds = new bytes32[](1);
+    capabilityIds[0] = s_basicCapabilityId;
+
+    nodes[0] = CapabilityRegistry.Node({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: bytes(""),
+      supportedCapabilityIds: capabilityIds
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, bytes("")));
     s_capabilityRegistry.addNodes(nodes);
   }
 
@@ -82,23 +99,6 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeCapabilities.selector, capabilityIds));
-    s_capabilityRegistry.addNodes(nodes);
-  }
-
-  function test_RevertWhen_P2PIDEmpty() public {
-    changePrank(NODE_OPERATOR_ONE_ADMIN);
-    CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
-
-    bytes32[] memory capabilityIds = new bytes32[](1);
-    capabilityIds[0] = s_basicCapabilityId;
-
-    nodes[0] = CapabilityRegistry.Node({
-      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
-      p2pId: bytes(""),
-      supportedCapabilityIds: capabilityIds
-    });
-
-    vm.expectRevert(CapabilityRegistry.InvalidNodeP2PId.selector);
     s_capabilityRegistry.addNodes(nodes);
   }
 

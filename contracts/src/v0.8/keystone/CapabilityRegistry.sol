@@ -83,9 +83,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// admin address to the zero address
   error InvalidNodeOperatorAdmin();
 
-  /// @notice This error is thrown when trying to configure the node's P2P ID
-  /// to an empty bytes or a duplicate.
-  error InvalidNodeP2PId();
+  /// @notice This error is thrown when trying to add a node with P2P ID that
+  /// is empty bytes or a duplicate.
+  /// @param p2pId The provided P2P ID
+  error InvalidNodeP2PId(bytes p2pId);
 
   /// @notice This error is thrown when trying to add a node without
   /// capabilities or with capabilities that do not exist.
@@ -231,7 +232,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       }
 
       bool nodeExists = s_nodes[node.p2pId].supportedCapabilityIds.length > 0;
-      if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId();
+      if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (msg.sender != nodeOperator.admin) revert AccessForbidden();
