@@ -140,12 +140,6 @@ Email = 'notreal@fakeemail.ch'
 Password = 'fj293fbBnlQ!f9vNs'
 InternalIP = 'app-node-5'
 
-[[CCIP.Env.ExistingCLCluster.NodeConfigs]]
-URL = 'https://skudasov-crib-ccip-node6.main.stage.cldev.sh/'
-Email = 'notreal@fakeemail.ch'
-Password = 'fj293fbBnlQ!f9vNs'
-InternalIP = 'app-node-6'
-
 [CCIP.Groups]
 [CCIP.Groups.smoke]
 LocalCluster = false
