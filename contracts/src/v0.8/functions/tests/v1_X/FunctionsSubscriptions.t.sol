@@ -346,7 +346,7 @@ contract FunctionsSubscriptions_OnTokenTransfer is FunctionsClientSetup {
     s_linkToken.transferAndCall(address(s_functionsRouter), totalSupplyJuels, abi.encode(invalidSubscriptionId));
   }
 
-  function test_OnTokenTransfer_Success(uint96 fundingAmount) public {
+  function test_OnTokenTransfer_Success() public {
     // Funding amount must be less than LINK total supply
     uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
     // Some of the total supply is already in the subscription account
@@ -1233,15 +1233,15 @@ contract FunctionsSubscriptions_TimeoutRequests is FunctionsClientRequestSetup {
 
     vm.expectRevert("Pausable: paused");
     FunctionsResponse.Commitment[] memory commitments = new FunctionsResponse.Commitment[](1);
-    commitments[0] = s_requests[1].commitment;
+    commitments[0] = s_requests[1].commitmentOnchain;
     s_functionsRouter.timeoutRequests(commitments);
   }
 
   function test_TimeoutRequests_RevertInvalidRequest() public {
     // Modify the commitment so that it doesn't match
-    s_requests[1].commitment.donFee = 123456789;
+    s_requests[1].commitmentOnchain.donFee = 123456789;
     FunctionsResponse.Commitment[] memory commitments = new FunctionsResponse.Commitment[](1);
-    commitments[0] = s_requests[1].commitment;
+    commitments[0] = s_requests[1].commitmentOnchain;
     vm.expectRevert(FunctionsSubscriptions.InvalidCalldata.selector);
     s_functionsRouter.timeoutRequests(commitments);
   }
@@ -1249,7 +1249,7 @@ contract FunctionsSubscriptions_TimeoutRequests is FunctionsClientRequestSetup {
   function test_TimeoutRequests_RevertIfTimeoutNotExceeded() public {
     vm.expectRevert(FunctionsSubscriptions.TimeoutNotExceeded.selector);
     FunctionsResponse.Commitment[] memory commitments = new FunctionsResponse.Commitment[](1);
-    commitments[0] = s_requests[1].commitment;
+    commitments[0] = s_requests[1].commitmentOnchain;
     s_functionsRouter.timeoutRequests(commitments);
   }
 
@@ -1269,10 +1269,10 @@ contract FunctionsSubscriptions_TimeoutRequests is FunctionsClientRequestSetup {
     emit RequestTimedOut(s_requests[1].requestId);
 
     // Jump ahead in time past timeout timestamp
-    vm.warp(s_requests[1].commitment.timeoutTimestamp + 1);
+    vm.warp(s_requests[1].commitmentOnchain.timeoutTimestamp + 1);
 
     FunctionsResponse.Commitment[] memory commitments = new FunctionsResponse.Commitment[](1);
-    commitments[0] = s_requests[1].commitment;
+    commitments[0] = s_requests[1].commitmentOnchain;
     s_functionsRouter.timeoutRequests(commitments);
 
     // Releases blocked balance and increments completed requests

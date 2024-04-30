@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/denom"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -28,7 +28,7 @@ type CosmosTransfersController struct {
 
 // Create sends native coins from the Chainlink's account to a specified address.
 func (tc *CosmosTransfersController) Create(c *gin.Context) {
-	relayers := tc.App.GetRelayers().List(chainlink.FilterRelayersByType(relay.Cosmos))
+	relayers := tc.App.GetRelayers().List(chainlink.FilterRelayersByType(types.NetworkCosmos))
 	if relayers == nil {
 		jsonAPIError(c, http.StatusBadRequest, ErrSolanaNotEnabled)
 		return
@@ -48,7 +48,7 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	relayerID := relay.ID{Network: relay.Cosmos, ChainID: tr.CosmosChainID}
+	relayerID := types.RelayID{Network: types.NetworkCosmos, ChainID: tr.CosmosChainID}
 	relayer, err := relayers.Get(relayerID)
 	if err != nil {
 		if errors.Is(err, chainlink.ErrNoSuchRelayer) {
@@ -60,12 +60,12 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 	}
 	var gasToken string
 	cfgs := tc.App.GetConfig().CosmosConfigs()
-	if i := slices.IndexFunc(cfgs, func(config *coscfg.TOMLConfig) bool { return *config.ChainID == tr.CosmosChainID }); i != -1 {
-		gasToken = cfgs[i].GasToken()
-	} else {
+	i := slices.IndexFunc(cfgs, func(config *coscfg.TOMLConfig) bool { return *config.ChainID == tr.CosmosChainID })
+	if i == -1 {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("no config for chain id: %s", tr.CosmosChainID))
 		return
 	}
+	gasToken = cfgs[i].GasToken()
 
 	//TODO move this inside?
 	coin, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec(tr.Token, tr.Amount), gasToken)

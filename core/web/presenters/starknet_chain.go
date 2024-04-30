@@ -36,7 +36,7 @@ func (r StarkNetNodeResource) GetName() string {
 // NewStarkNetNodeResource returns a new StarkNetNodeResource for node.
 func NewStarkNetNodeResource(node types.NodeStatus) StarkNetNodeResource {
 	return StarkNetNodeResource{NodeResource{
-		JAID:    NewJAID(node.Name),
+		JAID:    NewPrefixedJAID(node.Name, node.ChainID),
 		ChainID: node.ChainID,
 		Name:    node.Name,
 		State:   node.State,

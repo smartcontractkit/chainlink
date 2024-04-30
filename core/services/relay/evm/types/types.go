@@ -9,8 +9,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"gopkg.in/guregu/null.v4"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"gopkg.in/guregu/null.v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -112,6 +113,9 @@ type RelayConfig struct {
 	ChainReader            *ChainReaderConfig `json:"chainReader"`
 	Codec                  *CodecConfig       `json:"codec"`
 
+	DefaultTransactionQueueDepth uint32 `json:"defaultTransactionQueueDepth"`
+	SimulateTransactions         bool   `json:"simulateTransactions"`
+
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`
 
@@ -183,7 +187,7 @@ type OracleResponse struct {
 }
 
 type RouteUpdateSubscriber interface {
-	UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error
+	UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error
 }
 
 // A LogPoller wrapper that understands router proxy contracts
@@ -191,8 +195,8 @@ type RouteUpdateSubscriber interface {
 //go:generate mockery --quiet --name LogPollerWrapper --output ./mocks/ --case=underscore
 type LogPollerWrapper interface {
 	services.Service
-	LatestEvents() ([]OracleRequest, []OracleResponse, error)
+	LatestEvents(ctx context.Context) ([]OracleRequest, []OracleResponse, error)
 
 	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer
-	SubscribeToUpdates(name string, subscriber RouteUpdateSubscriber)
+	SubscribeToUpdates(ctx context.Context, name string, subscriber RouteUpdateSubscriber)
 }

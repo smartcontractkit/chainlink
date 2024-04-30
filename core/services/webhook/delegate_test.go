@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -21,6 +22,7 @@ import (
 )
 
 func TestWebhookDelegate(t *testing.T) {
+	ctx := testutils.Context(t)
 	var (
 		spec = &job.Job{
 			ID:            123,
@@ -33,7 +35,7 @@ func TestWebhookDelegate(t *testing.T) {
 		}
 
 		requestBody = "foo"
-		meta        = pipeline.JSONSerializable{Val: "bar", Valid: true}
+		meta        = jsonserializable.JSONSerializable{Val: "bar", Valid: true}
 		vars        = map[string]interface{}{
 			"jobSpec": map[string]interface{}{
 				"databaseID":    spec.ID,
@@ -50,18 +52,18 @@ func TestWebhookDelegate(t *testing.T) {
 		delegate  = webhook.NewDelegate(runner, eiManager, logger.TestLogger(t))
 	)
 
-	services, err := delegate.ServicesForSpec(*spec)
+	services, err := delegate.ServicesForSpec(ctx, *spec)
 	require.NoError(t, err)
 	require.Len(t, services, 1)
 	service := services[0]
 
 	// Should error before service is started
-	_, err = delegate.WebhookJobRunner().RunJob(testutils.Context(t), spec.ExternalJobID, requestBody, meta)
+	_, err = delegate.WebhookJobRunner().RunJob(ctx, spec.ExternalJobID, requestBody, meta)
 	require.Error(t, err)
 	require.Equal(t, webhook.ErrJobNotExists, errors.Cause(err))
 
 	// Should succeed after service is started upon a successful run
-	err = service.Start(testutils.Context(t))
+	err = service.Start(ctx)
 	require.NoError(t, err)
 
 	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
@@ -73,7 +75,7 @@ func TestWebhookDelegate(t *testing.T) {
 			require.Equal(t, vars, run.Inputs.Val)
 		}).Once()
 
-	runID, err := delegate.WebhookJobRunner().RunJob(testutils.Context(t), spec.ExternalJobID, requestBody, meta)
+	runID, err := delegate.WebhookJobRunner().RunJob(ctx, spec.ExternalJobID, requestBody, meta)
 	require.NoError(t, err)
 	require.Equal(t, int64(123), runID)
 
@@ -83,13 +85,13 @@ func TestWebhookDelegate(t *testing.T) {
 	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
 		Return(false, expectedErr).Once()
 
-	_, err = delegate.WebhookJobRunner().RunJob(testutils.Context(t), spec.ExternalJobID, requestBody, meta)
+	_, err = delegate.WebhookJobRunner().RunJob(ctx, spec.ExternalJobID, requestBody, meta)
 	require.Equal(t, expectedErr, errors.Cause(err))
 
 	// Should error after service is stopped
 	err = service.Close()
 	require.NoError(t, err)
 
-	_, err = delegate.WebhookJobRunner().RunJob(testutils.Context(t), spec.ExternalJobID, requestBody, meta)
+	_, err = delegate.WebhookJobRunner().RunJob(ctx, spec.ExternalJobID, requestBody, meta)
 	require.Equal(t, webhook.ErrJobNotExists, errors.Cause(err))
 }

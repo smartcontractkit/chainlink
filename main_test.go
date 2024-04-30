@@ -43,6 +43,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestScripts(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testscript")
+	}
 	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {
@@ -53,7 +56,7 @@ func TestScripts(t *testing.T) {
 				Dir:             path,
 				Setup:           commonEnv,
 				ContinueOnError: true,
-				//UpdateScripts:   true, // uncomment to update golden files
+				// UpdateScripts:   true, // uncomment to update golden files
 			})
 		})
 		return nil

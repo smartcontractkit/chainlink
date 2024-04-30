@@ -2,7 +2,6 @@ package testreporters
 
 import (
 	"fmt"
-	"math/big"
 	"strings"
 	"testing"
 	"time"
@@ -14,30 +13,18 @@ import (
 )
 
 type VRFV2TestReporter struct {
-	TestType                     string
-	RequestCount                 *big.Int
-	FulfilmentCount              *big.Int
-	AverageFulfillmentInMillions *big.Int
-	SlowestFulfillment           *big.Int
-	FastestFulfillment           *big.Int
-	VRFv2TestConfig              types.VRFv2TestConfig
+	TestType        string
+	LoadTestMetrics VRFLoadTestMetrics
+	VRFv2TestConfig types.VRFv2TestConfig
 }
 
 func (o *VRFV2TestReporter) SetReportData(
 	testType string,
-	RequestCount *big.Int,
-	FulfilmentCount *big.Int,
-	AverageFulfillmentInMillions *big.Int,
-	SlowestFulfillment *big.Int,
-	FastestFulfillment *big.Int,
+	metrics VRFLoadTestMetrics,
 	vrfv2TestConfig types.VRFv2TestConfig,
 ) {
 	o.TestType = testType
-	o.RequestCount = RequestCount
-	o.FulfilmentCount = FulfilmentCount
-	o.AverageFulfillmentInMillions = AverageFulfillmentInMillions
-	o.SlowestFulfillment = SlowestFulfillment
-	o.FastestFulfillment = FastestFulfillment
+	o.LoadTestMetrics = metrics
 	o.VRFv2TestConfig = vrfv2TestConfig
 }
 
@@ -54,13 +41,7 @@ func (o *VRFV2TestReporter) SendSlackNotification(t *testing.T, slackClient *sla
 	}
 
 	perfCfg := o.VRFv2TestConfig.GetVRFv2Config().Performance
-	var sb strings.Builder
-	for _, n := range o.VRFv2TestConfig.GetNetworkConfig().SelectedNetworks {
-		sb.WriteString(n)
-		sb.WriteString(", ")
-	}
-
-	messageBlocks := testreporters.SlackNotifyBlocks(headerText, sb.String(), []string{
+	messageBlocks := testreporters.SlackNotifyBlocks(headerText, strings.Join(o.VRFv2TestConfig.GetNetworkConfig().SelectedNetworks, ","), []string{
 		fmt.Sprintf(
 			"Summary\n"+
 				"Perf Test Type: %s\n"+
@@ -77,12 +58,12 @@ func (o *VRFV2TestReporter) SendSlackNotification(t *testing.T, slackClient *sla
 				"RandomnessRequestCountPerRequestDeviation: %d\n",
 			o.TestType,
 			perfCfg.TestDuration.Duration.Truncate(time.Second).String(),
-			*perfCfg.UseExistingEnv,
-			o.RequestCount.String(),
-			o.FulfilmentCount.String(),
-			o.AverageFulfillmentInMillions.String(),
-			o.SlowestFulfillment.String(),
-			o.FastestFulfillment.String(),
+			*o.VRFv2TestConfig.GetVRFv2Config().General.UseExistingEnv,
+			o.LoadTestMetrics.RequestCount.String(),
+			o.LoadTestMetrics.FulfilmentCount.String(),
+			o.LoadTestMetrics.AverageFulfillmentInMillions.String(),
+			o.LoadTestMetrics.SlowestFulfillment.String(),
+			o.LoadTestMetrics.FastestFulfillment.String(),
 			*perfCfg.RPS,
 			perfCfg.RateLimitUnitDuration.String(),
 			*o.VRFv2TestConfig.GetVRFv2Config().General.RandomnessRequestCountPerRequest,

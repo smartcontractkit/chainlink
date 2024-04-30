@@ -16,8 +16,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
   /// @inheritdoc ITypeAndVersion
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "Functions Coordinator v1.2.0";
+  string public constant override typeAndVersion = "Functions Coordinator v1.3.0";
 
   event OracleRequest(
     bytes32 indexed requestId,
@@ -43,8 +42,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   constructor(
     address router,
     FunctionsBillingConfig memory config,
-    address linkToNativeFeed
-  ) OCR2Base() FunctionsBilling(router, config, linkToNativeFeed) {}
+    address linkToNativeFeed,
+    address linkToUsdFeed
+  ) OCR2Base() FunctionsBilling(router, config, linkToNativeFeed, linkToUsdFeed) {}
 
   /// @inheritdoc IFunctionsCoordinator
   function getThresholdPublicKey() external view override returns (bytes memory) {
@@ -80,10 +80,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
   /// @dev check if node is in current transmitter list
   function _isTransmitter(address node) internal view returns (bool) {
-    address[] memory nodes = s_transmitters;
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
-    for (uint256 i = 0; i < nodes.length; ++i) {
-      if (nodes[i] == node) {
+    for (uint256 i = 0; i < s_transmitters.length; ++i) {
+      if (s_transmitters[i] == node) {
         return true;
       }
     }
@@ -94,7 +93,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   function startRequest(
     FunctionsResponse.RequestMeta calldata request
   ) external override onlyRouter returns (FunctionsResponse.Commitment memory commitment) {
-    commitment = _startBilling(request);
+    uint72 operationFee;
+    (commitment, operationFee) = _startBilling(request);
 
     emit OracleRequest(
       commitment.requestId,
@@ -107,7 +107,21 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       request.dataVersion,
       request.flags,
       request.callbackGasLimit,
-      commitment
+      FunctionsResponse.Commitment({
+        coordinator: commitment.coordinator,
+        client: commitment.client,
+        subscriptionId: commitment.subscriptionId,
+        callbackGasLimit: commitment.callbackGasLimit,
+        estimatedTotalCostJuels: commitment.estimatedTotalCostJuels,
+        timeoutTimestamp: commitment.timeoutTimestamp,
+        requestId: commitment.requestId,
+        donFee: commitment.donFee,
+        gasOverheadBeforeCallback: commitment.gasOverheadBeforeCallback,
+        gasOverheadAfterCallback: commitment.gasOverheadAfterCallback,
+        // The following line is done to use the Coordinator's operationFee in place of the Router's operation fee
+        // With this in place the Router.adminFee must be set to 0 in the Router.
+        adminFee: operationFee
+      })
     );
 
     return commitment;
@@ -125,14 +139,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     return s_transmitters;
   }
 
-  /// @dev Report hook called within OCR2Base.sol
-  function _report(
-    uint256 /*initialGas*/,
-    address /*transmitter*/,
-    uint8 /*signerCount*/,
-    address[MAX_NUM_ORACLES] memory /*signers*/,
+  function _beforeTransmit(
     bytes calldata report
-  ) internal override {
+  ) internal view override returns (bool shouldStop, DecodedReport memory decodedReport) {
     (
       bytes32[] memory requestIds,
       bytes[] memory results,
@@ -152,15 +161,44 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       revert ReportInvalid("Fields must be equal length");
     }
 
+    for (uint256 i = 0; i < numberOfFulfillments; ++i) {
+      if (_isExistingRequest(requestIds[i])) {
+        // If there is an existing request, validate report
+        // Leave shouldStop to default, false
+        break;
+      }
+      if (i == numberOfFulfillments - 1) {
+        // If the last fulfillment on the report does not exist, then all are duplicates
+        // Indicate that it's safe to stop to save on the gas of validating the report
+        shouldStop = true;
+      }
+    }
+
+    return (
+      shouldStop,
+      DecodedReport({
+        requestIds: requestIds,
+        results: results,
+        errors: errors,
+        onchainMetadata: onchainMetadata,
+        offchainMetadata: offchainMetadata
+      })
+    );
+  }
+
+  /// @dev Report hook called within OCR2Base.sol
+  function _report(DecodedReport memory decodedReport) internal override {
+    uint256 numberOfFulfillments = uint8(decodedReport.requestIds.length);
+
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
     for (uint256 i = 0; i < numberOfFulfillments; ++i) {
       FunctionsResponse.FulfillResult result = FunctionsResponse.FulfillResult(
         _fulfillAndBill(
-          requestIds[i],
-          results[i],
-          errors[i],
-          onchainMetadata[i],
-          offchainMetadata[i],
+          decodedReport.requestIds[i],
+          decodedReport.results[i],
+          decodedReport.errors[i],
+          decodedReport.onchainMetadata[i],
+          decodedReport.offchainMetadata[i],
           uint8(numberOfFulfillments) // will not exceed "MaxRequestBatchSize" on the Job's ReportingPluginConfig
         )
       );
@@ -172,7 +210,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         result == FunctionsResponse.FulfillResult.FULFILLED ||
         result == FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR
       ) {
-        emit OracleResponse(requestIds[i], msg.sender);
+        emit OracleResponse(decodedReport.requestIds[i], msg.sender);
       }
     }
   }
@@ -180,5 +218,10 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   /// @dev Used in FunctionsBilling.sol
   function _onlyOwner() internal view override {
     _validateOwnership();
+  }
+
+  /// @dev Used in FunctionsBilling.sol
+  function _owner() internal view override returns (address owner) {
+    return this.owner();
   }
 }

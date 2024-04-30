@@ -19,7 +19,7 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   }
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+  function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
     s_gasAvailable = gasleft();
     s_randomWords = randomWords;
     s_requestId = requestId;
@@ -45,7 +45,7 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   }
 
   function updateSubscription(address[] memory consumers) external {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {
       s_vrfCoordinator.addConsumer(s_subId, consumers[i]);

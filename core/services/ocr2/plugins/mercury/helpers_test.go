@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -102,7 +103,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
 	serverURL = lis.Addr().String()
-	s := wsrpc.NewServer(wsrpc.Creds(srv.privKey, pubKeys))
+	s := wsrpc.NewServer(wsrpc.WithCreds(srv.privKey, pubKeys))
 
 	// Register mercury implementation with the wsrpc server
 	pb.RegisterMercuryServer(s, srv)
@@ -136,7 +137,7 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
+	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
@@ -167,6 +168,7 @@ func setupNode(
 		// [JobPipeline]
 		// MaxSuccessfulRuns = 0
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
+		c.JobPipeline.VerboseLogging = ptr(true)
 
 		// [Feature]
 		// UICSAKeys=true
@@ -389,23 +391,28 @@ func addV3MercuryJob(
 	bootstrapNodePort int,
 	bmBridge,
 	bidBridge,
-	askBridge,
-	serverURL string,
-	serverPubKey,
+	askBridge string,
+	servers map[string]string,
 	clientPubKey ed25519.PublicKey,
 	feedName string,
 	feedID [32]byte,
 	linkFeedID [32]byte,
 	nativeFeedID [32]byte,
 ) {
+	srvs := make([]string, 0, len(servers))
+	for u, k := range servers {
+		srvs = append(srvs, fmt.Sprintf("%q = %q", u, k))
+	}
+	serversStr := fmt.Sprintf("{ %s }", strings.Join(srvs, ", "))
+
 	node.AddJob(t, fmt.Sprintf(`
 type = "offchainreporting2"
 schemaVersion = 1
-name = "mercury-%[1]d-%[12]s"
+name = "mercury-%[1]d-%[11]s"
 forwardingAllowed = false
 maxTaskDuration = "1s"
 contractID = "%[2]s"
-feedID = "0x%[11]x"
+feedID = "0x%[10]x"
 contractConfigTrackerPollInterval = "1s"
 ocrKeyBundleID = "%[3]s"
 p2pv2Bootstrappers = [
@@ -413,7 +420,7 @@ p2pv2Bootstrappers = [
 ]
 relay = "evm"
 pluginType = "mercury"
-transmitterID = "%[10]x"
+transmitterID = "%[9]x"
 observationSource = """
 	// Benchmark Price
 	price1          [type=bridge name="%[5]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
@@ -438,10 +445,9 @@ observationSource = """
 """
 
 [pluginConfig]
-serverURL = "%[8]s"
-serverPubKey = "%[9]x"
-linkFeedID = "0x%[13]x"
-nativeFeedID = "0x%[14]x"
+servers = %[8]s
+linkFeedID = "0x%[12]x"
+nativeFeedID = "0x%[13]x"
 
 [relayConfig]
 chainID = 1337
@@ -453,8 +459,7 @@ chainID = 1337
 		bmBridge,
 		bidBridge,
 		askBridge,
-		serverURL,
-		serverPubKey,
+		serversStr,
 		clientPubKey,
 		feedID,
 		feedName,

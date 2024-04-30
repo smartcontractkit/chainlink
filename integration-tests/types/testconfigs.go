@@ -27,6 +27,7 @@ type AutomationTestConfig interface {
 	tc.GlobalTestConfig
 	tc.CommonTestConfig
 	tc.UpgradeableChainlinkTestConfig
+	tc.AutomationTestConfig
 }
 
 type KeeperBenchmarkTestConfig interface {
@@ -41,6 +42,7 @@ type OcrTestConfig interface {
 	tc.GlobalTestConfig
 	tc.CommonTestConfig
 	tc.OcrTestConfig
+	tc.SethConfig
 }
 
 type Ocr2TestConfig interface {

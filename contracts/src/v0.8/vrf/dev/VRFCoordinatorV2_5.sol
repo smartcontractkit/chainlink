@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity 0.8.19;
 
 import {BlockhashStoreInterface} from "../interfaces/BlockhashStoreInterface.sol";
 import {VRF} from "../../vrf/VRF.sol";
+import {VRFTypes} from "../VRFTypes.sol";
 import {VRFConsumerBaseV2Plus, IVRFMigratableConsumerV2Plus} from "./VRFConsumerBaseV2Plus.sol";
 import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
 import {SubscriptionAPI} from "./SubscriptionAPI.sol";
@@ -24,28 +25,23 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
   uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
+  // upper bound limit for premium percentages to make sure fee calculations don't overflow
+  uint8 private constant PREMIUM_PERCENTAGE_MAX = 155;
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
+  error MsgDataTooBig(uint256 have, uint32 max);
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
   error NoSuchProvingKey(bytes32 keyHash);
   error InvalidLinkWeiPrice(int256 linkWei);
   error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
-  error InsufficientGasForConsumer(uint256 have, uint256 want);
+  error InvalidPremiumPercentage(uint8 premiumPercentage, uint8 max);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
   error InvalidExtraArgsTag();
   error GasPriceExceeded(uint256 gasPrice, uint256 maxGas);
-  struct RequestCommitment {
-    uint64 blockNum;
-    uint256 subId;
-    uint32 callbackGasLimit;
-    uint32 numWords;
-    address sender;
-    bytes extraArgs;
-  }
 
   struct ProvingKey {
     bool exists; // proving key exists
@@ -75,6 +71,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 outputSeed,
     uint256 indexed subId,
     uint96 payment,
+    bool nativePayment,
     bool success,
     bool onlyPremium
   );
@@ -92,6 +89,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint8 nativePremiumPercentage,
     uint8 linkPremiumPercentage
   );
+
+  event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
 
   constructor(address blockhashStore) SubscriptionAPI() {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
@@ -122,12 +121,13 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert NoSuchProvingKey(kh);
     }
     delete s_provingKeys[kh];
-    for (uint256 i = 0; i < s_provingKeyHashes.length; i++) {
+    uint256 s_provingKeyHashesLength = s_provingKeyHashes.length;
+    for (uint256 i = 0; i < s_provingKeyHashesLength; ++i) {
       if (s_provingKeyHashes[i] == kh) {
-        bytes32 last = s_provingKeyHashes[s_provingKeyHashes.length - 1];
         // Copy last element and overwrite kh to be deleted with it
-        s_provingKeyHashes[i] = last;
+        s_provingKeyHashes[i] = s_provingKeyHashes[s_provingKeyHashesLength - 1];
         s_provingKeyHashes.pop();
+        break;
       }
     }
     emit ProvingKeyDeregistered(kh, key.maxGas);
@@ -174,8 +174,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (fallbackWeiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
     }
-    if (fulfillmentFlatFeeNativePPM > 0 && fulfillmentFlatFeeLinkDiscountPPM >= fulfillmentFlatFeeNativePPM) {
+    if (fulfillmentFlatFeeLinkDiscountPPM > fulfillmentFlatFeeNativePPM) {
       revert LinkDiscountTooHigh(fulfillmentFlatFeeLinkDiscountPPM, fulfillmentFlatFeeNativePPM);
+    }
+    if (nativePremiumPercentage > PREMIUM_PERCENTAGE_MAX) {
+      revert InvalidPremiumPercentage(nativePremiumPercentage, PREMIUM_PERCENTAGE_MAX);
+    }
+    if (linkPremiumPercentage > PREMIUM_PERCENTAGE_MAX) {
+      revert InvalidPremiumPercentage(linkPremiumPercentage, PREMIUM_PERCENTAGE_MAX);
     }
     s_config = Config({
       minimumRequestConfirmations: minimumRequestConfirmations,
@@ -241,17 +247,18 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    */
   function requestRandomWords(
     VRFV2PlusClient.RandomWordsRequest calldata req
-  ) external override nonReentrant returns (uint256) {
+  ) external override nonReentrant returns (uint256 requestId) {
     // Input validation using the subscription storage.
-    if (s_subscriptionConfigs[req.subId].owner == address(0)) {
+    uint256 subId = req.subId;
+    if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
-    // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[msg.sender][req.subId];
-    if (currentNonce == 0) {
-      revert InvalidConsumer(req.subId, msg.sender);
+    mapping(uint256 => ConsumerConfig) storage consumerConfigs = s_consumers[msg.sender];
+    ConsumerConfig memory consumerConfig = consumerConfigs[subId];
+    if (!consumerConfig.active) {
+      revert InvalidConsumer(subId, msg.sender);
     }
     // Input validation using the config storage word.
     if (
@@ -273,19 +280,21 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (req.numWords > MAX_NUM_WORDS) {
       revert NumWordsTooBig(req.numWords, MAX_NUM_WORDS);
     }
+
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
-    uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = _computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
+    ++consumerConfig.nonce;
+    ++consumerConfig.pendingReqCount;
+    uint256 preSeed;
+    (requestId, preSeed) = _computeRequestId(req.keyHash, msg.sender, subId, consumerConfig.nonce);
 
-    VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
-    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
+    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(_fromBytes(req.extraArgs));
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
         ChainSpecificUtil._getBlockNumber(),
-        req.subId,
+        subId,
         req.callbackGasLimit,
         req.numWords,
         msg.sender,
@@ -296,14 +305,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       req.keyHash,
       requestId,
       preSeed,
-      req.subId,
+      subId,
       req.requestConfirmations,
       req.callbackGasLimit,
       req.numWords,
       extraArgsBytes,
       msg.sender
     );
-    s_consumers[msg.sender][req.subId] = nonce;
+    consumerConfigs[subId] = consumerConfig;
 
     return requestId;
   }
@@ -359,7 +368,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function _getRandomnessFromProof(
     Proof memory proof,
-    RequestCommitment memory rc
+    VRFTypes.RequestCommitmentV2Plus memory rc
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     ProvingKey memory key = s_provingKeys[keyHash];
@@ -408,7 +417,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function _deliverRandomness(
     uint256 requestId,
-    RequestCommitment memory rc,
+    VRFTypes.RequestCommitmentV2Plus memory rc,
     uint256[] memory randomWords
   ) internal returns (bool success) {
     VRFConsumerBaseV2Plus v;
@@ -435,56 +444,97 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    */
   function fulfillRandomWords(
     Proof memory proof,
-    RequestCommitment memory rc,
+    VRFTypes.RequestCommitmentV2Plus memory rc,
     bool onlyPremium
-  ) external nonReentrant returns (uint96) {
+  ) external nonReentrant returns (uint96 payment) {
     uint256 startGas = gasleft();
+    // fulfillRandomWords msg.data has 772 bytes and with an additional
+    // buffer of 32 bytes, we get 804 bytes.
+    /* Data size split:
+     * fulfillRandomWords function signature - 4 bytes
+     * proof - 416 bytes
+     *   pk - 64 bytes
+     *   gamma - 64 bytes
+     *   c - 32 bytes
+     *   s - 32 bytes
+     *   seed - 32 bytes
+     *   uWitness - 32 bytes
+     *   cGammaWitness - 64 bytes
+     *   sHashWitness - 64 bytes
+     *   zInv - 32 bytes
+     * requestCommitment - 320 bytes
+     *   blockNum - 32 bytes
+     *   subId - 32 bytes
+     *   callbackGasLimit - 32 bytes
+     *   numWords - 32 bytes
+     *   sender - 32 bytes
+     *   extraArgs - 128 bytes
+     * onlyPremium - 32 bytes
+     */
+    if (msg.data.length > 804) {
+      revert MsgDataTooBig(msg.data.length, 804);
+    }
     Output memory output = _getRandomnessFromProof(proof, rc);
     uint256 gasPrice = _getValidatedGasPrice(onlyPremium, output.provingKey.maxGas);
 
-    uint256[] memory randomWords = new uint256[](rc.numWords);
-    for (uint256 i = 0; i < rc.numWords; i++) {
-      randomWords[i] = uint256(keccak256(abi.encode(output.randomness, i)));
+    uint256[] memory randomWords;
+    uint256 randomness = output.randomness;
+    // stack too deep error
+    {
+      uint256 numWords = rc.numWords;
+      randomWords = new uint256[](numWords);
+      for (uint256 i = 0; i < numWords; ++i) {
+        randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
+      }
     }
 
     delete s_requestCommitments[output.requestId];
     bool success = _deliverRandomness(output.requestId, rc, randomWords);
 
     // Increment the req count for the subscription.
-    // stack too deep error
-    {
-      s_subscriptions[rc.subId].reqCount = s_subscriptions[rc.subId].reqCount + 1;
-    }
+    ++s_subscriptions[rc.subId].reqCount;
+    // Decrement the pending req count for the consumer.
+    --s_consumers[rc.sender][rc.subId].pendingReqCount;
 
     bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
 
-    // We want to charge users exactly for how much gas they use in their callback.
-    // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-    // decrement the subscription balance and increment the oracles withdrawable balance.
-    uint96 payment = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
+    // stack too deep error
+    {
+      // We want to charge users exactly for how much gas they use in their callback with
+      // an additional premium. If onlyPremium is true, only premium is charged without
+      // the gas cost. The gasAfterPaymentCalculation is meant to cover these additional
+      // operations where we decrement the subscription balance and increment the
+      // withdrawable balance.
+      bool isFeedStale;
+      (payment, isFeedStale) = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
+      if (isFeedStale) {
+        emit FallbackWeiPerUnitLinkUsed(output.requestId, s_fallbackWeiPerUnitLink);
+      }
+    }
 
     _chargePayment(payment, nativePayment, rc.subId);
 
     // Include payment in the event for tracking costs.
-    emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, success, onlyPremium);
+    emit RandomWordsFulfilled(output.requestId, randomness, rc.subId, payment, nativePayment, success, onlyPremium);
 
     return payment;
   }
 
   function _chargePayment(uint96 payment, bool nativePayment, uint256 subId) internal {
+    Subscription storage subcription = s_subscriptions[subId];
     if (nativePayment) {
-      uint96 prevBal = s_subscriptions[subId].nativeBalance;
+      uint96 prevBal = subcription.nativeBalance;
       if (prevBal < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].nativeBalance = prevBal - payment;
+      subcription.nativeBalance = prevBal - payment;
       s_withdrawableNative += payment;
     } else {
-      uint96 prevBal = s_subscriptions[subId].balance;
+      uint96 prevBal = subcription.balance;
       if (prevBal < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].balance = prevBal - payment;
+      subcription.balance = prevBal - payment;
       s_withdrawableTokens += payment;
     }
   }
@@ -494,9 +544,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 weiPerUnitGas,
     bool nativePayment,
     bool onlyPremium
-  ) internal returns (uint96) {
+  ) internal view returns (uint96, bool) {
     if (nativePayment) {
-      return _calculatePaymentAmountNative(startGas, weiPerUnitGas, onlyPremium);
+      return (_calculatePaymentAmountNative(startGas, weiPerUnitGas, onlyPremium), false);
     }
     return _calculatePaymentAmountLink(startGas, weiPerUnitGas, onlyPremium);
   }
@@ -505,7 +555,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) internal returns (uint96) {
+  ) internal view returns (uint96) {
     // Will return non-zero on chains that have this enabled
     uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
     // calculate the payment without the premium
@@ -524,9 +574,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) internal returns (uint96) {
-    int256 weiPerUnitLink;
-    weiPerUnitLink = _getFeedData();
+  ) internal view returns (uint96, bool) {
+    (int256 weiPerUnitLink, bool isFeedStale) = _getFeedData();
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
@@ -549,38 +598,33 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (payment > 1e27) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
-    return uint96(payment);
+    return (uint96(payment), isFeedStale);
   }
 
-  function _getFeedData() private view returns (int256) {
+  function _getFeedData() private view returns (int256 weiPerUnitLink, bool isFeedStale) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
-    bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
-    int256 weiPerUnitLink;
     (, weiPerUnitLink, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
+    isFeedStale = stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp;
+    if (isFeedStale) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
-    return weiPerUnitLink;
+    return (weiPerUnitLink, isFeedStale);
   }
 
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
   function pendingRequestExists(uint256 subId) public view override returns (bool) {
-    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
-    for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
-        (uint256 reqId, ) = _computeRequestId(
-          s_provingKeyHashes[j],
-          subConfig.consumers[i],
-          subId,
-          s_consumers[subConfig.consumers[i]][subId]
-        );
-        if (s_requestCommitments[reqId] != 0) {
-          return true;
-        }
+    address[] storage consumers = s_subscriptionConfigs[subId].consumers;
+    uint256 consumersLength = consumers.length;
+    if (consumersLength == 0) {
+      return false;
+    }
+    for (uint256 i = 0; i < consumersLength; ++i) {
+      if (s_consumers[consumers[i]][subId].pendingReqCount > 0) {
+        return true;
       }
     }
     return false;
@@ -593,13 +637,13 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
-    if (s_consumers[consumer][subId] == 0) {
+    if (!s_consumers[consumer][subId].active) {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
     address[] memory consumers = s_subscriptionConfigs[subId].consumers;
     uint256 lastConsumerIndex = consumers.length - 1;
-    for (uint256 i = 0; i < consumers.length; i++) {
+    for (uint256 i = 0; i < consumers.length; ++i) {
       if (consumers[i] == consumer) {
         address last = consumers[lastConsumerIndex];
         // Storage write to preserve last element
@@ -609,7 +653,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
         break;
       }
     }
-    delete s_consumers[consumer][subId];
+    s_consumers[consumer][subId].active = false;
     emit SubscriptionConsumerRemoved(subId, consumer);
   }
 
@@ -657,7 +701,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   function _isTargetRegistered(address target) internal view returns (bool) {
-    for (uint256 i = 0; i < s_migrationTargets.length; i++) {
+    uint256 migrationTargetsLength = s_migrationTargets.length;
+    for (uint256 i = 0; i < migrationTargetsLength; ++i) {
       if (s_migrationTargets[i] == target) {
         return true;
       }
@@ -675,10 +720,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function deregisterMigratableCoordinator(address target) external onlyOwner {
     uint256 nTargets = s_migrationTargets.length;
-    for (uint256 i = 0; i < nTargets; i++) {
+    for (uint256 i = 0; i < nTargets; ++i) {
       if (s_migrationTargets[i] == target) {
         s_migrationTargets[i] = s_migrationTargets[nTargets - 1];
-        s_migrationTargets[nTargets - 1] = target;
         s_migrationTargets.pop();
         emit CoordinatorDeregistered(target);
         return;
@@ -691,16 +735,16 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (!_isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
-    (uint96 balance, uint96 nativeBalance, , address owner, address[] memory consumers) = getSubscription(subId);
-    // solhint-disable-next-line custom-errors
-    require(owner == msg.sender, "Not subscription owner");
-    // solhint-disable-next-line custom-errors
+    (uint96 balance, uint96 nativeBalance, , address subOwner, address[] memory consumers) = getSubscription(subId);
+    // solhint-disable-next-line gas-custom-errors
+    require(subOwner == msg.sender, "Not subscription owner");
+    // solhint-disable-next-line gas-custom-errors
     require(!pendingRequestExists(subId), "Pending request exists");
 
     V1MigrationData memory migrationData = V1MigrationData({
       fromVersion: 1,
       subId: subId,
-      subOwner: owner,
+      subOwner: subOwner,
       consumers: consumers,
       linkBalance: balance,
       nativeBalance: nativeBalance
@@ -711,14 +755,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     // Only transfer LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
     }
 
     // despite the fact that we follow best practices this is still probably safest
     // to prevent any re-entrancy possibilities.
     s_config.reentrancyLock = true;
-    for (uint256 i = 0; i < consumers.length; i++) {
+    for (uint256 i = 0; i < consumers.length; ++i) {
       IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator);
     }
     s_config.reentrancyLock = false;

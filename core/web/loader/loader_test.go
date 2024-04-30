@@ -125,7 +125,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 		Name: "manager 3",
 	}
 
-	fsvc.On("ListManagersByIDs", []int64{3, 1, 2, 5}).Return([]feeds.FeedsManager{
+	fsvc.On("ListManagersByIDs", mock.Anything, []int64{3, 1, 2, 5}).Return([]feeds.FeedsManager{
 		mgr1, mgr2, mgr3,
 	}, nil)
 	app.On("GetFeedsService").Return(fsvc)
@@ -167,7 +167,7 @@ func TestLoader_JobProposals(t *testing.T) {
 		Status:         feeds.JobProposalStatusRejected,
 	}
 
-	fsvc.On("ListJobProposalsByManagersIDs", []int64{3, 1, 2}).Return([]feeds.JobProposal{
+	fsvc.On("ListJobProposalsByManagersIDs", mock.Anything, []int64{3, 1, 2}).Return([]feeds.JobProposal{
 		jp1, jp3, jp2,
 	}, nil)
 	app.On("GetFeedsService").Return(fsvc)
@@ -194,7 +194,7 @@ func TestLoader_JobRuns(t *testing.T) {
 	run2 := pipeline.Run{ID: int64(2)}
 	run3 := pipeline.Run{ID: int64(3)}
 
-	jobsORM.On("FindPipelineRunsByIDs", []int64{3, 1, 2}).Return([]pipeline.Run{
+	jobsORM.On("FindPipelineRunsByIDs", mock.Anything, []int64{3, 1, 2}).Return([]pipeline.Run{
 		run3, run1, run2,
 	}, nil)
 	app.On("JobORM").Return(jobsORM)
@@ -224,7 +224,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 		job2 := job.Job{ID: int32(3), PipelineSpecID: int32(2)}
 		job3 := job.Job{ID: int32(4), PipelineSpecID: int32(3)}
 
-		jobsORM.On("FindJobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{
+		jobsORM.On("FindJobsByPipelineSpecIDs", mock.Anything, []int32{3, 1, 2}).Return([]job.Job{
 			job1, job2, job3,
 		}, nil)
 		app.On("JobORM").Return(jobsORM)
@@ -247,7 +247,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
 
-		jobsORM.On("FindJobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{}, sql.ErrNoRows)
+		jobsORM.On("FindJobsByPipelineSpecIDs", mock.Anything, []int32{3, 1, 2}).Return([]job.Job{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
 
 		batcher := jobBatcher{app}
@@ -274,7 +274,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 		ejID := uuid.New()
 		job := job.Job{ID: int32(2), ExternalJobID: ejID}
 
-		jobsORM.On("FindJobByExternalJobID", ejID).Return(job, nil)
+		jobsORM.On("FindJobByExternalJobID", mock.Anything, ejID).Return(job, nil)
 		app.On("JobORM").Return(jobsORM)
 
 		batcher := jobBatcher{app}
@@ -305,7 +305,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 		TxID: ethTxIDs[1],
 	}
 
-	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.TxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", ctx, []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.TxAttempt{
 		attempt1, attempt2,
 	}, nil)
 	app.On("TxmStorageService").Return(txStore)
@@ -335,7 +335,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 		specErr2 := job.SpecError{ID: int64(3), JobID: int32(2)}
 		specErr3 := job.SpecError{ID: int64(4), JobID: int32(3)}
 
-		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{
+		jobsORM.On("FindSpecErrorsByJobIDs", mock.Anything, []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{
 			specErr1, specErr2, specErr3,
 		}, nil)
 		app.On("JobORM").Return(jobsORM)
@@ -358,7 +358,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
 
-		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{}, sql.ErrNoRows)
+		jobsORM.On("FindSpecErrorsByJobIDs", mock.Anything, []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
 
 		batcher := jobSpecErrorsBatcher{app}
@@ -394,7 +394,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 		Receipts: []txmgr.ChainReceipt{txmgr.DbReceiptToEvmReceipt(&receipt)},
 	}
 
-	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxID}).Return([]txmgr.TxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", ctx, []int64{ethTxID}).Return([]txmgr.TxAttempt{
 		attempt1,
 	}, nil)
 

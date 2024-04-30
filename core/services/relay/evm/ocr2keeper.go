@@ -4,36 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -71,32 +64,34 @@ type OCR2KeeperRelayer interface {
 
 // ocr2keeperRelayer is the relayer with added DKG and OCR2Keeper provider functions.
 type ocr2keeperRelayer struct {
-	db          *sqlx.DB
+	ds          sqlutil.DataSource
 	chain       legacyevm.Chain
 	lggr        logger.Logger
 	ethKeystore keystore.Eth
-	dbCfg       pg.QConfig
 }
 
 // NewOCR2KeeperRelayer is the constructor of ocr2keeperRelayer
-func NewOCR2KeeperRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth, dbCfg pg.QConfig) OCR2KeeperRelayer {
+func NewOCR2KeeperRelayer(ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2KeeperRelayer {
 	return &ocr2keeperRelayer{
-		db:          db,
+		ds:          ds,
 		chain:       chain,
 		lggr:        lggr,
 		ethKeystore: ethKeystore,
-		dbCfg:       dbCfg,
 	}
 }
 
 func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error) {
-	cfgWatcher, err := newOCR2KeeperConfigProvider(r.lggr, r.chain, rargs)
+
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
+	cfgWatcher, err := newOCR2KeeperConfigProvider(ctx, r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
 
 	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit})
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -107,16 +102,16 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	services.configWatcher = cfgWatcher
 	services.contractTransmitter = contractTransmitter
 
-	addr := ethkey.MustEIP55Address(rargs.ContractID).Address()
+	addr := evmtypes.MustEIP55Address(rargs.ContractID).Address()
 
-	registryContract, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
+	registryContract, err := ac.NewIAutomationV21PlusCommon(addr, client.Client())
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 	// lookback blocks for transmit event is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var transmitLookbackBlocks int64 = 250
-	transmitEventProvider, err := transmit.NewTransmitEventProvider(r.lggr, client.LogPoller(), addr, client.Client(), transmitLookbackBlocks)
+	transmitEventProvider, err := transmit.NewTransmitEventProvider(ctx, r.lggr, client.LogPoller(), addr, client.Client(), transmitLookbackBlocks)
 	if err != nil {
 		return nil, err
 	}
@@ -128,11 +123,11 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 
 	finalityDepth := client.Config().EVM().FinalityDepth()
 
-	orm := upkeepstate.NewORM(client.ID(), r.db, r.lggr, r.dbCfg)
+	orm := upkeepstate.NewORM(client.ID(), r.ds)
 	scanner := upkeepstate.NewPerformedEventsScanner(r.lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepStateStore = upkeepstate.NewUpkeepStateStore(orm, r.lggr, scanner)
 
-	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth)
+	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth, client.ID())
 	services.logEventProvider = logProvider
 	services.logRecoverer = logRecoverer
 	blockSubscriber := evm.NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, r.lggr)
@@ -210,7 +205,7 @@ func (c *ocr2keeperProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
+func newOCR2KeeperConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {
@@ -221,18 +216,18 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 	}
 
 	contractAddress := common.HexToAddress(rargs.ContractID)
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
-	}
 
 	configPoller, err := NewConfigPoller(
+		ctx,
 		lggr.With("contractID", rargs.ContractID),
-		chain.Client(),
-		chain.LogPoller(),
-		contractAddress,
-		// TODO: Does ocr2keeper need to support config contract? DF-19182
-		nil,
+		CPConfig{
+			chain.Client(),
+			chain.LogPoller(),
+			contractAddress,
+			// TODO: Does ocr2keeper need to support config contract? DF-19182
+			nil,
+			OCR2AggregatorLogDecoder,
+		},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create config poller")
@@ -246,7 +241,6 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 	return newConfigWatcher(
 		lggr,
 		contractAddress,
-		contractABI,
 		offchainConfigDigester,
 		configPoller,
 		chain,

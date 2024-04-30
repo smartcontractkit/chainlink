@@ -6,11 +6,11 @@ Rules are all enforced through CI, this can be through Solhint rules or other to
 
 ## Background
 
-Our starting point is the [official Solidity Style Guide](https://docs.soliditylang.org/en/v0.8.21/style-guide.html) and [ConsenSys's Secure Development practices](https://consensys.github.io/smart-contract-best-practices/), but we deviate in some ways. We lean heavily on [Prettier](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/.prettierrc) for formatting, and if you have to set up a new Solidity project we recommend starting with [our prettier config](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/.prettierrc). We are trying to automate as much of this styleguide with Solhint as possible.
+Our starting point is the [official Solidity Style Guide](https://docs.soliditylang.org/en/v0.8.21/style-guide.html) and [ConsenSys's Secure Development practices](https://consensys.github.io/smart-contract-best-practices/), but we deviate in some ways. We lean heavily on [Prettier](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/.prettierrc) for formatting, and if you have to set up a new Solidity project we recommend starting with [our prettier config](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/.prettierrc). We are trying to automate as much of this style guide with Solhint as possible.
 
-This guide is not meant to be applied retroactively. There is no need to rewrite existing code to adhere to this guide, and when making (small) changes in existing files, it is not required to do so in accordance to this guide if it would conflict with other practices in that existing file. Consistency is preferred.
+This guide is not meant to be applied retroactively. There is no need to rewrite existing code to adhere to this guide, and when making (small) changes in existing files, it is not required to adhere to this guide if it conflicts with other practices in that existing file. Consistency is preferred.
 
-We will be looking into `forge fmt`, but for now we still use `prettier`.
+We will be looking into `forge fmt`, but for now, we still use `prettier`.
 
 
 # <a name="guidelines"></a>Guidelines
@@ -22,17 +22,17 @@ We will be looking into `forge fmt`, but for now we still use `prettier`.
 
 ### Delineate Unaudited Code
 
-- In a large repo it is worthwhile to keep code that has not yet been audited separate from the code that has been audited. This allows you to easily keep track of which files need to be reviewed.
-  - E.g. we keep unaudited code in a directory named `dev` that exists within each projects folder. Only once it has been audited we move the audited files out of `dev` and only then is it considered safe to deploy.
+- In a large repo, it is worthwhile to keep code that has not yet been audited separately from the code that has been audited. This allows you to easily keep track of which files need to be reviewed.
+  - E.g. we keep unaudited code in a directory named `dev` that exists within each project's folder. Only once it has been audited we move the audited files out of `dev` and only then is it considered safe to deploy.
   - This `dev` folder also has implications for when code is valid for bug bounties, so be extra careful to move functionality out of a `dev` folder.
 
 
-## comments 
-- Besides comment above functions/structs, comments should live everywhere a reader might be confused.
+## Comments
+- Besides comments above functions and structs, comments should live everywhere a reader might be confused.
   Don’t overestimate the reader of your contract, expect confusion in many places and document accordingly.
   This will help massively during audits and onboarding new team members.
-- Headers should be used to group functionality, the following header style and length is recommended.
-  - Don’t use headers for a single function, or to say “getters”. Group by functionality e.g. the `Tokens and pools` , or `fees` logic within the CCIP OnRamp.
+- Headers should be used to group functionality, the following header style and length are recommended.
+  - Don’t use headers for a single function, or to say “getters”. Group by functionality e.g. the `Tokens and pools`, or `fees` logic within the CCIP OnRamp.
 
 ```solidity
   // ================================================================
@@ -48,7 +48,7 @@ We will be looking into `forge fmt`, but for now we still use `prettier`.
 
 ## Variables
 
-- Function arguments are named like this: `argumentName`. No leading or trailing underscores necessary.
+- Function arguments are named like this: `argumentName`. No leading or trailing underscores are necessary.
 - Names should be explicit on the unit it contains, e.g. a network fee that is charged in USD cents
 
 ```solidity
@@ -64,13 +64,11 @@ uint256 networkFeeUSDCents; // good
 
 ### Structs
 
-- All structs should be packed to have the lowest memory footprint to reduce gas usage. Even structs that will never be written to storage should be packed.
-  - A contract can be considered a struct; it should also be packed to reduce gas cost.
-- Structs should contain struct packing comments to clearly indicate the storage slot layout
+- Structs should contain struct packing comments to indicate the storage slot layout
   - Using the exact characters from the example below will ensure visually appealing struct packing comments.
   - Notice there is no line on the unpacked last `fee` item.
 - Struct should contain comments, clearly indicating the denomination of values e.g. 0.01 USD if the variable name doesn’t already do that (which it should).
-  - Simple tool that could help packing structs and adding comments: https://github.com/RensR/Spack
+  - A simple tool that could help with packing structs and adding comments: https://github.com/RensR/Spack
 
 ```solidity
 /// @dev Struct to hold the fee configuration for a fee token, same as the FeeTokenConfig but with
@@ -100,13 +98,13 @@ struct FeeTokenConfigArgs {
 ### Return Values
 
 - If an address is cast as a contract type, return the type, do not cast back to the address type.
-  This prevents the consumer of the method signature from having to cast again, but presents an equivalent API for off-chain APIs.
+  This prevents the consumer of the method signature from having to cast again but presents an equivalent API for off-chain APIs.
   Additionally, it is a more declarative API, providing more context if we return a type.
 
 ## Modifiers
 
 - Only extract a modifier once a check is duplicated in multiple places. Modifiers arguably hurt readability, so we have found that they are not worth extracting until there is duplication.
-- Modifiers should be treated as if they are view functions. They should not change state, only read it. While it is possible to change state in a modifier, it is unconventional and surprising.
+- Modifiers should be treated as if they are view functions. They should not change state, only read it. While it is possible to change the state in a modifier, it is unconventional and surprising.
 - Modifiers tend to bloat contract size because the code is duplicated wherever the modifier is used.
 
 ## Events
@@ -148,7 +146,7 @@ assembly {
 return (success, retData);
 ```
 
-This will cost slightly more gas to copy the response into memory, but will ultimately make contract usage more understandable and easier to debug. Whether it is worth the extra gas is a judgement call you’ll have to make based on your needs.
+This will cost slightly more gas to copy the response into memory, but will ultimately make contract usage more understandable and easier to debug. Whether it is worth the extra gas is a judgment call you’ll have to make based on your needs.
 
 The original error will not be human-readable in an off-chain explorer because it is RLP hex encoded but is easily decoded with standard Solidity ABI decoding tools, or a hex to UTF-8 converter and some basic ABI knowledge.
 
@@ -160,13 +158,13 @@ The original error will not be human-readable in an off-chain explorer because i
 ## Dependencies
 
 - Prefer not reinventing the wheel, especially if there is an Openzeppelin wheel.
-- The `shared` folder can be treated as a first party dependency and it is recommend to check if some functionality might already be in there before either writing it yourself or adding a third party dependency.
+- The `shared` folder can be treated as a first-party dependency and it is recommended to check if some functionality might already be in there before either writing it yourself or adding a third party dependency.
 - When we have reinvented the wheel already (like with ownership), it is OK to keep using these contracts. If there are clear benefits of using another standard like OZ, we can deprecate the custom implementation and start using the new standard in all new projects. Migration will not be required unless there are serious issues with the old implementation.
 - When the decision is made to use a new standard, it is no longer allowed to use the old standard for new projects.
 
 ### Vendor dependencies
 
-- That’s it, vendor your Solidity dependencies. Supply chain attacks are all the rage these days. There is not yet a silver bullet for best way to vendor, it depends on the size of your project and your needs. You should be as explicit as possible about where the code comes from and make sure that this is enforced in some way; e.g. reference a hash. Some options:
+- That’s it, vendor your Solidity dependencies. Supply chain attacks are all the rage these days. There is not yet a silver bullet for the best way to vendor, it depends on the size of your project and your needs. You should be as explicit as possible about where the code comes from and make sure that this is enforced in some way; e.g. reference a hash. Some options:
   - NPM packages work for repos already in the JavaScript ecosystem. If you go this route you should lock to a hash of the repo or use a proxy registry like GitHub Packages.
   - Copy and paste the code into a `vendor` directory. Record attribution of the code and license in the repo along with the commit or version that you pulled the code from.
   - Foundry uses git submodules for its dependencies. We only use the `forge-std` lib through submodules, we don’t import any non-Foundry-testing code through this method.
@@ -176,7 +174,7 @@ The original error will not be human-readable in an off-chain explorer because i
 
 ### Transferring Ownership
 
-- When transferring control, whether it is of a token or a role in a contract, prefer "safe ownership" transfer patterns where the recipient must accept ownership. This avoids accidentally burning the control. This is also inline with the secure pattern of [prefer pull over push](https://consensys.github.io/smart-contract-best-practices/recommendations/#favor-pull-over-push-for-external-calls).
+- When transferring control, whether it is of a token or a role in a contract, prefer "safe ownership" transfer patterns where the recipient must accept ownership. This avoids accidentally burning the control. This is also in line with the secure pattern of [prefer pull over push](https://consensys.github.io/smart-contract-best-practices/recommendations/#favor-pull-over-push-for-external-calls).
 
 ### Call with Exact Gas
 
@@ -194,7 +192,7 @@ The original error will not be human-readable in an off-chain explorer because i
 - Calling other contracts will also be costly
 - Common types to safely use are
   - uint40 for timestamps (or uint32 if you really need the space)
-  - uint96 for link, as there are only 1b link tokens
+  - uint96 for LINK, as there are only 1b LINK tokens
 - prefer `++i` over `i++`
 - If you’re unsure about golfing, ask in the #tech-solidity channel
 
@@ -216,13 +214,13 @@ The original error will not be human-readable in an off-chain explorer because i
 
 ## Picking a Pragma
 
-- If a contract or library is expected to be imported by outside parties then the pragma should be kept as loose as possible without sacrificing safety. We publish versions for every minor semver version of Solidity, and maintain a corresponding set of tests for each published version.
+- If a contract or library is expected to be imported by outside parties then the pragma should be kept as loose as possible without sacrificing safety. We publish versions for every minor Semver version of Solidity and maintain a corresponding set of tests for each published version.
   - Examples: libraries, interfaces, abstract contracts, and contracts expected to be inherited from
-- Otherwise, Solidity contracts should have a pragma which is locked to a specific version.
+- Otherwise, Solidity contracts should have a pragma that is locked to a specific version.
   - Example: Most concrete contracts.
-- Avoid changing pragmas after audit. Unless there is a bug that has affects your contract, then you should try to stick to a known good pragma. In practice this means we typically only support one (occasionally two) pragma for any “major”(minor by semver naming) Solidity version.
+- Avoid changing pragmas after the audit. Unless there is a bug that affects your contract, then you should try to stick to a known good pragma. In practice, this means we typically only support one (occasionally two) pragma for any “major”(minor by Semver naming) Solidity version.
 - The current advised pragma is `0.8.19` or higher, lower versions should be avoided when starting a new project. Newer versions can be considered.
-- All contracts should have a SPDX license identifier. If unsure about which one to pick, please consult with legal. Most older contracts have been MIT, but some of the newer products have been using BUSL-1.1
+- All contracts should have an SPDX license identifier. If unsure about which one to pick, please consult with legal. Most older contracts have been MIT, but some of the newer products have been using BUSL-1.1
 
 
 ## Versioning
@@ -239,12 +237,10 @@ Here are some examples of what this should look like:
 
 ```solidity
 contract AccessControlledFoo is Foo {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "AccessControlledFoo 1.0.0";
 }
 
 contract OffchainAggregator is ITypeAndVersion {
-   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
    string public constant override typeAndVersion = "OffchainAggregator 1.0.0";
   
     function getData() public returns(uint256) {
@@ -256,8 +252,6 @@ contract OffchainAggregator is ITypeAndVersion {
 contract SuperDuperAggregator is ITypeAndVersion {
     /// This is a new contract that has not been released yet, so we
     /// add a `-dev` suffix to the typeAndVersion.
-	
-    // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
     string public constant override typeAndVersion = "SuperDuperAggregator 1.1.0-dev";
 
     function getData() public returns(uint256) {
@@ -268,7 +262,7 @@ contract SuperDuperAggregator is ITypeAndVersion {
 
 All contracts will expose a `typeAndVersion` constant.
 The string has the following format: `<contract name><SPACE><semver>-<dev>` with the `-dev` part only being applicable to contracts that have not been fully released.
-Try to fit it into 32 bytes to keep impact on contract sizes minimal.
+Try to fit it into 32 bytes to keep the impact on contract sizes minimal.
 Solhint will complain about a public constant variable that isn’t FULL_CAPS without the solhint-disable comment.
 
 
@@ -282,12 +276,12 @@ Solhint will complain about a public constant variable that isn’t FULL_CAPS wi
 
 # <a name="rules"></a>Rules
 
-All rules have a `rule` tag which indicated how the rule is enforced.
+All rules have a `rule` tag which indicates how the rule is enforced.
 
 
 ## Comments
 
-- Comments should be in the `//` (default) or `///` (natspec) format, not the `/*  */` format.
+- Comments should be in the `//` (default) or `///` (Natspec) format, not the `/*  */` format.
   - rule: `tbd`
 - Comments should follow [NatSpec](https://docs.soliditylang.org/en/latest/natspec-format.html)
   - rule: `tbd`
@@ -296,7 +290,7 @@ All rules have a `rule` tag which indicated how the rule is enforced.
 
 - Imports should always be explicit
   - rule: `no-global-import`
-- Imports have follow the following format:
+- Imports have to follow the following format:
   - rule: `tbd`
 
 ```solidity
@@ -327,7 +321,7 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/
 All contract variables should be private by default. Getters should be explicitly written and documented when you want to expose a variable publicly.
 Whether a getter function reads from storage, a constant, or calculates a value from somewhere else, that’s all implementation details that should not be exposed to the consumer by casing or other conventions.
 
-rule: tbd
+rule: `tbd`
 
 ### Naming and Casing
 
@@ -382,10 +376,46 @@ function getNum() external view returns (uint64 num) {
 
 Use [custom errors](https://blog.soliditylang.org/2021/04/21/custom-errors/) instead of emitting strings. This saves contract code size and simultaneously provides more informative error messages.
 
-rule: `custom-errors`
+rule: `gas-custom-errors`
 
 ## Interfaces
 
+### Purpose
+
+Interfaces separate NatSpec from contract logic, requiring readers to do more work to understand the code. For this reason, you shouldn’t create an interface by default.
+
+If created, interfaces should have a documented purpose. For example, an interface is useful if 3rd party on-chain contracts will interact with your contract. CCIP’s [`IRouterClient` interface](https://github.com/smartcontractkit/ccip/blob/ccip-develop/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol) is a good example here.
+
+### Naming
+
 Interfaces should be named `IFoo` instead of `FooInterface`. This follows the patterns of popular [libraries like OpenZeppelin’s](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol#L9). 
 
+rule: `interface-starts-with-i`
+
+## Structs
+
+- All structs should be packed to have the lowest memory footprint to reduce gas usage. Even structs that will never be written to storage should be packed.
+  - A contract can be considered a struct; it should also be packed to reduce gas cost.
+
+rule: `gas-struct-packing`
+
+- Structs should be constructed with named arguments. This prevents accidental assignment to the wrong field and makes the code more readable.
+
+```solidity
+// Good
+function setConfig(uint64 _foo, uint64 _bar, uint64 _baz) external {
+  config = Config({
+    foo: _foo,
+    bar: _bar,
+    baz: _baz
+  });
+}
+
+// Bad
+function setConfig(uint64 _foo, uint64 _bar, uint64 _baz) external {
+  config = Config(_foo, _bar, _baz);
+}
+```
+
 rule: `tbd`
+

@@ -111,6 +111,9 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
    * @param _vrfCoordinator address of VRFCoordinator contract
    */
   constructor(address _vrfCoordinator) ConfirmedOwner(msg.sender) {
+    if (_vrfCoordinator == address(0)) {
+      revert ZeroAddress();
+    }
     s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
   }
 
@@ -129,12 +132,12 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
    * @param randomWords the VRF output expanded to the requested number of words
    */
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal virtual;
+  function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal virtual;
 
   // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF
   // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
   // the origin of the call
-  function rawFulfillRandomWords(uint256 requestId, uint256[] memory randomWords) external {
+  function rawFulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) external {
     if (msg.sender != address(s_vrfCoordinator)) {
       revert OnlyCoordinatorCanFulfill(msg.sender, address(s_vrfCoordinator));
     }
@@ -144,8 +147,13 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   /**
    * @inheritdoc IVRFMigratableConsumerV2Plus
    */
-  function setCoordinator(address _vrfCoordinator) public override onlyOwnerOrCoordinator {
+  function setCoordinator(address _vrfCoordinator) external override onlyOwnerOrCoordinator {
+    if (_vrfCoordinator == address(0)) {
+      revert ZeroAddress();
+    }
     s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
+
+    emit CoordinatorSet(_vrfCoordinator);
   }
 
   modifier onlyOwnerOrCoordinator() {

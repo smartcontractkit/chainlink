@@ -1,25 +1,29 @@
-{ pkgs ? import <nixpkgs> { } }:
+{ pkgs }:
 with pkgs;
 let
-  go = go_1_19;
+  go = go_1_21;
   postgresql = postgresql_14;
-  nodejs = nodejs-16_x;
+  nodejs = nodejs-18_x;
   nodePackages = pkgs.nodePackages.override { inherit nodejs; };
+
+  mkShell' = mkShell.override {
+    # The current nix default sdk for macOS fails to compile go projects, so we use a newer one for now.
+    stdenv = if stdenv.isDarwin then overrideSDK stdenv "11.0" else stdenv;
+  };
 in
-mkShell {
+mkShell' {
   nativeBuildInputs = [
     go
-
+    goreleaser
     postgresql
+
     python3
     python3Packages.pip
+
     curl
     nodejs
     nodePackages.pnpm
     # TODO: compiler / gcc for secp compilation
-    nodePackages.ganache
-    # py3: web3 slither-analyzer crytic-compile
-    # echidna
     go-ethereum # geth
     # parity # openethereum
     go-mockery
@@ -33,9 +37,13 @@ mkShell {
     jq
 
     # deployment
+    awscli2
     devspace
     kubectl
     kubernetes-helm
+
+    # cross-compiling, used in CRIB
+    zig
 
     # gofuzz
   ] ++ lib.optionals stdenv.isLinux [
@@ -49,8 +57,10 @@ mkShell {
 
   PGDATA = "db";
   CL_DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";
+
   shellHook = ''
-    export GOPATH=$HOME/go
-    export PATH=$GOPATH/bin:$PATH
+    # Find the root of the git repository
+    repo_root=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+    export PATH=$PATH:$repo_root/crib/scripts
   '';
 }

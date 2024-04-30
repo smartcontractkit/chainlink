@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -196,6 +197,11 @@ func (nc *NullClient) CallContract(ctx context.Context, msg ethereum.CallMsg, bl
 	return nil, nil
 }
 
+func (nc *NullClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	nc.lggr.Debug("PendingCallContract")
+	return nil, nil
+}
+
 func (nc *NullClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	nc.lggr.Debug("CodeAt")
 	return nil, nil
@@ -220,4 +226,12 @@ func (nc *NullClient) NodeStates() map[string]string { return nil }
 func (nc *NullClient) IsL2() bool {
 	nc.lggr.Debug("IsL2")
 	return false
+}
+
+func (nc *NullClient) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, error) {
+	return nil, nil
+}
+
+func (nc *NullClient) CheckTxValidity(_ context.Context, _ common.Address, _ common.Address, _ []byte) *SendError {
+	return nil
 }

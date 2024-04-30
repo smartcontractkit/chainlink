@@ -16,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/jmoiron/sqlx"
+	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -30,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -44,7 +45,7 @@ var (
 type vrfLogPollerListenerTH struct {
 	Lggr              logger.Logger
 	ChainID           *big.Int
-	ORM               *logpoller.DbORM
+	ORM               logpoller.ORM
 	LogPoller         logpoller.LogPollerTest
 	Client            *backends.SimulatedBackend
 	Emitter           *log_emitter.LogEmitter
@@ -63,12 +64,13 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	finalityDepth, backfillBatchSize,
 	rpcBatchSize, keepFinalizedBlocksDepth int64,
 	mockChainUpdateFn func(*evmmocks.Chain, *vrfLogPollerListenerTH)) *vrfLogPollerListenerTH {
+	ctx := testutils.Context(t)
 
 	lggr := logger.TestLogger(t)
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 
-	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	o := logpoller.NewORM(chainID, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
 	ethDB := rawdb.NewMemoryDatabase()
 	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
@@ -92,7 +94,16 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
-	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, useFinalityTag, finalityDepth, backfillBatchSize, rpcBatchSize, keepFinalizedBlocksDepth)
+
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Hour,
+		UseFinalityTag:           useFinalityTag,
+		FinalityDepth:            finalityDepth,
+		BackfillBatchSize:        backfillBatchSize,
+		RpcBatchSize:             rpcBatchSize,
+		KeepFinalizedBlocksDepth: keepFinalizedBlocksDepth,
+	}
+	lp := logpoller.NewLogPoller(o, esc, lggr, lpOpts)
 
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
@@ -101,9 +112,8 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	ec.Commit()
 
 	// Log Poller Listener
-	cfg := pgtest.NewQConfig(false)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
-	require.NoError(t, ks.Unlock("blah"))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	require.NoError(t, ks.Unlock(ctx, "blah"))
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 		EVMChainID:          chainID.String(),
@@ -116,17 +126,18 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 
 	chain := evmmocks.NewChain(t)
 	listener := &listenerV2{
-		respCount:   map[string]uint64{},
-		job:         j,
-		chain:       chain,
-		l:           logger.Sugared(lggr),
-		coordinator: coordinator,
+		respCount:     map[string]uint64{},
+		job:           j,
+		chain:         chain,
+		l:             logger.Sugared(lggr),
+		coordinator:   coordinator,
+		inflightCache: vrfcommon.NewInflightCache(10),
+		chStop:        make(chan struct{}),
 	}
-	ctx := testutils.Context(t)
 
 	// Filter registration is idempotent, so we can just call it every time
 	// and retry on errors using the ticker.
-	err = lp.RegisterFilter(logpoller.Filter{
+	err = lp.RegisterFilter(ctx, logpoller.Filter{
 		Name: fmt.Sprintf("vrf_%s_keyhash_%s_job_%d", "v2", listener.job.VRFSpec.PublicKey.MustHash().String(), listener.job.ID),
 		EventSigs: evmtypes.HashArray{
 			vrf_log_emitter.VRFLogEmitterRandomWordsRequested{}.Topic(),
@@ -138,7 +149,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		},
 	})
 	require.Nil(t, err)
-	require.NoError(t, lp.RegisterFilter(logpoller.Filter{
+	require.NoError(t, lp.RegisterFilter(ctx, logpoller.Filter{
 		Name:      "Integration test",
 		EventSigs: []common.Hash{emitterABI.Events["Log1"].ID},
 		Addresses: []common.Address{emitterAddress1},
@@ -211,14 +222,42 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
 
 	// Should return logs from block 5 to 7 (inclusive)
-	logs, err := th.LogPoller.Logs(4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress,
-		pg.WithParentCtx(testutils.Context(t)))
+	logs, err := th.LogPoller.Logs(testutils.Context(t), 4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(logs))
 
 	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
 	require.Nil(t, err)
 	require.Equal(t, int64(6), lastProcessedBlock)
+}
+
+func TestLogPollerFilterRegistered(t *testing.T) {
+	t.Parallel()
+	// Instantiate listener.
+	th := setupVRFLogPollerListenerTH(t, false, 3, 3, 2, 1000, func(mockChain *evmmocks.Chain, th *vrfLogPollerListenerTH) {
+		mockChain.On("LogPoller").Maybe().Return(th.LogPoller)
+	})
+
+	// Run the log listener. This should register the log poller filter.
+	go th.Listener.runLogListener(time.Second, 1)
+
+	// Wait for the log poller filter to be registered.
+	filterName := th.Listener.getLogPollerFilterName()
+	gomega.NewWithT(t).Eventually(func() bool {
+		return th.Listener.chain.LogPoller().HasFilter(filterName)
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	// Once registered, expect the filter to stay registered.
+	gomega.NewWithT(t).Consistently(func() bool {
+		return th.Listener.chain.LogPoller().HasFilter(filterName)
+	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+
+	// Close the listener to avoid an orphaned goroutine.
+	close(th.Listener.chStop)
+
+	// Assert channel is closed.
+	_, ok := (<-th.Listener.chStop)
+	assert.False(t, ok)
 }
 
 func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {

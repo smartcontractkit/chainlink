@@ -33,6 +33,8 @@ go run . \
 --bhf-creds-file <path_to_file_with_creds> \
 --num-eth-keys=1 \
 --num-vrf-keys=1 \
+--num-bhs-sending-keys= 1 \
+--num-bhf-sending-keys=1 \
 --sending-key-funding-amount="1e17" \
 --deploy-contracts-and-create-jobs="true" \
 --subscription-balance="1e19" \
@@ -44,6 +46,11 @@ go run . \
 --request-timeout="30m0s" \
 --reverts-pipeline-enabled="true" \
 --min-confs=3 \
+--simulation-block="latest" \
+--bhs-job-wait-blocks=30 \
+--bhs-job-look-back-blocks=200 \
+--bhs-job-poll-period="1s" \
+--bhs-job-run-timeout="1m" \
 --register-vrf-key-against-address=<vrf key will be registered against this address 
 in order to call oracleWithdraw from this address> \
 --deploy-vrfv2-owner="true" \
@@ -70,6 +77,8 @@ go run . \
 --bhf-creds-file <path_to_file_with_creds> \
 --num-eth-keys=1 \
 --num-vrf-keys=1 \
+--num-bhs-sending-keys= 1 \
+--num-bhf-sending-keys=1 \
 --sending-key-funding-amount="1e17" \
 --deploy-contracts-and-create-jobs="true" \
 --subscription-balance="1e19" \
@@ -79,7 +88,17 @@ go run . \
 --estimate-gas-multiplier=1.1 \
 --poll-period="5s" \
 --request-timeout="30m0s" \
---min-confs=3 
+--min-confs=3 \
+--simulation-block="latest" \
+--proving-key-max-gas-price="1e12" \
+--flat-fee-native-ppm=500 \
+--flat-fee-link-discount-ppm=100 \
+--native-premium-percentage=1 \
+--link-premium-percentage=1 \
+--bhs-job-wait-blocks=30 \
+--bhs-job-look-back-blocks=200 \
+--bhs-job-poll-period="1s" \
+--bhs-job-run-timeout="1m" 
 ```
 
 Optional parameters - will not be deployed if specified 

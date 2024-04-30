@@ -15,12 +15,12 @@ import (
 type Cosmos interface {
 	Get(id string) (cosmoskey.Key, error)
 	GetAll() ([]cosmoskey.Key, error)
-	Create() (cosmoskey.Key, error)
-	Add(key cosmoskey.Key) error
-	Delete(id string) (cosmoskey.Key, error)
-	Import(keyJSON []byte, password string) (cosmoskey.Key, error)
+	Create(ctx context.Context) (cosmoskey.Key, error)
+	Add(ctx context.Context, key cosmoskey.Key) error
+	Delete(ctx context.Context, id string) (cosmoskey.Key, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (cosmoskey.Key, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKey() error
+	EnsureKey(ctx context.Context) error
 }
 
 type cosmos struct {
@@ -56,17 +56,17 @@ func (ks *cosmos) GetAll() (keys []cosmoskey.Key, _ error) {
 	return keys, nil
 }
 
-func (ks *cosmos) Create() (cosmoskey.Key, error) {
+func (ks *cosmos) Create(ctx context.Context) (cosmoskey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
 		return cosmoskey.Key{}, ErrLocked
 	}
 	key := cosmoskey.New()
-	return key, ks.safeAddKey(key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
-func (ks *cosmos) Add(key cosmoskey.Key) error {
+func (ks *cosmos) Add(ctx context.Context, key cosmoskey.Key) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -75,10 +75,10 @@ func (ks *cosmos) Add(key cosmoskey.Key) error {
 	if _, found := ks.keyRing.Cosmos[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-func (ks *cosmos) Delete(id string) (cosmoskey.Key, error) {
+func (ks *cosmos) Delete(ctx context.Context, id string) (cosmoskey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -88,11 +88,11 @@ func (ks *cosmos) Delete(id string) (cosmoskey.Key, error) {
 	if err != nil {
 		return cosmoskey.Key{}, err
 	}
-	err = ks.safeRemoveKey(key)
+	err = ks.safeRemoveKey(ctx, key)
 	return key, err
 }
 
-func (ks *cosmos) Import(keyJSON []byte, password string) (cosmoskey.Key, error) {
+func (ks *cosmos) Import(ctx context.Context, keyJSON []byte, password string) (cosmoskey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -105,7 +105,7 @@ func (ks *cosmos) Import(keyJSON []byte, password string) (cosmoskey.Key, error)
 	if _, found := ks.keyRing.Cosmos[key.ID()]; found {
 		return cosmoskey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(key)
+	return key, ks.keyManager.safeAddKey(ctx, key)
 }
 
 func (ks *cosmos) Export(id string, password string) ([]byte, error) {
@@ -121,7 +121,7 @@ func (ks *cosmos) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks *cosmos) EnsureKey() error {
+func (ks *cosmos) EnsureKey(ctx context.Context) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -136,7 +136,7 @@ func (ks *cosmos) EnsureKey() error {
 
 	ks.logger.Infof("Created Cosmos key with ID %s", key.ID())
 
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
 func (ks *cosmos) getByID(id string) (cosmoskey.Key, error) {

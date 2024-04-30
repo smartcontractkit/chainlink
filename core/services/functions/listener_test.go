@@ -1,6 +1,7 @@
 package functions_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	threshold_mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -85,7 +85,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
+	kst := cltest.NewKeyStore(t, db)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, KeyStore: kst.Eth(), LogBroadcaster: broadcaster, MailMon: mailMon})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
@@ -167,12 +167,12 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 		Data:              make([]byte, 12),
 	}
 
-	uni.logPollerWrapper.On("LatestEvents").Return([]types.OracleRequest{request}, nil, nil).Once()
-	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
-	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	uni.pluginORM.On("SetResult", mock.Anything, RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
 	}).Return(nil)
 
@@ -186,10 +186,10 @@ func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
-	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("SetResult", mock.Anything, RequestID, ResultBytes, mock.Anything, mock.Anything).Return(nil)
 
 	request := &functions_service.OffchainRequest{
 		RequestId:         RequestID[:],
@@ -230,10 +230,10 @@ func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil, nil, errors.New("error"))
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("SetError", mock.Anything, RequestID, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	request := &functions_service.OffchainRequest{
 		RequestId:         RequestID[:],
@@ -261,12 +261,12 @@ func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) 
 		Data:              make([]byte, 12),
 	}
 
-	uni.logPollerWrapper.On("LatestEvents").Return([]types.OracleRequest{request}, nil, nil).Once()
-	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(nil, ErrorBytes, nil, nil)
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, ErrorBytes, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	uni.pluginORM.On("SetError", mock.Anything, RequestID, mock.Anything, ErrorBytes, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
 	}).Return(nil)
 
@@ -300,14 +300,14 @@ func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *te
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 	doneCh := make(chan struct{})
 
-	uni.logPollerWrapper.On("LatestEvents").Return([]types.OracleRequest{request}, nil, nil).Once()
-	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("FetchEncryptedSecrets", mock.Anything, mock.Anything, RequestIDStr, mock.Anything, mock.Anything).Return(EncryptedSecrets, nil, nil)
 	uni.decryptor.On("Decrypt", mock.Anything, decryptionPlugin.CiphertextId(RequestID[:]), EncryptedSecrets).Return(DecryptedSecrets, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
-	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	uni.pluginORM.On("SetResult", mock.Anything, RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
 	}).Return(nil)
 
@@ -330,10 +330,10 @@ func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 		Data:              make([]byte, 20),
 	}
 
-	uni.logPollerWrapper.On("LatestEvents").Return([]types.OracleRequest{request}, nil, nil).Once()
-	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.pluginORM.On("SetError", RequestID, functions_service.USER_ERROR, []byte("request too big (max 10 bytes)"), mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	uni.pluginORM.On("SetError", mock.Anything, RequestID, functions_service.USER_ERROR, []byte("request too big (max 10 bytes)"), mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
 	}).Return(nil)
 
@@ -356,12 +356,12 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 		Data:              make([]byte, 12),
 	}
 
-	uni.logPollerWrapper.On("LatestEvents").Return([]types.OracleRequest{request}, nil, nil).Once()
-	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
-	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, Domains, nil)
-	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	uni.pluginORM.On("SetResult", mock.Anything, RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
 	}).Return(nil)
 	var sentMessage []byte
@@ -387,8 +387,8 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 
 	uni := NewFunctionsListenerUniverse(t, 0, 1)
 	doneCh := make(chan bool)
-	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
-	uni.pluginORM.On("PruneOldestRequests", functions_service.DefaultPruneMaxStoredRequests, functions_service.DefaultPruneBatchSize, mock.Anything).Return(uint32(0), uint32(0), nil).Run(func(args mock.Arguments) {
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
+	uni.pluginORM.On("PruneOldestRequests", mock.Anything, functions_service.DefaultPruneMaxStoredRequests, functions_service.DefaultPruneBatchSize, mock.Anything).Return(uint32(0), uint32(0), nil).Run(func(args mock.Arguments) {
 		doneCh <- true
 	})
 
@@ -402,8 +402,8 @@ func TestFunctionsListener_TimeoutRequests(t *testing.T) {
 
 	uni := NewFunctionsListenerUniverse(t, 1, 0)
 	doneCh := make(chan bool)
-	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
-	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1), mock.Anything).Return([]functions_service.RequestID{}, nil).Run(func(args mock.Arguments) {
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
+	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, mock.Anything, uint32(1), mock.Anything).Return([]functions_service.RequestID{}, nil).Run(func(args mock.Arguments) {
 		doneCh <- true
 	})
 
@@ -420,12 +420,10 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 	uni := NewFunctionsListenerUniverse(t, 0, 0)
 	request := types.OracleRequest{}
 
-	uni.logPollerWrapper.On("LatestEvents").Return([]types.OracleRequest{request}, nil, nil).Once()
-	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		var queryerWrapper pg.Q
-		args.Get(1).(pg.QOpt)(&queryerWrapper)
-		<-queryerWrapper.ParentCtx.Done()
+		<-args.Get(0).(context.Context).Done()
 		ormCallExited.Done()
 	}).Return(errors.New("timeout"))
 

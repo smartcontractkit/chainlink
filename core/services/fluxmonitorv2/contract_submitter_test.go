@@ -15,11 +15,12 @@ import (
 )
 
 func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
+	t.Parallel()
 	var (
 		fluxAggregator    = mocks.NewFluxAggregator(t)
 		orm               = fmmocks.NewORM(t)
 		keyStore          = fmmocks.NewKeyStoreInterface(t)
-		gasLimit          = uint32(2100)
+		gasLimit          = uint64(2100)
 		forwardingAllowed = false
 		submitter         = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit, forwardingAllowed, testutils.FixtureChainID)
 
@@ -32,7 +33,7 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 	payload, err := fluxmonitorv2.FluxAggregatorABI.Pack("submit", roundID, submission)
 	assert.NoError(t, err)
 
-	keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(fromAddress, nil)
+	keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID).Return(fromAddress, nil)
 	fluxAggregator.On("Address").Return(toAddress)
 
 	idempotencyKey := uuid.New().String()

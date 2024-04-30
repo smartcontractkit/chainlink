@@ -1,0 +1,88 @@
+## goreleaser <1.14.0
+project_name: chainlink-devspace
+
+env:
+  - ZIG_EXEC={{ if index .Env "ZIG_EXEC"  }}{{ .Env.ZIG_EXEC }}{{ else }}zig{{ end }}
+  - IMAGE_LABEL_DESCRIPTION="node of the decentralized oracle network, bridging on and off-chain computation"
+  - IMAGE_LABEL_LICENSES="MIT"
+  - IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/{{ .ProjectName }}"
+
+before:
+  hooks:
+    - go mod tidy
+    - ./tools/bin/goreleaser_utils before_hook
+
+# See https://goreleaser.com/customization/build/
+builds:
+  - binary: chainlink
+    id: linux-amd64
+    goos:
+      - linux
+    goarch:
+      - amd64
+    hooks:
+      post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
+    env:
+      - CGO_ENABLED=1
+      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu -Wno-error=unused-command-line-argument
+      - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu -Wno-error=unused-command-line-argument
+    flags:
+      - -trimpath
+      - -buildmode=pie
+    ldflags:
+      - -s -w -r=$ORIGIN/libs
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
+
+# See https://goreleaser.com/customization/docker/
+dockers:
+  - id: linux-amd64
+    dockerfile: core/chainlink.goreleaser.Dockerfile
+    use: buildx
+    goos: linux
+    goarch: amd64
+    extra_files:
+      - tmp/linux_amd64/libs
+      - tmp/linux_amd64/plugins
+      - tools/bin/ldd_fix
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--pull"
+      - "--build-arg=CHAINLINK_USER=chainlink"
+      - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
+      - "--build-arg=CL_MEDIAN_CMD=chainlink-feeds"
+      - "--build-arg=CL_MERCURY_CMD=chainlink-mercury"
+      - "--build-arg=CL_SOLANA_CMD=chainlink-solana"
+      - "--build-arg=CL_STARKNET_CMD=chainlink-starknet"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
+      - "--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
+    image_templates:
+      - "{{ .Env.IMAGE }}"
+
+# See https://goreleaser.com/customization/docker_manifest/
+docker_manifests:
+  - name_template: "{{ .Env.IMAGE }}"
+    image_templates:
+      - "{{ .Env.IMAGE }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: '{{ .Env.CHAINLINK_VERSION }}-{{ .Runtime.Goarch }}-{{ .Now.Format "2006-01-02-15-04-05Z" }}'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+# modelines, feel free to remove those if you don't want/use them:
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj

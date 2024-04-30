@@ -32,7 +32,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -52,8 +51,14 @@ func TestChainReader(t *testing.T) {
 	it := &chainReaderInterfaceTester{}
 	RunChainReaderInterfaceTests(t, it)
 	RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
+
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t *testing.T) {
 		it.Setup(t)
+
+		// bind event before firing it to avoid log poller race
+		ctx := testutils.Context(t)
+		cr := it.GetChainReader(t)
+		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 
 		anyString := "foo"
 		tx, err := it.evmTest.LatestValueHolderTransactor.TriggerEventWithDynamicTopic(it.auth, anyString)
@@ -61,10 +66,6 @@ func TestChainReader(t *testing.T) {
 		it.sim.Commit()
 		it.incNonce()
 		it.awaitTx(t, tx)
-		ctx := testutils.Context(t)
-
-		cr := it.GetChainReader(t)
-		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 
 		input := struct{ Field string }{Field: anyString}
 		tp := cr.(clcommontypes.ContractTypeProvider)
@@ -84,20 +85,24 @@ func TestChainReader(t *testing.T) {
 
 	t.Run("Multiple topics can filter together", func(t *testing.T) {
 		it.Setup(t)
+
+		// bind event before firing it to avoid log poller race
+		ctx := testutils.Context(t)
+		cr := it.GetChainReader(t)
+		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+
 		triggerFourTopics(t, it, int32(1), int32(2), int32(3))
 		triggerFourTopics(t, it, int32(2), int32(2), int32(3))
 		triggerFourTopics(t, it, int32(1), int32(3), int32(3))
 		triggerFourTopics(t, it, int32(1), int32(2), int32(4))
 
-		ctx := testutils.Context(t)
-		cr := it.GetChainReader(t)
-		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 		var latest struct{ Field1, Field2, Field3 int32 }
 		params := struct{ Field1, Field2, Field3 int32 }{Field1: 1, Field2: 2, Field3: 3}
 
-		time.Sleep(it.MaxWaitTimeForEvents())
+		require.Eventually(t, func() bool {
+			return cr.GetLatestValue(ctx, AnyContractName, triggerWithAllTopics, params, &latest) == nil
+		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 
-		require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, triggerWithAllTopics, params, &latest))
 		assert.Equal(t, int32(1), latest.Field1)
 		assert.Equal(t, int32(2), latest.Field2)
 		assert.Equal(t, int32(3), latest.Field3)
@@ -114,7 +119,7 @@ func triggerFourTopics(t *testing.T, it *chainReaderInterfaceTester, i1, i2, i3 
 }
 
 type chainReaderInterfaceTester struct {
-	chain       *mocks.Chain
+	client      client.Client
 	address     string
 	address2    string
 	chainConfig types.ChainReaderConfig
@@ -130,11 +135,11 @@ func (it *chainReaderInterfaceTester) MaxWaitTimeForEvents() time.Duration {
 	maxWaitTime := time.Second * 20
 	maxWaitTimeStr, ok := os.LookupEnv("MAX_WAIT_TIME_FOR_EVENTS_S")
 	if ok {
-		wiatS, err := strconv.ParseInt(maxWaitTimeStr, 10, 64)
+		waitS, err := strconv.ParseInt(maxWaitTimeStr, 10, 64)
 		if err != nil {
 			fmt.Printf("Error parsing MAX_WAIT_TIME_FOR_EVENTS_S: %v, defaulting to %v\n", err, maxWaitTime)
 		}
-		maxWaitTime = time.Second * time.Duration(wiatS)
+		maxWaitTime = time.Second * time.Duration(waitS)
 	}
 
 	return maxWaitTime
@@ -151,12 +156,11 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 	})
 
 	// can re-use the same chain for tests, just make new contract for each test
-	if it.chain != nil {
+	if it.client != nil {
 		it.deployNewContracts(t)
 		return
 	}
 
-	it.chain = &mocks.Chain{}
 	it.setupChainNoClient(t)
 
 	testStruct := CreateTestStruct(0, it)
@@ -234,7 +238,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 			},
 		},
 	}
-	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
+	it.client = client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337))
 	it.deployNewContracts(t)
 }
 
@@ -257,10 +261,16 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 
 	lggr := logger.NullLogger
 	db := pgtest.NewSqlxDB(t)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), it.chain.Client(), lggr, time.Millisecond, false, 0, 1, 1, 10000)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Millisecond,
+		FinalityDepth:            4,
+		BackfillBatchSize:        1,
+		RpcBatchSize:             1,
+		KeepFinalizedBlocksDepth: 10000,
+	}
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), it.client, lggr, lpOpts)
 	require.NoError(t, lp.Start(ctx))
-	it.chain.On("LogPoller").Return(lp)
-	cr, err := evm.NewChainReaderService(lggr, lp, it.chain, it.chainConfig)
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, it.chainConfig)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
@@ -275,7 +285,7 @@ func (it *chainReaderInterfaceTester) TriggerEvent(t *testing.T, testStruct *Tes
 	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_example.LatestValueHolderTransactor).TriggerEvent)
 }
 
-func (it *chainReaderInterfaceTester) GetBindings(t *testing.T) []clcommontypes.BoundContract {
+func (it *chainReaderInterfaceTester) GetBindings(_ *testing.T) []clcommontypes.BoundContract {
 	return []clcommontypes.BoundContract{
 		{Name: AnyContractName, Address: it.address, Pending: true},
 		{Name: AnySecondContractName, Address: it.address2, Pending: true},

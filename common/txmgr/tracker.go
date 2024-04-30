@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -22,16 +23,9 @@ const (
 	// handleTxesTimeout represents a sanity limit on how long handleTxesByState
 	// should take to complete
 	handleTxesTimeout = 10 * time.Minute
+	// batchSize is the number of txes to fetch from the txStore at once
+	batchSize = 1000
 )
-
-// AbandonedTx is a transaction who's 'FromAddress' was removed from the KeyStore(by the Node Operator).
-// Thus, any new attempts for this Tx can't be signed/created. This means no fee bumping can be done.
-// However, the Tx may still have live attempts in the chain's mempool, and could get confirmed on the
-// chain as-is. Thus, the TXM should not directly discard this Tx.
-type AbandonedTx[ADDR types.Hashable] struct {
-	id          int64
-	fromAddress ADDR
-}
 
 // Tracker tracks all transactions which have abandoned fromAddresses.
 // The fromAddresses can be deleted by Node Operators from the KeyStore. In such cases,
@@ -48,19 +42,22 @@ type Tracker[
 	FEE feetypes.Fee,
 ] struct {
 	services.StateMachine
-	txStore      txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	keyStore     txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
-	chainID      CHAIN_ID
-	lggr         logger.Logger
-	enabledAddrs map[ADDR]bool
-	txCache      map[int64]AbandonedTx[ADDR]
-	ttl          time.Duration
+	txStore  txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	chainID  CHAIN_ID
+	lggr     logger.Logger
+
 	lock         sync.Mutex
-	mb           *mailbox.Mailbox[int64]
-	wg           sync.WaitGroup
-	isStarted    bool
-	ctx          context.Context
-	ctxCancel    context.CancelFunc
+	enabledAddrs map[ADDR]bool
+	txCache      map[int64]ADDR // cache tx fromAddress by txID
+
+	ttl time.Duration
+	mb  *mailbox.Mailbox[int64]
+
+	initSync  sync.Mutex
+	wg        sync.WaitGroup
+	chStop    services.StopChan
+	isStarted bool
 }
 
 func NewTracker[
@@ -83,7 +80,7 @@ func NewTracker[
 		chainID:      chainID,
 		lggr:         logger.Named(lggr, "TxMgrTracker"),
 		enabledAddrs: map[ADDR]bool{},
-		txCache:      map[int64]AbandonedTx[ADDR]{},
+		txCache:      map[int64]ADDR{},
 		ttl:          defaultTTL,
 		mb:           mailbox.NewSingle[int64](),
 		lock:         sync.Mutex{},
@@ -91,83 +88,92 @@ func NewTracker[
 	}
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) (err error) {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context) (err error) {
 	tr.lggr.Info("Abandoned transaction tracking enabled")
 	return tr.StartOnce("Tracker", func() error {
-		return tr.startInternal()
+		return tr.startInternal(ctx)
 	})
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal() (err error) {
-	tr.lock.Lock()
-	defer tr.lock.Unlock()
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal(ctx context.Context) (err error) {
+	tr.initSync.Lock()
+	defer tr.initSync.Unlock()
 
-	tr.ctx, tr.ctxCancel = context.WithCancel(context.Background())
-
-	if err := tr.setEnabledAddresses(); err != nil {
+	if err := tr.setEnabledAddresses(ctx); err != nil {
 		return fmt.Errorf("failed to set enabled addresses: %w", err)
 	}
-	tr.lggr.Info("Enabled addresses set")
+	tr.lggr.Infof("enabled addresses set for chainID %v", tr.chainID)
 
-	if err := tr.trackAbandonedTxes(tr.ctx); err != nil {
-		return fmt.Errorf("failed to track abandoned txes: %w", err)
-	}
-
-	tr.isStarted = true
-	if len(tr.txCache) == 0 {
-		tr.lggr.Info("no abandoned txes found, skipping runLoop")
-		return nil
-	}
-
-	tr.lggr.Infof("%d abandoned txes found, starting runLoop", len(tr.txCache))
+	tr.chStop = make(chan struct{})
 	tr.wg.Add(1)
-	go tr.runLoop()
+	go tr.runLoop(tr.chStop.NewCtx())
+	tr.isStarted = true
 	return nil
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() error {
-	tr.lock.Lock()
-	defer tr.lock.Unlock()
 	return tr.StopOnce("Tracker", func() error {
 		return tr.closeInternal()
 	})
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeInternal() error {
+	tr.initSync.Lock()
+	defer tr.initSync.Unlock()
+
 	tr.lggr.Info("stopping tracker")
 	if !tr.isStarted {
-		return fmt.Errorf("tracker not started")
+		return fmt.Errorf("tracker is not started: %w", services.ErrAlreadyStopped)
 	}
-	tr.ctxCancel()
+
+	close(tr.chStop)
 	tr.wg.Wait()
 	tr.isStarted = false
 	return nil
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx context.Context, cancel context.CancelFunc) {
 	defer tr.wg.Done()
+	defer cancel()
+
+	if err := tr.trackAbandonedTxes(ctx); err != nil {
+		tr.lggr.Errorf("failed to track abandoned txes: %v", err)
+		return
+	}
+	if err := tr.handleTxesByState(ctx); err != nil {
+		tr.lggr.Errorf("failed to handle txes by state: %v", err)
+		return
+	}
+	if tr.AbandonedTxCount() == 0 {
+		tr.lggr.Info("no abandoned txes found, skipping runLoop")
+		return
+	}
+	tr.lggr.Infof("%d abandoned txes found, starting runLoop", tr.AbandonedTxCount())
+
 	ttlExceeded := time.NewTicker(tr.ttl)
 	defer ttlExceeded.Stop()
 	for {
 		select {
 		case <-tr.mb.Notify():
 			for {
-				if tr.ctx.Err() != nil {
-					return
-				}
-				blockHeight, exists := tr.mb.Retrieve()
-				if !exists {
+				blockHeight := tr.mb.RetrieveLatestAndClear()
+				if blockHeight == 0 {
 					break
 				}
-				if err := tr.HandleTxesByState(tr.ctx, blockHeight); err != nil {
-					tr.lggr.Errorw(fmt.Errorf("failed to handle txes by state: %w", err).Error())
+				if err := tr.handleTxesByState(ctx); err != nil {
+					tr.lggr.Errorf("failed to handle txes by state: %v", err)
+					return
+				}
+				if tr.AbandonedTxCount() == 0 {
+					tr.lggr.Info("all abandoned txes handled, stopping runLoop")
+					return
 				}
 			}
 		case <-ttlExceeded.C:
 			tr.lggr.Info("ttl exceeded")
-			tr.MarkAllTxesFatal(tr.ctx)
+			tr.markAllTxesFatal(ctx)
 			return
-		case <-tr.ctx.Done():
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -177,25 +183,32 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandone
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 
-	if !tr.isStarted {
-		return []ADDR{}
-	}
-
 	abandonedAddrs := make([]ADDR, len(tr.txCache))
-	for _, atx := range tr.txCache {
-		abandonedAddrs = append(abandonedAddrs, atx.fromAddress)
+	for _, fromAddress := range tr.txCache {
+		abandonedAddrs = append(abandonedAddrs, fromAddress)
 	}
 	return abandonedAddrs
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsStarted() bool {
+// AbandonedTxCount returns the number of abandoned txes currently being tracked
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AbandonedTxCount() int {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
+	return len(tr.txCache)
+}
+
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsStarted() bool {
+	tr.initSync.Lock()
+	defer tr.initSync.Unlock()
 	return tr.isStarted
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledAddresses() error {
-	enabledAddrs, err := tr.keyStore.EnabledAddressesForChain(tr.chainID)
+// setEnabledAddresses is called on startup to set the enabled addresses for the chain
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledAddresses(ctx context.Context) error {
+	tr.lock.Lock()
+	defer tr.lock.Unlock()
+
+	enabledAddrs, err := tr.keyStore.EnabledAddressesForChain(ctx, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to get enabled addresses for chain: %w", err)
 	}
@@ -210,54 +223,58 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledA
 	return nil
 }
 
-// trackAbandonedTxes called once to find and insert all abandoned txes into the tracker.
+// trackAbandonedTxes called on startup to find and insert all abandoned txes into the tracker.
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbandonedTxes(ctx context.Context) (err error) {
-	if tr.isStarted {
-		return fmt.Errorf("tracker already started")
-	}
-
-	tr.lggr.Info("Retrieving non fatal transactions from txStore")
-	nonFatalTxes, err := tr.txStore.GetNonFatalTransactions(ctx, tr.chainID)
-	if err != nil {
-		return fmt.Errorf("failed to get non fatal txes from txStore: %w", err)
-	}
-
-	// insert abandoned txes
-	for _, tx := range nonFatalTxes {
-		if !tr.enabledAddrs[tx.FromAddress] {
-			tr.insertTx(tx)
+	return sqlutil.Batch(func(offset, limit uint) (count uint, err error) {
+		var enabledAddrs []ADDR
+		for addr := range tr.enabledAddrs {
+			enabledAddrs = append(enabledAddrs, addr)
 		}
-	}
 
-	if err := tr.handleTxesByState(ctx, 0); err != nil {
-		return fmt.Errorf("failed to handle txes by state: %w", err)
-	}
-
-	return nil
+		nonFatalTxes, err := tr.txStore.GetAbandonedTransactionsByBatch(ctx, tr.chainID, enabledAddrs, offset, limit)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get non fatal txes from txStore: %w", err)
+		}
+		// insert abandoned txes
+		tr.lock.Lock()
+		for _, tx := range nonFatalTxes {
+			if !tr.enabledAddrs[tx.FromAddress] {
+				tr.txCache[tx.ID] = tx.FromAddress
+				tr.lggr.Debugf("inserted tx %v", tx.ID)
+			}
+		}
+		tr.lock.Unlock()
+		return uint(len(nonFatalTxes)), nil
+	}, batchSize)
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleTxesByState(ctx context.Context, blockHeight int64) error {
+// handleTxesByState handles all txes in the txCache by their state
+// It's called on every new blockHeight and also on startup to handle all txes in the txCache
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context) error {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
-	tr.ctx, tr.ctxCancel = context.WithTimeout(ctx, handleTxesTimeout)
-	defer tr.ctxCancel()
-	return tr.handleTxesByState(ctx, blockHeight)
-}
+	ctx, cancel := context.WithTimeout(ctx, handleTxesTimeout)
+	defer cancel()
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context, blockHeight int64) error {
-	tr.lggr.Info("Handling transactions by state")
+	for id := range tr.txCache {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 
-	for id, atx := range tr.txCache {
-		tx, err := tr.txStore.GetTxByID(ctx, atx.id)
+		tx, err := tr.txStore.GetTxByID(ctx, id)
 		if err != nil {
-			return fmt.Errorf("failed to get tx by ID: %w", err)
+			tr.lggr.Errorf("failed to get tx by ID: %v", err)
+			continue
+		}
+		if tx == nil {
+			tr.lggr.Warnf("tx with ID %v no longer exists, removing from tracker", id)
+			delete(tr.txCache, id)
+			continue
 		}
 
 		switch tx.State {
 		case TxConfirmed:
-			if err := tr.handleConfirmedTx(tx, blockHeight); err != nil {
-				return fmt.Errorf("failed to handle confirmed txes: %w", err)
-			}
+			// TODO: Handle finalized state https://smartcontract-it.atlassian.net/browse/BCI-2920
 		case TxConfirmedMissingReceipt, TxUnconfirmed:
 			// Keep tracking tx
 		case TxInProgress, TxUnstarted:
@@ -266,48 +283,18 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 			// is deleted, we can't sign it.
 			errMsg := "The FromAddress for this Tx was deleted before this Tx could be broadcast to the chain."
 			if err := tr.markTxFatal(ctx, tx, errMsg); err != nil {
-				return fmt.Errorf("failed to mark tx as fatal: %w", err)
+				tr.lggr.Errorf("failed to mark tx as fatal: %v", err)
+				continue
 			}
 			delete(tr.txCache, id)
 		case TxFatalError:
 			delete(tr.txCache, id)
 		default:
-			tr.lggr.Errorw(fmt.Sprintf("unhandled transaction state: %v", tx.State))
+			tr.lggr.Errorf("unhandled transaction state: %v", tx.State)
 		}
 	}
 
 	return nil
-}
-
-// handleConfirmedTx removes a transaction from the tracker if it's been finalized on chain
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleConfirmedTx(
-	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	blockHeight int64,
-) error {
-	finalized, err := tr.txStore.IsTxFinalized(tr.ctx, blockHeight, tx.ID, tr.chainID)
-	if err != nil {
-		return fmt.Errorf("failed to check if tx is finalized: %w", err)
-	}
-
-	if finalized {
-		delete(tr.txCache, tx.ID)
-	}
-
-	return nil
-}
-
-// insertTx inserts a transaction into the tracker as an AbandonedTx
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) insertTx(
-	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
-	if _, contains := tr.txCache[tx.ID]; contains {
-		return
-	}
-
-	tr.txCache[tx.ID] = AbandonedTx[ADDR]{
-		id:          tx.ID,
-		fromAddress: tx.FromAddress,
-	}
-	tr.lggr.Debugw(fmt.Sprintf("inserted tx %v", tx.ID))
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markTxFatal(ctx context.Context,
@@ -323,22 +310,26 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markTxFatal
 	return nil
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllTxesFatal(ctx context.Context) {
+// markAllTxesFatal tries to mark all txes in the txCache as fatal and removes them from the cache
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markAllTxesFatal(ctx context.Context) {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
+
 	errMsg := fmt.Sprintf(
-		"fromAddress for this Tx was deleted, and existing attempts onchain didn't finalize within %d hours, thus this Tx was abandoned.",
+		"tx abandoned: fromAddress for this tx was deleted and existing attempts didn't finalize onchain within %d hours",
 		int(tr.ttl.Hours()))
 
-	for _, atx := range tr.txCache {
-		tx, err := tr.txStore.GetTxByID(ctx, atx.id)
+	for id := range tr.txCache {
+		tx, err := tr.txStore.GetTxByID(ctx, id)
 		if err != nil {
-			tr.lggr.Errorw(fmt.Errorf("failed to get tx by ID: %w", err).Error())
+			tr.lggr.Errorf("failed to get tx by ID: %v", err)
+			delete(tr.txCache, id)
 			continue
 		}
 
 		if err := tr.markTxFatal(ctx, tx, errMsg); err != nil {
-			tr.lggr.Errorw(fmt.Errorf("failed to mark tx as abandoned: %w", err).Error())
+			tr.lggr.Errorf("failed to mark tx as abandoned: %v", err)
 		}
+		delete(tr.txCache, id)
 	}
 }

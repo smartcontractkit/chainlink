@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -58,18 +60,20 @@ func TestShell_DKGEncryptKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().DKGEncrypt()
 	cleanup := func() {
+		ctx := context.Background()
 		keys, err := ks.GetAll()
 		assert.NoError(t, err)
 		for _, key := range keys {
-			assert.NoError(t, utils.JustError(ks.Delete(key.ID())))
+			assert.NoError(t, utils.JustError(ks.Delete(ctx, key.ID())))
 		}
 		requireDKGEncryptKeyCount(t, app, 0)
 	}
 
 	t.Run("ListDKGEncryptKeys", func(tt *testing.T) {
 		defer cleanup()
+		ctx := testutils.Context(t)
 		client, r := app.NewShellAndRenderer()
-		key, err := app.GetKeyStore().DKGEncrypt().Create()
+		key, err := app.GetKeyStore().DKGEncrypt().Create(ctx)
 		assert.NoError(tt, err)
 		requireDKGEncryptKeyCount(t, app, 1)
 		assert.Nil(t, cmd.NewDKGEncryptKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
@@ -89,8 +93,9 @@ func TestShell_DKGEncryptKeys(t *testing.T) {
 
 	t.Run("DeleteDKGEncryptKey", func(tt *testing.T) {
 		defer cleanup()
+		ctx := testutils.Context(t)
 		client, _ := app.NewShellAndRenderer()
-		key, err := app.GetKeyStore().DKGEncrypt().Create()
+		key, err := app.GetKeyStore().DKGEncrypt().Create(ctx)
 		assert.NoError(tt, err)
 		requireDKGEncryptKeyCount(tt, app, 1)
 		set := flag.NewFlagSet("test", 0)
@@ -110,9 +115,10 @@ func TestShell_DKGEncryptKeys(t *testing.T) {
 	t.Run("ImportExportDKGEncryptKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(tt)
+		ctx := testutils.Context(t)
 		client, _ := app.NewShellAndRenderer()
 
-		_, err := app.GetKeyStore().DKGEncrypt().Create()
+		_, err := app.GetKeyStore().DKGEncrypt().Create(ctx)
 		require.NoError(tt, err)
 
 		keys := requireDKGEncryptKeyCount(tt, app, 1)
@@ -146,7 +152,7 @@ func TestShell_DKGEncryptKeys(t *testing.T) {
 		require.NoError(tt, cmd.NewDKGEncryptKeysClient(client).ExportKey(c))
 		require.NoError(tt, utils.JustError(os.Stat(keyName)))
 
-		require.NoError(tt, utils.JustError(app.GetKeyStore().DKGEncrypt().Delete(key.ID())))
+		require.NoError(tt, utils.JustError(app.GetKeyStore().DKGEncrypt().Delete(ctx, key.ID())))
 		requireDKGEncryptKeyCount(tt, app, 0)
 
 		//Import test

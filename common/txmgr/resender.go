@@ -102,7 +102,7 @@ func NewResender[
 }
 
 // Start is a comment which satisfies the linter
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start() {
+func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context) {
 	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.txConfig.ResendAfterThreshold())
 	go er.runLoop()
 }
@@ -116,7 +116,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Stop() {
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer close(er.chDone)
 
-	if err := er.resendUnconfirmed(); err != nil {
+	if err := er.resendUnconfirmed(er.ctx); err != nil {
 		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 	}
 
@@ -127,21 +127,18 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		case <-er.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := er.resendUnconfirmed(); err != nil {
+			if err := er.resendUnconfirmed(er.ctx); err != nil {
 				er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 			}
 		}
 	}
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnconfirmed() error {
-	resendAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
+func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnconfirmed(ctx context.Context) error {
+	resendAddresses, err := er.ks.EnabledAddressesForChain(ctx, er.chainID)
 	if err != nil {
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
 	}
-
-	// Tracker currently disabled for BCI-2638; refactor required
-	// resendAddresses = append(resendAddresses, er.tracker.GetAbandonedAddresses()...)
 
 	ageThreshold := er.txConfig.ResendAfterThreshold()
 	maxInFlightTransactions := er.txConfig.MaxInFlight()

@@ -1,0 +1,11 @@
+ChainID = '10200'
+# Gnoisis Finality is approx 8 minutes @ 12 blocks per minute, so 96 blocks
+FinalityDepth = 100
+ChainType = 'gnosis'
+LogPollInterval = '5s'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMax = '500 gwei'
+# 15s delay since feeds update every minute in volatile situations
+BumpThreshold = 3

@@ -33,6 +33,7 @@ import (
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"github.com/unrolled/secure"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/otel"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -61,7 +62,8 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 
 	tls := config.WebServer().TLS()
 	engine.Use(
-		otelgin.Middleware("chainlink-web-routes"),
+		otelgin.Middleware("chainlink-web-routes",
+			otelgin.WithTracerProvider(otel.GetTracerProvider())),
 		limits.RequestSizeLimiter(config.WebServer().HTTPMaxSize()),
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
@@ -290,6 +292,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		rc := ReplayController{app}
 		authv2.POST("/replay_from_block/:number", auth.RequiresRunRole(rc.ReplayFromBlock))
+		lcaC := LCAController{app}
+		authv2.GET("/find_lca", auth.RequiresRunRole(lcaC.FindLCA))
 
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)

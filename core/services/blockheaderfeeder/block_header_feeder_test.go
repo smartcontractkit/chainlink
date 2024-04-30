@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
@@ -200,9 +200,9 @@ func (test testCase) testFeeder(t *testing.T) {
 
 	blockHeaderProvider := &blockhashstore.TestBlockHeaderProvider{}
 	fromAddress := "0x469aA2CD13e037DC5236320783dCfd0e641c0559"
-	fromAddresses := []ethkey.EIP55Address{ethkey.EIP55Address(fromAddress)}
+	fromAddresses := []types.EIP55Address{types.EIP55Address(fromAddress)}
 	ks := keystoremocks.NewEth(t)
-	ks.On("GetRoundRobinAddress", testutils.FixtureChainID, mock.Anything).Maybe().Return(common.HexToAddress(fromAddress), nil)
+	ks.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, mock.Anything).Maybe().Return(common.HexToAddress(fromAddress), nil)
 
 	feeder := NewBlockHeaderFeeder(
 		lggr,
@@ -244,9 +244,9 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 	batchBHS := &blockhashstore.TestBatchBHS{Stored: []uint64{75}}
 	blockHeaderProvider := &blockhashstore.TestBlockHeaderProvider{}
 	fromAddress := "0x469aA2CD13e037DC5236320783dCfd0e641c0559"
-	fromAddresses := []ethkey.EIP55Address{ethkey.EIP55Address(fromAddress)}
+	fromAddresses := []types.EIP55Address{types.EIP55Address(fromAddress)}
 	ks := keystoremocks.NewEth(t)
-	ks.On("GetRoundRobinAddress", testutils.FixtureChainID, mock.Anything).Maybe().Return(common.HexToAddress(fromAddress), nil)
+	ks.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, mock.Anything).Maybe().Return(common.HexToAddress(fromAddress), nil)
 
 	feeder := NewBlockHeaderFeeder(
 		logger.TestLogger(t),

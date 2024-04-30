@@ -9,13 +9,13 @@ import (
 	"os/signal"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/jonboulle/clockwork"
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Script to run Connector outside of the core node.
@@ -69,7 +69,7 @@ func main() {
 	sampleKey, _ := crypto.HexToECDSA("cd47d3fafdbd652dd2b66c6104fa79b372c13cb01f4a4fbfc36107cce913ac1d")
 	lggr, _ := logger.NewLogger()
 	client := &client{privateKey: sampleKey, lggr: lggr}
-	connector, _ := connector.NewGatewayConnector(&cfg, client, client, utils.NewRealClock(), lggr)
+	connector, _ := connector.NewGatewayConnector(&cfg, client, client, clockwork.NewRealClock(), lggr)
 	client.connector = connector
 
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt)

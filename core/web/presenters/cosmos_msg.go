@@ -17,7 +17,7 @@ func (CosmosMsgResource) GetName() string {
 // NewCosmosMsgResource returns a new partial CosmosMsgResource.
 func NewCosmosMsgResource(id string, chainID string, contractID string) CosmosMsgResource {
 	return CosmosMsgResource{
-		JAID:       NewJAID(id),
+		JAID:       NewPrefixedJAID(id, chainID),
 		ChainID:    chainID,
 		ContractID: contractID,
 	}

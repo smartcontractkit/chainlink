@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -25,6 +25,7 @@ import (
 )
 
 func Test_HeadListener_HappyPath(t *testing.T) {
+	t.Parallel()
 	// Logic:
 	// - spawn a listener instance
 	// - mock SubscribeNewHead/Err/Unsubscribe to track these calls
@@ -91,6 +92,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 }
 
 func Test_HeadListener_NotReceivingHeads(t *testing.T) {
+	t.Parallel()
 	// Logic:
 	// - same as Test_HeadListener_HappyPath, but
 	// - send one head, make sure ReceivingHeads() is true
@@ -149,13 +151,14 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 }
 
 func Test_HeadListener_SubscriptionErr(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		err      error
 		closeErr bool
 	}{
 		{"nil error", nil, false},
-		{"socket error", errors.New("close 1006 (abnormal closure): unexpected EOF"), false},
+		{"socket error", pkgerrors.New("close 1006 (abnormal closure): unexpected EOF"), false},
 		{"close Err channel", nil, true},
 	}
 

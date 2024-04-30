@@ -43,7 +43,7 @@ func NewEthTxResource(tx txmgr.Tx) EthTxResource {
 	r := EthTxResource{
 		Data:     hexutil.Bytes(tx.EncodedPayload),
 		From:     &tx.FromAddress,
-		GasLimit: strconv.FormatUint(uint64(tx.FeeLimit), 10),
+		GasLimit: strconv.FormatUint(tx.FeeLimit, 10),
 		State:    string(tx.State),
 		To:       &tx.ToAddress,
 		Value:    v.String(),
@@ -66,6 +66,7 @@ func NewEthTxResourceFromAttempt(txa txmgr.TxAttempt) EthTxResource {
 
 	if txa.Tx.ChainID != nil {
 		r.EVMChainID = *big.New(txa.Tx.ChainID)
+		r.JAID = NewPrefixedJAID(r.JAID.ID, txa.Tx.ChainID.String())
 	}
 
 	if tx.Sequence != nil {

@@ -11,21 +11,22 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 type mockPipelineRunner struct {
-	results types.TaskResults
+	results core.TaskResults
 	err     error
 	spec    string
-	vars    types.Vars
-	options types.Options
+	vars    core.Vars
+	options core.Options
 }
 
-func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars types.Vars, options types.Options) (types.TaskResults, error) {
+func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars core.Vars, options core.Options) (core.TaskResults, error) {
 	m.spec = spec
 	m.vars = vars
 	m.options = options
@@ -34,11 +35,11 @@ func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars t
 
 func TestDataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	expect := int64(3)
+	expect := jsonserializable.JSONSerializable{Val: int64(3), Valid: true}
 	pr := &mockPipelineRunner{
-		results: types.TaskResults{
+		results: core.TaskResults{
 			{
-				TaskValue: types.TaskValue{
+				TaskValue: core.TaskValue{
 					Value:      expect,
 					Error:      nil,
 					IsTerminal: true,
@@ -46,8 +47,8 @@ func TestDataSource(t *testing.T) {
 				Index: 2,
 			},
 			{
-				TaskValue: types.TaskValue{
-					Value:      int(4),
+				TaskValue: core.TaskValue{
+					Value:      jsonserializable.JSONSerializable{Val: int64(4), Valid: true},
 					Error:      nil,
 					IsTerminal: false,
 				},
@@ -63,17 +64,18 @@ func TestDataSource(t *testing.T) {
 	}
 	res, err := ds.Observe(tests.Context(t), ocrtypes.ReportTimestamp{})
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(expect), res)
+	expectBN := big.NewInt(expect.Val.(int64))
+	assert.Equal(t, expectBN, res)
 	assert.Equal(t, spec, pr.spec)
-	assert.Equal(t, big.NewInt(expect), ds.current.LatestAnswer)
+	assert.Equal(t, expectBN, ds.current.LatestAnswer)
 }
 
 func TestDataSource_ResultErrors(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	pr := &mockPipelineRunner{
-		results: types.TaskResults{
+		results: core.TaskResults{
 			{
-				TaskValue: types.TaskValue{
+				TaskValue: core.TaskValue{
 					Error:      errors.New("something went wrong"),
 					IsTerminal: true,
 				},
@@ -94,11 +96,11 @@ func TestDataSource_ResultErrors(t *testing.T) {
 func TestDataSource_ResultNotAnInt(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	expect := "string-result"
+	expect := jsonserializable.JSONSerializable{Val: "string-result", Valid: true}
 	pr := &mockPipelineRunner{
-		results: types.TaskResults{
+		results: core.TaskResults{
 			{
-				TaskValue: types.TaskValue{
+				TaskValue: core.TaskValue{
 					Value:      expect,
 					IsTerminal: true,
 				},

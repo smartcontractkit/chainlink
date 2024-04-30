@@ -6,6 +6,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinContractPayment = '.00001 link'
 MinIncomingConfirmations = 3
 NonceAutoSync = true
@@ -59,6 +61,8 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4

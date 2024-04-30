@@ -27,7 +27,7 @@ var (
 type RegistrySynchronizerOptions struct {
 	Job                      job.Job
 	RegistryWrapper          RegistryWrapper
-	ORM                      ORM
+	ORM                      *ORM
 	JRM                      job.ORM
 	LogBroadcaster           log.Broadcaster
 	MailMon                  *mailbox.Monitor
@@ -40,7 +40,7 @@ type RegistrySynchronizerOptions struct {
 
 type RegistrySynchronizer struct {
 	services.StateMachine
-	chStop                   chan struct{}
+	chStop                   services.StopChan
 	registryWrapper          RegistryWrapper
 	interval                 time.Duration
 	job                      job.Job
@@ -49,7 +49,7 @@ type RegistrySynchronizer struct {
 	mbLogs                   *mailbox.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
 	effectiveKeeperAddress   common.Address
-	orm                      ORM
+	orm                      *ORM
 	logger                   logger.SugaredLogger
 	wgDone                   sync.WaitGroup
 	syncUpkeepQueueSize      uint32 //Represents the max number of upkeeps that can be synced in parallel
@@ -114,17 +114,20 @@ func (rs *RegistrySynchronizer) run() {
 	defer rs.wgDone.Done()
 	defer syncTicker.Stop()
 
-	rs.fullSync()
+	ctx, cancel := rs.chStop.NewCtx()
+	defer cancel()
+
+	rs.fullSync(ctx)
 
 	for {
 		select {
 		case <-rs.chStop:
 			return
 		case <-syncTicker.Ticks():
-			rs.fullSync()
+			rs.fullSync(ctx)
 			syncTicker.Reset(rs.interval)
 		case <-rs.mbLogs.Notify():
-			rs.processLogs()
+			rs.processLogs(ctx)
 		}
 	}
 }

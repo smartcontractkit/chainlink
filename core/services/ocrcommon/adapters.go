@@ -7,7 +7,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-var _ ocr3types.OnchainKeyring[any] = (*OCR3OnchainKeyringAdapter)(nil)
+var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringAdapter)(nil)
 
 type OCR3OnchainKeyringAdapter struct {
 	o ocrtypes.OnchainKeyring
@@ -21,7 +21,7 @@ func (k *OCR3OnchainKeyringAdapter) PublicKey() ocrtypes.OnchainPublicKey {
 	return k.o.PublicKey()
 }
 
-func (k *OCR3OnchainKeyringAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[any]) (signature []byte, err error) {
+func (k *OCR3OnchainKeyringAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
 	return k.o.Sign(ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -32,7 +32,7 @@ func (k *OCR3OnchainKeyringAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uin
 	}, r.Report)
 }
 
-func (k *OCR3OnchainKeyringAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[any], signature []byte) bool {
+func (k *OCR3OnchainKeyringAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
 	return k.o.Verify(opk, ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -47,7 +47,7 @@ func (k *OCR3OnchainKeyringAdapter) MaxSignatureLength() int {
 	return k.o.MaxSignatureLength()
 }
 
-var _ ocr3types.ContractTransmitter[any] = (*OCR3ContractTransmitterAdapter)(nil)
+var _ ocr3types.ContractTransmitter[[]byte] = (*OCR3ContractTransmitterAdapter)(nil)
 
 type OCR3ContractTransmitterAdapter struct {
 	ct ocrtypes.ContractTransmitter
@@ -57,7 +57,7 @@ func NewOCR3ContractTransmitterAdapter(ct ocrtypes.ContractTransmitter) *OCR3Con
 	return &OCR3ContractTransmitterAdapter{ct}
 }
 
-func (c *OCR3ContractTransmitterAdapter) Transmit(ctx context.Context, digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[any], signatures []ocrtypes.AttributedOnchainSignature) error {
+func (c *OCR3ContractTransmitterAdapter) Transmit(ctx context.Context, digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte], signatures []ocrtypes.AttributedOnchainSignature) error {
 	return c.ct.Transmit(ctx, ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,

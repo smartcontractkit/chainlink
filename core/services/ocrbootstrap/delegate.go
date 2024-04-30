@@ -7,29 +7,27 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type RelayGetter interface {
-	Get(relay.ID) (loop.Relayer, error)
+	Get(types.RelayID) (loop.Relayer, error)
+	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
 }
 
 // Delegate creates Bootstrap jobs
 type Delegate struct {
-	db          *sqlx.DB
+	ds          sqlutil.DataSource
 	jobORM      job.ORM
 	peerWrapper *ocrcommon.SingletonPeerWrapper
 	ocr2Cfg     validate.OCR2Config
@@ -39,8 +37,10 @@ type Delegate struct {
 	isNewlyCreatedJob bool
 }
 
-// Extra fields to enable router proxy contract support. Must match field names of functions' PluginConfig.
-type relayConfigRouterContractFields struct {
+type relayConfig struct {
+	// providerType used for determining which type of contract to track config on
+	ProviderType string `json:"providerType"`
+	// Extra fields to enable router proxy contract support. Must match field names of functions' PluginConfig.
 	DONID                           string `json:"donID"`
 	ContractVersion                 uint32 `json:"contractVersion"`
 	ContractUpdateCheckFrequencySec uint32 `json:"contractUpdateCheckFrequencySec"`
@@ -48,7 +48,7 @@ type relayConfigRouterContractFields struct {
 
 // NewDelegateBootstrap creates a new Delegate
 func NewDelegateBootstrap(
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	jobORM job.ORM,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
@@ -57,7 +57,7 @@ func NewDelegateBootstrap(
 	relayers RelayGetter,
 ) *Delegate {
 	return &Delegate{
-		db:          db,
+		ds:          ds,
 		jobORM:      jobORM,
 		peerWrapper: peerWrapper,
 		lggr:        logger.Sugared(lggr),
@@ -77,7 +77,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
 	spec := jb.BootstrapSpec
 	if spec == nil {
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jb)
@@ -100,6 +100,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if spec.FeedID != nil {
 		spec.RelayConfig["feedID"] = *spec.FeedID
 	}
+	spec.RelayConfig.ApplyDefaultsOCR2(d.ocr2Cfg)
 
 	ctxVals := loop.ContextValues{
 		JobID:      jb.ID,
@@ -107,16 +108,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		ContractID: spec.ContractID,
 		FeedID:     spec.FeedID,
 	}
-	ctx := ctxVals.ContextWithValues(context.Background())
+	ctx = ctxVals.ContextWithValues(ctx)
 
-	var routerFields relayConfigRouterContractFields
-	if err = json.Unmarshal(spec.RelayConfig.Bytes(), &routerFields); err != nil {
+	var relayCfg relayConfig
+	if err = json.Unmarshal(spec.RelayConfig.Bytes(), &relayCfg); err != nil {
 		return nil, err
 	}
 
 	var configProvider types.ConfigProvider
-	if routerFields.DONID != "" {
-		if routerFields.ContractVersion != 1 || routerFields.ContractUpdateCheckFrequencySec == 0 {
+	if relayCfg.DONID != "" {
+		if relayCfg.ContractVersion != 1 || relayCfg.ContractUpdateCheckFrequencySec == 0 {
 			return nil, errors.New("invalid router contract config")
 		}
 		configProvider, err = relayer.NewPluginProvider(
@@ -140,6 +141,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
+			ProviderType:  relayCfg.ProviderType,
 		})
 	}
 
@@ -164,10 +166,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
 		BootstrapperFactory:   d.peerWrapper.Peer2,
 		ContractConfigTracker: configProvider.ContractConfigTracker(),
-		Database:              NewDB(d.db.DB, spec.ID, lggr),
+		Database:              NewDB(d.ds, spec.ID, lggr),
 		LocalConfig:           lc,
 		Logger: commonlogger.NewOCRWrapper(lggr.Named("OCRBootstrap"), d.ocr2Cfg.TraceLogging(), func(msg string) {
-			logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
+			logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 		}),
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}
@@ -187,6 +189,6 @@ func (d *Delegate) AfterJobCreated(spec job.Job) {
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error {
+func (d *Delegate) OnDeleteJob(context.Context, job.Job) error {
 	return nil
 }
