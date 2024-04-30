@@ -287,6 +287,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
 			DB:             db,
+			DS:             db,
 			QConfig:        testopts.GeneralConfig.Database(),
 			CSAETHKeystore: keyStore,
 		})

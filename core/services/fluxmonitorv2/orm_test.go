@@ -112,6 +112,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 			&pipeline.Run{
 				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: jb.PipelineSpec.ID,
+				PruningKey:     jb.ID,
 				PipelineSpec:   *jb.PipelineSpec,
 				CreatedAt:      time.Now(),
 				FinishedAt:     null.TimeFrom(f),
