@@ -97,7 +97,7 @@ core/scripts/gateway @smartcontractkit/functions
 
 
 # Tests
-/integration-tests/**/*ccip* @smartcontractkit/test-tooling-team @jasonmci
+/integration-tests/**/*ccip* @smartcontractkit/test-tooling-team @jasonmci @mateusz-sekara @emate
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
