@@ -57,6 +57,18 @@ type ChainConfig interface {
 	ChainType() commonconfig.ChainType
 }
 
+type RPCChainInfo struct {
+	// MostRecentBlockNumber - latest block number
+	MostRecentBlockNumber int64
+	// HighestBlockNumber - maximum block number ever observed
+	HighestBlockNumber int64
+	// MostRecentlyFinalizedBlockNum - latest finalized block number
+	MostRecentlyFinalizedBlockNum int64
+	// HighestFinalizedBlockNum - maximum block number ever observed for finalized block
+	HighestFinalizedBlockNum int64
+	TotalDifficulty          *big.Int
+}
+
 //go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
 type Node[
 	CHAIN_ID types.ID,

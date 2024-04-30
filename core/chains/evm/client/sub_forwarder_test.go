@@ -2,11 +2,17 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -101,5 +107,78 @@ func TestChainIDSubForwarder(t *testing.T) {
 		sub.Errors <- expectedErr
 		receivedErr := <-forwarder.Err()
 		assert.Equal(t, expectedErr, receivedErr)
+	})
+}
+
+func TestSubscriptionErrorWrapper(t *testing.T) {
+	t.Parallel()
+	newSubscriptionErrorWrapper := func(t *testing.T, sub commontypes.Subscription, errorPrefix string) ethereum.Subscription {
+		ch := make(chan *evmtypes.Head)
+		result := newSubForwarder(ch, nil, func(err error) error {
+			return fmt.Errorf("%s: %w", errorPrefix, err)
+		})
+		require.NoError(t, result.start(sub, nil))
+		return result
+	}
+	t.Run("Unsubscribe wrapper releases resources", func(t *testing.T) {
+		t.Parallel()
+
+		mockedSub := NewMockSubscription()
+		const prefix = "RPC returned error"
+		wrapper := newSubscriptionErrorWrapper(t, mockedSub, prefix)
+		wrapper.Unsubscribe()
+
+		// mock's resources were released
+		assert.True(t, mockedSub.unsubscribed)
+		_, ok := <-mockedSub.Err()
+		assert.False(t, ok)
+		// wrapper's channels are closed
+		_, ok = <-wrapper.Err()
+		assert.False(t, ok)
+		//  subsequence unsubscribe does not causes panic
+		wrapper.Unsubscribe()
+	})
+	t.Run("Unsubscribe interrupts error delivery", func(t *testing.T) {
+		t.Parallel()
+		sub := NewMockSubscription()
+		const prefix = "RPC returned error"
+		wrapper := newSubscriptionErrorWrapper(t, sub, prefix)
+		sub.Errors <- fmt.Errorf("error")
+
+		wrapper.Unsubscribe()
+		_, ok := <-wrapper.Err()
+		assert.False(t, ok)
+	})
+	t.Run("Successfully wraps error", func(t *testing.T) {
+		t.Parallel()
+		sub := NewMockSubscription()
+		const prefix = "RPC returned error"
+		wrapper := newSubscriptionErrorWrapper(t, sub, prefix)
+		sub.Errors <- fmt.Errorf("root error")
+
+		err, ok := <-wrapper.Err()
+		assert.True(t, ok)
+		assert.Equal(t, "RPC returned error: root error", err.Error())
+
+		wrapper.Unsubscribe()
+		_, ok = <-wrapper.Err()
+		assert.False(t, ok)
+	})
+	t.Run("Unsubscribe on root does not cause panic", func(t *testing.T) {
+		t.Parallel()
+		mockedSub := NewMockSubscription()
+		wrapper := newSubscriptionErrorWrapper(t, mockedSub, "")
+
+		mockedSub.Unsubscribe()
+		// mock's resources were released
+		assert.True(t, mockedSub.unsubscribed)
+		_, ok := <-mockedSub.Err()
+		assert.False(t, ok)
+		// wrapper's channels are eventually closed
+		tests.AssertEventually(t, func() bool {
+			_, ok = <-wrapper.Err()
+			return !ok
+		})
+
 	})
 }

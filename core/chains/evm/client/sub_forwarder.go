@@ -33,11 +33,11 @@ type subForwarder[T any] struct {
 	unSub chan struct{}
 }
 
-func newSubForwarder[T any](ch chan<- T, interceptResult func(T) T, interceptError func(error) error) *subForwarder[T] {
+func newSubForwarder[T any](destCh chan<- T, interceptResult func(T) T, interceptError func(error) error) *subForwarder[T] {
 	return &subForwarder[T]{
 		interceptResult: interceptResult,
 		interceptError:  interceptError,
-		destCh:          ch,
+		destCh:          destCh,
 		srcCh:           make(chan T),
 		done:            make(chan struct{}),
 		err:             make(chan error),
