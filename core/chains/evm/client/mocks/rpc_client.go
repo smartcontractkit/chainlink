@@ -9,8 +9,6 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 
 	context "context"
@@ -381,11 +379,6 @@ func (_m *RPCClient) DialHTTP() error {
 	return r0
 }
 
-// DisconnectAll provides a mock function with given fields:
-func (_m *RPCClient) DisconnectAll() {
-	_m.Called()
-}
-
 // EstimateGas provides a mock function with given fields: ctx, call
 func (_m *RPCClient) EstimateGas(ctx context.Context, call interface{}) (uint64, error) {
 	ret := _m.Called(ctx, call)
@@ -445,21 +438,31 @@ func (_m *RPCClient) FilterEvents(ctx context.Context, query ethereum.FilterQuer
 }
 
 // GetInterceptedChainInfo provides a mock function with given fields:
-func (_m *RPCClient) GetInterceptedChainInfo() commonclient.RPCChainInfo {
+func (_m *RPCClient) GetInterceptedChainInfo() (int64, int64) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetInterceptedChainInfo")
 	}
 
-	var r0 commonclient.RPCChainInfo
-	if rf, ok := ret.Get(0).(func() commonclient.RPCChainInfo); ok {
+	var r0 int64
+	var r1 int64
+	if rf, ok := ret.Get(0).(func() (int64, int64)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() int64); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(commonclient.RPCChainInfo)
+		r0 = ret.Get(0).(int64)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func() int64); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(int64)
+	}
+
+	return r0, r1
 }
 
 // HeaderByHash provides a mock function with given fields: ctx, h

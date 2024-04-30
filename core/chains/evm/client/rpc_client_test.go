@@ -68,7 +68,9 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := createRPCServer()
 		rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
 		require.NoError(t, rpc.Dial(ctx))
-		require.Equal(t, commonclient.RPCChainInfo{TotalDifficulty: big.NewInt(0)}, rpc.GetInterceptedChainInfo())
+		maxBlockNumber, maxFinalizedBlockNumber := rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(0), maxBlockNumber)
+		require.Equal(t, int64(0), maxFinalizedBlockNumber)
 		server.Head = &evmtypes.Head{
 			Number:          256,
 			TotalDifficulty: big.NewInt(1000),
@@ -79,10 +81,9 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 			TotalDifficulty: big.NewInt(1000),
 		}
 		_ = receiveNewHead(rpc)
-		chainInfo := rpc.GetInterceptedChainInfo()
-		assert.Equal(t, big.NewInt(1000), chainInfo.TotalDifficulty)
-		assert.Equal(t, int64(256), chainInfo.HighestBlockNumber)
-		assert.Equal(t, int64(128), chainInfo.MostRecentBlockNumber)
+		maxBlockNumber, maxFinalizedBlockNumber = rpc.GetInterceptedChainInfo()
+		assert.Equal(t, int64(256), maxBlockNumber)
+		assert.Equal(t, int64(0), maxFinalizedBlockNumber)
 	})
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := createRPCServer()
@@ -93,27 +94,6 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		}
 		head := receiveNewHead(rpc)
 		require.Equal(t, chainId, head.ChainID())
-	})
-	t.Run("Close resets MostRecentBlockNumber", func(t *testing.T) {
-		server := createRPCServer()
-		rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
-		require.NoError(t, rpc.Dial(ctx))
-		require.Equal(t, commonclient.RPCChainInfo{TotalDifficulty: big.NewInt(0)}, rpc.GetInterceptedChainInfo())
-		// 1. received first head
-		server.Head = &evmtypes.Head{
-			Number: 256,
-		}
-		_ = receiveNewHead(rpc)
-		chainInfo := rpc.GetInterceptedChainInfo()
-		assert.Equal(t, int64(256), chainInfo.HighestBlockNumber)
-		assert.Equal(t, int64(256), chainInfo.MostRecentBlockNumber)
-		rpc.Close()
-		chainInfo = rpc.GetInterceptedChainInfo()
-		// Highest remains as is to ensure we keep track of data observed by the callers
-		assert.Equal(t, int64(256), chainInfo.HighestBlockNumber)
-		// MostRecent was reset to correctly represent current state of the RPC
-		assert.Equal(t, int64(0), chainInfo.MostRecentBlockNumber)
-
 	})
 }
 
@@ -154,22 +134,16 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	// updates chain info
 	_, err := rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	chainInfo := rpc.GetInterceptedChainInfo()
-	require.Equal(t, int64(128), chainInfo.HighestFinalizedBlockNum)
-	require.Equal(t, int64(128), chainInfo.MostRecentlyFinalizedBlockNum)
+	maxBlockNumber, maxFinalizedBlockNumber := rpc.GetInterceptedChainInfo()
+	assert.Equal(t, int64(0), maxBlockNumber)
+	assert.Equal(t, int64(128), maxFinalizedBlockNumber)
 
 	// lower block number does not update Highest
 	server.Head = &evmtypes.Head{Number: 127}
 	_, err = rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	chainInfo = rpc.GetInterceptedChainInfo()
-	require.Equal(t, int64(128), chainInfo.HighestFinalizedBlockNum)
-	require.Equal(t, int64(127), chainInfo.MostRecentlyFinalizedBlockNum)
-
-	// Close resents chain info
-	rpc.Close()
-	chainInfo = rpc.GetInterceptedChainInfo()
-	require.Equal(t, int64(128), chainInfo.HighestFinalizedBlockNum)
-	require.Equal(t, int64(0), chainInfo.MostRecentlyFinalizedBlockNum)
+	maxBlockNumber, maxFinalizedBlockNumber = rpc.GetInterceptedChainInfo()
+	assert.Equal(t, int64(0), maxBlockNumber)
+	assert.Equal(t, int64(128), maxFinalizedBlockNumber)
 
 }

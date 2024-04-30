@@ -73,6 +73,7 @@ type NodeClient[
 	UnsubscribeAllExceptAliveLoop()
 	IsSyncing(ctx context.Context) (bool, error)
 	LatestFinalizedBlock(ctx context.Context) (HEAD, error)
+	GetInterceptedChainInfo() (highestBlockNumber, highestLatestFinalizedBlock int64)
 }
 
 // clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.

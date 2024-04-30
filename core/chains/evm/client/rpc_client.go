@@ -56,7 +56,7 @@ type RPCClient interface {
 	SuggestGasPrice(ctx context.Context) (p *big.Int, err error)
 	SuggestGasTipCap(ctx context.Context) (t *big.Int, err error)
 	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error)
-	GetInterceptedChainInfo() commonclient.RPCChainInfo
+	GetInterceptedChainInfo() (highestBlockNumber, highestLatestFinalizedBlock int64)
 }
 
 type rpcClient struct {
@@ -84,7 +84,10 @@ type rpcClient struct {
 	chStopInFlight chan struct{}
 
 	// intercepted values seen by callers of the rpcClient. Need to ensure MultiNode provides repeatable read guarantee
-	chainInfo commonclient.RPCChainInfo
+	// highestBlockNumber - maximum block number ever observed
+	highestBlockNumber int64
+	// highestFinalizedBlockNum - maximum block number ever observed for finalized block
+	highestFinalizedBlockNum int64
 }
 
 // NewRPCCLient returns a new *rpcClient as commonclient.RPC
@@ -115,7 +118,6 @@ func NewRPCClient(
 		"evmChainID", chainID,
 	)
 	r.rpcLog = logger.Sugared(lggr).Named("RPC")
-	r.chainInfo.TotalDifficulty = big.NewInt(0)
 
 	return r
 }
@@ -186,8 +188,6 @@ func (r *rpcClient) Close() {
 	defer r.stateMu.Unlock()
 	r.cancelInflightRequests()
 	r.unsubscribeAll()
-	r.chainInfo.MostRecentlyFinalizedBlockNum = 0
-	r.chainInfo.MostRecentBlockNumber = 0
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
@@ -349,10 +349,9 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
-	requestCh := r.getChStopInflight()
 	subForwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
 		head.EVMChainID = ubig.New(r.chainID)
-		r.oneNewHead(head, requestCh)
+		r.oneNewHead(head)
 		return head
 	}, nil)
 	err = subForwarder.start(ws.rpc.EthSubscribe(ctx, subForwarder.srcCh, args...))
@@ -484,13 +483,12 @@ func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 }
 
 func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
-	requestCh := r.getChStopInflight()
 	block, err := r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
 	if err != nil {
 		return nil, err
 	}
 
-	r.oneNewFinalizedHead(block, requestCh)
+	r.oneNewFinalizedHead(block)
 	return block, nil
 }
 
@@ -1125,60 +1123,28 @@ func Name(r *rpcClient) string {
 	return r.name
 }
 
-// skipChainInfoUpdate - returns true, if data, received within requestChan lifetime, no longer accurately represents
-// RPC's view on chain. This check helps us avoid following race condition:
-// 1. rpcClient instance received request data, but have not processed it yet
-// 2. RPC goes down and Node transitions to an unhealthy state
-// 3. rpcClient processes data received on step 1
-// 4. New RPC starts with outdated state
-// 5. rpcClient becomes alive, but chainInfo represents state of a different RPC instance
-func skipChainInfoUpdate(requestChan chan struct{}) bool {
-	select {
-	case <-requestChan:
-		// channel is closed
-		return true
-	default:
-		return false
-	}
-}
-
-func (r *rpcClient) oneNewHead(head *evmtypes.Head, requestChan chan struct{}) {
+func (r *rpcClient) oneNewHead(head *evmtypes.Head) {
 	if head == nil {
 		return
 	}
 
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
-	if !skipChainInfoUpdate(requestChan) {
-		r.chainInfo.MostRecentBlockNumber = head.Number
-	}
-	r.chainInfo.HighestBlockNumber = max(r.chainInfo.HighestBlockNumber, head.Number)
-	if head.TotalDifficulty != nil {
-		r.chainInfo.TotalDifficulty = big.NewInt(0).Set(head.TotalDifficulty)
-	}
+	r.highestBlockNumber = max(r.highestBlockNumber, head.Number)
 }
 
-func (r *rpcClient) oneNewFinalizedHead(head *evmtypes.Head, requestChan chan struct{}) {
+func (r *rpcClient) oneNewFinalizedHead(head *evmtypes.Head) {
 	if head == nil {
 		return
 	}
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
-	if !skipChainInfoUpdate(requestChan) {
-		r.chainInfo.MostRecentlyFinalizedBlockNum = head.Number
-	}
-	r.chainInfo.HighestFinalizedBlockNum = max(r.chainInfo.HighestFinalizedBlockNum, head.Number)
+	r.highestFinalizedBlockNum = max(r.highestFinalizedBlockNum, head.Number)
 }
 
-func (r *rpcClient) GetInterceptedChainInfo() commonclient.RPCChainInfo {
+func (r *rpcClient) GetInterceptedChainInfo() (highestBlockNumber, highestLatestFinalizedBlock int64) {
 	r.stateMu.RLock()
-	result := commonclient.RPCChainInfo{
-		MostRecentBlockNumber:         r.chainInfo.MostRecentBlockNumber,
-		HighestBlockNumber:            r.chainInfo.HighestBlockNumber,
-		MostRecentlyFinalizedBlockNum: r.chainInfo.MostRecentlyFinalizedBlockNum,
-		HighestFinalizedBlockNum:      r.chainInfo.HighestFinalizedBlockNum,
-		TotalDifficulty:               big.NewInt(0).Set(r.chainInfo.TotalDifficulty),
-	}
+	head, finalized := r.highestBlockNumber, r.highestFinalizedBlockNum
 	r.stateMu.RUnlock()
-	return result
+	return head, finalized
 }
