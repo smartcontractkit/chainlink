@@ -33,6 +33,24 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     s_capabilityRegistry.addNodes(nodes);
   }
 
+  function test_RevertWhen_AddingDuplicateP2PId() public {
+    changePrank(NODE_OPERATOR_ONE_ADMIN);
+    CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
+
+    string[] memory capabilityIds = new string[](1);
+    capabilityIds[0] = "ccip-exec-0.0.1";
+
+    nodes[0] = CapabilityRegistry.Node({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: P2P_ID,
+      supportedCapabilityIds: capabilityIds
+    });
+    s_capabilityRegistry.addNodes(nodes);
+
+    vm.expectRevert(CapabilityRegistry.InvalidNodeP2PId.selector);
+    s_capabilityRegistry.addNodes(nodes);
+  }
+
   function test_RevertWhen_P2PIDEmpty() public {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
     CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);

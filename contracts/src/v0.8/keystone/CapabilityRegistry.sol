@@ -215,7 +215,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   function addNodes(Node[] calldata nodes) external {
     for (uint256 i; i < nodes.length; ++i) {
       Node memory node = nodes[i];
-      if (bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId();
+
+      bool nodeExists = s_nodes[node.p2pId].supportedCapabilityIds.length > 0;
+      if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId();
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (msg.sender != nodeOperator.admin) revert AccessForbidden();
