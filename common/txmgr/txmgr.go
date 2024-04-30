@@ -728,7 +728,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, ERRO
 	return count, errors.New(n.ErrMsg)
 }
 
-func (b *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, ERROR]) TxStatusByIdempotencyKey(ctx context.Context, idempotencyKey string) (state txmgrtypes.TxState, txErr ERROR, err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, ERROR]) TxStatusByIdempotencyKey(ctx context.Context, idempotencyKey string) (state txmgrtypes.TxState, txErr ERROR, err error) {
 	return "", txErr, nil
 }
 
