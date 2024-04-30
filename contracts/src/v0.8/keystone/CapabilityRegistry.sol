@@ -26,6 +26,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// This key is guaranteed to be unique in the CapabilityRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
+    /// @notice The signer address for application-layer message verification.
+    address signer;
     /// @notice The list of capability IDs this node supports. This list is
     /// never empty and all capabilities are guaranteed to exist in the
     /// CapabilityRegistry.

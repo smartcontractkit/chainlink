@@ -28,6 +28,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       supportedCapabilityIds: capabilityIds
     });
 
@@ -45,6 +46,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       supportedCapabilityIds: capabilityIds
     });
     s_capabilityRegistry.addNodes(nodes);
@@ -63,6 +65,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: bytes32(""),
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       supportedCapabilityIds: capabilityIds
     });
 
@@ -79,6 +82,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       supportedCapabilityIds: capabilityIds
     });
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeCapabilities.selector, capabilityIds));
@@ -95,6 +99,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       supportedCapabilityIds: capabilityIds
     });
 
@@ -113,6 +118,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       supportedCapabilityIds: capabilityIds
     });
 
