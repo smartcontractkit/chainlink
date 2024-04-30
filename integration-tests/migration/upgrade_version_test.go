@@ -30,7 +30,7 @@ func TestVersionUpgrade(t *testing.T) {
 		WithTestConfig(&config).
 		WithTestInstance(t).
 		WithStandardCleanup().
-		WithPrivateEthereumNetwork(privateNetwork).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(1).
 		WithStandardCleanup().
 		WithSeth().

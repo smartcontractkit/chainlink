@@ -16,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -50,7 +50,7 @@ type S4SecretsCfg struct {
 	S4SetPayload          string
 }
 
-func SetupLocalLoadTestEnv(globalConfig tc.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
+func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
 	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
 	readSethCfg := globalConfig.GetSethConfig()
 	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(selectedNetwork, *readSethCfg)

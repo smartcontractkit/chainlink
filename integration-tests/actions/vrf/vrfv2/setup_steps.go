@@ -359,7 +359,7 @@ func SetupVRFV2ForNewEnv(
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&testConfig).
-		WithPrivateEthereumNetwork(network).
+		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
 		WithCLNodes(len(newEnvConfig.NodesToCreate)).
 		WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
 		WithCustomCleanup(cleanupFn).

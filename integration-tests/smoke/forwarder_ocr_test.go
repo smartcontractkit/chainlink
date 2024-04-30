@@ -35,7 +35,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(privateNetwork).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithForwarders().
 		WithCLNodes(6).

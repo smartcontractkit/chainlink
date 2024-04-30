@@ -1160,7 +1160,7 @@ func setupAutomationTestDocker(
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithPrivateEthereumNetwork(privateNetwork).
+			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 			WithMockAdapter().
 			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
@@ -1200,7 +1200,7 @@ func setupAutomationTestDocker(
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithPrivateEthereumNetwork(privateNetwork).
+			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).

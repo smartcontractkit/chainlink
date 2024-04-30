@@ -1,52 +1,53 @@
 package types
 
 import (
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 type VRFv2TestConfig interface {
 	tc.CommonTestConfig
-	tc.GlobalTestConfig
+	ctf_config.GlobalTestConfig
 	tc.VRFv2TestConfig
 }
 
 type VRFv2PlusTestConfig interface {
 	tc.CommonTestConfig
-	tc.GlobalTestConfig
+	ctf_config.GlobalTestConfig
 	tc.VRFv2PlusTestConfig
 }
 
 type FunctionsTestConfig interface {
 	tc.CommonTestConfig
-	tc.GlobalTestConfig
+	ctf_config.GlobalTestConfig
 	tc.FunctionsTestConfig
 }
 
 type AutomationTestConfig interface {
-	tc.GlobalTestConfig
+	ctf_config.GlobalTestConfig
 	tc.CommonTestConfig
 	tc.UpgradeableChainlinkTestConfig
 	tc.AutomationTestConfig
 }
 
 type KeeperBenchmarkTestConfig interface {
-	tc.GlobalTestConfig
+	ctf_config.GlobalTestConfig
 	tc.CommonTestConfig
 	tc.KeeperTestConfig
-	tc.NamedConfiguration
+	ctf_config.NamedConfiguration
 	testreporters.GrafanaURLProvider
 }
 
 type OcrTestConfig interface {
-	tc.GlobalTestConfig
+	ctf_config.GlobalTestConfig
 	tc.CommonTestConfig
 	tc.OcrTestConfig
-	tc.SethConfig
+	ctf_config.SethConfig
 }
 
 type Ocr2TestConfig interface {
-	tc.GlobalTestConfig
+	ctf_config.GlobalTestConfig
 	tc.CommonTestConfig
 	tc.Ocr2TestConfig
 }
