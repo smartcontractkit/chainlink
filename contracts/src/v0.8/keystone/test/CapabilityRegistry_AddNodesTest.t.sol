@@ -73,7 +73,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
 
     bytes32[] memory capabilityIds = new bytes32[](1);
-    capabilityIds[0] = s_capabilityRegistry.getCapabilityID("non-existent-capability", "1.0.0");
+    capabilityIds[0] = s_nonExistentCapabilityId;
 
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,

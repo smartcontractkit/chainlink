@@ -13,6 +13,7 @@ contract BaseTest is Test, Constants {
   CapabilityRegistry.Capability internal s_capabilityWithConfigurationContract;
   bytes32 internal s_basicCapabilityId;
   bytes32 internal s_capabilityWithConfigurationContractId;
+  bytes32 internal s_nonExistentCapabilityId;
 
   function setUp() public virtual {
     vm.startPrank(ADMIN);
@@ -25,7 +26,6 @@ contract BaseTest is Test, Constants {
       responseType: CapabilityRegistry.CapabilityResponseType.REPORT,
       configurationContract: address(0)
     });
-
     s_capabilityWithConfigurationContract = CapabilityRegistry.Capability({
       capabilityType: "read-ethereum-mainnet-gas-price",
       version: "1.0.2",
@@ -41,6 +41,7 @@ contract BaseTest is Test, Constants {
       s_capabilityWithConfigurationContract.capabilityType,
       s_capabilityWithConfigurationContract.version
     );
+    s_nonExistentCapabilityId = s_capabilityRegistry.getCapabilityID("non-existent-capability", "1.0.0");
   }
 
   function _getNodeOperators() internal view returns (CapabilityRegistry.NodeOperator[] memory) {
