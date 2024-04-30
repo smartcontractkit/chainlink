@@ -33,7 +33,7 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
     s_capabilityRegistry.deprecateCapability(capabilityId);
   }
 
-  function test_RevertWhen_CapabilityIsDeprecated() public {
+  function test_RevertWhen_CapabilityAlreadyDeprecated() public {
     bytes32 capabilityId = s_capabilityRegistry.getCapabilityID(
       s_basicCapability.capabilityType,
       s_basicCapability.version
@@ -41,7 +41,7 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
 
     s_capabilityRegistry.deprecateCapability(capabilityId);
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.CapabilityIsDeprecated.selector, capabilityId));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.CapabilityAlreadyDeprecated.selector, capabilityId));
     s_capabilityRegistry.deprecateCapability(capabilityId);
   }
 

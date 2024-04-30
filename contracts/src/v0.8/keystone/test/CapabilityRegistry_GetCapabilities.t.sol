@@ -12,7 +12,7 @@ contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
   }
 
-  function test_ReturnsCapabilities() public {
+  function test_ReturnsCapabilities() public view {
     CapabilityRegistry.Capability[] memory capabilities = s_capabilityRegistry.getCapabilities();
 
     assertEq(capabilities.length, 2);

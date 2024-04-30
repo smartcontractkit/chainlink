@@ -82,7 +82,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice This error is thrown when trying to deprecate a capability that
   /// is already deprecated.
   /// @param capabilityId The ID of the capability that is already deprecated.
-  error CapabilityIsDeprecated(bytes32 capabilityId);
+  error CapabilityAlreadyDeprecated(bytes32 capabilityId);
 
   /// @notice This error is thrown when trying to add a capability with a
   /// configuration contract that does not implement the required interface.
@@ -208,7 +208,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param capabilityId The ID of the capability to deprecate
   function deprecateCapability(bytes32 capabilityId) external onlyOwner {
     if (!s_capabilityIds.contains(capabilityId)) revert CapabilityDoesNotExist(capabilityId);
-    if (s_deprecatedCapabilityIds.contains(capabilityId)) revert CapabilityIsDeprecated(capabilityId);
+    if (s_deprecatedCapabilityIds.contains(capabilityId)) revert CapabilityAlreadyDeprecated(capabilityId);
 
     s_deprecatedCapabilityIds.add(capabilityId);
     emit CapabilityDeprecated(capabilityId);
