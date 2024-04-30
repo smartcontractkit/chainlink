@@ -5,7 +5,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_AddNodesTest is BaseTest {
-  event NodeAdded(uint256 nodeId, uint256 nodeOperatorId, bytes p2pId);
+  event NodeAdded(bytes p2pId, uint256 nodeOperatorId);
 
   uint256 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
   uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 1;
@@ -25,7 +25,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
 
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
-      p2pId: bytes(P2P_ID),
+      p2pId: P2P_ID,
       supportedCapabilityIds: capabilityIds
     });
 
@@ -59,17 +59,17 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
 
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
-      p2pId: bytes(P2P_ID),
+      p2pId: P2P_ID,
       supportedCapabilityIds: capabilityIds
     });
 
-    vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit NodeAdded(0, TEST_NODE_OPERATOR_ONE_ID, bytes(P2P_ID));
+    vm.expectEmit(address(s_capabilityRegistry));
+    emit NodeAdded(P2P_ID, TEST_NODE_OPERATOR_ONE_ID);
     s_capabilityRegistry.addNodes(nodes);
 
-    CapabilityRegistry.Node memory node = s_capabilityRegistry.getNode(0);
+    CapabilityRegistry.Node memory node = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
-    assertEq(node.p2pId, bytes(P2P_ID));
+    assertEq(node.p2pId, P2P_ID);
     assertEq(node.supportedCapabilityIds.length, 1);
     assertEq(node.supportedCapabilityIds[0], "ccip-exec-0.0.1");
   }

@@ -22,10 +22,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   struct Node {
     /// @notice The id of the node operator that manages this node
     uint256 nodeOperatorId;
-    /// @notice The P2P ID used for OCR
+    /// @notice This is an Ed25519 public key that is used to identify a node.
+    /// This key MUST be globally unique and is used to identify a node in the
+    /// Registry and the P2P network.
     bytes p2pId;
-    /// @notice The list of capability IDs
-    /// this node supports
+    /// @notice The list of capability IDs this node supports
     string[] supportedCapabilityIds;
   }
 
@@ -85,10 +86,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   error InvalidNodeP2PId();
 
   /// @notice This event is emitted when a new node is added
-  /// @param nodeId The ID of the newly added node
+  /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
-  /// @param p2pId The P2P ID the node will use for OCR
-  event NodeAdded(uint256 nodeId, uint256 nodeOperatorId, bytes p2pId);
+  event NodeAdded(bytes p2pId, uint256 nodeOperatorId);
 
   /// @notice This error is thrown when trying add a capability that already
   /// exists.
@@ -143,15 +143,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   mapping(uint256 nodeOperatorId => NodeOperator nodeOperator) private s_nodeOperators;
 
   /// @notice Mapping of nodes
-  mapping(uint256 nodeId => Node node) private s_nodes;
+  mapping(bytes p2pId => Node node) private s_nodes;
 
   /// @notice The latest node operator ID
   /// @dev No getter for this as this is an implementation detail
   uint256 private s_nodeOperatorId;
-
-  /// @notice The latest node ID
-  /// @dev No getter for this as this is an implementation detail
-  uint256 private s_nodeId;
 
   function typeAndVersion() external pure override returns (string memory) {
     return "CapabilityRegistry 1.0.0";
@@ -211,27 +207,29 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     return s_nodeOperators[nodeOperatorId];
   }
 
+  // Set of NodeP2PIds - All nodes
+  // NopID => NodeP2PIds - All operator nodes
+
   /// @notice Adds nodes
   /// @param nodes The nodes to add
   function addNodes(Node[] calldata nodes) external {
     for (uint256 i; i < nodes.length; ++i) {
       Node memory node = nodes[i];
       if (bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId();
+
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      uint256 nodeId = s_nodeId;
-      s_nodes[nodeId] = node;
-      s_nodeId++;
-      emit NodeAdded(nodeId, node.nodeOperatorId, node.p2pId);
+      s_nodes[node.p2pId] = node;
+      emit NodeAdded(node.p2pId, node.nodeOperatorId);
     }
   }
 
   /// @notice Gets a node's data
-  /// @param nodeId The ID of the node to query for
+  /// @param nodeP2pId The P2P ID of the node to query for
   /// @return Node The node data
-  function getNode(uint256 nodeId) external view returns (Node memory) {
-    return s_nodes[nodeId];
+  function getNode(bytes memory nodeP2pId) external view returns (Node memory) {
+    return s_nodes[nodeP2pId];
   }
 
   function addCapability(Capability calldata capability) external onlyOwner {
