@@ -69,8 +69,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     address configurationContract;
   }
 
-  /// @notice This error is thrown when a caller tries to call a function
-  /// it does not have authorization to call
+  /// @notice This error is thrown when a caller is not allowed
+  /// to execute the transaction
   error AccessForbidden();
 
   /// @notice This error is thrown when there is a mismatch between
