@@ -7,16 +7,15 @@ import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interface
 import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {FeeManager} from "./FeeManager.sol";
 
-
 /**
  * @title FeeManagerNoNative
  * @author Michael Fletcher
  * @author Austin Born
  * @author TJ Cunha
- * @notice This contract is a variation of the FeeManager contract, and adds a modifier blocks native billing to fee handling functions 
+ * @notice This contract is a variation of the FeeManager contract, and adds a modifier blocks native billing to fee handling functions
  */
 contract FeeManagerNoNative is FeeManager {
-   using SafeERC20 for IERC20;
+  using SafeERC20 for IERC20;
 
   /// @notice thrown when trying to pay nativeFee with native, which is disallowed when we force wETH billing for nativeFee
   error NativeBillingDisallowed();
@@ -59,7 +58,7 @@ contract FeeManagerNoNative is FeeManager {
     bytes[] calldata payloads,
     bytes calldata parameterPayload,
     address subscriber
-  ) external payable override onlyProxy blockNativeBilling{
+  ) external payable override onlyProxy blockNativeBilling {
     FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
 
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
@@ -97,5 +96,4 @@ contract FeeManagerNoNative is FeeManager {
       _handleFeesAndRewards(subscriber, feesAndRewards, numberOfLinkFees, numberOfNativeFees);
     }
   }
-
 }
