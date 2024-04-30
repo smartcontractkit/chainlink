@@ -18,6 +18,8 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 /// being posted on L2 before it can be proven, and similarly, there is a buffer in the time it takes to prove
 /// the transaction before it can be finalized.
 /// See https://blog.oplabs.co/two-step-withdrawals/ for more details on this mechanism.
+/// @dev We have to unwrap WETH into ether before depositing it to L2. Therefore this bridge adapter bridges
+/// WETH to ether. The receiver on L2 must wrap the ether back into WETH.
 contract OptimismL1BridgeAdapter is IBridgeAdapter {
   using SafeERC20 for IERC20;
 

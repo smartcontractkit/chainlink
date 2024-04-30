@@ -34,6 +34,9 @@ interface IL2StandardBridge {
   ) external payable;
 }
 
+/// @notice OptimismL2BridgeAdapter implements IBridgeAdapter for the Optimism L2<=>L1 bridge.
+/// @dev We have to unwrap WETH into ether before withdrawing it to L1. Therefore this bridge adapter bridges
+/// WETH to ether. The receiver on L1 must wrap the ether back into WETH.
 contract OptimismL2BridgeAdapter is IBridgeAdapter {
   using SafeERC20 for IERC20;
 
@@ -65,11 +68,11 @@ contract OptimismL2BridgeAdapter is IBridgeAdapter {
 
     IERC20(localToken).safeTransferFrom(msg.sender, address(this), amount);
 
-    // Extra data for the L2 deposit.
-    // We encode the nonce in the extra data so that we can track the L2 deposit offchain.
+    // Extra data for the L2 withdraw.
+    // We encode the nonce in the extra data so that we can track the L2 withdraw offchain.
     bytes memory extraData = abi.encode(s_nonce++);
 
-    // If the token is the wrapped native, we unwrap it and deposit native
+    // If the token is the wrapped native, we unwrap it and withdraw native
     if (localToken == address(i_wrappedNative)) {
       i_wrappedNative.withdraw(amount);
       // XXX: Lib_PredeployAddresses.OVM_ETH is actually 0xDeadDeAddeAddEAddeadDEaDDEAdDeaDDeAD0000.

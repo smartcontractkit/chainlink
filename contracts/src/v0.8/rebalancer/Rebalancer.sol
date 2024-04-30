@@ -31,11 +31,30 @@ contract Rebalancer is IRebalancer, OCR3Base {
   error InsufficientLiquidity(uint256 requested, uint256 available);
   error EmptyReport();
 
+  /// @notice Emitted when a finalization step is completed without funds being available.
+  /// @param ocrSeqNum The OCR sequence number of the report.
+  /// @param remoteChainSelector The chain selector of the remote chain funds are coming from.
+  /// @param bridgeSpecificData The bridge specific data that was used to finalize the transfer.
   event FinalizationStepCompleted(
     uint64 indexed ocrSeqNum,
     uint64 indexed remoteChainSelector,
     bytes bridgeSpecificData
   );
+
+  /// @notice Emitted when liquidity is transferred to another chain, or received from another chain.
+  /// @param ocrSeqNum The OCR sequence number of the report.
+  /// @param fromChainSelector The chain selector of the chain the funds are coming from.
+  /// In the event fromChainSelector == i_localChainSelector, this is an outgoing transfer.
+  /// Otherwise, it is an incoming transfer.
+  /// @param toChainSelector The chain selector of the chain the funds are going to.
+  /// In the event toChainSelector == i_localChainSelector, this is an incoming transfer.
+  /// Otherwise, it is an outgoing transfer.
+  /// @param to The address the funds are going to.
+  /// If this is address(this), the funds are arriving in this contract.
+  /// @param amount The amount of tokens being transferred.
+  /// @param bridgeSpecificData The bridge specific data that was passed to the local bridge adapter
+  /// when transferring the funds.
+  /// @param bridgeReturnData The return data from the local bridge adapter when transferring the funds.
   event LiquidityTransferred(
     uint64 indexed ocrSeqNum,
     uint64 indexed fromChainSelector,
@@ -45,10 +64,32 @@ contract Rebalancer is IRebalancer, OCR3Base {
     bytes bridgeSpecificData,
     bytes bridgeReturnData
   );
+
+  /// @notice Emitted when liquidity is added to the local liquidity container.
+  /// @param provider The address of the provider that added the liquidity.
+  /// @param amount The amount of liquidity that was added.
   event LiquidityAddedToContainer(address indexed provider, uint256 indexed amount);
+
+  /// @notice Emitted when liquidity is removed from the local liquidity container.
+  /// @param remover The address of the remover that removed the liquidity.
+  /// @param amount The amount of liquidity that was removed.
   event LiquidityRemovedFromContainer(address indexed remover, uint256 indexed amount);
+
+  /// @notice Emitted when the local liquidity container is set.
+  /// @param newLiquidityContainer The address of the new liquidity container.
   event LiquidityContainerSet(address indexed newLiquidityContainer);
+
+  /// @notice Emitted when the minimum liquidity is set.
+  /// @param oldBalance The old minimum liquidity.
+  /// @param newBalance The new minimum liquidity.
   event MinimumLiquiditySet(uint256 oldBalance, uint256 newBalance);
+
+  /// @notice Emitted when a cross chain rebalancer is set.
+  /// @param remoteChainSelector The chain selector of the remote chain.
+  /// @param localBridge The local bridge adapter that will be used to transfer funds.
+  /// @param remoteToken The address of the token on the remote chain.
+  /// @param remoteRebalancer The address of the remote rebalancer contract.
+  /// @param enabled Whether the rebalancer is enabled.
   event CrossChainRebalancerSet(
     uint64 indexed remoteChainSelector,
     IBridgeAdapter localBridge,
@@ -57,6 +98,11 @@ contract Rebalancer is IRebalancer, OCR3Base {
     bool enabled
   );
 
+  /// @notice Emitted when a finalization step fails.
+  /// @param ocrSeqNum The OCR sequence number of the report.
+  /// @param remoteChainSelector The chain selector of the remote chain funds are coming from.
+  /// @param bridgeSpecificData The bridge specific data that was used to finalize the transfer.
+  /// @param reason The reason the finalization failed.
   event FinalizationFailed(
     uint64 indexed ocrSeqNum,
     uint64 indexed remoteChainSelector,
@@ -179,6 +225,11 @@ contract Rebalancer is IRebalancer, OCR3Base {
 
   /// @notice Transfers liquidity to another chain.
   /// @dev Called by both the owner and the DON.
+  /// @param chainSelector The chain selector of the chain to transfer liquidity to.
+  /// @param tokenAmount The amount of tokens to transfer.
+  /// @param nativeBridgeFee The fee to pay to the bridge.
+  /// @param ocrSeqNum The OCR sequence number of the report.
+  /// @param bridgeSpecificPayload The bridge specific data to pass to the bridge adapter.
   function _rebalanceLiquidity(
     uint64 chainSelector,
     uint256 tokenAmount,
@@ -220,6 +271,14 @@ contract Rebalancer is IRebalancer, OCR3Base {
     );
   }
 
+  /// @notice Receives liquidity from another chain.
+  /// @dev Called by both the owner and the DON.
+  /// @param remoteChainSelector The chain selector of the chain to receive liquidity from.
+  /// @param amount The amount of tokens to receive.
+  /// @param bridgeSpecificPayload The bridge specific data to pass to the bridge adapter finalizeWithdrawERC20 call.
+  /// @param shouldWrapNative Whether the token should be wrapped before injecting it into the liquidity container.
+  /// This only applies to native tokens wrapper contracts, e.g WETH.
+  /// @param ocrSeqNum The OCR sequence number of the report.
   function _receiveLiquidity(
     uint64 remoteChainSelector,
     uint256 amount,
@@ -269,6 +328,12 @@ contract Rebalancer is IRebalancer, OCR3Base {
     _injectLiquidity(amount, ocrSeqNum, remoteChainSelector, bridgeSpecificPayload, shouldWrapNative);
   }
 
+  /// @notice Injects liquidity into the local liquidity container.
+  /// @param amount The amount of tokens to inject.
+  /// @param ocrSeqNum The OCR sequence number of the report.
+  /// @param remoteChainSelector The chain selector of the remote chain.
+  /// @param bridgeSpecificPayload The bridge specific data passed to the bridge adapter finalizeWithdrawERC20 call.
+  /// @param shouldWrapNative Whether the token should be wrapped before injecting it into the liquidity container.
   function _injectLiquidity(
     uint256 amount,
     uint64 ocrSeqNum,
@@ -299,6 +364,14 @@ contract Rebalancer is IRebalancer, OCR3Base {
     );
   }
 
+  // TODO (question, remove before merging): @makramkd do we still want this function in here?
+  //  function _wrapNative(uint256 amount) private {
+  //    IWrappedNative weth = IWrappedNative(address(i_localToken));
+  //    weth.deposit{value: amount}();
+  //  }
+
+  /// @notice Process the OCR report.
+  /// @dev Called by OCR3Base's transmit() function.
   function _report(bytes calldata report, uint64 ocrSeqNum) internal override {
     IRebalancer.LiquidityInstructions memory instructions = abi.decode(report, (IRebalancer.LiquidityInstructions));
 

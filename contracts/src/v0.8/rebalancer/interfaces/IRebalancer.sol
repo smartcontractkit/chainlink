@@ -30,11 +30,20 @@ interface IRebalancer {
     bytes bridgeData;
   }
 
+  /// @notice Instructions for the rebalancer on what to do with the available liquidity.
+  /// @param sendLiquidityParams The parameters for sending liquidity to a remote chain.
+  /// @param receiveLiquidityParams The parameters for receiving liquidity from a remote chain.
   struct LiquidityInstructions {
     SendLiquidityParams[] sendLiquidityParams;
     ReceiveLiquidityParams[] receiveLiquidityParams;
   }
 
+  /// @notice Parameters for adding a cross-chain rebalancer.
+  /// @param remoteRebalancer The address of the remote rebalancer.
+  /// @param localBridge The local bridge adapter address.
+  /// @param remoteToken The address of the remote token.
+  /// @param remoteChainSelector The selector of the remote chain.
+  /// @param enabled Whether the rebalancer is enabled.
   struct CrossChainRebalancerArgs {
     address remoteRebalancer;
     IBridgeAdapter localBridge;
@@ -47,5 +56,7 @@ interface IRebalancer {
   /// @return currentLiquidity The current liquidity in the liquidity container.
   function getLiquidity() external view returns (uint256 currentLiquidity);
 
+  /// @notice Returns all the cross-chain rebalancers.
+  /// @return All the cross-chain rebalancers.
   function getAllCrossChainRebalancers() external view returns (CrossChainRebalancerArgs[] memory);
 }

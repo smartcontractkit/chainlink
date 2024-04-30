@@ -47,10 +47,9 @@ type prover struct {
 	l1Client EthClient
 	l2Client EthClient
 
-	optimismPortal     optimism_portal.OptimismPortalInterface
-	optimismPortal2    optimism_portal_2.OptimismPortal2Interface
-	l2OutputOracle     optimism_l2_output_oracle.OptimismL2OutputOracleInterface
-	disputeGameFactory optimism_dispute_game_factory.OptimismDisputeGameFactoryInterface
+	optimismPortal  optimism_portal.OptimismPortalInterface
+	optimismPortal2 optimism_portal_2.OptimismPortal2Interface
+	l2OutputOracle  optimism_l2_output_oracle.OptimismL2OutputOracleInterface
 }
 
 var (
@@ -61,8 +60,7 @@ func New(
 	l1Client,
 	l2Client EthClient,
 	optimismPortalAddress,
-	l2OutputOracleAddress,
-	disputeGameFactoryAddress common.Address,
+	l2OutputOracleAddress common.Address,
 ) (*prover, error) {
 	if l1Client == nil || l2Client == nil {
 		return nil, fmt.Errorf("args l1Client and l2Client must be non-nil")
@@ -83,18 +81,12 @@ func New(
 		return nil, err
 	}
 
-	disputeGameFactory, err := optimism_dispute_game_factory.NewOptimismDisputeGameFactory(disputeGameFactoryAddress, l1Client)
-	if err != nil {
-		return nil, err
-	}
-
 	return &prover{
-		l1Client:           l1Client,
-		l2Client:           l2Client,
-		optimismPortal:     optimismPortal,
-		optimismPortal2:    optimismPortal2,
-		l2OutputOracle:     l2OutputOracle,
-		disputeGameFactory: disputeGameFactory,
+		l1Client:        l1Client,
+		l2Client:        l2Client,
+		optimismPortal:  optimismPortal,
+		optimismPortal2: optimismPortal2,
+		l2OutputOracle:  l2OutputOracle,
 	}, nil
 }
 
@@ -206,7 +198,17 @@ func (p *prover) getMessageBedrockOutput(
 			return bedrockOutput{}, err2
 		}
 
-		gameCount, err2 := p.disputeGameFactory.GameCount(&bind.CallOpts{Context: ctx})
+		disputeGameFactoryAddress, err2 := p.optimismPortal2.DisputeGameFactory(&bind.CallOpts{Context: ctx})
+		if err2 != nil {
+			return bedrockOutput{}, fmt.Errorf("get dispute game factory: %w", err2)
+		}
+
+		disputeGameFactory, err2 := optimism_dispute_game_factory.NewOptimismDisputeGameFactory(disputeGameFactoryAddress, p.l1Client)
+		if err2 != nil {
+			return bedrockOutput{}, fmt.Errorf("new dispute game factory: %w", err2)
+		}
+
+		gameCount, err2 := disputeGameFactory.GameCount(&bind.CallOpts{Context: ctx})
 		if err2 != nil {
 			return bedrockOutput{}, err2
 		}
@@ -220,7 +222,7 @@ func (p *prover) getMessageBedrockOutput(
 			end = gameCount.Int64()
 		}
 
-		latestGames, err2 := p.disputeGameFactory.FindLatestGames(
+		latestGames, err2 := disputeGameFactory.FindLatestGames(
 			&bind.CallOpts{Context: ctx},
 			gameType,
 			big.NewInt(start),

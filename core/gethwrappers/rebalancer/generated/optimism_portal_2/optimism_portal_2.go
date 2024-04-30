@@ -29,7 +29,7 @@ var (
 )
 
 var OptimismPortal2MetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"respectedGameType\",\"outputs\":[{\"internalType\":\"GameType\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"disputeGameFactory\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"respectedGameType\",\"outputs\":[{\"internalType\":\"GameType\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 var OptimismPortal2ABI = OptimismPortal2MetaData.ABI
@@ -150,6 +150,28 @@ func (_OptimismPortal2 *OptimismPortal2TransactorRaw) Transact(opts *bind.Transa
 	return _OptimismPortal2.Contract.contract.Transact(opts, method, params...)
 }
 
+func (_OptimismPortal2 *OptimismPortal2Caller) DisputeGameFactory(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _OptimismPortal2.contract.Call(opts, &out, "disputeGameFactory")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_OptimismPortal2 *OptimismPortal2Session) DisputeGameFactory() (common.Address, error) {
+	return _OptimismPortal2.Contract.DisputeGameFactory(&_OptimismPortal2.CallOpts)
+}
+
+func (_OptimismPortal2 *OptimismPortal2CallerSession) DisputeGameFactory() (common.Address, error) {
+	return _OptimismPortal2.Contract.DisputeGameFactory(&_OptimismPortal2.CallOpts)
+}
+
 func (_OptimismPortal2 *OptimismPortal2Caller) RespectedGameType(opts *bind.CallOpts) (uint32, error) {
 	var out []interface{}
 	err := _OptimismPortal2.contract.Call(opts, &out, "respectedGameType")
@@ -177,6 +199,8 @@ func (_OptimismPortal2 *OptimismPortal2) Address() common.Address {
 }
 
 type OptimismPortal2Interface interface {
+	DisputeGameFactory(opts *bind.CallOpts) (common.Address, error)
+
 	RespectedGameType(opts *bind.CallOpts) (uint32, error)
 
 	Address() common.Address

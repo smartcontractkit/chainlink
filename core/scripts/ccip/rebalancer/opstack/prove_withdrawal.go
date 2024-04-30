@@ -110,7 +110,6 @@ func proveMessagePayload(
 		&ethClient{l2Client},
 		optimismPortalAddress,
 		l2OutputOracleAddress,
-		common.Address{}, // disputeGameFactoryAddress unknown at the moment
 	)
 	helpers.PanicErr(err)
 
