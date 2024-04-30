@@ -172,8 +172,8 @@ type stepDefinitionYaml struct {
 	//
 	// Eventually, we might support minor version and specific version pins. This will allow workflow authors to have flexibility when selecting the version, and node operators will be able to determine when they should update their capabilities.
 	//
-	// There are two ways to specify a type - using a string as a fully qualified ID or a structured table. When using a table, tags are ordered alphanumerically and joined into a string following a
-	//  {type}:{tag1_key}_{tag1_value}:{tag2_key}_{tag2_value}@{version}
+	// There are two ways to specify a type - using a string as a fully qualified ID or a structured table. When using a table, labels are ordered alphanumerically and joined into a string following a
+	//  {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
 	// pattern.
 	//
 	// The “type” supports [a-z0-9_-:] characters followed by an @ and [semver regex] at the end.
@@ -191,7 +191,7 @@ type stepDefinitionYaml struct {
 	//  type:
 	//    name: read_chain
 	//    version: 1
-	//    tags:
+	//    labels:
 	//      chain: ethereum
 	//      network: mainnet
 	//
@@ -319,22 +319,22 @@ func (stepDefinitionType) JSONSchema() *jsonschema.Schema {
 type stepDefinitionTableType struct {
 	Name    string            `json:"name"`
 	Version string            `json:"version" jsonschema:"pattern=(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"`
-	Tags    map[string]string `json:"tags"`
+	Labels  map[string]string `json:"labels"`
 }
 
 // String returns the string representation of a stepDefinitionTableType.
 //
 // It follows the format:
 //
-//	{name}:{tag1_key}_{tag1_value}:{tag2_key}_{tag2_value}@{version}
+//	{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
 //
-// where tags are ordered alphanumerically.
+// where labels are ordered alphanumerically.
 func (s stepDefinitionTableType) String() string {
-	tags := make([]string, 0, len(s.Tags))
-	for k, v := range s.Tags {
-		tags = append(tags, fmt.Sprintf("%s_%s", k, v))
+	labels := make([]string, 0, len(s.Labels))
+	for k, v := range s.Labels {
+		labels = append(labels, fmt.Sprintf("%s_%s", k, v))
 	}
-	slices.Sort(tags)
+	slices.Sort(labels)
 
-	return fmt.Sprintf("%s:%s@%s", s.Name, strings.Join(tags, ":"), s.Version)
+	return fmt.Sprintf("%s:%s@%s", s.Name, strings.Join(labels, ":"), s.Version)
 }
