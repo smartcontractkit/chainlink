@@ -2,18 +2,25 @@ package wrappers
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"strings"
+	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
 
 	evmClient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 )
 
 // WrappedContractBackend is a wrapper around the go-ethereum ContractBackend interface. It's a thin wrapper
@@ -23,6 +30,7 @@ import (
 type WrappedContractBackend struct {
 	evmClient  blockchain.EVMClient
 	sethClient *seth.Client
+	l          zerolog.Logger
 }
 
 // MustNewWrappedContractBackend creates a new WrappedContractBackend with the given clients
@@ -34,6 +42,20 @@ func MustNewWrappedContractBackend(evmClient blockchain.EVMClient, sethClient *s
 	return &WrappedContractBackend{
 		evmClient:  evmClient,
 		sethClient: sethClient,
+		l:          logging.GetTestLogger(nil),
+	}
+}
+
+// MustNewWrappedContractBackendWithLogger creates a new WrappedContractBackend with the given clients and logger instance
+func MustNewWrappedContractBackendWithLogger(evmClient blockchain.EVMClient, sethClient *seth.Client, l zerolog.Logger) *WrappedContractBackend {
+	if evmClient == nil && sethClient == nil {
+		panic("Must provide at least one client")
+	}
+
+	return &WrappedContractBackend{
+		evmClient:  evmClient,
+		sethClient: sethClient,
+		l:          l,
 	}
 }
 
@@ -110,13 +132,48 @@ func (w *WrappedContractBackend) SubscribeFilterLogs(ctx context.Context, query 
 }
 
 func (w *WrappedContractBackend) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	var hex hexutil.Bytes
-	client := w.getGethClient()
-	err := client.Client().CallContext(ctx, &hex, "eth_call", evmClient.ToBackwardCompatibleCallArg(msg), evmClient.ToBackwardCompatibleBlockNumArg(blockNumber))
-	if err != nil {
-		return nil, err
-	}
-	return hex, nil
+	var result []byte
+	err := retry.Do(func() error {
+		var hex hexutil.Bytes
+		client := w.getGethClient()
+		err := client.Client().CallContext(ctx, &hex, "eth_call", evmClient.ToBackwardCompatibleCallArg(msg), evmClient.ToBackwardCompatibleBlockNumArg(blockNumber))
+		if err != nil {
+			return err
+		}
+		result = hex
+		return nil
+	},
+		retry.RetryIf(func(err error) bool {
+			if err.Error() == rpc.ErrClientQuit.Error() ||
+				err.Error() == rpc.ErrBadResult.Error() ||
+				strings.Contains(err.Error(), "connection") ||
+				strings.Contains(err.Error(), "EOF") {
+				return true
+			}
+
+			w.l.Error().Err(err).Msg("Error in CallContract. Not retrying.")
+
+			return false
+		}),
+		retry.Attempts(uint(10)),
+		retry.Delay(1*time.Second),
+		retry.OnRetry(func(n uint, err error) {
+			w.l.Info().
+				Str("Attempt", fmt.Sprintf("%d/%d", n+1, 10)).
+				Str("Error", err.Error()).
+				Msg("Retrying CallContract")
+		}),
+	)
+
+	return result, err
+
+	// var hex hexutil.Bytes
+	// client := w.getGethClient()
+	// err := client.Client().CallContext(ctx, &hex, "eth_call", evmClient.ToBackwardCompatibleCallArg(msg), evmClient.ToBackwardCompatibleBlockNumArg(blockNumber))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return hex, nil
 }
 
 func (w *WrappedContractBackend) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
