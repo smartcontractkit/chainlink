@@ -14,6 +14,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
+// This test suite has two sets of tests that are run in two different modes:
+//  1. Normal mode: The tests are run as usual. All tests that start with TestSkippedForTests will be skipped.
+//     There are a set of integration tests that will run this same test suite in integration mode.
+//  2. Integration mode: The tests are run with an environment variable set to run the tests that were skipped in normal mode.
+//     Their output is captured and parsed to check if the flake runner is behaving as expected.
+//
+// In summary, the first set of tests are executed by the user, and these tests will trigger the second set of tests to run.
+var runInIntegrationTestModeEnvKey = "FLAKEY_TEST_RUNNER_RUN_FIXTURE_TEST"
+var skipIntegrationTestMode = os.Getenv(runInIntegrationTestModeEnvKey) != "1"
+var runInIntegrationTestModeEnv = runInIntegrationTestModeEnvKey + "=1"
+
 type mockReporter struct {
 	report *Report
 }
@@ -307,7 +318,7 @@ func TestRunner_RerunWithNonZeroExitCodeDoesntStopCommand(t *testing.T) {
 
 // Used for integration tests
 func TestSkippedForTests_Subtests(t *testing.T) {
-	if os.Getenv("FLAKEY_TEST_RUNNER_RUN_FIXTURE_TEST") != "1" {
+	if skipIntegrationTestMode {
 		t.Skip()
 	}
 
@@ -322,7 +333,7 @@ func TestSkippedForTests_Subtests(t *testing.T) {
 
 // Used for integration tests
 func TestSkippedForTests(t *testing.T) {
-	if os.Getenv("FLAKEY_TEST_RUNNER_RUN_FIXTURE_TEST") != "1" {
+	if skipIntegrationTestMode {
 		t.Skip()
 	}
 
@@ -333,7 +344,7 @@ func TestSkippedForTests(t *testing.T) {
 
 // Used for integration tests
 func TestSkippedForTests_Success(t *testing.T) {
-	if os.Getenv("FLAKEY_TEST_RUNNER_RUN_FIXTURE_TEST") != "1" {
+	if skipIntegrationTestMode {
 		t.Skip()
 	}
 
@@ -356,7 +367,7 @@ func TestIntegration_DealsWithSubtests(t *testing.T) {
 		repo:    "github.com/smartcontractkit/chainlink/v2/tools/flakeytests",
 		command: "../bin/go_core_tests",
 		overrides: func(cmd *exec.Cmd) {
-			cmd.Env = append(cmd.Env, "FLAKEY_TESTRUNNER_RUN_FIXTURE_TEST=1")
+			cmd.Env = append(cmd.Env, runInIntegrationTestModeEnv)
 			cmd.Stdout = io.Discard
 			cmd.Stderr = io.Discard
 		},
@@ -392,7 +403,7 @@ func TestIntegration_ParsesPanics(t *testing.T) {
 		repo:    "github.com/smartcontractkit/chainlink/v2/tools/flakeytests",
 		command: "../bin/go_core_tests",
 		overrides: func(cmd *exec.Cmd) {
-			cmd.Env = append(cmd.Env, "FLAKEY_TESTRUNNER_RUN_FIXTURE_TEST=1")
+			cmd.Env = append(cmd.Env, runInIntegrationTestModeEnv)
 			cmd.Stdout = io.Discard
 			cmd.Stderr = io.Discard
 		},
@@ -423,7 +434,7 @@ func TestIntegration(t *testing.T) {
 		repo:    "github.com/smartcontractkit/chainlink/v2/tools/flakeytests",
 		command: "../bin/go_core_tests",
 		overrides: func(cmd *exec.Cmd) {
-			cmd.Env = append(cmd.Env, "FLAKEY_TESTRUNNER_RUN_FIXTURE_TEST=1")
+			cmd.Env = append(cmd.Env, runInIntegrationTestModeEnv)
 			cmd.Stdout = io.Discard
 			cmd.Stderr = io.Discard
 		},
