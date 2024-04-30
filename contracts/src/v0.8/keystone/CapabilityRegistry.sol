@@ -215,9 +215,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     return s_nodeOperators[nodeOperatorId];
   }
 
-  // Set of NodeP2PIds - All nodes
-  // NopID => NodeP2PIds - All operator nodes
-
   /// @notice Adds nodes
   /// @param nodes The nodes to add
   function addNodes(Node[] calldata nodes) external {
