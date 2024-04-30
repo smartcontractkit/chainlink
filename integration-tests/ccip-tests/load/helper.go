@@ -115,7 +115,7 @@ func (l *LoadArgs) SanityCheck() {
 			l.TestCfg.TestGroupInput.PhaseTimeout.Duration(),
 			1, 0, nil,
 		)
-		ccipLoad.BeforeAllCall(actions.DataOnlyTransfer, big.NewInt(*l.TestCfg.TestGroupInput.DestGasLimit))
+		ccipLoad.BeforeAllCall(false, big.NewInt(*l.TestCfg.TestGroupInput.MsgDetails.DestGasLimit))
 		resp := ccipLoad.Call(nil)
 		require.False(l.t, resp.Failed, "request failed in sanity check")
 	}
@@ -171,7 +171,6 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 		// try to send requests on lanes on which curse is applied on source RMN and the request should revert
 		failedTx, _, _, err := lane.Source.SendRequest(
 			lane.Dest.ReceiverDapp.EthAddress,
-			actions.DataOnlyTransfer, "msg sent when ARM is cursed",
 			big.NewInt(600_000), // gas limit
 		)
 		if lane.Source.Common.ChainClient.GetNetworkConfig().MinimumConfirmations > 0 {
@@ -246,7 +245,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			100000, sendMaxData,
 			l.TestCfg.TestGroupInput.SkipRequestIfAnotherRequestTriggeredWithin,
 		)
-		ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgType, big.NewInt(*l.TestCfg.TestGroupInput.DestGasLimit))
+		ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgDetails.IsTokenTransfer(), big.NewInt(*l.TestCfg.TestGroupInput.MsgDetails.DestGasLimit))
 		// if it's not multicall set the tokens to nil to free up some space,
 		// we have already formed the msg to be sent in load, there is no need to store the bridge tokens anymore
 		// In case of multicall we still need the BridgeTokens to transfer amount from mutlicall to owner
@@ -271,7 +270,6 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
 			Gun:                   ccipLoad,
 			Logger:                ccipLoad.Lane.Logger,
-			SharedData:            l.TestCfg.TestGroupInput.MsgType,
 			LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
 			Labels:                labels,
 			FailOnErr:             pointer.GetBool(l.TestCfg.TestGroupInput.FailOnFirstErrorInLoad),

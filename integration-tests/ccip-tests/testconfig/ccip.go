@@ -2,11 +2,11 @@ package testconfig
 
 import (
 	"fmt"
+	"math/big"
 	"os"
 
 	"github.com/AlekSi/pointer"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	testutils "github.com/smartcontractkit/ccip/integration-tests/ccip-tests/utils"
@@ -20,7 +20,12 @@ import (
 )
 
 const (
-	CONTRACTS_OVERRIDE_CONFIG = "BASE64_CCIP_CONFIG_OVERRIDE_CONTRACTS"
+	CONTRACTS_OVERRIDE_CONFIG        = "BASE64_CCIP_CONFIG_OVERRIDE_CONTRACTS"
+	TokenOnlyTransfer         string = "Token"
+
+	DataOnlyTransfer string = "Data"
+
+	DataAndTokenTransfer string = "DataWithToken"
 )
 
 type OffRampConfig struct {
@@ -30,13 +35,105 @@ type OffRampConfig struct {
 	RootSnooze     *config.Duration `toml:",omitempty"`
 }
 
+type MsgDetails struct {
+	MsgType        *string `toml:",omitempty"`
+	DestGasLimit   *int64  `toml:",omitempty"`
+	DataLength     *int64  `toml:",omitempty"`
+	NoOfTokens     *int    `toml:",omitempty"`
+	AmountPerToken *int64  `toml:",omitempty"`
+}
+
+func (m *MsgDetails) IsTokenTransfer() bool {
+	return pointer.GetString(m.MsgType) == "Token" || pointer.GetString(m.MsgType) == "DataWithToken"
+}
+
+func (m *MsgDetails) IsDataTransfer() bool {
+	return pointer.GetString(m.MsgType) == "Data" || pointer.GetString(m.MsgType) == "DataWithToken"
+}
+
+func (m *MsgDetails) TransferAmounts() []*big.Int {
+	var transferAmounts []*big.Int
+	if m.IsTokenTransfer() {
+		for i := 0; i < pointer.GetInt(m.NoOfTokens); i++ {
+			transferAmounts = append(transferAmounts, big.NewInt(pointer.GetInt64(m.AmountPerToken)))
+		}
+	}
+	return transferAmounts
+}
+
+func (m *MsgDetails) Validate() error {
+	if m == nil {
+		return fmt.Errorf("msg details should be set")
+	}
+	if m.MsgType == nil {
+		return fmt.Errorf("msg type should be set")
+	}
+	if m.IsDataTransfer() {
+		if m.DataLength == nil || *m.DataLength == 0 {
+			return fmt.Errorf("data length should be set and greater than 0")
+		}
+	}
+	if m.DestGasLimit == nil {
+		return fmt.Errorf("destination gas limit should be set")
+	}
+	if pointer.GetString(m.MsgType) != DataOnlyTransfer &&
+		pointer.GetString(m.MsgType) != TokenOnlyTransfer &&
+		pointer.GetString(m.MsgType) != DataAndTokenTransfer {
+		return fmt.Errorf("msg type should be - %s/%s/%s", DataOnlyTransfer, TokenOnlyTransfer, DataAndTokenTransfer)
+	}
+
+	if m.IsTokenTransfer() {
+		if pointer.GetInt64(m.AmountPerToken) == 0 {
+			return fmt.Errorf("token amount should be greater than 0")
+		}
+
+		if pointer.GetInt(m.NoOfTokens) == 0 {
+			return fmt.Errorf("number of tokens in msg should be greater than 0")
+		}
+	}
+
+	return nil
+}
+
+type TokenConfig struct {
+	NoOfTokensPerChain         *int             `toml:",omitempty"`
+	WithPipeline               *bool            `toml:",omitempty"`
+	TimeoutForPriceUpdate      *config.Duration `toml:",omitempty"`
+	NoOfTokensWithDynamicPrice *int             `toml:",omitempty"`
+	DynamicPriceUpdateInterval *config.Duration `toml:",omitempty"`
+}
+
+func (tc *TokenConfig) IsDynamicPriceUpdate() bool {
+	return tc.NoOfTokensWithDynamicPrice != nil && *tc.NoOfTokensWithDynamicPrice > 0
+}
+
+func (tc *TokenConfig) IsPipelineSpec() bool {
+	return pointer.GetBool(tc.WithPipeline)
+}
+
+func (tc *TokenConfig) Validate() error {
+	if tc == nil {
+		return fmt.Errorf("token config should be set")
+	}
+	if tc.TimeoutForPriceUpdate == nil || tc.TimeoutForPriceUpdate.Duration().Minutes() == 0 {
+		return fmt.Errorf("timeout for price update should be set")
+	}
+	if tc.NoOfTokensWithDynamicPrice != nil && *tc.NoOfTokensWithDynamicPrice > 0 {
+		if tc.DynamicPriceUpdateInterval == nil || tc.DynamicPriceUpdateInterval.Duration().Minutes() == 0 {
+			return fmt.Errorf("dynamic price update interval should be set if NoOfTokensWithDynamicPrice is greater than 0")
+		}
+	}
+	return nil
+}
+
 type CCIPTestConfig struct {
+	Type                                       string                                `toml:",omitempty"`
 	KeepEnvAlive                               *bool                                 `toml:",omitempty"`
 	BiDirectionalLane                          *bool                                 `toml:",omitempty"`
 	CommitAndExecuteOnSameDON                  *bool                                 `toml:",omitempty"`
 	NoOfCommitNodes                            int                                   `toml:",omitempty"`
-	MsgType                                    string                                `toml:",omitempty"`
-	DestGasLimit                               *int64                                `toml:",omitempty"`
+	MsgDetails                                 *MsgDetails                           `toml:",omitempty"`
+	TokenConfig                                *TokenConfig                          `toml:",omitempty"`
 	MulticallInOneTx                           *bool                                 `toml:",omitempty"`
 	NoOfSendsInMulticall                       int                                   `toml:",omitempty"`
 	PhaseTimeout                               *config.Duration                      `toml:",omitempty"`
@@ -53,16 +150,10 @@ type CCIPTestConfig struct {
 	NetworkPairs                               []string                              `toml:",omitempty"`
 	NoOfNetworks                               int                                   `toml:",omitempty"`
 	NoOfRoutersPerPair                         int                                   `toml:",omitempty"`
-	NoOfTokensPerChain                         int                                   `toml:",omitempty"`
-	NoOfTokensInMsg                            int                                   `toml:",omitempty"`
-	AmountPerToken                             int64                                 `toml:",omitempty"`
 	MaxNoOfLanes                               int                                   `toml:",omitempty"`
 	ChaosDuration                              *config.Duration                      `toml:",omitempty"`
 	USDCMockDeployment                         *bool                                 `toml:",omitempty"`
-	TimeoutForPriceUpdate                      *config.Duration                      `toml:",omitempty"`
-	WithPipeline                               *bool                                 `toml:",omitempty"`
 	FailOnFirstErrorInLoad                     *bool                                 `toml:",omitempty"`
-	DynamicPriceUpdateInterval                 *config.Duration                      `toml:",omitempty"`
 	SendMaxDataInEveryMsgCount                 *int64                                `toml:",omitempty"`
 	CommitOCRParams                            *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
 	ExecOCRParams                              *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
@@ -80,43 +171,40 @@ func (c *CCIPTestConfig) SetTestRunName(name string) {
 }
 
 func (c *CCIPTestConfig) Validate() error {
+	err := c.MsgDetails.Validate()
+	if err != nil {
+		return err
+	}
 	if c.PhaseTimeout != nil && (c.PhaseTimeout.Duration().Minutes() < 1 || c.PhaseTimeout.Duration().Minutes() > 50) {
-		return errors.Errorf("phase timeout should be between 1 and 50 minutes")
+		return fmt.Errorf("phase timeout should be between 1 and 50 minutes")
 	}
 	if c.TestDuration != nil && c.TestDuration.Duration().Minutes() < 1 {
-		return errors.Errorf("test duration should be greater than 1 minute")
+		return fmt.Errorf("test duration should be greater than 1 minute")
 	}
-	if c.MsgType != "WithoutToken" && c.MsgType != "WithToken" {
-		return errors.Errorf("msg type should be either WithoutToken or WithToken")
-	}
+
 	if c.NoOfCommitNodes < 4 {
 		return fmt.Errorf("insuffcient number of commit nodes provided")
 	}
-	if c.MsgType == "WithToken" {
-		if c.AmountPerToken == 0 {
-			return errors.Errorf("token amount should be greater than 0")
-		}
-		if c.NoOfTokensPerChain == 0 {
-			return errors.Errorf("number of tokens per chain should be greater than 0")
-		}
-		if c.NoOfTokensInMsg == 0 {
-			return errors.Errorf("number of tokens in msg should be greater than 0")
-		}
+	if err := c.TokenConfig.Validate(); err != nil {
+		return err
 	}
 
+	if c.MsgDetails.IsTokenTransfer() {
+		if pointer.GetInt(c.TokenConfig.NoOfTokensPerChain) == 0 {
+			return fmt.Errorf("number of tokens per chain should be greater than 0")
+		}
+	}
 	if c.MulticallInOneTx != nil {
 		if c.NoOfSendsInMulticall == 0 {
-			return errors.Errorf("number of sends in multisend should be greater than 0 if multisend is true")
+			return fmt.Errorf("number of sends in multisend should be greater than 0 if multisend is true")
 		}
 	}
 	if c.ExistingDeployment != nil && *c.ExistingDeployment {
-		if c.TestRunName == "" && os.Getenv(ctfK8config.EnvVarJobImage) != "" {
-			return errors.Errorf("test run name should be set if existing deployment is true and test is running in k8s")
+		if c.Type != Smoke {
+			if c.TestRunName == "" && os.Getenv(ctfK8config.EnvVarJobImage) != "" {
+				return fmt.Errorf("test run name should be set if existing deployment is true and test is running in k8s")
+			}
 		}
-	}
-
-	if c.DestGasLimit == nil {
-		return errors.Errorf("destination gas limit should be set")
 	}
 
 	return nil
@@ -190,7 +278,8 @@ func (c *CCIP) Validate() error {
 		}
 	}
 
-	for _, grp := range c.Groups {
+	for name, grp := range c.Groups {
+		grp.Type = name
 		if err := grp.Validate(); err != nil {
 			return err
 		}

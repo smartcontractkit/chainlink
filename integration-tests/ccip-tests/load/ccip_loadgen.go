@@ -86,7 +86,7 @@ func NewCCIPLoad(
 // BeforeAllCall funds subscription, approves the token transfer amount.
 // Needs to be called before load sequence is started.
 // Needs to approve and fund for the entire sequence.
-func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
+func (c *CCIPE2ELoad) BeforeAllCall(isTokenTranfer bool, gasLimit *big.Int) {
 	sourceCCIP := c.Lane.Source
 	destCCIP := c.Lane.Dest
 	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(gasLimit, false)
@@ -101,7 +101,7 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 		Data:      []byte("message with Id 1"),
 	}
 	var tokenAndAmounts []router.ClientEVMTokenAmount
-	if msgType == actions.TokenTransfer {
+	if isTokenTranfer && len(c.Lane.Source.Common.BridgeTokens) > 0 {
 		for i := range c.Lane.Source.TransferAmount {
 			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
 			token := sourceCCIP.Common.BridgeTokens[0]
@@ -123,7 +123,7 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 	// if the msg is sent via multicall, transfer the token transfer amount to multicall contract
 	if sourceCCIP.Common.MulticallEnabled &&
 		sourceCCIP.Common.MulticallContract != (common.Address{}) &&
-		msgType == actions.TokenTransfer {
+		isTokenTranfer {
 		for i, amount := range sourceCCIP.TransferAmount {
 			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
 			token := sourceCCIP.Common.BridgeTokens[0]
@@ -147,29 +147,31 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 	destCCIP.Common.ChainClient.ParallelTransactions(false)
 }
 
-func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.RequestStat) {
+func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.RequestStat, error) {
 	msgSerialNo := c.CurrentMsgSerialNo.Load()
 	c.CurrentMsgSerialNo.Inc()
 
 	stats := testreporters.NewCCIPRequestStats(msgSerialNo, c.Lane.SourceNetworkName, c.Lane.DestNetworkName)
 	// form the message for transfer
-	msgStr := fmt.Sprintf("new message with Id %d", msgSerialNo)
-	if c.SendMaxDataIntermittentlyInMsgCount > 0 {
-		// every SendMaxDataIntermittentlyInMsgCount message will have extra data with almost MaxDataBytes
-		if msgSerialNo%c.SendMaxDataIntermittentlyInMsgCount == 0 {
-			length := c.MaxDataBytes - 1
-			b := make([]byte, c.MaxDataBytes-1)
-			_, err := crypto_rand.Read(b)
-			if err == nil {
-				randomString := base64.URLEncoding.EncodeToString(b)
-				msgStr = randomString[:length]
+	msgLength := c.Lane.Source.MsgDataLength
+	msg := c.msg
+	if msgLength > 0 {
+		if c.SendMaxDataIntermittentlyInMsgCount > 0 {
+			// every SendMaxDataIntermittentlyInMsgCount message will have extra data with almost MaxDataBytes
+			if msgSerialNo%c.SendMaxDataIntermittentlyInMsgCount == 0 {
+				msgLength = int64(c.MaxDataBytes - 1)
 			}
 		}
+		b := make([]byte, msgLength)
+		_, err := crypto_rand.Read(b)
+		if err != nil {
+			return router.ClientEVM2AnyMessage{}, stats, fmt.Errorf("failed to generate random string %w", err)
+		}
+		randomString := base64.URLEncoding.EncodeToString(b)
+		msg.Data = []byte(randomString[:msgLength])
 	}
-	msg := c.msg
-	msg.Data = []byte(msgStr)
 
-	return msg, stats
+	return msg, stats, nil
 }
 
 func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
@@ -183,7 +185,12 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 			Msgf("Skipping ...Another Request found within given timeframe %s", c.SkipRequestIfAnotherRequestTriggeredWithin.String())
 		return res
 	}
-	msg, stats := c.CCIPMsg()
+	msg, stats, err := c.CCIPMsg()
+	if err != nil {
+		res.Error = err.Error()
+		res.Failed = true
+		return res
+	}
 	msgSerialNo := stats.ReqNo
 	lggr := c.Lane.Logger.With().Int64("msg Number", stats.ReqNo).Logger()
 
@@ -191,7 +198,6 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	// initiate the transfer
 	lggr.Debug().Str("triggeredAt", time.Now().GoString()).Msg("triggering transfer")
 	var sendTx *types.Transaction
-	var err error
 
 	destChainSelector, err := chain_selectors.SelectorFromChainId(sourceCCIP.DestinationChainId)
 	if err != nil {
@@ -253,7 +259,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 				GasUsed:            gasUsed,
 				TxHash:             sendTx.Hash().Hex(),
 				NoOfTokensSent:     len(msg.TokenAmounts),
-				MessageBytesLength: len(msg.Data),
+				MessageBytesLength: int64(len(msg.Data)),
 			})
 		errReason, v, err := c.Lane.Source.Common.ChainClient.RevertReasonFromTx(rcpt.TxHash, evm_2_evm_onramp.EVM2EVMOnRampABI)
 		if err != nil {
@@ -270,7 +276,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 			GasUsed:            gasUsed,
 			TxHash:             sendTx.Hash().Hex(),
 			NoOfTokensSent:     len(msg.TokenAmounts),
-			MessageBytesLength: len(msg.Data),
+			MessageBytesLength: int64(len(msg.Data)),
 		})
 	err = c.Validate(lggr, sendTx, txConfirmationTime, []*testreporters.RequestStat{stats})
 	if err != nil {

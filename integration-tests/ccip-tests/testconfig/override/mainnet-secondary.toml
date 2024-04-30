@@ -663,12 +663,14 @@ TestDuration = '24h'
 ExistingDeployment = true
 RequestPerUnitTime = [1]
 TimeUnit = '3h'
-NoOfTokensPerChain = 1
 NoOfTokensInMsg = 1
 AmountPerToken = 1
 TestRunName = 'mainnet-2.7-ccip1.2'
 FailOnFirstErrorInLoad = true
 SkipRequestIfAnotherRequestTriggeredWithin = '40m'
+
+[CCIP.Groups.load.TokenConfig]
+NoOfTokensPerChain = 1
 
 [CCIP.Groups.smoke]
 MsgType = 'WithoutToken'
@@ -685,7 +687,9 @@ PhaseTimeout = '20m'
 LocalCluster = false
 ExistingDeployment = true
 ReuseContracts = true
-NoOfTokensPerChain = 1
 NoOfTokensInMsg = 1
 AmountPerToken = 1
 TestRunName = 'mainnet-2.7-ccip1.2'
+
+[CCIP.Groups.smoke.TokenConfig]
+NoOfTokensPerChain = 1

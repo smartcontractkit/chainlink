@@ -509,7 +509,7 @@ func DeployEnvironments(
 			}))
 	}
 	if pointer.GetBool(testInputs.TestGroupInput.USDCMockDeployment) ||
-		pointer.GetBool(testInputs.TestGroupInput.WithPipeline) {
+		pointer.GetBool(testInputs.TestGroupInput.TokenConfig.WithPipeline) {
 		testEnvironment.
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil))

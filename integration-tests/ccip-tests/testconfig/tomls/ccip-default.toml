@@ -224,8 +224,6 @@ KeepEnvAlive = false                # if true, the test will not tear down the t
 CommitAndExecuteOnSameDON = true    # if true, and the test is building the env from scratch, same chainlink nodes will be used for Commit and Execution jobs.
 # Otherwise Commit and execution jobs will be set up in different nodes based on the number of nodes specified in NoOfCommitNodes and CCIP.Env.NewCLCluster.NoOfNodes
 BiDirectionalLane = true            # True uses both the lanes. If bidirectional is false only one way lane is set up.
-MsgType = 'WithToken'               # options `WithToken` for messages with Token (refer to NoOfTokensPerChain and NoOfTokensInMsg for token set up) and `WithoutToken` for data-only messages,
-DestGasLimit = 100000               # change this to 0 gas limit if you are doing ccip-send to an EOA
 NoOfCommitNodes = 5                 # no of chainlink nodes with Commit job
 PhaseTimeout = '10m'                # Duration to wait for the each phase validation(SendRequested, Commit, RMN Blessing, Execution) to time-out.
 LocalCluster = true                 # if true, the test will use the local docker container, otherwise it will use the k8s cluster
@@ -237,19 +235,26 @@ ExistingDeployment = false          # true if the tests are run on existing envi
 ReuseContracts = true               # Whether to reuse the contracts deployed in the previous run. Default value is true unless specified
 NodeFunding = 1.0                   # Amount of native currency to fund the chainlink node with for each network. Default value is 1 for smoke and 20 for load unless specified
 NoOfRoutersPerPair = 1              # denotes the number of routers to be deployed per network. mostly required for scalability tests.
-NoOfTokensPerChain = 2              # number of bridge tokens to be deployed per network; if MsgType = 'WithToken'
-NoOfTokensInMsg = 2                 #  number of bridge tokens to be sent in each ccip message if MsgType = 'WithToken'
-AmountPerToken = 1                  # amount to be sent for each bridge token in ccip message if MsgType = 'WithToken'
 MulticallInOneTx = false            #  if set to true, multiple ccip-send is grouped under one blockchain transaction
 NoOfSendsInMulticall = 5            # if MulticallInOneTx=true , this denotes the number of ccip-sends to group in one transaction
 
 NoOfNetworks = 2                    # this is used with Networks in `CCIP.Env`, `NoOfNetworks < len(CCIP.Env.Networks)` test only uses first NoOfNetworks from` CCIP.Env.Networks`.
 # This value is ignored if CCIP.Groups.<TestGroup>.NetworkPairs is provided
 
+
+[CCIP.Groups.smoke.MsgDetails]
+MsgType = 'DataWithToken' # type of message to be sent, either 'Token' or 'DataWithToken' Or 'Data'
+DestGasLimit = 100000               # change this to 0 gas limit if you are doing ccip-send to an EOA
+DataLength = 1000                 # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
+NoOfTokens = 2                    # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
+AmountPerToken = 1                 # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
+
+[CCIP.Groups.smoke.TokenConfig]
 TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update to time-out.
 # Now testing only with dynamic price getter (no pipeline).
 # Could be removed once the pipeline is completely removed.
 WithPipeline = false
+NoOfTokensPerChain = 2              # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
@@ -267,8 +272,6 @@ WithPipeline = false
 KeepEnvAlive = false # same as above
 CommitAndExecuteOnSameDON = true # same as above
 BiDirectionalLane = true # same as above
-MsgType = 'WithToken' # same as above
-DestGasLimit = 100000  # change this to 0 gas limit if you are doing ccip-send to an EOA
 NoOfCommitNodes = 5 # same as above
 PhaseTimeout = '50m' # same as above
 TestDuration = '10m'                # load test duration, not used for smoke tests
@@ -281,16 +284,26 @@ ExistingDeployment = false # same as above
 ReuseContracts = true            # same as above
 NodeFunding = 20.0 # same as above
 NoOfRoutersPerPair = 1  # same as above
-NoOfTokensPerChain = 2 # same as above
-NoOfTokensInMsg = 2     # same as above
-AmountPerToken = 1     # same as above
 MulticallInOneTx = false # same as above
 NoOfSendsInMulticall = 5    # same as above
 RequestPerUnitTime = [1] # number of ccip requests to be sent per unit time
 TimeUnit = '10s' # unit of time for RequestPerUnitTime
 NoOfNetworks = 2   # same as above
+
+
+[CCIP.Groups.load.MsgDetails]
+MsgType = 'DataWithToken' # type of message to be sent, either 'Token' or 'DataWithToken' Or 'Data'
+DestGasLimit = 100000               # change this to 0 gas limit if you are doing ccip-send to an EOA
+DataLength = 1000                 # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
+NoOfTokens = 2                    # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
+AmountPerToken = 1                 # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
+
+[CCIP.Groups.load.TokenConfig]
+TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update to time-out.
+# Now testing only with dynamic price getter (no pipeline).
+# Could be removed once the pipeline is completely removed.
 WithPipeline = false
-TimeoutForPriceUpdate = '15m' # time to wait for price update
+NoOfTokensPerChain = 2              # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
@@ -337,8 +350,6 @@ TimeoutForPriceUpdate = '15m' # time to wait for price update
 KeepEnvAlive = false
 CommitAndExecuteOnSameDON = false
 BiDirectionalLane = true
-MsgType = 'WithToken'
-DestGasLimit = 100000  # change this to 0 gas limit if you are doing ccip-send to an EOA
 NoOfCommitNodes = 5
 PhaseTimeout = '50m'
 TestDuration = '10m'                # load test duration, not used for smoke tests
@@ -347,9 +358,6 @@ ExistingDeployment = false
 ReuseContracts = true
 NodeFunding = 20.0
 NoOfRoutersPerPair = 1
-NoOfTokensPerChain = 2
-NoOfTokensInMsg = 2
-AmountPerToken = 1
 MulticallInOneTx = false
 NoOfSendsInMulticall = 5
 RequestPerUnitTime = [1]
@@ -358,8 +366,22 @@ NoOfNetworks = 2
 # chaos test settings
 ChaosDuration = '10m'               # Duration for whichever chaos will be injected; only valid for chaos tests
 WaitBetweenChaosDuringLoad = '2m'   # Duration to wait between each chaos injection during load test; only valid for chaos tests
-TimeoutForPriceUpdate = '15m'      # Timeout for price update
+
+
+[CCIP.Groups.chaos.MsgDetails]
+MsgType = 'DataWithToken' # type of message to be sent, either 'Token' or 'DataWithToken' Or 'Data'
+DestGasLimit = 100000               # change this to 0 gas limit if you are doing ccip-send to an EOA
+DataLength = 1000                 # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
+NoOfTokens = 2                    # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
+AmountPerToken = 1                 # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
+
+[CCIP.Groups.chaos.TokenConfig]
+TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update to time-out.
+# Now testing only with dynamic price getter (no pipeline).
+# Could be removed once the pipeline is completely removed.
 WithPipeline = false
+NoOfTokensPerChain = 2              # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
+
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
 # for example, if you have provided CCIP.Env.Networks = ['SIMULATED_1', 'SIMULATED_2', 'SIMULATED_3'] and CCIP.Groups.<test_type>.MaxNoOfLanes = 2,
