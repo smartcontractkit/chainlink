@@ -51,6 +51,21 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     s_capabilityRegistry.addNodes(nodes);
   }
 
+  function test_RevertWhen_AddingNodeWithoutCapabilities() public {
+    changePrank(NODE_OPERATOR_ONE_ADMIN);
+    CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
+
+    bytes32[] memory capabilityIds = new bytes32[](0);
+
+    nodes[0] = CapabilityRegistry.Node({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: P2P_ID,
+      supportedCapabilityIds: capabilityIds
+    });
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeCapabilities.selector, capabilityIds));
+    s_capabilityRegistry.addNodes(nodes);
+  }
+
   function test_RevertWhen_P2PIDEmpty() public {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
     CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);

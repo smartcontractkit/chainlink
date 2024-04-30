@@ -87,7 +87,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice This error is thrown when trying to add a node without
   /// capabilities or with capabilities that do not exist.
-  error InvalidNodeCapabilities();
+  /// @param capabilityIds The IDs of the capabilities that are being added.
+  error InvalidNodeCapabilities(bytes32[] capabilityIds);
 
   /// @notice This event is emitted when a new node is added
   /// @param p2pId The P2P ID of the node
@@ -219,6 +220,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   function addNodes(Node[] calldata nodes) external {
     for (uint256 i; i < nodes.length; ++i) {
       Node memory node = nodes[i];
+
+      if (node.supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(node.supportedCapabilityIds);
 
       bool nodeExists = s_nodes[node.p2pId].supportedCapabilityIds.length > 0;
       if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId();
