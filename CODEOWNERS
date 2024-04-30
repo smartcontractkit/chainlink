@@ -102,7 +102,7 @@ core/scripts/gateway @smartcontractkit/functions
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
 # CI/CD
-/.github/** @smartcontractkit/releng @jkongie @jmank88 @samsondav
+/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @jasonmci
 /.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team @jasonmci
 /.github/workflows/**-tests.yml @smartcontractkit/test-tooling-team @jasonmci
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team @jasonmci
@@ -144,7 +144,6 @@ flake.lock @smartcontractkit/prodsec-public
 /core/ @smartcontractkit/ccip
 /contracts/ @rensr @matyang @makramkd
 /core/services/ocr2/plugins/rebalancer @rensr @dimkouv @makramkd
-/.github/ @rensr @connorwstein @smartcontractkit/test-tooling-team @jasonmci
 
 # CCIP ARM
 /contracts/src/v0.8/ccip/ARM.sol @gtklocker @kaleofduty
