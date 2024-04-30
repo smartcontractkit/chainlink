@@ -1,0 +1,17 @@
+name: gha-workflow-validation
+
+on:
+  pull_request:
+
+jobs:
+
+  validate-worfklow-changes:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: GHA Workflow Validator
+        uses: smartcontractkit/.github/actions/gha-workflow-validator@7d4c3591affba99d0b073e527569ec6638518d41 # gha-workflow-validator@0.1.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
