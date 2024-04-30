@@ -215,7 +215,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     return s_nodeOperators[nodeOperatorId];
   }
 
-  /// @notice Adds nodes
+  /// @notice Adds nodes. Nodes can be added with deprecated capabilities to
+  /// avoid breaking changes when deprecating capabilities.
   /// @param nodes The nodes to add
   function addNodes(Node[] calldata nodes) external {
     for (uint256 i; i < nodes.length; ++i) {
