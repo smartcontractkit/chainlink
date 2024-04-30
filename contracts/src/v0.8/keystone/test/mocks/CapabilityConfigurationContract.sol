@@ -10,4 +10,8 @@ contract CapabilityConfigurationContract is ICapabilityConfiguration, ERC165 {
   function getCapabilityConfiguration(uint256 donId) external view returns (bytes memory configuration) {
     return s_donConfiguration[donId];
   }
+
+  function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+    return interfaceId == this.getCapabilityConfiguration.selector;
+  }
 }

@@ -193,6 +193,22 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     return s_capabilities[capabilityID];
   }
 
+  /// @notice Returns all capabilities. This operation will copy capabilities
+  /// to memory, which can be quite expensive. This is designed to mostly be
+  /// used by view accessors that are queried without any gas fees.
+  /// @return Capability[] An array of capabilities
+  function getCapabilities() external view returns (Capability[] memory) {
+    bytes32[] memory capabilityIds = s_capabilityIds.values();
+    Capability[] memory capabilities = new Capability[](capabilityIds.length);
+
+    for (uint256 i; i < capabilityIds.length; ++i) {
+      bytes32 capabilityId = capabilityIds[i];
+      capabilities[i] = getCapability(capabilityId);
+    }
+
+    return capabilities;
+  }
+
   /// @notice This functions returns a Capability ID packed into a bytes32 for cheaper access
   /// @return bytes32 A unique identifier for the capability
   function getCapabilityID(bytes32 capabilityType, bytes32 version) public pure returns (bytes32) {
