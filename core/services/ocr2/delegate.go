@@ -1754,6 +1754,7 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 		OffchainConfigDigester: ccipProvider.OffchainConfigDigester(),
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kb,
+		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	logError := func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
@@ -1807,6 +1808,7 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 		OffchainConfigDigester: ccipProvider.OffchainConfigDigester(),
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kb,
+		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	logError := func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
@@ -1875,6 +1877,7 @@ func (d *Delegate) newServicesRebalancer(ctx context.Context, lggr logger.Sugare
 		Logger: commonlogger.NewOCRWrapper(lggr.Named("RebalancerOracle"), d.cfg.OCR2().TraceLogging(), func(msg string) {
 			lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 		}),
+		MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	oracle, err := libocr2.NewOracle(oracleArgsNoPlugin)
 	if err != nil {
