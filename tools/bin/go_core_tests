@@ -35,4 +35,5 @@ else
   # uploading coverage.txt to CodeCov
   $(dirname "$0")/codecov -f coverage.txt
 fi
+echo "go_core_tests exiting with code $EXITCODE"
 exit $EXITCODE
