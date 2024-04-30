@@ -108,6 +108,23 @@ func TestORM(t *testing.T) {
 		compareOCRJobSpecs(t, *jb, returnedSpec)
 	})
 
+	t.Run("it correctly mark job_pipeline_specs as primary when creating a job", func(t *testing.T) {
+		jb2 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
+		err := orm.CreateJob(jb2)
+		require.NoError(t, err)
+
+		var pipelineSpec pipeline.Spec
+		err = db.Get(&pipelineSpec, "SELECT pipeline_specs.* FROM pipeline_specs JOIN job_pipeline_specs ON (pipeline_specs.id = job_pipeline_specs.pipeline_spec_id) WHERE job_pipeline_specs.job_id = $1", jb2.ID)
+		require.NoError(t, err)
+		var jobPipelineSpec job.PipelineSpec
+		err = db.Get(&jobPipelineSpec, "SELECT * FROM job_pipeline_specs WHERE job_id = $1 AND pipeline_spec_id = $2", jb2.ID, pipelineSpec.ID)
+		require.NoError(t, err)
+
+		// `jb2.PipelineSpecID` gets loaded when calling `orm.CreateJob()` so we can compare it directly
+		assert.Equal(t, jb2.PipelineSpecID, pipelineSpec.ID)
+		assert.True(t, jobPipelineSpec.IsPrimary)
+	})
+
 	t.Run("autogenerates external job ID if missing", func(t *testing.T) {
 		jb2 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 		jb2.ExternalJobID = uuid.UUID{}
@@ -126,7 +143,7 @@ func TestORM(t *testing.T) {
 
 		err := db.Select(&dbSpecs, "SELECT * FROM jobs")
 		require.NoError(t, err)
-		require.Len(t, dbSpecs, 2)
+		require.Len(t, dbSpecs, 3)
 
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
@@ -134,7 +151,7 @@ func TestORM(t *testing.T) {
 		dbSpecs = []job.Job{}
 		err = db.Select(&dbSpecs, "SELECT * FROM jobs")
 		require.NoError(t, err)
-		require.Len(t, dbSpecs, 1)
+		require.Len(t, dbSpecs, 2)
 	})
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
@@ -1729,6 +1746,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 
 	run := pipeline.Run{
 		PipelineSpecID: j.PipelineSpecID,
+		PruningKey:     j.ID,
 		State:          pipeline.RunStatusRunning,
 		Outputs:        jsonserializable.JSONSerializable{Valid: false},
 		AllErrors:      pipeline.RunErrors{},

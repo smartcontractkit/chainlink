@@ -3,10 +3,13 @@ package workflows
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
@@ -18,13 +21,13 @@ import (
 
 const hardcodedWorkflow = `
 triggers:
-  - type: "on_mercury_report"
+  - type: "mercury-trigger"
     config:
-      feedlist:
-        - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
-        - "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
-        - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
-        
+      feedIds:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000"
+        - "0x2222222222222222222200000000000000000000000000000000000000000000"
+        - "0x3333333333333333333300000000000000000000000000000000000000000000"
+
 consensus:
   - type: "offchain_reporting"
     ref: "evm_median"
@@ -36,13 +39,13 @@ consensus:
       aggregation_config:
         "0x1111111111111111111100000000000000000000000000000000000000000000":
           deviation: "0.001"
-          heartbeat: "30m"
+          heartbeat: 3600
         "0x2222222222222222222200000000000000000000000000000000000000000000":
           deviation: "0.001"
-          heartbeat: "30m"
+          heartbeat: 3600
         "0x3333333333333333333300000000000000000000000000000000000000000000":
           deviation: "0.001"
-          heartbeat: "30m"
+          heartbeat: 3600
       encoder: "EVM"
       encoder_config:
         abi: "mercury_reports bytes[]"
@@ -50,25 +53,24 @@ consensus:
 targets:
   - type: "write_polygon-testnet-mumbai"
     inputs:
-      report:
-        - "$(evm_median.outputs.reports)"
+      report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
-      params: ["$(inputs.report)"]
+      params: ["$(report)"]
       abi: "receive(report bytes)"
   - type: "write_ethereum-testnet-sepolia"
     inputs:
-      report:
-        - "$(evm_median.outputs.reports)"
+      report: "$(evm_median.outputs.report)"
     config:
       address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
-      params: ["$(inputs.report)"]
+      params: ["$(report)"]
       abi: "receive(report bytes)"
 `
 
 type Delegate struct {
-	registry types.CapabilitiesRegistry
-	logger   logger.Logger
+	registry        types.CapabilitiesRegistry
+	logger          logger.Logger
+	legacyEVMChains legacyevm.LegacyChainContainer
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -87,10 +89,25 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) er
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
+	// NOTE: we temporarily do registration inside ServicesForSpec, this will be moved out of job specs in the future
+	err := targets.InitializeWrite(d.registry, d.legacyEVMChains, d.logger)
+	if err != nil {
+		d.logger.Errorw("could not initialize writes", err)
+	}
+
+	trigger := triggers.NewMercuryTriggerService(d.logger)
+	err = d.registry.Add(context.Background(), trigger)
+	if err != nil {
+		d.logger.Errorw("could not add mercury trigger to registry", err)
+	} else {
+		go mercuryEventLoop(trigger, d.logger)
+	}
+
 	cfg := Config{
-		Lggr:     d.logger,
-		Spec:     hardcodedWorkflow,
-		Registry: d.registry,
+		Lggr:       d.logger,
+		Spec:       hardcodedWorkflow,
+		Registry:   d.registry,
+		WorkflowID: mockedWorkflowID,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -100,10 +117,53 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 }
 
 func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) *Delegate {
-	// NOTE: we temporarily do registration inside NewDelegate, this will be moved out of job specs in the future
-	_ = targets.InitializeWrite(registry, legacyEVMChains, logger)
+	return &Delegate{logger: logger, registry: registry, legacyEVMChains: legacyEVMChains}
+}
 
-	return &Delegate{logger: logger, registry: registry}
+func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Logger) {
+	sleepSec := 60 * time.Second
+	ticker := time.NewTicker(sleepSec)
+	defer ticker.Stop()
+
+	prices := []int64{300000, 2000, 5000000}
+
+	for range ticker.C {
+		for i := range prices {
+			prices[i] = prices[i] + 1
+		}
+
+		t := time.Now().Round(sleepSec).Unix()
+		reports, err := emitReports(logger, trigger, t, prices)
+		if err != nil {
+			logger.Errorw("failed to process Mercury reports", "err", err, "timestamp", time.Now().Unix(), "payload", reports)
+		}
+	}
+}
+
+func emitReports(logger logger.Logger, trigger *triggers.MercuryTriggerService, t int64, prices []int64) ([]triggers.FeedReport, error) {
+	reports := []triggers.FeedReport{
+		{
+			FeedID:               mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000").Bytes(),
+			FullReport:           []byte{},
+			BenchmarkPrice:       prices[0],
+			ObservationTimestamp: t,
+		},
+		{
+			FeedID:               mercury.FeedID("0x2222222222222222222200000000000000000000000000000000000000000000").Bytes(),
+			FullReport:           []byte{},
+			BenchmarkPrice:       prices[1],
+			ObservationTimestamp: t,
+		},
+		{
+			FeedID:               mercury.FeedID("0x3333333333333333333300000000000000000000000000000000000000000000").Bytes(),
+			FullReport:           []byte{},
+			BenchmarkPrice:       prices[2],
+			ObservationTimestamp: t,
+		},
+	}
+
+	logger.Infow("New set of Mercury reports", "timestamp", time.Now().Unix(), "payload", reports)
+	return reports, trigger.ProcessReport(reports)
 }
 
 func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {

@@ -116,6 +116,3 @@ override*.toml
 
 # Pythin venv
 .venv/
-
-# Temp Changelog migration
-CHANGELOG.md

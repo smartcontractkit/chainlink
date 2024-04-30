@@ -1,12 +1,17 @@
-{ pkgs ? import <nixpkgs> { } }:
+{ pkgs }:
 with pkgs;
 let
   go = go_1_21;
   postgresql = postgresql_14;
   nodejs = nodejs-18_x;
   nodePackages = pkgs.nodePackages.override { inherit nodejs; };
+
+  mkShell' = mkShell.override {
+    # The current nix default sdk for macOS fails to compile go projects, so we use a newer one for now.
+    stdenv = if stdenv.isDarwin then overrideSDK stdenv "11.0" else stdenv;
+  };
 in
-mkShell {
+mkShell' {
   nativeBuildInputs = [
     go
     goreleaser
