@@ -20,8 +20,8 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     changePrank(STRANGER);
     CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
 
-    string[] memory capabilityIds = new string[](1);
-    capabilityIds[0] = "ccip-exec-0.0.1";
+    bytes32[] memory capabilityIds = new bytes32[](1);
+    capabilityIds[0] = s_basicCapabilityId;
 
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
@@ -37,8 +37,8 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
     CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
 
-    string[] memory capabilityIds = new string[](1);
-    capabilityIds[0] = "ccip-exec-0.0.1";
+    bytes32[] memory capabilityIds = new bytes32[](1);
+    capabilityIds[0] = s_basicCapabilityId;
 
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
@@ -55,8 +55,8 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
     CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
 
-    string[] memory capabilityIds = new string[](1);
-    capabilityIds[0] = "ccip-exec-0.0.1";
+    bytes32[] memory capabilityIds = new bytes32[](1);
+    capabilityIds[0] = s_basicCapabilityId;
 
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
@@ -72,8 +72,9 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
 
     CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
-    string[] memory capabilityIds = new string[](1);
-    capabilityIds[0] = "ccip-exec-0.0.1";
+    bytes32[] memory capabilityIds = new bytes32[](2);
+    capabilityIds[0] = s_basicCapabilityId;
+    capabilityIds[1] = s_capabilityWithConfigurationContractId;
 
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
@@ -88,7 +89,8 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     CapabilityRegistry.Node memory node = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
     assertEq(node.p2pId, P2P_ID);
-    assertEq(node.supportedCapabilityIds.length, 1);
-    assertEq(node.supportedCapabilityIds[0], "ccip-exec-0.0.1");
+    assertEq(node.supportedCapabilityIds.length, 2);
+    assertEq(node.supportedCapabilityIds[0], s_basicCapabilityId);
+    assertEq(node.supportedCapabilityIds[1], s_capabilityWithConfigurationContractId);
   }
 }

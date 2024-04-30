@@ -27,7 +27,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// Registry and the P2P network.
     bytes p2pId;
     /// @notice The list of capability IDs this node supports
-    string[] supportedCapabilityIds;
+    bytes32[] supportedCapabilityIds;
   }
 
   // CapabilityResponseType indicates whether remote response requires
@@ -81,9 +81,13 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// admin address to the zero address
   error InvalidNodeOperatorAdmin();
 
-  /// @notice This error is thrown when trying to configure the node's
-  /// p2p ID to an empty bytes
+  /// @notice This error is thrown when trying to configure the node's P2P ID
+  /// to an empty bytes or a duplicate.
   error InvalidNodeP2PId();
+
+  /// @notice This error is thrown when trying to add a node without
+  /// capabilities or with capabilities that do not exist.
+  error InvalidNodeCapabilities();
 
   /// @notice This event is emitted when a new node is added
   /// @param p2pId The P2P ID of the node

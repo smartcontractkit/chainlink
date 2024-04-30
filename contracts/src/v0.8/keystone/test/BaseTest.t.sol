@@ -11,6 +11,8 @@ contract BaseTest is Test, Constants {
   CapabilityConfigurationContract internal s_capabilityConfigurationContract;
   CapabilityRegistry.Capability internal s_basicCapability;
   CapabilityRegistry.Capability internal s_capabilityWithConfigurationContract;
+  bytes32 internal s_basicCapabilityId;
+  bytes32 internal s_capabilityWithConfigurationContractId;
 
   function setUp() public virtual {
     vm.startPrank(ADMIN);
@@ -30,6 +32,15 @@ contract BaseTest is Test, Constants {
       responseType: CapabilityRegistry.CapabilityResponseType.OBSERVATION_IDENTICAL,
       configurationContract: address(s_capabilityConfigurationContract)
     });
+
+    s_basicCapabilityId = s_capabilityRegistry.getCapabilityID(
+      s_basicCapability.capabilityType,
+      s_basicCapability.version
+    );
+    s_capabilityWithConfigurationContractId = s_capabilityRegistry.getCapabilityID(
+      s_capabilityWithConfigurationContract.capabilityType,
+      s_capabilityWithConfigurationContract.version
+    );
   }
 
   function _getNodeOperators() internal view returns (CapabilityRegistry.NodeOperator[] memory) {
