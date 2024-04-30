@@ -27,7 +27,7 @@ triggers:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
         - "0x2222222222222222222200000000000000000000000000000000000000000000"
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
-        
+
 consensus:
   - type: "offchain_reporting"
     ref: "evm_median"
@@ -95,7 +95,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		d.logger.Errorw("could not initialize writes", err)
 	}
 
-	trigger := triggers.NewMercuryTriggerService()
+	trigger := triggers.NewMercuryTriggerService(d.logger)
 	err = d.registry.Add(context.Background(), trigger)
 	if err != nil {
 		d.logger.Errorw("could not add mercury trigger to registry", err)
