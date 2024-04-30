@@ -3079,6 +3079,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
+[Transactions.AutoPurge]
+Enabled = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -3163,6 +3166,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
 
 [BalanceMonitor]
 Enabled = true

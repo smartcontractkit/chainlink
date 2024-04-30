@@ -20,7 +20,7 @@ const (
 	ChainWeMix           ChainType = "wemix"
 	ChainXDai            ChainType = "xdai" // Deprecated: use ChainGnosis instead
 	ChainXLayer          ChainType = "xlayer"
-  ChainZkEvm           ChainType = "zkevm"
+	ChainZkEvm           ChainType = "zkevm"
 	ChainZkSync          ChainType = "zksync"
 )
 
@@ -34,7 +34,7 @@ var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Joi
 	string(ChainScroll),
 	string(ChainWeMix),
 	string(ChainXLayer),
-  string(ChainZkEvm),
+	string(ChainZkEvm),
 	string(ChainZkSync),
 }, ", "))
 
