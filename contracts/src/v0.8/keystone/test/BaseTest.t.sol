@@ -9,11 +9,27 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract BaseTest is Test, Constants {
   CapabilityRegistry internal s_capabilityRegistry;
   CapabilityConfigurationContract internal s_capabilityConfigurationContract;
+  CapabilityRegistry.Capability internal s_basicCapability;
+  CapabilityRegistry.Capability internal s_capabilityWithConfigurationContract;
 
   function setUp() public virtual {
     vm.startPrank(ADMIN);
     s_capabilityRegistry = new CapabilityRegistry();
     s_capabilityConfigurationContract = new CapabilityConfigurationContract();
+
+    s_basicCapability = CapabilityRegistry.Capability({
+      capabilityType: "data-streams-reports",
+      version: "1.0.0",
+      responseType: CapabilityRegistry.CapabilityResponseType.REPORT,
+      configurationContract: address(0)
+    });
+
+    s_capabilityWithConfigurationContract = CapabilityRegistry.Capability({
+      capabilityType: "read-ethereum-mainnet-gas-price",
+      version: "1.0.2",
+      responseType: CapabilityRegistry.CapabilityResponseType.OBSERVATION_IDENTICAL,
+      configurationContract: address(s_capabilityConfigurationContract)
+    });
   }
 
   function _getNodeOperators() internal view returns (CapabilityRegistry.NodeOperator[] memory) {
