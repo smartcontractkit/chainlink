@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {Test} from "forge-std/Test.sol";
 import {FeeManagerNoNative} from "../../FeeManagerNoNative.sol";
+import {FeeManager} from "../../FeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../libraries/Common.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
@@ -59,16 +60,16 @@ contract BaseFeeManagerNoNativeTest is Test {
   address internal constant NATIVE_WITHDRAW_ADDRESS = address(0);
 
   //the selector for each error
-  bytes4 internal immutable INVALID_DISCOUNT_ERROR = FeeManagerNoNative.InvalidDiscount.selector;
-  bytes4 internal immutable INVALID_ADDRESS_ERROR = FeeManagerNoNative.InvalidAddress.selector;
-  bytes4 internal immutable INVALID_SURCHARGE_ERROR = FeeManagerNoNative.InvalidSurcharge.selector;
-  bytes4 internal immutable EXPIRED_REPORT_ERROR = FeeManagerNoNative.ExpiredReport.selector;
-  bytes4 internal immutable INVALID_QUOTE_ERROR = FeeManagerNoNative.InvalidQuote.selector;
-  bytes4 internal immutable UNAUTHORIZED_ERROR = FeeManagerNoNative.Unauthorized.selector;
+  bytes4 internal immutable INVALID_DISCOUNT_ERROR = FeeManager.InvalidDiscount.selector;
+  bytes4 internal immutable INVALID_ADDRESS_ERROR = FeeManager.InvalidAddress.selector;
+  bytes4 internal immutable INVALID_SURCHARGE_ERROR = FeeManager.InvalidSurcharge.selector;
+  bytes4 internal immutable EXPIRED_REPORT_ERROR = FeeManager.ExpiredReport.selector;
+  bytes4 internal immutable INVALID_QUOTE_ERROR = FeeManager.InvalidQuote.selector;
+  bytes4 internal immutable UNAUTHORIZED_ERROR = FeeManager.Unauthorized.selector;
   bytes4 internal immutable NATIVE_BILLING_DISALLOWED = FeeManagerNoNative.NativeBillingDisallowed.selector;
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
-  bytes4 internal immutable ZERO_DEFICIT = FeeManagerNoNative.ZeroDeficit.selector;
+  bytes4 internal immutable ZERO_DEFICIT = FeeManager.ZeroDeficit.selector;
 
   //events emitted
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint64 discount);

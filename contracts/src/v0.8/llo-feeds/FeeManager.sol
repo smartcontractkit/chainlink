@@ -173,7 +173,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     bytes calldata payload,
     bytes calldata parameterPayload,
     address subscriber
-  ) external payable override onlyProxy {
+  ) external virtual payable override onlyProxy {
     (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
       payload,
       parameterPayload,
@@ -200,7 +200,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     bytes[] calldata payloads,
     bytes calldata parameterPayload,
     address subscriber
-  ) external payable override onlyProxy {
+  ) external virtual payable override onlyProxy {
     FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
 
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
