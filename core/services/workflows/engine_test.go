@@ -14,6 +14,7 @@ import (
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 const hardcodedWorkflow = `
@@ -63,6 +64,44 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
+
+// newTestEngine creates a new engine with some test defaults.
+func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (eng *Engine, initFailed chan struct{}) {
+	peerID := p2ptypes.PeerID{}
+	initFailed = make(chan struct{})
+	cfg := Config{
+		Lggr:       logger.TestLogger(t),
+		Registry:   reg,
+		Spec:       spec,
+		DONInfo:    nil,
+		PeerID:     func() *p2ptypes.PeerID { return &peerID },
+		maxRetries: 1,
+		retryMs:    100,
+		afterInit: func(success bool) {
+			if !success {
+				close(initFailed)
+			}
+		},
+	}
+	eng, err := NewEngine(cfg)
+	require.NoError(t, err)
+	return eng, initFailed
+}
+
+// getExecutionId returns the execution id of the workflow that is
+// currently being executed by the engine.
+//
+// If the engine fails to initialize, the test will fail rather
+// than blocking indefinitely.
+func getExecutionId(t *testing.T, eng *Engine, initFailed <-chan struct{}) string {
+	var eid string
+	select {
+	case <-initFailed:
+		t.FailNow()
+	case eid = <-eng.xxxExecutionFinished:
+	}
+	return eid
+}
 
 type mockCapability struct {
 	capabilities.CapabilityInfo
@@ -136,6 +175,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting ethereum sepolia testnet",
 			"v1.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
@@ -146,20 +186,13 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, target2))
 
-	lggr := logger.TestLogger(t)
-	cfg := Config{
-		Lggr:     lggr,
-		Registry: reg,
-		Spec:     hardcodedWorkflow,
-	}
-	eng, err := NewEngine(cfg)
-	require.NoError(t, err)
+	eng, initFailed := newTestEngine(t, reg, hardcodedWorkflow)
 
-	err = eng.Start(ctx)
+	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := <-eng.xxxExecutionFinished
+	eid := getExecutionId(t, eng, initFailed)
 	assert.Equal(t, cr, <-target1.response)
 	assert.Equal(t, cr, <-target2.response)
 
@@ -219,6 +252,7 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			"v1.0.0",
+			nil,
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
@@ -242,6 +276,7 @@ func mockFailingConsensus() *mockCapability {
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			"v3.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{}, errors.New("fatal consensus error")
@@ -256,6 +291,7 @@ func mockConsensus() *mockCapability {
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			"v3.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			obs := req.Inputs.Underlying["observations"]
@@ -282,6 +318,7 @@ func mockTarget() *mockCapability {
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
 			"v1.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
@@ -303,19 +340,13 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockFailingConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	cfg := Config{
-		Lggr:     logger.TestLogger(t),
-		Registry: reg,
-		Spec:     simpleWorkflow,
-	}
-	eng, err := NewEngine(cfg)
-	require.NoError(t, err)
+	eng, initFailed := newTestEngine(t, reg, simpleWorkflow)
 
-	err = eng.Start(ctx)
+	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := <-eng.xxxExecutionFinished
+	eid := getExecutionId(t, eng, initFailed)
 	state, err := eng.executionStates.get(ctx, eid)
 	require.NoError(t, err)
 
@@ -383,6 +414,7 @@ func mockAction() (*mockCapability, values.Value) {
 			capabilities.CapabilityTypeAction,
 			"a read chain action",
 			"v1.0.0",
+			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 
@@ -407,19 +439,12 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	action, out := mockAction()
 	require.NoError(t, reg.Add(ctx, action))
 
-	cfg := Config{
-		Lggr:     logger.TestLogger(t),
-		Registry: reg,
-		Spec:     multiStepWorkflow,
-	}
-	eng, err := NewEngine(cfg)
-	require.NoError(t, err)
-
-	err = eng.Start(ctx)
+	eng, initFailed := newTestEngine(t, reg, multiStepWorkflow)
+	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := <-eng.xxxExecutionFinished
+	eid := getExecutionId(t, eng, initFailed)
 	state, err := eng.executionStates.get(ctx, eid)
 	require.NoError(t, err)
 

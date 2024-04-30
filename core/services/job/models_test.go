@@ -219,6 +219,13 @@ func TestOCR2OracleSpec(t *testing.T) {
 				},
 			},
 		},
+		OnchainSigningStrategy: map[string]interface{}{
+			"strategyName": "single-chain",
+			"config": map[string]interface{}{
+				"evm":       "",
+				"publicKey": "0xdeadbeef",
+			},
+		},
 		PluginConfig: map[string]interface{}{"juelsPerFeeCoinSource": `  // data source 1
   ds1          [type=bridge name="%s"];
   ds1_parse    [type=jsonparse path="data"];

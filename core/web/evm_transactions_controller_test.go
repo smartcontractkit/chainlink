@@ -25,8 +25,8 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	require.NoError(t, app.Start(ctx))
 
-	db := app.GetSqlxDB()
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB())
+	db := app.GetDB()
+	txStore := cltest.NewTestTxStore(t, app.GetDB())
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	client := app.NewHTTPClient(nil)
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -84,7 +84,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	require.NoError(t, app.Start(ctx))
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB())
+	txStore := cltest.NewTestTxStore(t, app.GetDB())
 	client := app.NewHTTPClient(nil)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
@@ -118,7 +118,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	ctx := testutils.Context(t)
 	require.NoError(t, app.Start(ctx))
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB())
+	txStore := cltest.NewTestTxStore(t, app.GetDB())
 	client := app.NewHTTPClient(nil)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, from)

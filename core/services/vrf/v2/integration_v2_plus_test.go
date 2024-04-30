@@ -646,29 +646,13 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 func TestVRFV2PlusIntegration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
-	testSingleConsumerBigGasCallbackSandwich(
-		t,
-		ownerKey,
-		uni.coordinatorV2UniverseCommon,
-		uni.batchCoordinatorContractAddress,
-		false,
-		vrfcommon.V2Plus,
-		false,
-	)
+	testSingleConsumerBigGasCallbackSandwich(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2Plus, false)
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
-	testSingleConsumerMultipleGasLanes(
-		t,
-		ownerKey,
-		uni.coordinatorV2UniverseCommon,
-		uni.batchCoordinatorContractAddress,
-		false,
-		vrfcommon.V2Plus,
-		false,
-	)
+	testSingleConsumerMultipleGasLanes(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2Plus, false)
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
@@ -1178,7 +1162,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
 	jbs := createVRFJobs(
@@ -1234,7 +1218,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	require.NoError(t, err)
 	linkContractBalance, err := uni.linkContract.BalanceOf(nil, uni.migrationTestCoordinatorAddress)
 	require.NoError(t, err)
-	balance, err := uni.backend.BalanceAt(testutils.Context(t), uni.migrationTestCoordinatorAddress, nil)
+	balance, err := uni.backend.BalanceAt(ctx, uni.migrationTestCoordinatorAddress, nil)
 	require.NoError(t, err)
 
 	require.Equal(t, subV1.Balance(), totalLinkBalance)

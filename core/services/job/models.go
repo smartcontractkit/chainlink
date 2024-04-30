@@ -362,6 +362,7 @@ type OCR2OracleSpec struct {
 	BlockchainTimeout                 models.Interval      `toml:"blockchainTimeout"`
 	ContractConfigTrackerPollInterval models.Interval      `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations       uint16               `toml:"contractConfigConfirmations"`
+	OnchainSigningStrategy            JSONConfig           `toml:"onchainSigningStrategy"`
 	PluginConfig                      JSONConfig           `toml:"pluginConfig"`
 	PluginType                        types.OCR2PluginType `toml:"pluginType"`
 	CreatedAt                         time.Time            `toml:"-"`
