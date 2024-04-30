@@ -321,6 +321,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyConn(ctx context.Context, lggr logger.
 	return nodeStateAlive
 }
 
+// disconnectAll disconnects all clients connected to the node
+// WARNING: NOT THREAD-SAFE
+// This must be called from within the n.stateMu lock
+func (n *node[CHAIN_ID, HEAD, RPC]) disconnectAll() {
+	n.rpc.DisconnectAll()
+}
+
 func (n *node[CHAIN_ID, HEAD, RPC]) Order() int32 {
 	return n.order
 }

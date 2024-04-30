@@ -66,6 +66,7 @@ type NodeClient[
 	connection[CHAIN_ID, HEAD]
 
 	DialHTTP() error
+	DisconnectAll()
 	Close()
 	ClientVersion(context.Context) (string, error)
 	SubscribersCount() int32

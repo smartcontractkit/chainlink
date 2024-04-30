@@ -252,6 +252,17 @@ func (r *rpcClient) registerSub(sub ethereum.Subscription) {
 	r.subs = append(r.subs, sub)
 }
 
+// disconnectAll disconnects all clients connected to the rpcClient
+// WARNING: NOT THREAD-SAFE
+// This must be called from within the r.stateMu lock
+func (r *rpcClient) DisconnectAll() {
+	if r.ws.rpc != nil {
+		r.ws.rpc.Close()
+	}
+	r.cancelInflightRequests()
+	r.unsubscribeAll()
+}
+
 // unsubscribeAll unsubscribes all subscriptions
 // WARNING: NOT THREAD-SAFE
 // This must be called from within the r.stateMu lock

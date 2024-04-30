@@ -379,6 +379,11 @@ func (_m *RPCClient) DialHTTP() error {
 	return r0
 }
 
+// DisconnectAll provides a mock function with given fields:
+func (_m *RPCClient) DisconnectAll() {
+	_m.Called()
+}
+
 // EstimateGas provides a mock function with given fields: ctx, call
 func (_m *RPCClient) EstimateGas(ctx context.Context, call interface{}) (uint64, error) {
 	ret := _m.Called(ctx, call)

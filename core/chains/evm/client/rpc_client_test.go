@@ -67,6 +67,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Run("Updates latest block info in InterceptedChainInfo", func(t *testing.T) {
 		server := createRPCServer()
 		rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
+		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		maxBlockNumber, maxFinalizedBlockNumber := rpc.GetInterceptedChainInfo()
 		require.Equal(t, int64(0), maxBlockNumber)
@@ -88,6 +89,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := createRPCServer()
 		rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
+		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		server.Head = &evmtypes.Head{
 			Number: 256,
@@ -130,6 +132,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	server := createRPCServer()
 	rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
 	require.NoError(t, rpc.Dial(ctx))
+	defer rpc.Close()
 	server.Head = &evmtypes.Head{Number: 128}
 	// updates chain info
 	_, err := rpc.LatestFinalizedBlock(ctx)
