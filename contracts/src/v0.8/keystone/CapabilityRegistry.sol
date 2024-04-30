@@ -23,10 +23,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The id of the node operator that manages this node
     uint256 nodeOperatorId;
     /// @notice This is an Ed25519 public key that is used to identify a node.
-    /// This key MUST be globally unique and is used to identify a node in the
-    /// Registry and the P2P network.
+    /// This key is guaranteed to be unique in the CapabilityRegistry. It is
+    /// used to identify a node in the the P2P network.
     bytes p2pId;
-    /// @notice The list of capability IDs this node supports
+    /// @notice The list of capability IDs this node supports. This list is
+    /// never empty and all capabilities are guaranteed to exist in the
+    /// CapabilityRegistry.
     bytes32[] supportedCapabilityIds;
   }
 
@@ -222,6 +224,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       Node memory node = nodes[i];
 
       if (node.supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(node.supportedCapabilityIds);
+
+      for (uint256 j; j < node.supportedCapabilityIds.length; ++j) {
+        if (!s_capabilityIds.contains(node.supportedCapabilityIds[j]))
+          revert InvalidNodeCapabilities(node.supportedCapabilityIds);
+      }
 
       bool nodeExists = s_nodes[node.p2pId].supportedCapabilityIds.length > 0;
       if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId();

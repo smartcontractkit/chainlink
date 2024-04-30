@@ -14,6 +14,8 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     BaseTest.setUp();
     changePrank(ADMIN);
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
+    s_capabilityRegistry.addCapability(s_basicCapability);
+    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
   }
 
   function test_RevertWhen_CalledByNonNodeOperatorAdmin() public {
@@ -62,6 +64,23 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
       p2pId: P2P_ID,
       supportedCapabilityIds: capabilityIds
     });
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeCapabilities.selector, capabilityIds));
+    s_capabilityRegistry.addNodes(nodes);
+  }
+
+  function test_RevertWhen_AddingNodeWithInvalidCapability() public {
+    changePrank(NODE_OPERATOR_ONE_ADMIN);
+    CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
+
+    bytes32[] memory capabilityIds = new bytes32[](1);
+    capabilityIds[0] = s_capabilityRegistry.getCapabilityID("non-existent-capability", "1.0.0");
+
+    nodes[0] = CapabilityRegistry.Node({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: P2P_ID,
+      supportedCapabilityIds: capabilityIds
+    });
+
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeCapabilities.selector, capabilityIds));
     s_capabilityRegistry.addNodes(nodes);
   }
