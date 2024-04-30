@@ -7,7 +7,7 @@ inputs:
     required: true
   name:
     description: Name of the lint action
-    default: lint
+    required: true
   go-directory:
     description: Go directory to run commands from
     default: "."
