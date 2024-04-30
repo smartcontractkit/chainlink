@@ -9,5 +9,5 @@ contract Constants {
   address internal NODE_OPERATOR_TWO_ADMIN = address(4);
   string internal NODE_OPERATOR_TWO_NAME = "node-operator-two";
 
-  bytes internal P2P_ID = bytes("12D3KooWRAw36ARW7T81yb7Ss5WPqGV7AnLcTmK1nApkbMS6s9cx");
+  bytes32 internal P2P_ID = hex"e42415859707d90ed4dc534ad730f187a17b0c368e1beec2e9b995587c4b0a05";
 }

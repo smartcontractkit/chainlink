@@ -5,7 +5,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_AddNodesTest is BaseTest {
-  event NodeAdded(bytes p2pId, uint256 nodeOperatorId);
+  event NodeAdded(bytes32 p2pId, uint256 nodeOperatorId);
 
   uint256 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
   uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 1;
@@ -62,11 +62,11 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
 
     nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
-      p2pId: bytes(""),
+      p2pId: bytes32(""),
       supportedCapabilityIds: capabilityIds
     });
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, bytes("")));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, bytes32("")));
     s_capabilityRegistry.addNodes(nodes);
   }
 
