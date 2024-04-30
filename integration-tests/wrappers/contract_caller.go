@@ -155,8 +155,8 @@ func (w *WrappedContractBackend) CallContract(ctx context.Context, msg ethereum.
 
 			return false
 		}),
-		retry.Attempts(uint(10)),
-		retry.Delay(1*time.Second),
+		retry.Attempts(uint(1000)),
+		retry.Delay(5*time.Second),
 		retry.OnRetry(func(n uint, err error) {
 			w.l.Info().
 				Str("Attempt", fmt.Sprintf("%d/%d", n+1, 10)).
