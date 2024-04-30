@@ -74,6 +74,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// exists.
   error CapabilityAlreadyExists();
 
+  /// @notice This error is thrown when a capability with the provided ID is
+  /// not found.
+  /// @param capabilityId The ID used for the lookup.
+  error CapabilityDoesNotExist(bytes32 capabilityId);
+
+  /// @notice This error is thrown when trying to deprecate a capability that
+  /// is already deprecated.
+  /// @param capabilityId The ID of the capability that is already deprecated.
+  error CapabilityAlreadyDeprecated(bytes32 capabilityId);
+
   /// @notice This error is thrown when trying to add a capability with a
   /// configuration contract that does not implement the required interface.
   /// @param proposedConfigurationContract The address of the proposed
@@ -101,8 +111,13 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param capabilityId The ID of the newly added capability
   event CapabilityAdded(bytes32 indexed capabilityId);
 
+  /// @notice This event is emitted when a capability is deprecated
+  /// @param capabilityId The ID of the deprecated capability
+  event CapabilityDeprecated(bytes32 indexed capabilityId);
+
   mapping(bytes32 => Capability) private s_capabilities;
   EnumerableSet.Bytes32Set private s_capabilityIds;
+  EnumerableSet.Bytes32Set private s_deprecatedCapabilityIds;
 
   /// @notice Mapping of node operators
   mapping(uint256 nodeOperatorId => NodeOperator) private s_nodeOperators;
@@ -189,6 +204,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     emit CapabilityAdded(capabilityId);
   }
 
+  /// @notice Deprecates a capability by adding it to the deprecated list
+  /// @param capabilityId The ID of the capability to deprecate
+  function deprecateCapability(bytes32 capabilityId) external onlyOwner {
+    if (!s_capabilityIds.contains(capabilityId)) revert CapabilityDoesNotExist(capabilityId);
+    if (s_deprecatedCapabilityIds.contains(capabilityId)) revert CapabilityAlreadyDeprecated(capabilityId);
+
+    s_deprecatedCapabilityIds.add(capabilityId);
+    emit CapabilityDeprecated(capabilityId);
+  }
+
   function getCapability(bytes32 capabilityID) public view returns (Capability memory) {
     return s_capabilities[capabilityID];
   }
@@ -199,11 +224,22 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @return Capability[] An array of capabilities
   function getCapabilities() external view returns (Capability[] memory) {
     bytes32[] memory capabilityIds = s_capabilityIds.values();
-    Capability[] memory capabilities = new Capability[](capabilityIds.length);
+
+    // Solidity does not support dynamic arrays in memory, so we create a
+    // fixed-size array and copy the capabilities into it.
+    Capability[] memory capabilities = new Capability[](capabilityIds.length - s_deprecatedCapabilityIds.length());
+
+    // We need to keep track of the new index because we are skipping
+    // deprecated capabilities.
+    uint256 newIndex;
 
     for (uint256 i; i < capabilityIds.length; ++i) {
       bytes32 capabilityId = capabilityIds[i];
-      capabilities[i] = getCapability(capabilityId);
+
+      if (!s_deprecatedCapabilityIds.contains(capabilityId)) {
+        capabilities[newIndex] = getCapability(capabilityId);
+        newIndex++;
+      }
     }
 
     return capabilities;
@@ -213,5 +249,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @return bytes32 A unique identifier for the capability
   function getCapabilityID(bytes32 capabilityType, bytes32 version) public pure returns (bytes32) {
     return keccak256(abi.encodePacked(capabilityType, version));
+  }
+
+  /// @notice Returns whether a capability is deprecated
+  /// @param capabilityId The ID of the capability to check
+  /// @return bool True if the capability is deprecated, false otherwise
+  function isCapabilityDeprecated(bytes32 capabilityId) external view returns (bool) {
+    return s_deprecatedCapabilityIds.contains(capabilityId);
   }
 }
