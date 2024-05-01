@@ -26,15 +26,12 @@ const (
 	UpkeepFailureReasonRegistryPaused          UpkeepFailureReason = 9
 	// leaving a gap here for more onchain failure reasons in the future
 	// upkeep failure offchain reasons
-	UpkeepFailureReasonMercuryAccessNotAllowed      UpkeepFailureReason = 32
-	UpkeepFailureReasonTxHashNoLongerExists         UpkeepFailureReason = 33
-	UpkeepFailureReasonInvalidRevertDataInput       UpkeepFailureReason = 34
-	UpkeepFailureReasonSimulationFailed             UpkeepFailureReason = 35
-	UpkeepFailureReasonTxHashReorged                UpkeepFailureReason = 36
-	UpkeepFailureReasonFailToRetrieveOffchainConfig UpkeepFailureReason = 37
-	UpkeepFailureReasonFailToParseOffchainConfig    UpkeepFailureReason = 38
-	UpkeepFailureReasonFailToRetrieveGasPrice       UpkeepFailureReason = 39
-	UpkeepFailureReasonGasPriceTooHigh              UpkeepFailureReason = 40
+	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
+	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
+	UpkeepFailureReasonInvalidRevertDataInput  UpkeepFailureReason = 34
+	UpkeepFailureReasonSimulationFailed        UpkeepFailureReason = 35
+	UpkeepFailureReasonTxHashReorged           UpkeepFailureReason = 36
+	UpkeepFailureReasonGasPriceTooHigh         UpkeepFailureReason = 37
 
 	// pipeline execution error
 	NoPipelineError               PipelineExecutionState = 0
