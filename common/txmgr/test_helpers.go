@@ -2,7 +2,6 @@ package txmgr
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"time"
 
@@ -55,7 +54,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestAba
 func (b *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestInsertTx(fromAddr ADDR, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	as, ok := b.addressStates[fromAddr]
 	if !ok {
-		return fmt.Errorf("address not found: %s", fromAddr)
+		as = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](b.lggr, b.chainID, fromAddr, 10, nil)
+		b.addressStates[fromAddr] = as
 	}
 
 	as.allTxs[tx.ID] = tx
