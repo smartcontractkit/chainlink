@@ -310,13 +310,13 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		if err != nil {
 			r.lggr.Warnw("failed get offchain config", "err", err, "upkeepId", upkeepId, "block", block)
 			checkResults[i].Eligible = false
-			checkResults[i].PipelineExecutionState = uint8(encoding.UpkeepFailureReasonFailToRetrieveOffchainConfig)
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonFailToRetrieveOffchainConfig)
 			continue
 		}
 		fr := gasprice.CheckGasPrice(ctx, upkeepId, oc, r.ge, r.lggr)
 		if fr != encoding.UpkeepFailureReasonNone {
 			checkResults[i].Eligible = false
-			checkResults[i].PipelineExecutionState = uint8(fr)
+			checkResults[i].IneligibilityReason = uint8(fr)
 			continue
 		}
 

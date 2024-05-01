@@ -51,18 +51,18 @@ func CheckGasPrice(ctx context.Context, upkeepId *big.Int, oc []byte, ge gas.Evm
 		lggr.Infof("current gas price EIP-1559 is fee cap %s, tip cap %s", fee.DynamicFeeCap.String(), fee.DynamicTipCap.String())
 		if fee.DynamicFeeCap.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
 			// current gas price is higher than max gas price
-			lggr.Warnf("max gas price %s for %s is LOWER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.String())
+			lggr.Warnf("maxGasPrice %s for %s is LOWER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.Int64())
 			return encoding.UpkeepFailureReasonGasPriceTooHigh
 		}
-		lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.String())
+		lggr.Infof("maxGasPrice %s for %s is HIGHER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.Int64())
 	} else {
 		lggr.Infof("current gas price legacy is %s", fee.Legacy.String())
 		if fee.Legacy.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
 			// current gas price is higher than max gas price
-			lggr.Infof("max gas price %s for %s is LOWER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.String())
+			lggr.Infof("maxGasPrice %s for %s is LOWER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.Int64())
 			return encoding.UpkeepFailureReasonGasPriceTooHigh
 		}
-		lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.String())
+		lggr.Infof("maxGasPrice %s for %s is HIGHER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.Int64())
 	}
 
 	return encoding.UpkeepFailureReasonNone
