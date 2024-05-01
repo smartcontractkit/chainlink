@@ -635,5 +635,8 @@ func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 func (r *EvmRegistry) fetchUpkeepOffchainConfig(id *big.Int) ([]byte, error) {
 	opts := r.buildCallOpts(r.ctx, nil)
 	ui, err := r.registry.GetUpkeep(opts, id)
-	return ui.OffchainConfig, err
+	if err != nil {
+		return []byte{}, err
+	}
+	return ui.OffchainConfig, nil
 }
