@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-publish-untrusted:
-    if: ${{ ! startsWith(github.ref_name, 'release/') }}
+    if: ${{ ! startsWith(github.ref_name, 'release/') || (! startsWith(github.head_ref, 'release/') && ! startsWith(github.ref_name, 'chore/'))}}
     runs-on: ubuntu-20.04
     environment: sdlc
     permissions:
