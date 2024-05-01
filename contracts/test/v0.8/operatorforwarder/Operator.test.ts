@@ -1076,7 +1076,7 @@ describe('Operator', () => {
             .connect(roles.oracleNode)
             .fulfillOracleRequest(...convertFufillParams(request, response))
 
-          const currentValue = await basicConsumer.currentPrice()
+          const currentValue = await basicConsumer.getCurrentPrice()
           assert.equal(response, ethers.utils.parseBytes32String(currentValue))
         })
 
@@ -1105,7 +1105,7 @@ describe('Operator', () => {
               .fulfillOracleRequest(...convertFufillParams(request, response2)),
           )
 
-          const currentValue = await basicConsumer.currentPrice()
+          const currentValue = await basicConsumer.getCurrentPrice()
           assert.equal(response, ethers.utils.parseBytes32String(currentValue))
         })
       })
@@ -1528,7 +1528,7 @@ describe('Operator', () => {
                 ),
               )
 
-            const currentValue = await basicConsumer.currentPrice()
+            const currentValue = await basicConsumer.getCurrentPrice()
             assert.equal(
               response,
               ethers.utils.parseBytes32String(currentValue),
@@ -1576,7 +1576,7 @@ describe('Operator', () => {
                 ),
             )
 
-            const currentValue = await basicConsumer.currentPrice()
+            const currentValue = await basicConsumer.getCurrentPrice()
             assert.equal(
               response,
               ethers.utils.parseBytes32String(currentValue),
@@ -2149,7 +2149,7 @@ describe('Operator', () => {
                   ),
                 )
 
-              const currentValue = await multiConsumer.currentPrice()
+              const currentValue = await multiConsumer.getCurrentPrice()
               assert.equal(response, ethers.utils.toUtf8String(currentValue))
             })
 
@@ -2195,7 +2195,7 @@ describe('Operator', () => {
                   ),
               )
 
-              const currentValue = await multiConsumer.currentPrice()
+              const currentValue = await multiConsumer.getCurrentPrice()
               assert.equal(response, ethers.utils.toUtf8String(currentValue))
             })
           })

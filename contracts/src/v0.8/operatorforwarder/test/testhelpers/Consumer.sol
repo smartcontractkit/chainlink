@@ -8,7 +8,7 @@ contract Consumer is ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
   bytes32 internal s_specId;
-  bytes32 private s_currentPrice;
+  bytes32 internal s_currentPrice;
 
   event RequestFulfilled(
     bytes32 indexed requestId, // User-defined ID
@@ -51,5 +51,9 @@ contract Consumer is ChainlinkClient {
   function fulfill(bytes32 _requestId, bytes32 _price) public recordChainlinkFulfillment(_requestId) {
     emit RequestFulfilled(_requestId, _price);
     s_currentPrice = _price;
+  }
+
+  function getCurrentPrice() public view returns (bytes32) {
+    return s_currentPrice;
   }
 }

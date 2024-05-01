@@ -7,7 +7,7 @@ contract MultiWordConsumer is ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
   bytes32 internal s_specId;
-  bytes private s_currentPrice;
+  bytes internal s_currentPrice;
 
   bytes32 private s_usd;
   bytes32 private s_eur;
@@ -124,5 +124,21 @@ contract MultiWordConsumer is ChainlinkClient {
 
   function publicGetNextRequestCount() external view returns (uint256) {
     return _getNextRequestCount();
+  }
+
+  function getCurrentPrice() public view returns (bytes memory _value) {
+    return s_currentPrice;
+  }
+
+  function usd() public view returns (bytes32 _value) {
+    return s_usd;
+  }
+
+  function eur() public view returns (bytes32 _value) {
+    return s_eur;
+  }
+
+  function jpy() public view returns (bytes32 _value) {
+    return s_jpy;
   }
 }
