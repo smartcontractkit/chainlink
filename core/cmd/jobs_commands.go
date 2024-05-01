@@ -168,6 +168,10 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.WorkflowSpec != nil {
 			return p.WorkflowSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.StandardCapabilityJobSpec:
+		if p.StandardCapabilitySpec != nil {
+			return p.StandardCapabilitySpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}

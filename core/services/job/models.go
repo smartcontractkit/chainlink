@@ -48,6 +48,7 @@ const (
 	VRF                     Type = (Type)(pipeline.VRFJobType)
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)
 	Workflow                Type = (Type)(pipeline.WorkflowJobType)
+	StandardCapability      Type = (Type)(pipeline.StandardCapabilityJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -87,6 +88,7 @@ var (
 		VRF:                     true,
 		Webhook:                 true,
 		Workflow:                false,
+		StandardCapability:      false,
 	}
 	supportsAsync = map[Type]bool{
 		BlockHeaderFeeder:       false,
@@ -105,6 +107,7 @@ var (
 		VRF:                     true,
 		Webhook:                 true,
 		Workflow:                false,
+		StandardCapability:      false,
 	}
 	schemaVersions = map[Type]uint32{
 		BlockHeaderFeeder:       1,
@@ -123,6 +126,7 @@ var (
 		VRF:                     1,
 		Webhook:                 1,
 		Workflow:                1,
+		StandardCapability:      1,
 	}
 )
 
@@ -166,6 +170,8 @@ type Job struct {
 	PipelineSpec                  *pipeline.Spec
 	WorkflowSpecID                *int32
 	WorkflowSpec                  *WorkflowSpec
+	StandardCapabilitySpecID      *int32
+	StandardCapabilitySpec        *StandardCapabilitySpec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -868,5 +874,26 @@ func (w *WorkflowSpec) Validate() error {
 		return fmt.Errorf("workflow name is required")
 	}
 
+	return nil
+}
+
+type StandardCapabilitySpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+	Command   string    `toml:"command"`
+	Config    string    `toml:"config"`
+}
+
+func (w StandardCapabilitySpec) GetID() string {
+	return fmt.Sprintf("%v", w.ID)
+}
+
+func (w *StandardCapabilitySpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	w.ID = int32(ID)
 	return nil
 }
