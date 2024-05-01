@@ -19,6 +19,21 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     string name;
   }
 
+  struct Node {
+    /// @notice The id of the node operator that manages this node
+    uint256 nodeOperatorId;
+    /// @notice This is an Ed25519 public key that is used to identify a node.
+    /// This key is guaranteed to be unique in the CapabilityRegistry. It is
+    /// used to identify a node in the the P2P network.
+    bytes32 p2pId;
+    /// @notice The signer address for application-layer message verification.
+    address signer;
+    /// @notice The list of capability IDs this node supports. This list is
+    /// never empty and all capabilities are guaranteed to exist in the
+    /// CapabilityRegistry.
+    bytes32[] supportedCapabilityIds;
+  }
+
   // CapabilityResponseType indicates whether remote response requires
   // aggregation or is an already aggregated report. There are multiple
   // possible ways to aggregate.
@@ -70,6 +85,21 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// admin address to the zero address
   error InvalidNodeOperatorAdmin();
 
+  /// @notice This error is thrown when trying to add a node with P2P ID that
+  /// is empty bytes or a duplicate.
+  /// @param p2pId The provided P2P ID
+  error InvalidNodeP2PId(bytes32 p2pId);
+
+  /// @notice This error is thrown when trying to add a node without
+  /// capabilities or with capabilities that do not exist.
+  /// @param capabilityIds The IDs of the capabilities that are being added.
+  error InvalidNodeCapabilities(bytes32[] capabilityIds);
+
+  /// @notice This event is emitted when a new node is added
+  /// @param p2pId The P2P ID of the node
+  /// @param nodeOperatorId The ID of the node operator that manages this node
+  event NodeAdded(bytes32 p2pId, uint256 nodeOperatorId);
+
   /// @notice This error is thrown when trying add a capability that already
   /// exists.
   error CapabilityAlreadyExists();
@@ -120,7 +150,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   EnumerableSet.Bytes32Set private s_deprecatedCapabilityIds;
 
   /// @notice Mapping of node operators
-  mapping(uint256 nodeOperatorId => NodeOperator) private s_nodeOperators;
+  mapping(uint256 nodeOperatorId => NodeOperator nodeOperator) private s_nodeOperators;
+
+  /// @notice Mapping of nodes
+  mapping(bytes32 p2pId => Node node) private s_nodes;
 
   /// @notice The latest node operator ID
   /// @dev No getter for this as this is an implementation detail
@@ -182,6 +215,38 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @return NodeOperator The node operator data
   function getNodeOperator(uint256 nodeOperatorId) external view returns (NodeOperator memory) {
     return s_nodeOperators[nodeOperatorId];
+  }
+
+  /// @notice Adds nodes. Nodes can be added with deprecated capabilities to
+  /// avoid breaking changes when deprecating capabilities.
+  /// @param nodes The nodes to add
+  function addNodes(Node[] calldata nodes) external {
+    for (uint256 i; i < nodes.length; ++i) {
+      Node memory node = nodes[i];
+
+      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
+      if (msg.sender != nodeOperator.admin) revert AccessForbidden();
+
+      bool nodeExists = s_nodes[node.p2pId].supportedCapabilityIds.length > 0;
+      if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+
+      if (node.supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(node.supportedCapabilityIds);
+
+      for (uint256 j; j < node.supportedCapabilityIds.length; ++j) {
+        if (!s_capabilityIds.contains(node.supportedCapabilityIds[j]))
+          revert InvalidNodeCapabilities(node.supportedCapabilityIds);
+      }
+
+      s_nodes[node.p2pId] = node;
+      emit NodeAdded(node.p2pId, node.nodeOperatorId);
+    }
+  }
+
+  /// @notice Gets a node's data
+  /// @param p2pId The P2P ID of the node to query for
+  /// @return Node The node data
+  function getNode(bytes32 p2pId) external view returns (Node memory) {
+    return s_nodes[p2pId];
   }
 
   function addCapability(Capability calldata capability) external onlyOwner {
