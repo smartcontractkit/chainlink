@@ -43,8 +43,8 @@ type Engine struct {
 	stopCh              services.StopChan
 	newWorkerTimeout    time.Duration
 
-	// Used for testing to wait for an execution to complete
-	xxxExecutionFinished chan string
+	// testing lifecycle hook to signal when an execution is finished.
+	onExecutionFinished func(string)
 	// testing lifecycle hook to signal initialization status
 	afterInit func(success bool)
 	// Used for testing to control the number of retries
@@ -511,14 +511,7 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 		return err
 	}
 
-	// Signal that an execution has finished in a
-	// non-blocking fashion. This is intended for
-	// testing purposes only.
-	select {
-	case e.xxxExecutionFinished <- executionID:
-	default:
-	}
-
+	e.onExecutionFinished(executionID)
 	return nil
 }
 
@@ -688,9 +681,10 @@ type Config struct {
 	PeerID           func() *p2ptypes.PeerID
 
 	// For testing purposes only
-	maxRetries int
-	retryMs    int
-	afterInit  func(success bool)
+	maxRetries          int
+	retryMs             int
+	afterInit           func(success bool)
+	onExecutionFinished func(weid string)
 }
 
 const (
@@ -718,6 +712,10 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	if cfg.afterInit == nil {
 		cfg.afterInit = func(success bool) {}
+	}
+
+	if cfg.onExecutionFinished == nil {
+		cfg.onExecutionFinished = func(weid string) {}
 	}
 
 	// TODO: validation of the workflow spec
@@ -756,11 +754,11 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		triggerEvents:       make(chan capabilities.CapabilityResponse),
 		stopCh:              make(chan struct{}),
 		newWorkerTimeout:    cfg.NewWorkerTimeout,
-		// For testing purposes only
-		xxxExecutionFinished: make(chan string),
-		afterInit:            cfg.afterInit,
-		maxRetries:           cfg.maxRetries,
-		retryMs:              cfg.retryMs,
+
+		onExecutionFinished: cfg.onExecutionFinished,
+		afterInit:           cfg.afterInit,
+		maxRetries:          cfg.maxRetries,
+		retryMs:             cfg.retryMs,
 	}
 	return engine, nil
 }
