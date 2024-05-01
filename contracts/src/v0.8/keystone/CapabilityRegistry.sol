@@ -7,6 +7,9 @@ import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfac
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.sol";
 
+// CapabilityRegistry is used to manage Nodes (including their links to Node
+// Operators), Capabilities, and DONs (Decentralized Oracle Networks) which are
+// sets of nodes that support those Capabilities.
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
@@ -44,28 +47,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     OBSERVATION_IDENTICAL
   }
 
-  // CapabilityConfiguration is a struct that holds the DON configuration of a
-  // capability. This configuration will likely differ between different DON
-  // instances serving the same capability.
-  struct CapabilityConfiguration {
-    // This is unique for a DON instance (enforced).
-    bytes32 capabilityId;
-    // This is used in the config digest to ensure uniqueness. Increments by 1
-    // each time onchainConfig is updated (enforced).
-    uint32 onchainConfigVersion;
-    // This is used in the config digest to ensure uniqueness. Increments by 1
-    // each time offchainConfig is updated (enforced).
-    uint32 offchainConfigVersion;
-    // This configuration is expected to be decodeable on-chain (not enforced).
-    // Any configuration that does not need to be verified on chain should live
-    // in the `offchainConfig`. This configuration can be updated together with
-    // DON nodes.
-    bytes onchainConfig;
-    // This allows fine-grained configuration of capabilities across DON
-    // instances. This configuration can be updated together with DON nodes.
-    bytes offchainConfig;
-  }
-
   struct Capability {
     // Capability type, e.g. "data-streams-reports"
     // bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
@@ -91,6 +72,41 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     // It is not recommended to store configuration which requires knowledge of
     // the DON membership.
     address configurationContract;
+  }
+
+  // CapabilityConfiguration is a struct that holds the capability
+  // configuration for a DON instance. This configuration may differ between
+  // DON instances serving the same capability.
+  struct CapabilityConfiguration {
+    // This is unique for a DON instance .
+    bytes32 capabilityId;
+    // This is used in the config digest to ensure uniqueness. Computed,
+    // auto-incremented.
+    uint32 onchainConfigVersion;
+    // This is used in the config digest to ensure uniqueness. Computed,
+    // auto-incremented.
+    uint32 offchainConfigVersion;
+    // This configuration is expected to be decodeable on-chain (not enforced).
+    // Any configuration that does not need to be verified on chain should live
+    // in the `offchainConfig`. This configuration can be updated together with
+    // DON nodes.
+    bytes onchainConfig;
+    // This allows fine-grained configuration of capabilities across DON
+    // instances. This configuration can be updated together with DON nodes.
+    bytes offchainConfig;
+  }
+
+  // DON (Decentralized Oracle Network) is a grouping of nodes that support
+  // the same capabilities.
+  struct DON {
+    // Computed. Auto-increment.
+    uint32 id;
+    // Whether the DON accepts external capability requests.
+    bool isPublic;
+    // A set of p2pIds of nodes that belong to this DON. A node (the same
+    // p2pId) can belong to multiple DONs.
+    bytes32[] nodes;
+    CapabilityConfiguration[] capabilitiesConfigurations;
   }
 
   /// @notice This error is thrown when a caller is not allowed
