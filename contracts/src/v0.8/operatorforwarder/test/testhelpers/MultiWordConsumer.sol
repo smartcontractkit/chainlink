@@ -7,15 +7,15 @@ contract MultiWordConsumer is ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
   bytes32 internal s_specId;
-  bytes public currentPrice;
+  bytes private currentPrice;
 
-  bytes32 public usd;
-  bytes32 public eur;
-  bytes32 public jpy;
+  bytes32 private usd;
+  bytes32 private eur;
+  bytes32 private jpy;
 
-  uint256 public usdInt;
-  uint256 public eurInt;
-  uint256 public jpyInt;
+  uint256 private usdInt;
+  uint256 private eurInt;
+  uint256 private jpyInt;
 
   event RequestFulfilled(
     bytes32 indexed requestId, // User-defined ID

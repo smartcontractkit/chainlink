@@ -8,7 +8,7 @@ contract Consumer is ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
   bytes32 internal s_specId;
-  bytes32 public currentPrice;
+  bytes32 private currentPrice;
 
   event RequestFulfilled(
     bytes32 indexed requestId, // User-defined ID

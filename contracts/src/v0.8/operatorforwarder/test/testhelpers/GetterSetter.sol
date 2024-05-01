@@ -3,10 +3,10 @@ pragma solidity ^0.8.0;
 // GetterSetter is a contract to aid debugging and testing during development.
 // solhint-disable
 contract GetterSetter {
-  bytes32 public getBytes32;
-  uint256 public getUint256;
-  bytes32 public requestId;
-  bytes public getBytes;
+  bytes32 private getBytes32;
+  uint256 private getUint256;
+  bytes32 private requestId;
+  bytes private getBytes;
 
   event SetBytes32(address indexed from, bytes32 indexed value);
   event SetUint256(address indexed from, uint256 indexed value);

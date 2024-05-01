@@ -1419,7 +1419,7 @@ describe('Operator', () => {
   })
 
   describe('#fulfillOracleRequest2', () => {
-    describe('single word fulfils', () => {
+    describe('single word fulfills', () => {
       const response = 'Hi mom!'
       const responseTypes = ['bytes32']
       const responseValues = [toBytes32String(response)]
@@ -2024,7 +2024,7 @@ describe('Operator', () => {
       })
     })
 
-    describe('multi word fulfils', () => {
+    describe('multi word fulfills', () => {
       describe('one bytes parameter', () => {
         const response =
           'Lorem ipsum dolor sit amet, consectetur adipiscing elit.\
