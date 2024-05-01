@@ -27,3 +27,8 @@ DBTag = '14.8'
 Name = 'node5'
 DBImage = 'postgres'
 DBTag = '15.6'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node6'
+DBImage = 'postgres'
+DBTag = '15.6'
