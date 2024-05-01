@@ -27,10 +27,10 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
   }
 
   function test_RevertWhen_CapabilityDoesNotExist() public {
-    bytes32 capabilityId = s_capabilityRegistry.getCapabilityID("non-existent-capability", "1.0.0");
-
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.CapabilityDoesNotExist.selector, capabilityId));
-    s_capabilityRegistry.deprecateCapability(capabilityId);
+    vm.expectRevert(
+      abi.encodeWithSelector(CapabilityRegistry.CapabilityDoesNotExist.selector, s_nonExistentCapabilityId)
+    );
+    s_capabilityRegistry.deprecateCapability(s_nonExistentCapabilityId);
   }
 
   function test_RevertWhen_CapabilityAlreadyDeprecated() public {
