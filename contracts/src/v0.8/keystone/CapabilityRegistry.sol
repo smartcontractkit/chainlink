@@ -224,18 +224,18 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < nodes.length; ++i) {
       Node memory node = nodes[i];
 
+      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
+      if (msg.sender != nodeOperator.admin) revert AccessForbidden();
+
+      bool nodeExists = s_nodes[node.p2pId].supportedCapabilityIds.length > 0;
+      if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+
       if (node.supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(node.supportedCapabilityIds);
 
       for (uint256 j; j < node.supportedCapabilityIds.length; ++j) {
         if (!s_capabilityIds.contains(node.supportedCapabilityIds[j]))
           revert InvalidNodeCapabilities(node.supportedCapabilityIds);
       }
-
-      bool nodeExists = s_nodes[node.p2pId].supportedCapabilityIds.length > 0;
-      if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
-
-      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
-      if (msg.sender != nodeOperator.admin) revert AccessForbidden();
 
       s_nodes[node.p2pId] = node;
       emit NodeAdded(node.p2pId, node.nodeOperatorId);
