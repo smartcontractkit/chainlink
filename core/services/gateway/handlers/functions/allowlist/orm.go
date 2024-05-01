@@ -1,28 +1,27 @@
 package allowlist
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 type ORM interface {
-	GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error)
-	CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.QOpt) error
-	DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.QOpt) error
-	PurgeAllowedSenders(qopts ...pg.QOpt) error
+	GetAllowedSenders(ctx context.Context, offset, limit uint) ([]common.Address, error)
+	CreateAllowedSenders(ctx context.Context, allowedSenders []common.Address) error
+	DeleteAllowedSenders(ctx context.Context, blockedSenders []common.Address) error
+	PurgeAllowedSenders(ctx context.Context) error
 }
 
 type orm struct {
-	q                     pg.Q
+	ds                    sqlutil.DataSource
 	lggr                  logger.Logger
 	routerContractAddress common.Address
 }
@@ -36,19 +35,19 @@ const (
 	tableName = "functions_allowlist"
 )
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, routerContractAddress common.Address) (ORM, error) {
-	if db == nil || cfg == nil || lggr == nil || routerContractAddress == (common.Address{}) {
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger, routerContractAddress common.Address) (ORM, error) {
+	if ds == nil || lggr == nil || routerContractAddress == (common.Address{}) {
 		return nil, ErrInvalidParameters
 	}
 
 	return &orm{
-		q:                     pg.NewQ(db, lggr, cfg),
+		ds:                    ds,
 		lggr:                  lggr,
 		routerContractAddress: routerContractAddress,
 	}, nil
 }
 
-func (o *orm) GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error) {
+func (o *orm) GetAllowedSenders(ctx context.Context, offset, limit uint) ([]common.Address, error) {
 	var addresses []common.Address
 	stmt := fmt.Sprintf(`
 		SELECT allowed_address
@@ -58,7 +57,7 @@ func (o *orm) GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.
 		OFFSET $2
 		LIMIT $3;
 	`, tableName)
-	err := o.q.WithOpts(qopts...).Select(&addresses, stmt, o.routerContractAddress, offset, limit)
+	err := o.ds.SelectContext(ctx, &addresses, stmt, o.routerContractAddress, offset, limit)
 	if err != nil {
 		return addresses, err
 	}
@@ -67,7 +66,12 @@ func (o *orm) GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.
 	return addresses, nil
 }
 
-func (o *orm) CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.QOpt) error {
+func (o *orm) CreateAllowedSenders(ctx context.Context, allowedSenders []common.Address) error {
+	if len(allowedSenders) == 0 {
+		o.lggr.Debugf("empty allowed senders list: %v for routerContractAddress: %s. skipping...", allowedSenders, o.routerContractAddress)
+		return nil
+	}
+
 	var valuesPlaceholder []string
 	for i := 1; i <= len(allowedSenders)*2; i += 2 {
 		valuesPlaceholder = append(valuesPlaceholder, fmt.Sprintf("($%d, $%d)", i, i+1))
@@ -82,7 +86,7 @@ func (o *orm) CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.
 		args = append(args, as, o.routerContractAddress)
 	}
 
-	_, err := o.q.WithOpts(qopts...).Exec(stmt, args...)
+	_, err := o.ds.ExecContext(ctx, stmt, args...)
 	if err != nil {
 		return err
 	}
@@ -94,7 +98,7 @@ func (o *orm) CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.
 
 // DeleteAllowedSenders is used to remove blocked senders from the functions_allowlist table.
 // This is achieved by specifying a list of blockedSenders to remove.
-func (o *orm) DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.QOpt) error {
+func (o *orm) DeleteAllowedSenders(ctx context.Context, blockedSenders []common.Address) error {
 	var valuesPlaceholder []string
 	for i := 1; i <= len(blockedSenders); i++ {
 		valuesPlaceholder = append(valuesPlaceholder, fmt.Sprintf("$%d", i+1))
@@ -110,7 +114,7 @@ func (o *orm) DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.
 		args = append(args, bs)
 	}
 
-	res, err := o.q.WithOpts(qopts...).Exec(stmt, args...)
+	res, err := o.ds.ExecContext(ctx, stmt, args...)
 	if err != nil {
 		return err
 	}
@@ -126,12 +130,12 @@ func (o *orm) DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.
 }
 
 // PurgeAllowedSenders will remove all the allowed senders for the configured orm routerContractAddress
-func (o *orm) PurgeAllowedSenders(qopts ...pg.QOpt) error {
+func (o *orm) PurgeAllowedSenders(ctx context.Context) error {
 	stmt := fmt.Sprintf(`
 		DELETE FROM %s
 		WHERE router_contract_address = $1;`, tableName)
 
-	res, err := o.q.WithOpts(qopts...).Exec(stmt, o.routerContractAddress)
+	res, err := o.ds.ExecContext(ctx, stmt, o.routerContractAddress)
 	if err != nil {
 		return err
 	}

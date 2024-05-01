@@ -215,7 +215,6 @@
   `mercury_transmit_queue_push_error_count`
   Nops should consider alerting on these.
 - Mercury now implements a local cache for fetching prices for fees, which ought to reduce latency and load on the mercury server, as well as increasing performance. It is enabled by default and can be configured with the following new config variables:
-
   ```
   [Mercury]
 
@@ -240,7 +239,6 @@
   # mercury server before retrying. Setting this to zero will wait indefinitely.
   LatestReportDeadline = "5s" # Default
   ```
-
 - New prom metrics for the mercury cache:
   `mercury_cache_fetch_failure_count`
   `mercury_cache_hit_count`

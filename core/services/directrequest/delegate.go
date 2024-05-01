@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -63,10 +63,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job)                                     {}
-func (d *Delegate) AfterJobCreated(spec job.Job)                                      {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job)                                     {}
-func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(spec job.Job)              {}
+func (d *Delegate) AfterJobCreated(spec job.Job)               {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)              {}
+func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec returns the log listener service for a direct request job
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
@@ -191,7 +191,7 @@ func (l *listener) Close() error {
 	})
 }
 
-func (l *listener) HandleLog(lb log.Broadcast) {
+func (l *listener) HandleLog(ctx context.Context, lb log.Broadcast) {
 	log := lb.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
 		l.logger.Error("HandleLog: ignoring nil value")
@@ -215,36 +215,37 @@ func (l *listener) HandleLog(lb log.Broadcast) {
 }
 
 func (l *listener) processOracleRequests() {
+	ctx, cancel := l.chStop.NewCtx()
+	defer cancel()
 	for {
 		select {
 		case <-l.chStop:
 			l.shutdownWaitGroup.Done()
 			return
 		case <-l.mbOracleRequests.Notify():
-			l.handleReceivedLogs(l.mbOracleRequests)
+			l.handleReceivedLogs(ctx, l.mbOracleRequests)
 		}
 	}
 }
 
 func (l *listener) processCancelOracleRequests() {
+	ctx, cancel := l.chStop.NewCtx()
+	defer cancel()
 	for {
 		select {
 		case <-l.chStop:
 			l.shutdownWaitGroup.Done()
 			return
 		case <-l.mbOracleCancelRequests.Notify():
-			l.handleReceivedLogs(l.mbOracleCancelRequests)
+			l.handleReceivedLogs(ctx, l.mbOracleCancelRequests)
 		}
 	}
 }
 
-func (l *listener) handleReceivedLogs(mailbox *mailbox.Mailbox[log.Broadcast]) {
-	ctx, cancel := l.chStop.NewCtx()
-	defer cancel()
-
+func (l *listener) handleReceivedLogs(ctx context.Context, mailbox *mailbox.Mailbox[log.Broadcast]) {
 	for {
 		select {
-		case <-l.chStop:
+		case <-ctx.Done():
 			return
 		default:
 		}
@@ -263,7 +264,7 @@ func (l *listener) handleReceivedLogs(mailbox *mailbox.Mailbox[log.Broadcast]) {
 		logJobSpecID := lb.RawLog().Topics[1]
 		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
 			l.logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
-			l.markLogConsumed(ctx, lb)
+			l.markLogConsumed(ctx, nil, lb)
 			continue
 		}
 
@@ -277,7 +278,7 @@ func (l *listener) handleReceivedLogs(mailbox *mailbox.Mailbox[log.Broadcast]) {
 		case *operator_wrapper.OperatorOracleRequest:
 			l.handleOracleRequest(ctx, log, lb)
 		case *operator_wrapper.OperatorCancelOracleRequest:
-			l.handleCancelOracleRequest(ctx, log, lb)
+			l.handleCancelOracleRequest(ctx, nil, log, lb)
 		default:
 			l.logger.Warnf("Unexpected log type %T", log)
 		}
@@ -316,7 +317,7 @@ func (l *listener) handleOracleRequest(ctx context.Context, request *operator_wr
 			"requester", request.Requester,
 			"allowedRequesters", l.requesters.ToStrings(),
 		)
-		l.markLogConsumed(ctx, lb)
+		l.markLogConsumed(ctx, nil, lb)
 		return
 	}
 
@@ -333,7 +334,7 @@ func (l *listener) handleOracleRequest(ctx context.Context, request *operator_wr
 				"minContractPayment", minContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
-			l.markLogConsumed(ctx, lb)
+			l.markLogConsumed(ctx, nil, lb)
 			return
 		}
 	}
@@ -374,8 +375,8 @@ func (l *listener) handleOracleRequest(ctx context.Context, request *operator_wr
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	_, err := l.pipelineRunner.Run(ctx, run, l.logger, true, func(tx pg.Queryer) error {
-		l.markLogConsumed(ctx, lb)
+	_, err := l.pipelineRunner.Run(ctx, run, l.logger, true, func(tx sqlutil.DataSource) error {
+		l.markLogConsumed(ctx, tx, lb)
 		return nil
 	})
 	if ctx.Err() != nil {
@@ -398,16 +399,16 @@ func (l *listener) allowRequester(requester common.Address) bool {
 }
 
 // Cancels runs that haven't been started yet, with the given request ID
-func (l *listener) handleCancelOracleRequest(ctx context.Context, request *operator_wrapper.OperatorCancelOracleRequest, lb log.Broadcast) {
+func (l *listener) handleCancelOracleRequest(ctx context.Context, ds sqlutil.DataSource, request *operator_wrapper.OperatorCancelOracleRequest, lb log.Broadcast) {
 	runCloserChannelIf, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
 	if loaded {
 		close(runCloserChannelIf.(services.StopChan))
 	}
-	l.markLogConsumed(ctx, lb)
+	l.markLogConsumed(ctx, ds, lb)
 }
 
-func (l *listener) markLogConsumed(ctx context.Context, lb log.Broadcast) {
-	if err := l.logBroadcaster.MarkConsumed(ctx, lb); err != nil {
+func (l *listener) markLogConsumed(ctx context.Context, ds sqlutil.DataSource, lb log.Broadcast) {
+	if err := l.logBroadcaster.MarkConsumed(ctx, ds, lb); err != nil {
 		l.logger.Errorw("Unable to mark log consumed", "err", err, "log", lb.String())
 	}
 }

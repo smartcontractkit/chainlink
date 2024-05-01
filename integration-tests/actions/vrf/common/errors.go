@@ -1,6 +1,7 @@
 package common
 
 const (
+	ErrGenericFormat             = "%s, err %w"
 	ErrNodePrimaryKey            = "error getting node's primary ETH key"
 	ErrNodeNewTxKey              = "error creating node's EVM transaction key"
 	ErrCreatingProvingKeyHash    = "error creating a keyHash from the proving key"

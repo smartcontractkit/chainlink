@@ -6,6 +6,7 @@ import (
 	sync "sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -24,9 +25,9 @@ import (
 type triggerSubscriber struct {
 	config              types.RemoteTriggerConfig
 	capInfo             commoncap.CapabilityInfo
-	capDonInfo          types.DON
+	capDonInfo          capabilities.DON
 	capDonMembers       map[p2ptypes.PeerID]struct{}
-	localDonInfo        types.DON
+	localDonInfo        capabilities.DON
 	dispatcher          types.Dispatcher
 	aggregator          types.Aggregator
 	messageCache        *messageCache[triggerEventKey, p2ptypes.PeerID]
@@ -51,7 +52,10 @@ var _ commoncap.TriggerCapability = &triggerSubscriber{}
 var _ types.Receiver = &triggerSubscriber{}
 var _ services.Service = &triggerSubscriber{}
 
-func NewTriggerSubscriber(config types.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo types.DON, localDonInfo types.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
+// TODO makes this configurable with a default
+const defaultSendChannelBufferSize = 1000
+
+func NewTriggerSubscriber(config types.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
 	if aggregator == nil {
 		lggr.Warnw("no aggregator provided, using default MODE aggregator", "capabilityId", capInfo.ID)
 		aggregator = NewDefaultModeAggregator(uint32(capDonInfo.F + 1))
@@ -88,21 +92,25 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return s.capInfo, nil
 }
 
-func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, callback chan<- commoncap.CapabilityResponse, request commoncap.CapabilityRequest) error {
+func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	rawRequest, err := pb.MarshalCapabilityRequest(request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if request.Metadata.WorkflowID == "" {
-		return errors.New("empty workflowID")
+		return nil, errors.New("empty workflowID")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	callback := make(chan commoncap.CapabilityResponse, defaultSendChannelBufferSize)
 	s.registeredWorkflows[request.Metadata.WorkflowID] = &subRegState{
 		callback:   callback,
 		rawRequest: rawRequest,
 	}
-	return nil
+
+	s.lggr.Infow("RegisterTrigger called", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
+	return callback, nil
 }
 
 func (s *triggerSubscriber) registrationLoop() {
@@ -114,8 +122,8 @@ func (s *triggerSubscriber) registrationLoop() {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			s.lggr.Infow("register trigger for remote capability", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "nMembers", len(s.capDonInfo.Members))
 			s.mu.RLock()
+			s.lggr.Infow("register trigger for remote capability", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "nMembers", len(s.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
 			for _, registration := range s.registeredWorkflows {
 				// NOTE: send to all by default, introduce different strategies later (KS-76)
 				for _, peerID := range s.capDonInfo.Members {
@@ -140,6 +148,8 @@ func (s *triggerSubscriber) registrationLoop() {
 func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.CapabilityRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	close(s.registeredWorkflows[request.Metadata.WorkflowID].callback)
 	delete(s.registeredWorkflows, request.Metadata.WorkflowID)
 	// Registrations will quickly expire on all remote nodes.
 	// Alternatively, we could send UnregisterTrigger messages right away.
@@ -180,18 +190,14 @@ func (s *triggerSubscriber) Receive(msg *types.MessageBody) {
 				continue
 			}
 			if ready {
+				s.lggr.Debugw("trigger event ready to aggregate", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId)
 				aggregatedResponse, err := s.aggregator.Aggregate(meta.TriggerEventId, payloads)
 				if err != nil {
-					s.lggr.Errorw("failed to aggregate responses", "capabilityId", s.capInfo.ID, "workflowId", workflowId, "err", err)
+					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId, "err", err)
 					continue
 				}
-				unmarshaled, err := pb.UnmarshalCapabilityResponse(aggregatedResponse)
-				if err != nil {
-					s.lggr.Errorw("failed to unmarshal responses", "capabilityId", s.capInfo.ID, "workflowId", workflowId, "err", err)
-					continue
-				}
-				s.lggr.Info("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId)
-				registration.callback <- unmarshaled
+				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId)
+				registration.callback <- aggregatedResponse
 			}
 		}
 	} else {

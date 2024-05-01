@@ -33,4 +33,5 @@ if [[ $EXITCODE != 0 ]]; then
 else
   echo "All tests passed!"
 fi
+echo "go_core_tests exiting with code $EXITCODE"
 exit $EXITCODE

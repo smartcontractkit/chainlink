@@ -17,6 +17,7 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -56,7 +56,6 @@ type Listener struct {
 	Coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
 	PipelineRunner pipeline.Runner
 	Job            job.Job
-	Q              pg.Q
 	GethKs         vrfcommon.GethKeyStore
 	MailMon        *mailbox.Monitor
 	ReqLogs        *mailbox.Mailbox[log.Broadcast]
@@ -284,6 +283,8 @@ func (lsn *Listener) RunHeadListener(unsubscribe func()) {
 }
 
 func (lsn *Listener) RunLogListener(unsubscribes []func(), minConfs uint32) {
+	ctx, cancel := lsn.ChStop.NewCtx()
+	defer cancel()
 	lsn.L.Infow("Listening for run requests",
 		"gasLimit", lsn.FeeCfg.LimitDefault(),
 		"minConfs", minConfs)
@@ -303,17 +304,14 @@ func (lsn *Listener) RunLogListener(unsubscribes []func(), minConfs uint32) {
 					break
 				}
 				recovery.WrapRecover(lsn.L, func() {
-					lsn.handleLog(lb, minConfs)
+					lsn.handleLog(ctx, lb, minConfs)
 				})
 			}
 		}
 	}
 }
 
-func (lsn *Listener) handleLog(lb log.Broadcast, minConfs uint32) {
-	ctx, cancel := lsn.ChStop.NewCtx()
-	defer cancel()
-
+func (lsn *Listener) handleLog(ctx context.Context, lb log.Broadcast, minConfs uint32) {
 	lggr := lsn.L.With(
 		"log", lb.String(),
 		"decodedLog", lb.DecodedLog(),
@@ -380,7 +378,7 @@ func (lsn *Listener) shouldProcessLog(ctx context.Context, lb log.Broadcast) boo
 }
 
 func (lsn *Listener) markLogAsConsumed(ctx context.Context, lb log.Broadcast) {
-	err := lsn.Chain.LogBroadcaster().MarkConsumed(ctx, lb)
+	err := lsn.Chain.LogBroadcaster().MarkConsumed(ctx, nil, lb)
 	lsn.L.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 
@@ -486,9 +484,9 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 
 	run := pipeline.NewRun(*lsn.Job.PipelineSpec, vars)
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
-	if _, err = lsn.PipelineRunner.Run(ctx, run, lggr, true, func(tx pg.Queryer) error {
+	if _, err = lsn.PipelineRunner.Run(ctx, run, lggr, true, func(tx sqlutil.DataSource) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		if err = lsn.Chain.LogBroadcaster().MarkConsumed(ctx, req.lb); err != nil {
+		if err = lsn.Chain.LogBroadcaster().MarkConsumed(ctx, tx, req.lb); err != nil {
 			lggr.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
@@ -525,7 +523,7 @@ func (lsn *Listener) Close() error {
 	})
 }
 
-func (lsn *Listener) HandleLog(lb log.Broadcast) {
+func (lsn *Listener) HandleLog(ctx context.Context, lb log.Broadcast) {
 	if !lsn.Deduper.ShouldDeliver(lb.RawLog()) {
 		lsn.L.Tracew("skipping duplicate log broadcast", "log", lb.RawLog())
 		return

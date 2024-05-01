@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
+	telem "github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
 
 func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
@@ -33,7 +34,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 
 	// Wire up the telem ingress client
 	url := &url.URL{}
-	serverPubKeyHex := "33333333333"
+	serverPubKeyHex := telem.GetDummyKeyString()
 	telemIngressClient := synchronization.NewTestTelemetryIngressClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient)
 	servicetest.Run(t, telemIngressClient)
 

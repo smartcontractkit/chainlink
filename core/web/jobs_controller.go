@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -48,7 +47,7 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 		size = 1000
 	}
 
-	jobs, count, err := jc.App.JobORM().FindJobs(offset, size)
+	jobs, count, err := jc.App.JobORM().FindJobs(c.Request.Context(), offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -66,14 +65,15 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 // Example:
 // "GET <application>/jobs/:ID"
 func (jc *JobsController) Show(c *gin.Context) {
+	ctx := c.Request.Context()
 	var err error
 	jobSpec := job.Job{}
 	if externalJobID, pErr := uuid.Parse(c.Param("ID")); pErr == nil {
 		// Find a job by external job ID
-		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(externalJobID, pg.WithParentCtx(c.Request.Context()))
+		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(ctx, externalJobID)
 	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
 		// Find a job by job ID
-		jobSpec, err = jc.App.JobORM().FindJobTx(c, jobSpec.ID)
+		jobSpec, err = jc.App.JobORM().FindJobTx(ctx, jobSpec.ID)
 	} else {
 		jsonAPIError(c, http.StatusUnprocessableEntity, pErr)
 		return
@@ -222,7 +222,7 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetRelayers().LegacyEVMChains(), tomlString)
+		jb, err = ocr.ValidatedOracleSpecToml(config, jc.App.GetRelayers().LegacyEVMChains(), tomlString)
 		if !config.OCR().Enabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
@@ -242,7 +242,7 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 	case job.VRF:
 		jb, err = vrfcommon.ValidatedVRFSpec(tomlString)
 	case job.Webhook:
-		jb, err = webhook.ValidatedWebhookSpec(tomlString, jc.App.GetExternalInitiatorManager())
+		jb, err = webhook.ValidatedWebhookSpec(ctx, tomlString, jc.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(tomlString)
 	case job.BlockHeaderFeeder:

@@ -14,7 +14,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	abiutil "github.com/smartcontractkit/chainlink/v2/core/chains/evm/abi"
@@ -28,7 +28,7 @@ import (
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
-func InitializeWrite(registry commontypes.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, lggr logger.Logger) error {
+func InitializeWrite(registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, lggr logger.Logger) error {
 	for _, chain := range legacyEVMChains.Slice() {
 		capability := NewEvmWrite(chain, lggr)
 		if err := registry.Add(context.TODO(), capability); err != nil {
@@ -63,6 +63,7 @@ func NewEvmWrite(chain legacyevm.Chain, lggr logger.Logger) *EvmWrite {
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
 		"v1.0.0",
+		nil,
 	)
 
 	return &EvmWrite{
@@ -157,7 +158,7 @@ func encodePayload(args []any, rawSelector string) ([]byte, error) {
 	// return append(method.ID, arguments...), nil
 }
 
-func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, request capabilities.CapabilityRequest) error {
+func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	cap.lggr.Debugw("Execute", "request", request)
 	// TODO: idempotency
 
@@ -168,22 +169,23 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 
 	reqConfig, err := parseConfig(request.Config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	inputsAny, err := request.Inputs.Unwrap()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	inputs := inputsAny.(map[string]any)
 	rep, ok := inputs["report"]
 	if !ok {
-		return errors.New("malformed data: inputs doesn't contain a report key")
+		return nil, errors.New("malformed data: inputs doesn't contain a report key")
 	}
 
 	if rep == nil {
 		// We received any empty report -- this means we should skip transmission.
 		cap.lggr.Debugw("Skipping empty report", "request", request)
+		callback := make(chan capabilities.CapabilityResponse)
 		go func() {
 			// TODO: cast tx.Error to Err (or Value to Value?)
 			callback <- capabilities.CapabilityResponse{
@@ -192,18 +194,18 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 			}
 			close(callback)
 		}()
-		return nil
+		return callback, nil
 	}
 
 	// evaluate any variables in reqConfig.Params
 	args, err := evaluateParams(reqConfig.Params, inputs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	data, err := encodePayload(args, reqConfig.ABI)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
@@ -214,7 +216,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 	// construct forwarding payload
 	calldata, err := forwardABI.Pack("report", common.HexToAddress(reqConfig.Address), data, signatures)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	txMeta := &txmgr.TxMeta{
@@ -238,9 +240,11 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 	}
 	tx, err := txm.CreateTransaction(ctx, req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", tx)
+
+	callback := make(chan capabilities.CapabilityResponse)
 	go func() {
 		// TODO: cast tx.Error to Err (or Value to Value?)
 		callback <- capabilities.CapabilityResponse{
@@ -249,7 +253,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 		}
 		close(callback)
 	}()
-	return nil
+	return callback, nil
 }
 
 func (cap *EvmWrite) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {

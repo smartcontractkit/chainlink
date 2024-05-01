@@ -87,8 +87,8 @@ func decodeID(input map[string]any, key string) ([]byte, error) {
 		return nil, err
 	}
 
-	if len(b) < 32 {
-		return nil, fmt.Errorf("incorrect length for id %s, expected 32 bytes, got %d", id, len(b))
+	if len(b) != idLen {
+		return nil, fmt.Errorf("incorrect length for id %s, expected %d bytes, got %d", id, idLen, len(b))
 	}
 
 	return b, nil

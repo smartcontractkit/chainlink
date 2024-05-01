@@ -24,7 +24,7 @@ import (
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -97,7 +97,7 @@ type estimatorGasEstimatorConfig interface {
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type BlockHistoryEstimator struct {
 	services.StateMachine
-	ethClient evmclient.Client
+	ethClient feeEstimatorClient
 	chainID   big.Int
 	config    chainConfig
 	eConfig   estimatorGasEstimatorConfig
@@ -120,13 +120,16 @@ type BlockHistoryEstimator struct {
 	initialFetch atomic.Bool
 
 	logger logger.SugaredLogger
+
+	l1Oracle rollups.L1Oracle
 }
 
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int) EvmEstimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
 	ctx, cancel := context.WithCancel(context.Background())
+
 	b := &BlockHistoryEstimator{
 		ethClient: ethClient,
 		chainID:   chainID,
@@ -141,6 +144,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		ctx:       ctx,
 		ctxCancel: cancel,
 		logger:    logger.Sugared(logger.Named(lggr, "BlockHistoryEstimator")),
+		l1Oracle:  l1Oracle,
 	}
 
 	return b
@@ -228,6 +232,10 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 		b.logger.Trace("Started")
 		return nil
 	})
+}
+
+func (b *BlockHistoryEstimator) L1Oracle() rollups.L1Oracle {
+	return b.l1Oracle
 }
 
 func (b *BlockHistoryEstimator) Close() error {
@@ -713,7 +721,7 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 		err := b.ethClient.BatchCallContext(ctx, reqs[i:j])
 		if pkgerrors.Is(err, context.DeadlineExceeded) {
 			// We ran out of time, return what we have
-			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results", i, len(reqs))
+			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results: %v", i, len(reqs), err)
 			for k := i; k < len(reqs); k++ {
 				if k < j {
 					reqs[k].Error = pkgerrors.Wrap(err, "request failed")
@@ -868,7 +876,7 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block evmtypes.Block, tx evmty
 
 func (b *BlockHistoryEstimator) getEffectiveGasPrice(block evmtypes.Block, tx evmtypes.Transaction) *assets.Wei {
 	if block.BaseFeePerGas == nil || tx.MaxPriorityFeePerGas == nil || tx.MaxFeePerGas == nil {
-		b.logger.Warnw("Got transaction type 0x2 but one of the required EIP1559 fields was missing, falling back to gasPrice", "block", block, "tx", tx)
+		b.logger.Warnw(fmt.Sprintf("Got transaction type %v but one of the required EIP1559 fields was missing, falling back to gasPrice", tx.Type), "block", block, "tx", tx)
 		return tx.GasPrice
 	}
 	if tx.GasPrice != nil {
