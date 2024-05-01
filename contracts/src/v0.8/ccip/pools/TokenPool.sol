@@ -6,6 +6,7 @@ import {IPool} from "../interfaces/IPool.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Pool} from "../libraries/Pool.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -15,7 +16,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts
 /// @notice Base abstract class with common functions for all token pools.
 /// A token pool serves as isolated place for holding tokens and token specific logic
 /// that may execute as tokens move across the bridge.
-abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
+abstract contract TokenPool is IPool, OwnerIsCreator {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
   using RateLimiter for RateLimiter.TokenBucket;
@@ -125,9 +126,10 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
     emit RouterUpdated(oldRouter, newRouter);
   }
 
-  /// @inheritdoc IERC165
+  /// @notice Signals which version of the pool interface is supported
   function supportsInterface(bytes4 interfaceId) public pure virtual override returns (bool) {
-    return interfaceId == type(IPool).interfaceId || interfaceId == type(IERC165).interfaceId;
+    return interfaceId == Pool.CCIP_POOL_V1 || interfaceId == type(IPool).interfaceId
+      || interfaceId == type(IERC165).interfaceId;
   }
 
   // Validate if the sending pool is allowed
@@ -292,27 +294,24 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
 
   /// @notice Checks whether remote chain selector is configured on this contract, and if the msg.sender
   /// is a permissioned onRamp for the given chain on the Router.
-  modifier onlyOnRamp(uint64 remoteChainSelector) {
+  function _onlyOnRamp(uint64 remoteChainSelector) internal view {
     if (!isSupportedChain(remoteChainSelector)) revert ChainNotAllowed(remoteChainSelector);
     if (!(msg.sender == s_router.getOnRamp(remoteChainSelector))) revert CallerIsNotARampOnRouter(msg.sender);
-    _;
   }
 
   /// @notice Checks whether remote chain selector is configured on this contract, and if the msg.sender
   /// is a permissioned offRamp for the given chain on the Router.
-  modifier onlyOffRamp(uint64 remoteChainSelector) {
+  function _onlyOffRamp(uint64 remoteChainSelector) internal view {
     if (!isSupportedChain(remoteChainSelector)) revert ChainNotAllowed(remoteChainSelector);
     if (!s_router.isOffRamp(remoteChainSelector, msg.sender)) revert CallerIsNotARampOnRouter(msg.sender);
-    _;
   }
 
   // ================================================================
   // │                          Allowlist                           │
   // ================================================================
 
-  modifier checkAllowList(address sender) {
+  function _checkAllowList(address sender) internal view {
     if (i_allowlistEnabled && !s_allowList.contains(sender)) revert SenderNotAllowed(sender);
-    _;
   }
 
   /// @notice Gets whether the allowList functionality is enabled.

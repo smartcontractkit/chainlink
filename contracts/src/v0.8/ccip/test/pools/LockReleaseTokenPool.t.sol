@@ -6,6 +6,7 @@ import {IPool} from "../../interfaces/IPool.sol";
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../Router.sol";
 import {Internal} from "../../libraries/Internal.sol";
+import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
@@ -92,7 +93,14 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
     vm.expectEmit();
     emit Locked(s_allowedOnRamp, amount);
 
-    s_lockReleaseTokenPool.lockOrBurn(STRANGER, bytes(""), amount, DEST_CHAIN_SELECTOR, bytes(""));
+    s_lockReleaseTokenPool.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: STRANGER,
+        receiver: bytes(""),
+        amount: amount,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
+    );
   }
 
   function test_LockOrBurnWithAllowList_Success() public {
@@ -104,12 +112,26 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
     vm.expectEmit();
     emit Locked(s_allowedOnRamp, amount);
 
-    s_lockReleaseTokenPoolWithAllowList.lockOrBurn(s_allowedList[0], bytes(""), amount, DEST_CHAIN_SELECTOR, bytes(""));
+    s_lockReleaseTokenPoolWithAllowList.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: s_allowedList[0],
+        receiver: bytes(""),
+        amount: amount,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
+    );
 
     vm.expectEmit();
     emit Locked(s_allowedOnRamp, amount);
 
-    s_lockReleaseTokenPoolWithAllowList.lockOrBurn(s_allowedList[1], bytes(""), amount, DEST_CHAIN_SELECTOR, bytes(""));
+    s_lockReleaseTokenPoolWithAllowList.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: s_allowedList[1],
+        receiver: bytes(""),
+        amount: amount,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
+    );
   }
 
   function test_LockOrBurnWithAllowList_Revert() public {
@@ -117,7 +139,14 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
 
     vm.expectRevert(abi.encodeWithSelector(SenderNotAllowed.selector, STRANGER));
 
-    s_lockReleaseTokenPoolWithAllowList.lockOrBurn(STRANGER, bytes(""), 100, DEST_CHAIN_SELECTOR, bytes(""));
+    s_lockReleaseTokenPoolWithAllowList.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: STRANGER,
+        receiver: bytes(""),
+        amount: 100,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
+    );
   }
 
   function test_PoolBurnRevertNotHealthy_Revert() public {
@@ -128,7 +157,14 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
     vm.startPrank(s_allowedOnRamp);
     vm.expectRevert(EVM2EVMOnRamp.BadARMSignal.selector);
 
-    s_lockReleaseTokenPoolWithAllowList.lockOrBurn(s_allowedList[0], bytes(""), 1e5, DEST_CHAIN_SELECTOR, bytes(""));
+    s_lockReleaseTokenPoolWithAllowList.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: s_allowedList[0],
+        receiver: bytes(""),
+        amount: 1e5,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
+    );
 
     assertEq(s_token.balanceOf(address(s_lockReleaseTokenPoolWithAllowList)), before);
   }
@@ -165,16 +201,15 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     emit Released(s_allowedOffRamp, OWNER, amount);
 
     s_lockReleaseTokenPool.releaseOrMint(
-      bytes(""),
-      OWNER,
-      amount,
-      SOURCE_CHAIN_SELECTOR,
-      IPool.SourceTokenData({
+      Pool.ReleaseOrMintInV1({
+        originalSender: bytes(""),
+        receiver: OWNER,
+        amount: amount,
+        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: abi.encode(s_sourcePoolAddress),
-        destPoolAddress: abi.encode(address(s_lockReleaseTokenPool)),
-        extraData: ""
-      }),
-      ""
+        sourcePoolData: "",
+        offchainTokenData: ""
+      })
     );
   }
 
@@ -206,16 +241,15 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     }
 
     s_lockReleaseTokenPool.releaseOrMint(
-      bytes(""),
-      recipient,
-      amount,
-      SOURCE_CHAIN_SELECTOR,
-      IPool.SourceTokenData({
+      Pool.ReleaseOrMintInV1({
+        originalSender: bytes(""),
+        receiver: recipient,
+        amount: amount,
+        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: abi.encode(s_sourcePoolAddress),
-        destPoolAddress: abi.encode(address(s_lockReleaseTokenPool)),
-        extraData: ""
-      }),
-      ""
+        sourcePoolData: "",
+        offchainTokenData: ""
+      })
     );
   }
 
@@ -237,16 +271,15 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.ChainNotAllowed.selector, SOURCE_CHAIN_SELECTOR));
     s_lockReleaseTokenPool.releaseOrMint(
-      bytes(""),
-      OWNER,
-      1e5,
-      SOURCE_CHAIN_SELECTOR,
-      IPool.SourceTokenData({
+      Pool.ReleaseOrMintInV1({
+        originalSender: bytes(""),
+        receiver: OWNER,
+        amount: 1e5,
+        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: abi.encode(s_sourcePoolAddress),
-        destPoolAddress: abi.encode(address(s_lockReleaseTokenPool)),
-        extraData: ""
-      }),
-      bytes("")
+        sourcePoolData: "",
+        offchainTokenData: ""
+      })
     );
   }
 
@@ -257,8 +290,17 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     vm.startPrank(s_allowedOffRamp);
     vm.expectRevert(EVM2EVMOffRamp.BadARMSignal.selector);
     s_lockReleaseTokenPool.releaseOrMint(
-      bytes(""), OWNER, 1e5, SOURCE_CHAIN_SELECTOR, generateSourceTokenData(), bytes("")
+      Pool.ReleaseOrMintInV1({
+        originalSender: bytes(""),
+        receiver: OWNER,
+        amount: 1e5,
+        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
+        sourcePoolAddress: generateSourceTokenData().sourcePoolAddress,
+        sourcePoolData: generateSourceTokenData().extraData,
+        offchainTokenData: ""
+      })
     );
+
     assertEq(s_token.balanceOf(OWNER), before);
   }
 }

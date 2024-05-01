@@ -10,7 +10,6 @@ import {USDPriceWith18Decimals} from "../../libraries/USDPriceWith18Decimals.sol
 import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
-import {MockTokenPool} from "../mocks/MockTokenPool.sol";
 import "./EVM2EVMOnRampSetup.t.sol";
 
 /// @notice #constructor
@@ -506,7 +505,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
 
     // Change back to the router
     vm.startPrank(address(s_sourceRouter));
-    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.UnsupportedToken.selector, wrongToken));
+    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.UnsupportedToken.selector, wrongToken));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
@@ -560,7 +559,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.receiver = abi.encodePacked(address(234));
 
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.InvalidAddress.selector, message.receiver));
+    vm.expectRevert(abi.encodeWithSelector(Internal.InvalidEVMAddress.selector, message.receiver));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 1, OWNER);
   }
@@ -569,7 +568,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.receiver = abi.encode(type(uint208).max);
 
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.InvalidAddress.selector, message.receiver));
+    vm.expectRevert(abi.encodeWithSelector(Internal.InvalidEVMAddress.selector, message.receiver));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 1, OWNER);
   }
@@ -581,7 +580,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     for (uint160 i = 0; i < 10; ++i) {
       message.receiver = abi.encode(address(i));
 
-      vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.InvalidAddress.selector, message.receiver));
+      vm.expectRevert(abi.encodeWithSelector(Internal.InvalidEVMAddress.selector, message.receiver));
 
       s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 1, OWNER);
     }
@@ -652,6 +651,17 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     vm.startPrank(address(s_sourceRouter));
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.SourceTokenDataTooLarge.selector, sourceETH));
+    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
+  }
+
+  function test_forwardFromRouter_UnsupportedToken_Revert() public {
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
+    message.tokenAmounts = new Client.EVMTokenAmount[](1);
+    message.tokenAmounts[0].amount = 1;
+    message.tokenAmounts[0].token = address(1);
+
+    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.UnsupportedToken.selector, message.tokenAmounts[0].token));
+
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 }
@@ -1734,7 +1744,7 @@ contract EVM2EVMOnRamp_setTokenTransferFeeConfig is EVM2EVMOnRampSetup {
 }
 
 contract EVM2EVMOnRamp_getTokenPool is EVM2EVMOnRampSetup {
-  function test_GetTokenPool_Success() public {
+  function test_GetTokenPool_Success() public view {
     assertEq(
       s_sourcePoolByToken[s_sourceTokens[0]],
       address(s_onRamp.getPoolBySourceToken(DEST_CHAIN_SELECTOR, IERC20(s_sourceTokens[0])))
@@ -1745,8 +1755,9 @@ contract EVM2EVMOnRamp_getTokenPool is EVM2EVMOnRampSetup {
     );
 
     address wrongToken = address(123);
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.UnsupportedToken.selector, IERC20(wrongToken)));
-    s_onRamp.getPoolBySourceToken(DEST_CHAIN_SELECTOR, IERC20(wrongToken));
+    address nonExistentPool = address(s_onRamp.getPoolBySourceToken(DEST_CHAIN_SELECTOR, IERC20(wrongToken)));
+
+    assertEq(address(0), nonExistentPool);
   }
 }
 

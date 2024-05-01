@@ -168,10 +168,14 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     vm.expectEmit();
     emit Burned(s_routerAllowedOnRamp, amount);
 
-    bytes memory poolReturnData =
-      s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(receiver), amount, DEST_CHAIN_SELECTOR, bytes(""));
-
-    Pool.PoolReturnDataV1 memory poolReturnDataV1 = Pool._decodePoolReturnDataV1(poolReturnData);
+    Pool.LockOrBurnOutV1 memory poolReturnDataV1 = s_usdcTokenPool.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: OWNER,
+        receiver: abi.encodePacked(receiver),
+        amount: amount,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
+    );
 
     uint64 nonce = abi.decode(poolReturnDataV1.destPoolData, (uint64));
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
@@ -203,9 +207,14 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     vm.expectEmit();
     emit Burned(s_routerAllowedOnRamp, amount);
 
-    bytes memory poolReturnData =
-      s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(destinationReceiver), amount, DEST_CHAIN_SELECTOR, bytes(""));
-    Pool.PoolReturnDataV1 memory poolReturnDataV1 = Pool._decodePoolReturnDataV1(poolReturnData);
+    Pool.LockOrBurnOutV1 memory poolReturnDataV1 = s_usdcTokenPool.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: OWNER,
+        receiver: abi.encodePacked(destinationReceiver),
+        amount: amount,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
+    );
 
     uint64 nonce = abi.decode(poolReturnDataV1.destPoolData, (uint64));
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
@@ -236,10 +245,14 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     vm.expectEmit();
     emit Burned(s_routerAllowedOnRamp, amount);
 
-    (bytes memory poolReturnData) = s_usdcTokenPoolWithAllowList.lockOrBurn(
-      s_allowedList[0], abi.encodePacked(destinationReceiver), amount, DEST_CHAIN_SELECTOR, bytes("")
+    Pool.LockOrBurnOutV1 memory poolReturnDataV1 = s_usdcTokenPoolWithAllowList.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: s_allowedList[0],
+        receiver: abi.encodePacked(destinationReceiver),
+        amount: amount,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
     );
-    Pool.PoolReturnDataV1 memory poolReturnDataV1 = Pool._decodePoolReturnDataV1(poolReturnData);
     uint64 nonce = abi.decode(poolReturnDataV1.destPoolData, (uint64));
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
     assertEq(poolReturnDataV1.destPoolAddress, abi.encode(DEST_CHAIN_USDC_POOL));
@@ -271,13 +284,27 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
     vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.UnknownDomain.selector, wrongDomain));
 
-    s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(address(0)), amount, wrongDomain, bytes(""));
+    s_usdcTokenPool.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: OWNER,
+        receiver: abi.encodePacked(address(0)),
+        amount: amount,
+        remoteChainSelector: wrongDomain
+      })
+    );
   }
 
   function test_CallerIsNotARampOnRouter_Revert() public {
     vm.expectRevert(abi.encodeWithSelector(TokenPool.CallerIsNotARampOnRouter.selector, OWNER));
 
-    s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(address(0)), 0, DEST_CHAIN_SELECTOR, bytes(""));
+    s_usdcTokenPool.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: OWNER,
+        receiver: abi.encodePacked(address(0)),
+        amount: 0,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
+    );
   }
 
   function test_LockOrBurnWithAllowList_Revert() public {
@@ -286,7 +313,29 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     vm.expectRevert(abi.encodeWithSelector(SenderNotAllowed.selector, STRANGER));
 
     s_usdcTokenPoolWithAllowList.lockOrBurn(
-      STRANGER, abi.encodePacked(address(0)), 1000, DEST_CHAIN_SELECTOR, bytes("")
+      Pool.LockOrBurnInV1({
+        originalSender: STRANGER,
+        receiver: abi.encodePacked(address(0)),
+        amount: 1000,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
+    );
+  }
+
+  function test_lockOrBurn_InvalidReceiver_Revert() public {
+    vm.startPrank(s_routerAllowedOnRamp);
+
+    bytes memory receiver = abi.encodePacked(address(0), address(1));
+
+    vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.InvalidReceiver.selector, receiver));
+
+    s_usdcTokenPool.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: OWNER,
+        receiver: receiver,
+        amount: 1,
+        remoteChainSelector: DEST_CHAIN_SELECTOR
+      })
     );
   }
 }
@@ -311,7 +360,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     bytes memory message = _generateUSDCMessage(usdcMessage);
     bytes memory attestation = bytes("attestation bytes");
 
-    IPool.SourceTokenData memory sourceTokenData = IPool.SourceTokenData({
+    Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
       destPoolAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(
@@ -332,7 +381,15 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     vm.startPrank(s_routerAllowedOffRamp);
     s_usdcTokenPool.releaseOrMint(
-      abi.encode(OWNER), recipient, amount, SOURCE_CHAIN_SELECTOR, sourceTokenData, offchainTokenData
+      Pool.ReleaseOrMintInV1({
+        originalSender: abi.encode(OWNER),
+        receiver: recipient,
+        amount: amount,
+        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
+        sourcePoolAddress: sourceTokenData.sourcePoolAddress,
+        sourcePoolData: sourceTokenData.extraData,
+        offchainTokenData: offchainTokenData
+      })
     );
   }
 
@@ -345,7 +402,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     uint32 nonce = 4730;
     uint32 sourceDomain = 3;
 
-    IPool.SourceTokenData memory sourceTokenData = IPool.SourceTokenData({
+    Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
       destPoolAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(USDCTokenPool.SourceTokenDataPayload({nonce: nonce, sourceDomain: sourceDomain}))
@@ -361,7 +418,15 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     vm.startPrank(s_routerAllowedOffRamp);
     s_usdcTokenPool.releaseOrMint(
-      abi.encode(OWNER), OWNER, 100, SOURCE_CHAIN_SELECTOR, sourceTokenData, offchainTokenData
+      Pool.ReleaseOrMintInV1({
+        originalSender: abi.encode(OWNER),
+        receiver: OWNER,
+        amount: 100,
+        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
+        sourcePoolAddress: sourceTokenData.sourcePoolAddress,
+        sourcePoolData: sourceTokenData.extraData,
+        offchainTokenData: offchainTokenData
+      })
     );
   }
 
@@ -383,7 +448,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
       messageBody: bytes("")
     });
 
-    IPool.SourceTokenData memory sourceTokenData = IPool.SourceTokenData({
+    Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
       destPoolAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(
@@ -398,7 +463,15 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     vm.expectRevert(USDCTokenPool.UnlockingUSDCFailed.selector);
 
     s_usdcTokenPool.releaseOrMint(
-      abi.encode(OWNER), OWNER, amount, SOURCE_CHAIN_SELECTOR, sourceTokenData, offchainTokenData
+      Pool.ReleaseOrMintInV1({
+        originalSender: abi.encode(OWNER),
+        receiver: OWNER,
+        amount: amount,
+        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
+        sourcePoolAddress: sourceTokenData.sourcePoolAddress,
+        sourcePoolData: sourceTokenData.extraData,
+        offchainTokenData: offchainTokenData
+      })
     );
   }
 
@@ -408,7 +481,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     address recipient = address(1);
     vm.startPrank(s_routerAllowedOffRamp);
 
-    IPool.SourceTokenData memory sourceTokenData = IPool.SourceTokenData({
+    Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
       destPoolAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(USDCTokenPool.SourceTokenDataPayload({nonce: 1, sourceDomain: SOURCE_DOMAIN_IDENTIFIER}))
@@ -422,7 +495,15 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     );
 
     s_usdcTokenPool.releaseOrMint(
-      abi.encode(OWNER), recipient, amount, SOURCE_CHAIN_SELECTOR, sourceTokenData, offchainTokenData
+      Pool.ReleaseOrMintInV1({
+        originalSender: abi.encode(OWNER),
+        receiver: recipient,
+        amount: amount,
+        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
+        sourcePoolAddress: sourceTokenData.sourcePoolAddress,
+        sourcePoolData: sourceTokenData.extraData,
+        offchainTokenData: offchainTokenData
+      })
     );
   }
 }

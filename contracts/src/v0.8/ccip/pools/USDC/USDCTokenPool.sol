@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {IPool} from "../../interfaces/IPool.sol";
 import {IMessageTransmitter} from "./IMessageTransmitter.sol";
 import {ITokenMessenger} from "./ITokenMessenger.sol";
 
@@ -30,6 +29,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   error InvalidNonce(uint64 expected, uint64 got);
   error InvalidSourceDomain(uint32 expected, uint32 got);
   error InvalidDestinationDomain(uint32 expected, uint32 got);
+  error InvalidReceiver(bytes receiver);
 
   // This data is supplied from offchain and contains everything needed
   // to receive the USDC tokens.
@@ -110,67 +110,72 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   /// @notice Burn the token in the pool
   /// @dev Burn is not rate limited at per-pool level. Burn does not contribute to honey pot risk.
   /// Benefits of rate limiting here does not justify the extra gas cost.
-  /// @param amount Amount to burn
   /// @dev emits ITokenMessenger.DepositForBurn
   /// @dev Assumes caller has validated destinationReceiver
-  function lockOrBurn(
-    address originalSender,
-    bytes calldata destinationReceiver,
-    uint256 amount,
-    uint64 remoteChainSelector,
-    bytes calldata
-  ) external override onlyOnRamp(remoteChainSelector) checkAllowList(originalSender) returns (bytes memory) {
-    Domain memory domain = s_chainToDomain[remoteChainSelector];
-    if (!domain.enabled) revert UnknownDomain(remoteChainSelector);
-    _consumeOutboundRateLimit(remoteChainSelector, amount);
-    bytes32 receiver = bytes32(destinationReceiver[0:32]);
+  function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
+    external
+    virtual
+    override
+    whenHealthy
+    returns (Pool.LockOrBurnOutV1 memory)
+  {
+    _checkAllowList(lockOrBurnIn.originalSender);
+    _onlyOnRamp(lockOrBurnIn.remoteChainSelector);
+    _consumeOutboundRateLimit(lockOrBurnIn.remoteChainSelector, lockOrBurnIn.amount);
+
+    Domain memory domain = s_chainToDomain[lockOrBurnIn.remoteChainSelector];
+    if (!domain.enabled) revert UnknownDomain(lockOrBurnIn.remoteChainSelector);
+    if (lockOrBurnIn.receiver.length != 32) {
+      revert InvalidReceiver(lockOrBurnIn.receiver);
+    }
+
+    bytes32 receiver = abi.decode(lockOrBurnIn.receiver, (bytes32));
     // Since this pool is the msg sender of the CCTP transaction, only this contract
     // is able to call replaceDepositForBurn. Since this contract does not implement
     // replaceDepositForBurn, the tokens cannot be maliciously re-routed to another address.
     uint64 nonce = i_tokenMessenger.depositForBurnWithCaller(
-      amount, domain.domainIdentifier, receiver, address(i_token), domain.allowedCaller
+      lockOrBurnIn.amount, domain.domainIdentifier, receiver, address(i_token), domain.allowedCaller
     );
-    emit Burned(msg.sender, amount);
-    return Pool._generatePoolReturnDataV1(
-      getRemotePool(remoteChainSelector),
-      abi.encode(SourceTokenDataPayload({nonce: nonce, sourceDomain: i_localDomainIdentifier}))
-    );
+
+    emit Burned(msg.sender, lockOrBurnIn.amount);
+
+    return Pool.LockOrBurnOutV1({
+      destPoolAddress: getRemotePool(lockOrBurnIn.remoteChainSelector),
+      destPoolData: abi.encode(SourceTokenDataPayload({nonce: nonce, sourceDomain: i_localDomainIdentifier}))
+    });
   }
 
   /// @notice Mint tokens from the pool to the recipient
-  /// @param receiver Recipient address
-  /// @param amount Amount to mint
-  /// @param sourceTokenData is part of the verified message and passed directly from
+  /// * sourceTokenData is part of the verified message and passed directly from
   /// the offramp so it is guaranteed to be what the lockOrBurn pool released on the
   /// source chain. It contains (nonce, sourceDomain) which is guaranteed by CCTP
   /// to be unique.
-  /// @param offchainTokenData is untrusted (can be supplied by manual execution), but we assert
+  /// * offchainTokenData is untrusted (can be supplied by manual execution), but we assert
   /// that (nonce, sourceDomain) is equal to the message's (nonce, sourceDomain) and
   /// receiveMessage will assert that Attestation contains a valid attestation signature
   /// for that message, including its (nonce, sourceDomain). This way, the only
   /// non-reverting offchainTokenData that can be supplied is a valid attestation for the
   /// specific message that was sent on source.
-  function releaseOrMint(
-    bytes memory,
-    address receiver,
-    uint256 amount,
-    uint64 remoteChainSelector,
-    IPool.SourceTokenData memory sourceTokenData,
-    bytes memory offchainTokenData
-  ) external override onlyOffRamp(remoteChainSelector) returns (address, uint256) {
-    _consumeInboundRateLimit(remoteChainSelector, amount);
-    _validateSourceCaller(remoteChainSelector, sourceTokenData.sourcePoolAddress);
+  function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
+    external
+    override
+    returns (Pool.ReleaseOrMintOutV1 memory)
+  {
+    _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
+    _consumeInboundRateLimit(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.amount);
+    _validateSourceCaller(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.sourcePoolAddress);
     SourceTokenDataPayload memory sourceTokenDataPayload =
-      abi.decode(sourceTokenData.extraData, (SourceTokenDataPayload));
-    MessageAndAttestation memory msgAndAttestation = abi.decode(offchainTokenData, (MessageAndAttestation));
+      abi.decode(releaseOrMintIn.sourcePoolData, (SourceTokenDataPayload));
+    MessageAndAttestation memory msgAndAttestation =
+      abi.decode(releaseOrMintIn.offchainTokenData, (MessageAndAttestation));
 
     _validateMessage(msgAndAttestation.message, sourceTokenDataPayload);
 
     if (!i_messageTransmitter.receiveMessage(msgAndAttestation.message, msgAndAttestation.attestation)) {
       revert UnlockingUSDCFailed();
     }
-    emit Minted(msg.sender, receiver, amount);
-    return (address(i_token), amount);
+    emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
+    return Pool.ReleaseOrMintOutV1({localToken: address(i_token), destinationAmount: releaseOrMintIn.amount});
   }
 
   /// @notice Validates the USDC encoded message against the given parameters.

@@ -18,7 +18,6 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   error OnlyRegistryModule(address sender);
   error OnlyAdministrator(address sender, address token);
   error OnlyPendingAdministrator(address sender, address token);
-  error UnsupportedToken(address token);
   error AlreadyRegistered(address token);
 
   event AdministratorRegistered(address indexed token, address indexed administrator);
@@ -65,14 +64,8 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   }
 
   /// @inheritdoc ITokenAdminRegistry
-  /// @dev Reverts if the token is not supported
   function getPool(address token) external view returns (address) {
-    address pool = s_tokenConfig[token].tokenPool;
-    if (pool == address(0)) {
-      revert UnsupportedToken(token);
-    }
-
-    return pool;
+    return s_tokenConfig[token].tokenPool;
   }
 
   /// @inheritdoc ITokenAdminRegistry

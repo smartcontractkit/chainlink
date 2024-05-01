@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IPool} from "../../../interfaces/IPool.sol";
-
 import {Pool} from "../../../libraries/Pool.sol";
-import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {FacadeClient} from "./FacadeClient.sol";
 
@@ -25,32 +22,28 @@ contract ReentrantMaliciousTokenPool is TokenPool {
   }
 
   /// @dev Calls into Facade to reenter Router exactly 1 time
-  function lockOrBurn(
-    address,
-    bytes calldata,
-    uint256 amount,
-    uint64 remoteChainSelector,
-    bytes calldata
-  ) external override returns (bytes memory) {
+  function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
+    external
+    override
+    returns (Pool.LockOrBurnOutV1 memory)
+  {
     if (s_attacked) {
-      return Pool._generatePoolReturnDataV1(getRemotePool(remoteChainSelector), "");
+      return Pool.LockOrBurnOutV1({destPoolAddress: getRemotePool(lockOrBurnIn.remoteChainSelector), destPoolData: ""});
     }
 
     s_attacked = true;
 
-    FacadeClient(i_facade).send(amount);
-    emit Burned(msg.sender, amount);
-    return Pool._generatePoolReturnDataV1(getRemotePool(remoteChainSelector), "");
+    FacadeClient(i_facade).send(lockOrBurnIn.amount);
+    emit Burned(msg.sender, lockOrBurnIn.amount);
+    return Pool.LockOrBurnOutV1({destPoolAddress: getRemotePool(lockOrBurnIn.remoteChainSelector), destPoolData: ""});
   }
 
-  function releaseOrMint(
-    bytes memory,
-    address,
-    uint256 amount,
-    uint64,
-    IPool.SourceTokenData memory,
-    bytes memory
-  ) external view override returns (address, uint256) {
-    return (address(i_token), amount);
+  function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
+    external
+    view
+    override
+    returns (Pool.ReleaseOrMintOutV1 memory)
+  {
+    return Pool.ReleaseOrMintOutV1({localToken: address(i_token), destinationAmount: releaseOrMintIn.amount});
   }
 }

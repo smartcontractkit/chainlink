@@ -50,12 +50,6 @@ contract TokenAdminRegistry_getPool is TokenAdminRegistrySetup {
     address got = s_tokenAdminRegistry.getPool(s_sourceTokens[0]);
     assertEq(got, s_sourcePoolByToken[s_sourceTokens[0]]);
   }
-
-  function test_getPool_UnsupportedToken_Revert() public {
-    address doesNotExist = makeAddr("doesNotExist");
-    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.UnsupportedToken.selector, doesNotExist));
-    s_tokenAdminRegistry.getPool(doesNotExist);
-  }
 }
 
 contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {

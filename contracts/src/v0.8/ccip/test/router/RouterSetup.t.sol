@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IPool} from "../../interfaces/IPool.sol";
-
 import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
+import {Internal} from "../../libraries/Internal.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {WETH9} from "../WETH9.sol";
 
@@ -38,8 +37,8 @@ contract RouterSetup is BaseTest {
     });
   }
 
-  function generateSourceTokenData() internal pure returns (IPool.SourceTokenData memory) {
-    return IPool.SourceTokenData({
+  function generateSourceTokenData() internal pure returns (Internal.SourceTokenData memory) {
+    return Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(address(12312412312)),
       destPoolAddress: abi.encode(address(9809808909)),
       extraData: ""

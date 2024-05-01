@@ -94,7 +94,8 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](numberOfTokens);
 
     for (uint256 i = 0; i < numberOfTokens; ++i) {
-      IPool.SourceTokenData memory sourceTokenData = abi.decode(original.sourceTokenData[i], (IPool.SourceTokenData));
+      Internal.SourceTokenData memory sourceTokenData =
+        abi.decode(original.sourceTokenData[i], (Internal.SourceTokenData));
 
       address destPoolAddress = abi.decode(sourceTokenData.destPoolAddress, (address));
       TokenPool pool = TokenPool(destPoolAddress);
@@ -154,7 +155,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     // Correctly set the TokenDataPayload for each token. Tokens have to be set up in the TokenSetup.
     for (uint256 i = 0; i < tokenAmounts.length; ++i) {
       message.sourceTokenData[i] = abi.encode(
-        IPool.SourceTokenData({
+        Internal.SourceTokenData({
           sourcePoolAddress: abi.encode(s_sourcePoolByToken[tokenAmounts[i].token]),
           destPoolAddress: abi.encode(s_destPoolBySourceToken[tokenAmounts[i].token]),
           extraData: ""
@@ -238,7 +239,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     bytes[] memory sourceTokenData = new bytes[](srcTokenAmounts.length);
     for (uint256 i = 0; i < srcTokenAmounts.length; ++i) {
       sourceTokenData[i] = abi.encode(
-        IPool.SourceTokenData({
+        Internal.SourceTokenData({
           sourcePoolAddress: abi.encode(s_sourcePoolByToken[srcTokenAmounts[i].token]),
           destPoolAddress: abi.encode(s_destPoolBySourceToken[srcTokenAmounts[i].token]),
           extraData: ""

@@ -6,6 +6,8 @@ import {Client} from "./Client.sol";
 
 // Library for CCIP internal definitions common to multiple contracts.
 library Internal {
+  error InvalidEVMAddress(bytes encodedAddress);
+
   /// @dev The minimum amount of gas to perform the call with exact gas.
   /// We include this in the offramp so that we can redeploy to adjust it
   /// should a hardfork change the gas costs of relevant opcodes in callWithExactGas.
@@ -50,6 +52,12 @@ library Internal {
   struct PoolUpdate {
     address token; // The IERC20 token address
     address pool; // The token pool address
+  }
+
+  struct SourceTokenData {
+    bytes sourcePoolAddress;
+    bytes destPoolAddress;
+    bytes extraData;
   }
 
   /// @notice Report that is submitted by the execution DON at the execution phase.
@@ -130,6 +138,23 @@ library Internal {
         keccak256(abi.encode(original.sourceTokenData))
       )
     );
+  }
+
+  /// @notice This methods provides validation for parsing abi encoded addresses by ensuring the
+  /// address is within the EVM address space. If it isn't it will revert with an InvalidEVMAddress error, which
+  /// we can catch and handle more gracefully than a revert from abi.decode.
+  /// @return The address if it is valid, the function will revert otherwise.
+  function _validateEVMAddress(bytes memory encodedAddress) internal pure returns (address) {
+    if (encodedAddress.length != 32) revert InvalidEVMAddress(encodedAddress);
+    return _validateEVMAddressFromUint256(abi.decode(encodedAddress, (uint256)));
+  }
+
+  /// @notice This method provides a safe way to convert a uint256 to an address.
+  /// It will revert if the uint256 is not a valid EVM address, or a precompile address.
+  /// @return The address if it is valid, the function will revert otherwise.
+  function _validateEVMAddressFromUint256(uint256 encodedAddress) internal pure returns (address) {
+    if (encodedAddress > type(uint160).max || encodedAddress < 10) revert InvalidEVMAddress(abi.encode(encodedAddress));
+    return address(uint160(encodedAddress));
   }
 
   /// @notice Enum listing the possible message execution states within

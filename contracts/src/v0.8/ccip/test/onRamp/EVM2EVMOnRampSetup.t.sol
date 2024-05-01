@@ -207,7 +207,7 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
       address sourcePool = s_sourcePoolByToken[message.tokenAmounts[i].token];
       address destPool = s_destPoolBySourceToken[message.tokenAmounts[i].token];
       messageEvent.sourceTokenData[i] = abi.encode(
-        IPool.SourceTokenData({
+        Internal.SourceTokenData({
           sourcePoolAddress: abi.encode(sourcePool),
           destPoolAddress: abi.encode(destPool),
           extraData: ""
