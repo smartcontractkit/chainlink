@@ -78,7 +78,7 @@ func NewEvmTxm(
 	resender *Resender,
 	tracker *Tracker,
 ) *Txm {
-	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, client.NewSendError)
+	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, client.NewTxError)
 }
 
 // NewEvmResender creates a new concrete EvmResender

@@ -361,8 +361,16 @@ func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
 }
 
 // IsTerminallyStuck indicates if a transaction was stuck without any chance of inclusion
-func (s *SendError) IsTerminallyStuck(configErrors *ClientErrors) bool {
+func (s *SendError) IsTerminallyStuckConfigError(configErrors *ClientErrors) bool {
 	return s.is(TerminallyStuck, configErrors)
+}
+
+func (s *SendError) IsFatal() bool {
+	return s.Fatal(nil)
+}
+
+func (s *SendError) IsTerminallyStuck() bool {
+	return s.IsTerminallyStuckConfigError(nil)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -404,6 +412,10 @@ func NewSendError(e error) *SendError {
 	}
 	fatal := isFatalSendError(e)
 	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
+}
+
+func NewTxError(e error) commonclient.TxError {
+	return NewSendError(e)
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:
