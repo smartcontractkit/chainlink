@@ -38,6 +38,7 @@ type ORM interface {
 	SelectBlockByNumber(ctx context.Context, blockNumber int64) (*LogPollerBlock, error)
 	SelectBlockByHash(ctx context.Context, hash common.Hash) (*LogPollerBlock, error)
 	SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error)
+	SelectOldestBlock(ctx context.Context, minAllowedBlockNumber int64) (*LogPollerBlock, error)
 
 	SelectLogs(ctx context.Context, start, end int64, address common.Address, eventSig common.Hash) ([]Log, error)
 	SelectLogsWithSigs(ctx context.Context, start, end int64, address common.Address, eventSigs []common.Hash) ([]Log, error)
@@ -202,6 +203,14 @@ func (o *DSORM) SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error) 
 	return &b, nil
 }
 
+func (o *DSORM) SelectOldestBlock(ctx context.Context, minAllowedBlockNumber int64) (*LogPollerBlock, error) {
+	var b LogPollerBlock
+	if err := o.ds.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE evm_chain_id = $1 AND block_number >= $2 ORDER BY block_number ASC LIMIT 1`, ubig.New(o.chainID), minAllowedBlockNumber); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
 func (o *DSORM) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig common.Hash, address common.Address, confs Confirmations) (*Log, error) {
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
 		withConfs(confs).
@@ -215,7 +224,9 @@ func (o *DSORM) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig
 			AND event_sig = :event_sig
 			AND address = :address
 			AND block_number <= %s
-			ORDER BY (block_number, log_index) DESC LIMIT 1`, nestedBlockNumberQuery(confs))
+			ORDER BY block_number desc, log_index DESC 
+			LIMIT 1
+		`, nestedBlockNumberQuery(confs))
 	var l Log
 
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -416,7 +427,7 @@ func (o *DSORM) SelectLogsByBlockRange(ctx context.Context, start, end int64) ([
         	WHERE evm_chain_id = :evm_chain_id
         	AND block_number >= :start_block 
         	AND block_number <= :end_block 
-        	ORDER BY (block_number, log_index)`
+        	ORDER BY block_number, log_index`
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -447,7 +458,7 @@ func (o *DSORM) SelectLogs(ctx context.Context, start, end int64, address common
 			AND event_sig = :event_sig  
 			AND block_number >= :start_block 
 			AND block_number <= :end_block
-			ORDER BY (block_number, log_index)`
+			ORDER BY block_number, log_index`
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -479,7 +490,7 @@ func (o *DSORM) SelectLogsCreatedAfter(ctx context.Context, address common.Addre
 				AND event_sig = :event_sig
 				AND block_timestamp > :block_timestamp_after
 				AND block_number <= %s
-				ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+				ORDER BY block_number, log_index`, nestedBlockNumberQuery(confs))
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -511,7 +522,7 @@ func (o *DSORM) SelectLogsWithSigs(ctx context.Context, start, end int64, addres
 				AND address = :address
 				AND event_sig = ANY(:event_sig_array)
 				AND block_number BETWEEN :start_block AND :end_block
-				ORDER BY (block_number, log_index)`
+				ORDER BY block_number, log_index`
 
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
 	if err != nil {
@@ -638,7 +649,7 @@ func (o *DSORM) SelectLogsDataWordRange(ctx context.Context, address common.Addr
 			AND substring(data from 32*:word_index+1 for 32) >= :word_value_min
 			AND substring(data from 32*:word_index+1 for 32) <= :word_value_max
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY block_number, log_index`, nestedBlockNumberQuery(confs))
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -669,7 +680,7 @@ func (o *DSORM) SelectLogsDataWordGreaterThan(ctx context.Context, address commo
 			AND event_sig = :event_sig
 			AND substring(data from 32*:word_index+1 for 32) >= :word_value_min
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY block_number, log_index`, nestedBlockNumberQuery(confs))
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -701,7 +712,7 @@ func (o *DSORM) SelectLogsDataWordBetween(ctx context.Context, address common.Ad
 			AND substring(data from 32*:word_index_min+1 for 32) <= :word_value
 			AND substring(data from 32*:word_index_max+1 for 32) >= :word_value
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY block_number, log_index`, nestedBlockNumberQuery(confs))
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -732,7 +743,7 @@ func (o *DSORM) SelectIndexedLogsTopicGreaterThan(ctx context.Context, address c
 			AND event_sig = :event_sig
 			AND topics[:topic_index] >= :topic_value_min
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY block_number, log_index`, nestedBlockNumberQuery(confs))
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -765,7 +776,7 @@ func (o *DSORM) SelectIndexedLogsTopicRange(ctx context.Context, address common.
 				AND topics[:topic_index] >= :topic_value_min
 				AND topics[:topic_index] <= :topic_value_max
 				AND block_number <= %s
-			ORDER BY (evm.logs.block_number, evm.logs.log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY block_number, log_index`, nestedBlockNumberQuery(confs))
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -796,7 +807,7 @@ func (o *DSORM) SelectIndexedLogs(ctx context.Context, address common.Address, e
 			AND event_sig = :event_sig
 			AND topics[:topic_index] = ANY(:topic_values)
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY block_number, log_index`, nestedBlockNumberQuery(confs))
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -829,7 +840,7 @@ func (o *DSORM) SelectIndexedLogsByBlockRange(ctx context.Context, start, end in
 				AND topics[:topic_index] = ANY(:topic_values)
 				AND block_number >= :start_block
 				AND block_number <= :end_block
-				ORDER BY (block_number, log_index)`
+				ORDER BY block_number, log_index`
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -863,7 +874,8 @@ func (o *DSORM) SelectIndexedLogsCreatedAfter(ctx context.Context, address commo
 			AND topics[:topic_index] = ANY(:topic_values)
 			AND block_timestamp > :block_timestamp_after
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs))
+			ORDER BY block_number, log_index
+		`, nestedBlockNumberQuery(confs))
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -892,7 +904,7 @@ func (o *DSORM) SelectIndexedLogsByTxHash(ctx context.Context, address common.Ad
 			AND address = :address
 			AND event_sig = :event_sig
 			AND tx_hash = :tx_hash
-			ORDER BY (block_number, log_index)`
+			ORDER BY block_number, log_index`
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -940,7 +952,7 @@ func (o *DSORM) SelectIndexedLogsWithSigsExcluding(ctx context.Context, sigA, si
 		AND        b.event_sig = :sigB
 	    AND 	   b.block_number BETWEEN :start_block AND :end_block
 		AND		   b.block_number <= %s
-		ORDER BY block_number,log_index ASC`, nestedQuery, nestedQuery)
+		ORDER BY block_number, log_index`, nestedQuery, nestedQuery)
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)

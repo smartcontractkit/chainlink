@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -78,7 +79,8 @@ type Relayer struct {
 	codec       commontypes.Codec
 
 	// Mercury
-	mercuryORM mercury.ORM
+	mercuryORM     mercury.ORM
+	transmitterCfg mercury.TransmitterConfig
 
 	// LLO/data streams
 	cdcFactory llo.ChannelDefinitionCacheFactory
@@ -93,7 +95,8 @@ type CSAETHKeystore interface {
 type RelayerOpts struct {
 	DS sqlutil.DataSource
 	CSAETHKeystore
-	MercuryPool wsrpc.Pool
+	MercuryPool       wsrpc.Pool
+	TransmitterConfig mercury.TransmitterConfig
 }
 
 func (c RelayerOpts) Validate() error {
@@ -122,14 +125,15 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	lloORM := llo.NewORM(opts.DS, chain.ID())
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
 	return &Relayer{
-		ds:          opts.DS,
-		chain:       chain,
-		lggr:        lggr,
-		ks:          opts.CSAETHKeystore,
-		mercuryPool: opts.MercuryPool,
-		cdcFactory:  cdcFactory,
-		lloORM:      lloORM,
-		mercuryORM:  mercuryORM,
+		ds:             opts.DS,
+		chain:          chain,
+		lggr:           lggr,
+		ks:             opts.CSAETHKeystore,
+		mercuryPool:    opts.MercuryPool,
+		cdcFactory:     cdcFactory,
+		lloORM:         lloORM,
+		mercuryORM:     mercuryORM,
+		transmitterCfg: opts.TransmitterConfig,
 	}, nil
 }
 
@@ -169,7 +173,7 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 		return nil, err
 	}
 
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +250,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	default:
 		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
 	}
-	transmitter := mercury.NewTransmitter(lggr, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec)
+	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec)
 
 	return NewMercuryProvider(cp, r.chainReader, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
@@ -473,7 +477,7 @@ type configTransmitterOpts struct {
 }
 
 // newOnChainContractTransmitter creates a new contract transmitter.
-func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI) (*contractTransmitter, error) {
+func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, transmissionContractRetention time.Duration) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -537,7 +541,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
 	}
 
-	return NewOCRContractTransmitter(
+	return NewOCRContractTransmitterWithRetention(
 		ctx,
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
@@ -546,6 +550,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		configWatcher.chain.LogPoller(),
 		lggr,
 		nil,
+		transmissionContractRetention,
 	)
 }
 
@@ -575,7 +580,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, 0)
 	if err != nil {
 		return nil, err
 	}
