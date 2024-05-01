@@ -74,6 +74,7 @@ chainlink:
     - name: node-3
     - name: node-4
     - name: node-5
+    - name: node-6
 geth:
   wsRpcPort: 8546
 networkPolicies:

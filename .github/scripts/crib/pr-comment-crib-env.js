@@ -11,6 +11,7 @@ function generateSubdomains(subdomainPrefix, prNumber) {
     "node3",
     "node4",
     "node5",
+    "node6",
     "geth-1337-http",
     "geth-1337-ws",
     "geth-2337-http",
