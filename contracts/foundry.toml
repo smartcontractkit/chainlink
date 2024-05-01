@@ -65,10 +65,10 @@ src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
 
-[profile.rebalancer]
+[profile.liquiditymanager]
 optimizer_runs = 1000000
-src = 'src/v0.8/rebalancer'
-test = 'src/v0.8/rebalancer/test'
+src = 'src/v0.8/liquiditymanager'
+test = 'src/v0.8/liquiditymanager/test'
 solc_version = '0.8.19'
 
 [profile.keystone]

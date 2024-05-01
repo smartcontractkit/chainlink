@@ -14,7 +14,7 @@ import (
 	"github.com/shopspring/decimal"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/multienv"
+	"github.com/smartcontractkit/chainlink/core/scripts/ccip/liquiditymanager/multienv"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ether_sender_receiver"

@@ -25,7 +25,7 @@
 #        with:
 #          filters: |
 #            src:
-#              - 'contracts/src/!(v0.8/(llo-feeds|keystone|ccip|rebalancer|functions|transmission)/**)/**/*'
+#              - 'contracts/src/!(v0.8/(llo-feeds|keystone|ccip|liquiditymanager|functions|transmission)/**)/**/*'
 #              - 'contracts/test/**/*'
 #              - 'contracts/package.json'
 #              - 'contracts/pnpm-lock.yaml'

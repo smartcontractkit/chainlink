@@ -1259,7 +1259,7 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 			Execute:    cfg.Plugins.Execute,
 			Median:     cfg.Plugins.Median,
 			Mercury:    cfg.Plugins.Mercury,
-			Rebalancer: cfg.Plugins.Rebalancer,
+			Rebalancer: cfg.Plugins.LiquidityManager,
 		},
 	}
 

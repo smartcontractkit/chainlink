@@ -22,10 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
+	liquiditymanagermodels "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
-	rebalancermodels "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -133,8 +133,8 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		return validateOCR2LLOSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
 		return validateGenericPluginSpec(ctx, spec.OCR2OracleSpec, rc)
-	case "rebalancer":
-		return validateRebalancerSpec(spec.OCR2OracleSpec.PluginConfig)
+	case "liquiditymanager":
+		return validateLiquidityManagerSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -251,11 +251,11 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	return plugin.ValidateConfig(ctx, spec.PluginConfig)
 }
 
-func validateRebalancerSpec(jsonConfig job.JSONConfig) error {
+func validateLiquidityManagerSpec(jsonConfig job.JSONConfig) error {
 	if jsonConfig == nil {
 		return errors.New("pluginConfig is empty")
 	}
-	var pluginConfig rebalancermodels.PluginConfig
+	var pluginConfig liquiditymanagermodels.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
@@ -266,7 +266,7 @@ func validateRebalancerSpec(jsonConfig job.JSONConfig) error {
 	if pluginConfig.ClosePluginTimeoutSec <= 0 {
 		return errors.New("closePluginTimeoutSec must be positive")
 	}
-	if err := rebalancermodels.ValidateRebalancerConfig(pluginConfig.RebalancerConfig); err != nil {
+	if err := liquiditymanagermodels.ValidateRebalancerConfig(pluginConfig.RebalancerConfig); err != nil {
 		return fmt.Errorf("rebalancer config invalid: %w", err)
 	}
 	return nil

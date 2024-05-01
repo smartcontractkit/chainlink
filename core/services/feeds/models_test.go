@@ -64,9 +64,9 @@ func Test_ToPluginType(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, pt, PluginTypeMercury)
 
-	pt, err = ToPluginType("rebalancer")
+	pt, err = ToPluginType("liquiditymanager")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeRebalancer)
+	assert.Equal(t, pt, PluginTypeLiquidityManager)
 
 	pt, err = ToPluginType("xxx")
 	require.Error(t, err)
@@ -81,7 +81,7 @@ func Test_FromPluginType(t *testing.T) {
 	assert.Equal(t, "execute", FromPluginTypeInput(PluginTypeExecute))
 	assert.Equal(t, "median", FromPluginTypeInput(PluginTypeMedian))
 	assert.Equal(t, "mercury", FromPluginTypeInput(PluginTypeMercury))
-	assert.Equal(t, "rebalancer", FromPluginTypeInput(PluginTypeRebalancer))
+	assert.Equal(t, "liquiditymanager", FromPluginTypeInput(PluginTypeLiquidityManager))
 	assert.Equal(t, "unknown", FromPluginTypeInput(PluginTypeUnknown))
 }
 
@@ -246,13 +246,13 @@ func Test_Plugins_Value(t *testing.T) {
 
 	var (
 		give = Plugins{
-			Commit:     true,
-			Execute:    true,
-			Median:     false,
-			Mercury:    true,
-			Rebalancer: false,
+			Commit:           true,
+			Execute:          true,
+			Median:           false,
+			Mercury:          true,
+			LiquidityManager: false,
 		}
-		want = `{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}`
+		want = `{"commit":true,"execute":true,"median":false,"mercury":true,"liquiditymanager":false}`
 	)
 
 	val, err := give.Value()
@@ -268,13 +268,13 @@ func Test_Plugins_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = `{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}`
+		give = `{"commit":true,"execute":true,"median":false,"mercury":true,"liquiditymanager":false}`
 		want = Plugins{
-			Commit:     true,
-			Execute:    true,
-			Median:     false,
-			Mercury:    true,
-			Rebalancer: false,
+			Commit:           true,
+			Execute:          true,
+			Median:           false,
+			Mercury:          true,
+			LiquidityManager: false,
 		}
 	)
 
@@ -297,14 +297,14 @@ func Test_OCR2Config_Value(t *testing.T) {
 			P2PPeerID:        null.StringFrom("peerid"),
 			KeyBundleID:      null.StringFrom("ocrkeyid"),
 			Plugins: Plugins{
-				Commit:     true,
-				Execute:    true,
-				Median:     false,
-				Mercury:    true,
-				Rebalancer: false,
+				Commit:           true,
+				Execute:          true,
+				Median:           false,
+				Mercury:          true,
+				LiquidityManager: false,
 			},
 		}
-		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","forwarder_address":"forwarderaddress","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}}`
+		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","forwarder_address":"forwarderaddress","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true,"liquiditymanager":false}}`
 	)
 
 	val, err := give.Value()
@@ -320,7 +320,7 @@ func Test_OCR2Config_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","forwarder_address":"forwarderaddress","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}}`
+		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","forwarder_address":"forwarderaddress","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true,"liquiditymanager":false}}`
 		want = OCR2ConfigModel{
 			Enabled:          true,
 			IsBootstrap:      false,
@@ -329,11 +329,11 @@ func Test_OCR2Config_Scan(t *testing.T) {
 			P2PPeerID:        null.StringFrom("peerid"),
 			KeyBundleID:      null.StringFrom("ocrkeyid"),
 			Plugins: Plugins{
-				Commit:     true,
-				Execute:    true,
-				Median:     false,
-				Mercury:    true,
-				Rebalancer: false,
+				Commit:           true,
+				Execute:          true,
+				Median:           false,
+				Mercury:          true,
+				LiquidityManager: false,
 			},
 		}
 	)
