@@ -65,10 +65,16 @@ targets:
       abi: "receive(report bytes)"
 `
 
+type testHooks struct {
+	initFailed        chan struct{}
+	executionFinished chan string
+}
+
 // newTestEngine creates a new engine with some test defaults.
-func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (eng *Engine, initFailed chan struct{}) {
+func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (*Engine, *testHooks) {
 	peerID := p2ptypes.PeerID{}
-	initFailed = make(chan struct{})
+	initFailed := make(chan struct{})
+	executionFinished := make(chan string, 100)
 	cfg := Config{
 		Lggr:       logger.TestLogger(t),
 		Registry:   reg,
@@ -82,10 +88,13 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (eng *Engin
 				close(initFailed)
 			}
 		},
+		onExecutionFinished: func(weid string) {
+			executionFinished <- weid
+		},
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
-	return eng, initFailed
+	return eng, &testHooks{initFailed: initFailed, executionFinished: executionFinished}
 }
 
 // getExecutionId returns the execution id of the workflow that is
@@ -93,13 +102,14 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (eng *Engin
 //
 // If the engine fails to initialize, the test will fail rather
 // than blocking indefinitely.
-func getExecutionId(t *testing.T, eng *Engine, initFailed <-chan struct{}) string {
+func getExecutionId(t *testing.T, eng *Engine, hooks *testHooks) string {
 	var eid string
 	select {
-	case <-initFailed:
+	case <-hooks.initFailed:
 		t.FailNow()
-	case eid = <-eng.xxxExecutionFinished:
+	case eid = <-hooks.executionFinished:
 	}
+
 	return eid
 }
 
@@ -186,13 +196,13 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, target2))
 
-	eng, initFailed := newTestEngine(t, reg, hardcodedWorkflow)
+	eng, hooks := newTestEngine(t, reg, hardcodedWorkflow)
 
 	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := getExecutionId(t, eng, initFailed)
+	eid := getExecutionId(t, eng, hooks)
 	assert.Equal(t, cr, <-target1.response)
 	assert.Equal(t, cr, <-target2.response)
 
@@ -340,13 +350,13 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockFailingConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	eng, initFailed := newTestEngine(t, reg, simpleWorkflow)
+	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
 
 	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := getExecutionId(t, eng, initFailed)
+	eid := getExecutionId(t, eng, hooks)
 	state, err := eng.executionStates.get(ctx, eid)
 	require.NoError(t, err)
 
@@ -439,12 +449,12 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	action, out := mockAction()
 	require.NoError(t, reg.Add(ctx, action))
 
-	eng, initFailed := newTestEngine(t, reg, multiStepWorkflow)
+	eng, hooks := newTestEngine(t, reg, multiStepWorkflow)
 	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := getExecutionId(t, eng, initFailed)
+	eid := getExecutionId(t, eng, hooks)
 	state, err := eng.executionStates.get(ctx, eid)
 	require.NoError(t, err)
 
