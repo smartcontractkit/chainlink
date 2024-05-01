@@ -40,4 +40,9 @@ spec:
           port: 53
         - protocol: UDP
           port: 53
+    # Allow egress to all hosts on port 443 (HTTPS).
+    - to:
+      ports:
+        - protocol: TCP
+          port: 443
 {{- end }}
