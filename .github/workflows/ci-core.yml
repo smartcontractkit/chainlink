@@ -64,6 +64,7 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' }}
         with:
           id: core
+          name: lint
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
