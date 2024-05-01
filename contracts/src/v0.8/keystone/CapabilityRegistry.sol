@@ -44,6 +44,28 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     OBSERVATION_IDENTICAL
   }
 
+  // CapabilityConfiguration is a struct that holds the DON configuration of a
+  // capability. This configuration will likely differ between different DON
+  // instances serving the same capability.
+  struct CapabilityConfiguration {
+    // This is unique for a DON instance (enforced).
+    bytes32 capabilityId;
+    // This is used in the config digest to ensure uniqueness. Increments by 1
+    // each time onchainConfig is updated (enforced).
+    uint32 onchainConfigVersion;
+    // This is used in the config digest to ensure uniqueness. Increments by 1
+    // each time offchainConfig is updated (enforced).
+    uint32 offchainConfigVersion;
+    // This configuration is expected to be decodeable on-chain (not enforced).
+    // Any configuration that does not need to be verified on chain should live
+    // in the `offchainConfig`. This configuration can be updated together with
+    // DON nodes.
+    bytes onchainConfig;
+    // This allows fine-grained configuration of capabilities across DON
+    // instances. This configuration can be updated together with DON nodes.
+    bytes offchainConfig;
+  }
+
   struct Capability {
     // Capability type, e.g. "data-streams-reports"
     // bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
