@@ -741,7 +741,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.Equal(t, txmgrcommon.TxFatalError, state)
 		require.NotNil(t, txErr)
 		require.Equal(t, client.TerminallyStuckMsg, txErr.Error())
-		require.Equal(t, true, txErr.IsTerminallyStuck(nil))
+		require.Equal(t, true, txErr.IsTerminallyStuck())
 	})
 
 	t.Run("returns fatal error state with other error", func(t *testing.T) {
