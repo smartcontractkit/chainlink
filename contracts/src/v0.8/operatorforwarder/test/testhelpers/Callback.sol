@@ -2,20 +2,20 @@
 pragma solidity ^0.8.0;
 
 contract Callback {
-  address private operator;
-  uint256 private callbacksReceived = 0;
+  address private s_operator;
+  uint256 private s_callbacksReceived = 0;
 
   constructor(address _operator) {
-    operator = _operator;
+    s_operator = _operator;
   }
 
   // Callback function for oracle request fulfillment
   function callback(bytes32) public {
-    require(msg.sender == operator, "Only Operator can call this function");
-    callbacksReceived += 1;
+    require(msg.sender == s_operator, "Only Operator can call this function");
+    s_callbacksReceived += 1;
   }
 
   function getCallbacksReceived() public view returns (uint256) {
-    return callbacksReceived;
+    return s_callbacksReceived;
   }
 }

@@ -7,15 +7,15 @@ contract MultiWordConsumer is ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
   bytes32 internal s_specId;
-  bytes private currentPrice;
+  bytes private s_currentPrice;
 
-  bytes32 private usd;
-  bytes32 private eur;
-  bytes32 private jpy;
+  bytes32 private s_usd;
+  bytes32 private s_eur;
+  bytes32 private s_jpy;
 
-  uint256 private usdInt;
-  uint256 private eurInt;
-  uint256 private jpyInt;
+  uint256 private s_usdInt;
+  uint256 private s_eurInt;
+  uint256 private s_jpyInt;
 
   event RequestFulfilled(
     bytes32 indexed requestId, // User-defined ID
@@ -100,9 +100,9 @@ contract MultiWordConsumer is ChainlinkClient {
     bytes32 _jpy
   ) public recordChainlinkFulfillment(_requestId) {
     emit RequestMultipleFulfilled(_requestId, _usd, _eur, _jpy);
-    usd = _usd;
-    eur = _eur;
-    jpy = _jpy;
+    s_usd = _usd;
+    s_eur = _eur;
+    s_jpy = _jpy;
   }
 
   function fulfillMultipleParametersWithCustomURLs(
@@ -112,14 +112,14 @@ contract MultiWordConsumer is ChainlinkClient {
     uint256 _jpy
   ) public recordChainlinkFulfillment(_requestId) {
     emit RequestMultipleFulfilledWithCustomURLs(_requestId, _usd, _eur, _jpy);
-    usdInt = _usd;
-    eurInt = _eur;
-    jpyInt = _jpy;
+    s_usdInt = _usd;
+    s_eurInt = _eur;
+    s_jpyInt = _jpy;
   }
 
   function fulfillBytes(bytes32 _requestId, bytes memory _price) public recordChainlinkFulfillment(_requestId) {
     emit RequestFulfilled(_requestId, _price);
-    currentPrice = _price;
+    s_currentPrice = _price;
   }
 
   function publicGetNextRequestCount() external view returns (uint256) {
