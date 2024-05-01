@@ -25,6 +25,10 @@ NeedsUpgrade = true
 Name = 'node-5'
 NeedsUpgrade = true
 
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-6'
+NeedsUpgrade = true
+
 [CCIP.Groups]
 [CCIP.Groups.load]
 LocalCluster = false
