@@ -2,7 +2,7 @@
 // A mock for testing code that relies on VRFCoordinatorV2_5.
 pragma solidity ^0.8.19;
 
-import {IVRFCoordinatorV2Plus} from "../dev/interfaces/IVRFCoordinatorV2Plus.sol";
+import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "../dev/interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRFV2PlusClient} from "../dev/libraries/VRFV2PlusClient.sol";
 import {SubscriptionAPI} from "../dev/SubscriptionAPI.sol";
 import {VRFConsumerBaseV2Plus} from "../dev/VRFConsumerBaseV2Plus.sol";
