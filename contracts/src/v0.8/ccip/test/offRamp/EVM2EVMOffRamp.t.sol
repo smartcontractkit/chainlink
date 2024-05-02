@@ -709,6 +709,47 @@ contract EVM2EVMOffRamp_executeSingleMessage is EVM2EVMOffRampSetup {
     s_offRamp.executeSingleMessage(message, offchainTokenData);
   }
 
+  function test_executeSingleMessage_ZeroGasZeroData_Success() public {
+    uint256 gasLimit = 0;
+    Internal.EVM2EVMMessage memory message = _generateMsgWithoutTokens(gasLimit);
+    Client.Any2EVMMessage memory receiverMsg = _convertToGeneralMessage(message);
+
+    // expect 0 calls to be made as no gas is provided
+    vm.expectCall(
+      address(s_destRouter),
+      abi.encodeCall(Router.routeMessage, (receiverMsg, Internal.GAS_FOR_CALL_EXACT_CHECK, gasLimit, message.receiver)),
+      0
+    );
+
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+
+    // Ensure we encoded it properly, and didn't simply expect the wrong call
+    gasLimit = 200_000;
+    message = _generateMsgWithoutTokens(gasLimit);
+    receiverMsg = _convertToGeneralMessage(message);
+
+    vm.expectCall(
+      address(s_destRouter),
+      abi.encodeCall(Router.routeMessage, (receiverMsg, Internal.GAS_FOR_CALL_EXACT_CHECK, gasLimit, message.receiver)),
+      1
+    );
+
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+  }
+
+  function _generateMsgWithoutTokens(uint256 gasLimit) internal view returns (Internal.EVM2EVMMessage memory) {
+    Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageNoTokens(1);
+    message.gasLimit = gasLimit;
+    message.data = "";
+    message.messageId = Internal._hash(
+      message,
+      keccak256(
+        abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_SELECTOR, DEST_CHAIN_SELECTOR, ON_RAMP_ADDRESS)
+      )
+    );
+    return message;
+  }
+
   function test_NonContract_Success() public {
     Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageNoTokens(1);
     message.receiver = STRANGER;
