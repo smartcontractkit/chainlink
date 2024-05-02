@@ -236,7 +236,17 @@ deployments:
             httpRpcPort: 8544
             chains:
               - networkId: 1337
+                customEVMConfigToml: |
+                  [EVM.GasEstimator]
+                  PriceMax = '200 gwei'
+                  LimitDefault = 6000000
+                  FeeCapDefault = '200 gwei'
               - networkId: 2337
+                customEVMConfigToml: |
+                  [EVM.GasEstimator]
+                  PriceMax = '200 gwei'
+                  LimitDefault = 6000000
+                  FeeCapDefault = '200 gwei'
             blocktime: 1
             resources:
               requests:
