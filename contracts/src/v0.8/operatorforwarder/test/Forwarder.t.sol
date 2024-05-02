@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "forge-std/Test.sol";
-
-import "./testhelpers/Deployer.t.sol";
+import {Deployer} from "./testhelpers/Deployer.t.sol";
 import {AuthorizedForwarder} from "../AuthorizedForwarder.sol";
 
 contract ForwarderTest is Deployer {
@@ -16,10 +14,7 @@ contract ForwarderTest is Deployer {
     s_forwarder = AuthorizedForwarder(s_factory.deployNewForwarder());
   }
 
-  /**
-   * @dev Tests the functionality of setting authorized senders.
-   */
-  function test_SetAuthorizedSenders() public {
+  function test_SetAuthorizedSenders_Success() public {
     address[] memory senders;
 
     // Expect a revert when trying to set an empty list of authorized senders
@@ -75,10 +70,7 @@ contract ForwarderTest is Deployer {
     require(returnedSenders[0] == senders[0]);
   }
 
-  /**
-   * @dev Tests the behavior of single forward
-   */
-  function test_Forward(uint256 _value) public {
+  function test_Forward_Success(uint256 _value) public {
     _addSenders();
 
     vm.expectRevert("Not authorized sender");
@@ -106,7 +98,7 @@ contract ForwarderTest is Deployer {
     require(s_mockReceiver.getValue() == _value);
   }
 
-  function test_MultiForward(uint256 _value1, uint256 _value2) public {
+  function test_MultiForward_Success(uint256 _value1, uint256 _value2) public {
     _addSenders();
 
     address[] memory tos;
@@ -150,11 +142,7 @@ contract ForwarderTest is Deployer {
     require(s_mockReceiver.getValue() == _value2);
   }
 
-  /**
-   * @dev tests the difference between ownerForward and forward
-   * specifically owner can forward to link token
-   */
-  function test_OwnerForward() public {
+  function test_OwnerForward_Success() public {
     vm.expectRevert("Only callable by owner");
     s_forwarder.ownerForward(address(0), new bytes(0));
 
@@ -166,10 +154,7 @@ contract ForwarderTest is Deployer {
     s_forwarder.ownerForward(address(s_link), abi.encodeWithSignature("balanceOf(address)", address(0)));
   }
 
-  /**
-   * @dev Tests the behavior of transfer and accept ownership of the contract.
-   */
-  function test_TransferOwnershipWithMessage() public {
+  function test_TransferOwnershipWithMessage_Success() public {
     vm.prank(s_bob);
     vm.expectRevert("Only callable by owner");
     s_forwarder.transferOwnershipWithMessage(s_bob, new bytes(0));
@@ -186,9 +171,6 @@ contract ForwarderTest is Deployer {
     require(s_forwarder.owner() == s_bob);
   }
 
-  /**
-   * @dev Helper function to setup senders
-   */
   function _addSenders() internal {
     address[] memory senders = new address[](3);
     senders[0] = s_sender1;

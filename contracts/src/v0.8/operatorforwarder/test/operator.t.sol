@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {Test} from "forge-std/Test.sol";
 import {Operator} from "../Operator.sol";
 import {Callback} from "./testhelpers/Callback.sol";
 import {ChainlinkClientHelper} from "./testhelpers/ChainlinkClientHelper.sol";
@@ -24,7 +23,7 @@ contract OperatorTest is Deployer {
     s_callback = new Callback(address(s_operator));
   }
 
-  function test_sendRequest(uint96 payment) public {
+  function test_SendRequest_Success(uint96 payment) public {
     vm.assume(payment > 0);
     deal(address(s_link), address(s_client), payment);
     // We're going to cancel one request and fulfill the other
@@ -48,7 +47,7 @@ contract OperatorTest is Deployer {
     assertEq(s_link.balanceOf(address(s_client)), payment);
   }
 
-  function test_afterSuccessfulRequestSucess(uint96 payment) public {
+  function test_SendRequestAndCancelRequest_Success(uint96 payment) public {
     vm.assume(payment > 1);
     payment /= payment;
 
@@ -103,7 +102,7 @@ contract OperatorTest is Deployer {
     assertEq(s_link.balanceOf(address(s_client)), 2 * payment);
   }
 
-  function test_oracleRequestFlow() public {
+  function test_OracleRequest_Success() public {
     // Define some mock values
     bytes32 specId = keccak256("testSpec");
     bytes4 callbackFunctionId = bytes4(keccak256("callback(bytes32)"));
@@ -143,7 +142,7 @@ contract OperatorTest is Deployer {
     assertEq(s_operator.withdrawable(), withdrawableBefore);
   }
 
-  function test_fulfillOracleRequest() public {
+  function test_FulfillOracleRequest_Success() public {
     // This test file is the callback target and actual sender contract
     // so we should enable it to set Authorised senders to itself
     address[] memory senders = new address[](2);
@@ -196,7 +195,7 @@ contract OperatorTest is Deployer {
     assertEq(s_operator.withdrawable(), withdrawableBefore + payment, "Internal accounting not updated correctly");
   }
 
-  function test_cancelOracleRequest() public {
+  function test_CancelOracleRequest_Success() public {
     // Define mock values for creating a new oracle request
     bytes32 specId = keccak256("testSpecForCancel");
     bytes4 callbackFunctionId = bytes4(keccak256("callback(bytes32)"));
@@ -207,9 +206,6 @@ contract OperatorTest is Deployer {
     uint256 expiration = block.timestamp + 5 minutes;
 
     uint256 withdrawableBefore = s_operator.withdrawable();
-
-    // Convert bytes to bytes32
-    bytes32 data = bytes32(keccak256(dataBytes));
 
     // Send LINK tokens to the Operator contract using `transferAndCall`
     deal(address(s_link), s_bob, payment);
@@ -252,7 +248,7 @@ contract OperatorTest is Deployer {
     assertEq(s_operator.withdrawable(), withdrawableBefore, "Internal accounting not updated correctly");
   }
 
-  function test_unauthorizedFulfillment() public {
+  function test_NotAuthorizedSender_Revert() public {
     bytes32 specId = keccak256("unauthorizedFulfillSpec");
     bytes4 callbackFunctionId = bytes4(keccak256("callback(bytes32)"));
     uint256 nonce = 5;

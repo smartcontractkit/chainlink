@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "forge-std/Test.sol";
-
-import "./testhelpers/Deployer.t.sol";
+import {Deployer} from "./testhelpers/Deployer.t.sol";
+import {AuthorizedForwarder} from "../AuthorizedForwarder.sol";
+import {Operator} from "../Operator.sol";
 
 contract FactoryTest is Deployer {
   function setUp() public {
@@ -12,10 +12,7 @@ contract FactoryTest is Deployer {
     vm.startPrank(s_alice);
   }
 
-  /**
-   * @dev Test the deployment of a new operator.
-   */
-  function test_DeployNewOperator() public {
+  function test_DeployNewOperator_Success() public {
     // Deploy a new operator using the factory.
     address newOperator = s_factory.deployNewOperator();
     // Assert that the new operator was indeed created by the factory.
@@ -24,10 +21,7 @@ contract FactoryTest is Deployer {
     require(Operator(newOperator).owner() == s_alice);
   }
 
-  /**
-   * @dev Test the deployment of a new operator and a new forwarder.
-   */
-  function test_DeployNewOperatorAndForwarder() public {
+  function test_DeployNewOperatorAndForwarder_Success() public {
     // Deploy both a new operator and a new forwarder using the factory.
     (address newOperator, address newForwarder) = s_factory.deployNewOperatorAndForwarder();
 
@@ -45,10 +39,7 @@ contract FactoryTest is Deployer {
     require(AuthorizedForwarder(newForwarder).owner() == newOperator, "operator is not the owner");
   }
 
-  /**
-   * @dev Test the deployment of a new forwarder.
-   */
-  function test_DeployNewForwarder() public {
+  function test_DeployNewForwarder_Success() public {
     // Deploy a new forwarder using the factory.
     address newForwarder = s_factory.deployNewForwarder();
     // Assert that the new forwarder was indeed created by the factory.
@@ -57,10 +48,7 @@ contract FactoryTest is Deployer {
     require(AuthorizedForwarder(newForwarder).owner() == s_alice);
   }
 
-  /**
-   * @dev Test the deployment of a new forwarder and then transfer its ownership.
-   */
-  function test_DeployNewForwarderAndTransferOwnership() public {
+  function test_DeployNewForwarderAndTransferOwnership_Success() public {
     // Deploy a new forwarder with a proposal to transfer its ownership to Bob.
     address newForwarder = s_factory.deployNewForwarderAndTransferOwnership(s_bob, new bytes(0));
     // Assert that the new forwarder was indeed created by the factory.
