@@ -116,10 +116,10 @@ contract OperatorTest is Deployer {
     uint256 withdrawableBefore = s_operator.withdrawable();
 
     // Send LINK tokens to the Operator contract using `transferAndCall`
-    deal(address(s_link), s_alice, payment);
-    assertEq(s_link.balanceOf(s_alice), 1 ether, "balance update failed");
+    deal(address(s_link), ALICE, payment);
+    assertEq(s_link.balanceOf(ALICE), 1 ether, "balance update failed");
 
-    vm.prank(s_alice);
+    vm.prank(ALICE);
     s_link.transferAndCall(
       address(s_operator),
       payment,
@@ -147,7 +147,7 @@ contract OperatorTest is Deployer {
     // so we should enable it to set Authorised senders to itself
     address[] memory senders = new address[](2);
     senders[0] = address(this);
-    senders[0] = s_bob;
+    senders[0] = BOB;
 
     s_operator.setAuthorizedSenders(senders);
 
@@ -166,8 +166,8 @@ contract OperatorTest is Deployer {
     bytes32 data = bytes32(keccak256(dataBytes));
 
     // Send LINK tokens to the Operator contract using `transferAndCall`
-    deal(address(s_link), s_bob, payment);
-    vm.prank(s_bob);
+    deal(address(s_link), BOB, payment);
+    vm.prank(BOB);
     s_link.transferAndCall(
       address(s_operator),
       payment,
@@ -185,8 +185,8 @@ contract OperatorTest is Deployer {
     );
 
     // Fulfill the request using the operator
-    bytes32 requestId = keccak256(abi.encodePacked(s_bob, nonce));
-    vm.prank(s_bob);
+    bytes32 requestId = keccak256(abi.encodePacked(BOB, nonce));
+    vm.prank(BOB);
     s_operator.fulfillOracleRequest(requestId, payment, address(s_callback), callbackFunctionId, expiration, data);
 
     assertEq(s_callback.getCallbacksReceived(), 1, "Oracle request was not fulfilled");
@@ -208,17 +208,17 @@ contract OperatorTest is Deployer {
     uint256 withdrawableBefore = s_operator.withdrawable();
 
     // Send LINK tokens to the Operator contract using `transferAndCall`
-    deal(address(s_link), s_bob, payment);
-    vm.prank(s_bob);
+    deal(address(s_link), BOB, payment);
+    vm.prank(BOB);
     s_link.transferAndCall(
       address(s_operator),
       payment,
       abi.encodeWithSignature(
         "oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)",
-        s_bob,
+        BOB,
         payment,
         specId,
-        s_bob,
+        BOB,
         callbackFunctionId,
         nonce,
         dataVersion,
@@ -229,13 +229,13 @@ contract OperatorTest is Deployer {
     // No withdrawable balance as it's all locked
     assertEq(s_operator.withdrawable(), withdrawableBefore, "Internal accounting not updated correctly");
 
-    bytes32 requestId = keccak256(abi.encodePacked(s_bob, nonce));
+    bytes32 requestId = keccak256(abi.encodePacked(BOB, nonce));
 
-    vm.startPrank(s_alice);
+    vm.startPrank(ALICE);
     vm.expectRevert(bytes("Params do not match request ID"));
     s_operator.cancelOracleRequest(requestId, payment, callbackFunctionId, expiration);
 
-    vm.startPrank(s_bob);
+    vm.startPrank(BOB);
     vm.expectRevert(bytes("Request is not expired"));
     s_operator.cancelOracleRequest(requestId, payment, callbackFunctionId, expiration);
 
@@ -243,7 +243,7 @@ contract OperatorTest is Deployer {
     s_operator.cancelOracleRequest(requestId, payment, callbackFunctionId, expiration);
 
     // Check if the LINK tokens were refunded to the sender (bob in this case)
-    assertEq(s_link.balanceOf(s_bob), 1 ether, "Oracle request was not canceled properly");
+    assertEq(s_link.balanceOf(BOB), 1 ether, "Oracle request was not canceled properly");
 
     assertEq(s_operator.withdrawable(), withdrawableBefore, "Internal accounting not updated correctly");
   }
@@ -257,14 +257,14 @@ contract OperatorTest is Deployer {
     uint256 payment = 1 ether;
     uint256 expiration = block.timestamp + 5 minutes;
 
-    deal(address(s_link), s_alice, payment);
-    vm.prank(s_alice);
+    deal(address(s_link), ALICE, payment);
+    vm.prank(ALICE);
     s_link.transferAndCall(
       address(s_operator),
       payment,
       abi.encodeWithSignature(
         "oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)",
-        s_alice,
+        ALICE,
         payment,
         specId,
         address(s_callback),
@@ -275,9 +275,9 @@ contract OperatorTest is Deployer {
       )
     );
 
-    bytes32 requestId = keccak256(abi.encodePacked(s_alice, nonce));
+    bytes32 requestId = keccak256(abi.encodePacked(ALICE, nonce));
 
-    vm.prank(s_bob);
+    vm.prank(BOB);
     vm.expectRevert(bytes("Not authorized sender"));
     s_operator.fulfillOracleRequest(
       requestId,

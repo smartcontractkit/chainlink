@@ -14,13 +14,11 @@ abstract contract Deployer is Test {
   LinkToken internal s_link;
   MockReceiver internal s_mockReceiver;
 
-  address private s_owner = makeAddr("owner");
-  address internal s_alice = makeAddr("alice");
-  address internal s_bob = makeAddr("bob");
-
-  address public s_sender1 = makeAddr("sender1");
-  address public s_sender2 = makeAddr("sender2");
-  address public s_sender3 = makeAddr("sender3");
+  address internal constant ALICE = address(0x101);
+  address internal constant BOB = address(0x102);
+  address internal constant SENDER_1 = address(0x103);
+  address internal constant SENDER_2 = address(0x104);
+  address internal constant SENDER_3 = address(0x105);
 
   function _setUp() internal {
     _deploy();

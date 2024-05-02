@@ -9,7 +9,7 @@ contract FactoryTest is Deployer {
   function setUp() public {
     _setUp();
 
-    vm.startPrank(s_alice);
+    vm.startPrank(ALICE);
   }
 
   function test_DeployNewOperator_Success() public {
@@ -18,7 +18,7 @@ contract FactoryTest is Deployer {
     // Assert that the new operator was indeed created by the factory.
     assertTrue(s_factory.created(newOperator));
     // Ensure that Alice is the owner of the newly deployed operator.
-    require(Operator(newOperator).owner() == s_alice);
+    require(Operator(newOperator).owner() == ALICE);
   }
 
   function test_DeployNewOperatorAndForwarder_Success() public {
@@ -29,7 +29,7 @@ contract FactoryTest is Deployer {
     assertTrue(s_factory.created(newOperator));
     assertTrue(s_factory.created(newForwarder));
     // Ensure that Alice is the owner of the newly deployed operator.
-    require(Operator(newOperator).owner() == s_alice);
+    require(Operator(newOperator).owner() == ALICE);
 
     //Operator to accept ownership
     vm.startPrank(newOperator);
@@ -45,25 +45,25 @@ contract FactoryTest is Deployer {
     // Assert that the new forwarder was indeed created by the factory.
     assertTrue(s_factory.created(newForwarder));
     // Ensure that Alice is the owner of the newly deployed forwarder.
-    require(AuthorizedForwarder(newForwarder).owner() == s_alice);
+    require(AuthorizedForwarder(newForwarder).owner() == ALICE);
   }
 
   function test_DeployNewForwarderAndTransferOwnership_Success() public {
     // Deploy a new forwarder with a proposal to transfer its ownership to Bob.
-    address newForwarder = s_factory.deployNewForwarderAndTransferOwnership(s_bob, new bytes(0));
+    address newForwarder = s_factory.deployNewForwarderAndTransferOwnership(BOB, new bytes(0));
     // Assert that the new forwarder was indeed created by the factory.
     assertTrue(s_factory.created(newForwarder));
     // Ensure that Alice is still the current owner of the newly deployed forwarder.
-    require(AuthorizedForwarder(newForwarder).owner() == s_alice);
+    require(AuthorizedForwarder(newForwarder).owner() == ALICE);
 
     // Only proposed owner can call acceptOwnership()
     vm.expectRevert("Must be proposed owner");
     AuthorizedForwarder(newForwarder).acceptOwnership();
 
-    vm.startPrank(s_bob);
+    vm.startPrank(BOB);
     // Let Bob accept the ownership.
     AuthorizedForwarder(newForwarder).acceptOwnership();
     // Ensure that Bob is now the owner of the forwarder after the transfer.
-    require(AuthorizedForwarder(newForwarder).owner() == s_bob);
+    require(AuthorizedForwarder(newForwarder).owner() == BOB);
   }
 }
