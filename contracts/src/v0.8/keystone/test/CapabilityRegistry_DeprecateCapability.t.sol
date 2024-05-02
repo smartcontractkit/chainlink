@@ -6,7 +6,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_AddCapabilityTest is BaseTest {
-  event CapabilityDeprecated(bytes32 indexed capabilityId);
+  event CapabilityDeprecated(bytes32 indexed hashedCapabilityId);
 
   function setUp() public override {
     BaseTest.setUp();
@@ -17,53 +17,55 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
 
   function test_RevertWhen_CalledByNonAdmin() public {
     changePrank(STRANGER);
-    bytes32 capabilityId = s_capabilityRegistry.getCapabilityID(
-      s_basicCapability.capabilityType,
+    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
+      s_basicCapability.labelledName,
       s_basicCapability.version
     );
 
     vm.expectRevert("Only callable by owner");
-    s_capabilityRegistry.deprecateCapability(capabilityId);
+    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
   }
 
   function test_RevertWhen_CapabilityDoesNotExist() public {
     vm.expectRevert(
-      abi.encodeWithSelector(CapabilityRegistry.CapabilityDoesNotExist.selector, s_nonExistentCapabilityId)
+      abi.encodeWithSelector(CapabilityRegistry.CapabilityDoesNotExist.selector, s_nonExistentHashedCapabilityId)
     );
-    s_capabilityRegistry.deprecateCapability(s_nonExistentCapabilityId);
+    s_capabilityRegistry.deprecateCapability(s_nonExistentHashedCapabilityId);
   }
 
   function test_RevertWhen_CapabilityAlreadyDeprecated() public {
-    bytes32 capabilityId = s_capabilityRegistry.getCapabilityID(
-      s_basicCapability.capabilityType,
+    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
+      s_basicCapability.labelledName,
       s_basicCapability.version
     );
 
-    s_capabilityRegistry.deprecateCapability(capabilityId);
+    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.CapabilityAlreadyDeprecated.selector, capabilityId));
-    s_capabilityRegistry.deprecateCapability(capabilityId);
+    vm.expectRevert(
+      abi.encodeWithSelector(CapabilityRegistry.CapabilityAlreadyDeprecated.selector, hashedCapabilityId)
+    );
+    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
   }
 
   function test_DeprecatesCapability() public {
-    bytes32 capabilityId = s_capabilityRegistry.getCapabilityID(
-      s_basicCapability.capabilityType,
+    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
+      s_basicCapability.labelledName,
       s_basicCapability.version
     );
 
-    s_capabilityRegistry.deprecateCapability(capabilityId);
+    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
 
-    assertEq(s_capabilityRegistry.isCapabilityDeprecated(capabilityId), true);
+    assertEq(s_capabilityRegistry.isCapabilityDeprecated(hashedCapabilityId), true);
   }
 
   function test_EmitsEvent() public {
-    bytes32 capabilityId = s_capabilityRegistry.getCapabilityID(
-      s_basicCapability.capabilityType,
+    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
+      s_basicCapability.labelledName,
       s_basicCapability.version
     );
 
     vm.expectEmit(address(s_capabilityRegistry));
-    emit CapabilityDeprecated(capabilityId);
-    s_capabilityRegistry.deprecateCapability(capabilityId);
+    emit CapabilityDeprecated(hashedCapabilityId);
+    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
   }
 }
