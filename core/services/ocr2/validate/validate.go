@@ -201,11 +201,23 @@ func (o *OCR2OnchainSigningStrategy) PublicKey() (string, error) {
 	if !ok {
 		return "", nil
 	}
-	name, ok := pk.(string)
+	pkString, ok := pk.(string)
 	if !ok {
 		return "", fmt.Errorf("expected string publicKey value, but got: %T", pk)
 	}
-	return name, nil
+	return pkString, nil
+}
+
+func (o *OCR2OnchainSigningStrategy) KeyBundleID(name string) (string, error) {
+	kbID, ok := o.Config[name]
+	if !ok {
+		return "", nil
+	}
+	kbIDString, ok := kbID.(string)
+	if !ok {
+		return "", fmt.Errorf("expected string %s value, but got: %T", name, kbID)
+	}
+	return kbIDString, nil
 }
 
 func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc plugins.RegistrarConfig) error {
