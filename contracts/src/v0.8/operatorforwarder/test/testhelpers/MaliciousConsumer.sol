@@ -5,7 +5,7 @@ import {Chainlinked, Chainlink} from "./Chainlinked.sol";
 // solhint-disable
 contract MaliciousConsumer is Chainlinked {
   uint256 private constant ORACLE_PAYMENT = 1 ether;
-  uint256 private expiration;
+  uint256 private s_expiration;
 
   constructor(address _link, address _oracle) public payable {
     setLinkToken(_link);
@@ -16,7 +16,7 @@ contract MaliciousConsumer is Chainlinked {
 
   function requestData(bytes32 _id, bytes memory _callbackFunc) public {
     Chainlink.Request memory req = newRequest(_id, address(this), bytes4(keccak256(_callbackFunc)));
-    expiration = block.timestamp + 5 minutes;
+    s_expiration = block.timestamp + 5 minutes;
     chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
@@ -25,7 +25,7 @@ contract MaliciousConsumer is Chainlinked {
   }
 
   function cancelRequestOnFulfill(bytes32 _requestId, bytes32) public {
-    _cancelChainlinkRequest(_requestId, ORACLE_PAYMENT, this.cancelRequestOnFulfill.selector, expiration);
+    _cancelChainlinkRequest(_requestId, ORACLE_PAYMENT, this.cancelRequestOnFulfill.selector, s_expiration);
   }
 
   function remove() public {

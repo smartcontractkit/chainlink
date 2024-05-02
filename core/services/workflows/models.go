@@ -19,8 +19,7 @@ type stepRequest struct {
 //
 // Within the workflow spec, they are called "Capability Properties".
 type stepDefinition struct {
-	// TODO: Rename this, type here refers to the capability ID, not its type.
-	Type   string         `json:"type" jsonschema:"required"`
+	ID     string         `json:"id" jsonschema:"required"`
 	Ref    string         `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_]+$"`
 	Inputs map[string]any `json:"inputs,omitempty"`
 	Config map[string]any `json:"config" jsonschema:"required"`
@@ -160,7 +159,7 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 		// To handle this, we default the `Ref` to the type, but ideally we
 		// should find a better long-term way to handle this.
 		if s.Ref == "" {
-			s.Ref = s.Type
+			s.Ref = s.ID
 		}
 
 		innerErr := g.AddVertex(&step{stepDefinition: s})

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Consumer} from "./Consumer.sol";
-import {Chainlink} from "../../../../Chainlink.sol";
+import {Chainlink} from "../../../Chainlink.sol";
 
 contract GasGuzzlingConsumer is Consumer {
   using Chainlink for Chainlink.Request;

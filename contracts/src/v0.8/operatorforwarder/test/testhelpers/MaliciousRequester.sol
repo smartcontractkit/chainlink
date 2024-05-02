@@ -2,7 +2,7 @@ pragma solidity ^0.8.0;
 
 import {MaliciousChainlink} from "./MaliciousChainlink.sol";
 import {MaliciousChainlinked, Chainlink} from "./MaliciousChainlinked.sol";
-import {ChainlinkRequestInterface} from "../../../../interfaces/ChainlinkRequestInterface.sol";
+import {ChainlinkRequestInterface} from "../../../interfaces/ChainlinkRequestInterface.sol";
 
 contract MaliciousRequester is MaliciousChainlinked {
   uint256 private constant ORACLE_PAYMENT = 1 ether;

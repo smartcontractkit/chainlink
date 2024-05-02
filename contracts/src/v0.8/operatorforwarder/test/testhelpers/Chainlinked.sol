@@ -1,6 +1,6 @@
 pragma solidity ^0.8.0;
 
-import {ChainlinkClient, Chainlink} from "../../../../ChainlinkClient.sol";
+import {ChainlinkClient, Chainlink} from "../../../ChainlinkClient.sol";
 
 /**
  * @title The Chainlinked contract

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ChainlinkRequestInterface} from "../../../../interfaces/ChainlinkRequestInterface.sol";
-import {OracleInterface} from "../../../../interfaces/OracleInterface.sol";
+import {ChainlinkRequestInterface} from "../../../interfaces/ChainlinkRequestInterface.sol";
+import {OracleInterface} from "../../../interfaces/OracleInterface.sol";
 
 /* solhint-disable no-empty-blocks */
 contract EmptyOracle is ChainlinkRequestInterface, OracleInterface {

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {AuthorizedReceiverInterface} from "./interfaces/AuthorizedReceiverInterface.sol";
+import {IAuthorizedReceiver} from "./interfaces/IAuthorizedReceiver.sol";
 
 // solhint-disable gas-custom-errors
-abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
+abstract contract AuthorizedReceiver is IAuthorizedReceiver {
   mapping(address sender => bool authorized) private s_authorizedSenders;
   address[] private s_authorizedSenderList;
 
