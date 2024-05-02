@@ -1,0 +1,17 @@
+ChainID = '296'
+#considering the 3-5 (6 including a buffer) seconds of finality and 2 seconds block production
+#we set the depth to 6/2 = 3 blocks
+FinalityDepth = 3
+# same as block production rate
+LogPollInterval = '2s'
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '30s'
+# 5 since thats our consideration for finality depth & 10s exposure to api so we can always get the final blocks
+RPCBlockQueryDelay = 5
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+# TODO: check this, this may not prove effective since we dont have mempool and cannot use market rates to 
+BumpThreshold = 5
