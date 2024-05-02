@@ -147,6 +147,7 @@ contract AddFunds is SetUp {
     registry.addFunds(nativeUpkeepID, 1);
     assertEq(registry.getBalance(nativeUpkeepID), startRegistryBalance + 1);
     assertEq(weth.balanceOf(address(registry)), startTokenBalance + 1);
+    assertEq(registry.getAvailableERC20ForPayment(address(weth)), 0);
   }
 
   // when msg.value is not 0, it uses the native payment path
@@ -156,6 +157,7 @@ contract AddFunds is SetUp {
     registry.addFunds{value: 1}(nativeUpkeepID, 1000); // parameter amount should be ignored
     assertEq(registry.getBalance(nativeUpkeepID), startRegistryBalance + 1);
     assertEq(weth.balanceOf(address(registry)), startTokenBalance + 1);
+    assertEq(registry.getAvailableERC20ForPayment(address(weth)), 0);
   }
 
   // it fails when the billing token is not native, but trying to pay with native
@@ -290,6 +292,10 @@ contract Withdraw is SetUp {
   function test_WithdrawERC20Fees_RevertsWhen_LinkAvailableForPaymentIsNegative() public {
     _transmit(usdUpkeepID18, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
     require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
+    require(
+      registry.getAvailableERC20ForPayment(address(usdToken18)) > 0,
+      "ERC20AvailableForPayment should be positive"
+    );
     vm.expectRevert(Registry.InsufficientLinkLiquidity.selector);
     vm.prank(FINANCE_ADMIN);
     registry.withdrawERC20Fees(address(usdToken18), FINANCE_ADMIN, 1); // should revert
@@ -1505,8 +1511,21 @@ contract Transmit is SetUp {
     upkeepIDs[0] = linkUpkeepID;
     upkeepIDs[1] = usdUpkeepID18;
     upkeepIDs[2] = nativeUpkeepID;
+
+    // withdraw-able by finance team should be 0
+    require(registry.getAvailableERC20ForPayment(address(usdToken18)) == 0, "ERC20AvailableForPayment should be 0");
+    require(registry.getAvailableERC20ForPayment(address(weth)) == 0, "ERC20AvailableForPayment should be 0");
+
     // do the thing
     _transmit(upkeepIDs, registry);
+
+    // withdraw-able by the finance team should be positive
+    require(
+      registry.getAvailableERC20ForPayment(address(usdToken18)) > 0,
+      "ERC20AvailableForPayment should be positive"
+    );
+    require(registry.getAvailableERC20ForPayment(address(weth)) > 0, "ERC20AvailableForPayment should be positive");
+
     // assert upkeep balances have decreased
     require(prevUpkeepBalances[0] > registry.getBalance(linkUpkeepID), "link upkeep balance should have decreased");
     require(prevUpkeepBalances[1] > registry.getBalance(usdUpkeepID18), "usd upkeep balance should have decreased");
