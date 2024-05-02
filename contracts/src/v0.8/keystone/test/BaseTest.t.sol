@@ -11,6 +11,9 @@ contract BaseTest is Test, Constants {
   CapabilityConfigurationContract internal s_capabilityConfigurationContract;
   CapabilityRegistry.Capability internal s_basicCapability;
   CapabilityRegistry.Capability internal s_capabilityWithConfigurationContract;
+  bytes32 internal s_basicHashedCapabilityId;
+  bytes32 internal s_capabilityWithConfigurationContractId;
+  bytes32 internal s_nonExistentHashedCapabilityId;
 
   function setUp() public virtual {
     vm.startPrank(ADMIN);
@@ -18,18 +21,27 @@ contract BaseTest is Test, Constants {
     s_capabilityConfigurationContract = new CapabilityConfigurationContract();
 
     s_basicCapability = CapabilityRegistry.Capability({
-      capabilityType: "data-streams-reports",
+      labelledName: "data-streams-reports",
       version: "1.0.0",
       responseType: CapabilityRegistry.CapabilityResponseType.REPORT,
       configurationContract: address(0)
     });
-
     s_capabilityWithConfigurationContract = CapabilityRegistry.Capability({
-      capabilityType: "read-ethereum-mainnet-gas-price",
+      labelledName: "read-ethereum-mainnet-gas-price",
       version: "1.0.2",
       responseType: CapabilityRegistry.CapabilityResponseType.OBSERVATION_IDENTICAL,
       configurationContract: address(s_capabilityConfigurationContract)
     });
+
+    s_basicHashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
+      s_basicCapability.labelledName,
+      s_basicCapability.version
+    );
+    s_capabilityWithConfigurationContractId = s_capabilityRegistry.getHashedCapabilityId(
+      s_capabilityWithConfigurationContract.labelledName,
+      s_capabilityWithConfigurationContract.version
+    );
+    s_nonExistentHashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId("non-existent-capability", "1.0.0");
   }
 
   function _getNodeOperators() internal view returns (CapabilityRegistry.NodeOperator[] memory) {

@@ -116,7 +116,7 @@ func TestWorkflowSpecMarshalling(t *testing.T) {
 		}
 	})
 
-	t.Run("Table and string capability type", func(t *testing.T) {
+	t.Run("Table and string capability id", func(t *testing.T) {
 		workflowBytes := fixtureReader("workflow_2")
 
 		spec := workflowSpecYaml{}
