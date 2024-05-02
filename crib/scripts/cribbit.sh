@@ -173,6 +173,12 @@ else
 fi
 
 ##
+# Helm dependencies
+##
+
+./scripts/helm_updates.sh
+
+##
 # Setup DevSpace
 ##
 
