@@ -246,11 +246,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < nodes.length; ++i) {
       Node memory node = nodes[i];
 
+      bool isOwner = msg.sender == owner();
+
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
-      if (msg.sender != nodeOperator.admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
       bool nodeExists = s_nodes[node.p2pId].supportedHashedCapabilityIds.length > 0;
       if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+
+      if (node.signer == address(0)) revert InvalidNodeSigner();
 
       if (node.supportedHashedCapabilityIds.length == 0)
         revert InvalidNodeCapabilities(node.supportedHashedCapabilityIds);
@@ -265,15 +269,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     }
   }
 
-  /// @notice Updates nodes.  The node admin can update node signer addresses
-  /// and reconfigure the node's supported capabilities
+  /// @notice Updates nodes.  The node admin can update the node's signer address
+  /// and reconfigure its supported capabilities
   /// @param nodes The nodes to update
   function updateNodes(Node[] calldata nodes) external {
     for (uint256 i; i < nodes.length; ++i) {
       Node memory node = nodes[i];
 
+      bool isOwner = msg.sender == owner();
+
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
-      if (msg.sender != nodeOperator.admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
       bool nodeExists = s_nodes[node.p2pId].supportedHashedCapabilityIds.length > 0;
       if (!nodeExists) revert InvalidNodeP2PId(node.p2pId);
