@@ -50,14 +50,18 @@ contract CancelUpkeep is SetUp {
     assertEq(registry.getNumUpkeeps(), 0);
 
     uint256 startRegistrarBalance = usdToken18.balanceOf(address(registrar));
+    uint256 startUpkeepAdminBalance = usdToken18.balanceOf(UPKEEP_ADMIN);
 
-    // approve the upkeep
+    // cancel the upkeep
     vm.startPrank(OWNER);
     bytes32 hash = keccak256(abi.encode(registrationParams));
     registrar.cancel(hash);
 
     uint256 endRegistrarBalance = usdToken18.balanceOf(address(registrar));
+    uint256 endUpkeepAdminBalance = usdToken18.balanceOf(UPKEEP_ADMIN);
+
     assertEq(startRegistrarBalance - amount, endRegistrarBalance);
+    assertEq(startUpkeepAdminBalance + amount, endUpkeepAdminBalance);
   }
 }
 
