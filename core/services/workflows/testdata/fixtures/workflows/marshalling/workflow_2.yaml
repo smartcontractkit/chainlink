@@ -9,7 +9,7 @@
    - type: 
       name: trigger_test
       version: "2"
-      tags:
+      labels:
         chain: ethereum
         aaShouldBeFirst: "true"
         network: mainnet

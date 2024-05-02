@@ -60,7 +60,7 @@ jobs:
 
       - name: Make a comment
         uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
-        if: ${{ (steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true') && steps.files-changed.outputs.core-changeset == 'false' }}
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -69,10 +69,12 @@ jobs:
             ${{ env.TAGS }}
           reactions: eyes
           comment_tag: changeset-core
+          mode: ${{ steps.files-changed.outputs.core-changeset == 'false' && 'upsert' || 'delete' }}
+          create_if_not_exists: ${{ steps.files-changed.outputs.core-changeset == 'false' && 'true' || 'false' }}
 
       - name: Make a comment
         uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
-        if: ${{ steps.files-changed.outputs.contracts == 'true' && steps.files-changed.outputs.contracts-changeset == 'false' }}
+        if: ${{ steps.files-changed.outputs.contracts == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -80,6 +82,8 @@ jobs:
             I see you updated files related to `contracts`. Please run `pnpm changeset` in the `contracts` directory to add a changeset.
           reactions: eyes
           comment_tag: changeset-contracts
+          mode: ${{ steps.files-changed.outputs.contracts-changeset == 'false' && 'upsert' || 'delete' }}
+          create_if_not_exists: ${{ steps.files-changed.outputs.contracts-changeset == 'false' && 'true' || 'false' }}
 
       - name: Check for new changeset for core
         if: ${{ (steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true') && steps.files-changed.outputs.core-changeset == 'false' }}
@@ -103,7 +107,7 @@ jobs:
 
       - name: Make a comment
         uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
-        if: ${{ steps.files-changed.outputs.core-changeset == 'true' && steps.changeset-tags.outputs.has_tags == 'false' }}
+        if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -112,6 +116,8 @@ jobs:
             ${{ env.TAGS }}
           reactions: eyes
           comment_tag: changeset-core-tags
+          mode: ${{ steps.changeset-tags.outputs.has_tags == 'false' && 'upsert' || 'delete' }}
+          create_if_not_exists: ${{ steps.changeset-tags.outputs.has_tags == 'false' && 'true' || 'false' }}
 
       - name: Check for new changeset tags for core
         if: ${{ steps.files-changed.outputs.core-changeset == 'true' && steps.changeset-tags.outputs.has_tags == 'false' }}
