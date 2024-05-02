@@ -31,7 +31,7 @@ jobs:
               - '!tools/**'
 
       - name: Build chainlink image
-        if: ${{ steps.change.outputs.changelog-only == 'true' }}
+        if: ${{ steps.change.outputs.changelog-only == 'false' }}
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
