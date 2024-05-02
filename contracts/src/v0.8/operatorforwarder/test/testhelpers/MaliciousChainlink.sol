@@ -1,7 +1,7 @@
 pragma solidity ^0.8.0;
 
-import {CBORChainlink as CBOR_Chainlink} from "../../../../vendor/CBORChainlink.sol";
-import {BufferChainlink as Buffer_Chainlink} from "../../../../vendor/BufferChainlink.sol";
+import {CBORChainlink as CBOR_Chainlink} from "../../../vendor/CBORChainlink.sol";
+import {BufferChainlink as Buffer_Chainlink} from "../../../vendor/BufferChainlink.sol";
 
 // solhint-disable
 library MaliciousChainlink {
