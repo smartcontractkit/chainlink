@@ -5,7 +5,7 @@ import {Vm} from "forge-std/Test.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistrar2_3 as Registrar} from "../v2_3/AutomationRegistrar2_3.sol";
-import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3, IAutomationV21PlusCommon} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
@@ -334,6 +334,7 @@ contract SetConfig is SetUp {
   );
 
   address module = address(new ChainModuleBase());
+
   AutomationRegistryBase2_3.OnchainConfig cfg =
     AutomationRegistryBase2_3.OnchainConfig({
       checkGasLimit: 5_000_000,
@@ -347,7 +348,7 @@ contract SetConfig is SetUp {
       fallbackLinkPrice: 2_000_000_000, // $20
       fallbackNativePrice: 400_000_000_000, // $4,000
       transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-      registrars: new address[](0),
+      registrars: _getRegistrars(),
       upkeepPrivilegeManager: PRIVILEGE_MANAGER,
       chainModule: module,
       reorgProtectionEnabled: true,
@@ -507,7 +508,21 @@ contract SetConfig is SetUp {
       decimals: 18
     });
 
+    // the first time uses the default onchain config with 2 registrars
     bytes memory onchainConfigBytesWithBilling1 = abi.encode(cfg, billingTokens1, billingConfigs1);
+
+    // set config once
+    registry.setConfig(
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      onchainConfigBytesWithBilling1,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    (, IAutomationV21PlusCommon.OnchainConfigLegacy memory onchainConfig1, , , ) = registry.getState();
+    assertEq(onchainConfig1.registrars.length, 2);
 
     // BillingConfig2
     address billingTokenAddress2 = address(usdToken18);
@@ -524,17 +539,33 @@ contract SetConfig is SetUp {
       decimals: 18
     });
 
-    bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg, billingTokens2, billingConfigs2);
+    address[] memory newRegistrars = new address[](3);
+    newRegistrars[0] = address(uint160(uint256(keccak256("newRegistrar1"))));
+    newRegistrars[1] = address(uint160(uint256(keccak256("newRegistrar2"))));
+    newRegistrars[2] = address(uint160(uint256(keccak256("newRegistrar3"))));
 
-    // set config once
-    registry.setConfig(
-      SIGNERS,
-      TRANSMITTERS,
-      F,
-      onchainConfigBytesWithBilling1,
-      OFFCHAIN_CONFIG_VERSION,
-      offchainConfigBytes
-    );
+    // new onchain config with 3 new registrars, all other fields stay the same as the default
+    AutomationRegistryBase2_3.OnchainConfig memory cfg2 = AutomationRegistryBase2_3.OnchainConfig({
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 0,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: newRegistrars,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
+      chainModule: module,
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN
+    });
+
+    // the second time uses the new onchain config with 3 new registrars and also new billing tokens/configs
+    bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg2, billingTokens2, billingConfigs2);
 
     // set config twice
     registry.setConfig(
@@ -546,8 +577,18 @@ contract SetConfig is SetUp {
       offchainConfigBytes
     );
 
-    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
+    (
+      ,
+      IAutomationV21PlusCommon.OnchainConfigLegacy memory onchainConfig2,
+      address[] memory signers,
+      address[] memory transmitters,
+      uint8 f
+    ) = registry.getState();
 
+    assertEq(onchainConfig2.registrars.length, 3);
+    for (uint256 i = 0; i < newRegistrars.length; i++) {
+      assertEq(newRegistrars[i], onchainConfig2.registrars[i]);
+    }
     assertEq(signers, SIGNERS);
     assertEq(transmitters, TRANSMITTERS);
     assertEq(f, F);
@@ -662,6 +703,23 @@ contract SetConfig is SetUp {
     );
   }
 
+  function testSetConfigOnTransmittersAndPayees() public {
+    AutomationRegistryBase2_3.TransmitterPayeeInfo[] memory transmitterPayeeInfos = registry
+      .getTransmittersWithPayees();
+    assertEq(transmitterPayeeInfos.length, TRANSMITTERS.length);
+
+    for (uint256 i = 0; i < transmitterPayeeInfos.length; i++) {
+      address transmitterAddress = transmitterPayeeInfos[i].transmitterAddress;
+      address payeeAddress = transmitterPayeeInfos[i].payeeAddress;
+
+      address expectedTransmitter = TRANSMITTERS[i];
+      address expectedPayee = PAYEES[i];
+
+      assertEq(transmitterAddress, expectedTransmitter);
+      assertEq(payeeAddress, expectedPayee);
+    }
+  }
+
   function testSetConfigWithNewTransmittersSuccess() public {
     registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
@@ -764,6 +822,13 @@ contract SetConfig is SetUp {
     (, , signers, transmitters, ) = registry.getState();
     assertEq(signers, SIGNERS);
     assertEq(transmitters, NEW_TRANSMITTERS);
+  }
+
+  function _getRegistrars() private pure returns (address[] memory) {
+    address[] memory registrars = new address[](2);
+    registrars[0] = address(uint160(uint256(keccak256("registrar1"))));
+    registrars[1] = address(uint160(uint256(keccak256("registrar2"))));
+    return registrars;
   }
 
   function _configDigestFromConfigData(
@@ -875,6 +940,9 @@ contract NOPsSettlement is SetUp {
       assertEq(i, index);
       assertEq(0, balance);
     }
+
+    // after the offchain settlement, the total reserve amount of LINK should be 0
+    assertEq(registry.getReserveAmount(address(linkToken)), 0);
   }
 
   function testSettleNOPsOffchainForDeactivatedTransmittersSuccess() public {
@@ -970,6 +1038,9 @@ contract NOPsSettlement is SetUp {
       assertEq(i, index);
       assertEq(0, balance);
     }
+
+    // after the offchain settlement, the total reserve amount of LINK should be 0
+    assertEq(registry.getReserveAmount(address(linkToken)), 0);
   }
 
   function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {

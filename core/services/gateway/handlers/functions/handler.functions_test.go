@@ -84,7 +84,7 @@ func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api
 func TestFunctionsHandler_Minimal(t *testing.T) {
 	t.Parallel()
 
-	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, nil, logger.TestLogger(t))
+	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	// empty message should always error out
@@ -96,7 +96,7 @@ func TestFunctionsHandler_Minimal(t *testing.T) {
 func TestFunctionsHandler_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
-	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, nil, logger.TestLogger(t))
+	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	servicetest.Run(t, handler)

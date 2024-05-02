@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
 	"github.com/smartcontractkit/chainlink-vrf/dkg"
 
@@ -21,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -35,10 +33,9 @@ func NewDKGServices(
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethClient evmclient.Client,
 	oracleArgsNoPlugin libocr2.OCR2OracleArgs,
-	db *sqlx.DB,
-	qConfig pg.QConfig,
+	ds sqlutil.DataSource,
 	chainID *big.Int,
-	network relay.Network,
+	network string,
 ) ([]job.ServiceCtx, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
@@ -69,7 +66,7 @@ func NewDKGServices(
 	if err != nil {
 		return nil, errors.Wrap(err, "decode key ID")
 	}
-	shareDB := persistence.NewShareDB(db, lggr.Named("DKGShareDB"), qConfig, chainID, network)
+	shareDB := persistence.NewShareDB(ds, lggr.Named("DKGShareDB"), chainID, network)
 	oracleArgsNoPlugin.ReportingPluginFactory = dkg.NewReportingPluginFactory(
 		encryptKey.KyberScalar(),
 		signKey.KyberScalar(),

@@ -17,6 +17,23 @@ inputs:
     default: "public.ecr.aws/chainlink/chainlink"
   upgradeVersion:
     description: The git commit sha to use for the image tag
+  runId:
+    description: The run id
+  testLogCollect:
+    description: Whether to always collect logs, even for passing tests
+    default: "false"
+  lokiEndpoint:
+    description: Loki push endpoint
+  lokiTenantId:
+    description: Loki tenant id
+  lokiBasicAuth:
+    description: Loki basic auth
+  logstreamLogTargets:
+    description: Where to send logs (e.g. file, loki)
+  grafanaUrl:
+    description: Grafana URL
+  grafanaDashboardUrl:
+    description: Grafana dashboard URL
 
 runs:
   using: composite
@@ -31,6 +48,14 @@ runs:
         CHAINLINK_POSTGRES_VERSION: ${{ inputs.chainlinkPostgresVersion }}
         UPGRADE_IMAGE: ${{ inputs.upgradeImage }}
         UPGRADE_VERSION: ${{ inputs.upgradeVersion }}
+        RUN_ID: ${{ inputs.runId }}
+        TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}
+        LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
+        LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
+        LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
+        LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
+        GRAFANA_URL: ${{ inputs.grafanaUrl }}
+        GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
       run: |
         function convert_to_toml_array() {
           local IFS=','
@@ -47,6 +72,14 @@ runs:
 
         selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")
 
+        if [ -n "$TEST_LOG_COLLECT" ]; then
+          test_log_collect=true
+        else
+          test_log_collect=false
+        fi
+
+        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
+
         cat << EOF > config.toml
         [Network]
         selected_networks=$selected_networks
@@ -59,6 +92,23 @@ runs:
         [ChainlinkUpgradeImage]
         image="$UPGRADE_IMAGE"
         version="$UPGRADE_VERSION"
+        postgres_version="$CHAINLINK_POSTGRES_VERSION"
+
+        [Logging]
+        test_log_collect=$test_log_collect
+        run_id="$RUN_ID"
+
+        [Logging.LogStream]
+        log_targets=$log_targets
+
+        [Logging.Loki]
+        tenant_id="$LOKI_TENANT_ID"
+        endpoint="$LOKI_ENDPOINT"
+        basic_auth_secret="$LOKI_BASIC_AUTH"
+
+        [Logging.Grafana]
+        base_url="$GRAFANA_URL"
+        dashboard_url="$GRAFANA_DASHBOARD_URL"
         EOF
 
         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)

@@ -130,6 +130,13 @@ typeABI = '''
 ]
 '''
 
+[onchainSigningStrategy]
+strategyName = 'single-chain'
+
+[onchainSigningStrategy.config]
+evm = ''
+publicKey = '0xdeadbeef'
+
 [pluginConfig]
 juelsPerFeeCoinSource = """
   // data source 1

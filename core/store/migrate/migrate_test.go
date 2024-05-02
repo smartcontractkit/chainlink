@@ -21,13 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -37,7 +34,7 @@ var migrationDir = "migrations"
 type OffchainReporting2OracleSpec100 struct {
 	ID                                int32           `toml:"-"`
 	ContractID                        string          `toml:"contractID"`
-	Relay                             relay.Network   `toml:"relay"`
+	Relay                             string          `toml:"relay"` // RelayID.Network
 	RelayConfig                       job.JSONConfig  `toml:"relayConfig"`
 	P2PBootstrapPeers                 pq.StringArray  `toml:"p2pBootstrapPeers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
@@ -80,13 +77,13 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	ctx := testutils.Context(t)
-	pipelineID, err := pipelineORM.CreateSpec(ctx, nil, pipeline.Pipeline{}, 0)
+	pipelineID, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	pipelineID2, err := pipelineORM.CreateSpec(ctx, nil, pipeline.Pipeline{}, 0)
+	pipelineID2, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	nonBootstrapPipelineID, err := pipelineORM.CreateSpec(ctx, nil, pipeline.Pipeline{}, 0)
+	nonBootstrapPipelineID, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	newFormatBoostrapPipelineID2, err := pipelineORM.CreateSpec(ctx, nil, pipeline.Pipeline{}, 0)
+	newFormatBoostrapPipelineID2, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
 
 	// OCR2 struct at migration v0099
@@ -393,25 +390,24 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 
 func TestMigrate(t *testing.T) {
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 
-	err = migrate.Status(ctx, db.DB, lggr)
+	err = migrate.Status(ctx, db.DB)
 	require.NoError(t, err)
 
-	ver, err := migrate.Current(ctx, db.DB, lggr)
+	ver, err := migrate.Current(ctx, db.DB)
 	require.NoError(t, err)
 	require.Equal(t, int64(100), ver)
 
-	err = migrate.Migrate(ctx, db.DB, lggr)
+	err = migrate.Migrate(ctx, db.DB)
 	require.NoError(t, err)
 
-	err = migrate.Rollback(ctx, db.DB, lggr, null.IntFrom(99))
+	err = migrate.Rollback(ctx, db.DB, null.IntFrom(99))
 	require.NoError(t, err)
 
-	ver, err = migrate.Current(ctx, db.DB, lggr)
+	ver, err = migrate.Current(ctx, db.DB)
 	require.NoError(t, err)
 	require.Equal(t, int64(99), ver)
 }
@@ -544,6 +540,7 @@ func TestNoTriggers(t *testing.T) {
 }
 
 func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
+	ctx := testutils.Context(b)
 	previousMigration := int64(201)
 	backfillMigration := int64(202)
 	chainCount := 2
@@ -556,7 +553,6 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	err := goose.UpTo(db.DB, migrationDir, previousMigration)
 	require.NoError(b, err)
 
-	q := pg.NewQ(db, logger.NullLogger, pgtest.NewQConfig(true))
 	for j := 0; j < chainCount; j++ {
 		// Insert 100_000 block to database, can't do all at once, so batching by 10k
 		var blocks []logpoller.LogPollerBlock
@@ -575,7 +571,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 				end = maxLogsSize
 			}
 
-			err = q.ExecQNamed(`
+			_, err = db.NamedExecContext(ctx, `
 			INSERT INTO evm.log_poller_blocks
 				(evm_chain_id, block_hash, block_number, finalized_block_number, block_timestamp, created_at)
 			VALUES 
@@ -601,7 +597,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 		err = goose.DownTo(db.DB, migrationDir, previousMigration)
 		require.NoError(b, err)
 
-		err = q.ExecQ(`
+		_, err = db.ExecContext(ctx, `
 			UPDATE evm.log_poller_blocks
 			SET finalized_block_number = 0`)
 		require.NoError(b, err)
