@@ -6,15 +6,15 @@
     "mapping": {
       "type": "object"
     },
-    "stepDefinitionType": {
+    "stepDefinitionID": {
       "oneOf": [
         {
-          "type": "string",
+          "$id": "string",
           "pattern": "^[a-z0-9_\\-:]+@(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
         },
         {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "$id": "https://github.com/smartcontractkit/chainlink/v2/core/services/workflows/step-definition-table-type",
+          "$id": "https://github.com/smartcontractkit/chainlink/v2/core/services/workflows/step-definition-table-id",
           "properties": {
             "name": {
               "type": "string"
@@ -23,7 +23,7 @@
               "type": "string",
               "pattern": "(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
             },
-            "tags": {
+            "labels": {
               "additionalProperties": {
                 "type": "string"
               },
@@ -35,16 +35,16 @@
           "required": [
             "name",
             "version",
-            "tags"
+            "labels"
           ]
         }
       ],
-      "title": "type"
+      "title": "id"
     },
     "stepDefinitionYaml": {
       "properties": {
-        "type": {
-          "$ref": "#/$defs/stepDefinitionType"
+        "id": {
+          "$ref": "#/$defs/stepDefinitionID"
         },
         "ref": {
           "type": "string",
@@ -60,7 +60,7 @@
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "type",
+        "id",
         "config"
       ]
     },
