@@ -87,6 +87,7 @@ type KeeperRegistry interface {
 	UpdateCheckData(id *big.Int, newCheckData []byte) error
 	SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) error
 	SetUpkeepPrivilegeConfig(id *big.Int, privilegeConfig []byte) error
+	SetUpkeepOffchainConfig(id *big.Int, offchainConfig []byte) error
 	RegistryOwnerAddress() common.Address
 	ChainModuleAddress() common.Address
 	ReorgProtectionEnabled() bool
@@ -1222,6 +1223,46 @@ func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
 		return v.client.ProcessTransaction(tx)
 	default:
 		return fmt.Errorf("UnpauseUpkeep is not supported by keeper registry version %d", v.version)
+	}
+}
+
+func (v *EthereumKeeperRegistry) SetUpkeepOffchainConfig(id *big.Int, offchainConfig []byte) error {
+	switch v.version {
+	case ethereum.RegistryVersion_2_0:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_0.SetUpkeepOffchainConfig(opts, id, offchainConfig)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.SetUpkeepOffchainConfig(opts, id, offchainConfig)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_2:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_2.SetUpkeepOffchainConfig(opts, id, offchainConfig)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("SetUpkeepOffchainConfig is not supported by keeper registry version %d", v.version)
 	}
 }
 

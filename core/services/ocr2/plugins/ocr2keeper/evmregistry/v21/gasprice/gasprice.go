@@ -24,6 +24,8 @@ type UpkeepOffchainConfig struct {
 	MaxGasPrice *big.Int `json:"maxGasPrice" cbor:"maxGasPrice"`
 }
 
+// CheckGasPrice retrieves the current gas price and compare against the max gas price configured in upkeep's offchain config
+// any errors in offchain config decoding will result in max gas price check disabled
 func CheckGasPrice(ctx context.Context, upkeepId *big.Int, oc []byte, ge gas.EvmFeeEstimator, lggr logger.Logger) encoding.UpkeepFailureReason {
 	if len(oc) == 0 {
 		return encoding.UpkeepFailureReasonNone
@@ -31,11 +33,11 @@ func CheckGasPrice(ctx context.Context, upkeepId *big.Int, oc []byte, ge gas.Evm
 
 	var offchainConfig UpkeepOffchainConfig
 	if err := cbor.ParseDietCBORToStruct(oc, &offchainConfig); err != nil {
-		lggr.Errorw("failed to parse upkeep offchain config", "upkeepId", upkeepId.String(), "err", err)
-		return encoding.UpkeepFailureReasonFailToParseOffchainConfig
+		lggr.Errorw("failed to parse upkeep offchain config, gas price check is disabled", "upkeepId", upkeepId.String(), "err", err)
+		return encoding.UpkeepFailureReasonNone
 	}
 	if offchainConfig.MaxGasPrice == nil {
-		lggr.Infow("maxGasPrice is not configured in upkeep offchain config", "upkeepId", upkeepId.String())
+		lggr.Infow("maxGasPrice is not configured in upkeep offchain config, gas price check is disabled", "upkeepId", upkeepId.String())
 		return encoding.UpkeepFailureReasonNone
 	}
 	lggr.Infof("successfully decode offchain config for %s", upkeepId.String())
@@ -43,26 +45,26 @@ func CheckGasPrice(ctx context.Context, upkeepId *big.Int, oc []byte, ge gas.Evm
 
 	fee, _, err := ge.GetFee(ctx, []byte{}, feeLimit, assets.NewWei(big.NewInt(maxFeePrice)))
 	if err != nil {
-		lggr.Errorw("failed to get fee", "upkeepId", upkeepId.String(), "err", err)
-		return encoding.UpkeepFailureReasonFailToRetrieveGasPrice
+		lggr.Errorw("failed to get fee, gas price check is disabled", "upkeepId", upkeepId.String(), "err", err)
+		return encoding.UpkeepFailureReasonNone
 	}
 
 	if fee.ValidDynamic() {
 		lggr.Infof("current gas price EIP-1559 is fee cap %s, tip cap %s", fee.DynamicFeeCap.String(), fee.DynamicTipCap.String())
 		if fee.DynamicFeeCap.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
 			// current gas price is higher than max gas price
-			lggr.Warnf("max gas price %s for %s is LOWER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.String())
+			lggr.Warnf("maxGasPrice %s for %s is LOWER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.Int64())
 			return encoding.UpkeepFailureReasonGasPriceTooHigh
 		}
-		lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.String())
+		lggr.Infof("maxGasPrice %s for %s is HIGHER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.Int64())
 	} else {
 		lggr.Infof("current gas price legacy is %s", fee.Legacy.String())
 		if fee.Legacy.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
 			// current gas price is higher than max gas price
-			lggr.Infof("max gas price %s for %s is LOWER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.String())
+			lggr.Infof("maxGasPrice %s for %s is LOWER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.Int64())
 			return encoding.UpkeepFailureReasonGasPriceTooHigh
 		}
-		lggr.Infof("max gas price %s for %s is HIGHER than current gas price %s", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.String())
+		lggr.Infof("maxGasPrice %s for %s is HIGHER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.Int64())
 	}
 
 	return encoding.UpkeepFailureReasonNone

@@ -31,10 +31,6 @@ type checkResult struct {
 	err error
 }
 
-type UpkeepOffchainConfig struct {
-	MaxGasPrice *big.Int `json:"maxGasPrice" cbor:"maxGasPrice"`
-}
-
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	r.lggr.Debugw("Checking upkeeps", "upkeeps", keys)
 	for i := range keys {
@@ -312,15 +308,15 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		oc, err := r.fetchUpkeepOffchainConfig(upkeepId)
 		if err != nil {
-			r.lggr.Warnw("failed get offchain config", "err", err, "upkeepId", upkeepId, "block", block)
-			checkResults[i].Eligible = false
-			checkResults[i].PipelineExecutionState = uint8(encoding.UpkeepFailureReasonFailToRetrieveOffchainConfig)
-			continue
+			// this is mostly caused by RPC flakiness
+			r.lggr.Errorw("failed get offchain config, gas price check will be disabled", "err", err, "upkeepId", upkeepId, "block", block)
 		}
 		fr := gasprice.CheckGasPrice(ctx, upkeepId, oc, r.ge, r.lggr)
-		if fr != encoding.UpkeepFailureReasonNone {
+		if uint8(fr) == uint8(encoding.UpkeepFailureReasonGasPriceTooHigh) {
+			r.lggr.Infof("upkeep %s upkeep failure reason is %d", upkeepId, fr)
 			checkResults[i].Eligible = false
-			checkResults[i].PipelineExecutionState = uint8(fr)
+			checkResults[i].Retryable = false
+			checkResults[i].IneligibilityReason = uint8(fr)
 			continue
 		}
 

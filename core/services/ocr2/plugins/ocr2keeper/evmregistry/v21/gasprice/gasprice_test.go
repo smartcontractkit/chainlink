@@ -31,6 +31,7 @@ func TestGasPrice_Check(t *testing.T) {
 		CurrentLegacyGasPrice  *big.Int
 		CurrentDynamicGasPrice *big.Int
 		ExpectedResult         encoding.UpkeepFailureReason
+		FailedToGetFee         bool
 		NotConfigured          bool
 		ParsingFailed          bool
 	}{
@@ -47,12 +48,13 @@ func TestGasPrice_Check(t *testing.T) {
 			Name:           "fail to parse offchain config",
 			ParsingFailed:  true,
 			MaxGasPrice:    big.NewInt(10_000_000_000),
-			ExpectedResult: encoding.UpkeepFailureReasonFailToParseOffchainConfig,
+			ExpectedResult: encoding.UpkeepFailureReasonNone,
 		},
 		{
 			Name:           "fail to retrieve current gas price",
 			MaxGasPrice:    big.NewInt(8_000_000_000),
-			ExpectedResult: encoding.UpkeepFailureReasonFailToRetrieveGasPrice,
+			FailedToGetFee: true,
+			ExpectedResult: encoding.UpkeepFailureReasonNone,
 		},
 		{
 			Name:                  "current gas price is too high - legacy",
@@ -83,7 +85,7 @@ func TestGasPrice_Check(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			ctx := testutils.Context(t)
 			ge := gasMocks.NewEvmFeeEstimator(t)
-			if test.ExpectedResult == encoding.UpkeepFailureReasonFailToRetrieveGasPrice {
+			if test.FailedToGetFee {
 				ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 					gas.EvmFee{},
 					feeLimit,
