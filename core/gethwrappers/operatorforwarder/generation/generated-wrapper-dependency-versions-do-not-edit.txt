@@ -1,0 +1,6 @@
+GETH_VERSION: 1.12.0
+authorized_forwarder: ../../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.abi ../../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.bin 8ea76c883d460f8353a45a493f2aebeb5a2d9a7b4619d1bc4fff5fb590bb3e10
+authorized_receiver: ../../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.abi ../../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.bin 18e8969ba3234b027e1b16c11a783aca58d0ea5c2361010ec597f134b7bf1c4f
+link_token_receiver: ../../../contracts/solc/v0.8.19/LinkTokenReceiver/LinkTokenReceiver.abi ../../../contracts/solc/v0.8.19/LinkTokenReceiver/LinkTokenReceiver.bin 839552e2bea179bdf2591805422fb33769c1646d5a014a00fc2c0cd9c03ef229
+operator: ../../../contracts/solc/v0.8.19/Operator/Operator.abi ../../../contracts/solc/v0.8.19/Operator/Operator.bin d7abd0e67f30a3a4c9c04c896124391306fa364fcf579fa6df04dbf912b48568
+operator_factory: ../../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin 0fdfacf8879537b854875608dfca41c6221c342174417112acaa67dfcadafddc
