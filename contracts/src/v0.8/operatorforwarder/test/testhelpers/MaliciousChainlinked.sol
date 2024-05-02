@@ -2,7 +2,7 @@ pragma solidity ^0.8.0;
 
 import {MaliciousChainlink} from "./MaliciousChainlink.sol";
 import {Chainlinked, Chainlink} from "./Chainlinked.sol";
-import {LinkTokenInterface} from "../../../../shared/interfaces/LinkTokenInterface.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 
 // solhint-disable
 contract MaliciousChainlinked is Chainlinked {
@@ -10,8 +10,8 @@ contract MaliciousChainlinked is Chainlinked {
   using MaliciousChainlink for MaliciousChainlink.WithdrawRequest;
   using Chainlink for Chainlink.Request;
 
-  uint256 private maliciousRequests = 1;
-  mapping(bytes32 => address) private maliciousPendingRequests;
+  uint256 private s_maliciousRequests = 1;
+  mapping(bytes32 => address) private s_maliciousPendingRequests;
 
   function newWithdrawRequest(
     bytes32 _specId,
@@ -27,31 +27,31 @@ contract MaliciousChainlinked is Chainlinked {
     Chainlink.Request memory _req,
     uint256 _amount
   ) internal returns (bytes32 requestId) {
-    requestId = keccak256(abi.encodePacked(_target, maliciousRequests));
-    _req.nonce = maliciousRequests;
-    maliciousPendingRequests[requestId] = oracleAddress();
+    requestId = keccak256(abi.encodePacked(_target, s_maliciousRequests));
+    _req.nonce = s_maliciousRequests;
+    s_maliciousPendingRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
     require(
       link.transferAndCall(oracleAddress(), _amount, encodeTargetRequest(_req)),
       "Unable to transferAndCall to oracle"
     );
-    maliciousRequests += 1;
+    s_maliciousRequests += 1;
 
     return requestId;
   }
 
   function chainlinkPriceRequest(Chainlink.Request memory _req, uint256 _amount) internal returns (bytes32 requestId) {
-    requestId = keccak256(abi.encodePacked(this, maliciousRequests));
-    _req.nonce = maliciousRequests;
-    maliciousPendingRequests[requestId] = oracleAddress();
+    requestId = keccak256(abi.encodePacked(this, s_maliciousRequests));
+    _req.nonce = s_maliciousRequests;
+    s_maliciousPendingRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
     require(
       link.transferAndCall(oracleAddress(), _amount, encodePriceRequest(_req)),
       "Unable to transferAndCall to oracle"
     );
-    maliciousRequests += 1;
+    s_maliciousRequests += 1;
 
     return requestId;
   }
@@ -60,16 +60,16 @@ contract MaliciousChainlinked is Chainlinked {
     MaliciousChainlink.WithdrawRequest memory _req,
     uint256 _wei
   ) internal returns (bytes32 requestId) {
-    requestId = keccak256(abi.encodePacked(this, maliciousRequests));
-    _req.nonce = maliciousRequests;
-    maliciousPendingRequests[requestId] = oracleAddress();
+    requestId = keccak256(abi.encodePacked(this, s_maliciousRequests));
+    _req.nonce = s_maliciousRequests;
+    s_maliciousPendingRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
     require(
       link.transferAndCall(oracleAddress(), _wei, encodeWithdrawRequest(_req)),
       "Unable to transferAndCall to oracle"
     );
-    maliciousRequests += 1;
+    s_maliciousRequests += 1;
     return requestId;
   }
 
