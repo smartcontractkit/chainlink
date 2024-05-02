@@ -11,14 +11,14 @@ var _ Local = (*capabilityLauncher)(nil)
 
 type capabilityLauncher struct {
 	myP2PID        []byte
-	capabilitySvcs map[CapabilityID]CapabilityService
+	capabilitySvcs map[CapabilityID]CapabilityFactory
 	myDONs         map[uint32]DON
 }
 
 func NewCapabilityLauncher(myP2PID []byte) *capabilityLauncher {
 	return &capabilityLauncher{
 		myP2PID:        myP2PID,
-		capabilitySvcs: make(map[CapabilityID]CapabilityService),
+		capabilitySvcs: make(map[CapabilityID]CapabilityFactory),
 		myDONs:         make(map[uint32]DON),
 	}
 }
@@ -143,21 +143,21 @@ func (l *capabilityLauncher) handleDeletedDONs(ctx context.Context, relevantDONs
 	return errs
 }
 
-// RegisterCapabilityService registers the provided capability service with the launcher.
-func (l *capabilityLauncher) RegisterCapabilityService(c CapabilityService) error {
-	if c == nil {
+// RegisterCapabilityFactory registers the provided capability factory with the launcher.
+func (l *capabilityLauncher) RegisterCapabilityFactory(cf CapabilityFactory) error {
+	if cf == nil {
 		return fmt.Errorf("cannot register nil capability")
 	}
 
-	if c.CapabilityID() == "" {
+	if cf.CapabilityID() == "" {
 		return fmt.Errorf("cannot register capability with empty ID")
 	}
 
-	if _, exists := l.capabilitySvcs[c.CapabilityID()]; exists {
-		return fmt.Errorf("capability with ID %s already registered", c.CapabilityID())
+	if _, exists := l.capabilitySvcs[cf.CapabilityID()]; exists {
+		return fmt.Errorf("capability with ID %s already registered", cf.CapabilityID())
 	}
 
-	l.capabilitySvcs[c.CapabilityID()] = c
+	l.capabilitySvcs[cf.CapabilityID()] = cf
 	return nil
 }
 

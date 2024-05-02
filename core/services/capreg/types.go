@@ -122,11 +122,14 @@ type Local interface {
 	Close() error
 }
 
-// CapabilityService is an interface that must be implemented by capabilities that get started
+// CapabilityFactory is an interface that must be implemented by capability factories that get started
 // via the capability registry synchronization process.
+// Capability factories are constructed outside of the capability registry syncer context and are expected
+// to have all of the dependencies required in order to create the capability service, e.g relayer config,
+// pipeline runner, etc.
 //
-//go:generate mockery --name CapabilityService --output ./mocks/ --case underscore
-type CapabilityService interface {
+//go:generate mockery --name CapabilityFactory --output ./mocks/ --case underscore
+type CapabilityFactory interface {
 	// CapabilityID returns the unique identifier of the capability being implemented.
 	CapabilityID() CapabilityID
 
