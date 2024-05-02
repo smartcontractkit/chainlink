@@ -64,6 +64,7 @@ func TestHeadTracker_New(t *testing.T) {
 	orm := headtracker.NewORM(cltest.FixtureChainID, db)
 	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(1)))
 	last := cltest.Head(16)
+	last.IsFinalized = true
 	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), last))
 	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(10)))
 

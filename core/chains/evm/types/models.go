@@ -169,6 +169,7 @@ func (h *Head) ChainHashes() []common.Hash {
 
 func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
 	for h != nil && !h.IsFinalized {
+		fmt.Println(h.BlockNumber(), h.IsFinalized)
 		h = h.Parent
 	}
 
