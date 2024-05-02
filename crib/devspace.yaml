@@ -74,7 +74,7 @@ images:
         docker push $image
 hooks:
   - command: ./scripts/check_env_vars.sh
-    events: [ "before:deploy:app" ]
+    events: ["before:deploy:app"]
   - wait:
       running: true
       terminatedWithCode: 0
@@ -100,7 +100,7 @@ deployments:
       releaseName: "app"
       chart:
         name: ${CHAINLINK_CLUSTER_HELM_CHART_URI}
-        version: 0.5.0
+        version: 0.6.0
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
@@ -216,8 +216,6 @@ deployments:
             - name: node-4
               image: ${runtime.images.app}
             - name: node-5
-              image: ${runtime.images.app}
-            - name: node-6
               image: ${runtime.images.app}
 
         # each CL node have a dedicated PostgreSQL 11.15
@@ -348,15 +346,6 @@ deployments:
                         name: app-node-5
                         port:
                           number: 6688
-            - host: ${DEVSPACE_NAMESPACE}-node6.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              http:
-                paths:
-                  - path: /
-                    backend:
-                      service:
-                        name: app-node-6
-                        port:
-                          number: 6688
             - host: ${DEVSPACE_NAMESPACE}-geth-1337-http.${DEVSPACE_INGRESS_BASE_DOMAIN}
               http:
                 paths:
@@ -432,4 +421,4 @@ profiles:
         path: deployments.app.helm.values.chainlink.global.overridesToml
       - op: add
         path: deployments.app.helm.valuesFiles
-        value: ["../charts/chainlink-cluster/values-profiles/values-dev.yaml"]
+        value: ["./values-profiles/values-dev.yaml"]
