@@ -136,11 +136,69 @@ contract CheckUpkeep is SetUp {
   }
 }
 
+contract WithdrawFunds is SetUp {
+  event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+
+  function test_RevertsWhen_CalledByNonAdmin() external {
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    vm.prank(STRANGER);
+    registry.withdrawFunds(linkUpkeepID, STRANGER);
+  }
+
+  function test_RevertsWhen_InvalidRecipient() external {
+    vm.expectRevert(Registry.InvalidRecipient.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.withdrawFunds(linkUpkeepID, ZERO_ADDRESS);
+  }
+
+  function test_RevertsWhen_UpkeepNotCanceled() external {
+    vm.expectRevert(Registry.UpkeepNotCanceled.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.withdrawFunds(linkUpkeepID, UPKEEP_ADMIN);
+  }
+
+  function test_Happy_Link() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+    vm.roll(100 + block.number);
+
+    uint256 startUpkeepAdminBalance = linkToken.balanceOf(UPKEEP_ADMIN);
+    uint256 startLinkReserveAmountBalance = registry.getReserveAmount(address(linkToken));
+
+    uint256 upkeepBalance = registry.getBalance(linkUpkeepID);
+    vm.expectEmit();
+    emit FundsWithdrawn(linkUpkeepID, upkeepBalance, address(UPKEEP_ADMIN));
+    registry.withdrawFunds(linkUpkeepID, UPKEEP_ADMIN);
+
+    assertEq(registry.getBalance(linkUpkeepID), 0);
+    assertEq(linkToken.balanceOf(UPKEEP_ADMIN), startUpkeepAdminBalance + upkeepBalance);
+    assertEq(registry.getReserveAmount(address(linkToken)), startLinkReserveAmountBalance - upkeepBalance);
+  }
+
+  function test_Happy_USDToken() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(usdUpkeepID6);
+    vm.roll(100 + block.number);
+
+    uint256 startUpkeepAdminBalance = usdToken6.balanceOf(UPKEEP_ADMIN);
+    uint256 startUSDToken6ReserveAmountBalance = registry.getReserveAmount(address(usdToken6));
+
+    uint256 upkeepBalance = registry.getBalance(usdUpkeepID6);
+    vm.expectEmit();
+    emit FundsWithdrawn(usdUpkeepID6, upkeepBalance, address(UPKEEP_ADMIN));
+    registry.withdrawFunds(usdUpkeepID6, UPKEEP_ADMIN);
+
+    assertEq(registry.getBalance(usdUpkeepID6), 0);
+    assertEq(usdToken6.balanceOf(UPKEEP_ADMIN), startUpkeepAdminBalance + upkeepBalance);
+    assertEq(registry.getReserveAmount(address(usdToken6)), startUSDToken6ReserveAmountBalance - upkeepBalance);
+  }
+}
+
 contract AddFunds is SetUp {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
 
   // when msg.value is 0, it uses the ERC20 payment path
-  function testNative_msgValue0() external {
+  function test_HappyWhen_NativeUpkeep_WithMsgValue0() external {
     vm.startPrank(OWNER);
     uint256 startRegistryBalance = registry.getBalance(nativeUpkeepID);
     uint256 startTokenBalance = registry.getBalance(nativeUpkeepID);
@@ -150,7 +208,7 @@ contract AddFunds is SetUp {
   }
 
   // when msg.value is not 0, it uses the native payment path
-  function testNative_msgValueNot0() external {
+  function test_HappyWhen_NativeUpkeep_WithMsgValueNot0() external {
     uint256 startRegistryBalance = registry.getBalance(nativeUpkeepID);
     uint256 startTokenBalance = registry.getBalance(nativeUpkeepID);
     registry.addFunds{value: 1}(nativeUpkeepID, 1000); // parameter amount should be ignored
