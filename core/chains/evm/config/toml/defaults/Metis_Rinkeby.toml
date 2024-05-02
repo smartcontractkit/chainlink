@@ -11,7 +11,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'SuggestedPrice'
 PriceMin = '0'
-BumpThreshold = 0
+BumpThreshold = 3
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 0
