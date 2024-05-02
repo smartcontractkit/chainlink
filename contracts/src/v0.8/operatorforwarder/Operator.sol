@@ -3,19 +3,19 @@ pragma solidity 0.8.19;
 
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import {LinkTokenReceiver} from "./LinkTokenReceiver.sol";
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
-import {AuthorizedReceiverInterface} from "./interfaces/AuthorizedReceiverInterface.sol";
-import {OperatorInterface} from "../../interfaces/OperatorInterface.sol";
-import {IOwnable} from "../../shared/interfaces/IOwnable.sol";
-import {WithdrawalInterface} from "./interfaces/WithdrawalInterface.sol";
-import {OracleInterface} from "../../interfaces/OracleInterface.sol";
-import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
+import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
+import {IAuthorizedReceiver} from "./interfaces/IAuthorizedReceiver.sol";
+import {OperatorInterface} from "../interfaces/OperatorInterface.sol";
+import {IOwnable} from "../shared/interfaces/IOwnable.sol";
+import {IWithdrawal} from "./interfaces/IWithdrawal.sol";
+import {OracleInterface} from "../interfaces/OracleInterface.sol";
+import {SafeCast} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 // @title The Chainlink Operator contract
 // @notice Node operators can deploy this contract to fulfill requests sent to them
 // solhint-disable gas-custom-errors
-contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, OperatorInterface, WithdrawalInterface {
+contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, OperatorInterface, IWithdrawal {
   struct Commitment {
     bytes31 paramsHash;
     uint8 dataVersion;
@@ -241,7 +241,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     emit TargetsUpdatedAuthorizedSenders(targets, senders, msg.sender);
 
     for (uint256 i = 0; i < targets.length; ++i) {
-      AuthorizedReceiverInterface(targets[i]).setAuthorizedSenders(senders);
+      IAuthorizedReceiver(targets[i]).setAuthorizedSenders(senders);
     }
   }
 
@@ -266,14 +266,14 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   function withdraw(
     address recipient,
     uint256 amount
-  ) external override(OracleInterface, WithdrawalInterface) onlyOwner validateAvailableFunds(amount) {
+  ) external override(OracleInterface, IWithdrawal) onlyOwner validateAvailableFunds(amount) {
     assert(i_linkToken.transfer(recipient, amount));
   }
 
   // @notice Displays the amount of LINK that is available for the node operator to withdraw
   // @dev We use `ONE_FOR_CONSISTENT_GAS_COST` in place of 0 in storage
   // @return The amount of withdrawable LINK on the contract
-  function withdrawable() external view override(OracleInterface, WithdrawalInterface) returns (uint256) {
+  function withdrawable() external view override(OracleInterface, IWithdrawal) returns (uint256) {
     return _fundsAvailable();
   }
 

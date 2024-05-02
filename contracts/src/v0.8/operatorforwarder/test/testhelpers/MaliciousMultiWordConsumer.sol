@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ChainlinkClient} from "../../../../ChainlinkClient.sol";
-import {Chainlink} from "../../../../Chainlink.sol";
+import {ChainlinkClient} from "../../../ChainlinkClient.sol";
+import {Chainlink} from "../../../Chainlink.sol";
 
 contract MaliciousMultiWordConsumer is ChainlinkClient {
   uint256 private constant ORACLE_PAYMENT = 1 ether;
