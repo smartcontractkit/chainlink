@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ChainlinkClient, ChainlinkRequestInterface, LinkTokenInterface} from "../../../../ChainlinkClient.sol";
-import {Chainlink} from "../../../../Chainlink.sol";
+import {ChainlinkClient, ChainlinkRequestInterface, LinkTokenInterface} from "../../../ChainlinkClient.sol";
+import {Chainlink} from "../../../Chainlink.sol";
 
 contract Consumer is ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
   bytes32 internal s_specId;
-  bytes32 public currentPrice;
+  bytes32 internal s_currentPrice;
 
   event RequestFulfilled(
     bytes32 indexed requestId, // User-defined ID
@@ -50,6 +50,10 @@ contract Consumer is ChainlinkClient {
 
   function fulfill(bytes32 _requestId, bytes32 _price) public recordChainlinkFulfillment(_requestId) {
     emit RequestFulfilled(_requestId, _price);
-    currentPrice = _price;
+    s_currentPrice = _price;
+  }
+
+  function getCurrentPrice() public view returns (bytes32) {
+    return s_currentPrice;
   }
 }
