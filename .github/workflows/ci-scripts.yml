@@ -1,6 +1,7 @@
 name: CI Scripts
 
 on:
+  push:
   pull_request:
 
 jobs:
