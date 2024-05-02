@@ -92,6 +92,7 @@ runs:
         [ChainlinkUpgradeImage]
         image="$UPGRADE_IMAGE"
         version="$UPGRADE_VERSION"
+        postgres_version="$CHAINLINK_POSTGRES_VERSION"
 
         [Logging]
         test_log_collect=$test_log_collect

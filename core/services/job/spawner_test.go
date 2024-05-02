@@ -73,6 +73,10 @@ func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
 	return evmrelayer.NewLoopRelayServerAdapter(g.r, g.e), nil
 }
 
+func (g *relayGetter) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
+	return map[types.RelayID]loop.Relayer{}, nil
+}
+
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)

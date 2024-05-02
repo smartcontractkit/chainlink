@@ -19,10 +19,12 @@ type stepRequest struct {
 //
 // Within the workflow spec, they are called "Capability Properties".
 type stepDefinition struct {
-	Type   string         `json:"type" jsonschema:"required"`
+	ID     string         `json:"id" jsonschema:"required"`
 	Ref    string         `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_]+$"`
 	Inputs map[string]any `json:"inputs,omitempty"`
 	Config map[string]any `json:"config" jsonschema:"required"`
+
+	CapabilityType capabilities.CapabilityType `json:"-"`
 }
 
 // workflowSpec is the parsed representation of a workflow.
@@ -106,9 +108,10 @@ func (w *workflow) dependents(start string) ([]*step, error) {
 // step wraps a stepDefinition with additional context for dependencies and execution
 type step struct {
 	stepDefinition
-	dependencies []string
-	capability   capabilities.CallbackExecutable
-	config       *values.Map
+	dependencies      []string
+	capability        capabilities.CallbackCapability
+	config            *values.Map
+	executionStrategy executionStrategy
 }
 
 type triggerCapability struct {
@@ -156,7 +159,7 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 		// To handle this, we default the `Ref` to the type, but ideally we
 		// should find a better long-term way to handle this.
 		if s.Ref == "" {
-			s.Ref = s.Type
+			s.Ref = s.ID
 		}
 
 		innerErr := g.AddVertex(&step{stepDefinition: s})
