@@ -712,7 +712,7 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 
 var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 
-// ConfigValidate validate the client configuration and pretty-prints results
+// ConfigFileValidate validate the client configuration and pretty-prints results
 func (s *Shell) ConfigFileValidate(_ *cli.Context) error {
 	fn := func(f string, params ...any) { fmt.Printf(f, params...) }
 	s.Config.LogConfiguration(fn, fn)
