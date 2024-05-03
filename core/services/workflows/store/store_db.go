@@ -329,7 +329,7 @@ func (d *DBStore) GetUnfinished(ctx context.Context, offset, limit int) ([]Workf
 		WEUpdatedAt  *time.Time `db:"we_updated_at"`
 		WEFinishedAt *time.Time `db:"we_finished_at"`
 	}{}
-	err := d.db.SelectContext(ctx, &joinRecords, sql, "started", limit, offset)
+	err := d.db.SelectContext(ctx, &joinRecords, sql, StatusStarted, limit, offset)
 	if err != nil {
 		return []WorkflowExecution{}, err
 	}

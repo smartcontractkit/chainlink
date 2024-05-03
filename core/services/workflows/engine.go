@@ -217,7 +217,7 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 	}
 
 	// TODO: paginate properly
-	if len(wipExecutions) == defaultLimit {
+	if len(wipExecutions) >= defaultLimit {
 		e.logger.Warnf("possible execution overflow during resumption")
 	}
 
