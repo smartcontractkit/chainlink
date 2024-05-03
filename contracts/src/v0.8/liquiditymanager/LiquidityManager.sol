@@ -30,6 +30,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
   error ZeroChainSelector();
   error InsufficientLiquidity(uint256 requested, uint256 available);
   error EmptyReport();
+  error TransferFailed();
 
   /// @notice Emitted when a finalization step is completed without funds being available.
   /// @param ocrSeqNum The OCR sequence number of the report.
@@ -83,6 +84,11 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
   /// @param oldBalance The old minimum liquidity.
   /// @param newBalance The new minimum liquidity.
   event MinimumLiquiditySet(uint256 oldBalance, uint256 newBalance);
+
+  /// @notice Emitted when native balance is withdrawn by contract owner
+  /// @param amount The amount of native withdrawn
+  /// @param destination The address the native is sent to
+  event NativeWithdrawn(uint256 amount, address destination);
 
   /// @notice Emitted when a cross chain rebalancer is set.
   /// @param remoteChainSelector The chain selector of the remote chain.
@@ -157,10 +163,22 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
     s_minimumLiquidity = minimumLiquidity;
   }
 
+  // ================================================================
+  // │                      Native Management                       │
+  // ================================================================
+
   receive() external payable {}
 
+  /// @notice withdraw native balance
+  function withdrawNative(uint256 amount, address payable destination) external onlyOwner {
+    (bool success, ) = destination.call{value: amount}("");
+    if (!success) revert TransferFailed();
+
+    emit NativeWithdrawn(amount, destination);
+  }
+
   // ================================================================
-  // │                    Liquidity management                      │
+  // │                     Liquidity Management                     │
   // ================================================================
 
   /// @inheritdoc ILiquidityManager
