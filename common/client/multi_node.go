@@ -672,7 +672,7 @@ func aggregateTxResults(resultsByCode sendTxErrors) (txResult error, err error) 
 		// We assume that primary node would never report false positive txResult for a transaction.
 		// Thus, if such case occurs it's probably due to misconfiguration or a bug and requires manual intervention.
 		if hasSevereErrors {
-			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error(s): "
+			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error(s):"
 			// return success, since at least 1 node has accepted our broadcasted Tx, and thus it can now be included onchain
 			return successResults[0], multierr.Combine(fmt.Errorf(errMsg), severeErrorsList)
 		}
