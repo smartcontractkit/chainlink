@@ -119,7 +119,7 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 
 	// clean up enqueued block counts
 	for block := range b.enqueuedBlocks {
-		if block < blockThreshold-reorgBuffer {
+		if block < blockThreshold {
 			delete(b.enqueuedBlocks, block)
 		}
 	}
