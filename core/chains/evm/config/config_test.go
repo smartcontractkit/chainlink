@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestChainScopedConfig(t *testing.T) {
@@ -380,6 +381,7 @@ func TestChainScopedConfig_HeadTracker(t *testing.T) {
 func Test_chainScopedConfig_Validate(t *testing.T) {
 	configWithChains := func(t *testing.T, id int64, chains ...*toml.Chain) config.AppConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			s.Database.URL = models.MustSecretURL("postgresql://doesnotexist:justtopassvalidationtests@localhost:5432/chainlink_na_test")
 			chainID := ubig.NewI(id)
 			c.EVM[0] = &toml.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: toml.Defaults(chainID, chains...),
 				Nodes: toml.EVMNodes{{

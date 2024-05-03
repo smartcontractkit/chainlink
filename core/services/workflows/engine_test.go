@@ -19,7 +19,7 @@ import (
 
 const hardcodedWorkflow = `
 triggers:
-  - type: "mercury-trigger"
+  - id: "mercury-trigger"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
@@ -27,7 +27,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
 
 consensus:
-  - type: "offchain_reporting"
+  - id: "offchain_reporting"
     ref: "evm_median"
     inputs:
       observations:
@@ -49,14 +49,14 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - type: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-  - type: "write_ethereum-testnet-sepolia"
+  - id: "write_ethereum-testnet-sepolia"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -64,6 +64,54 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
+
+type testHooks struct {
+	initFailed        chan struct{}
+	executionFinished chan string
+}
+
+// newTestEngine creates a new engine with some test defaults.
+func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (*Engine, *testHooks) {
+	peerID := p2ptypes.PeerID{}
+	initFailed := make(chan struct{})
+	executionFinished := make(chan string, 100)
+	cfg := Config{
+		Lggr:       logger.TestLogger(t),
+		Registry:   reg,
+		Spec:       spec,
+		DONInfo:    nil,
+		PeerID:     func() *p2ptypes.PeerID { return &peerID },
+		maxRetries: 1,
+		retryMs:    100,
+		afterInit: func(success bool) {
+			if !success {
+				close(initFailed)
+			}
+		},
+		onExecutionFinished: func(weid string) {
+			executionFinished <- weid
+		},
+	}
+	eng, err := NewEngine(cfg)
+	require.NoError(t, err)
+	return eng, &testHooks{initFailed: initFailed, executionFinished: executionFinished}
+}
+
+// getExecutionId returns the execution id of the workflow that is
+// currently being executed by the engine.
+//
+// If the engine fails to initialize, the test will fail rather
+// than blocking indefinitely.
+func getExecutionId(t *testing.T, eng *Engine, hooks *testHooks) string {
+	var eid string
+	select {
+	case <-hooks.initFailed:
+		t.FailNow()
+	case eid = <-hooks.executionFinished:
+	}
+
+	return eid
+}
 
 type mockCapability struct {
 	capabilities.CapabilityInfo
@@ -148,23 +196,13 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, target2))
 
-	lggr := logger.TestLogger(t)
-	peerID := p2ptypes.PeerID{}
-	cfg := Config{
-		Lggr:     lggr,
-		Registry: reg,
-		Spec:     hardcodedWorkflow,
-		DONInfo:  nil,
-		PeerID:   func() *p2ptypes.PeerID { return &peerID },
-	}
-	eng, err := NewEngine(cfg)
-	require.NoError(t, err)
+	eng, hooks := newTestEngine(t, reg, hardcodedWorkflow)
 
-	err = eng.Start(ctx)
+	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := <-eng.xxxExecutionFinished
+	eid := getExecutionId(t, eng, hooks)
 	assert.Equal(t, cr, <-target1.response)
 	assert.Equal(t, cr, <-target2.response)
 
@@ -177,7 +215,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 const (
 	simpleWorkflow = `
 triggers:
-  - type: "mercury-trigger"
+  - id: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -185,7 +223,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
         
 consensus:
-  - type: "offchain_reporting"
+  - id: "offchain_reporting"
     ref: "evm_median"
     inputs:
       observations:
@@ -207,7 +245,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - type: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -312,22 +350,13 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockFailingConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	peerID := p2ptypes.PeerID{}
-	cfg := Config{
-		Lggr:     logger.TestLogger(t),
-		Registry: reg,
-		Spec:     simpleWorkflow,
-		DONInfo:  nil,
-		PeerID:   func() *p2ptypes.PeerID { return &peerID },
-	}
-	eng, err := NewEngine(cfg)
-	require.NoError(t, err)
+	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
 
-	err = eng.Start(ctx)
+	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := <-eng.xxxExecutionFinished
+	eid := getExecutionId(t, eng, hooks)
 	state, err := eng.executionStates.get(ctx, eid)
 	require.NoError(t, err)
 
@@ -339,7 +368,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 const (
 	multiStepWorkflow = `
 triggers:
-  - type: "mercury-trigger"
+  - id: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -347,14 +376,14 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
 
 actions:
-  - type: "read_chain_action"
+  - id: "read_chain_action"
     ref: "read_chain_action"
     inputs:
       action:
         - "$(trigger.outputs)"
         
 consensus:
-  - type: "offchain_reporting"
+  - id: "offchain_reporting"
     ref: "evm_median"
     inputs:
       observations:
@@ -377,7 +406,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - type: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -420,22 +449,12 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	action, out := mockAction()
 	require.NoError(t, reg.Add(ctx, action))
 
-	peerID := p2ptypes.PeerID{}
-	cfg := Config{
-		Lggr:     logger.TestLogger(t),
-		Registry: reg,
-		Spec:     multiStepWorkflow,
-		DONInfo:  nil,
-		PeerID:   func() *p2ptypes.PeerID { return &peerID },
-	}
-	eng, err := NewEngine(cfg)
-	require.NoError(t, err)
-
-	err = eng.Start(ctx)
+	eng, hooks := newTestEngine(t, reg, multiStepWorkflow)
+	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := <-eng.xxxExecutionFinished
+	eid := getExecutionId(t, eng, hooks)
 	state, err := eng.executionStates.get(ctx, eid)
 	require.NoError(t, err)
 

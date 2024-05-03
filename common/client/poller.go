@@ -78,8 +78,7 @@ func (p *Poller[T]) pollingLoop() {
 			return
 		case <-ticker.C:
 			// Set polling timeout
-			pollingCtx, cancelPolling := context.WithTimeout(context.Background(), p.pollingTimeout)
-			p.stopCh.CtxCancel(pollingCtx, cancelPolling)
+			pollingCtx, cancelPolling := p.stopCh.CtxCancel(context.WithTimeout(context.Background(), p.pollingTimeout))
 			// Execute polling function
 			result, err := p.pollingFunc(pollingCtx)
 			cancelPolling()
