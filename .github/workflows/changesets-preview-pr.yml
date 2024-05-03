@@ -7,7 +7,7 @@ name: Release Preview - Changeset
 on:
   push:
     branches:
-      - re-2590/refactor-changesets-release-preview # remove after testing
+      - re-2590/refactor-changeset-release-preview # remove after testing
       # - develop
 
 jobs:
