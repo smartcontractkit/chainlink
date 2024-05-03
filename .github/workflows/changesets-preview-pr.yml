@@ -57,6 +57,7 @@ jobs:
         if: steps.change.outputs.core-changeset == 'true'
         uses: peter-evans/create-pull-request@6d6857d36972b65feb161a90e484f2984215f83e # v6.0.5
         with:
+          git-token: ${{ secrets.GITHUB_TOKEN }}
           add-paths: |
             .changeset/**
             CHANGELOG.md
