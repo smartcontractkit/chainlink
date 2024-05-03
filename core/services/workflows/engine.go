@@ -78,7 +78,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	//
 	triggersInitialized := true
 	for _, t := range e.workflow.triggers {
-		tg, err := e.registry.GetTrigger(ctx, t.Type)
+		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
 			e.logger.Errorf("failed to get trigger capability: %s", err)
 			// we don't immediately return here, since we want to retry all triggers
@@ -123,16 +123,16 @@ func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
 		return nil
 	}
 
-	cp, err := e.registry.Get(ctx, s.Type)
+	cp, err := e.registry.Get(ctx, s.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get capability with ref %s: %s", s.Type, err)
+		return fmt.Errorf("failed to get capability with ref %s: %s", s.ID, err)
 	}
 
 	// We configure actions, consensus and targets here, and
 	// they all satisfy the `CallbackCapability` interface
 	cc, ok := cp.(capabilities.CallbackCapability)
 	if !ok {
-		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.Type)
+		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.ID)
 	}
 
 	if s.config == nil {
@@ -275,7 +275,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
-		return fmt.Errorf("failed to instantiate trigger %s, %s", t.Type, err)
+		return fmt.Errorf("failed to instantiate trigger %s, %s", t.ID, err)
 	}
 
 	go func() {
