@@ -146,12 +146,31 @@ func (p *Plugin) ValidateObservation(outctx ocr3types.OutcomeContext, query ocrt
 	// todo: improve logging - including duration of each phase, etc.
 	p.lggr.Infow("in validate observation", "seqNr", outctx.SeqNr, "phase", "ValidateObservation")
 
-	_, err := models.DecodeObservation(ao.Observation)
+	obs, err := models.DecodeObservation(ao.Observation)
 	if err != nil {
 		return fmt.Errorf("invalid observation: %w", err)
 	}
 
-	// todo: consider adding more validations
+	if err := validateDedupedItems(func(liq models.NetworkLiquidity) string {
+		return fmt.Sprintf("%d", liq.Network)
+	}, obs.LiquidityPerChain...); err != nil {
+		return fmt.Errorf("invalid LiquidityPerChain: %w", err)
+	}
+	if err := validateDedupedItems(dedupKeyObject, obs.ResolvedTransfers...); err != nil {
+		return fmt.Errorf("invalid ResolvedTransfers: %w", err)
+	}
+	if err := validateDedupedItems(dedupKeyObject, obs.PendingTransfers...); err != nil {
+		return fmt.Errorf("invalid PendingTransfers: %w", err)
+	}
+	if err := validateDedupedItems(dedupKeyObject, obs.InflightTransfers...); err != nil {
+		return fmt.Errorf("invalid InflightTransfers: %w", err)
+	}
+	if err := validateDedupedItems(dedupKeyObject, obs.Edges...); err != nil {
+		return fmt.Errorf("invalid Edges: %w", err)
+	}
+	if err := validateDedupedItems(dedupKeyObject, obs.ConfigDigests...); err != nil {
+		return fmt.Errorf("invalid ConfigDigests: %w", err)
+	}
 
 	return nil
 }
@@ -715,4 +734,21 @@ func (p *Plugin) resolveProposedTransfers(ctx context.Context, lggr logger.Logge
 	lggr.Infow("finished resolving proposed transfers", "resolvedTransfers", resolvedTransfers)
 
 	return resolvedTransfers, nil
+}
+
+func dedupKeyObject[T any](item T) string {
+	return fmt.Sprintf("%+v", item)
+}
+
+// validateDedupedItems checks if there are any duplicated items in the provided slice.
+func validateDedupedItems[T any](keyFn func(T) string, items ...T) error {
+	existing := map[string]bool{}
+	for _, item := range items {
+		k := keyFn(item)
+		if existing[k] {
+			return fmt.Errorf("duplicated item")
+		}
+		existing[k] = true
+	}
+	return nil
 }
