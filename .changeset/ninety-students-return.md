@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Add gethwrappers for operatorforwarder contracts
+#updated Add gethwrappers for operatorforwarder contracts
