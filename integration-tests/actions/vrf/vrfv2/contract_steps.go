@@ -74,6 +74,13 @@ func DeployVRFV2Contracts(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrLoadingCoordinator, err)
 	}
+
+	batchCoordinator, err := env.ContractDeployer.DeployBatchVRFCoordinatorV2(coordinator.Address())
+	err = evmClient.WaitForEvents()
+	if err != nil {
+		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
+	}
+
 	if useVRFOwner {
 		vrfOwner, err := env.ContractDeployer.DeployVRFOwner(coordinatorAddress)
 		if err != nil {
@@ -84,21 +91,23 @@ func DeployVRFV2Contracts(
 			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 		}
 		return &vrfcommon.VRFContracts{
-			CoordinatorV2:   coordinator,
-			VRFOwner:        vrfOwner,
-			BHS:             bhs,
-			VRFV2Consumers:  nil,
-			LinkToken:       linkTokenContract,
-			MockETHLINKFeed: linkEthFeedContract,
+			CoordinatorV2:      coordinator,
+			BatchCoordinatorV2: batchCoordinator,
+			VRFOwner:           vrfOwner,
+			BHS:                bhs,
+			VRFV2Consumers:     nil,
+			LinkToken:          linkTokenContract,
+			MockETHLINKFeed:    linkEthFeedContract,
 		}, nil
 	}
 	return &vrfcommon.VRFContracts{
-		CoordinatorV2:   coordinator,
-		VRFOwner:        nil,
-		BHS:             bhs,
-		VRFV2Consumers:  nil,
-		LinkToken:       linkTokenContract,
-		MockETHLINKFeed: linkEthFeedContract,
+		CoordinatorV2:      coordinator,
+		BatchCoordinatorV2: batchCoordinator,
+		VRFOwner:           nil,
+		BHS:                bhs,
+		VRFV2Consumers:     nil,
+		LinkToken:          linkTokenContract,
+		MockETHLINKFeed:    linkEthFeedContract,
 	}, nil
 }
 

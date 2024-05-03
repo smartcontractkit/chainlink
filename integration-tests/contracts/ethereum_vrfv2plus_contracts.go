@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -25,6 +26,12 @@ type EthereumVRFCoordinatorV2_5 struct {
 	address     *common.Address
 	client      blockchain.EVMClient
 	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface
+}
+
+type EthereumBatchVRFCoordinatorV2Plus struct {
+	address          *common.Address
+	client           blockchain.EVMClient
+	batchCoordinator *batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2Plus
 }
 
 type EthereumVRFCoordinatorV2PlusUpgradedVersion struct {
@@ -127,7 +134,28 @@ func (e *EthereumContractDeployer) DeployVRFCoordinatorV2_5(bhsAddr string) (VRF
 	}, err
 }
 
+func (e *EthereumContractDeployer) DeployBatchVRFCoordinatorV2Plus(coordinatorAddress string) (BatchVRFCoordinatorV2Plus, error) {
+	address, _, instance, err := e.client.DeployContract("BatchVRFCoordinatorV2Plus", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return batch_vrf_coordinator_v2plus.DeployBatchVRFCoordinatorV2Plus(auth, backend, common.HexToAddress(coordinatorAddress))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumBatchVRFCoordinatorV2Plus{
+		client:           e.client,
+		batchCoordinator: instance.(*batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2Plus),
+		address:          address,
+	}, err
+}
+
 func (v *EthereumVRFCoordinatorV2_5) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumBatchVRFCoordinatorV2Plus) Address() string {
 	return v.address.Hex()
 }
 

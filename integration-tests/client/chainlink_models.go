@@ -1160,7 +1160,8 @@ observationSource                      = """
 type VRFV2PlusJobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
+	PublicKey                     string        `toml:"publicKey"` // Public key of the proving key
 	ExternalJobID                 string        `toml:"externalJobID"`
 	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
@@ -1207,7 +1208,8 @@ observationSource = """
 type VRFV2JobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
+	PublicKey                     string        `toml:"publicKey"` // Public key of the proving key
 	ExternalJobID                 string        `toml:"externalJobID"`
 	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`

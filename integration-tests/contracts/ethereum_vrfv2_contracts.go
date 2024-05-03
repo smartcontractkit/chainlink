@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
@@ -35,6 +36,12 @@ type EthereumVRFCoordinatorV2 struct {
 	address     *common.Address
 	client      blockchain.EVMClient
 	coordinator *vrf_coordinator_v2.VRFCoordinatorV2
+}
+
+type EthereumBatchVRFCoordinatorV2 struct {
+	address          *common.Address
+	client           blockchain.EVMClient
+	batchCoordinator *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
 }
 
 type EthereumVRFOwner struct {
@@ -109,6 +116,23 @@ func (e *EthereumContractDeployer) DeployVRFCoordinatorV2(linkAddr string, bhsAd
 		client:      e.client,
 		coordinator: instance.(*vrf_coordinator_v2.VRFCoordinatorV2),
 		address:     address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployBatchVRFCoordinatorV2(coordinatorAddress string) (BatchVRFCoordinatorV2, error) {
+	address, _, instance, err := e.client.DeployContract("BatchVRFCoordinatorV2", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return batch_vrf_coordinator_v2.DeployBatchVRFCoordinatorV2(auth, backend, common.HexToAddress(coordinatorAddress))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumBatchVRFCoordinatorV2{
+		client:           e.client,
+		batchCoordinator: instance.(*batch_vrf_coordinator_v2.BatchVRFCoordinatorV2),
+		address:          address,
 	}, err
 }
 
@@ -1228,4 +1252,8 @@ func (v *EthereumVRFMockETHLINKFeed) SetBlockTimestampDeduction(blockTimestampDe
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumBatchVRFCoordinatorV2) Address() string {
+	return v.address.Hex()
 }

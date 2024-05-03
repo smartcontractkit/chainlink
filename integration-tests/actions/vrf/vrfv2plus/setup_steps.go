@@ -46,6 +46,7 @@ func CreateVRFV2PlusJob(
 	job, err := chainlinkNode.MustCreateJob(&client.VRFV2PlusJobSpec{
 		Name:                          fmt.Sprintf("vrf-v2-plus-%s", jobUUID),
 		CoordinatorAddress:            vrfJobSpecConfig.CoordinatorAddress,
+		BatchCoordinatorAddress:       vrfJobSpecConfig.BatchCoordinatorAddress,
 		FromAddresses:                 vrfJobSpecConfig.FromAddresses,
 		EVMChainID:                    vrfJobSpecConfig.EVMChainID,
 		MinIncomingConfirmations:      vrfJobSpecConfig.MinIncomingConfirmations,
@@ -201,6 +202,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *v
 	vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
 		ForwardingAllowed:             *config.VRFJobForwardingAllowed,
 		CoordinatorAddress:            contracts.CoordinatorV2Plus.Address(),
+		BatchCoordinatorAddress:       contracts.BatchCoordinatorV2Plus.Address(),
 		FromAddresses:                 vrfNode.TXKeyAddressStrings,
 		EVMChainID:                    chainID.String(),
 		MinIncomingConfirmations:      int(*config.MinimumConfirmations),

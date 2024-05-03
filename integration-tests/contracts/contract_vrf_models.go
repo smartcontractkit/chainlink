@@ -365,6 +365,13 @@ type BatchBlockhashStore interface {
 	Address() string
 }
 
+type BatchVRFCoordinatorV2 interface {
+	Address() string
+}
+type BatchVRFCoordinatorV2Plus interface {
+	Address() string
+}
+
 type VRFMockETHLINKFeed interface {
 	Address() string
 	LatestRoundData() (*big.Int, error)
