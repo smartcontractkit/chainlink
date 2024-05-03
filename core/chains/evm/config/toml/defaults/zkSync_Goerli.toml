@@ -1,6 +1,6 @@
 ChainID = '280'
 ChainType = 'zksync'
-FinalityDepth = 1
+FinalityDepth = 10
 LogPollInterval = '5s'
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '1m'
