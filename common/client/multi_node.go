@@ -11,6 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -663,13 +664,17 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 func aggregateTxResults(resultsByCode sendTxErrors) (txResult error, err error) {
 	severeErrors, hasSevereErrors := findFirstIn(resultsByCode, sendTxSevereErrors)
 	successResults, hasSuccess := findFirstIn(resultsByCode, sendTxSuccessfulCodes)
+	var severeErrorsList error
+	for _, severeError := range severeErrors {
+		severeErrorsList = multierr.Append(severeErrorsList, severeError)
+	}
 	if hasSuccess {
 		// We assume that primary node would never report false positive txResult for a transaction.
 		// Thus, if such case occurs it's probably due to misconfiguration or a bug and requires manual intervention.
 		if hasSevereErrors {
-			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error"
+			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error: "
 			// return success, since at least 1 node has accepted our broadcasted Tx, and thus it can now be included onchain
-			return successResults[0], fmt.Errorf(errMsg)
+			return successResults[0], multierr.Combine(fmt.Errorf(errMsg), severeErrorsList)
 		}
 
 		// other errors are temporary - we are safe to return success
@@ -677,7 +682,7 @@ func aggregateTxResults(resultsByCode sendTxErrors) (txResult error, err error) 
 	}
 
 	if hasSevereErrors {
-		return severeErrors[0], nil
+		return severeErrorsList, nil
 	}
 
 	// return temporary error
