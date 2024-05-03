@@ -22,4 +22,9 @@ interface IPool is IERC165 {
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
     returns (Pool.ReleaseOrMintOutV1 memory);
+
+  /// @notice Checks whether a remote chain is supported in the token pool.
+  /// @param remoteChainSelector The selector of the remote chain.
+  /// @return true if the given chain is a permissioned remote chain.
+  function isSupportedChain(uint64 remoteChainSelector) external view returns (bool);
 }

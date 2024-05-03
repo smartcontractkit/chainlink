@@ -899,15 +899,9 @@ contract EVM2EVMOnRamp_getDataAvailabilityCost is EVM2EVMOnRamp_getFeeSetup {
 }
 
 contract EVM2EVMOnRamp_getSupportedTokens is EVM2EVMOnRampSetup {
-  function test_GetSupportedTokens_Success() public view {
-    address[] memory tokens = s_onRamp.getSupportedTokens(DEST_CHAIN_SELECTOR);
-
-    address[] memory expected = new address[](4);
-    expected[0] = s_sourceTokens[0];
-    expected[1] = s_sourceTokens[1];
-    expected[2] = s_destTokens[0];
-    expected[3] = s_destTokens[1];
-    assertEq(expected, tokens);
+  function test_GetSupportedTokens_Revert() public {
+    vm.expectRevert(EVM2EVMOnRamp.GetSupportedTokensFunctionalityRemovedCheckAdminRegistry.selector);
+    s_onRamp.getSupportedTokens(DEST_CHAIN_SELECTOR);
   }
 }
 

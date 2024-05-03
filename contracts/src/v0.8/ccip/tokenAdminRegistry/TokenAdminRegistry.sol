@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {IPool} from "../interfaces/IPool.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
@@ -19,6 +20,7 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   error OnlyAdministrator(address sender, address token);
   error OnlyPendingAdministrator(address sender, address token);
   error AlreadyRegistered(address token);
+  error ZeroAddress();
 
   event AdministratorRegistered(address indexed token, address indexed administrator);
   event PoolSet(address indexed token, address indexed previousPool, address indexed newPool);
@@ -68,9 +70,19 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
     return s_tokenConfig[token].tokenPool;
   }
 
-  /// @inheritdoc ITokenAdminRegistry
-  function getPermissionedTokens() external view returns (address[] memory tokens) {
-    return s_permissionedTokens.values();
+  /// @notice Returns whether the given token can be sent to the given chain.
+  /// @param token The token to check.
+  /// @param remoteChainSelector The chain selector of the remote chain.
+  /// @return True if the token can be sent to the given chain, false otherwise.
+  /// @dev Due to the permissionless nature of the token pools, this function could return true even
+  /// when any actual CCIP transaction containing this token to the given chain would fail. If the
+  /// pool is properly written and configured, this function should be accurate.
+  function isTokenSupportedOnRemoteChain(address token, uint64 remoteChainSelector) external view returns (bool) {
+    address pool = s_tokenConfig[token].tokenPool;
+    if (pool == address(0)) {
+      return false;
+    }
+    return IPool(pool).isSupportedChain(remoteChainSelector);
   }
 
   /// @notice Returns the configuration for a token.
@@ -183,12 +195,7 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
       revert AlreadyRegistered(localToken);
     }
 
-    config.administrator = administrator;
-    config.isRegistered = true;
-
-    s_tokens.add(localToken);
-
-    emit AdministratorRegistered(localToken, administrator);
+    _registerToken(config, localToken, administrator);
   }
 
   /// @notice Registers a local administrator for a token. This will overwrite any potential current administrator
@@ -197,32 +204,25 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   /// @param administrator The address of the new administrator.
   /// @dev Can only be called by the owner.
   function registerAdministratorPermissioned(address localToken, address administrator) external onlyOwner {
+    if (administrator == address(0)) {
+      revert ZeroAddress();
+    }
     TokenConfig storage config = s_tokenConfig[localToken];
 
+    if (config.isRegistered) {
+      revert AlreadyRegistered(localToken);
+    }
+
+    _registerToken(config, localToken, administrator);
+  }
+
+  function _registerToken(TokenConfig storage config, address localToken, address administrator) internal {
     config.administrator = administrator;
     config.isRegistered = true;
 
     s_tokens.add(localToken);
-    s_permissionedTokens.add(localToken);
 
     emit AdministratorRegistered(localToken, administrator);
-  }
-
-  /// @notice Removes the token and all config associated with it, while removing the
-  /// possibility of re-registering it.
-  /// @param localToken The token to remove.
-  function removeAdministratorPermissioned(address localToken) external onlyOwner {
-    s_tokenConfig[localToken] = TokenConfig({
-      isRegistered: true,
-      disableReRegistration: true,
-      administrator: address(0),
-      pendingAdministrator: address(0),
-      tokenPool: address(0)
-    });
-
-    s_permissionedTokens.remove(localToken);
-
-    emit RemovedAdministrator(localToken);
   }
 
   // ================================================================

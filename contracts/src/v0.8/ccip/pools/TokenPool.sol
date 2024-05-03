@@ -161,8 +161,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
     emit RemotePoolSet(remoteChainSelector, prevAddress, remotePoolAddress);
   }
 
-  /// @notice Checks whether a chain selector is permissioned on this contract.
-  /// @return true if the given chain selector is a permissioned remote chain.
+  /// @inheritdoc IPool
   function isSupportedChain(uint64 remoteChainSelector) public view returns (bool) {
     return s_remoteChainSelectors.contains(remoteChainSelector);
   }

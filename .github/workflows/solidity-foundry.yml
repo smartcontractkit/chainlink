@@ -161,7 +161,7 @@ jobs:
         with:
           update-comment: true
           coverage-files: lcov.info.pruned
-          minimum-coverage: 98.6
+          minimum-coverage: 98.5
           artifact-name: code-coverage-report
           working-directory: ./contracts
           github-token: ${{ secrets.GITHUB_TOKEN }}

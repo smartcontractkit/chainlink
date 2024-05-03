@@ -52,6 +52,19 @@ contract TokenAdminRegistry_getPool is TokenAdminRegistrySetup {
   }
 }
 
+contract TokenAdminRegistry_isTokenSupportedOnRemoteChain is TokenAdminRegistrySetup {
+  function test_isTokenSupportedOnRemoteChain_Success() public {
+    uint64 nonExistentChainSelector = 2523356;
+
+    assertTrue(s_tokenAdminRegistry.isTokenSupportedOnRemoteChain(s_sourceTokens[0], DEST_CHAIN_SELECTOR));
+    assertFalse(s_tokenAdminRegistry.isTokenSupportedOnRemoteChain(s_sourceTokens[0], nonExistentChainSelector));
+
+    address nonExistentToken = makeAddr("nonExistentToken");
+
+    assertFalse(s_tokenAdminRegistry.isTokenSupportedOnRemoteChain(nonExistentToken, DEST_CHAIN_SELECTOR));
+  }
+}
+
 contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {
   function test_setPool_Success() public {
     address pool = makeAddr("pool");
@@ -105,34 +118,6 @@ contract TokenAdminRegistry_getAllConfiguredTokens is TokenAdminRegistrySetup {
   function test_getAllConfiguredTokens_outOfBounds_Success() public view {
     address[] memory tokens = s_tokenAdminRegistry.getAllConfiguredTokens(type(uint64).max, 10);
     assertEq(tokens.length, 0);
-  }
-}
-
-contract TokenAdminRegistry_getPermissionedTokens is TokenAdminRegistrySetup {
-  function test_getPermissionedTokens_Success() public {
-    TokenAdminRegistry cleanTokenAdminRegistry = new TokenAdminRegistry();
-    cleanTokenAdminRegistry.addRegistryModule(s_registryModule);
-
-    address[] memory got = cleanTokenAdminRegistry.getPermissionedTokens();
-    assertEq(got.length, 0);
-
-    for (uint256 i = 0; i < s_sourceTokens.length; i++) {
-      cleanTokenAdminRegistry.registerAdministratorPermissioned(s_sourceTokens[i], OWNER);
-    }
-
-    got = cleanTokenAdminRegistry.getPermissionedTokens();
-    assertEq(got.length, s_sourceTokens.length);
-    assertEq(got, s_sourceTokens);
-
-    vm.startPrank(s_registryModule);
-
-    for (uint256 i = 0; i < s_destTokens.length; i++) {
-      cleanTokenAdminRegistry.registerAdministrator(s_destTokens[i], OWNER);
-    }
-
-    got = cleanTokenAdminRegistry.getPermissionedTokens();
-    assertEq(got.length, s_sourceTokens.length);
-    assertEq(got, s_sourceTokens);
   }
 }
 
@@ -238,17 +223,15 @@ contract TokenAdminRegistry_setDisableReRegistration is TokenAdminRegistrySetup 
 
 contract TokenAdminRegistry_isAdministrator is TokenAdminRegistrySetup {
   function test_isAdministrator_Success() public {
-    assertTrue(s_tokenAdminRegistry.isAdministrator(s_sourceTokens[0], OWNER));
-
     address newOwner = makeAddr("newOwner");
     address newToken = makeAddr("newToken");
     assertFalse(s_tokenAdminRegistry.isAdministrator(newToken, newOwner));
     assertFalse(s_tokenAdminRegistry.isAdministrator(newToken, OWNER));
 
-    s_tokenAdminRegistry.registerAdministratorPermissioned(s_sourceTokens[0], newOwner);
+    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newOwner);
 
-    assertTrue(s_tokenAdminRegistry.isAdministrator(s_sourceTokens[0], newOwner));
-    assertTrue(!s_tokenAdminRegistry.isAdministrator(s_sourceTokens[0], OWNER));
+    assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newOwner));
+    assertFalse(s_tokenAdminRegistry.isAdministrator(newToken, OWNER));
   }
 }
 
@@ -294,15 +277,16 @@ contract TokenAdminRegistry_registerAdministrator is TokenAdminRegistrySetup {
 
 contract TokenAdminRegistry_registerAdministratorPermissioned is TokenAdminRegistrySetup {
   function test_registerAdministratorPermissioned_Success() public {
-    address newOwner = makeAddr("newOwner");
+    address newAdmin = makeAddr("newAdmin");
     address newToken = makeAddr("newToken");
 
     vm.expectEmit();
-    emit AdministratorRegistered(newToken, newOwner);
+    emit AdministratorRegistered(newToken, newAdmin);
 
-    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newOwner);
+    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newAdmin);
 
-    assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newOwner));
+    assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newAdmin));
+    assertEq(s_tokenAdminRegistry.getTokenConfig(newToken).isRegistered, true);
   }
 
   mapping(address token => address admin) internal s_AdminByToken;
@@ -313,6 +297,12 @@ contract TokenAdminRegistry_registerAdministratorPermissioned is TokenAdminRegis
   ) public {
     TokenAdminRegistry cleanTokenAdminRegistry = new TokenAdminRegistry();
     for (uint256 i = 0; i < tokens.length; i++) {
+      if (admins[i] == address(0)) {
+        continue;
+      }
+      if (cleanTokenAdminRegistry.getTokenConfig(tokens[i]).isRegistered) {
+        continue;
+      }
       cleanTokenAdminRegistry.registerAdministratorPermissioned(tokens[i], admins[i]);
       s_AdminByToken[tokens[i]] = admins[i];
     }
@@ -322,6 +312,23 @@ contract TokenAdminRegistry_registerAdministratorPermissioned is TokenAdminRegis
     }
   }
 
+  function test_registerAdministratorPermissioned_ZeroAddress_Revert() public {
+    address newToken = makeAddr("newToken");
+
+    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.ZeroAddress.selector));
+    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, address(0));
+  }
+
+  function test_registerAdministratorPermissioned_AlreadyRegistered_Revert() public {
+    address newAdmin = makeAddr("newAdmin");
+    address newToken = makeAddr("newToken");
+
+    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newAdmin);
+
+    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.AlreadyRegistered.selector, newToken));
+    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newAdmin);
+  }
+
   function test_registerAdministratorPermissioned_OnlyOwner_Revert() public {
     address newOwner = makeAddr("newOwner");
     address newToken = makeAddr("newToken");
@@ -329,41 +336,6 @@ contract TokenAdminRegistry_registerAdministratorPermissioned is TokenAdminRegis
 
     vm.expectRevert("Only callable by owner");
     s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newOwner);
-  }
-}
-
-contract TokenAdminRegistry_removeAdministratorPermissioned is TokenAdminRegistrySetup {
-  event RemovedAdministrator(address token);
-
-  function test_removeAdministratorPermissioned_Success() public {
-    address newOwner = makeAddr("newOwner");
-    address newToken = makeAddr("newToken");
-
-    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newOwner);
-
-    assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newOwner));
-
-    vm.expectEmit();
-    emit RemovedAdministrator(newToken);
-
-    s_tokenAdminRegistry.removeAdministratorPermissioned(newToken);
-
-    assertFalse(s_tokenAdminRegistry.isAdministrator(newToken, newOwner));
-
-    TokenAdminRegistry.TokenConfig memory config = s_tokenAdminRegistry.getTokenConfig(newToken);
-    assertEq(config.administrator, address(0));
-    assertEq(config.pendingAdministrator, address(0));
-    assertTrue(config.disableReRegistration);
-    assertTrue(config.isRegistered);
-    assertEq(config.tokenPool, address(0));
-  }
-
-  function test_removeAdministratorPermissioned_OnlyOwner_Revert() public {
-    address newToken = makeAddr("newToken");
-    vm.stopPrank();
-
-    vm.expectRevert("Only callable by owner");
-    s_tokenAdminRegistry.removeAdministratorPermissioned(newToken);
   }
 }
 

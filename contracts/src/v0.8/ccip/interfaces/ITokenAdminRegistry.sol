@@ -5,9 +5,6 @@ interface ITokenAdminRegistry {
   /// @notice Returns the pool for the given token.
   function getPool(address token) external view returns (address);
 
-  /// @notice Returns every token that has been configured through a permissoned method.
-  function getPermissionedTokens() external view returns (address[] memory);
-
   /// @notice Registers an administrator for the given token.
   /// @param localToken The token to register the administrator for.
   /// @param administrator The administrator to register.
