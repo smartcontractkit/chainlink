@@ -51,7 +51,7 @@ func DeployVRFV2Contracts(
 	if useTestCoordinator {
 		testCoordinator, err := env.ContractDeployer.DeployVRFCoordinatorTestV2(linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
+			return nil, fmt.Errorf("%s, err %w", ErrDeployCoordinatorV2, err)
 		}
 		err = evmClient.WaitForEvents()
 		if err != nil {
@@ -61,7 +61,7 @@ func DeployVRFV2Contracts(
 	} else {
 		coordinator, err := env.ContractDeployer.DeployVRFCoordinatorV2(linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
+			return nil, fmt.Errorf("%s, err %w", ErrDeployCoordinatorV2, err)
 		}
 		err = evmClient.WaitForEvents()
 		if err != nil {
@@ -76,6 +76,10 @@ func DeployVRFV2Contracts(
 	}
 
 	batchCoordinator, err := env.ContractDeployer.DeployBatchVRFCoordinatorV2(coordinator.Address())
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrDeployBatchCoordinatorV2, err)
+	}
+
 	err = evmClient.WaitForEvents()
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
@@ -84,7 +88,7 @@ func DeployVRFV2Contracts(
 	if useVRFOwner {
 		vrfOwner, err := env.ContractDeployer.DeployVRFOwner(coordinatorAddress)
 		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
+			return nil, fmt.Errorf("%s, err %w", ErrDeployCoordinatorV2, err)
 		}
 		err = evmClient.WaitForEvents()
 		if err != nil {
