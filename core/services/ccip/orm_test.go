@@ -73,21 +73,21 @@ func generateTokenPriceUpdates(tokenAddr ccip.Address, n int) []TokenPriceUpdate
 }
 
 func getGasTableRowCount(t *testing.T, ds sqlutil.DataSource) int {
-	var count int
+	var count []int
 	stmt := fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, gasTableName)
 	err := ds.SelectContext(testutils.Context(t), &count, stmt)
 	require.NoError(t, err)
 
-	return count
+	return count[0]
 }
 
 func getTokenTableRowCount(t *testing.T, ds sqlutil.DataSource) int {
-	var count int
+	var count []int
 	stmt := fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, tokenTableName)
 	err := ds.SelectContext(testutils.Context(t), &count, stmt)
 	require.NoError(t, err)
 
-	return count
+	return count[0]
 }
 
 func TestInitORM(t *testing.T) {
@@ -212,9 +212,9 @@ func TestORM_InsertAndDeleteGasPrices(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Millisecond)
 	interimTimeStamp := time.Now()
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Millisecond)
 
 	// insert for the 2nd time after interimTimeStamp
 	for _, updatesPerSelector := range updates {
@@ -229,7 +229,7 @@ func TestORM_InsertAndDeleteGasPrices(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, numSourceChainSelectors*numUpdatesPerSourceSelector, getGasTableRowCount(t, db))
 
-	// clear by now should delete all rows
+	// clear by Now() should delete all rows
 	err = orm.ClearGasPricesByDestChain(ctx, destSelector, time.Now())
 	assert.NoError(t, err)
 	assert.Equal(t, 0, getGasTableRowCount(t, db))
@@ -328,9 +328,9 @@ func TestORM_InsertAndDeleteTokenPrices(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Millisecond)
 	interimTimeStamp := time.Now()
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Millisecond)
 
 	// insert for the 2nd time after interimTimeStamp
 	for _, updatesPerAddr := range updates {
@@ -345,7 +345,7 @@ func TestORM_InsertAndDeleteTokenPrices(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, numAddresses*numUpdatesPerAddress, getTokenTableRowCount(t, db))
 
-	// clear by now should delete all rows
+	// clear by Now() should delete all rows
 	err = orm.ClearTokenPricesByDestChain(ctx, destSelector, time.Now())
 	assert.NoError(t, err)
 	assert.Equal(t, 0, getTokenTableRowCount(t, db))

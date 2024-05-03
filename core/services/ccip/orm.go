@@ -16,6 +16,12 @@ type GasPrice struct {
 	CreatedAt           time.Time
 }
 
+type GasPriceRow struct {
+	SourceChainSelector uint64
+	GasPrice            string
+	CreatedAt           time.Time
+}
+
 type GasPriceUpdate struct {
 	SourceChainSelector uint64
 	GasPrice            *big.Int
@@ -24,6 +30,12 @@ type GasPriceUpdate struct {
 type TokenPrice struct {
 	TokenAddr  ccip.Address
 	TokenPrice *big.Int
+	CreatedAt  time.Time
+}
+
+type TokenPriceRow struct {
+	TokenAddr  string
+	TokenPrice string
 	CreatedAt  time.Time
 }
 
@@ -66,7 +78,7 @@ func NewORM(ds sqlutil.DataSource) (ORM, error) {
 }
 
 func (o *orm) GetGasPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]GasPrice, error) {
-	var gasPrices []GasPrice
+	var gasPriceRows []GasPriceRow
 	stmt := fmt.Sprintf(`
 		SELECT DISTINCT ON (source_chain_selector)
 		source_chain_selector, gas_price, created_at
@@ -74,16 +86,29 @@ func (o *orm) GetGasPricesByDestChain(ctx context.Context, destChainSelector uin
 		WHERE chain_selector = $1
 		ORDER BY source_chain_selector, created_at DESC;
 	`, gasTableName)
-	err := o.ds.SelectContext(ctx, &gasPrices, stmt, destChainSelector)
+	err := o.ds.SelectContext(ctx, &gasPriceRows, stmt, destChainSelector)
 	if err != nil {
 		return nil, err
+	}
+
+	gasPrices := make([]GasPrice, len(gasPriceRows))
+	for i, row := range gasPriceRows {
+		price, ok := new(big.Int).SetString(row.GasPrice, 10)
+		if !ok {
+			return nil, fmt.Errorf("error parsing gas price fetched from db: %s", row.GasPrice)
+		}
+		gasPrices[i] = GasPrice{
+			SourceChainSelector: row.SourceChainSelector,
+			GasPrice:            price,
+			CreatedAt:           row.CreatedAt,
+		}
 	}
 
 	return gasPrices, nil
 }
 
 func (o *orm) GetTokenPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]TokenPrice, error) {
-	var tokenPrices []TokenPrice
+	var tokenPriceRows []TokenPriceRow
 	stmt := fmt.Sprintf(`
 		SELECT DISTINCT ON (token_addr)
 		token_addr, token_price, created_at
@@ -92,9 +117,22 @@ func (o *orm) GetTokenPricesByDestChain(ctx context.Context, destChainSelector u
 		ORDER BY token_addr, created_at DESC;
 
 	`, tokenTableName)
-	err := o.ds.SelectContext(ctx, &tokenPrices, stmt, destChainSelector)
+	err := o.ds.SelectContext(ctx, &tokenPriceRows, stmt, destChainSelector)
 	if err != nil {
 		return nil, err
+	}
+
+	tokenPrices := make([]TokenPrice, len(tokenPriceRows))
+	for i, row := range tokenPriceRows {
+		price, ok := new(big.Int).SetString(row.TokenPrice, 10)
+		if !ok {
+			return nil, fmt.Errorf("error parsing token price fetched from db: %s", row.TokenPrice)
+		}
+		tokenPrices[i] = TokenPrice{
+			TokenAddr:  ccip.Address(row.TokenAddr),
+			TokenPrice: price,
+			CreatedAt:  row.CreatedAt,
+		}
 	}
 
 	return tokenPrices, nil
@@ -105,11 +143,12 @@ func (o *orm) InsertGasPricesForDestChain(ctx context.Context, destChainSelector
 		return nil
 	}
 
+	now := time.Now()
 	sqlStr := ""
 	var values []interface{}
-	for _, price := range gasPrices {
-		sqlStr += "($1,$2,$3,$4,NOW()),"
-		values = append(values, destChainSelector, jobId, price.SourceChainSelector, price.GasPrice)
+	for i, price := range gasPrices {
+		sqlStr += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d),", i*5+1, i*5+2, i*5+3, i*5+4, i*5+5)
+		values = append(values, destChainSelector, jobId, price.SourceChainSelector, price.GasPrice.String(), now)
 	}
 	// Trim the last comma
 	sqlStr = sqlStr[0 : len(sqlStr)-1]
@@ -131,11 +170,12 @@ func (o *orm) InsertTokenPricesForDestChain(ctx context.Context, destChainSelect
 		return nil
 	}
 
+	now := time.Now()
 	sqlStr := ""
 	var values []interface{}
-	for _, price := range tokenPrices {
-		sqlStr += "($1,$2,$3,$4,NOW()),"
-		values = append(values, destChainSelector, jobId, price.TokenAddr, price.TokenPrice)
+	for i, price := range tokenPrices {
+		sqlStr += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d),", i*5+1, i*5+2, i*5+3, i*5+4, i*5+5)
+		values = append(values, destChainSelector, jobId, string(price.TokenAddr), price.TokenPrice.String(), now)
 	}
 	// Trim the last comma
 	sqlStr = sqlStr[0 : len(sqlStr)-1]
