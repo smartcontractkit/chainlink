@@ -64,6 +64,32 @@ func TestMedianLiquidityPerChain(t *testing.T) {
 			},
 			false,
 		},
+		{
+			"below bft",
+			args{[]models.Observation{
+				{
+					LiquidityPerChain: []models.NetworkLiquidity{
+						{Network: 1, Liquidity: ubig.NewI(1)},
+						{Network: 2, Liquidity: ubig.NewI(2)},
+					},
+				},
+				{
+					LiquidityPerChain: []models.NetworkLiquidity{
+						{Network: 3, Liquidity: ubig.NewI(2)},
+						{Network: 3, Liquidity: ubig.NewI(6)},
+					},
+				},
+				{
+					LiquidityPerChain: []models.NetworkLiquidity{
+						{Network: 3, Liquidity: ubig.NewI(4)},
+					},
+				},
+			}, 1},
+			[]models.NetworkLiquidity{
+				{Network: 3, Liquidity: ubig.NewI(4)},
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

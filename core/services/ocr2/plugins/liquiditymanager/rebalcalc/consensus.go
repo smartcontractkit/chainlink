@@ -8,9 +8,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 )
 
+// quorum returns the number of observations required.
+func quorum(f int) int {
+	return 2*f + 1
+}
+
+// bft returns the number of Byzantine Fault Tolerant nodes for a given f,
+// which is the minimum number of nodes required to reach consensus on an observed value.
+func bft(f int) int {
+	return f + 1
+}
+
 // MedianLiquidityPerChain returns the median liquidity per chain from the provided observations.
 func MedianLiquidityPerChain(observations []models.Observation, f int) ([]models.NetworkLiquidity, error) {
-	if len(observations) < 2*f+1 {
+	if len(observations) < quorum(f) {
 		return nil, fmt.Errorf("need at least 2f+1 observations (ocr3types.QuorumTwoFPlusOne) to reach consensus, got: %d", len(observations))
 	}
 
@@ -18,6 +29,13 @@ func MedianLiquidityPerChain(observations []models.Observation, f int) ([]models
 	for _, ob := range observations {
 		for _, chainLiq := range ob.LiquidityPerChain {
 			liqObsPerChain[chainLiq.Network] = append(liqObsPerChain[chainLiq.Network], chainLiq.Liquidity.ToInt())
+		}
+	}
+
+	for chainID, liqs := range liqObsPerChain {
+		if len(liqs) < bft(f) {
+			// If we don't have enough observations for a chain, we remove it to excluded from the result
+			delete(liqObsPerChain, chainID)
 		}
 	}
 
@@ -36,7 +54,7 @@ func MedianLiquidityPerChain(observations []models.Observation, f int) ([]models
 
 // PendingTransfersConsensus returns the pending transfers that have been observed by at least f+1 observers.
 func PendingTransfersConsensus(observations []models.Observation, f int) ([]models.PendingTransfer, error) {
-	if len(observations) < 2*f+1 {
+	if len(observations) < quorum(f) {
 		return nil, fmt.Errorf("need at least 2f+1 observations (ocr3types.QuorumTwoFPlusOne) to reach consensus, got: %d", len(observations))
 	}
 
@@ -55,7 +73,7 @@ func PendingTransfersConsensus(observations []models.Observation, f int) ([]mode
 
 	quorumEvents := make([]models.PendingTransfer, 0, len(counts))
 	for h, count := range counts {
-		if count >= f+1 {
+		if count >= bft(f) {
 			ev, exists := eventFromHash[h]
 			if !exists {
 				return nil, fmt.Errorf("internal issue, event from hash %v not found", h)
@@ -73,7 +91,7 @@ func PendingTransfersConsensus(observations []models.Observation, f int) ([]mode
 }
 
 func InflightTransfersConsensus(observations []models.Observation, f int) ([]models.Transfer, error) {
-	if len(observations) < 2*f+1 {
+	if len(observations) < quorum(f) {
 		return nil, fmt.Errorf("need at least 2f+1 observations (ocr3types.QuorumTwoFPlusOne) to reach consensus, got: %d", len(observations))
 	}
 
@@ -92,7 +110,7 @@ func InflightTransfersConsensus(observations []models.Observation, f int) ([]mod
 
 	quorumEvents := make([]models.Transfer, 0, len(counts))
 	for h, count := range counts {
-		if count >= f+1 {
+		if count >= bft(f) {
 			ev, exists := transferFromKey[h]
 			if !exists {
 				return nil, fmt.Errorf("internal issue, event from hash %v not found", h)
@@ -111,7 +129,7 @@ func InflightTransfersConsensus(observations []models.Observation, f int) ([]mod
 
 // ConfigDigestsConsensus returns the config digests that have been observed by at least f+1 observers.
 func ConfigDigestsConsensus(observations []models.Observation, f int) ([]models.ConfigDigestWithMeta, error) {
-	if len(observations) < 2*f+1 {
+	if len(observations) < quorum(f) {
 		return nil, fmt.Errorf("need at least 2f+1 observations (ocr3types.QuorumTwoFPlusOne) to reach consensus, got: %d", len(observations))
 	}
 
@@ -132,7 +150,7 @@ func ConfigDigestsConsensus(observations []models.Observation, f int) ([]models.
 
 	quorumCds := make([]models.ConfigDigestWithMeta, 0, len(counts))
 	for k, count := range counts {
-		if count >= f+1 {
+		if count >= bft(f) {
 			cd, exists := cds[k]
 			if !exists {
 				return nil, fmt.Errorf("internal issue, config digest by key %s not found", k)
@@ -151,7 +169,7 @@ func ConfigDigestsConsensus(observations []models.Observation, f int) ([]models.
 
 // GraphEdgesConsensus returns the edges that have been observed by at least f+1 observers.
 func GraphEdgesConsensus(observations []models.Observation, f int) ([]models.Edge, error) {
-	if len(observations) < 2*f+1 {
+	if len(observations) < quorum(f) {
 		return nil, fmt.Errorf("need at least 2f+1 observations (ocr3types.QuorumTwoFPlusOne) to reach consensus, got: %d", len(observations))
 	}
 
@@ -164,7 +182,7 @@ func GraphEdgesConsensus(observations []models.Observation, f int) ([]models.Edg
 
 	var quorumEdges []models.Edge
 	for edge, count := range counts {
-		if count >= f+1 {
+		if count >= bft(f) {
 			quorumEdges = append(quorumEdges, edge)
 		}
 	}
