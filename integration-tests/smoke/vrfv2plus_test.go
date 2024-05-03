@@ -270,11 +270,10 @@ func TestVRFv2Plus(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
-		require.NoError(t, err, "error getting rand request status")
-		require.True(t, status.Fulfilled)
-		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		fulfillmentTx, _, err := actions.GetTxByHash(testcontext.Get(t), evmClient, randomWordsFulfilledEvent.Raw.TxHash)
+		require.NoError(t, err, "error getting tx from hash")
 
+		require.Equal(t, vrfContracts.BatchCoordinatorV2Plus.Address(), fulfillmentTx.To().String())
 	})
 
 	t.Run("CL Node VRF Job Runs", func(t *testing.T) {
@@ -861,7 +860,6 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-			//todo - move TransactionByHash to EVMClient in CTF
 			fulfillmentTx, _, err := actions.GetTxByHash(testcontext.Get(t), evmClient, randomWordsFulfilledEvent.Raw.TxHash)
 			require.NoError(t, err, "error getting tx from hash")
 			fulfillmentTxFromAddress, err := actions.GetTxFromAddress(fulfillmentTx)
