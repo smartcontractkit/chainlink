@@ -54,7 +54,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimi
   error CannotSendZeroTokens();
   error SourceTokenDataTooLarge(address token);
   error InvalidChainSelector(uint64 chainSelector);
-  error GetSupportedTokensFunctionalityRemoved();
+  error GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
 
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event NopPaid(address indexed nop, uint256 amount);
@@ -457,7 +457,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimi
 
   /// @inheritdoc IEVM2AnyOnRampClient
   function getSupportedTokens(uint64 /*destChainSelector*/ ) external view returns (address[] memory) {
-    return ITokenAdminRegistry(s_dynamicConfig.tokenAdminRegistry).getPermissionedTokens();
+    revert GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
   }
 
   // ================================================================
