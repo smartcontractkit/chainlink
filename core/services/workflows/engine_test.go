@@ -11,10 +11,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	pocCapabilities "github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/capabilities"
 )
 
 const hardcodedWorkflow = `
@@ -65,18 +67,23 @@ targets:
       abi: "receive(report bytes)"
 `
 
-// newTestEngine creates a new engine with some test defaults.
-func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (eng *Engine, initFailed chan struct{}) {
+// newTestEngineFromSpec creates a new engine with some test defaults.
+func newTestEngineFromSpec(t *testing.T, reg *coreCap.Registry, spec string) (eng *Engine, initFailed chan struct{}) {
+	builder := yamlBuilder{Spec: spec}
+	return newTestEngine(t, reg, builder)
+}
+
+func newTestEngine(t *testing.T, reg *coreCap.Registry, builder specBuilder) (eng *Engine, initFailed chan struct{}) {
 	peerID := p2ptypes.PeerID{}
 	initFailed = make(chan struct{})
 	cfg := Config{
-		Lggr:       logger.TestLogger(t),
-		Registry:   reg,
-		Spec:       spec,
-		DONInfo:    nil,
-		PeerID:     func() *p2ptypes.PeerID { return &peerID },
-		maxRetries: 1,
-		retryMs:    100,
+		Lggr:        logger.TestLogger(t),
+		Registry:    reg,
+		SpecBuilder: builder,
+		DONInfo:     nil,
+		PeerID:      func() *p2ptypes.PeerID { return &peerID },
+		maxRetries:  1,
+		retryMs:     100,
 		afterInit: func(success bool) {
 			if !success {
 				close(initFailed)
@@ -186,7 +193,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, target2))
 
-	eng, initFailed := newTestEngine(t, reg, hardcodedWorkflow)
+	eng, initFailed := newTestEngineFromSpec(t, reg, hardcodedWorkflow)
 
 	err := eng.Start(ctx)
 	require.NoError(t, err)
@@ -257,9 +264,17 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
 	resp, err := values.NewMap(map[string]any{
-		"123": decimal.NewFromFloat(1.00),
-		"456": decimal.NewFromFloat(1.25),
-		"789": decimal.NewFromFloat(1.50),
+		"Values": map[string]any{
+			"123": decimal.NewFromFloat(1.00),
+			"456": decimal.NewFromFloat(1.25),
+			"789": decimal.NewFromFloat(1.50),
+		},
+		"Decimals": map[string]any{
+			"123": map[string]int{"Places": 19},
+			"456": map[string]int{"Places": 19},
+			"789": map[string]int{"Places": 8},
+		},
+		"Metadata": map[string]any{"TriggerRef": "Mercury"},
 	})
 	require.NoError(t, err)
 	cr := capabilities.CapabilityResponse{
@@ -340,7 +355,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockFailingConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	eng, initFailed := newTestEngine(t, reg, simpleWorkflow)
+	eng, initFailed := newTestEngineFromSpec(t, reg, simpleWorkflow)
 
 	err := eng.Start(ctx)
 	require.NoError(t, err)
@@ -407,7 +422,7 @@ targets:
 )
 
 func mockAction() (*mockCapability, values.Value) {
-	outputs := values.NewString("output")
+	outputs, _ := values.NewMap(map[string]any{"Read": "output"})
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
 			"read_chain_action",
@@ -436,6 +451,93 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
+	action, out := mockAction()
+	require.NoError(t, reg.Add(ctx, action))
+
+	eng, initFailed := newTestEngineFromSpec(t, reg, multiStepWorkflow)
+	err := eng.Start(ctx)
+	require.NoError(t, err)
+	defer eng.Close()
+
+	eid := getExecutionId(t, eng, initFailed)
+	state, err := eng.executionStates.get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.status, statusCompleted)
+
+	// The inputs to the consensus step should
+	// be the outputs of the two dependents.
+	inputs := state.steps["evm_median"].inputs
+	unw, err := values.Unwrap(inputs)
+	require.NoError(t, err)
+
+	obs := unw.(map[string]any)["observations"]
+	assert.Len(t, obs, 2)
+
+	tunw, err := values.Unwrap(cr.Value)
+	require.NoError(t, err)
+	assert.Equal(t, obs.([]any)[0], tunw)
+
+	o, err := values.Unwrap(out)
+	require.NoError(t, err)
+	assert.Equal(t, obs.([]any)[1], o)
+}
+
+// Note that eventually we want to allow encoding in the consensus to be customizable as well.
+// This is out of scope for this POC.
+const multiStepWorkflowCodeConfig = `
+type_map:
+  - write_chain: write_polygon-testnet-mumbai
+config:
+  - mercury-trigger:
+      feedlist:
+        - '0x1111111111111111111100000000000000000000000000000000000000000000'
+        - '0x2222222222222222222200000000000000000000000000000000000000000000'
+  - evm_median: null
+    aggregation_method: data_feeds_2_0
+    aggregation_config:
+      '0x1111111111111111111100000000000000000000000000000000000000000000':
+        deviation: '0.001'
+        heartbeat: 30m
+      '0x2222222222222222222200000000000000000000000000000000000000000000':
+        deviation: '0.001'
+        heartbeat: 30m
+      '0x3333333333333333333300000000000000000000000000000000000000000000':
+        deviation: '0.001'
+        heartbeat: 30m
+    encoder: EVM
+    encoder_config:
+      abi: 'mercury_reports bytes[]'
+  - write_chain:
+      address: '0x3F3554832c636721F1fD1822Ccca0354576741Ef'
+      params:
+        - $(report)
+      abi: receive(report bytes)
+`
+
+func TestEngine_MultiStepDependenciesCode(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	// This should be done automatically when they run for with code
+	require.NoError(t, reg.Add(context.Background(), &localCodeCapability{
+		Workflow:       nil,
+		CapabilityType: capabilities.CapabilityTypeAction,
+		Id:             pocCapabilities.LocalCodeActionCapability,
+	}))
+	require.NoError(t, reg.Add(context.Background(), &localCodeCapability{
+		Workflow:       nil,
+		CapabilityType: capabilities.CapabilityTypeConsensus,
+		Id:             pocCapabilities.LocalCodeConsensusCapability,
+	}))
+
+	trigger, cr := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockTarget()))
+
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
 	action, out := mockAction()
 	require.NoError(t, reg.Add(ctx, action))
 

@@ -1,0 +1,35 @@
+package workflow
+
+import (
+    "github.com/smartcontractkit/chainlink-common/pkg/values"
+
+    "github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/capabilities"
+)
+
+{{ range (rangeIm2 .) }}
+
+type mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O any] struct {
+	mergeRunnerBase
+	fn func({{range (rangeI .) }}{{nis .}} {{nis .}},{{ end }}) (O, error)
+}
+
+func (m mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]) run(value values.Value) (values.Value, bool, error) {
+	ls := value.(*values.List).Underlying
+	{{- range (rangeI .) }}
+    v{{.}}, err := capabilities.UnwrapValue[{{nis .}}](ls[{{.}}-1])
+	if err != nil {
+		return nil, false, err
+	}
+	{{- end }}
+
+	merged, err :=  m.fn({{range (rangeI .) }}v{{.}},{{ end }})
+	if err != nil {
+		return nil, false, err
+	}
+	wrapped, err := values.Wrap(merged)
+	return wrapped, true, err
+}
+
+var _ capability = &mergeRunner{{.}}[{{range (rangeI .) }}any,{{ end }} any]{}
+{{ end }}
+

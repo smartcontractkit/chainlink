@@ -233,7 +233,7 @@ func TestJsonSchema(t *testing.T) {
 }
 
 func TestParsesIntsCorrectly(t *testing.T) {
-	wf, err := Parse(hardcodedWorkflow)
+	wf, err := Parse(yamlBuilder{hardcodedWorkflow})
 	require.NoError(t, err)
 
 	n, err := wf.Vertex("evm_median")

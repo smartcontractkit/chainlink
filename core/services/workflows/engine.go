@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -211,6 +212,7 @@ func (e *Engine) initializeExecutionStrategy(step *step) error {
 		return fmt.Errorf("failed to initialize execution strategy: peer ID %s has not been initialized", e.donInfo.PeerID())
 	}
 
+	// TODO need something for local execution...
 	ie := immediateExecution{}
 	if step.CapabilityType != capabilities.CapabilityTypeTarget {
 		e.logger.Debugf("initializing step %+v with immediate execution strategy: not a target", step)
@@ -676,8 +678,12 @@ func (e *Engine) Close() error {
 	})
 }
 
+type specBuilder interface {
+	Build() (workflowSpec, error)
+}
+
 type Config struct {
-	Spec             string
+	SpecBuilder      specBuilder
 	WorkflowID       string
 	Lggr             logger.Logger
 	Registry         core.CapabilitiesRegistry
@@ -728,7 +734,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
-	workflow, err := Parse(cfg.Spec)
+	workflow, err := Parse(cfg.SpecBuilder)
 	if err != nil {
 		return nil, err
 	}
