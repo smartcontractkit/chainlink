@@ -143,7 +143,7 @@ flake.lock @smartcontractkit/prodsec-public
 # CCIP override
 /core/ @smartcontractkit/ccip
 /contracts/ @rensr @matyang @makramkd
-/core/services/ocr2/plugins/liquiditymanager @rensr @dimkouv @makramkd
+/core/services/ocr2/plugins/liquiditymanager @amirylm @ryanrhall @infiloop2 @makramkd
 
 # CCIP ARM
 /contracts/src/v0.8/ccip/ARM.sol @gtklocker @kaleofduty
