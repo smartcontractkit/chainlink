@@ -40,19 +40,19 @@ var (
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
 // It also handles multiple node RPC connections simultaneously.
 type MultiNode[
-	CHAIN_ID types.ID,
-	SEQ types.Sequence,
-	ADDR types.Hashable,
-	BLOCK_HASH types.Hashable,
-	TX any,
-	TX_HASH types.Hashable,
-	EVENT any,
-	EVENT_OPS any,
-	TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
-	FEE feetypes.Fee,
-	HEAD types.Head[BLOCK_HASH],
-	RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM],
-	BATCH_ELEM any,
+CHAIN_ID types.ID,
+SEQ types.Sequence,
+ADDR types.Hashable,
+BLOCK_HASH types.Hashable,
+TX any,
+TX_HASH types.Hashable,
+EVENT any,
+EVENT_OPS any,
+TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
+FEE feetypes.Fee,
+HEAD types.Head[BLOCK_HASH],
+RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM],
+BATCH_ELEM any,
 ] interface {
 	clientAPI[
 		CHAIN_ID,
@@ -78,19 +78,19 @@ type MultiNode[
 }
 
 type multiNode[
-	CHAIN_ID types.ID,
-	SEQ types.Sequence,
-	ADDR types.Hashable,
-	BLOCK_HASH types.Hashable,
-	TX any,
-	TX_HASH types.Hashable,
-	EVENT any,
-	EVENT_OPS any,
-	TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
-	FEE feetypes.Fee,
-	HEAD types.Head[BLOCK_HASH],
-	RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM],
-	BATCH_ELEM any,
+CHAIN_ID types.ID,
+SEQ types.Sequence,
+ADDR types.Hashable,
+BLOCK_HASH types.Hashable,
+TX any,
+TX_HASH types.Hashable,
+EVENT any,
+EVENT_OPS any,
+TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
+FEE feetypes.Fee,
+HEAD types.Head[BLOCK_HASH],
+RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM],
+BATCH_ELEM any,
 ] struct {
 	services.StateMachine
 	nodes               []Node[CHAIN_ID, HEAD, RPC_CLIENT]
@@ -117,19 +117,19 @@ type multiNode[
 }
 
 func NewMultiNode[
-	CHAIN_ID types.ID,
-	SEQ types.Sequence,
-	ADDR types.Hashable,
-	BLOCK_HASH types.Hashable,
-	TX any,
-	TX_HASH types.Hashable,
-	EVENT any,
-	EVENT_OPS any,
-	TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
-	FEE feetypes.Fee,
-	HEAD types.Head[BLOCK_HASH],
-	RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM],
-	BATCH_ELEM any,
+CHAIN_ID types.ID,
+SEQ types.Sequence,
+ADDR types.Hashable,
+BLOCK_HASH types.Hashable,
+TX any,
+TX_HASH types.Hashable,
+EVENT any,
+EVENT_OPS any,
+TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
+FEE feetypes.Fee,
+HEAD types.Head[BLOCK_HASH],
+RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM],
+BATCH_ELEM any,
 ](
 	lggr logger.Logger,
 	selectionMode string,
@@ -672,7 +672,7 @@ func aggregateTxResults(resultsByCode sendTxErrors) (txResult error, err error) 
 		// We assume that primary node would never report false positive txResult for a transaction.
 		// Thus, if such case occurs it's probably due to misconfiguration or a bug and requires manual intervention.
 		if hasSevereErrors {
-			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error(s):"
+			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error(s): "
 			// return success, since at least 1 node has accepted our broadcasted Tx, and thus it can now be included onchain
 			return successResults[0], multierr.Combine(fmt.Errorf(errMsg), severeErrorsList)
 		}
