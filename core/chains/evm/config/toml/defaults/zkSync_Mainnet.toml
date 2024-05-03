@@ -11,4 +11,4 @@ PriceMax = 18446744073709551615
 PriceMin = 0
 
 [HeadTracker]
-HistoryDepth = 5
+HistoryDepth = 50
