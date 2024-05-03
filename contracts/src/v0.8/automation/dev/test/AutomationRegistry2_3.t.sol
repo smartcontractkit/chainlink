@@ -136,26 +136,86 @@ contract CheckUpkeep is SetUp {
   }
 }
 
+contract WithdrawFunds is SetUp {
+  event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+
+  function test_RevertsWhen_CalledByNonAdmin() external {
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    vm.prank(STRANGER);
+    registry.withdrawFunds(linkUpkeepID, STRANGER);
+  }
+
+  function test_RevertsWhen_InvalidRecipient() external {
+    vm.expectRevert(Registry.InvalidRecipient.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.withdrawFunds(linkUpkeepID, ZERO_ADDRESS);
+  }
+
+  function test_RevertsWhen_UpkeepNotCanceled() external {
+    vm.expectRevert(Registry.UpkeepNotCanceled.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.withdrawFunds(linkUpkeepID, UPKEEP_ADMIN);
+  }
+
+  function test_Happy_Link() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+    vm.roll(100 + block.number);
+
+    uint256 startUpkeepAdminBalance = linkToken.balanceOf(UPKEEP_ADMIN);
+    uint256 startLinkReserveAmountBalance = registry.getReserveAmount(address(linkToken));
+
+    uint256 upkeepBalance = registry.getBalance(linkUpkeepID);
+    vm.expectEmit();
+    emit FundsWithdrawn(linkUpkeepID, upkeepBalance, address(UPKEEP_ADMIN));
+    registry.withdrawFunds(linkUpkeepID, UPKEEP_ADMIN);
+
+    assertEq(registry.getBalance(linkUpkeepID), 0);
+    assertEq(linkToken.balanceOf(UPKEEP_ADMIN), startUpkeepAdminBalance + upkeepBalance);
+    assertEq(registry.getReserveAmount(address(linkToken)), startLinkReserveAmountBalance - upkeepBalance);
+  }
+
+  function test_Happy_USDToken() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(usdUpkeepID6);
+    vm.roll(100 + block.number);
+
+    uint256 startUpkeepAdminBalance = usdToken6.balanceOf(UPKEEP_ADMIN);
+    uint256 startUSDToken6ReserveAmountBalance = registry.getReserveAmount(address(usdToken6));
+
+    uint256 upkeepBalance = registry.getBalance(usdUpkeepID6);
+    vm.expectEmit();
+    emit FundsWithdrawn(usdUpkeepID6, upkeepBalance, address(UPKEEP_ADMIN));
+    registry.withdrawFunds(usdUpkeepID6, UPKEEP_ADMIN);
+
+    assertEq(registry.getBalance(usdUpkeepID6), 0);
+    assertEq(usdToken6.balanceOf(UPKEEP_ADMIN), startUpkeepAdminBalance + upkeepBalance);
+    assertEq(registry.getReserveAmount(address(usdToken6)), startUSDToken6ReserveAmountBalance - upkeepBalance);
+  }
+}
+
 contract AddFunds is SetUp {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
 
   // when msg.value is 0, it uses the ERC20 payment path
-  function testNative_msgValue0() external {
+  function test_HappyWhen_NativeUpkeep_WithMsgValue0() external {
     vm.startPrank(OWNER);
     uint256 startRegistryBalance = registry.getBalance(nativeUpkeepID);
     uint256 startTokenBalance = registry.getBalance(nativeUpkeepID);
     registry.addFunds(nativeUpkeepID, 1);
     assertEq(registry.getBalance(nativeUpkeepID), startRegistryBalance + 1);
     assertEq(weth.balanceOf(address(registry)), startTokenBalance + 1);
+    assertEq(registry.getAvailableERC20ForPayment(address(weth)), 0);
   }
 
   // when msg.value is not 0, it uses the native payment path
-  function testNative_msgValueNot0() external {
+  function test_HappyWhen_NativeUpkeep_WithMsgValueNot0() external {
     uint256 startRegistryBalance = registry.getBalance(nativeUpkeepID);
     uint256 startTokenBalance = registry.getBalance(nativeUpkeepID);
     registry.addFunds{value: 1}(nativeUpkeepID, 1000); // parameter amount should be ignored
     assertEq(registry.getBalance(nativeUpkeepID), startRegistryBalance + 1);
     assertEq(weth.balanceOf(address(registry)), startTokenBalance + 1);
+    assertEq(registry.getAvailableERC20ForPayment(address(weth)), 0);
   }
 
   // it fails when the billing token is not native, but trying to pay with native
@@ -290,6 +350,10 @@ contract Withdraw is SetUp {
   function test_WithdrawERC20Fees_RevertsWhen_LinkAvailableForPaymentIsNegative() public {
     _transmit(usdUpkeepID18, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
     require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
+    require(
+      registry.getAvailableERC20ForPayment(address(usdToken18)) > 0,
+      "ERC20AvailableForPayment should be positive"
+    );
     vm.expectRevert(Registry.InsufficientLinkLiquidity.selector);
     vm.prank(FINANCE_ADMIN);
     registry.withdrawERC20Fees(address(usdToken18), FINANCE_ADMIN, 1); // should revert
@@ -1505,8 +1569,21 @@ contract Transmit is SetUp {
     upkeepIDs[0] = linkUpkeepID;
     upkeepIDs[1] = usdUpkeepID18;
     upkeepIDs[2] = nativeUpkeepID;
+
+    // withdraw-able by finance team should be 0
+    require(registry.getAvailableERC20ForPayment(address(usdToken18)) == 0, "ERC20AvailableForPayment should be 0");
+    require(registry.getAvailableERC20ForPayment(address(weth)) == 0, "ERC20AvailableForPayment should be 0");
+
     // do the thing
     _transmit(upkeepIDs, registry);
+
+    // withdraw-able by the finance team should be positive
+    require(
+      registry.getAvailableERC20ForPayment(address(usdToken18)) > 0,
+      "ERC20AvailableForPayment should be positive"
+    );
+    require(registry.getAvailableERC20ForPayment(address(weth)) > 0, "ERC20AvailableForPayment should be positive");
+
     // assert upkeep balances have decreased
     require(prevUpkeepBalances[0] > registry.getBalance(linkUpkeepID), "link upkeep balance should have decreased");
     require(prevUpkeepBalances[1] > registry.getBalance(usdUpkeepID18), "usd upkeep balance should have decreased");
