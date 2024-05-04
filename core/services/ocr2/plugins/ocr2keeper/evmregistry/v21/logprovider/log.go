@@ -2,6 +2,7 @@ package logprovider
 
 import (
 	"encoding/hex"
+	"github.com/ethereum/go-ethereum/common"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
@@ -58,12 +59,38 @@ func logID(l logpoller.Log) string {
 }
 
 // latestBlockNumber returns the latest block number from the given logs
-func latestBlockNumber(logs ...logpoller.Log) int64 {
+func (b *logBuffer) latestBlockNumber(logs ...logpoller.Log) (int64, map[int64]bool) {
 	var latest int64
+	var latestBlockHash common.Hash
+
+	blockHashes := map[int64]string{}
+	reorgBlocks := map[int64]bool{}
+
 	for _, l := range logs {
+		blockHashes[l.BlockNumber] = l.BlockHash.String()
 		if l.BlockNumber > latest {
 			latest = l.BlockNumber
+			latestBlockHash = l.BlockHash
 		}
 	}
-	return latest
+
+	subscriberLatest := b.latestBlockHash.Load()
+
+	// if we haven't seen a reorg, write these hashes into the buffer for next time
+	if subscriberLatest.String() == latestBlockHash.String() {
+		for number, hash := range blockHashes {
+			b.blockHashes[number] = hash
+		}
+	} else {
+		// if we have seen a reorg, update the stored hashes for the reorg blocks, and collect the reorg block numbers
+		// so that we can later evict logs
+		for number, hash := range blockHashes {
+			if b.blockHashes[number] != hash {
+				b.blockHashes[number] = hash
+				reorgBlocks[number] = true
+			}
+		}
+	}
+
+	return latest, reorgBlocks
 }

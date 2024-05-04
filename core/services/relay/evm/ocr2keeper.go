@@ -126,10 +126,14 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	scanner := upkeepstate.NewPerformedEventsScanner(r.lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepStateStore = upkeepstate.NewUpkeepStateStore(orm, r.lggr, scanner)
 
-	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth, client.ID())
+	blockSubscriber := evm.NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, r.lggr)
+	logProvider, logRecoverer, err := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth, client.ID(), blockSubscriber)
+	if err != nil {
+		return nil, err
+	}
+	
 	services.logEventProvider = logProvider
 	services.logRecoverer = logRecoverer
-	blockSubscriber := evm.NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, r.lggr)
 	services.blockSubscriber = blockSubscriber
 
 	al := evm.NewActiveUpkeepList()

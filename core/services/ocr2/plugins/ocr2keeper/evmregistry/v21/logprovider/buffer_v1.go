@@ -1,6 +1,11 @@
 package logprovider
 
 import (
+	"context"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"math"
 	"math/big"
 	"sort"
@@ -12,12 +17,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 )
 
+const (
+	LogBufferServiceName = "LogBuffer"
+)
+
 type BufferedLog struct {
 	ID  *big.Int
 	Log logpoller.Log
 }
 
 type LogBuffer interface {
+	Start(context.Context) error
+	Close() error
 	// Enqueue adds logs to the buffer and might also drop logs if the limit for the
 	// given upkeep was exceeded. Returns the number of logs that were added and number of logs that were  dropped.
 	Enqueue(id *big.Int, logs ...logpoller.Log) (added int, dropped int)
@@ -70,21 +81,66 @@ func (o *logBufferOptions) windows() int {
 }
 
 type logBuffer struct {
+	services.StateMachine
 	lggr logger.Logger
 	opts *logBufferOptions
 	// last block number seen by the buffer
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
-	queues map[string]*upkeepLogQueue
-	lock   sync.RWMutex
+	queues          map[string]*upkeepLogQueue
+	lock            sync.RWMutex
+	blockHashes     map[int64]string
+	latestBlockHash atomic.Pointer[common.Hash]
+	subID           int
+	blockChan       chan automation.BlockHistory
+	threadCtrl      utils.ThreadControl
+	blockSubscriber automation.BlockSubscriber
 }
 
-func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
+func NewLogBuffer(lggr logger.Logger, blockSubscriber automation.BlockSubscriber, lookback, blockRate, logLimit uint32) (LogBuffer, error) {
+	id, blockChan, err := blockSubscriber.Subscribe()
+	if err != nil {
+		return nil, err
+	}
+
 	return &logBuffer{
-		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV1"),
-		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
-		lastBlockSeen: new(atomic.Int64),
-		queues:        make(map[string]*upkeepLogQueue),
+		lggr:            lggr.Named("KeepersRegistry.LogEventBufferV1"),
+		opts:            newLogBufferOptions(lookback, blockRate, logLimit),
+		lastBlockSeen:   new(atomic.Int64),
+		queues:          make(map[string]*upkeepLogQueue),
+		blockHashes:     make(map[int64]string),
+		subID:           id,
+		blockChan:       blockChan,
+		threadCtrl:      utils.NewThreadControl(),
+		blockSubscriber: blockSubscriber,
+	}, nil
+}
+
+func (b *logBuffer) Start(context.Context) error {
+	return b.StartOnce(LogBufferServiceName, func() error {
+		b.threadCtrl.Go(func(ctx context.Context) {
+			b.listen(ctx)
+		})
+		return nil
+	})
+}
+
+func (b *logBuffer) Close() error {
+	return b.StopOnce(LogBufferServiceName, func() error {
+		b.threadCtrl.Close()
+		return b.blockSubscriber.Unsubscribe(b.subID)
+	})
+}
+
+func (b *logBuffer) listen(ctx context.Context) {
+	for history := range b.blockChan {
+		latest, err := history.Latest()
+		if err != nil {
+			b.lggr.Errorw("unable to read latest block from block history", "error", err.Error())
+		} else {
+			hash := common.Hash(latest.Hash)
+			b.latestBlockHash.Store(&hash)
+		}
 	}
 }
 
@@ -97,7 +153,12 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		buf = newUpkeepLogQueue(b.lggr, uid, b.opts)
 		b.setUpkeepQueue(uid, buf)
 	}
-	latestBlock := latestBlockNumber(logs...)
+
+	latestBlock, reorgBlocks := b.latestBlockNumber(logs...)
+	if len(reorgBlocks) > 0 {
+		b.evictReorgdLogs(reorgBlocks)
+	}
+
 	if b.lastBlockSeen.Load() < latestBlock {
 		b.lastBlockSeen.Store(latestBlock)
 	}
@@ -106,6 +167,22 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		blockThreshold = 1
 	}
 	return buf.enqueue(blockThreshold, logs...)
+}
+
+func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
+	for upkeepID, queue := range b.queues {
+		logs := queue.logs
+		for i := len(logs) - 1; i >= 0; i-- {
+			for blockNumber := range reorgBlocks {
+				if blockNumber == logs[i].BlockNumber {
+					logs = append(logs[:i], logs[i+1:]...)
+					break
+				}
+			}
+		}
+		queue.logs = logs
+		b.queues[upkeepID] = queue
+	}
 }
 
 // Dequeue greedly pulls logs from the buffers.

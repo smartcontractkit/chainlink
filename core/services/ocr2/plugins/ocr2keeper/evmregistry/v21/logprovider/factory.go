@@ -1,6 +1,7 @@
 package logprovider
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 	"math/big"
 	"time"
 
@@ -12,15 +13,18 @@ import (
 
 // New creates a new log event provider and recoverer.
 // using default values for the options.
-func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32, chainID *big.Int) (LogEventProvider, LogRecoverer) {
+func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32, chainID *big.Int, blockSubscriber automation.BlockSubscriber) (LogEventProvider, LogRecoverer, error) {
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
 	opts := NewOptions(int64(finalityDepth), chainID)
 
-	provider := NewLogProvider(lggr, poller, chainID, packer, filterStore, opts)
+	provider, err := NewLogProvider(lggr, poller, chainID, packer, filterStore, blockSubscriber, opts)
+	if err != nil {
+		return nil, nil, err
+	}
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
 
-	return provider, recoverer
+	return provider, recoverer, nil
 }
 
 // LogTriggersOptions holds the options for the log trigger components.

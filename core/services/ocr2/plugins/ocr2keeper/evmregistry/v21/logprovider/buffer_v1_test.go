@@ -328,6 +328,30 @@ func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
 	})
 }
 
+func TestLogEventBufferV1_UpkeepQueue_reorg(t *testing.T) {
+	bufI := NewLogBuffer(logger.TestLogger(t), 10, 5, 1)
+	buf := bufI.(*logBuffer)
+
+	buf.Enqueue(big.NewInt(1),
+		logpoller.Log{BlockNumber: 2, BlockHash: common.HexToHash("0x20"), TxHash: common.HexToHash("0x1"), LogIndex: 0},
+		logpoller.Log{BlockNumber: 3, BlockHash: common.HexToHash("0x30"), TxHash: common.HexToHash("0x1"), LogIndex: 1},
+		logpoller.Log{BlockNumber: 3, BlockHash: common.HexToHash("0x30"), TxHash: common.HexToHash("0x1"), LogIndex: 2},
+		logpoller.Log{BlockNumber: 4, BlockHash: common.HexToHash("0x40"), TxHash: common.HexToHash("0x1"), LogIndex: 1},
+		logpoller.Log{BlockNumber: 5, BlockHash: common.HexToHash("0x50"), TxHash: common.HexToHash("0x1"), LogIndex: 1},
+	)
+
+	require.Equal(t, 1, len(buf.queues))
+	require.Equal(t, 5, len(buf.queues[big.NewInt(1).String()].logs))
+
+	buf.Enqueue(big.NewInt(4),
+		logpoller.Log{BlockNumber: 3, BlockHash: common.HexToHash("0x31"), TxHash: common.HexToHash("0x1"), LogIndex: 0}, // different block hash causes eviction across all upkeeps
+	)
+
+	require.Equal(t, 2, len(buf.queues))
+	require.Equal(t, 3, len(buf.queues[big.NewInt(1).String()].logs))
+	require.Equal(t, 1, len(buf.queues[big.NewInt(4).String()].logs))
+}
+
 func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
