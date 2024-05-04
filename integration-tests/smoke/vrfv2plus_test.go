@@ -258,9 +258,11 @@ func TestVRFv2Plus(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
-		randRequestCount := 3
-
-		configCopy.VRFv2Plus.General.CallbackGasLimit = ptr.Ptr(uint32(1_000_000))
+		//batchMaxGas := config.MaxGasLimit() (2.5 mill) + 400_000 = 2.9 mill
+		//callback gas limit set by consumer = 500k
+		// so 4 requests should be fulfilled inside 1 tx since 500k*4 < 2.9 mill
+		randRequestCount := 4
+		configCopy.VRFv2Plus.General.CallbackGasLimit = ptr.Ptr(uint32(500_000))
 		configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount))
 
 		// test and assert
@@ -288,6 +290,7 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("BatchCoordinatorV2Plus Address", vrfContracts.BatchCoordinatorV2Plus.Address()).
 			Msg("Fulfillment Tx To Address should be the BatchCoordinatorV2Plus Address when batch fulfillment is enabled")
 
+		// verify that VRF node sends fulfillments via BatchCoordinator contract
 		require.Equal(t, vrfContracts.BatchCoordinatorV2Plus.Address(), fulfillmentTXToAddress, "Fulfillment Tx To Address should be the BatchCoordinatorV2Plus Address when batch fulfillment is enabled")
 
 		fulfillmentTxReceipt, err := evmClient.GetTxReceipt(fulfillmentTx.Hash())
@@ -296,7 +299,8 @@ func TestVRFv2Plus(t *testing.T) {
 		randomWordsFulfilledLogs, err := contracts.ParseRandomWordsFulfilledLogs(vrfContracts.CoordinatorV2Plus, fulfillmentTxReceipt.Logs)
 		require.NoError(t, err)
 
-		require.Equal(t, int(*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest), len(randomWordsFulfilledLogs))
+		// verify that all fulfillments should be inside one tx
+		require.Equal(t, randRequestCount, len(randomWordsFulfilledLogs))
 
 	})
 

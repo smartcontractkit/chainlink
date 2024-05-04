@@ -43,10 +43,9 @@ func CreateVRFV2PlusJob(
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrParseJob, err)
 	}
 
-	job, err := chainlinkNode.MustCreateJob(&client.VRFV2PlusJobSpec{
+	jobSpec := client.VRFV2PlusJobSpec{
 		Name:                          fmt.Sprintf("vrf-v2-plus-%s", jobUUID),
 		CoordinatorAddress:            vrfJobSpecConfig.CoordinatorAddress,
-		BatchCoordinatorAddress:       vrfJobSpecConfig.BatchCoordinatorAddress,
 		FromAddresses:                 vrfJobSpecConfig.FromAddresses,
 		EVMChainID:                    vrfJobSpecConfig.EVMChainID,
 		MinIncomingConfirmations:      vrfJobSpecConfig.MinIncomingConfirmations,
@@ -57,7 +56,13 @@ func CreateVRFV2PlusJob(
 		BatchFulfillmentGasMultiplier: vrfJobSpecConfig.BatchFulfillmentGasMultiplier,
 		PollPeriod:                    vrfJobSpecConfig.PollPeriod,
 		RequestTimeout:                vrfJobSpecConfig.RequestTimeout,
-	})
+	}
+
+	if vrfJobSpecConfig.BatchFulfillmentEnabled {
+		jobSpec.BatchCoordinatorAddress = vrfJobSpecConfig.BatchCoordinatorAddress
+	}
+
+	job, err := chainlinkNode.MustCreateJob(&jobSpec)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrCreatingVRFv2PlusJob, err)
 	}
