@@ -70,7 +70,7 @@ func (l *readableLogger) With(args ...interface{}) logger.Logger {
 	return l
 }
 
-func TestLogEventBufferV1_Enqueueviolations(t *testing.T) {
+func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 	t.Run("enqueuing logs for a block older than latest seen logs a message", func(t *testing.T) {
 		logReceived := false
 		readableLogger := &readableLogger{
