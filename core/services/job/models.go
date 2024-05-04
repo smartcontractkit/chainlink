@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -163,8 +162,10 @@ type Job struct {
 	EALSpecID                     *int32
 	LiquidityBalancerSpec         *LiquidityBalancerSpec
 	LiquidityBalancerSpecID       *int32
-	PipelineSpecID                int32
+	PipelineSpecID                int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
 	PipelineSpec                  *pipeline.Spec
+	WorkflowSpecID                *int32
+	WorkflowSpec                  *WorkflowSpec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -208,6 +209,12 @@ func (j *Job) SetID(value string) error {
 	return nil
 }
 
+type PipelineSpec struct {
+	JobID          int32 `json:"-"`
+	PipelineSpecID int32 `json:"-"`
+	IsPrimary      bool  `json:"is_primary"`
+}
+
 type SpecError struct {
 	ID          int64
 	JobID       int32
@@ -229,7 +236,8 @@ func (j *SpecError) SetID(value string) error {
 }
 
 type PipelineRun struct {
-	ID int64 `json:"-"`
+	ID         int64 `json:"-"`
+	PruningKey int64 `json:"-"`
 }
 
 func (pr PipelineRun) GetID() string {
@@ -318,15 +326,32 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
+func (r JSONConfig) ApplyDefaultsOCR2(cfg ocr2Config) {
+	_, ok := r["defaultTransactionQueueDepth"]
+	if !ok {
+		r["defaultTransactionQueueDepth"] = cfg.DefaultTransactionQueueDepth()
+	}
+	_, ok = r["simulateTransactions"]
+	if !ok {
+		r["simulateTransactions"] = cfg.SimulateTransactions()
+	}
+}
+
+type ocr2Config interface {
+	DefaultTransactionQueueDepth() uint32
+	SimulateTransactions() bool
+}
+
 var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2VRF, types.OCR2Keeper, types.Functions}
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID         int32         `toml:"-"`
-	ContractID string        `toml:"contractID"`
-	FeedID     *common.Hash  `toml:"feedID"`
-	Relay      relay.Network `toml:"relay"`
+	ID         int32        `toml:"-"`
+	ContractID string       `toml:"contractID"`
+	FeedID     *common.Hash `toml:"feedID"`
+	// Network
+	Relay string `toml:"relay"`
 	// TODO BCF-2442 implement ChainID as top level parameter rathe than buried in RelayConfig.
 	ChainID                           string               `toml:"chainID"`
 	RelayConfig                       JSONConfig           `toml:"relayConfig"`
@@ -337,6 +362,7 @@ type OCR2OracleSpec struct {
 	BlockchainTimeout                 models.Interval      `toml:"blockchainTimeout"`
 	ContractConfigTrackerPollInterval models.Interval      `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations       uint16               `toml:"contractConfigConfirmations"`
+	OnchainSigningStrategy            JSONConfig           `toml:"onchainSigningStrategy"`
 	PluginConfig                      JSONConfig           `toml:"pluginConfig"`
 	PluginType                        types.OCR2PluginType `toml:"pluginType"`
 	CreatedAt                         time.Time            `toml:"-"`
@@ -345,9 +371,9 @@ type OCR2OracleSpec struct {
 	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
 }
 
-func validateRelayID(id relay.ID) error {
+func validateRelayID(id types.RelayID) error {
 	// only the EVM has specific requirements
-	if id.Network == relay.EVM {
+	if id.Network == types.NetworkEVM {
 		_, err := toml.ChainIDInt64(id.ChainID)
 		if err != nil {
 			return fmt.Errorf("invalid EVM chain id %s: %w", id.ChainID, err)
@@ -356,20 +382,20 @@ func validateRelayID(id relay.ID) error {
 	return nil
 }
 
-func (s *OCR2OracleSpec) RelayID() (relay.ID, error) {
+func (s *OCR2OracleSpec) RelayID() (types.RelayID, error) {
 	cid, err := s.getChainID()
 	if err != nil {
-		return relay.ID{}, err
+		return types.RelayID{}, err
 	}
-	rid := relay.NewID(s.Relay, cid)
+	rid := types.NewRelayID(s.Relay, cid)
 	err = validateRelayID(rid)
 	if err != nil {
-		return relay.ID{}, err
+		return types.RelayID{}, err
 	}
 	return rid, nil
 }
 
-func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
+func (s *OCR2OracleSpec) getChainID() (string, error) {
 	if s.ChainID != "" {
 		return s.ChainID, nil
 	}
@@ -377,7 +403,7 @@ func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
 	return s.getChainIdFromRelayConfig()
 }
 
-func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (relay.ChainID, error) {
+func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
 
 	v, exists := s.RelayConfig["chainID"]
 	if !exists {
@@ -729,10 +755,10 @@ type LegacyGasStationSidecarSpec struct {
 
 // BootstrapSpec defines the spec to handles the node communication setup process.
 type BootstrapSpec struct {
-	ID                                int32         `toml:"-"`
-	ContractID                        string        `toml:"contractID"`
-	FeedID                            *common.Hash  `toml:"feedID"`
-	Relay                             relay.Network `toml:"relay"`
+	ID                                int32        `toml:"-"`
+	ContractID                        string       `toml:"contractID"`
+	FeedID                            *common.Hash `toml:"feedID"`
+	Relay                             string       `toml:"relay"` // RelayID.Network
 	RelayConfig                       JSONConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
 	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
@@ -813,4 +839,30 @@ type LiquidityBalancerSpec struct {
 	ID int32
 
 	LiquidityBalancerConfig string `toml:"liquidityBalancerConfig" db:"liquidity_balancer_config"`
+}
+
+type WorkflowSpec struct {
+	ID            int32     `toml:"-"`
+	WorkflowID    string    `toml:"workflowId"`
+	Workflow      string    `toml:"workflow"`
+	WorkflowOwner string    `toml:"workflowOwner"`
+	CreatedAt     time.Time `toml:"-"`
+	UpdatedAt     time.Time `toml:"-"`
+}
+
+const (
+	workflowIDLen    = 64
+	workflowOwnerLen = 40
+)
+
+func (w *WorkflowSpec) Validate() error {
+	if len(w.WorkflowID) != workflowIDLen {
+		return fmt.Errorf("incorrect length for id %s: expected %d, got %d", w.WorkflowID, workflowIDLen, len(w.WorkflowID))
+	}
+
+	if len(w.WorkflowOwner) != workflowOwnerLen {
+		return fmt.Errorf("incorrect length for owner %s: expected %d, got %d", w.WorkflowOwner, workflowOwnerLen, len(w.WorkflowOwner))
+	}
+
+	return nil
 }

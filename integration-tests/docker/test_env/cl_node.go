@@ -308,7 +308,7 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
 		PgDbName:      n.PostgresDb.DbName,
-		PgHost:        n.PostgresDb.ContainerName,
+		PgHost:        strings.Split(n.PostgresDb.InternalURL.Host, ":")[0],
 		PgPort:        n.PostgresDb.InternalPort,
 		PgPassword:    n.PostgresDb.Password,
 		CustomSecrets: n.NodeSecretsConfigTOML,
@@ -366,7 +366,7 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 	if err != nil {
 		return fmt.Errorf("%s err: %w", ErrConnectNodeClient, err)
 	}
-	clClient.Config.InternalIP = n.ContainerName
+
 	n.Container = container
 	n.API = clClient
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -15,6 +14,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,7 +30,7 @@ type medianContract struct {
 	requestRoundTracker *RequestRoundTracker
 }
 
-func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
+func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, specID int32, ds sqlutil.DataSource, lggr logger.Logger) (*medianContract, error) {
 	lggr = lggr.Named("MedianContract")
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
@@ -58,16 +58,15 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 			chain.LogBroadcaster(),
 			specID,
 			lggr,
-			db,
-			NewRoundRequestedDB(db.DB, specID, lggr),
+			ds,
+			NewRoundRequestedDB(ds, specID, lggr),
 			chain.Config().EVM(),
-			chain.Config().Database(),
 		),
 	}, nil
 }
-func (oc *medianContract) Start(context.Context) error {
+func (oc *medianContract) Start(ctx context.Context) error {
 	return oc.StartOnce("MedianContract", func() error {
-		return oc.requestRoundTracker.Start()
+		return oc.requestRoundTracker.Start(ctx)
 	})
 }
 

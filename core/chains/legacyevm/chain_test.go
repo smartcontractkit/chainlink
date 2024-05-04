@@ -65,8 +65,7 @@ func TestChainOpts_Validate(t *testing.T) {
 			o := legacyevm.ChainOpts{
 				AppConfig: tt.fields.AppConfig,
 				MailMon:   tt.fields.MailMon,
-				SqlxDB:    tt.fields.DB,
-				DB:        tt.fields.DB,
+				DS:        tt.fields.DB,
 			}
 			if err := o.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("ChainOpts.Validate() error = %v, wantErr %v", err, tt.wantErr)

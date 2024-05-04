@@ -9,10 +9,10 @@ import (
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -34,7 +34,8 @@ func TestOCRLoad(t *testing.T) {
 	readSethCfg := config.GetSethConfig()
 	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, *evmNetwork, *readSethCfg)
+	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(*evmNetwork, *readSethCfg)
+	require.NoError(t, err, "Error merging seth and evm network configs")
 
 	seth, err := seth.NewClientWithConfig(&sethCfg)
 	require.NoError(t, err, "Error creating seth client")
@@ -75,7 +76,8 @@ func TestOCRVolume(t *testing.T) {
 	readSethCfg := config.GetSethConfig()
 	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, *evmNetwork, *readSethCfg)
+	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(*evmNetwork, *readSethCfg)
+	require.NoError(t, err, "Error merging seth and evm network configs")
 
 	seth, err := seth.NewClientWithConfig(&sethCfg)
 	require.NoError(t, err, "Error creating seth client")

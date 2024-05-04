@@ -407,6 +407,7 @@ func (c *TestConfig) readNetworkConfiguration() error {
 	}
 
 	c.Network.UpperCaseNetworkNames()
+	c.Network.OverrideURLsAndKeysFromEVMNetwork()
 	err := c.Network.Default()
 	if err != nil {
 		return errors.Wrapf(err, "error reading default network config")

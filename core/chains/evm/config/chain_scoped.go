@@ -4,29 +4,21 @@ import (
 	"math/big"
 	"time"
 
-	"go.uber.org/multierr"
-
-	ocr "github.com/smartcontractkit/libocr/offchainreporting"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-func NewTOMLChainScopedConfig(appCfg config.AppConfig, tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
+func NewTOMLChainScopedConfig(tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
 	return &ChainScoped{
-		AppConfig: appCfg,
 		evmConfig: &EVMConfig{C: tomlConfig},
 		lggr:      lggr}
 }
 
 // ChainScoped implements config.ChainScopedConfig with a gencfg.BasicConfig and EVMConfig.
 type ChainScoped struct {
-	config.AppConfig
 	lggr logger.Logger
 
 	evmConfig *EVMConfig
@@ -42,24 +34,6 @@ func (c *ChainScoped) Nodes() toml.EVMNodes {
 
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
 	return c.EVM().NodeNoNewHeadsThreshold()
-}
-
-func (c *ChainScoped) Validate() (err error) {
-	// Most per-chain validation is done on startup, but this combines globals as well.
-	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:                      c.OCR().BlockchainTimeout(),
-		ContractConfigConfirmations:            c.EVM().OCR().ContractConfirmations(),
-		ContractConfigTrackerPollInterval:      c.OCR().ContractPollInterval(),
-		ContractConfigTrackerSubscribeInterval: c.OCR().ContractSubscribeInterval(),
-		ContractTransmitterTransmitTimeout:     c.EVM().OCR().ContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                        c.EVM().OCR().DatabaseTimeout(),
-		DataSourceTimeout:                      c.OCR().ObservationTimeout(),
-		DataSourceGracePeriod:                  c.EVM().OCR().ObservationGracePeriod(),
-	}
-	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
-		err = multierr.Append(err, ocrerr)
-	}
-	return
 }
 
 type EVMConfig struct {
@@ -167,6 +141,10 @@ func (e *EVMConfig) MinIncomingConfirmations() uint32 {
 
 func (e *EVMConfig) NodePool() NodePool {
 	return &NodePoolConfig{C: e.C.NodePool}
+}
+
+func (e *EVMConfig) ClientErrors() ClientErrors {
+	return &clientErrorsConfig{c: e.C.NodePool.Errors}
 }
 
 func (e *EVMConfig) NodeNoNewHeadsThreshold() time.Duration {

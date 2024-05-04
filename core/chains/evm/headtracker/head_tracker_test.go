@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
+	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -468,7 +468,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	checker := commonmocks.NewHeadTrackable[*evmtypes.Head, gethCommon.Hash](t)
+	checker := htmocks.NewHeadTrackable[*evmtypes.Head, gethCommon.Hash](t)
 	orm := headtracker.NewORM(*evmtest.MustGetDefaultChainID(t, config.EVMConfigs()), db)
 	csCfg := evmtest.NewChainScopedConfig(t, config)
 	ht := createHeadTrackerWithChecker(t, ethClient, csCfg.EVM(), csCfg.EVM().HeadTracker(), orm, checker)
@@ -597,7 +597,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	checker := commonmocks.NewHeadTrackable[*evmtypes.Head, gethCommon.Hash](t)
+	checker := htmocks.NewHeadTrackable[*evmtypes.Head, gethCommon.Hash](t)
 	orm := headtracker.NewORM(cltest.FixtureChainID, db)
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 	ht := createHeadTrackerWithChecker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm, checker)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -12,7 +13,7 @@ import (
 // remoteTargetCaller/Receiver are shims translating between capability API calls and network messages
 type remoteTargetCaller struct {
 	capInfo    commoncap.CapabilityInfo
-	donInfo    *types.DON
+	donInfo    *capabilities.DON
 	dispatcher types.Dispatcher
 	lggr       logger.Logger
 }
@@ -22,14 +23,14 @@ var _ types.Receiver = &remoteTargetCaller{}
 
 type remoteTargetReceiver struct {
 	capInfo    commoncap.CapabilityInfo
-	donInfo    *types.DON
+	donInfo    *capabilities.DON
 	dispatcher types.Dispatcher
 	lggr       logger.Logger
 }
 
 var _ types.Receiver = &remoteTargetReceiver{}
 
-func NewRemoteTargetCaller(capInfo commoncap.CapabilityInfo, donInfo *types.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetCaller {
+func NewRemoteTargetCaller(capInfo commoncap.CapabilityInfo, donInfo *capabilities.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetCaller {
 	return &remoteTargetCaller{
 		capInfo:    capInfo,
 		donInfo:    donInfo,
@@ -50,7 +51,7 @@ func (c *remoteTargetCaller) UnregisterFromWorkflow(ctx context.Context, request
 	return errors.New("not implemented")
 }
 
-func (c *remoteTargetCaller) Execute(ctx context.Context, callback chan<- commoncap.CapabilityResponse, request commoncap.CapabilityRequest) error {
+func (c *remoteTargetCaller) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	c.lggr.Debugw("not implemented - executing fake remote target capability", "capabilityId", c.capInfo.ID, "nMembers", len(c.donInfo.Members))
 	for _, peerID := range c.donInfo.Members {
 		m := &types.MessageBody{
@@ -60,17 +61,19 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, callback chan<- common
 		}
 		err := c.dispatcher.Send(peerID, m)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+
+	// TODO: return a channel that will be closed when all responses are received
+	return nil, nil
 }
 
 func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 	c.lggr.Debugw("not implemented - received message", "capabilityId", c.capInfo.ID, "payload", msg.Payload)
 }
 
-func NewRemoteTargetReceiver(capInfo commoncap.CapabilityInfo, donInfo *types.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetReceiver {
+func NewRemoteTargetReceiver(capInfo commoncap.CapabilityInfo, donInfo *capabilities.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetReceiver {
 	return &remoteTargetReceiver{
 		capInfo:    capInfo,
 		donInfo:    donInfo,

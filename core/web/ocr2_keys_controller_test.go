@@ -81,11 +81,12 @@ func TestOCR2KeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 }
 
 func TestOCR2KeysController_Delete_HappyPath(t *testing.T) {
+	ctx := testutils.Context(t)
 	client, OCRKeyStore := setupOCR2KeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
 	initialLength := len(keys)
-	key, _ := OCRKeyStore.Create("evm")
+	key, _ := OCRKeyStore.Create(ctx, "evm")
 
 	response, cleanup := client.Delete("/v2/keys/ocr2/" + key.ID())
 	t.Cleanup(cleanup)
@@ -98,12 +99,13 @@ func TestOCR2KeysController_Delete_HappyPath(t *testing.T) {
 
 func setupOCR2KeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.OCR2) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient(nil)
 
-	require.NoError(t, app.KeyStore.OCR2().Add(cltest.DefaultOCR2Key))
+	require.NoError(t, app.KeyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key))
 
 	return client, app.GetKeyStore().OCR2()
 }

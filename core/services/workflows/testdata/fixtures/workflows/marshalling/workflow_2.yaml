@@ -1,0 +1,28 @@
+ triggers:
+   - id: on_mercury_report@1
+     ref: report_data
+     config: {}
+
+ # no actions
+
+ consensus:
+   - id: 
+      name: trigger_test
+      version: "2"
+      labels:
+        chain: ethereum
+        aaShouldBeFirst: "true"
+        network: mainnet
+     config: {}
+     inputs:
+       observations:
+         - triggers.report_data.outputs
+
+ targets:
+   - id: write_polygon_mainnet@1
+     config: {}
+     inputs:
+       report:
+         - consensus.evm_median.outputs.report
+
+# yaml-language-server: $schema=../workflow_schema.json

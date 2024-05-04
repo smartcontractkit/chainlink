@@ -20,7 +20,7 @@ func TestSyncer_CleanStartClose(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	var pid ragetypes.PeerID
-	err := pid.UnmarshalText([]byte("12D3KooWF3dVeJ6YoT5HFnYhmwQWWMoEwVFzJQ5kKCMX3ZityxMC"))
+	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
 	require.NoError(t, err)
 	peer := mocks.NewPeer(t)
 	peer.On("UpdateConnections", mock.Anything).Return(nil)

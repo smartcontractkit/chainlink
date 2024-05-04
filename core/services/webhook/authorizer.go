@@ -24,29 +24,29 @@ var (
 	_ Authorizer = &neverAuthorizer{}
 )
 
-func NewAuthorizer(db sqlutil.DataSource, user *sessions.User, ei *bridges.ExternalInitiator) Authorizer {
+func NewAuthorizer(ds sqlutil.DataSource, user *sessions.User, ei *bridges.ExternalInitiator) Authorizer {
 	if user != nil {
 		return &alwaysAuthorizer{}
 	} else if ei != nil {
-		return NewEIAuthorizer(db, *ei)
+		return NewEIAuthorizer(ds, *ei)
 	}
 	return &neverAuthorizer{}
 }
 
 type eiAuthorizer struct {
-	db sqlutil.DataSource
+	ds sqlutil.DataSource
 	ei bridges.ExternalInitiator
 }
 
-func NewEIAuthorizer(db sqlutil.DataSource, ei bridges.ExternalInitiator) *eiAuthorizer {
-	return &eiAuthorizer{db, ei}
+func NewEIAuthorizer(ds sqlutil.DataSource, ei bridges.ExternalInitiator) *eiAuthorizer {
+	return &eiAuthorizer{ds, ei}
 }
 
 func (ea *eiAuthorizer) CanRun(ctx context.Context, config AuthorizerConfig, jobUUID uuid.UUID) (can bool, err error) {
 	if !config.ExternalInitiatorsEnabled() {
 		return false, nil
 	}
-	row := ea.db.QueryRowxContext(ctx, `
+	row := ea.ds.QueryRowxContext(ctx, `
 SELECT EXISTS (
 	SELECT 1 FROM external_initiator_webhook_specs
 	JOIN jobs ON external_initiator_webhook_specs.webhook_spec_id = jobs.webhook_spec_id

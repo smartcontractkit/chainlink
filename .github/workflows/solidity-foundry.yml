@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: [vrf, automation, llo-feeds, l2ep, functions, keystone, shared]
+        product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
     needs: [changes]
     name: Foundry Tests ${{ matrix.product }}
     # See https://github.com/foundry-rs/foundry/issues/3827
@@ -79,7 +79,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
-        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && !contains(fromJson('["keystone"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
         run: |
           forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot

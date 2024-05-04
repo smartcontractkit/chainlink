@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-feeds/median"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -127,9 +126,9 @@ func NewMedianServices(ctx context.Context,
 		CreatedAt:    time.Now(),
 	}, lggr)
 
-	if !pluginConfig.JuelsPerFeeCoinCacheDisabled {
+	if pluginConfig.JuelsPerFeeCoinCache == nil || (pluginConfig.JuelsPerFeeCoinCache != nil && !pluginConfig.JuelsPerFeeCoinCache.Disable) {
 		lggr.Infof("juelsPerFeeCoin data source caching is enabled")
-		juelsPerFeeCoinSourceCache, err2 := ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, kvStore, pluginConfig.JuelsPerFeeCoinCacheDuration.Duration())
+		juelsPerFeeCoinSourceCache, err2 := ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, kvStore, pluginConfig.JuelsPerFeeCoinCache)
 		if err2 != nil {
 			return nil, err2
 		}

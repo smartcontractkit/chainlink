@@ -7,7 +7,7 @@ import (
 )
 
 func TestAutomationNodeUpgrade(t *testing.T) {
-	config, err := tc.GetConfig(t.Name(), tc.Automation)
+	config, err := tc.GetConfig("Smoke", tc.Automation)
 	if err != nil {
 		t.Fatal(err, "Error getting config")
 	}

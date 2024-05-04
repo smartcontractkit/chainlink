@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
+import {ERC20Mock6Decimals} from "../../mocks/ERC20Mock6Decimals.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {UpkeepTranscoder5_0 as Transcoder} from "../v2_3/UpkeepTranscoder5_0.sol";
@@ -16,7 +17,7 @@ import {AutomationRegistryLogicC2_3} from "../v2_3/AutomationRegistryLogicC2_3.s
 import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 import {WETH9} from "./WETH9.sol";
@@ -40,7 +41,9 @@ contract BaseTest is Test {
 
   // contracts
   LinkToken internal linkToken;
-  ERC20Mock internal usdToken;
+  ERC20Mock6Decimals internal usdToken6;
+  ERC20Mock internal usdToken18;
+  ERC20Mock internal usdToken18_2;
   WETH9 internal weth;
   MockV3Aggregator internal LINK_USD_FEED;
   MockV3Aggregator internal NATIVE_USD_FEED;
@@ -73,7 +76,9 @@ contract BaseTest is Test {
     vm.startPrank(OWNER);
     linkToken = new LinkToken();
     linkToken.grantMintRole(OWNER);
-    usdToken = new ERC20Mock("MOCK_ERC20", "MOCK_ERC20", OWNER, 0);
+    usdToken18 = new ERC20Mock("MOCK_ERC20_18Decimals", "MOCK_ERC20_18Decimals", OWNER, 0);
+    usdToken18_2 = new ERC20Mock("Second_MOCK_ERC20_18Decimals", "Second_MOCK_ERC20_18Decimals", OWNER, 0);
+    usdToken6 = new ERC20Mock6Decimals("MOCK_ERC20_6Decimals", "MOCK_ERC20_6Decimals", OWNER, 0);
     weth = new WETH9();
 
     LINK_USD_FEED = new MockV3Aggregator(8, 2_000_000_000); // $20
@@ -114,14 +119,24 @@ contract BaseTest is Test {
     vm.deal(UPKEEP_ADMIN, 100 ether);
     vm.deal(FINANCE_ADMIN, 100 ether);
     vm.deal(STRANGER, 100 ether);
+
     linkToken.mint(OWNER, 1000e18);
     linkToken.mint(UPKEEP_ADMIN, 1000e18);
     linkToken.mint(FINANCE_ADMIN, 1000e18);
     linkToken.mint(STRANGER, 1000e18);
-    usdToken.mint(OWNER, 1000e18);
-    usdToken.mint(UPKEEP_ADMIN, 1000e18);
-    usdToken.mint(FINANCE_ADMIN, 1000e18);
-    usdToken.mint(STRANGER, 1000e18);
+
+    usdToken18.mint(OWNER, 1000e18);
+    usdToken18.mint(UPKEEP_ADMIN, 1000e18);
+    usdToken18.mint(FINANCE_ADMIN, 1000e18);
+    usdToken18.mint(STRANGER, 1000e18);
+
+    usdToken18_2.mint(UPKEEP_ADMIN, 1000e18);
+
+    usdToken6.mint(OWNER, 1000e6);
+    usdToken6.mint(UPKEEP_ADMIN, 1000e6);
+    usdToken6.mint(FINANCE_ADMIN, 1000e6);
+    usdToken6.mint(STRANGER, 1000e6);
+
     weth.mint(OWNER, 1000e18);
     weth.mint(UPKEEP_ADMIN, 1000e18);
     weth.mint(FINANCE_ADMIN, 1000e18);
@@ -154,14 +169,16 @@ contract BaseTest is Test {
   ) internal returns (Registry, AutomationRegistrar2_3) {
     Registry registry = deployRegistry(payoutMode);
 
-    IERC20[] memory billingTokens = new IERC20[](3);
-    billingTokens[0] = IERC20(address(usdToken));
+    IERC20[] memory billingTokens = new IERC20[](4);
+    billingTokens[0] = IERC20(address(usdToken18));
     billingTokens[1] = IERC20(address(weth));
     billingTokens[2] = IERC20(address(linkToken));
+    billingTokens[3] = IERC20(address(usdToken6));
     uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
-    minRegistrationFees[0] = 100000000000000000000; // 100 USD
-    minRegistrationFees[1] = 5000000000000000000; // 5 Native
-    minRegistrationFees[2] = 5000000000000000000; // 5 LINK
+    minRegistrationFees[0] = 100e18; // 100 USD
+    minRegistrationFees[1] = 5e18; // 5 Native
+    minRegistrationFees[2] = 5e18; // 5 LINK
+    minRegistrationFees[3] = 100e6; // 100 USD
     address[] memory billingTokenAddresses = new address[](billingTokens.length);
     for (uint256 i = 0; i < billingTokens.length; i++) {
       billingTokenAddresses[i] = address(billingTokens[i]);
@@ -173,21 +190,32 @@ contract BaseTest is Test {
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100_000_000, // $1
-      minSpend: 1000000000000000000 // 1 USD
+      minSpend: 1e18, // 1 USD
+      decimals: 18
     });
     billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(NATIVE_USD_FEED),
       fallbackPrice: 100_000_000, // $1
-      minSpend: 5000000000000000000 // 5 Native
+      minSpend: 5e18, // 5 Native
+      decimals: 18
     });
     billingTokenConfigs[2] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: DEFAULT_GAS_FEE_PPB, // 10%
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(LINK_USD_FEED),
       fallbackPrice: 1_000_000_000, // $10
-      minSpend: 1000000000000000000 // 1 LINK
+      minSpend: 1e18, // 1 LINK
+      decimals: 18
+    });
+    billingTokenConfigs[3] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
+      priceFeed: address(USDTOKEN_USD_FEED),
+      fallbackPrice: 1e8, // $1
+      minSpend: 1e6, // 1 USD
+      decimals: 6
     });
 
     if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
@@ -418,10 +446,10 @@ contract BaseTest is Test {
     linkToken.mint(recipient, amount);
   }
 
-  /// @dev mints USDToken to the recipient
-  function _mintERC20(address recipient, uint256 amount) internal {
+  /// @dev mints USDToken with 18 decimals to the recipient
+  function _mintERC20_18Decimals(address recipient, uint256 amount) internal {
     vm.prank(OWNER);
-    usdToken.mint(recipient, amount);
+    usdToken18.mint(recipient, amount);
   }
 
   /// @dev returns a pseudo-random 32 bytes

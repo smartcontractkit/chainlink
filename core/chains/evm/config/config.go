@@ -11,7 +11,6 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 type EVM interface {
@@ -75,6 +74,23 @@ type HeadTracker interface {
 
 type BalanceMonitor interface {
 	Enabled() bool
+}
+
+type ClientErrors interface {
+	NonceTooLow() string
+	NonceTooHigh() string
+	ReplacementTransactionUnderpriced() string
+	LimitReached() string
+	TransactionAlreadyInMempool() string
+	TerminallyUnderpriced() string
+	InsufficientEth() string
+	TxFeeExceedsCap() string
+	L2FeeTooLow() string
+	L2FeeTooHigh() string
+	L2Full() string
+	TransactionAlreadyMined() string
+	Fatal() string
+	ServiceUnavailable() string
 }
 
 type Transactions interface {
@@ -142,14 +158,12 @@ type NodePool interface {
 	LeaseDuration() time.Duration
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
+	Errors() ClientErrors
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?
 //
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	config.AppConfig
-	Validate() error
-
 	EVM() EVM
 }

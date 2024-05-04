@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/jmoiron/sqlx"
 
@@ -312,10 +313,11 @@ func MustRandomUser(t testing.TB) sessions.User {
 }
 
 func NewUserWithSession(t testing.TB, orm sessions.AuthenticationProvider) sessions.User {
+	ctx := testutils.Context(t)
 	u := MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&u))
+	require.NoError(t, orm.CreateUser(ctx, &u))
 
-	_, err := orm.CreateSession(sessions.SessionRequest{
+	_, err := orm.CreateSession(ctx, sessions.SessionRequest{
 		Email:    u.Email,
 		Password: Password,
 	})
@@ -332,13 +334,13 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 	return &MockAPIInitializer{t: t}
 }
 
-func (m *MockAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
-	if user, err := orm.FindUser(APIEmailAdmin); err == nil {
+func (m *MockAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
+	if user, err := orm.FindUser(ctx, APIEmailAdmin); err == nil {
 		return user, err
 	}
 	m.Count++
 	user := MustRandomUser(m.t)
-	return user, orm.CreateUser(&user)
+	return user, orm.CreateUser(ctx, &user)
 }
 
 func NewMockAuthenticatedHTTPClient(lggr logger.Logger, cfg cmd.ClientOpts, sessionID string) cmd.HTTPClient {

@@ -1,5 +1,0 @@
----
-"chainlink": patch
----
-
-native support

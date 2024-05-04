@@ -224,6 +224,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 	}
 
+	b.te.TestConfig = b.testConfig
+
 	var err error
 	if b.t != nil {
 		b.te.WithTestInstance(b.t)
@@ -256,7 +258,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	switch b.cleanUpType {
 	case CleanUpTypeStandard:
 		b.t.Cleanup(func() {
-			if err := b.te.Cleanup(); err != nil {
+			// Cleanup test environment
+			if err := b.te.Cleanup(CleanupOpts{TestName: b.t.Name()}); err != nil {
 				b.l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		})
@@ -269,21 +272,22 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.te.LogStream != nil {
-		b.t.Cleanup(func() {
-			b.l.Info().Msg("Shutting down LogStream")
-			logPath, err := osutil.GetAbsoluteFolderPath("logs")
-			if err != nil {
-				b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
-			}
+		if b.t != nil {
+			b.t.Cleanup(func() {
+				b.l.Info().Msg("Shutting down LogStream")
+				logPath, err := osutil.GetAbsoluteFolderPath("logs")
+				if err != nil {
+					b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
+				}
 
-			if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
-				// we can't do much if this fails, so we just log the error in logstream
-				_ = b.te.LogStream.FlushAndShutdown()
-				b.te.LogStream.PrintLogTargetsLocations()
-				b.te.LogStream.SaveLogLocationInTestSummary()
-			}
-
-		})
+				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
+					// we can't do much if this fails, so we just log the error in logstream
+					_ = b.te.LogStream.FlushAndShutdown()
+					b.te.LogStream.PrintLogTargetsLocations()
+					b.te.LogStream.SaveLogLocationInTestSummary()
+				}
+			})
+		}
 
 		// this is not the cleanest way to do this, but when we originally build ethereum networks, we don't have the logstream reference
 		// so we need to rebuild them here and pass logstream to them
@@ -322,7 +326,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			if b.hasSeth {
 				readSethCfg := b.testConfig.GetSethConfig()
-				sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
+				sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
+				if err != nil {
+					return nil, err
+				}
 				err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 				if err != nil {
 					return nil, err
@@ -421,7 +428,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if b.hasSeth {
 			b.te.sethClients = make(map[int64]*seth.Client)
 			readSethCfg := b.testConfig.GetSethConfig()
-			sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
+			sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
+			if err != nil {
+				return nil, err
+			}
 			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 			if err != nil {
 				return nil, err

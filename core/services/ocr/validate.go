@@ -14,9 +14,15 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
+
+type GeneralConfig interface {
+	OCR() coreconfig.OCR
+	Insecure() coreconfig.Insecure
+}
 
 type ValidationConfig interface {
 	ChainType() config.ChainType
@@ -37,8 +43,8 @@ type insecureConfig interface {
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(legacyChains legacyevm.LegacyChainContainer, tomlString string) (job.Job, error) {
-	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
+func ValidatedOracleSpecToml(gcfg GeneralConfig, legacyChains legacyevm.LegacyChainContainer, tomlString string) (job.Job, error) {
+	return ValidatedOracleSpecTomlCfg(gcfg, func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
 		c, err := legacyChains.Get(id.String())
 		if err != nil {
 			return nil, err
@@ -47,7 +53,7 @@ func ValidatedOracleSpecToml(legacyChains legacyevm.LegacyChainContainer, tomlSt
 	}, tomlString)
 }
 
-func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (evmconfig.ChainScopedConfig, error), tomlString string) (job.Job, error) {
+func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int) (evmconfig.ChainScopedConfig, error), tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCROracleSpec
 	tree, err := toml.Load(tomlString)
@@ -94,10 +100,10 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (evmconfig.ChainScope
 		if err := validateBootstrapSpec(tree); err != nil {
 			return jb, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, jb, cfg.OCR().ObservationTimeout()); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, jb, gcfg.OCR().ObservationTimeout()); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(cfg.EVM(), cfg.EVM().OCR(), cfg.Insecure(), spec, cfg.OCR()); err != nil {
+	if err := validateTimingParameters(cfg.EVM(), cfg.EVM().OCR(), gcfg.Insecure(), spec, gcfg.OCR()); err != nil {
 		return jb, err
 	}
 	return jb, nil

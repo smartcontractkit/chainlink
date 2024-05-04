@@ -21,9 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (
@@ -78,7 +80,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore := mocks.KVStore{}
 		mockKVStore.On("Store", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockKVStore.On("Get", mock.Anything, mock.Anything).Return(nil, nil)
-		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Second*2)
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, &config.JuelsPerFeeCoinCache{UpdateInterval: models.Interval(time.Second * 2)})
 		require.NoError(t, err)
 		servicetest.Run(t, dsCache)
 
@@ -112,7 +114,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore.On("Get", mock.Anything, mock.Anything).Return(result, nil)
 
 		// set updater to a long time so that it doesn't log errors after the test is done
-		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, &config.JuelsPerFeeCoinCache{UpdateInterval: models.Interval(time.Hour * 100)})
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
 		servicetest.Run(t, dsCache)
@@ -131,7 +133,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore.On("Get", mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 		// set updater to a long time so that it doesn't log errors after the test is done
-		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, &config.JuelsPerFeeCoinCache{UpdateInterval: models.Interval(time.Hour * 100)})
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
 		servicetest.Run(t, dsCache)

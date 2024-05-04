@@ -312,7 +312,7 @@ func setupNodeOCR2(
 		b.Commit()
 	}
 
-	kb, err := app.GetKeyStore().OCR2().Create("evm")
+	kb, err := app.GetKeyStore().OCR2().Create(ctx, "evm")
 	require.NoError(t, err)
 
 	return &ocr2Node{
@@ -371,10 +371,10 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		node := setupNodeOCR2(t, uni.owner, ports[i], fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
 		sendingKeys = append(sendingKeys, node.sendingKeys)
 
-		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create()
+		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create(ctx)
 		require.NoError(t, err)
 
-		dkgEncryptKey, err := node.app.GetKeyStore().DKGEncrypt().Create()
+		dkgEncryptKey, err := node.app.GetKeyStore().DKGEncrypt().Create(ctx)
 		require.NoError(t, err)
 
 		kbs = append(kbs, node.keybundle)

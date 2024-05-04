@@ -1,0 +1,82 @@
+name: Solidity Wrappers
+# This is its own workflow file rather than being merged into "solidity.yml" to avoid over complicating the conditionals
+# used for job execution. The jobs in "solidity.yml" are configured around push events, whereas
+# we only want to generate gethwrappers during pull requests.
+on: 
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.ch.outputs.changes }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Detect changes
+        id: ch
+        uses: ./.github/actions/detect-solidity-file-changes
+
+  # On a pull request event, make updates to gethwrappers if there are changes.
+  update-wrappers:
+    needs: [changes]
+    if: needs.changes.outputs.changes == 'true' 
+    name: Update Wrappers
+    permissions:
+      actions: read
+      id-token: write
+      contents: read
+    runs-on: ubuntu22.04-8cores-32GB
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+
+      - name: Run native compile and generate wrappers
+        run: make wrappers-all
+        working-directory: ./contracts
+
+      - name: Assume role capable of dispatching action
+        uses: smartcontractkit/.github/actions/setup-github-token@9e7cc0779934cae4a9028b8588c9adb64d8ce68c # setup-github-token@0.1.0 
+        id: get-gh-token
+        with:
+          aws-role-arn:  ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Commit any wrapper changes
+        uses: planetscale/ghcommit-action@21a8cda29f55e5cc2cdae0cdbdd08e38dd148c25 # v0.1.37
+        with:
+          commit_message: "Update gethwrappers" 
+          repo: ${{ github.repository }}
+          branch: ${{ github.head_ref }}
+          file_pattern: "core/gethwrappers/**/generated/*.go core/gethwrappers/**/generated-wrapper-dependency-versions-do-not-edit.txt"
+        env:
+          GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-update-wrappers
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Update Wrappers 
+        continue-on-error: true

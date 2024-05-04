@@ -19,7 +19,7 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
   }
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function fulfillRandomWords(uint256, uint256[] memory) internal pure override {
+  function fulfillRandomWords(uint256, uint256[] calldata) internal pure override {
     // solhint-disable-next-line gas-custom-errors, reason-string
     revert();
   }

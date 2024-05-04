@@ -16,7 +16,7 @@ import (
 )
 
 func Test_DiscovererDatabase(t *testing.T) {
-	db := pgtest.NewSqlDB(t)
+	db := pgtest.NewSqlxDB(t)
 
 	localPeerID1 := mustRandomP2PPeerID(t)
 	localPeerID2 := mustRandomP2PPeerID(t)

@@ -95,12 +95,20 @@ jobs:
           chainlinkVersion: "latest"
           upgradeImage: ${{ env.CHAINLINK_IMAGE }}
           upgradeVersion: ${{ github.sha }}
+          runId: ${{ github.run_id }}
+          testLogCollect: "true"
+          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: 'public.ecr.aws/chainlink/chainlink'
           cl_image_tag: 'latest'
