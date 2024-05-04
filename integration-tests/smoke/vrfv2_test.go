@@ -136,8 +136,7 @@ func TestVRFv2Basic(t *testing.T) {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 	})
-
-	t.Run("VRF Node waits block confirmation number specified by the consumer in the rand request before sending fulfilment on-chain", func(t *testing.T) {
+	t.Run("VRF Node waits block confirmation number specified by the consumer before sending fulfilment on-chain", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		testConfig := configCopy.VRFv2.General
 
@@ -184,7 +183,6 @@ func TestVRFv2Basic(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 	})
-
 	t.Run("CL Node VRF Job Runs", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		consumers, subIDsForJobRuns, err := vrfv2.SetupNewConsumersAndSubs(
@@ -228,7 +226,6 @@ func TestVRFv2Basic(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 	})
-
 	t.Run("Direct Funding (VRFV2Wrapper)", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		wrapperContracts, wrapperSubID, err := vrfv2.SetupVRFV2WrapperEnvironment(
@@ -308,7 +305,6 @@ func TestVRFv2Basic(t *testing.T) {
 			Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
 			Msg("Random Words Fulfilment Details For Link Billing")
 	})
-
 	t.Run("Oracle Withdraw", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		consumers, subIDsForOracleWithDraw, err := vrfv2.SetupNewConsumersAndSubs(
@@ -370,7 +366,6 @@ func TestVRFv2Basic(t *testing.T) {
 			"LINK funds were not returned after oracle withdraw",
 		)
 	})
-
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		_, subIDsForCancelling, err := vrfv2.SetupNewConsumersAndSubs(
@@ -453,7 +448,6 @@ func TestVRFv2Basic(t *testing.T) {
 
 		require.Equal(t, 0, subBalanceLink.Cmp(subFundsReturnedLinkActual), "Returned LINK funds are not equal to sub balance that was cancelled")
 	})
-
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		// Underfund subscription to force fulfillments to fail
