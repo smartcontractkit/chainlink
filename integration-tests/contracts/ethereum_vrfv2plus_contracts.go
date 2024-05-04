@@ -215,6 +215,23 @@ func (v *EthereumVRFCoordinatorV2_5) ParseRandomWordsRequested(log types.Log) (*
 	return coordinatorRandomWordsRequested, nil
 }
 
+func (v *EthereumVRFCoordinatorV2_5) ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error) {
+	fulfilled, err := v.coordinator.ParseRandomWordsFulfilled(log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse RandomWordsFulfilled event: %w", err)
+	}
+	return &CoordinatorRandomWordsFulfilled{
+		RequestId:     fulfilled.RequestId,
+		OutputSeed:    fulfilled.OutputSeed,
+		Payment:       fulfilled.Payment,
+		SubId:         fulfilled.SubId.String(),
+		NativePayment: fulfilled.NativePayment,
+		OnlyPremium:   fulfilled.OnlyPremium,
+		Success:       fulfilled.Success,
+		Raw:           fulfilled.Raw,
+	}, nil
+}
+
 func (v *EthereumVRFCoordinatorV2_5) GetSubscription(ctx context.Context, subID *big.Int) (Subscription, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -1049,6 +1066,23 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) ParseRandomWordsRequested(
 		Raw:                         randomWordsRequested.Raw,
 	}
 	return coordinatorRandomWordsRequested, nil
+}
+
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error) {
+	fulfilled, err := v.coordinator.ParseRandomWordsFulfilled(log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse RandomWordsFulfilled event: %w", err)
+	}
+	return &CoordinatorRandomWordsFulfilled{
+		RequestId:     fulfilled.RequestId,
+		OutputSeed:    fulfilled.OutputSeed,
+		Payment:       fulfilled.Payment,
+		SubId:         fulfilled.SubId.String(),
+		NativePayment: fulfilled.NativePayment,
+		OnlyPremium:   fulfilled.OnlyPremium,
+		Success:       fulfilled.Success,
+		Raw:           fulfilled.Raw,
+	}, nil
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error) {

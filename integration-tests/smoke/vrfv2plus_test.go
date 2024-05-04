@@ -258,6 +258,11 @@ func TestVRFv2Plus(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
+		randRequestCount := 3
+
+		configCopy.VRFv2Plus.General.CallbackGasLimit = ptr.Ptr(uint32(1_000_000))
+		configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount))
+
 		// test and assert
 		_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
@@ -270,10 +275,29 @@ func TestVRFv2Plus(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
+		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
+		require.NoError(t, err)
+		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(int64(randRequestCount))))
+
 		fulfillmentTx, _, err := actions.GetTxByHash(testcontext.Get(t), evmClient, randomWordsFulfilledEvent.Raw.TxHash)
 		require.NoError(t, err, "error getting tx from hash")
 
-		require.Equal(t, vrfContracts.BatchCoordinatorV2Plus.Address(), fulfillmentTx.To().String())
+		fulfillmentTXToAddress := fulfillmentTx.To().String()
+		l.Info().
+			Str("Actual Fulfillment Tx To Address", fulfillmentTXToAddress).
+			Str("BatchCoordinatorV2Plus Address", vrfContracts.BatchCoordinatorV2Plus.Address()).
+			Msg("Fulfillment Tx To Address should be the BatchCoordinatorV2Plus Address when batch fulfillment is enabled")
+
+		require.Equal(t, vrfContracts.BatchCoordinatorV2Plus.Address(), fulfillmentTXToAddress, "Fulfillment Tx To Address should be the BatchCoordinatorV2Plus Address when batch fulfillment is enabled")
+
+		fulfillmentTxReceipt, err := evmClient.GetTxReceipt(fulfillmentTx.Hash())
+		require.NoError(t, err)
+
+		randomWordsFulfilledLogs, err := contracts.ParseRandomWordsFulfilledLogs(vrfContracts.CoordinatorV2Plus, fulfillmentTxReceipt.Logs)
+		require.NoError(t, err)
+
+		require.Equal(t, int(*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest), len(randomWordsFulfilledLogs))
+
 	})
 
 	t.Run("CL Node VRF Job Runs", func(t *testing.T) {
@@ -994,7 +1018,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			MinIncomingConfirmations:      int(*configCopy.VRFv2Plus.General.MinimumConfirmations),
 			PublicKey:                     vrfKey.VRFKey.Data.ID,
 			EstimateGasMultiplier:         *configCopy.VRFv2Plus.General.VRFJobEstimateGasMultiplier,
-			BatchFulfillmentEnabled:       *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentEnabled,
+			BatchFulfillmentEnabled:       false,
 			BatchFulfillmentGasMultiplier: *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
 			PollPeriod:                    configCopy.VRFv2Plus.General.VRFJobPollPeriod.Duration,
 			RequestTimeout:                configCopy.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
@@ -1824,7 +1848,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			MinIncomingConfirmations:      int(*configCopy.VRFv2Plus.General.MinimumConfirmations),
 			PublicKey:                     vrfKey.PubKeyCompressed,
 			EstimateGasMultiplier:         *configCopy.VRFv2Plus.General.VRFJobEstimateGasMultiplier,
-			BatchFulfillmentEnabled:       *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentEnabled,
+			BatchFulfillmentEnabled:       false,
 			BatchFulfillmentGasMultiplier: *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
 			PollPeriod:                    configCopy.VRFv2Plus.General.VRFJobPollPeriod.Duration,
 			RequestTimeout:                configCopy.VRFv2Plus.General.VRFJobRequestTimeout.Duration,

@@ -15,6 +15,7 @@ import (
 
 type Coordinator interface {
 	ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error)
+	ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error)
 	Address() string
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
@@ -106,6 +107,29 @@ func parseRequestRandomnessLogs(coordinator Coordinator, logs []*types.Log) (*Co
 	return randomWordsRequestedEvent, nil
 }
 
+func ParseRandomWordsFulfilledLogs(coordinator Coordinator, logs []*types.Log) ([]*CoordinatorRandomWordsFulfilled, error) {
+	var randomWordsFulfilledEventArr []*CoordinatorRandomWordsFulfilled
+	for _, eventLog := range logs {
+		for _, topic := range eventLog.Topics {
+			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled{}.Topic()) == 0 {
+				randomWordsFulfilledEvent, err := coordinator.ParseRandomWordsFulfilled(*eventLog)
+				if err != nil {
+					return nil, fmt.Errorf("parse RandomWordsFulfilled log failed, err: %w", err)
+				}
+				randomWordsFulfilledEventArr = append(randomWordsFulfilledEventArr, randomWordsFulfilledEvent)
+			}
+			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()) == 0 {
+				randomWordsFulfilledEvent, err := coordinator.ParseRandomWordsFulfilled(*eventLog)
+				if err != nil {
+					return nil, fmt.Errorf("parse RandomWordsFulfilled log failed, err: %w", err)
+				}
+				randomWordsFulfilledEventArr = append(randomWordsFulfilledEventArr, randomWordsFulfilledEvent)
+			}
+		}
+	}
+	return randomWordsFulfilledEventArr, nil
+}
+
 func RetrieveRequestRandomnessLogs(coordinator Coordinator, client blockchain.EVMClient, tx *types.Transaction) (*CoordinatorRandomWordsRequested, error) {
 	err := client.ProcessTransaction(tx)
 	if err != nil {
@@ -120,5 +144,4 @@ func RetrieveRequestRandomnessLogs(coordinator Coordinator, client blockchain.EV
 		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
 	}
 	return parseRequestRandomnessLogs(coordinator, receipt.Logs)
-
 }

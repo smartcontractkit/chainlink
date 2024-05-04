@@ -499,6 +499,21 @@ func (v *EthereumVRFCoordinatorV2) ParseRandomWordsRequested(log types.Log) (*Co
 	}, nil
 }
 
+func (v *EthereumVRFCoordinatorV2) ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error) {
+	fulfilled, err := v.coordinator.ParseRandomWordsFulfilled(log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse RandomWordsFulfilled event: %w", err)
+	}
+
+	return &CoordinatorRandomWordsFulfilled{
+		RequestId:  fulfilled.RequestId,
+		OutputSeed: fulfilled.OutputSeed,
+		Payment:    fulfilled.Payment,
+		Success:    fulfilled.Success,
+		Raw:        fulfilled.Raw,
+	}, nil
+}
+
 func (v *EthereumVRFCoordinatorV2) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	return v.coordinator.ParseLog(log)
 }
