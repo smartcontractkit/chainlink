@@ -2212,7 +2212,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		//all requests fulfilled
 		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(int64(randRequestCount))))
 
-		clNodeTxs, resp, err := nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
+		clNodeTxs, resp, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.ReadTransactions()
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 		var batchFulfillmentTxs []client.TransactionData
@@ -2245,7 +2245,6 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		// verify that all fulfillments should be inside one tx
 		require.Equal(t, randRequestCount, len(randomWordsFulfilledLogs))
 	})
-
 	t.Run("Batch Fulfillment Disabled", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = true
@@ -2334,7 +2333,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		// verify that VRF node sends fulfillments via Coordinator contract
 		require.Equal(t, vrfContracts.CoordinatorV2Plus.Address(), fulfillmentTXToAddress, "Fulfillment Tx To Address should be the CoordinatorV2Plus Address when batch fulfillment is disabled")
 
-		clNodeTxs, resp, err := nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
+		clNodeTxs, resp, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.ReadTransactions()
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
