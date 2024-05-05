@@ -161,6 +161,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     _onlyFinanceAdminAllowed();
     if (s_payoutMode == PayoutMode.ON_CHAIN) revert MustSettleOnchain();
 
+    uint96 totalPremium = s_hotVars.totalPremium;
     uint256 activeTransmittersLength = s_transmittersList.length;
     uint256 deactivatedTransmittersLength = s_deactivatedTransmitters.length();
     uint256 length = activeTransmittersLength + deactivatedTransmittersLength;
@@ -171,7 +172,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
       address transmitterAddr = s_transmittersList[i];
       uint96 balance = _updateTransmitterBalanceFromPool(
         transmitterAddr,
-        s_hotVars.totalPremium,
+        totalPremium,
         uint96(activeTransmittersLength)
       );
 
@@ -548,7 +549,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice returns the upkeep privilege config
+   * @notice returns the admin's privilege config
    */
   function getAdminPrivilegeConfig(address admin) external view returns (bytes memory) {
     return s_adminPrivilegeConfig[admin];
@@ -562,7 +563,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice returns the upkeep's forwarder contract
+   * @notice returns if the dedupKey exists or not
    */
   function hasDedupKey(bytes32 dedupKey) external view returns (bool) {
     return s_dedupKeys[dedupKey];
@@ -581,6 +582,13 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
    */
   function getReserveAmount(IERC20 billingToken) external view returns (uint256) {
     return s_reserveAmounts[billingToken];
+  }
+
+  /**
+   * @notice returns the amount of a particular token that is withdraw-able by finance admin
+   */
+  function getAvailableERC20ForPayment(IERC20 billingToken) external view returns (uint256) {
+    return billingToken.balanceOf(address(this)) - s_reserveAmounts[IERC20(address(billingToken))];
   }
 
   /**

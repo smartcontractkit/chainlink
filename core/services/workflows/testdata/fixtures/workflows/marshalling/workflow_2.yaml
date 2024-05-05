@@ -1,15 +1,15 @@
  triggers:
-   - type: on_mercury_report@1
+   - id: on_mercury_report@1
      ref: report_data
      config: {}
 
  # no actions
 
  consensus:
-   - type: 
+   - id: 
       name: trigger_test
       version: "2"
-      tags:
+      labels:
         chain: ethereum
         aaShouldBeFirst: "true"
         network: mainnet
@@ -19,7 +19,7 @@
          - triggers.report_data.outputs
 
  targets:
-   - type: write_polygon_mainnet@1
+   - id: write_polygon_mainnet@1
      config: {}
      inputs:
        report:

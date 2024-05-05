@@ -265,6 +265,10 @@ LatestReportDeadline = '5s'
 [Mercury.TLS]
 CertFile = ''
 
+[Mercury.Transmitter]
+TransmitQueueMaxSize = 10000
+TransmitTimeout = '5s'
+
 [Capabilities]
 [Capabilities.Peering]
 IncomingMessageBufferSize = 10

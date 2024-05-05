@@ -64,6 +64,7 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' }}
         with:
           id: core
+          name: lint
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -77,6 +78,10 @@ jobs:
           slack-message: "golangci-lint failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
 
   core:
+    env:
+      # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
+      # when they should not be using it, while still allowing us to DRY up the setup
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     strategy:
       fail-fast: false
       matrix:
@@ -92,8 +97,6 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     needs: [filter]
     runs-on: ubuntu-latest-64cores-256GB
-    env:
-      CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -109,7 +112,7 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
       - name: Run short tests
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.changes == 'true' && matrix.type.cmd == 'go_core_tests' }}
         run: go test -short ./...
       - name: Setup Solana
         if: ${{ needs.filter.outputs.changes == 'true' }}
@@ -136,6 +139,8 @@ jobs:
       - name: Setup DB
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: ./chainlink.test local db preparetest
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
       - name: Install LOOP Plugins
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: |
@@ -165,6 +170,7 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           USE_TEE: false
+          CL_DATABASE_URL: ${{ env.DB_URL }}
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
@@ -197,7 +203,7 @@ jobs:
             ./coverage.txt
             ./postgres_logs.txt
       - name: Notify Slack
-        if: ${{ failure() && steps.print-races.outputs.post_to_slack == 'true' && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && steps.print-races.outputs.post_to_slack == 'true' && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.base_ref == 'develop') && needs.filter.outputs.changes == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
