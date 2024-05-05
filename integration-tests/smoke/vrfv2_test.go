@@ -1329,7 +1329,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		require.Equal(t, 200, resp.StatusCode)
 		var batchFulfillmentTxs []client.TransactionData
 		for _, tx := range clNodeTxs.Data {
-			if tx.Attributes.To == vrfContracts.BatchCoordinatorV2.Address() {
+			if common.HexToAddress(tx.Attributes.To).Cmp(common.HexToAddress(vrfContracts.BatchCoordinatorV2.Address())) == 0 {
 				batchFulfillmentTxs = append(batchFulfillmentTxs, tx)
 			}
 		}
@@ -1456,7 +1456,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 
 		var singleFulfillmentTxs []client.TransactionData
 		for _, tx := range clNodeTxs.Data {
-			if tx.Attributes.To == vrfContracts.CoordinatorV2.Address() {
+			if common.HexToAddress(tx.Attributes.To).Cmp(common.HexToAddress(vrfContracts.CoordinatorV2.Address())) == 0 {
 				singleFulfillmentTxs = append(singleFulfillmentTxs, tx)
 			}
 		}
