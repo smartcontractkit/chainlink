@@ -1139,7 +1139,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			MinIncomingConfirmations:      int(*configCopy.VRFv2Plus.General.MinimumConfirmations),
 			PublicKey:                     vrfKey.VRFKey.Data.ID,
 			EstimateGasMultiplier:         *configCopy.VRFv2Plus.General.VRFJobEstimateGasMultiplier,
-			BatchFulfillmentEnabled:       *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentEnabled,
+			BatchFulfillmentEnabled:       false,
 			BatchFulfillmentGasMultiplier: *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
 			PollPeriod:                    configCopy.VRFv2Plus.General.VRFJobPollPeriod.Duration,
 			RequestTimeout:                configCopy.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
