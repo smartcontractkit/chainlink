@@ -2132,6 +2132,16 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 	require.NoError(t, err, "Getting EVM client shouldn't fail")
 	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 
+	//batchMaxGas := config.MaxGasLimit() (2.5 mill) + 400_000 = 2.9 mill
+	//callback gas limit set by consumer = 500k
+	// so 4 requests should be fulfilled inside 1 tx since 500k*4 < 2.9 mill
+
+	batchFulfilmentMaxGas := *config.VRFv2Plus.General.MaxGasLimitCoordinatorConfig + 400_000
+	config.VRFv2Plus.General.CallbackGasLimit = ptr.Ptr(uint32(500_000))
+
+	expectedNumberOfFulfillmentsInsideOneBatchFulfillment := (batchFulfilmentMaxGas / *config.VRFv2Plus.General.CallbackGasLimit) - 1
+	randRequestCount := expectedNumberOfFulfillmentsInsideOneBatchFulfillment
+
 	t.Run("Batch Fulfillment Enabled", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = true
@@ -2188,11 +2198,6 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
-		//batchMaxGas := config.MaxGasLimit() (2.5 mill) + 400_000 = 2.9 mill
-		//callback gas limit set by consumer = 500k
-		// so 4 requests should be fulfilled inside 1 tx since 500k*4 < 2.9 mill
-		randRequestCount := 4
-		configCopy.VRFv2Plus.General.CallbackGasLimit = ptr.Ptr(uint32(500_000))
 		configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount))
 
 		// test and assert
@@ -2243,7 +2248,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify that all fulfillments should be inside one tx
-		require.Equal(t, randRequestCount, len(randomWordsFulfilledLogs))
+		require.Equal(t, int(randRequestCount), len(randomWordsFulfilledLogs))
 	})
 	t.Run("Batch Fulfillment Disabled", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -2301,8 +2306,6 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
-		randRequestCount := 4
-		configCopy.VRFv2Plus.General.CallbackGasLimit = ptr.Ptr(uint32(500_000))
 		configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount))
 
 		// test and assert
@@ -2344,7 +2347,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 			}
 		}
 		// verify that all fulfillments should be in separate txs
-		require.Equal(t, randRequestCount, len(singleFulfillmentTxs))
+		require.Equal(t, int(randRequestCount), len(singleFulfillmentTxs))
 	})
 
 }
