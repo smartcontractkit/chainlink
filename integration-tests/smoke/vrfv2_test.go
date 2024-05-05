@@ -1265,7 +1265,9 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 			PollPeriod:                    configCopy.VRFv2.General.VRFJobPollPeriod.Duration,
 			RequestTimeout:                configCopy.VRFv2.General.VRFJobRequestTimeout.Duration,
 			SimulationBlock:               configCopy.VRFv2.General.VRFJobSimulationBlock,
-			VRFOwnerConfig:                nil,
+			VRFOwnerConfig: &vrfcommon.VRFOwnerConfig{
+				UseVRFOwner: false,
+			},
 		}
 
 		l.Info().
@@ -1381,7 +1383,9 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 			PollPeriod:                    configCopy.VRFv2.General.VRFJobPollPeriod.Duration,
 			RequestTimeout:                configCopy.VRFv2.General.VRFJobRequestTimeout.Duration,
 			SimulationBlock:               configCopy.VRFv2.General.VRFJobSimulationBlock,
-			VRFOwnerConfig:                nil,
+			VRFOwnerConfig: &vrfcommon.VRFOwnerConfig{
+				UseVRFOwner: false,
+			},
 		}
 
 		l.Info().
