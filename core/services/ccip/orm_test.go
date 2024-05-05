@@ -74,21 +74,21 @@ func generateTokenPriceUpdates(tokenAddr ccip.Address, n int) []TokenPriceUpdate
 }
 
 func getGasTableRowCount(t *testing.T, ds sqlutil.DataSource) int {
-	var count []int
+	var count int
 	stmt := fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, gasTableName)
-	err := ds.SelectContext(testutils.Context(t), &count, stmt)
+	err := ds.QueryRowxContext(testutils.Context(t), stmt).Scan(&count)
 	require.NoError(t, err)
 
-	return count[0]
+	return count
 }
 
 func getTokenTableRowCount(t *testing.T, ds sqlutil.DataSource) int {
-	var count []int
+	var count int
 	stmt := fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, tokenTableName)
-	err := ds.SelectContext(testutils.Context(t), &count, stmt)
+	err := ds.QueryRowxContext(testutils.Context(t), stmt).Scan(&count)
 	require.NoError(t, err)
 
-	return count[0]
+	return count
 }
 
 func TestInitORM(t *testing.T) {
@@ -146,8 +146,6 @@ func TestORM_InsertAndGetGasPrices(t *testing.T) {
 
 			err := orm.InsertGasPricesForDestChain(ctx, destSelector, int32(i), updatesPerSelector[:lastIndex])
 			assert.NoError(t, err)
-			// make sure element at last index has unique timestamp
-			time.Sleep(1 * time.Millisecond)
 			err = orm.InsertGasPricesForDestChain(ctx, destSelector, int32(i), updatesPerSelector[lastIndex:])
 			assert.NoError(t, err)
 
@@ -213,9 +211,7 @@ func TestORM_InsertAndDeleteGasPrices(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	time.Sleep(1 * time.Millisecond)
 	interimTimeStamp := time.Now()
-	time.Sleep(1 * time.Millisecond)
 
 	// insert for the 2nd time after interimTimeStamp
 	for _, updatesPerSelector := range updates {
@@ -262,8 +258,6 @@ func TestORM_InsertAndGetTokenPrices(t *testing.T) {
 
 			err := orm.InsertTokenPricesForDestChain(ctx, destSelector, int32(i), updatesPerAddr[:lastIndex])
 			assert.NoError(t, err)
-			// make sure element at last index has unique timestamp
-			time.Sleep(1 * time.Millisecond)
 			err = orm.InsertTokenPricesForDestChain(ctx, destSelector, int32(i), updatesPerAddr[lastIndex:])
 			assert.NoError(t, err)
 
@@ -329,9 +323,7 @@ func TestORM_InsertAndDeleteTokenPrices(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	time.Sleep(1 * time.Millisecond)
 	interimTimeStamp := time.Now()
-	time.Sleep(1 * time.Millisecond)
 
 	// insert for the 2nd time after interimTimeStamp
 	for _, updatesPerAddr := range updates {
