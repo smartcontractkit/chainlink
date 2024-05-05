@@ -2138,10 +2138,13 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 
 		vrfNode, exists := nodeTypeToNodeMap[vrfcommon.VRF]
 		require.True(t, exists, "VRF Node does not exist")
-		resp, err := vrfNode.CLNode.API.DeleteJob(vrfNode.Job.Data.ID)
-		require.NoError(t, err, "error deleting job after timeout")
-		require.Equal(t, resp.StatusCode, 204)
 
+		//ensure that no job present on the node
+		err = actions.DeleteJobs([]*client.ChainlinkClient{vrfNode.CLNode.API})
+		require.NoError(t, err)
+
+		batchFullfillmentEnabled := true
+		// create job with batch fulfillment enabled
 		vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
 			ForwardingAllowed:             *configCopy.VRFv2Plus.General.VRFJobForwardingAllowed,
 			CoordinatorAddress:            vrfContracts.CoordinatorV2Plus.Address(),
@@ -2151,7 +2154,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 			MinIncomingConfirmations:      int(*configCopy.VRFv2Plus.General.MinimumConfirmations),
 			PublicKey:                     vrfKey.PubKeyCompressed,
 			EstimateGasMultiplier:         *configCopy.VRFv2Plus.General.VRFJobEstimateGasMultiplier,
-			BatchFulfillmentEnabled:       true,
+			BatchFulfillmentEnabled:       batchFullfillmentEnabled,
 			BatchFulfillmentGasMultiplier: *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
 			PollPeriod:                    configCopy.VRFv2Plus.General.VRFJobPollPeriod.Duration,
 			RequestTimeout:                configCopy.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
@@ -2206,7 +2209,20 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 
 		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
 		require.NoError(t, err)
+		//all requests fulfilled
 		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(int64(randRequestCount))))
+
+		clNodeTxs, resp, err := nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+		var batchFulfillmentTxs []client.TransactionData
+		for _, tx := range clNodeTxs.Data {
+			if tx.Attributes.To == vrfContracts.BatchCoordinatorV2Plus.Address() {
+				batchFulfillmentTxs = append(batchFulfillmentTxs, tx)
+			}
+		}
+		// verify that all fulfillments should be inside one tx
+		require.Equal(t, 1, len(batchFulfillmentTxs))
 
 		fulfillmentTx, _, err := actions.GetTxByHash(testcontext.Get(t), evmClient, randomWordsFulfilledEvent.Raw.TxHash)
 		require.NoError(t, err, "error getting tx from hash")
@@ -2228,7 +2244,108 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 
 		// verify that all fulfillments should be inside one tx
 		require.Equal(t, randRequestCount, len(randomWordsFulfilledLogs))
+	})
 
+	t.Run("Batch Fulfillment Disabled", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		var isNativeBilling = true
+
+		vrfNode, exists := nodeTypeToNodeMap[vrfcommon.VRF]
+		require.True(t, exists, "VRF Node does not exist")
+		//ensure that no job present on the node
+		err = actions.DeleteJobs([]*client.ChainlinkClient{vrfNode.CLNode.API})
+		require.NoError(t, err)
+
+		batchFullfillmentEnabled := false
+
+		//create job with batchFulfillmentEnabled = false
+		vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
+			ForwardingAllowed:             *configCopy.VRFv2Plus.General.VRFJobForwardingAllowed,
+			CoordinatorAddress:            vrfContracts.CoordinatorV2Plus.Address(),
+			BatchCoordinatorAddress:       vrfContracts.BatchCoordinatorV2Plus.Address(),
+			FromAddresses:                 vrfNode.TXKeyAddressStrings,
+			EVMChainID:                    fmt.Sprint(chainID),
+			MinIncomingConfirmations:      int(*configCopy.VRFv2Plus.General.MinimumConfirmations),
+			PublicKey:                     vrfKey.PubKeyCompressed,
+			EstimateGasMultiplier:         *configCopy.VRFv2Plus.General.VRFJobEstimateGasMultiplier,
+			BatchFulfillmentEnabled:       batchFullfillmentEnabled,
+			BatchFulfillmentGasMultiplier: *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
+			PollPeriod:                    configCopy.VRFv2Plus.General.VRFJobPollPeriod.Duration,
+			RequestTimeout:                configCopy.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
+			SimulationBlock:               configCopy.VRFv2Plus.General.VRFJobSimulationBlock,
+			VRFOwnerConfig:                nil,
+		}
+
+		l.Info().
+			Msg("Creating VRFV2 Plus Job with `batchFulfillmentEnabled = false`")
+		job, err := vrfv2plus.CreateVRFV2PlusJob(
+			vrfNode.CLNode.API,
+			vrfJobSpecConfig,
+		)
+		require.NoError(t, err, "error creating job with higher timeout")
+		vrfNode.Job = job
+
+		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			env,
+			chainID,
+			vrfContracts.CoordinatorV2Plus,
+			configCopy,
+			vrfContracts.LinkToken,
+			1,
+			1,
+			l,
+		)
+		require.NoError(t, err, "error setting up new consumers and subs")
+		subID := subIDs[0]
+		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+		require.NoError(t, err, "error getting subscription information")
+		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
+		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
+
+		randRequestCount := 4
+		configCopy.VRFv2Plus.General.CallbackGasLimit = ptr.Ptr(uint32(500_000))
+		configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount))
+
+		// test and assert
+		_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			consumers[0],
+			vrfContracts.CoordinatorV2Plus,
+			vrfKey,
+			subID,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General,
+			l,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
+		require.NoError(t, err)
+		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(int64(randRequestCount))))
+
+		fulfillmentTx, _, err := actions.GetTxByHash(testcontext.Get(t), evmClient, randomWordsFulfilledEvent.Raw.TxHash)
+		require.NoError(t, err, "error getting tx from hash")
+
+		fulfillmentTXToAddress := fulfillmentTx.To().String()
+		l.Info().
+			Str("Actual Fulfillment Tx To Address", fulfillmentTXToAddress).
+			Str("CoordinatorV2Plus Address", vrfContracts.CoordinatorV2Plus.Address()).
+			Msg("Fulfillment Tx To Address should be the CoordinatorV2Plus Address when batch fulfillment is disabled")
+
+		// verify that VRF node sends fulfillments via Coordinator contract
+		require.Equal(t, vrfContracts.CoordinatorV2Plus.Address(), fulfillmentTXToAddress, "Fulfillment Tx To Address should be the CoordinatorV2Plus Address when batch fulfillment is disabled")
+
+		clNodeTxs, resp, err := nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		var singleFulfillmentTxs []client.TransactionData
+		for _, tx := range clNodeTxs.Data {
+			if tx.Attributes.To == vrfContracts.CoordinatorV2Plus.Address() {
+				singleFulfillmentTxs = append(singleFulfillmentTxs, tx)
+			}
+		}
+		// verify that all fulfillments should be in separate txs
+		require.Equal(t, randRequestCount, len(singleFulfillmentTxs))
 	})
 
 }
