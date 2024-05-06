@@ -37,7 +37,7 @@ func CheckGasPrice(ctx context.Context, upkeepId *big.Int, offchainConfigBytes [
 		return encoding.UpkeepFailureReasonNone
 	}
 	if offchainConfig.MaxGasPrice == nil || offchainConfig.MaxGasPrice.Int64() <= 0 {
-		lggr.Infow("maxGasPrice is not configured in upkeep offchain config, gas price check is disabled", "upkeepId", upkeepId.String())
+		lggr.Warnw("maxGasPrice is not configured or incorrectly configured in upkeep offchain config, gas price check is disabled", "upkeepId", upkeepId.String())
 		return encoding.UpkeepFailureReasonNone
 	}
 	lggr.Debugf("successfully decode offchain config for %s, max gas price is %s", upkeepId.String(), offchainConfig.MaxGasPrice.String())
