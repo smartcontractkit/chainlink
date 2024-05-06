@@ -141,8 +141,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	}
 
 	finalizedPollInterval := n.nodePoolCfg.FinalizedBlockPollInterval()
-	finalizedHeadCh := make(chan *HEAD)
-	defer close(finalizedHeadCh)
+	var finalizedHeadCh <-chan *HEAD
 	if n.chainCfg.FinalityTagEnabled() && finalizedPollInterval > 0 {
 		lggr.Debugw("Finalized block polling enabled")
 
@@ -158,10 +157,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		}
 		timeout := finalizedPollInterval
 
-		finalizedHeadPoller := NewPoller[*HEAD](finalizedPollInterval, pollFunc, timeout, finalizedHeadCh, lggr)
+		finalizedHeadPoller, ch := NewPoller[*HEAD](finalizedPollInterval, pollFunc, timeout, lggr)
 		if err = finalizedHeadPoller.Start(); err != nil {
 			lggr.Errorw("Failed to start finalized block poller", "err", err)
 		}
+		finalizedHeadCh = ch
 		defer finalizedHeadPoller.Unsubscribe()
 	}
 
