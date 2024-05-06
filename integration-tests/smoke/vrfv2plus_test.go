@@ -2326,10 +2326,6 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
-		require.NoError(t, err)
-		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(int64(randRequestCount))))
-
 		var wgAllRequestsFulfilled sync.WaitGroup
 		wgAllRequestsFulfilled.Add(1)
 		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumers[0], 2*time.Minute, &wgAllRequestsFulfilled)
