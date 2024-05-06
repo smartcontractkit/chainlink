@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
 type Delegate struct {
@@ -22,6 +23,7 @@ type Delegate struct {
 	logger          logger.Logger
 	legacyEVMChains legacyevm.LegacyChainContainer
 	peerID          func() *p2ptypes.PeerID
+	store           store.Store
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -58,6 +60,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		Registry:   d.registry,
 		DONInfo:    dinfo,
 		PeerID:     d.peerID,
+		Store:      d.store,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -103,8 +106,8 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	}, nil
 }
 
-func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, peerID func() *p2ptypes.PeerID) *Delegate {
-	return &Delegate{logger: logger, registry: registry, legacyEVMChains: legacyEVMChains, peerID: peerID}
+func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, store store.Store, peerID func() *p2ptypes.PeerID) *Delegate {
+	return &Delegate{logger: logger, registry: registry, legacyEVMChains: legacyEVMChains, store: store, peerID: peerID}
 }
 
 func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
