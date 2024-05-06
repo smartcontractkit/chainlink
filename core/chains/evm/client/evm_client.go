@@ -19,7 +19,7 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
-				commonclient.Secondary)
+				commonclient.Secondary, cfg)
 			sendonly := commonclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL),
 				*node.Name, chainID, rpc)
 			sendonlys = append(sendonlys, sendonly)

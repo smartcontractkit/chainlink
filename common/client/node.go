@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"math/big"
 	"net/url"
 	"sync"
@@ -97,7 +98,7 @@ type node[
 	ws   url.URL
 	http *url.URL
 
-	rpc RPC
+	rpc client.RPCClient[CHAIN_ID, HEAD]
 
 	stateMu sync.RWMutex // protects state* fields
 	state   nodeState
@@ -134,7 +135,7 @@ func NewNode[
 	id int32,
 	chainID CHAIN_ID,
 	nodeOrder int32,
-	rpc RPC,
+	rpc client.RPCClient[CHAIN_ID, HEAD],
 	chainFamily string,
 ) Node[CHAIN_ID, HEAD, RPC] {
 	n := new(node[CHAIN_ID, HEAD, RPC])
@@ -180,7 +181,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) Name() string {
 	return n.name
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC]) RPC() RPC {
+func (n *node[CHAIN_ID, HEAD, RPC]) RPC() client.RPCClient[CHAIN_ID, HEAD] {
 	return n.rpc
 }
 
