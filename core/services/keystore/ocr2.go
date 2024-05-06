@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -15,12 +16,12 @@ type OCR2 interface {
 	Get(id string) (ocr2key.KeyBundle, error)
 	GetAll() ([]ocr2key.KeyBundle, error)
 	GetAllOfType(chaintype.ChainType) ([]ocr2key.KeyBundle, error)
-	Create(chaintype.ChainType) (ocr2key.KeyBundle, error)
-	Add(key ocr2key.KeyBundle) error
-	Delete(id string) error
-	Import(keyJSON []byte, password string) (ocr2key.KeyBundle, error)
+	Create(context.Context, chaintype.ChainType) (ocr2key.KeyBundle, error)
+	Add(ctx context.Context, key ocr2key.KeyBundle) error
+	Delete(ctx context.Context, id string) error
+	Import(ctx context.Context, keyJSON []byte, password string) (ocr2key.KeyBundle, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKeys(enabledChains ...chaintype.ChainType) error
+	EnsureKeys(ctx context.Context, enabledChains ...chaintype.ChainType) error
 }
 
 type ocr2 struct {
@@ -67,16 +68,16 @@ func (ks ocr2) GetAllOfType(chainType chaintype.ChainType) ([]ocr2key.KeyBundle,
 	return ks.getAllOfType(chainType)
 }
 
-func (ks ocr2) Create(chainType chaintype.ChainType) (ocr2key.KeyBundle, error) {
+func (ks ocr2) Create(ctx context.Context, chainType chaintype.ChainType) (ocr2key.KeyBundle, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
-	return ks.create(chainType)
+	return ks.create(ctx, chainType)
 }
 
-func (ks ocr2) Add(key ocr2key.KeyBundle) error {
+func (ks ocr2) Add(ctx context.Context, key ocr2key.KeyBundle) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -85,10 +86,10 @@ func (ks ocr2) Add(key ocr2key.KeyBundle) error {
 	if _, found := ks.keyRing.OCR2[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-func (ks ocr2) Delete(id string) error {
+func (ks ocr2) Delete(ctx context.Context, id string) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -98,11 +99,11 @@ func (ks ocr2) Delete(id string) error {
 	if err != nil {
 		return err
 	}
-	err = ks.safeRemoveKey(key)
+	err = ks.safeRemoveKey(ctx, key)
 	return err
 }
 
-func (ks ocr2) Import(keyJSON []byte, password string) (ocr2key.KeyBundle, error) {
+func (ks ocr2) Import(ctx context.Context, keyJSON []byte, password string) (ocr2key.KeyBundle, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -115,7 +116,7 @@ func (ks ocr2) Import(keyJSON []byte, password string) (ocr2key.KeyBundle, error
 	if _, found := ks.keyRing.OCR[key.ID()]; found {
 		return nil, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(key)
+	return key, ks.keyManager.safeAddKey(ctx, key)
 }
 
 func (ks ocr2) Export(id string, password string) ([]byte, error) {
@@ -131,7 +132,7 @@ func (ks ocr2) Export(id string, password string) ([]byte, error) {
 	return ocr2key.ToEncryptedJSON(key, password, ks.scryptParams)
 }
 
-func (ks ocr2) EnsureKeys(enabledChains ...chaintype.ChainType) error {
+func (ks ocr2) EnsureKeys(ctx context.Context, enabledChains ...chaintype.ChainType) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -148,7 +149,7 @@ func (ks ocr2) EnsureKeys(enabledChains ...chaintype.ChainType) error {
 			continue
 		}
 
-		created, err := ks.create(chainType)
+		created, err := ks.create(ctx, chainType)
 		if err != nil {
 			return err
 		}
@@ -177,7 +178,7 @@ func (ks ocr2) getAllOfType(chainType chaintype.ChainType) ([]ocr2key.KeyBundle,
 	return keys, nil
 }
 
-func (ks ocr2) create(chainType chaintype.ChainType) (ocr2key.KeyBundle, error) {
+func (ks ocr2) create(ctx context.Context, chainType chaintype.ChainType) (ocr2key.KeyBundle, error) {
 	if !chaintype.IsSupportedChainType(chainType) {
 		return nil, chaintype.NewErrInvalidChainType(chainType)
 	}
@@ -185,5 +186,5 @@ func (ks ocr2) create(chainType chaintype.ChainType) (ocr2key.KeyBundle, error) 
 	if err != nil {
 		return nil, err
 	}
-	return key, ks.safeAddKey(key)
+	return key, ks.safeAddKey(ctx, key)
 }

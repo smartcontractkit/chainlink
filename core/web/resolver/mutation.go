@@ -113,7 +113,7 @@ func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolv
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().CSA().Create()
+	key, err := r.App.GetKeyStore().CSA().Create(ctx)
 	if err != nil {
 		if errors.Is(err, keystore.ErrCSAKeyExists) {
 			return NewCreateCSAKeyPayload(nil, err), nil
@@ -137,7 +137,7 @@ func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().CSA().Delete(string(args.ID))
+	key, err := r.App.GetKeyStore().CSA().Delete(ctx, string(args.ID))
 	if err != nil {
 		if errors.As(err, &keystore.KeyNotFoundError{}) {
 			return NewDeleteCSAKeyPayload(csakey.KeyV2{}, err), nil
@@ -238,7 +238,7 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 		return nil, err
 	}
 
-	ccfg, err := fsvc.GetChainConfig(id)
+	ccfg, err := fsvc.GetChainConfig(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewCreateFeedsManagerChainConfigPayload(nil, err, nil), nil
@@ -267,7 +267,7 @@ func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struc
 
 	fsvc := r.App.GetFeedsService()
 
-	ccfg, err := fsvc.GetChainConfig(id)
+	ccfg, err := fsvc.GetChainConfig(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteFeedsManagerChainConfigPayload(nil, err), nil
@@ -367,7 +367,7 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 		return nil, err
 	}
 
-	ccfg, err := fsvc.GetChainConfig(id)
+	ccfg, err := fsvc.GetChainConfig(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateFeedsManagerChainConfigPayload(nil, err, nil), nil
@@ -418,7 +418,7 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	mgr, err := feedsService.GetManager(id)
+	mgr, err := feedsService.GetManager(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewCreateFeedsManagerPayload(nil, err, nil), nil
@@ -541,7 +541,7 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	mgr, err = feedsService.GetManager(id)
+	mgr, err = feedsService.GetManager(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateFeedsManagerPayload(nil, err, nil), nil
@@ -561,7 +561,7 @@ func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundleP
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().OCR().Create()
+	key, err := r.App.GetKeyStore().OCR().Create(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -581,7 +581,7 @@ func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	deletedKey, err := r.App.GetKeyStore().OCR().Delete(args.ID)
+	deletedKey, err := r.App.GetKeyStore().OCR().Delete(ctx, args.ID)
 	if err != nil {
 		if errors.As(err, &keystore.KeyNotFoundError{}) {
 			return NewDeleteOCRKeyBundlePayloadResolver(ocrkey.KeyV2{}, err), nil
@@ -615,7 +615,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(string(args.ID))
+	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(ctx, string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -636,7 +636,7 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().P2P().Create()
+	key, err := r.App.GetKeyStore().P2P().Create(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -665,7 +665,7 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().P2P().Delete(keyID)
+	key, err := r.App.GetKeyStore().P2P().Delete(ctx, keyID)
 	if err != nil {
 		if errors.As(err, &keystore.KeyNotFoundError{}) {
 			return NewDeleteP2PKeyPayload(p2pkey.KeyV2{}, err), nil
@@ -686,7 +686,7 @@ func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolv
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().VRF().Create()
+	key, err := r.App.GetKeyStore().VRF().Create(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -708,7 +708,7 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	key, err := r.App.GetKeyStore().VRF().Delete(string(args.ID))
+	key, err := r.App.GetKeyStore().VRF().Delete(ctx, string(args.ID))
 	if err != nil {
 		if errors.Is(errors.Cause(err), keystore.ErrMissingVRFKey) {
 			return NewDeleteVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
@@ -751,7 +751,7 @@ func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	spec, err := feedsSvc.GetSpec(id)
+	spec, err := feedsSvc.GetSpec(ctx, id)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -786,7 +786,7 @@ func (r *Resolver) CancelJobProposalSpec(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	spec, err := feedsSvc.GetSpec(id)
+	spec, err := feedsSvc.GetSpec(ctx, id)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -821,7 +821,7 @@ func (r *Resolver) RejectJobProposalSpec(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	spec, err := feedsSvc.GetSpec(id)
+	spec, err := feedsSvc.GetSpec(ctx, id)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -859,7 +859,7 @@ func (r *Resolver) UpdateJobProposalSpecDefinition(ctx context.Context, args str
 		return nil, err
 	}
 
-	spec, err := feedsSvc.GetSpec(id)
+	spec, err := feedsSvc.GetSpec(ctx, id)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -1019,7 +1019,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	config := r.App.GetConfig()
 	switch jbt {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetRelayers().LegacyEVMChains(), args.Input.TOML)
+		jb, err = ocr.ValidatedOracleSpecToml(config, r.App.GetRelayers().LegacyEVMChains(), args.Input.TOML)
 		if !config.OCR().Enabled() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
@@ -1039,7 +1039,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.VRF:
 		jb, err = vrfcommon.ValidatedVRFSpec(args.Input.TOML)
 	case job.Webhook:
-		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
+		jb, err = webhook.ValidatedWebhookSpec(ctx, args.Input.TOML, r.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
 	case job.BlockHeaderFeeder:
@@ -1085,7 +1085,7 @@ func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	j, err := r.App.JobORM().FindJobWithoutSpecErrors(id)
+	j, err := r.App.JobORM().FindJobWithoutSpecErrors(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteJobPayload(r.App, nil, err), nil
@@ -1119,7 +1119,7 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	specErr, err := r.App.JobORM().FindSpecError(id)
+	specErr, err := r.App.JobORM().FindSpecError(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDismissJobErrorPayload(nil, err), nil
@@ -1162,7 +1162,7 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	plnRun, err := r.App.PipelineORM().FindRun(jobRunID)
+	plnRun, err := r.App.PipelineORM().FindRun(ctx, jobRunID)
 	if err != nil {
 		return nil, err
 	}
@@ -1206,7 +1206,7 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 
 	ct := FromOCR2ChainType(args.ChainType)
 
-	key, err := r.App.GetKeyStore().OCR2().Create(chaintype.ChainType(ct))
+	key, err := r.App.GetKeyStore().OCR2().Create(ctx, chaintype.ChainType(ct))
 	if err != nil {
 		// Not covering the	`chaintype.ErrInvalidChainType` since the GQL model would prevent a non-accepted chain-type from being received
 		return nil, err
@@ -1238,7 +1238,7 @@ func (r *Resolver) DeleteOCR2KeyBundle(ctx context.Context, args struct {
 		return NewDeleteOCR2KeyBundlePayloadResolver(nil, err), nil
 	}
 
-	err = r.App.GetKeyStore().OCR2().Delete(id)
+	err = r.App.GetKeyStore().OCR2().Delete(ctx, id)
 	if err != nil {
 		return nil, err
 	}

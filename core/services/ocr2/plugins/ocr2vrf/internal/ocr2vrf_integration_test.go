@@ -32,11 +32,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	dkg_wrapper "github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/dkg"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/load_test_beacon_consumer"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon_consumer"
-	vrf_wrapper "github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -44,6 +39,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	dkg_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/load_test_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -312,7 +312,7 @@ func setupNodeOCR2(
 		b.Commit()
 	}
 
-	kb, err := app.GetKeyStore().OCR2().Create("evm")
+	kb, err := app.GetKeyStore().OCR2().Create(ctx, "evm")
 	require.NoError(t, err)
 
 	return &ocr2Node{
@@ -371,10 +371,10 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		node := setupNodeOCR2(t, uni.owner, ports[i], fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
 		sendingKeys = append(sendingKeys, node.sendingKeys)
 
-		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create()
+		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create(ctx)
 		require.NoError(t, err)
 
-		dkgEncryptKey, err := node.app.GetKeyStore().DKGEncrypt().Create()
+		dkgEncryptKey, err := node.app.GetKeyStore().DKGEncrypt().Create(ctx)
 		require.NoError(t, err)
 
 		kbs = append(kbs, node.keybundle)

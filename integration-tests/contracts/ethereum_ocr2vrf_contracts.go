@@ -13,12 +13,12 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/dkg"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon_consumer"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 )
 
 // EthereumDKG represents DKG contract

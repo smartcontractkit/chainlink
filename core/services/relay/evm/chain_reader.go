@@ -18,8 +18,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -45,11 +43,11 @@ var _ ChainReaderService = (*chainReader)(nil)
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 // Note that the ChainReaderService returned does not support anonymous events.
-func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
+func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
 		lggr:             lggr.Named("ChainReader"),
 		lp:               lp,
-		client:           chain.Client(),
+		client:           client,
 		contractBindings: contractBindings{},
 		parsed:           &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
 	}

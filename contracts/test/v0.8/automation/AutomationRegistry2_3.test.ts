@@ -667,6 +667,7 @@ describe('AutomationRegistry2_3', () => {
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
             minSpend: minUpkeepSpend,
+            decimals: 18,
           },
         ],
       )
@@ -957,6 +958,7 @@ describe('AutomationRegistry2_3', () => {
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
+          decimals: 18,
         },
       ],
     ]
@@ -976,6 +978,7 @@ describe('AutomationRegistry2_3', () => {
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
+          decimals: 18,
         },
       ],
     ]
@@ -995,6 +998,7 @@ describe('AutomationRegistry2_3', () => {
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
+          decimals: 18,
         },
       ],
     ]
@@ -4743,6 +4747,7 @@ describe('AutomationRegistry2_3', () => {
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
             minSpend: newMinUpkeepSpend,
+            decimals: 18,
           },
         ],
       )
@@ -5258,6 +5263,7 @@ describe('AutomationRegistry2_3', () => {
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
+                decimals: 18,
               },
             ],
           )
@@ -5324,6 +5330,7 @@ describe('AutomationRegistry2_3', () => {
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
+                decimals: 18,
               },
             ],
           )
@@ -5385,6 +5392,7 @@ describe('AutomationRegistry2_3', () => {
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
+                decimals: 18,
               },
             ],
           )

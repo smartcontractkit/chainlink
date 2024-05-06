@@ -67,6 +67,7 @@ type vrfUniverse struct {
 }
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
+	ctx := testutils.Context(t)
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
@@ -78,24 +79,24 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	prm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
-	txm, err := txmgr.NewTxm(db, db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
+	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
-	jrm := job.NewORM(db, prm, btORM, ks, lggr, cfg.Database())
+	jrm := job.NewORM(db, prm, btORM, ks, lggr)
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
-	require.NoError(t, ks.Unlock(testutils.Password))
+	require.NoError(t, ks.Unlock(ctx, testutils.Password))
 	k, err2 := ks.Eth().Create(testutils.Context(t), testutils.FixtureChainID)
 	require.NoError(t, err2)
 	submitter := k.Address
 	require.NoError(t, err)
-	vrfkey, err3 := ks.VRF().Create()
+	vrfkey, err3 := ks.VRF().Create(ctx)
 	require.NoError(t, err3)
 
 	return vrfUniverse{
@@ -160,12 +161,12 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 		vuni.prm,
 		vuni.legacyChains,
 		logger.TestLogger(t),
-		cfg.Database(),
 		mailMon)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String(), EVMChainID: testutils.FixtureChainID.String()})
 	jb, err := vrfcommon.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
-	err = vuni.jrm.CreateJob(&jb)
+	ctx := testutils.Context(t)
+	err = vuni.jrm.CreateJob(ctx, &jb)
 	require.NoError(t, err)
 	vl, err := vd.ServicesForSpec(testutils.Context(t), jb)
 	require.NoError(t, err)
@@ -201,9 +202,10 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	preSeed := common.BigToHash(big.NewInt(42)).Bytes()
 	txHash := evmutils.NewHash()
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Maybe()
-	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Maybe()
+	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil).Maybe()
-	listener.HandleLog(log.NewLogBroadcast(types.Log{
+	ctx := testutils.Context(t)
+	listener.HandleLog(ctx, log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
 			preSeed,                    // preSeed
@@ -302,14 +304,15 @@ func TestDelegate_ValidLog(t *testing.T) {
 	consumed := make(chan struct{})
 	for i, tc := range tt {
 		tc := tc
+		ctx := testutils.Context(t)
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			consumed <- struct{}{}
 		}).Return(nil).Once()
 		// Expect a call to check if the req is already fulfilled.
 		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
 
-		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
+		listener.HandleLog(ctx, log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
 		waitForChannel(t, added, time.Second, "request not added to the queue")
 		// Feed it a head which confirms it.
@@ -318,7 +321,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 
 		// Ensure we created a successful run.
 		waitForChannel(t, runComplete, 2*time.Second, "pipeline not complete")
-		runs, err := vuni.prm.GetAllRuns()
+		runs, err := vuni.prm.GetAllRuns(ctx)
 		require.NoError(t, err)
 		require.Equal(t, i+1, len(runs))
 		assert.False(t, runs[0].FatalErrors.HasError())
@@ -328,13 +331,13 @@ func TestDelegate_ValidLog(t *testing.T) {
 		p, err := vuni.ks.VRF().GenerateProof(keyID, evmutils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
 		require.NoError(t, err)
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			consumed <- struct{}{}
 		}).Return(nil).Once()
 		// If we send a completed log we should the respCount increase
 		var reqIDBytes []byte
 		copy(reqIDBytes[:], tc.reqID[:])
-		listener.HandleLog(log.NewLogBroadcast(types.Log{
+		listener.HandleLog(ctx, log.NewLogBroadcast(types.Log{
 			// Data has all the NON-indexed parameters
 			Data: bytes.Join([][]byte{reqIDBytes, // output
 				p.Output.Bytes(),
@@ -354,7 +357,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	vuni, listener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	done := make(chan struct{})
-	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		done <- struct{}{}
 	}).Return(nil).Once()
 	// Expect a call to check if the req is already fulfilled.
@@ -365,7 +368,8 @@ func TestDelegate_InvalidLog(t *testing.T) {
 		added <- struct{}{}
 	})
 	// Send an invalid log (keyhash doesnt match)
-	listener.HandleLog(log.NewLogBroadcast(types.Log{
+	ctx := testutils.Context(t)
+	listener.HandleLog(ctx, log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
 			evmutils.NewHash().Bytes(),                   // key hash
@@ -392,7 +396,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should create a run that errors in the vrf task
-	runs, err := vuni.prm.GetAllRuns()
+	runs, err := vuni.prm.GetAllRuns(ctx)
 	require.NoError(t, err)
 	require.Equal(t, len(runs), 1)
 	for _, tr := range runs[0].PipelineTaskRuns {
@@ -417,7 +421,7 @@ func TestFulfilledCheck(t *testing.T) {
 	vuni, listener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	done := make(chan struct{})
-	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		done <- struct{}{}
 	}).Return(nil).Once()
 	// Expect a call to check if the req is already fulfilled.
@@ -429,7 +433,8 @@ func TestFulfilledCheck(t *testing.T) {
 		added <- struct{}{}
 	})
 	// Send an invalid log (keyhash doesn't match)
-	listener.HandleLog(log.NewLogBroadcast(
+	ctx := testutils.Context(t)
+	listener.HandleLog(ctx, log.NewLogBroadcast(
 		types.Log{
 			// Data has all the NON-indexed parameters
 			Data: bytes.Join([][]byte{
@@ -455,7 +460,7 @@ func TestFulfilledCheck(t *testing.T) {
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should consume the log with no run
-	runs, err := vuni.prm.GetAllRuns()
+	runs, err := vuni.prm.GetAllRuns(ctx)
 	require.NoError(t, err)
 	require.Equal(t, len(runs), 0)
 }
@@ -556,11 +561,11 @@ decode_log->vrf->encode_tx->submit_tx
 
 func Test_CheckFromAddressesExist(t *testing.T) {
 	t.Run("from addresses exist", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
-		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
-		require.NoError(t, ks.Unlock(testutils.Password))
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
 		for i := 0; i < 3; i++ {
@@ -584,11 +589,11 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 	})
 
 	t.Run("one of from addresses doesn't exist", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
-		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
-		require.NoError(t, ks.Unlock(testutils.Password))
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
 		for i := 0; i < 3; i++ {
@@ -685,7 +690,6 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 		vuni.prm,
 		vuni.legacyChains,
 		logger.TestLogger(t),
-		cfg.Database(),
 		mailMon)
 	chain, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
 	require.NoError(t, err)
@@ -698,7 +702,8 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(toml)
 	require.NoError(t, err)
-	err = vuni.jrm.CreateJob(&jb)
+	ctx := testutils.Context(t)
+	err = vuni.jrm.CreateJob(ctx, &jb)
 	require.NoError(t, err)
 	_, err = vd.ServicesForSpec(testutils.Context(t), jb)
 	require.Error(t, err)

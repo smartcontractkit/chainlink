@@ -82,9 +82,7 @@ func TestEvmWrite(t *testing.T) {
 
 	})
 
-	ch := make(chan capabilities.CapabilityResponse)
-
-	err = capability.Execute(ctx, ch, req)
+	ch, err := capability.Execute(ctx, req)
 	require.NoError(t, err)
 
 	response := <-ch
@@ -134,9 +132,7 @@ func TestEvmWrite_EmptyReport(t *testing.T) {
 		Inputs: inputs,
 	}
 
-	ch := make(chan capabilities.CapabilityResponse)
-
-	err = capability.Execute(ctx, ch, req)
+	ch, err := capability.Execute(ctx, req)
 	require.NoError(t, err)
 
 	response := <-ch

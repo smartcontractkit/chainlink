@@ -98,9 +98,9 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 // MustCreateBridge creates a bridge
 // Be careful not to specify a name here unless you ABSOLUTELY need to
 // This is because name is a unique index and identical names used across transactional tests will lock/deadlock
-func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
+func MustCreateBridge(t testing.TB, ds sqlutil.DataSource, opts BridgeOpts) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
 	bta, bt = NewBridgeType(t, opts)
-	orm := bridges.NewORM(db)
+	orm := bridges.NewORM(ds)
 	err := orm.CreateBridgeType(testutils.Context(t), bt)
 	require.NoError(t, err)
 	return bta, bt
@@ -317,9 +317,9 @@ func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db sqlutil.DataSource, number int64) evmtypes.Head {
+func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) evmtypes.Head {
 	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), 0, ubig.New(&FixtureChainID))
-	horm := headtracker.NewORM(FixtureChainID, db)
+	horm := headtracker.NewORM(FixtureChainID, ds)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
 	require.NoError(t, err)
@@ -347,8 +347,8 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 		PipelineSpecID:  pipelineSpec.ID,
 	}
 
-	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).Database())
-	err = jorm.InsertJob(&jb)
+	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t))
+	err = jorm.InsertJob(testutils.Context(t), &jb)
 	require.NoError(t, err)
 	return jb
 }
@@ -402,10 +402,10 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm *keeper.ORM, from evmty
 
 	cfg := configtest.NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, tlg, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	prm := pipeline.NewORM(db, tlg, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
-	jrm := job.NewORM(db, prm, btORM, nil, tlg, cfg.Database())
-	err = jrm.InsertJob(&jb)
+	jrm := job.NewORM(db, prm, btORM, nil, tlg)
+	err = jrm.InsertJob(testutils.Context(t), &jb)
 	require.NoError(t, err)
 	jb.PipelineSpec.JobID = jb.ID
 	return jb

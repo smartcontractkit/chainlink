@@ -13,33 +13,13 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      changes: ${{ steps.changes.outputs.src }}
+      changes: ${{ steps.ch.outputs.changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
-        with:
-          list-files: "csv"
-          filters: |
-            src:
-              - 'contracts/**/*'
-              - '.github/workflows/solidity.yml'
-              - '.github/workflows/solidity-foundry.yml'
-            read_only_sol:
-              - 'contracts/src/v0.8/interfaces/**/*'
-              - 'contracts/src/v0.8/automation/v1_2/**/*'
-              - 'contracts/src/v0.8/automation/v1_3/**/*'
-              - 'contracts/src/v0.8/automation/v2_0/**/*'
-
-      - name: Fail if read-only files have changed
-        if: ${{ steps.changes.outputs.read_only_sol == 'true' }}
-        run: |
-          echo "One or more read-only Solidity file(s) has changed."
-          for file in ${{ steps.changes.outputs.read_only_sol_files }}; do
-            echo "$file was changed"
-          done
-          exit 1
+      - name: Detect changes
+        id: ch
+        uses: ./.github/actions/detect-solidity-file-changes
 
   tag-check:
     needs: [changes]
@@ -116,11 +96,6 @@ jobs:
       - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: git diff --minimal --color --exit-code | diff-so-fancy
-      - name: Comment on fix instructions
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        if: ${{ failure() }}
-        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make wrappers-all` command'
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
@@ -212,8 +187,8 @@ jobs:
           echo "Bumping version to ${{ needs.tag-check.outputs.pre-release-version }}"
           pnpm version ${{ needs.tag-check.outputs.pre-release-version }} --no-git-tag-version --no-commit-hooks --no-git-checks
 
-      - name: Publish to NPM (Dry Run)
-        uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
+      - name: Publish to NPM (beta)
+        uses: smartcontractkit/.github/actions/ci-publish-npm@4b0ab756abcb1760cb82e1e87b94ff431905bffc # ci-publish-npm@0.4.0
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
           create-github-release: false
@@ -254,14 +229,11 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to NPM (Dry Run)
-        uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
+      - name: Publish to NPM (latest)
+        uses: smartcontractkit/.github/actions/ci-publish-npm@4b0ab756abcb1760cb82e1e87b94ff431905bffc # ci-publish-npm@0.4.0
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          github-release-tag-name: ${{ github.ref_name }}
-          github-release-changelog-path: "contracts/CHANGELOG.md"
-          create-github-release: true
+          create-github-release: false
           publish-command: "pnpm publish-prod --no-git-checks"
           package-json-directory: contracts
 

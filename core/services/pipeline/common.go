@@ -217,6 +217,17 @@ func (result *TaskRunResult) IsTerminal() bool {
 // TaskRunResults represents a collection of results for all task runs for one pipeline run
 type TaskRunResults []TaskRunResult
 
+// GetTaskRunResultsFinishedAt returns latest finishedAt time from TaskRunResults.
+func (trrs TaskRunResults) GetTaskRunResultsFinishedAt() time.Time {
+	var finishedTime time.Time
+	for _, trr := range trrs {
+		if trr.FinishedAt.Valid && trr.FinishedAt.Time.After(finishedTime) {
+			finishedTime = trr.FinishedAt.Time
+		}
+	}
+	return finishedTime
+}
+
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
 // It needs to respect the output index of each task
 func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {

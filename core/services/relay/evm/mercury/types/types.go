@@ -7,12 +7,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type DataSourceORM interface {
-	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
+	LatestReport(ctx context.Context, feedID [32]byte) (report []byte, err error)
 }
 
 type ReportCodec interface {

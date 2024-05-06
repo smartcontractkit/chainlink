@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -20,8 +21,8 @@ type keystorePassword interface {
 	Keystore() string
 }
 
-func (auth TerminalKeyStoreAuthenticator) authenticate(keyStore keystore.Master, password keystorePassword) error {
-	isEmpty, err := keyStore.IsEmpty()
+func (auth TerminalKeyStoreAuthenticator) authenticate(ctx context.Context, keyStore keystore.Master, password keystorePassword) error {
+	isEmpty, err := keyStore.IsEmpty(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")
 	}
@@ -34,7 +35,7 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(keyStore keystore.Master,
 		if err = auth.validatePasswordStrength(pw); err != nil && isEmpty {
 			return err
 		}
-		return keyStore.Unlock(pw)
+		return keyStore.Unlock(ctx, pw)
 	}
 	interactive := auth.Prompter.IsTerminal()
 	if !interactive {
@@ -47,7 +48,7 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(keyStore keystore.Master,
 	if err != nil {
 		return err
 	}
-	return keyStore.Unlock(pw)
+	return keyStore.Unlock(ctx, pw)
 }
 
 func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(password string) error {

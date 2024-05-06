@@ -119,6 +119,9 @@ type RelayConfig struct {
 	ChainReader            *ChainReaderConfig `json:"chainReader"`
 	Codec                  *CodecConfig       `json:"codec"`
 
+	DefaultTransactionQueueDepth uint32 `json:"defaultTransactionQueueDepth"`
+	SimulateTransactions         bool   `json:"simulateTransactions"`
+
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`
 

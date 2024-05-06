@@ -29,6 +29,7 @@ func clearJobsDb(t *testing.T, db *sqlx.DB) {
 }
 
 func TestPipelineORM_Integration(t *testing.T) {
+	ctx := testutils.Context(t)
 	const DotStr = `
         // data source 1
         ds1          [type=bridge name=voter_turnout];
@@ -51,11 +52,11 @@ func TestPipelineORM_Integration(t *testing.T) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(30 * time.Millisecond)
 	})
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 	var specID int32
 
@@ -126,14 +127,15 @@ func TestPipelineORM_Integration(t *testing.T) {
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	t.Run("creates task DAGs", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		clearJobsDb(t, db)
 
-		orm := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+		orm := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 
 		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(*p, models.Interval(0))
+		specID, err = orm.CreateSpec(ctx, *p, models.Interval(0))
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
@@ -152,18 +154,18 @@ func TestPipelineORM_Integration(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		clearJobsDb(t, db)
-		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
 		btORM := bridges.NewORM(db)
 		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), cfg.WebServer(), legacyChains, nil, nil, lggr, nil, nil)
 
-		jobORM := NewTestORM(t, db, orm, btORM, keyStore, cfg.Database())
+		jobORM := NewTestORM(t, db, orm, btORM, keyStore)
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
 		// Need a job in order to create a run
-		require.NoError(t, jobORM.CreateJob(dbSpec))
+		require.NoError(t, jobORM.CreateJob(testutils.Context(t), dbSpec))
 
 		var pipelineSpecs []pipeline.Spec
 		sql := `SELECT pipeline_specs.*, job_pipeline_specs.job_id FROM pipeline_specs JOIN job_pipeline_specs ON (pipeline_specs.id = job_pipeline_specs.pipeline_spec_id);`

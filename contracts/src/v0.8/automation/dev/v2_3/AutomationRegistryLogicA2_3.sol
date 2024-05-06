@@ -11,7 +11,7 @@ import {AutomationForwarder} from "../../AutomationForwarder.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {UpkeepTranscoderInterfaceV2} from "../../interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {MigratableKeeperRegistryInterfaceV2} from "../../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -198,6 +198,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       delete s_upkeepOffchainConfig[id];
       // nullify existing proposed admin change if an upkeep is being migrated
       delete s_proposedAdmin[id];
+      delete s_upkeepAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }

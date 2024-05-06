@@ -82,10 +82,13 @@ func (rs *RegistrySynchronizer) processLogs(ctx context.Context) {
 		}
 
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			rs.logger.Error(err)
 		}
 
-		err = rs.logBroadcaster.MarkConsumed(ctx, broadcast)
+		err = rs.logBroadcaster.MarkConsumed(ctx, nil, broadcast)
 		if err != nil {
 			rs.logger.Error(errors.Wrapf(err, "unable to mark %T log as consumed, log: %v", broadcast.RawLog(), broadcast.String()))
 		}

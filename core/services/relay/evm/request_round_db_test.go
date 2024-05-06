@@ -37,9 +37,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 
 	t.Run("saves latest round requested", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		err := db.Transact(ctx, func(tx evm.RequestRoundDB) error {
-			return tx.SaveLatestRoundRequested(ctx, rr)
-		})
+		err := db.SaveLatestRoundRequested(ctx, rr)
 		require.NoError(t, err)
 
 		rawLog.Index = 42
@@ -53,9 +51,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 			Raw:          rawLog,
 		}
 
-		err = db.Transact(ctx, func(tx evm.RequestRoundDB) error {
-			return tx.SaveLatestRoundRequested(ctx, rr)
-		})
+		err = db.SaveLatestRoundRequested(ctx, rr)
 		require.NoError(t, err)
 	})
 

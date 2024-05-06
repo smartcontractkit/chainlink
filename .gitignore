@@ -23,7 +23,8 @@ tools/clroot/db.sqlite3-wal
 .DS_Store
 .envrc
 .env*
-!charts/chainlink-cluster/.env.example
+.dbenv
+!crib/.env.example
 !.github/actions/setup-postgres/.env
 .direnv
 .idea
@@ -49,6 +50,7 @@ output.txt
 race.*
 golangci-lint-output.txt
 /golangci-lint/
+.covdata
 
 # DB state
 ./db/
@@ -97,3 +99,5 @@ override*.toml
 
 # Pythin venv
 .venv/
+
+ocr_soak_report.csv

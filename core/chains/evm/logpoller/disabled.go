@@ -121,3 +121,11 @@ func (d disabled) LogsDataWordBetween(ctx context.Context, eventSig common.Hash,
 func (d disabled) FilteredLogs(_ query.KeyFilter, _ query.LimitAndSort) ([]Log, error) {
 	return nil, nil
 }
+
+func (d disabled) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
+	return nil, ErrDisabled
+}
+
+func (d disabled) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
+	return ErrDisabled
+}

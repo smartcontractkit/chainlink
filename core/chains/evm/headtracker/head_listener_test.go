@@ -25,6 +25,7 @@ import (
 )
 
 func Test_HeadListener_HappyPath(t *testing.T) {
+	t.Parallel()
 	// Logic:
 	// - spawn a listener instance
 	// - mock SubscribeNewHead/Err/Unsubscribe to track these calls
@@ -91,6 +92,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 }
 
 func Test_HeadListener_NotReceivingHeads(t *testing.T) {
+	t.Parallel()
 	// Logic:
 	// - same as Test_HeadListener_HappyPath, but
 	// - send one head, make sure ReceivingHeads() is true
@@ -149,6 +151,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 }
 
 func Test_HeadListener_SubscriptionErr(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		err      error

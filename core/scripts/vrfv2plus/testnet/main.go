@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ethereum/go-ethereum"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_specific_util_helper"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -45,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -56,6 +56,7 @@ var (
 )
 
 func main() {
+	ctx := context.Background()
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
@@ -196,8 +197,8 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pg.NewQConfig(false))
-		err = keyStore.Unlock(*keystorePassword)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
 		k, err := keyStore.VRF().Get(*pubKeyHex)
@@ -292,8 +293,8 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pg.NewQConfig(false))
-		err = keyStore.Unlock(*keystorePassword)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
 		k, err := keyStore.VRF().Get(*pubKeyHex)
@@ -597,6 +598,24 @@ func main() {
 		tx, err := coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y})
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	case "coordinator-register-migratable-coordinator":
+		coordinatorRegisterMigratableCoordinator := flag.NewFlagSet("coordinator-register-migratable-coordinator", flag.ExitOnError)
+		coordinatorAddress := coordinatorRegisterMigratableCoordinator.String("address", "", "coordinator address from which to register migratable coordinator")
+		coordinatorMigrateToAddress := coordinatorRegisterMigratableCoordinator.String("coordinator-migrate-to-address", "", "coordinator address to register in order for perform sub migration to")
+		helpers.ParseArgs(coordinatorRegisterMigratableCoordinator, os.Args[2:], "address", "coordinator-migrate-to-address")
+		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		v2plusscripts.RegisterMigratableCoordinator(e, *coordinator, common.HexToAddress(*coordinatorMigrateToAddress))
+	case "coordinator-migrate-sub":
+		coordinatorMigrateSub := flag.NewFlagSet("coordinator-migrate-sub", flag.ExitOnError)
+		coordinatorAddress := coordinatorMigrateSub.String("address", "", "coordinator address from which to migrate a sub")
+		coordinatorMigrateToAddress := coordinatorMigrateSub.String("coordinator-migrate-to-address", "", "coordinator address to migrate sub to")
+		subID := coordinatorMigrateSub.String("sub-id", "", "sub-id")
+		helpers.ParseArgs(coordinatorMigrateSub, os.Args[2:], "address", "coordinator-migrate-to-address", "sub-id")
+		parsedSubID := parseUInt256String(*subID)
+		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		v2plusscripts.MigrateSub(e, *coordinator, common.HexToAddress(*coordinatorMigrateToAddress), parsedSubID)
 	case "coordinator-subscription":
 		coordinatorSub := flag.NewFlagSet("coordinator-subscription", flag.ExitOnError)
 		address := coordinatorSub.String("address", "", "coordinator address")
@@ -1189,7 +1208,8 @@ func main() {
 		cmd := flag.NewFlagSet("wrapper-configure", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
 		wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
-		coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
+		coordinatorGasOverheadNative := cmd.Uint("coordinator-gas-overhead-native", 52_000, "amount of gas overhead in coordinator fulfillment for native payment")
+		coordinatorGasOverheadLink := cmd.Uint("coordinator-gas-overhead-link", 52_000, "amount of gas overhead in coordinator fulfillment for link payment")
 		coordinatorGasOverheadPerWord := cmd.Uint("coordinator-gas-overhead-per-word", 0, "amount of gas overhead in coordinator fulfillment")
 		wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
 		wrapperLinkPremiumPercentage := cmd.Uint("wrapper-link-premium-percentage", 25, "gas premium charged by wrapper for link payment")
@@ -1204,7 +1224,8 @@ func main() {
 		v2plusscripts.WrapperConfigure(e,
 			common.HexToAddress(*wrapperAddress),
 			*wrapperGasOverhead,
-			*coordinatorGasOverhead,
+			*coordinatorGasOverheadNative,
+			*coordinatorGasOverheadLink,
 			*coordinatorGasOverheadPerWord,
 			*wrapperNativePremiumPercentage,
 			*wrapperLinkPremiumPercentage,
@@ -1214,7 +1235,13 @@ func main() {
 			uint32(*stalenessSeconds),
 			uint32(*fulfillmentFlatFeeNativePPM),
 			uint32(*fulfillmentFlatFeeLinkDiscountPPM))
-
+	case "wrapper-get-config":
+		cmd := flag.NewFlagSet("wrapper-get-config", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "wrapper address")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address")
+		wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		v2plusscripts.PrintWrapperConfig(wrapper)
 	case "wrapper-get-fulfillment-tx-size":
 		cmd := flag.NewFlagSet("wrapper-get-fulfillment-tx-size", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
@@ -1249,13 +1276,19 @@ func main() {
 		cbGasLimit := cmd.Uint("cb-gas-limit", 100_000, "request callback gas limit")
 		confirmations := cmd.Uint("request-confirmations", 3, "request confirmations")
 		numWords := cmd.Uint("num-words", 1, "num words to request")
+		nativePayment := cmd.Bool("native-payment", false, "whether to use native payment or not")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
 
 		consumer, err := vrfv2plus_wrapper_consumer_example.NewVRFV2PlusWrapperConsumerExample(
 			common.HexToAddress(*consumerAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		tx, err := consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
+		var tx *types.Transaction
+		if *nativePayment {
+			tx, err = consumer.MakeRequestNative(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
+		} else {
+			tx, err = consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
+		}
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-consumer-request-status":

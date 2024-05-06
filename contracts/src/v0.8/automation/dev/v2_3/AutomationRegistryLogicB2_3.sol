@@ -6,7 +6,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
@@ -430,14 +430,14 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
    * @param asset the asset to withdraw
    * @param to the address to send the fees to
    * @param amount the amount to withdraw
-   * @dev we prevent withdrawing non-LINK fees unless there is sufficient LINK liquidity
+   * @dev in ON_CHAIN mode, we prevent withdrawing non-LINK fees unless there is sufficient LINK liquidity
    * to cover all outstanding debts on the registry
    */
   function withdrawERC20Fees(IERC20 asset, address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     if (address(asset) == address(i_link)) revert InvalidToken();
-    if (_linkAvailableForPayment() < 0) revert InsufficientLinkLiquidity();
+    if (_linkAvailableForPayment() < 0 && s_payoutMode == PayoutMode.ON_CHAIN) revert InsufficientLinkLiquidity();
     uint256 available = asset.balanceOf(address(this)) - s_reserveAmounts[asset];
     if (amount > available) revert InsufficientBalance(available, amount);
 

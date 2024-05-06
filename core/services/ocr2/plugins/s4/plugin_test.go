@@ -205,7 +205,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		ormRows := make([]*s4_svc.Row, 0)
 		rows := generateTestRows(t, 10, time.Minute)
 		orm.On("Update", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			updateRow := args.Get(0).(*s4_svc.Row)
+			updateRow := args.Get(1).(*s4_svc.Row)
 			ormRows = append(ormRows, updateRow)
 		}).Return(nil).Times(10)
 
@@ -344,8 +344,8 @@ func TestPlugin_Observation(t *testing.T) {
 		for _, or := range ormRows {
 			or.Confirmed = false
 		}
-		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
-		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows, nil).Once()
+		orm.On("DeleteExpired", mock.Anything, uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
+		orm.On("GetUnconfirmedRows", mock.Anything, config.MaxObservationEntries).Return(ormRows, nil).Once()
 
 		observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, []byte{})
 		assert.NoError(t, err)
@@ -370,8 +370,8 @@ func TestPlugin_Observation(t *testing.T) {
 				Confirmed: or.Confirmed,
 			}
 		}
-		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
-		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows[numUnconfirmed:], nil).Once()
+		orm.On("DeleteExpired", mock.Anything, uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
+		orm.On("GetUnconfirmedRows", mock.Anything, config.MaxObservationEntries).Return(ormRows[numUnconfirmed:], nil).Once()
 		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(snapshot, nil).Once()
 
 		snapshotRows := rowsToShapshotRows(ormRows)
@@ -388,7 +388,7 @@ func TestPlugin_Observation(t *testing.T) {
 			if i < numHigherVersion {
 				ormRows[i].Version++
 				snapshot[i].Version++
-				orm.On("Get", v.Address, v.SlotId, mock.Anything).Return(ormRows[i], nil).Once()
+				orm.On("Get", mock.Anything, v.Address, v.SlotId).Return(ormRows[i], nil).Once()
 			}
 		}
 		queryBytes, err := proto.Marshal(query)
@@ -447,11 +447,11 @@ func TestPlugin_Observation(t *testing.T) {
 		queryBytes, err := proto.Marshal(query)
 		assert.NoError(t, err)
 
-		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
-		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return([]*s4_svc.Row{}, nil).Once()
+		orm.On("DeleteExpired", mock.Anything, uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
+		orm.On("GetUnconfirmedRows", mock.Anything, config.MaxObservationEntries).Return([]*s4_svc.Row{}, nil).Once()
 		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(snapshot, nil).Once()
-		orm.On("Get", snapshot[1].Address, snapshot[1].SlotId, mock.Anything).Return(ormRows[1], nil).Once()
-		orm.On("Get", snapshot[2].Address, snapshot[2].SlotId, mock.Anything).Return(ormRows[2], nil).Once()
+		orm.On("Get", mock.Anything, snapshot[1].Address, snapshot[1].SlotId).Return(ormRows[1], nil).Once()
+		orm.On("Get", mock.Anything, snapshot[2].Address, snapshot[2].SlotId).Return(ormRows[2], nil).Once()
 
 		observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, queryBytes)
 		assert.NoError(t, err)

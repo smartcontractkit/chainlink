@@ -869,7 +869,8 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
 	subscriptionID := cmd.String("subscription-id", "", "subscription ID for the wrapper")
 	wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
-	coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
+	coordinatorGasOverheadNative := cmd.Uint("coordinator-gas-overhead-native", 52_000, "amount of gas overhead in coordinator fulfillment for native payment")
+	coordinatorGasOverheadLink := cmd.Uint("coordinator-gas-overhead-link", 74_000, "amount of gas overhead in coordinator fulfillment for link payment")
 	coordinatorGasOverheadPerWord := cmd.Uint("coordinator-gas-overhead-per-word", 0, "amount of gas overhead per word in coordinator fulfillment")
 	wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
 	wrapperLinkPremiumPercentage := cmd.Uint("wrapper-link-premium-percentage", 25, "gas premium charged by wrapper for link payment")
@@ -899,7 +900,8 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	WrapperConfigure(e,
 		wrapper,
 		*wrapperGasOverhead,
-		*coordinatorGasOverhead,
+		*coordinatorGasOverheadNative,
+		*coordinatorGasOverheadLink,
 		*coordinatorGasOverheadPerWord,
 		*wrapperNativePremiumPercentage,
 		*wrapperLinkPremiumPercentage,
