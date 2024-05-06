@@ -3,13 +3,13 @@ package ocrcommon
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringAdapter)(nil)
@@ -82,13 +82,13 @@ var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(
 type OCR3OnchainKeyringMultiChainAdapter struct {
 	ks         keystore.OCR2
 	st         ocr2.OCR2OnchainSigningStrategy
-	keyBundles map[relay.Network]ocr2key.KeyBundle
+	keyBundles map[string]ocr2key.KeyBundle
 	publicKey  ocrtypes.OnchainPublicKey
 }
 
 func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st ocr2.OCR2OnchainSigningStrategy) (*OCR3OnchainKeyringMultiChainAdapter, error) {
-	var keyBundles map[relay.Network]ocr2key.KeyBundle
-	for chainFamily, _ := range relay.SupportedRelays {
+	var keyBundles map[string]ocr2key.KeyBundle
+	for chainFamily, _ := range types.SupportedRelays {
 		kbID, err := st.KeyBundleID(chainFamily)
 		if err != nil {
 			return nil, err
@@ -112,7 +112,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublic
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
-	kb := a.keyBundles[relay.EVM] // TODO: how do we get the bundle name from the report info?
+	kb := a.keyBundles[types.NetworkEVM] // TODO: how do we get the bundle name from the report info?
 	return kb.Sign(ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -124,7 +124,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
-	kb := a.keyBundles[relay.EVM] // TODO: how do we get the bundle name from the report info?
+	kb := a.keyBundles[types.NetworkEVM] // TODO: how do we get the bundle name from the report info?
 	return kb.Verify(opk, ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -136,6 +136,6 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicK
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) MaxSignatureLength() int {
-	kb := a.keyBundles[relay.EVM] // TODO: how do we get the bundle name at this point? No reporting info is available
+	kb := a.keyBundles[types.NetworkEVM] // TODO: how do we get the bundle name at this point? No reporting info is available
 	return kb.MaxSignatureLength()
 }
