@@ -1,4 +1,5 @@
 ChainID = '168587773'
+ChainType = 'optimismBedrock'
 FinalityTagEnabled = true
 
 [GasEstimator]

@@ -6575,6 +6575,7 @@ GasLimit = 6500000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'optimismBedrock'
 FinalityDepth = 50
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
