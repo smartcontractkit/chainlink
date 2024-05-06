@@ -235,6 +235,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Conf
 func SetupVRFV2WrapperEnvironment(
 	ctx context.Context,
 	env *test_env.CLClusterTestEnv,
+	chainID int64,
 	vrfv2TestConfig tc.VRFv2TestConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
@@ -242,7 +243,7 @@ func SetupVRFV2WrapperEnvironment(
 	keyHash [32]byte,
 	wrapperConsumerContractsAmount int,
 ) (*VRFV2WrapperContracts, *uint64, error) {
-	sethClient, err := env.GetSethClientForSelectedNetwork()
+	sethClient, err := env.GetSethClient(chainID)
 	if err != nil {
 		return nil, nil, err
 	}

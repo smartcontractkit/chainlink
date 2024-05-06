@@ -326,14 +326,26 @@ func SetupVRFV2PlusWrapperEnvironment(
 	}
 
 	//fund consumer with Eth
+	gasLimit := int64(2 * 21000)
 	_, err = actions_seth.SendFunds(l, sethClient, actions_seth.FundsToSendPayload{
 		ToAddress:  common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()),
 		Amount:     conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken)),
 		PrivateKey: sethClient.PrivateKeys[0],
+		GasLimit:   &gasLimit,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
+
+	wrapperConsumerBalanceBeforeRequestWei, err := sethClient.Client.BalanceAt(context.Background(), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()), nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	l.Info().
+		Str("WrapperConsumerBalanceBeforeRequestWei", wrapperConsumerBalanceBeforeRequestWei.String()).
+		Str("WrapperConsumerAddress", wrapperContracts.LoadTestConsumers[0].Address()).
+		Msg("WrapperConsumerBalanceBeforeRequestWei")
+
 	return wrapperContracts, wrapperSubID, nil
 }
 
