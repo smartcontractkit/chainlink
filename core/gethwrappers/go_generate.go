@@ -155,6 +155,9 @@ package gethwrappers
 // Mercury
 //go:generate go generate ./llo-feeds
 
+// Operator Forwarder
+//go:generate go generate ./operatorforwarder
+
 // Shared
 //go:generate go generate ./shared
 
