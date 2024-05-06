@@ -173,4 +173,13 @@ func Test_Poller_Unsubscribe(t *testing.T) {
 		poller.Unsubscribe()
 		poller.Unsubscribe()
 	})
+
+	t.Run("Read channel after unsubscribe", func(t *testing.T) {
+		poller, channel := NewPoller[Head](time.Millisecond, pollFunc, time.Second, lggr)
+		err := poller.Start()
+		require.NoError(t, err)
+
+		poller.Unsubscribe()
+		require.Equal(t, <-channel, nil)
+	})
 }
