@@ -71,9 +71,9 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
-		maxBlockNumber, maxFinalizedBlockNumber := rpc.GetInterceptedChainInfo()
-		require.Equal(t, int64(0), maxBlockNumber)
-		require.Equal(t, int64(0), maxFinalizedBlockNumber)
+		chainInfo := rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(0), chainInfo.BlockNumber)
+		require.Equal(t, int64(0), chainInfo.FinalizedBlockNumber)
 		server.Head = &evmtypes.Head{
 			Number:          256,
 			TotalDifficulty: big.NewInt(1000),
@@ -84,9 +84,9 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 			TotalDifficulty: big.NewInt(1000),
 		}
 		_ = receiveNewHead(rpc)
-		maxBlockNumber, maxFinalizedBlockNumber = rpc.GetInterceptedChainInfo()
-		assert.Equal(t, int64(256), maxBlockNumber)
-		assert.Equal(t, int64(0), maxFinalizedBlockNumber)
+		chainInfo = rpc.GetInterceptedChainInfo()
+		assert.Equal(t, int64(256), chainInfo.BlockNumber)
+		assert.Equal(t, int64(0), chainInfo.FinalizedBlockNumber)
 	})
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := createRPCServer()
@@ -218,16 +218,16 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	// updates chain info
 	_, err := rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	maxBlockNumber, maxFinalizedBlockNumber := rpc.GetInterceptedChainInfo()
-	assert.Equal(t, int64(0), maxBlockNumber)
-	assert.Equal(t, int64(128), maxFinalizedBlockNumber)
+	chainInfo := rpc.GetInterceptedChainInfo()
+	assert.Equal(t, int64(0), chainInfo.BlockNumber)
+	assert.Equal(t, int64(128), chainInfo.FinalizedBlockNumber)
 
 	// lower block number does not update Highest
 	server.Head = &evmtypes.Head{Number: 127}
 	_, err = rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	maxBlockNumber, maxFinalizedBlockNumber = rpc.GetInterceptedChainInfo()
-	assert.Equal(t, int64(0), maxBlockNumber)
-	assert.Equal(t, int64(128), maxFinalizedBlockNumber)
+	chainInfo = rpc.GetInterceptedChainInfo()
+	assert.Equal(t, int64(0), chainInfo.BlockNumber)
+	assert.Equal(t, int64(128), chainInfo.FinalizedBlockNumber)
 
 }

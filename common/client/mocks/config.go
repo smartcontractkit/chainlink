@@ -7,10 +7,11 @@ import (
 )
 
 type ChainConfig struct {
-	IsFinalityTagEnabled   bool
-	FinalityDepthVal       uint32
-	NoNewHeadsThresholdVal time.Duration
-	ChainTypeVal           commonconfig.ChainType
+	IsFinalityTagEnabled    bool
+	FinalityDepthVal        uint32
+	NoNewHeadsThresholdVal  time.Duration
+	ChainTypeVal            commonconfig.ChainType
+	FinalizedBlockOffsetVal uint32
 }
 
 func (t ChainConfig) ChainType() commonconfig.ChainType {
@@ -27,4 +28,8 @@ func (t ChainConfig) FinalityDepth() uint32 {
 
 func (t ChainConfig) FinalityTagEnabled() bool {
 	return t.IsFinalityTagEnabled
+}
+
+func (t ChainConfig) FinalizedBlockOffset() uint32 {
+	return t.FinalizedBlockOffsetVal
 }

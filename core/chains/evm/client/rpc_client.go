@@ -56,7 +56,7 @@ type RPCClient interface {
 	SuggestGasPrice(ctx context.Context) (p *big.Int, err error)
 	SuggestGasTipCap(ctx context.Context) (t *big.Int, err error)
 	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error)
-	GetInterceptedChainInfo() (highestBlockNumber, highestLatestFinalizedBlock int64)
+	GetInterceptedChainInfo() commonclient.ChainInfo
 }
 
 type rpcClient struct {
@@ -84,10 +84,7 @@ type rpcClient struct {
 	chStopInFlight chan struct{}
 
 	// intercepted values seen by callers of the rpcClient. Need to ensure MultiNode provides repeatable read guarantee
-	// highestBlockNumber - maximum block number ever observed
-	highestBlockNumber int64
-	// highestFinalizedBlockNum - maximum block number ever observed for finalized block
-	highestFinalizedBlockNum int64
+	chainInfo commonclient.ChainInfo
 }
 
 // NewRPCCLient returns a new *rpcClient as commonclient.RPC
@@ -1087,7 +1084,8 @@ func (r *rpcClient) oneNewHead(head *evmtypes.Head) {
 
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
-	r.highestBlockNumber = max(r.highestBlockNumber, head.Number)
+	r.chainInfo.BlockNumber = max(r.chainInfo.BlockNumber, head.Number)
+	r.chainInfo.SetTotalDifficultyIfGt(head.TotalDifficulty)
 }
 
 func (r *rpcClient) oneNewFinalizedHead(head *evmtypes.Head) {
@@ -1096,12 +1094,11 @@ func (r *rpcClient) oneNewFinalizedHead(head *evmtypes.Head) {
 	}
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
-	r.highestFinalizedBlockNum = max(r.highestFinalizedBlockNum, head.Number)
+	r.chainInfo.FinalizedBlockNumber = max(r.chainInfo.FinalizedBlockNumber, head.Number)
 }
 
-func (r *rpcClient) GetInterceptedChainInfo() (highestBlockNumber, highestLatestFinalizedBlock int64) {
+func (r *rpcClient) GetInterceptedChainInfo() commonclient.ChainInfo {
 	r.stateMu.RLock()
-	head, finalized := r.highestBlockNumber, r.highestFinalizedBlockNum
-	r.stateMu.RUnlock()
-	return head, finalized
+	defer r.stateMu.RUnlock()
+	return r.chainInfo
 }

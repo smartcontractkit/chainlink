@@ -185,14 +185,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			if n.ConfiguredChainID().String() != c.chainID.String() {
 				return ms.CloseBecause(fmt.Errorf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
 			}
-			rawNode, ok := n.(*node[CHAIN_ID, HEAD, RPC_CLIENT])
-			if ok {
-				// This is a bit hacky but it allows the node to be aware of
-				// pool state and prevent certain state transitions that might
-				// otherwise leave no nodes available. It is better to have one
-				// node in a degraded state than no nodes at all.
-				rawNode.nLiveNodes = c.nLiveNodes
-			}
+			n.SetPoolChainInfoProvider(c)
 			// node will handle its own redialing and automatic recovery
 			if err := ms.Start(ctx, n); err != nil {
 				return err
@@ -271,22 +264,37 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return c.activeNode, err
 }
 
-// nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
-// totalDifficulty will be 0 if all nodes return nil.
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *big.Int) {
-	totalDifficulty = big.NewInt(0)
+// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being marked as out-of-sync.
+// Return highest ChainInfo most recently received by the alive nodes.
+// E.g. If Node A's the most recent block is 10 and highest 15 and for Node B it's - 12 and 14. This method will return 12.
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) LatestChainInfo() (int, ChainInfo) {
+	var nLiveNodes int
+	ch := ChainInfo{
+		TotalDifficulty: big.NewInt(0),
+	}
 	for _, n := range c.nodes {
-		if s, num, td := n.StateAndLatest(); s == nodeStateAlive {
+		if s, nodeChainInfo := n.StateAndLatestChainInfo(); s == nodeStateAlive {
 			nLiveNodes++
-			if num > blockNumber {
-				blockNumber = num
-			}
-			if td != nil && td.Cmp(totalDifficulty) > 0 {
-				totalDifficulty = td
-			}
+			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
+			ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
+			ch.SetTotalDifficultyIfGt(nodeChainInfo.TotalDifficulty)
 		}
 	}
-	return
+	return nLiveNodes, ch
+}
+
+// HighestChainInfo - returns highest ChainInfo ever observed by any node in the pool.
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) HighestChainInfo() ChainInfo {
+	ch := ChainInfo{
+		TotalDifficulty: big.NewInt(0),
+	}
+	for _, n := range c.nodes {
+		nodeChainInfo := n.HighestChainInfo()
+		ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
+		ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
+		ch.SetTotalDifficultyIfGt(nodeChainInfo.TotalDifficulty)
+	}
+	return ch
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) checkLease() {

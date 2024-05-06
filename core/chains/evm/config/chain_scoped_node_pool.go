@@ -39,3 +39,8 @@ func (n *NodePoolConfig) FinalizedBlockPollInterval() time.Duration {
 }
 
 func (n *NodePoolConfig) Errors() ClientErrors { return &clientErrorsConfig{c: n.C.Errors} }
+
+func (n *NodePoolConfig) EnforceRepeatableRead() bool {
+	// TODO: DH implement me
+	return false
+}

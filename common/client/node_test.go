@@ -18,6 +18,7 @@ type testNodeConfig struct {
 	selectionMode              string
 	syncThreshold              uint32
 	nodeIsSyncingEnabled       bool
+	enforceRepeatableRead      bool
 	finalizedBlockPollInterval time.Duration
 	errors                     config.ClientErrors
 }
@@ -48,6 +49,10 @@ func (n testNodeConfig) FinalizedBlockPollInterval() time.Duration {
 
 func (n testNodeConfig) Errors() config.ClientErrors {
 	return n.errors
+}
+
+func (n testNodeConfig) EnforceRepeatableRead() bool {
+	return n.enforceRepeatableRead
 }
 
 type testNode struct {

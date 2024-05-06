@@ -192,9 +192,12 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 1, 20, big.NewInt(10)
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber: 20,
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
+		node.setLatestChainInfo(ChainInfo{BlockNumber: 20})
 		pollError := errors.New("failed to get ClientVersion")
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
 		node.declareAlive()
@@ -216,10 +219,13 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.stateLatestBlockNumber = 20
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 10, syncThreshold + node.stateLatestBlockNumber + 1, big.NewInt(10)
-		}
+		node.latestChainInfo.BlockNumber = 20
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(10, ChainInfo{
+			BlockNumber:     syncThreshold + node.latestChainInfo.BlockNumber + 1,
+			TotalDifficulty: big.NewInt(10),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
 		// tries to redial in outOfSync
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
@@ -249,10 +255,13 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.stateLatestBlockNumber = 20
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 1, syncThreshold + node.stateLatestBlockNumber + 1, big.NewInt(10)
-		}
+		node.latestChainInfo.BlockNumber = 20
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber:     syncThreshold + node.latestChainInfo.BlockNumber + 1,
+			TotalDifficulty: big.NewInt(10),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState))
@@ -271,10 +280,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.stateLatestBlockNumber = 20
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 1, node.stateLatestBlockNumber + 100, big.NewInt(10)
-		}
+		node.latestChainInfo.BlockNumber = 20
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
 		node.declareAlive()
 		tests.AssertLogCountEventually(t, observedLogs, "Version poll successful", 2)
@@ -320,9 +326,12 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			rpc: rpc,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 1, 20, big.NewInt(10)
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber:     20,
+			TotalDifficulty: big.NewInt(10),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState))
 		assert.Equal(t, nodeStateAlive, node.State())
@@ -364,22 +373,25 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		expectedBlockNumber := rand.Int64()
-		expectedDiff := big.NewInt(rand.Int64())
+		expectedBlockNumber := rand.Int63()
+		expectedDiff := big.NewInt(rand.Int63())
 		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			go writeHeads(t, ch, head{BlockNumber: expectedBlockNumber, BlockDifficulty: expectedDiff})
 		}).Return(sub, nil).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
 		node := newDialedNode(t, testNodeOpts{
-			config: testNodeConfig{},
-			rpc:    rpc,
+			config:      testNodeConfig{},
+			chainConfig: clientMocks.ChainConfig{IsFinalityTagEnabled: true},
+			rpc:         rpc,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		node.declareAlive()
 		tests.AssertEventually(t, func() bool {
-			state, block, diff := node.StateAndLatest()
-			return state == nodeStateAlive && block == expectedBlockNumber == bigmath.Equal(diff, expectedDiff)
+			state, chainInfo := node.StateAndLatestChainInfo()
+			return state == nodeStateAlive && chainInfo.BlockNumber == expectedBlockNumber && bigmath.Equal(chainInfo.TotalDifficulty, expectedDiff) &&
+				// finality tag is enabled, so must not update finalized block number
+				chainInfo.FinalizedBlockNumber == 0
 		})
 	})
 	t.Run("If finality tag is not enabled updates finalized block metric using finality depth and latest head", func(t *testing.T) {
@@ -464,7 +476,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, "Latest finalized block is not valid")
 	})
-	t.Run("If finality tag and finalized block polling are enabled updates latest finalized block metric", func(t *testing.T) {
+	t.Run("If finality tag and finalized block polling are enabled updates latest finalized block metric & LatestChainInfo", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		const expectedBlock = 1101
@@ -501,7 +513,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			require.NoError(t, err)
 			var m = &prom.Metric{}
 			require.NoError(t, metric.Write(m))
-			return float64(expectedBlock) == m.Gauge.GetValue()
+			return float64(expectedBlock) == m.Gauge.GetValue() && node.getLatestChainInfo().FinalizedBlockNumber == expectedBlock
 		})
 	})
 }
@@ -819,9 +831,12 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 			lggr:    lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 0, 100, big.NewInt(200)
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(0, ChainInfo{
+			BlockNumber:     100,
+			TotalDifficulty: big.NewInt(200),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
@@ -1310,9 +1325,8 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 	})
 	t.Run("skip if syncThreshold is not configured", func(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{})
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		node.SetPoolChainInfoProvider(poolInfo)
 		outOfSync, liveNodes := node.syncStatus(0, nil)
 		assert.Equal(t, false, outOfSync)
 		assert.Equal(t, 0, liveNodes)
@@ -1321,9 +1335,9 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{
 			config: testNodeConfig{syncThreshold: 1},
 		})
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 		assert.Panics(t, func() {
 			_, _ = node.syncStatus(0, nil)
 		})
@@ -1367,9 +1381,12 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 					selectionMode: selectionMode,
 				},
 			})
-			node.nLiveNodes = func() (int, int64, *big.Int) {
-				return nodesNum, highestBlock, big.NewInt(totalDifficulty)
-			}
+			poolInfo := newMockPoolChainInfoProvider(t)
+			poolInfo.On("LatestChainInfo").Return(nodesNum, ChainInfo{
+				BlockNumber:     highestBlock,
+				TotalDifficulty: big.NewInt(totalDifficulty),
+			})
+			node.SetPoolChainInfoProvider(poolInfo)
 			for _, td := range []int64{totalDifficulty - syncThreshold - 1, totalDifficulty - syncThreshold, totalDifficulty, totalDifficulty + 1} {
 				for _, testCase := range testCases {
 					t.Run(fmt.Sprintf("%s: SelectionModeVal: %s: total difficulty: %d", testCase.name, selectionMode, td), func(t *testing.T) {
@@ -1420,9 +1437,13 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 				selectionMode: NodeSelectionModeTotalDifficulty,
 			},
 		})
-		node.nLiveNodes = func() (int, int64, *big.Int) {
-			return nodesNum, highestBlock, big.NewInt(totalDifficulty)
-		}
+
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(nodesNum, ChainInfo{
+			BlockNumber:     highestBlock,
+			TotalDifficulty: big.NewInt(totalDifficulty),
+		})
+		node.SetPoolChainInfoProvider(poolInfo)
 		for _, hb := range []int64{highestBlock - syncThreshold - 1, highestBlock - syncThreshold, highestBlock, highestBlock + 1} {
 			for _, testCase := range testCases {
 				t.Run(fmt.Sprintf("%s: SelectionModeVal: %s: highest block: %d", testCase.name, NodeSelectionModeTotalDifficulty, hb), func(t *testing.T) {
@@ -1581,4 +1602,97 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 			return node.State() == nodeStateAlive
 		})
 	})
+}
+
+func TestNode_State(t *testing.T) {
+	t.Run("If not Alive, returns as is", func(t *testing.T) {
+		for state := nodeState(0); state < nodeStateLen; state++ {
+			if state == nodeStateAlive {
+				continue
+			}
+
+			node := newTestNode(t, testNodeOpts{})
+			node.setState(state)
+			assert.Equal(t, state, node.State())
+		}
+	})
+	t.Run("If repeatable read is not enforced, returns alive", func(t *testing.T) {
+		node := newTestNode(t, testNodeOpts{})
+		node.setState(nodeStateAlive)
+		assert.Equal(t, nodeStateAlive, node.State())
+	})
+	testCases := []struct {
+		Name                    string
+		FinalizedBlockOffsetVal uint32
+		IsFinalityTagEnabled    bool
+		PoolChainInfo           ChainInfo
+		NodeChainInfo           ChainInfo
+		ExpectedState           nodeState
+	}{
+		{
+			Name:                    "If finality lag does not exceeds offset, returns alive (FinalityDepth)",
+			FinalizedBlockOffsetVal: 15,
+			PoolChainInfo: ChainInfo{
+				BlockNumber: 20,
+			},
+			NodeChainInfo: ChainInfo{
+				BlockNumber: 5,
+			},
+			ExpectedState: nodeStateAlive,
+		},
+		{
+			Name:                    "If finality lag does not exceeds offset, returns alive (FinalityTag)",
+			FinalizedBlockOffsetVal: 15,
+			IsFinalityTagEnabled:    true,
+			PoolChainInfo: ChainInfo{
+				FinalizedBlockNumber: 20,
+			},
+			NodeChainInfo: ChainInfo{
+				FinalizedBlockNumber: 5,
+			},
+			ExpectedState: nodeStateAlive,
+		},
+		{
+			Name:                    "If finality lag does not exceeds offset, returns nodeStateFinalizedBlockOutOfSync (FinalityDepth)",
+			FinalizedBlockOffsetVal: 15,
+			PoolChainInfo: ChainInfo{
+				BlockNumber: 20,
+			},
+			NodeChainInfo: ChainInfo{
+				BlockNumber: 4,
+			},
+			ExpectedState: nodeStateFinalizedBlockOutOfSync,
+		},
+		{
+			Name:                    "If finality lag does not exceeds offset, returns nodeStateFinalizedBlockOutOfSync (FinalityTag)",
+			FinalizedBlockOffsetVal: 15,
+			IsFinalityTagEnabled:    true,
+			PoolChainInfo: ChainInfo{
+				FinalizedBlockNumber: 20,
+			},
+			NodeChainInfo: ChainInfo{
+				FinalizedBlockNumber: 4,
+			},
+			ExpectedState: nodeStateFinalizedBlockOutOfSync,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			node := newTestNode(t, testNodeOpts{
+				config: testNodeConfig{
+					enforceRepeatableRead: true,
+				},
+				chainConfig: clientMocks.ChainConfig{
+					FinalizedBlockOffsetVal: tc.FinalizedBlockOffsetVal,
+					IsFinalityTagEnabled:    tc.IsFinalityTagEnabled,
+				},
+			})
+			poolInfo := newMockPoolChainInfoProvider(t)
+			poolInfo.On("HighestChainInfo").Return(tc.PoolChainInfo).Once()
+			node.SetPoolChainInfoProvider(poolInfo)
+			node.setLatestChainInfo(tc.NodeChainInfo)
+			node.setState(nodeStateAlive)
+			assert.Equal(t, tc.ExpectedState, node.State())
+		})
+	}
 }

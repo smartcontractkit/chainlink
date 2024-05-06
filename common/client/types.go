@@ -74,7 +74,7 @@ type NodeClient[
 	UnsubscribeAllExceptAliveLoop()
 	IsSyncing(ctx context.Context) (bool, error)
 	LatestFinalizedBlock(ctx context.Context) (HEAD, error)
-	GetInterceptedChainInfo() (highestBlockNumber, highestLatestFinalizedBlock int64)
+	GetInterceptedChainInfo() ChainInfo
 }
 
 // clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.
@@ -147,4 +147,32 @@ type connection[
 	ChainID(ctx context.Context) (CHAIN_ID, error)
 	Dial(ctx context.Context) error
 	SubscribeNewHead(ctx context.Context, channel chan<- HEAD) (types.Subscription, error)
+}
+
+// PoolChainInfoProvider - provides aggregation of nodes pool ChainInfo
+//
+//go:generate mockery --quiet --name PoolChainInfoProvider --structname mockPoolChainInfoProvider --filename "mock_pool_chain_info_provider_test.go" --inpackage --case=underscore
+type PoolChainInfoProvider interface {
+	// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being.
+	// Return highest latest ChainInfo within the alive nodes. E.g. most recent block number and highest block number
+	// observed by Node A are 10 and 15; Node B - 12 and 14. This method will return 12.
+	LatestChainInfo() (int, ChainInfo)
+	// HighestChainInfo - returns highest ChainInfo ever observed by any node in the pool.
+	HighestChainInfo() ChainInfo
+}
+
+// ChainInfo - defines RPC's or MultiNode's view on the chain
+type ChainInfo struct {
+	BlockNumber          int64
+	FinalizedBlockNumber int64
+	TotalDifficulty      *big.Int
+}
+
+func (c *ChainInfo) SetTotalDifficultyIfGt(td *big.Int) {
+	if td == nil || (c.TotalDifficulty != nil && c.TotalDifficulty.Cmp(td) >= 0) {
+		return
+	}
+
+	// allocate new Int, to prevent read/write race
+	c.TotalDifficulty = big.NewInt(0).Set(td)
 }

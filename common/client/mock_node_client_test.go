@@ -117,31 +117,21 @@ func (_m *mockNodeClient[CHAIN_ID, HEAD]) DisconnectAll() {
 }
 
 // GetInterceptedChainInfo provides a mock function with given fields:
-func (_m *mockNodeClient[CHAIN_ID, HEAD]) GetInterceptedChainInfo() (int64, int64) {
+func (_m *mockNodeClient[CHAIN_ID, HEAD]) GetInterceptedChainInfo() ChainInfo {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetInterceptedChainInfo")
 	}
 
-	var r0 int64
-	var r1 int64
-	if rf, ok := ret.Get(0).(func() (int64, int64)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() int64); ok {
+	var r0 ChainInfo
+	if rf, ok := ret.Get(0).(func() ChainInfo); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Get(0).(ChainInfo)
 	}
 
-	if rf, ok := ret.Get(1).(func() int64); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(int64)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // IsSyncing provides a mock function with given fields: ctx

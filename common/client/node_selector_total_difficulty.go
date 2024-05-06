@@ -27,11 +27,12 @@ func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID
 	var aliveNodes []Node[CHAIN_ID, HEAD, RPC]
 
 	for _, n := range s {
-		state, _, currentTD := n.StateAndLatest()
+		state, currentChainInfo := n.StateAndLatestChainInfo()
 		if state != nodeStateAlive {
 			continue
 		}
 
+		currentTD := currentChainInfo.TotalDifficulty
 		aliveNodes = append(aliveNodes, n)
 		if currentTD != nil && (highestTD == nil || currentTD.Cmp(highestTD) >= 0) {
 			if highestTD == nil || currentTD.Cmp(highestTD) > 0 {

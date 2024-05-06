@@ -179,3 +179,8 @@ func (e *EVMConfig) OperatorFactoryAddress() string {
 func (e *EVMConfig) LogPrunePageSize() uint32 {
 	return *e.C.LogPrunePageSize
 }
+
+func (e *EVMConfig) FinalizedBlockOffset() uint32 {
+	// TODO: DH implement me
+	return 0
+}
