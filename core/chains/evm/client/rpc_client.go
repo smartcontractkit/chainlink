@@ -93,8 +93,16 @@ func NewRPCClient(
 }
 
 func (r *rpcClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
-	//TODO implement me
-	panic("implement me")
+	pollFunc := func(ctx context.Context) (*evmtypes.Head, error) {
+		return r.blockByNumber(ctx, rpc.LatestBlockNumber.String())
+	}
+	interval := r.cfg.PollInterval() // TODO: Should this be PollInterval?
+	timeout := interval
+	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, pollFunc, timeout, r.rpcLog)
+	if err := poller.Start(); err != nil {
+		return nil, nil, err
+	}
+	return channel, &poller, nil
 }
 
 func (r *rpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
