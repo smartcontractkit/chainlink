@@ -42,8 +42,6 @@ set_pr_body() {
   # GitHub Issues/PRs messages have a max size limit on the message body payload.
   # This is the error: `body is too long (maximum is 65536 characters)`.
   max_pr_desc_char_length=65000
-  version=$(jq -r '.version' package.json)
-  echo "version=$version" >> $GITHUB_OUTPUT
   read -d '' pr_header <<EOF
 This PR is a preview of the changes that will be included in the next release. Please do not merge this PR.
 ---
@@ -111,6 +109,8 @@ tail -n +2 CHANGELOG.md > CHANGELOG.md.tmp
 pnpm changeset version
 
 version=$(jq -r '.version' package.json)
+echo "version=$version" >> $GITHUB_OUTPUT
+
 read -d '' changelog_content <<EOF
 # Changelog Chainlink Core
 
