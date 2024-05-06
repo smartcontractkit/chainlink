@@ -80,12 +80,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   struct CapabilityConfiguration {
     // This is unique for a DON instance .
     bytes32 capabilityId;
-    // This is used in the config digest to ensure uniqueness. Computed,
-    // auto-incremented.
-    uint32 onchainConfigVersion;
-    // This is used in the config digest to ensure uniqueness. Computed,
-    // auto-incremented.
-    uint32 offchainConfigVersion;
     // This configuration is expected to be decodeable on-chain (not enforced).
     // Any configuration that does not need to be verified on chain should live
     // in the `offchainConfig`. This configuration can be updated together with
@@ -359,5 +353,68 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @return bool True if the capability is deprecated, false otherwise
   function isCapabilityDeprecated(bytes32 capabilityId) external view returns (bool) {
     return s_deprecatedCapabilityIds.contains(capabilityId);
+  }
+
+  //   // CapabilityConfiguration is a struct that holds the capability
+  // // configuration for a DON instance. This configuration may differ between
+  // // DON instances serving the same capability.
+  // struct CapabilityConfiguration {
+  //   // This is unique for a DON instance .
+  //   bytes32 capabilityId;
+  //   // This is used in the config digest to ensure uniqueness. Computed,
+  //   // auto-incremented.
+  //   uint32 onchainConfigVersion;
+  //   // This is used in the config digest to ensure uniqueness. Computed,
+  //   // auto-incremented.
+  //   uint32 offchainConfigVersion;
+  //   // This configuration is expected to be decodeable on-chain (not enforced).
+  //   // Any configuration that does not need to be verified on chain should live
+  //   // in the `offchainConfig`. This configuration can be updated together with
+  //   // DON nodes.
+  //   bytes onchainConfig;
+  //   // This allows fine-grained configuration of capabilities across DON
+  //   // instances. This configuration can be updated together with DON nodes.
+  //   bytes offchainConfig;
+  // }
+
+  // // DON (Decentralized Oracle Network) is a grouping of nodes that support
+  // // the same capabilities.
+  // struct DON {
+  //   // Computed. Auto-increment.
+  //   uint32 id;
+  //   // Whether the DON accepts external capability requests.
+  //   bool isPublic;
+  //   // A set of p2pIds of nodes that belong to this DON. A node (the same
+  //   // p2pId) can belong to multiple DONs.
+  //   bytes32[] nodes;
+  //   CapabilityConfiguration[] capabilitiesConfigurations;
+  // }
+
+  // Starting with 1 to avoid confusion with the zero value.
+  uint32 private s_donId = 1;
+  mapping(uint32 => DON) private s_dons;
+
+  /// @notice Adds a DON
+  function addDON(
+    bytes32[] calldata nodes,
+    CapabilityConfiguration[] calldata capabilitiesConfigurations,
+    bool isPublic
+  ) external {
+    uint32 id = s_donId;
+
+    s_dons[id].isPublic = isPublic;
+
+    for (uint256 i; i < capabilitiesConfigurations.length; ++i) {
+      CapabilityConfiguration calldata configuration = capabilitiesConfigurations[i];
+
+      if (!s_capabilityIds.contains(configuration.capabilityId))
+        revert CapabilityDoesNotExist(configuration.capabilityId);
+
+      s_dons[id].capabilitiesConfigurations[i] = configuration;
+    }
+
+    s_dons[id].nodes = nodes;
+
+    ++s_donId;
   }
 }
