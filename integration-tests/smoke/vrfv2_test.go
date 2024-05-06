@@ -1324,10 +1324,16 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
+		var wgAllRequestsFulfilled sync.WaitGroup
+		wgAllRequestsFulfilled.Add(1)
+		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumers[0], 2*time.Minute, &wgAllRequestsFulfilled)
 		require.NoError(t, err)
-		//all requests fulfilled
-		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(int64(randRequestCount))))
+		wgAllRequestsFulfilled.Wait()
+
+		l.Info().
+			Interface("Request Count", requestCount).
+			Interface("Fulfilment Count", fulfilmentCount).
+			Msg("Request/Fulfilment Stats")
 
 		clNodeTxs, resp, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.ReadTransactions()
 		require.NoError(t, err)
@@ -1437,9 +1443,16 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
+		var wgAllRequestsFulfilled sync.WaitGroup
+		wgAllRequestsFulfilled.Add(1)
+		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumers[0], 2*time.Minute, &wgAllRequestsFulfilled)
 		require.NoError(t, err)
-		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(int64(randRequestCount))))
+		wgAllRequestsFulfilled.Wait()
+
+		l.Info().
+			Interface("Request Count", requestCount).
+			Interface("Fulfilment Count", fulfilmentCount).
+			Msg("Request/Fulfilment Stats")
 
 		fulfillmentTx, _, err := actions.GetTxByHash(testcontext.Get(t), evmClient, randomWordsFulfilledEvent.Raw.TxHash)
 		require.NoError(t, err, "error getting tx from hash")
