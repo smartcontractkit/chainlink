@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        config: [mainnet.toml, mainnet-secondary.toml]
+        config: [mainnet.toml]
     needs: [ build-chainlink, build-test-image ]
     # if the event is a scheduled event or the test type is load and no previous job failed
     if: ${{ (github.event_name == 'schedule' || inputs.test_type == 'load') && !contains(needs.*.result, 'failure') }}
