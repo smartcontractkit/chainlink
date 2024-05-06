@@ -2,11 +2,15 @@ package ocrcommon
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -84,12 +88,13 @@ type OCR3OnchainKeyringMultiChainAdapter struct {
 	st         ocr2.OCR2OnchainSigningStrategy
 	keyBundles map[string]ocr2key.KeyBundle
 	publicKey  ocrtypes.OnchainPublicKey
+	lggr       logger.Logger
 }
 
-func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st ocr2.OCR2OnchainSigningStrategy) (*OCR3OnchainKeyringMultiChainAdapter, error) {
+func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st ocr2.OCR2OnchainSigningStrategy, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
 	var keyBundles map[string]ocr2key.KeyBundle
-	for chainFamily, _ := range types.SupportedRelays {
-		kbID, err := st.KeyBundleID(chainFamily)
+	for name, _ := range st.Config {
+		kbID, err := st.KeyBundleID(name)
 		if err != nil {
 			return nil, err
 		}
@@ -97,14 +102,10 @@ func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st ocr2.OCR2Onchai
 		if err != nil {
 			return nil, err
 		}
-		keyBundles[chainFamily] = kb
+		keyBundles[name] = kb
 	}
-	pkKeyBundleID, _ := st.PublicKey()
-	kb, err := ks.Get(pkKeyBundleID)
-	if err != nil {
-		return nil, err
-	}
-	return &OCR3OnchainKeyringMultiChainAdapter{ks, st, keyBundles, kb.PublicKey()}, nil
+	// We don't need to check for the existence of `publicKey` in the keyBundles map because it is required on validation on `validate/validate.go`
+	return &OCR3OnchainKeyringMultiChainAdapter{ks, st, keyBundles, keyBundles["publicKey"].PublicKey(), lggr}, nil
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublicKey {
@@ -112,7 +113,21 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublic
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
-	kb := a.keyBundles[types.NetworkEVM] // TODO: how do we get the bundle name from the report info?
+	info := structpb.Struct{}
+	err = proto.Unmarshal(r.Info, &info)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal report info: %v", err)
+	}
+	infoMap := info.AsMap()
+	keyBundleName, ok := infoMap["keyBundleName"]
+	if !ok {
+		return nil, errors.New("keyBundleName not found in report info")
+	}
+	name, ok := keyBundleName.(string)
+	if !ok {
+		return nil, errors.New("keyBundleName is not a string")
+	}
+	kb := a.keyBundles[name]
 	return kb.Sign(ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -124,7 +139,24 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
-	kb := a.keyBundles[types.NetworkEVM] // TODO: how do we get the bundle name from the report info?
+	info := structpb.Struct{}
+	err := proto.Unmarshal(ri.Info, &info)
+	if err != nil {
+		a.lggr.Warn("failed to unmarshal report info", "err", err)
+		return false
+	}
+	infoMap := info.AsMap()
+	keyBundleName, ok := infoMap["keyBundleName"]
+	if !ok {
+		a.lggr.Warn("keyBundleName not found in report info")
+		return false
+	}
+	name, ok := keyBundleName.(string)
+	if !ok {
+		a.lggr.Warn("keyBundleName is not a string")
+		return false
+	}
+	kb := a.keyBundles[name]
 	return kb.Verify(opk, ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -136,6 +168,12 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicK
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) MaxSignatureLength() int {
-	kb := a.keyBundles[types.NetworkEVM] // TODO: how do we get the bundle name at this point? No reporting info is available
-	return kb.MaxSignatureLength()
+	maxLength := -1
+	for _, kb := range a.keyBundles {
+		l := kb.MaxSignatureLength()
+		if l > maxLength {
+			maxLength = l
+		}
+	}
+	return maxLength
 }

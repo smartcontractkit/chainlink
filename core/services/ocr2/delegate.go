@@ -693,7 +693,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		contractTransmitter := ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter())
 		var onchainKeyringAdapter ocr3types.OnchainKeyring[[]byte]
 		if onchainSigningStrategy.IsMultiChain() {
-			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(d.ks, onchainSigningStrategy)
+			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(d.ks, onchainSigningStrategy, lggr)
 			if err != nil {
 				return nil, err
 			}
