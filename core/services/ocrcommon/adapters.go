@@ -95,8 +95,8 @@ type OCR3OnchainKeyringMultiChainAdapter struct {
 }
 
 func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st OnchainSigningStrategy, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
-	var keyBundles map[string]ocr2key.KeyBundle
-	for name, _ := range st.ConfigCopy() {
+	keyBundles := map[string]ocr2key.KeyBundle{}
+	for name := range st.ConfigCopy() {
 		kbID, err := st.KeyBundleID(name)
 		if err != nil {
 			return nil, err
