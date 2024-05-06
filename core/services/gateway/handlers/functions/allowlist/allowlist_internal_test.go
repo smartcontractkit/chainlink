@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -17,59 +18,130 @@ import (
 )
 
 func TestUpdateAllowedSendersInBatches(t *testing.T) {
-	ctx := context.Background()
-	config := OnchainAllowlistConfig{
-		ContractAddress:           testutils.NewAddress(),
-		ContractVersion:           1,
-		BlockConfirmations:        1,
-		UpdateFrequencySec:        2,
-		UpdateTimeoutSec:          1,
-		StoredAllowlistBatchSize:  2,
-		OnchainAllowlistBatchSize: 10,
-		FetchingDelayInRangeSec:   1,
-	}
 
-	// allowlistSize defines how big the mocked allowlist will be
-	allowlistSize := 50
-	// allowlist represents the actual allowlist the tos contract will return
-	allowlist := make([]common.Address, 0, allowlistSize)
-	// expectedAllowlist will be used to compare the actual status with what we actually want
-	expectedAllowlist := make(map[common.Address]struct{}, 0)
+	t.Run("OK-simple_update_in_batches", func(t *testing.T) {
+		ctx := context.Background()
+		config := OnchainAllowlistConfig{
+			ContractAddress:           testutils.NewAddress(),
+			ContractVersion:           1,
+			BlockConfirmations:        1,
+			UpdateFrequencySec:        2,
+			UpdateTimeoutSec:          1,
+			StoredAllowlistBatchSize:  2,
+			OnchainAllowlistBatchSize: 10,
+			FetchingDelayInRangeSec:   1,
+		}
 
-	// we load both the expectedAllowlist and the allowlist the contract will return with some new addresses
-	for i := 0; i < allowlistSize; i++ {
-		addr := testutils.NewAddress()
-		allowlist = append(allowlist, addr)
-		expectedAllowlist[addr] = struct{}{}
-	}
+		// allowlistSize defines how big the mocked allowlist will be
+		allowlistSize := 50
+		// allowlist represents the actual allowlist the tos contract will return
+		allowlist := make([]common.Address, 0, allowlistSize)
+		// expectedAllowlist will be used to compare the actual status with what we actually want
+		expectedAllowlist := make(map[common.Address]struct{}, 0)
 
-	tosContract := NewTosContractMock(allowlist)
+		// we load both the expectedAllowlist and the allowlist the contract will return with some new addresses
+		for i := 0; i < allowlistSize; i++ {
+			addr := testutils.NewAddress()
+			allowlist = append(allowlist, addr)
+			expectedAllowlist[addr] = struct{}{}
+		}
 
-	// with the orm mock we can validate the actual order in which the allowlist is fetched giving priority to newest addresses
-	orm := amocks.NewORM(t)
-	firstCall := orm.On("CreateAllowedSenders", allowlist[40:50]).Times(1).Return(nil)
-	secondCall := orm.On("CreateAllowedSenders", allowlist[30:40]).Times(1).Return(nil).NotBefore(firstCall)
-	thirdCall := orm.On("CreateAllowedSenders", allowlist[20:30]).Times(1).Return(nil).NotBefore(secondCall)
-	forthCall := orm.On("CreateAllowedSenders", allowlist[10:20]).Times(1).Return(nil).NotBefore(thirdCall)
-	orm.On("CreateAllowedSenders", allowlist[0:10]).Times(1).Return(nil).NotBefore(forthCall)
+		tosContract := NewTosContractMock(allowlist)
 
-	onchainAllowlist := &onchainAllowlist{
-		config:             config,
-		orm:                orm,
-		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
-		lggr:               logger.TestLogger(t).Named("OnchainAllowlist"),
-		stopCh:             make(services.StopChan),
-	}
+		// with the orm mock we can validate the actual order in which the allowlist is fetched giving priority to newest addresses
+		orm := amocks.NewORM(t)
+		firstCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[40:50]).Times(1).Return(nil)
+		secondCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[30:40]).Times(1).Return(nil).NotBefore(firstCall)
+		thirdCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[20:30]).Times(1).Return(nil).NotBefore(secondCall)
+		forthCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[10:20]).Times(1).Return(nil).NotBefore(thirdCall)
+		orm.On("CreateAllowedSenders", context.Background(), allowlist[0:10]).Times(1).Return(nil).NotBefore(forthCall)
 
-	// we set the onchain allowlist to an empty state before updating it in batches
-	emptyMap := make(map[common.Address]struct{})
-	onchainAllowlist.allowlist.Store(&emptyMap)
+		onchainAllowlist := &onchainAllowlist{
+			config:             config,
+			orm:                orm,
+			blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
+			lggr:               logger.TestLogger(t).Named("OnchainAllowlist"),
+			stopCh:             make(services.StopChan),
+		}
 
-	err := onchainAllowlist.updateAllowedSendersInBatches(ctx, tosContract, big.NewInt(0))
-	require.NoError(t, err)
+		// we set the onchain allowlist to an empty state before updating it in batches
+		emptyMap := make(map[common.Address]struct{})
+		onchainAllowlist.allowlist.Store(&emptyMap)
 
-	currentAllowlist := onchainAllowlist.allowlist.Load()
-	require.Equal(t, &expectedAllowlist, currentAllowlist)
+		err := onchainAllowlist.updateAllowedSendersInBatches(ctx, tosContract, big.NewInt(0))
+		require.NoError(t, err)
+
+		currentAllowlist := onchainAllowlist.allowlist.Load()
+		require.Equal(t, &expectedAllowlist, currentAllowlist)
+	})
+
+	t.Run("OK-new_address_added_while_updating_in_batches", func(t *testing.T) {
+		ctx := context.Background()
+		config := OnchainAllowlistConfig{
+			ContractAddress:           testutils.NewAddress(),
+			ContractVersion:           1,
+			BlockConfirmations:        1,
+			UpdateFrequencySec:        2,
+			UpdateTimeoutSec:          1,
+			StoredAllowlistBatchSize:  2,
+			OnchainAllowlistBatchSize: 10,
+			FetchingDelayInRangeSec:   1,
+		}
+
+		// allowlistSize defines how big the initial mocked allowlist will be
+		allowlistSize := 50
+		// allowlist represents the actual allowlist the tos contract will return
+		allowlist := make([]common.Address, 0)
+		// expectedAllowlist will be used to compare the actual status with what we actually want
+		expectedAllowlist := make(map[common.Address]struct{}, 0)
+
+		// we load both the expectedAllowlist and the allowlist the contract will return with some new addresses
+		for i := 0; i < allowlistSize; i++ {
+			addr := testutils.NewAddress()
+			allowlist = append(allowlist, addr)
+			expectedAllowlist[addr] = struct{}{}
+		}
+
+		tosContract := NewTosContractMock(allowlist)
+
+		// with the orm mock we can validate the actual order in which the allowlist is fetched giving priority to newest addresses
+		orm := amocks.NewORM(t)
+		firstCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[40:50]).Times(1).Run(func(args mock.Arguments) {
+
+			// after the first call we update the tosContract by adding a new address
+			addr := testutils.NewAddress()
+			allowlist = append(allowlist, addr)
+			expectedAllowlist[addr] = struct{}{}
+			*tosContract = *NewTosContractMock(allowlist)
+		}).Return(nil)
+
+		// this is the extra step that will fetch the new address we want to validate
+		extraStepCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[50:51]).Times(1).Return(nil).NotBefore(firstCall)
+
+		secondCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[30:40]).Times(1).Return(nil).NotBefore(extraStepCall)
+		thirdCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[20:30]).Times(1).Return(nil).NotBefore(secondCall)
+		forthCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[10:20]).Times(1).Return(nil).NotBefore(thirdCall)
+		orm.On("CreateAllowedSenders", context.Background(), allowlist[0:10]).Times(1).Return(nil).NotBefore(forthCall)
+
+		onchainAllowlist := &onchainAllowlist{
+			config:             config,
+			orm:                orm,
+			blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
+			lggr:               logger.TestLogger(t).Named("OnchainAllowlist"),
+			stopCh:             make(services.StopChan),
+		}
+
+		// we set the onchain allowlist to an empty state before updating it in batches
+		emptyMap := make(map[common.Address]struct{})
+		onchainAllowlist.allowlist.Store(&emptyMap)
+
+		err := onchainAllowlist.updateAllowedSendersInBatches(ctx, tosContract, big.NewInt(0))
+		require.NoError(t, err)
+
+		currentAllowlist := onchainAllowlist.allowlist.Load()
+		require.Equal(t, &expectedAllowlist, currentAllowlist)
+	})
+
 }
 
 type tosContractMock struct {

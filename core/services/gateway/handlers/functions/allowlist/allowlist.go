@@ -253,7 +253,8 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 
 // updateAllowedSendersInBatches will update the node's inmemory state and the orm layer representing the allowlist.
 // it will get the current node's in memory allowlist and start fetching and adding from the tos contract in batches.
-// the iteration order will give priority to new allowed senders
+// the iteration order will give priority to new allowed senders, if new addresses are added while iterating over the batches
+// an extra step will be executed to keep this up to date.
 func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, tosContract functions_allow_list.TermsOfServiceAllowListInterface, blockNum *big.Int) error {
 
 	// currentAllowedSenderList will be the starting point from which we will be adding the new allowed senders
@@ -284,30 +285,67 @@ func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, to
 			idxEnd = currentAllowedSenderCount - 1
 		}
 
-		allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
+		// before continuing we evaluate if the size of the list changed, if that happens we trigger an extra step
+		// getting the latest added addresses from the list
+		updatedAllowedSenderCount, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
 			Pending:     false,
 			BlockNumber: blockNum,
 			Context:     ctx,
-		}, idxStart, idxEnd)
+		})
 		if err != nil {
-			return errors.Wrap(err, "error calling GetAllowedSendersInRange")
+			return errors.Wrap(err, "unexpected error while fetching the updated functions_allow_list.GetAllowedSendersCount")
 		}
 
-		// add the fetched batch to the currentAllowedSenderList and replace the existing allowlist
-		for _, addr := range allowedSendersBatch {
-			currentAllowedSenderList[addr] = struct{}{}
-		}
-		a.allowlist.Store(&currentAllowedSenderList)
-		a.lggr.Infow("allowlist updated in batches successfully", "len", len(currentAllowedSenderList))
+		if updatedAllowedSenderCount > currentAllowedSenderCount {
+			lastBatchIdxStart := updatedAllowedSenderCount - (updatedAllowedSenderCount - currentAllowedSenderCount)
+			lastBatchIdxEnd := updatedAllowedSenderCount - 1
+			currentAllowedSenderCount = updatedAllowedSenderCount
 
-		// persist each batch to the underalying orm layer
-		err = a.orm.CreateAllowedSenders(ctx, allowedSendersBatch)
+			err = a.updateAllowedSendersBatch(ctx, tosContract, blockNum, lastBatchIdxStart, lastBatchIdxEnd, currentAllowedSenderList)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = a.updateAllowedSendersBatch(ctx, tosContract, blockNum, idxStart, idxEnd, currentAllowedSenderList)
 		if err != nil {
-			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
+			return err
 		}
 	}
 	throttleTicker.Stop()
 
+	return nil
+}
+
+func (a *onchainAllowlist) updateAllowedSendersBatch(
+	ctx context.Context,
+	tosContract functions_allow_list.TermsOfServiceAllowListInterface,
+	blockNum *big.Int,
+	idxStart uint64,
+	idxEnd uint64,
+	currentAllowedSenderList map[common.Address]struct{},
+) error {
+	allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
+		Pending:     false,
+		BlockNumber: blockNum,
+		Context:     ctx,
+	}, idxStart, idxEnd)
+	if err != nil {
+		return errors.Wrap(err, "error calling GetAllowedSendersInRange")
+	}
+
+	// add the fetched batch to the currentAllowedSenderList and replace the existing allowlist
+	for _, addr := range allowedSendersBatch {
+		currentAllowedSenderList[addr] = struct{}{}
+	}
+	a.allowlist.Store(&currentAllowedSenderList)
+	a.lggr.Infow("allowlist updated in batches successfully", "len", len(currentAllowedSenderList))
+
+	// persist each batch to the underalying orm layer
+	err = a.orm.CreateAllowedSenders(ctx, allowedSendersBatch)
+	if err != nil {
+		a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
+	}
 	return nil
 }
 
