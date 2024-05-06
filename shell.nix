@@ -1,4 +1,4 @@
-{ pkgs? import <nixpkgs> {} }:
+{ pkgs }:
 with pkgs;
 let
   go = go_1_21;

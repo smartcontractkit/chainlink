@@ -272,18 +272,21 @@ Go generate is used to generate mocks in this project. Mocks are generated with 
 
 ### Nix
 
-A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/), with optional [flakes](https://nixos.wiki/wiki/Flakes) support. It defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies, while non-flakes shell will use your channel's packages versions.
+A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/), we are defaulting usage of the shell through [Nix Flakes](https://nixos.wiki/wiki/Flakes). 
+
+Nix defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies to
+gain more consistency/reproducibility on the built artifacts.
 
 To use it:
 
 1. Install [nix package manager](https://nixos.org/download.html) in your system.
 
-- Optionally, enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
+- Enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
 
-2. Run `nix-shell`. You will be put in shell containing all the dependencies.
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
 
-- To use the flakes version, run `nix develop` instead of `nix-shell`. Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
-- You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use nix` or `use flake` on it.
+- Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
+- You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use flake` on it.
 
 3. Create a local postgres database:
 
