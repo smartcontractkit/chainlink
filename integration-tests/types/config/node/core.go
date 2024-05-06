@@ -189,7 +189,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 		if commonChainConfig != nil {
 			evmConfig.Chain = *commonChainConfig
 		}
-		if chainSpecificConfig == nil {
+		if chainSpecificConfig != nil {
 			if overriddenChainCfg, ok := chainSpecificConfig[network.ChainID]; ok {
 				evmConfig.Chain = overriddenChainCfg
 			}
@@ -237,7 +237,7 @@ func WithLogPollInterval(interval time.Duration) NodeConfigOpt {
 	}
 }
 
-func BuildChainlikNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
+func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
 	var tomlCfg *corechainlink.Config
 	var err error
 	var commonChainConfig *evmcfg.Chain

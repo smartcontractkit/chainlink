@@ -3,6 +3,7 @@ package test_env
 import (
 	"errors"
 	"fmt"
+	"github.com/pelletier/go-toml/v2"
 	"math/big"
 	"os"
 	"testing"
@@ -130,6 +131,7 @@ func (b *CLTestEnvBuilder) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuil
 	return b
 }
 
+// Deprecated: Use TOML instead
 func (b *CLTestEnvBuilder) WithForwarders() *CLTestEnvBuilder {
 	b.hasForwarders = true
 	return b
@@ -156,6 +158,7 @@ func (b *CLTestEnvBuilder) WithPrivateEthereumNetworks(ens []*ctf_config.Ethereu
 	return b
 }
 
+// Deprecated: Use TOML instead
 func (b *CLTestEnvBuilder) WithCLNodeConfig(cfg *chainlink.Config) *CLTestEnvBuilder {
 	b.clNodeConfig = cfg
 	return b
@@ -344,9 +347,26 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
 			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
-
 		}
-		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
+
+		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
+		for _, en := range b.te.EVMNetworks {
+			dereferrencedEvms = append(dereferrencedEvms, *en)
+		}
+
+		nodeConfigInToml := b.testConfig.GetNodeConfig()
+
+		nodeConfig, _, err := node.BuildChainlinkNodeConfig(
+			dereferrencedEvms,
+			nodeConfigInToml.BaseConfigTOML,
+			nodeConfigInToml.CommonChainConfigTOML,
+			nodeConfigInToml.ChainConfigTOMLByChainID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -386,6 +406,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
 			b.te.isSimulatedNetwork = false
 		}
+		b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
 
 	}
 
@@ -397,7 +418,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		return nil, errors.New("you can't use both Seth and EMVClient at the same time")
 	}
 
-	if !b.isNonEVM {
+	if b.isNonEVM == false {
 		if b.evmClientNetworkOption != nil && len(b.evmClientNetworkOption) > 0 {
 			for _, fn := range b.evmClientNetworkOption {
 				fn(&networkConfig)
@@ -459,22 +480,22 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			)
 		}
 
-		if !b.isNonEVM {
-			var httpUrls []string
-			var wsUrls []string
-			rpcProvider, ok := b.te.rpcProviders[networkConfig.ChainID]
-			if !ok {
-				return nil, fmt.Errorf("rpc provider for chain %d not found", networkConfig.ChainID)
-			}
-			if networkConfig.Simulated {
-				httpUrls = rpcProvider.PrivateHttpUrls()
-				wsUrls = rpcProvider.PrivateWsUrsl()
-			} else {
-				httpUrls = networkConfig.HTTPURLs
-				wsUrls = networkConfig.URLs
-			}
+		if b.isNonEVM == false {
+			// var httpUrls []string
+			// var wsUrls []string
+			// rpcProvider, ok := b.te.rpcProviders[networkConfig.ChainID]
+			// if !ok {
+			// 	return nil, fmt.Errorf("rpc provider for chain %d not found", networkConfig.ChainID)
+			// }
+			// if networkConfig.Simulated {
+			// 	httpUrls = rpcProvider.PrivateHttpUrls()
+			// 	wsUrls = rpcProvider.PrivateWsUrsl()
+			// } else {
+			// 	httpUrls = networkConfig.HTTPURLs
+			// 	wsUrls = networkConfig.URLs
+			// }
 
-			node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
+			// node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
 
 			if b.chainOptionsFn != nil && len(b.chainOptionsFn) > 0 {
 				for _, fn := range b.chainOptionsFn {
@@ -485,7 +506,39 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 		}
 
-		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
+		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
+		for _, en := range b.te.EVMNetworks {
+			network := *en
+			if en.Simulated {
+				if rpcs, ok := b.te.rpcProviders[network.ChainID]; ok {
+					network.HTTPURLs = rpcs.PrivateHttpUrls()
+					network.URLs = rpcs.PrivateWsUrsl()
+				} else {
+					return nil, fmt.Errorf("rpc provider for chain %d not found", network.ChainID)
+				}
+			}
+			dereferrencedEvms = append(dereferrencedEvms, network)
+		}
+
+		nodeConfigInToml := b.testConfig.GetNodeConfig()
+
+		nodeConfig, _, err := node.BuildChainlinkNodeConfig(
+			dereferrencedEvms,
+			nodeConfigInToml.BaseConfigTOML,
+			nodeConfigInToml.CommonChainConfigTOML,
+			nodeConfigInToml.ChainConfigTOMLByChainID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		m, err := toml.Marshal(nodeConfig)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("Node config: %v\n", string(m))
+
+		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}
