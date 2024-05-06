@@ -272,7 +272,7 @@ Go generate is used to generate mocks in this project. Mocks are generated with 
 
 ### Nix
 
-A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/), we are defaulting usage of the shell through [Nix Flakes](https://nixos.wiki/wiki/Flakes). 
+A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/). By default,we utilize the shell through [Nix Flakes](https://nixos.wiki/wiki/Flakes). 
 
 Nix defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies to
 gain more consistency/reproducibility on the built artifacts.
