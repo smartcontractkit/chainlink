@@ -1,0 +1,15 @@
+package smoke
+
+import (
+	"testing"
+
+	tc "github.com/smartcontractkit/chainlink/e2e-tests/testconfig"
+)
+
+func TestAutomationNodeUpgrade(t *testing.T) {
+	config, err := tc.GetConfig("Smoke", tc.Automation)
+	if err != nil {
+		t.Fatal(err, "Error getting config")
+	}
+	SetupAutomationBasic(t, true, &config)
+}

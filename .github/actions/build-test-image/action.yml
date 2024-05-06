@@ -36,7 +36,7 @@ runs:
       id: version
       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
       with:
-        go-project-path: ./integration-tests
+        go-project-path: ./e2e-tests
         module-name: github.com/smartcontractkit/chainlink-testing-framework
         enforce-semantic-tag: false
     - name: Get CTF sha
@@ -105,7 +105,7 @@ runs:
         tags: |
           ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag }}
           ${{ inputs.other_tags }}
-        file: ./integration-tests/test.Dockerfile
+        file: ./e2e-tests/test.Dockerfile
         build-args: |
           BASE_IMAGE=${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
           IMAGE_VERSION=${{ steps.long_sha.outputs.long_sha || steps.version.outputs.version }}

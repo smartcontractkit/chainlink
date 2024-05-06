@@ -52,7 +52,7 @@ commands:
   ttl: |-
     kubectl label namespace $1 cleanup.kyverno.io/ttl=$2 --overwrite
   workload: |-
-    cd ../integration-tests/load/ocr && go test -v -run TestOCRLoad || cd -
+    cd ../e2e-tests/load/ocr && go test -v -run TestOCRLoad || cd -
   dashboard_deploy: |-
     go run dashboard/cmd/deploy.go
   dashboard_test: |-

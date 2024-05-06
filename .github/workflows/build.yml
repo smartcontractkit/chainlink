@@ -24,7 +24,7 @@ jobs:
               - '!crib/**'
               - '!dashboard-lib/**'
               - '!fuzz/**'
-              - '!integration-tests/**'
+              - '!e2e-tests/**'
               - '!internal/**'
               - '!operator_ui/**'
               - '!plugins/**'

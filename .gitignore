@@ -60,7 +60,7 @@ golangci-lint-output.txt
 core/cmd/vrfkey1
 
 # Integration Tests
-integration-tests/**/logs/
+e2e-tests/**/logs/
 tests-*.xml
 *.test
 tmp-manifest-*.yaml

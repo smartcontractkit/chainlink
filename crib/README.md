@@ -86,7 +86,7 @@ devspace purge
 
 ## Running load tests
 
-Check this [doc](../../integration-tests/load/ocr/README.md)
+Check this [doc](../../e2e-tests/load/ocr/README.md)
 
 If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
 
@@ -135,7 +135,7 @@ Open Grafana folder `DashboardCoreDebug` and find dashboard `ChainlinkClusterDeb
 
 # Testing
 
-Deploy your dashboard and run soak/load [tests](../../integration-tests/load/), check [README](../../integration-tests/README.md) for further explanations
+Deploy your dashboard and run soak/load [tests](../../e2e-tests/load/), check [README](../../e2e-tests/README.md) for further explanations
 
 ```
 devspace run dashboard_deploy

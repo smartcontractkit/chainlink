@@ -28,7 +28,7 @@ on:
         type: string
 
 jobs:
-  filter: # No need to run core tests if there are only changes to the integration-tests
+  filter: # No need to run core tests if there are only changes to the e2e-tests
     name: Detect Changes
     permissions:
       pull-requests: read
@@ -45,7 +45,7 @@ jobs:
         with:
           filters: |
             changes:
-              - '!integration-tests/**'
+              - '!e2e-tests/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter

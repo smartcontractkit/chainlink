@@ -237,11 +237,11 @@ This repository contains three Go modules:
 ```mermaid
 flowchart RL
     github.com/smartcontractkit/chainlink/v2
-    github.com/smartcontractkit/chainlink/integration-tests --> github.com/smartcontractkit/chainlink/v2
+    github.com/smartcontractkit/chainlink/e2e-tests --> github.com/smartcontractkit/chainlink/v2
     github.com/smartcontractkit/chainlink/core/scripts --> github.com/smartcontractkit/chainlink/v2
 
 ```
-The `integration-tests` and `core/scripts` modules import the root module using a relative replace in their `go.mod` files,
+The `e2e-tests` and `core/scripts` modules import the root module using a relative replace in their `go.mod` files,
 so dependency changes in the root `go.mod` often require changes in those modules as well. After making a change, `go mod tidy`
 can be run on all three modules using:
 ```

@@ -124,7 +124,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run E2E soak tests
         run: |
-          cd integration-tests/load/functions
+          cd e2e-tests/load/functions
           if [[ $SELECTED_TEST == mumbai_functions* ]]; then
             go test -v -timeout 6h -run TestFunctionsLoad/$SELECTED_TEST
           elif [[ $SELECTED_TEST == gateway* ]]; then

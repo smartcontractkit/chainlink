@@ -25,10 +25,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
-          go-version-file: "integration-tests/go.mod"
+          go-version-file: "e2e-tests/go.mod"
           cache: true
       - name: Run tests
         run: |
-          cd integration-tests
+          cd e2e-tests
           go mod download
           go test -v -timeout 5h -v -count=1 -run ^TestLogPollerFewFiltersFixedDepth$ ./smoke/log_poller_test.go

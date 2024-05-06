@@ -116,9 +116,9 @@ jobs:
       - name: Build Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_download_vendor_packages_command: cd ./e2e-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
+          go_mod_path: ./e2e-tests/go.mod
           go_tags: embed
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"

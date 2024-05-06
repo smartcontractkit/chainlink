@@ -49,8 +49,8 @@ go build -o $GOPATH/bin/chainlink .
 go test -p 1 ./...
 ```
 
-This excludes more extensive integration tests which require a bit more setup, head over to [./integration-tests]
-(../integration-tests/README.md) for more details on running those.
+This excludes more extensive integration tests which require a bit more setup, head over to [./e2e-tests]
+(../e2e-tests/README.md) for more details on running those.
 
 The golang testsuite is almost entirely parallelizable, and so running the default
 `go test ./...` will commonly peg your processor. Limit parallelization with the
