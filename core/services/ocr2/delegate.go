@@ -680,9 +680,9 @@ func (d *Delegate) newServicesGenericPlugin(
 		}
 		oracleArgs.ReportingPluginFactory = plugin
 		srvs = append(srvs, plugin)
-		oracle, err := libocr2.NewOracle(oracleArgs)
-		if err != nil {
-			return nil, err
+		oracle, oracleErr := libocr2.NewOracle(oracleArgs)
+		if oracleErr != nil {
+			return nil, oracleErr
 		}
 		srvs = append(srvs, job.NewServiceAdapter(oracle))
 
