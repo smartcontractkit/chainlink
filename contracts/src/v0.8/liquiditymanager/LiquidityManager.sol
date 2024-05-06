@@ -154,7 +154,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
       revert ZeroChainSelector();
     }
 
-    if (address(token) == address(0)) {
+    if (address(token) == address(0) || address(localLiquidityContainer) == address(0)) {
       revert ZeroAddress();
     }
     i_localToken = token;
@@ -515,6 +515,9 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
   /// @notice Sets the local liquidity container.
   /// @dev Only the owner can call this function.
   function setLocalLiquidityContainer(ILiquidityContainer localLiquidityContainer) external onlyOwner {
+    if (address(localLiquidityContainer) == address(0)) {
+      revert ZeroAddress();
+    }
     s_localLiquidityContainer = localLiquidityContainer;
 
     emit LiquidityContainerSet(address(localLiquidityContainer));

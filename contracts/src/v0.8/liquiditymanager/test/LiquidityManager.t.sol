@@ -816,6 +816,11 @@ contract LiquidityManager_setLocalLiquidityContainer is LiquidityManagerSetup {
 
     s_liquidityManager.setLocalLiquidityContainer(LockReleaseTokenPool(address(1)));
   }
+
+  function test_ReverstWhen_CalledWithTheZeroAddress() external {
+    vm.expectRevert(LiquidityManager.ZeroAddress.selector);
+    s_liquidityManager.setLocalLiquidityContainer(LockReleaseTokenPool(address(0)));
+  }
 }
 
 contract LiquidityManager_setMinimumLiquidity is LiquidityManagerSetup {
