@@ -240,6 +240,10 @@ LatestReportDeadline = '1m42s'
 [Mercury.TLS]
 CertFile = '/path/to/cert.pem'
 
+[Mercury.Transmitter]
+TransmitQueueMaxSize = 123
+TransmitTimeout = '3m54s'
+
 [Capabilities]
 [Capabilities.Peering]
 IncomingMessageBufferSize = 13
