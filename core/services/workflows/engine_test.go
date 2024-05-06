@@ -8,6 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	pocCapabilities "github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/test_workflow"
 )
 
 const hardcodedWorkflow = `
@@ -535,14 +537,24 @@ func TestEngine_MultiStepDependenciesCode(t *testing.T) {
 	trigger, cr := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockTarget()))
 
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
-	action, out := mockAction()
-	require.NoError(t, reg.Add(ctx, action))
+	out, _ := values.NewMap(map[string]any{"Read": "output"})
 
-	eng, initFailed := newTestEngine(t, reg, multiStepWorkflow)
-	err := eng.Start(ctx)
+	spec, err := test_workflow.CreateWorkflow()
+	require.NoError(t, err)
+	csb := &codeSpecBuilder{
+		CodeConfig: &codeConfig{
+			TypeMap: map[string]stepDefinitionType{
+				"write_chain": {typeStr: "write_polygon-testnet-mumbai"},
+			},
+		},
+		Workflow: spec,
+	}
+	require.NoError(t, yaml.Unmarshal([]byte(multiStepWorkflowCodeConfig), &csb.CodeConfig.Config))
+
+	eng, initFailed := newTestEngine(t, reg, csb)
+	err = eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 

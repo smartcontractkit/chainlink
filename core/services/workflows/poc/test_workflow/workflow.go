@@ -6,15 +6,27 @@ import (
 
 func CreateWorkflow() (*workflow.Spec, error) {
 	root, trigger := workflow.NewWorkflowBuilder[*MercuryTriggerResponse](NewMercuryTrigger("mercury"))
-	read, err := NewChainReader("read_chain_action").AddReadAction("read_chain_action", trigger)
+
+	customLogic, err := workflow.AddTransform[*MercuryTriggerResponse, *CustomType](trigger, "custom_logic", func(_ *MercuryTriggerResponse) (*CustomType, error) {
+		return &CustomType{Read: "output"}, nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-
-	compute := workflow.AddTransform(read, "compute", func(_ *MercuryTriggerResponse, _ *ChainReadResponse) (, error) {
-		return , nil
+	merge, err := workflow.Merge2("mergeReadAndLogic", trigger, customLogic, func(*MercuryTriggerResponse, *CustomType) (*CustomType, error) {
+		return nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
+	_ = merge
+
 	return root.Build()
+}
+
+type CustomType struct {
+	Read string
 }

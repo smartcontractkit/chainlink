@@ -21,3 +21,11 @@ func (m mergeRunnerBase) Ref() string {
 func (m mergeRunnerBase) capabilityType() commoncap.CapabilityType {
 	return commoncap.CapabilityTypeAction
 }
+
+func mergeOutputs(cs ...capability) map[string]any {
+	outputs := make(map[string]any)
+	for _, c := range cs {
+		outputs[c.Ref()] = c.Outputs()
+	}
+	return outputs
+}

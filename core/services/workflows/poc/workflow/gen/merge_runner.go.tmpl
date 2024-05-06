@@ -1,6 +1,9 @@
 package workflow
 
 import (
+    "errors"
+    "fmt"
+
     "github.com/smartcontractkit/chainlink-common/pkg/values"
 
     "github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/capabilities"
@@ -10,10 +13,10 @@ import (
 
 type mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O any] struct {
 	mergeRunnerBase
-	fn func({{range (rangeI .) }}{{nis .}} {{nis .}},{{ end }}) (O, error)
+	fn func({{range (rangeI .) }}{{nis .}}, {{ end }}) (O, error)
 }
 
-func (m mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]) run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]) Run(value values.Value) (values.Value, bool, error) {
 	ls := value.(*values.List).Underlying
 	{{- range (rangeI .) }}
     v{{.}}, err := capabilities.UnwrapValue[{{nis .}}](ls[{{.}}-1])
@@ -31,5 +34,41 @@ func (m mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]) run(value
 }
 
 var _ capability = &mergeRunner{{.}}[{{range (rangeI .) }}any,{{ end }} any]{}
+
+func Merge{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O any](ref string, {{range (rangeI .)}}wb{{.}} *Builder[{{nis .}}], {{end}} merge func({{range (rangeI .)}}{{nis .}},{{end}}) (O, error)) (*Builder[O], error) {
+    {{- range (rangeI .) }}
+	    {{- if ne . 1 }}
+        if wb1.root != wb{{.}}.root {
+            return nil, errors.New("cannot merge builders from different workflows")
+        }
+        {{- end }}
+    {{- end }}
+
+    wb1.root.lock.Lock()
+	defer wb1.root.lock.Unlock()
+
+	if wb1.root.names[ref] {
+		return nil, fmt.Errorf("name %s already exists as a step", ref)
+	}
+	wb1.root.names[ref] = true
+	wb1.root.open[ref] = true
+
+	{{- range (rangeI .) }}
+	wb1.root.open[wb{{.}}.current.Ref()] = false
+	{{- end }}
+
+    return &Builder[O]{
+        root: wb1.root,
+        current: &mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]{
+            fn: merge,
+            mergeRunnerBase: mergeRunnerBase{
+                nonTriggerCapability{
+                    inputs: mergeOutputs({{range (rangeI .) }}wb{{.}}.current,{{ end }}),
+                    ref:    ref,
+                },
+            },
+        },
+    }, nil
+}
 {{ end }}
 
