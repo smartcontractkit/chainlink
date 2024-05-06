@@ -302,15 +302,15 @@ jobs:
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_command_to_run: cd ./e2e-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_download_vendor_packages_command: cd ./e2e-tests && go mod download
           cl_repo: ${{ steps.determine-build.outputs.image }}
           cl_image_tag: ${{ steps.determine-build.outputs.version }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_location: ./integration-tests/${{ matrix.tests.suite }}/logs
+          artifacts_location: ./e2e-tests/${{ matrix.tests.suite }}/logs
           publish_check_name: Automation On Demand Results ${{ matrix.tests.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
+          go_mod_path: ./e2e-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}

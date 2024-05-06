@@ -90,9 +90,9 @@ core/scripts/gateway @smartcontractkit/functions
 
 
 # Tests
-/integration-tests/ @smartcontractkit/test-tooling-team
-/integration-tests/**/*keeper* @smartcontractkit/keepers
-/integration-tests/**/*automation* @smartcontractkit/keepers
+/e2e-tests/ @smartcontractkit/test-tooling-team
+/e2e-tests/**/*keeper* @smartcontractkit/keepers
+/e2e-tests/**/*automation* @smartcontractkit/keepers
 
 # CI/CD
 /.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
@@ -112,8 +112,8 @@ contracts/package.json @smartcontractkit/prodsec-public
 contracts/pnpm.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public
 go.sum @smartcontractkit/prodsec-public
-integration-tests/go.mod @smartcontractkit/prodsec-public
-integration-tests/go.sum @smartcontractkit/prodsec-public
+e2e-tests/go.mod @smartcontractkit/prodsec-public
+e2e-tests/go.sum @smartcontractkit/prodsec-public
 flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
 

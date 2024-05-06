@@ -8,9 +8,9 @@ One way to generate traces locally today is with the OCR2 basic smoke test.
 
 1. navigate to `.github/tracing/` and then run `docker compose --file local-smoke-docker-compose.yaml up`
 2. setup a local docker registry at `127.0.0.1:5000` (https://www.docker.com/blog/how-to-use-your-own-registry-2/)
-3. run `make build_push_plugin_docker_image` in `chainlink/integration-tests/Makefile`
+3. run `make build_push_plugin_docker_image` in `chainlink/e2e-tests/Makefile`
 4. preapre your `overrides.toml` file with selected network and CL image name and version and place it anywhere
-inside `integration-tests` directory. Sample `overrides.toml` file:
+inside `e2e-tests` directory. Sample `overrides.toml` file:
 ```toml
 [ChainlinkImage]
 image="127.0.0.1:5000/chainlink"

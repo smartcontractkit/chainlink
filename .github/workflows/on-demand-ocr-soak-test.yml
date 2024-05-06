@@ -83,13 +83,13 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
+          test_command_to_run: cd ./e2e-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}
           should_cleanup: false
-          go_mod_path: ./integration-tests/go.mod
+          go_mod_path: ./e2e-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}

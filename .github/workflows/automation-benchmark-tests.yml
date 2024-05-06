@@ -76,13 +76,13 @@ jobs:
           TEST_TYPE: ${{ github.event.inputs.testType }}
           TEST_TEST_TYPE: ${{ github.event.inputs.testType }}
         with:
-          test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
+          test_command_to_run: cd e2e-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}
           should_cleanup: false
-          go_mod_path: ./integration-tests/go.mod
+          go_mod_path: ./e2e-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
