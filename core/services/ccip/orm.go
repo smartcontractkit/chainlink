@@ -100,24 +100,24 @@ func (o *orm) InsertGasPricesForDestChain(ctx context.Context, destChainSelector
 	}
 
 	now := time.Now()
-	sqlStr := ""
-	var values []interface{}
-	for i, price := range gasPrices {
-		sqlStr += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d),", i*5+1, i*5+2, i*5+3, i*5+4, i*5+5)
-		values = append(values, destChainSelector, jobId, price.SourceChainSelector, price.GasPrice, now)
+	insertData := make([]map[string]interface{}, 0, len(gasPrices))
+	for _, price := range gasPrices {
+		insertData = append(insertData, map[string]interface{}{
+			"chain_selector":        destChainSelector,
+			"job_id":                jobId,
+			"source_chain_selector": price.SourceChainSelector,
+			"gas_price":             price.GasPrice,
+			"created_at":            now,
+		})
 	}
-	// Trim the last comma
-	sqlStr = sqlStr[0 : len(sqlStr)-1]
 
-	stmt := fmt.Sprintf(`
-		INSERT INTO ccip.observed_gas_prices (chain_selector, job_id, source_chain_selector, gas_price, created_at)
-		VALUES %s;`,
-		sqlStr)
-
-	_, err := o.ds.ExecContext(ctx, stmt, values...)
+	stmt := `INSERT INTO ccip.observed_gas_prices (chain_selector, job_id, source_chain_selector, gas_price, created_at)
+		VALUES (:chain_selector, :job_id, :source_chain_selector, :gas_price, :created_at);`
+	_, err := o.ds.NamedExecContext(ctx, stmt, insertData)
 	if err != nil {
 		err = fmt.Errorf("error inserting gas prices for job %d: %w", jobId, err)
 	}
+
 	return err
 }
 
@@ -127,24 +127,24 @@ func (o *orm) InsertTokenPricesForDestChain(ctx context.Context, destChainSelect
 	}
 
 	now := time.Now()
-	sqlStr := ""
-	var values []interface{}
-	for i, price := range tokenPrices {
-		sqlStr += fmt.Sprintf("($%d,$%d,$%d,$%d,$%d),", i*5+1, i*5+2, i*5+3, i*5+4, i*5+5)
-		values = append(values, destChainSelector, jobId, price.TokenAddr, price.TokenPrice, now)
+	insertData := make([]map[string]interface{}, 0, len(tokenPrices))
+	for _, price := range tokenPrices {
+		insertData = append(insertData, map[string]interface{}{
+			"chain_selector": destChainSelector,
+			"job_id":         jobId,
+			"token_addr":     price.TokenAddr,
+			"token_price":    price.TokenPrice,
+			"created_at":     now,
+		})
 	}
-	// Trim the last comma
-	sqlStr = sqlStr[0 : len(sqlStr)-1]
 
-	stmt := fmt.Sprintf(`
-		INSERT INTO ccip.observed_token_prices (chain_selector, job_id, token_addr, token_price, created_at)
-		VALUES %s;`,
-		sqlStr)
-
-	_, err := o.ds.ExecContext(ctx, stmt, values...)
+	stmt := `INSERT INTO ccip.observed_token_prices (chain_selector, job_id, token_addr, token_price, created_at)
+		VALUES (:chain_selector, :job_id, :token_addr, :token_price, :created_at);`
+	_, err := o.ds.NamedExecContext(ctx, stmt, insertData)
 	if err != nil {
-		err = fmt.Errorf("error inserting gas prices for job %d: %w", jobId, err)
+		err = fmt.Errorf("error inserting token prices for job %d: %w", jobId, err)
 	}
+
 	return err
 }
 
