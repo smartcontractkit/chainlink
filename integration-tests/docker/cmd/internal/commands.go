@@ -43,7 +43,7 @@ var StartNodesCmd = &cobra.Command{
 
 		_, err = test_env.NewCLTestEnvBuilder().
 			WithTestConfig(&config).
-			WithPrivateEthereumNetwork(network).
+			WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
 			WithMockAdapter().
 			WithCLNodes(nodeCount).
 			WithoutCleanup().
