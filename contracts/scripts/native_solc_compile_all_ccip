@@ -53,6 +53,8 @@ compileContract ccip/pools/LockReleaseTokenPool.sol
 compileContract ccip/pools/BurnMintTokenPool.sol
 compileContract ccip/pools/BurnFromMintTokenPool.sol
 compileContract ccip/pools/BurnWithFromMintTokenPool.sol
+compileContract ccip/pools/LockReleaseTokenPoolAndProxy.sol
+compileContract ccip/pools/BurnMintTokenPoolAndProxy.sol
 compileContract ccip/pools/TokenPool.sol
 compileContract shared/token/ERC677/BurnMintERC677.sol
 compileContract ccip/ARM.sol
