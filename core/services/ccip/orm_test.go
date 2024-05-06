@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -41,9 +41,11 @@ func generateChainSelectors(n int) []uint64 {
 func generateGasPriceUpdates(chainSelector uint64, n int) []GasPriceUpdate {
 	updates := make([]GasPriceUpdate, n)
 	for i := 0; i < n; i++ {
+		// gas prices can take up whole range of uint256
+		uint256Max := new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), big.NewInt(1))
 		row := GasPriceUpdate{
 			SourceChainSelector: chainSelector,
-			GasPrice:            new(big.Int).Mul(big.NewInt(1e18), big.NewInt(int64(i))),
+			GasPrice:            assets.NewWei(new(big.Int).Sub(uint256Max, big.NewInt(int64(i)))),
 		}
 		updates[i] = row
 	}
@@ -51,21 +53,21 @@ func generateGasPriceUpdates(chainSelector uint64, n int) []GasPriceUpdate {
 	return updates
 }
 
-func generateTokenAddresses(n int) []ccip.Address {
-	addrs := make([]ccip.Address, n)
+func generateTokenAddresses(n int) []string {
+	addrs := make([]string, n)
 	for i := 0; i < n; i++ {
-		addrs[i] = ccip.Address(utils.RandomAddress().Hex())
+		addrs[i] = utils.RandomAddress().Hex()
 	}
 
 	return addrs
 }
 
-func generateTokenPriceUpdates(tokenAddr ccip.Address, n int) []TokenPriceUpdate {
+func generateTokenPriceUpdates(tokenAddr string, n int) []TokenPriceUpdate {
 	updates := make([]TokenPriceUpdate, n)
 	for i := 0; i < n; i++ {
 		row := TokenPriceUpdate{
 			TokenAddr:  tokenAddr,
-			TokenPrice: new(big.Int).Mul(big.NewInt(1e18), big.NewInt(int64(i))),
+			TokenPrice: assets.NewWei(new(big.Int).Mul(big.NewInt(1e18), big.NewInt(int64(i)))),
 		}
 		updates[i] = row
 	}
@@ -245,13 +247,13 @@ func TestORM_InsertAndGetTokenPrices(t *testing.T) {
 
 	addrs := generateTokenAddresses(numAddresses)
 
-	updates := make(map[ccip.Address][]TokenPriceUpdate)
+	updates := make(map[string][]TokenPriceUpdate)
 	for _, addr := range addrs {
 		updates[addr] = generateTokenPriceUpdates(addr, numUpdatesPerAddress)
 	}
 
 	// 5 jobs, each inserting prices for 10 chains, with 20 updates per chain.
-	expectedPrices := make(map[ccip.Address]TokenPriceUpdate)
+	expectedPrices := make(map[string]TokenPriceUpdate)
 	for i := 0; i < numJobs; i++ {
 		for addr, updatesPerAddr := range updates {
 			lastIndex := len(updatesPerAddr) - 1
@@ -313,7 +315,7 @@ func TestORM_InsertAndDeleteTokenPrices(t *testing.T) {
 
 	addrs := generateTokenAddresses(numAddresses)
 
-	updates := make(map[ccip.Address][]TokenPriceUpdate)
+	updates := make(map[string][]TokenPriceUpdate)
 	for _, addr := range addrs {
 		updates[addr] = generateTokenPriceUpdates(addr, numUpdatesPerAddress)
 	}
