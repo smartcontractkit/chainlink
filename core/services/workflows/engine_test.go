@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,13 +15,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
 const hardcodedWorkflow = `
 triggers:
-  - type: "mercury-trigger"
+  - id: "mercury-trigger"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
@@ -27,7 +31,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
 
 consensus:
-  - type: "offchain_reporting"
+  - id: "offchain_reporting"
     ref: "evm_median"
     inputs:
       observations:
@@ -49,14 +53,14 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - type: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-  - type: "write_ethereum-testnet-sepolia"
+  - id: "write_ethereum-testnet-sepolia"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -65,10 +69,16 @@ targets:
       abi: "receive(report bytes)"
 `
 
+type testHooks struct {
+	initFailed        chan struct{}
+	executionFinished chan string
+}
+
 // newTestEngine creates a new engine with some test defaults.
-func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (eng *Engine, initFailed chan struct{}) {
+func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
 	peerID := p2ptypes.PeerID{}
-	initFailed = make(chan struct{})
+	initFailed := make(chan struct{})
+	executionFinished := make(chan string, 100)
 	cfg := Config{
 		Lggr:       logger.TestLogger(t),
 		Registry:   reg,
@@ -82,10 +92,17 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (eng *Engin
 				close(initFailed)
 			}
 		},
+		onExecutionFinished: func(weid string) {
+			executionFinished <- weid
+		},
+		clock: clockwork.NewFakeClock(),
+	}
+	for _, o := range opts {
+		o(&cfg)
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
-	return eng, initFailed
+	return eng, &testHooks{initFailed: initFailed, executionFinished: executionFinished}
 }
 
 // getExecutionId returns the execution id of the workflow that is
@@ -93,13 +110,14 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string) (eng *Engin
 //
 // If the engine fails to initialize, the test will fail rather
 // than blocking indefinitely.
-func getExecutionId(t *testing.T, eng *Engine, initFailed <-chan struct{}) string {
+func getExecutionId(t *testing.T, eng *Engine, hooks *testHooks) string {
 	var eid string
 	select {
-	case <-initFailed:
+	case <-hooks.initFailed:
 		t.FailNow()
-	case eid = <-eng.xxxExecutionFinished:
+	case eid = <-hooks.executionFinished:
 	}
+
 	return eid
 }
 
@@ -142,14 +160,16 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 
 type mockTriggerCapability struct {
 	capabilities.CapabilityInfo
-	triggerEvent capabilities.CapabilityResponse
+	triggerEvent *capabilities.CapabilityResponse
 	ch           chan capabilities.CapabilityResponse
 }
 
 var _ capabilities.TriggerCapability = (*mockTriggerCapability)(nil)
 
 func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
-	m.ch <- m.triggerEvent
+	if m.triggerEvent != nil {
+		m.ch <- *m.triggerEvent
+	}
 	return m.ch, nil
 }
 
@@ -159,53 +179,76 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
-	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
-	trigger, cr := mockTrigger(t)
-
-	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
-	target1 := mockTarget()
-	require.NoError(t, reg.Add(ctx, target1))
-
-	target2 := newMockCapability(
-		capabilities.MustNewCapabilityInfo(
-			"write_ethereum-testnet-sepolia",
-			capabilities.CapabilityTypeTarget,
-			"a write capability targeting ethereum sepolia testnet",
-			"v1.0.0",
-			nil,
-		),
-		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-			m := req.Inputs.Underlying["report"].(*values.Map)
-			return capabilities.CapabilityResponse{
-				Value: m,
-			}, nil
+	testCases := []struct {
+		name  string
+		store store.Store
+	}{
+		{
+			name:  "db-engine",
+			store: store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock()),
 		},
-	)
-	require.NoError(t, reg.Add(ctx, target2))
+		{
+			name:  "in-memory-engine",
+			store: store.NewInMemoryStore(),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
+			reg := coreCap.NewRegistry(logger.TestLogger(t))
 
-	eng, initFailed := newTestEngine(t, reg, hardcodedWorkflow)
+			trigger, cr := mockTrigger(t)
 
-	err := eng.Start(ctx)
-	require.NoError(t, err)
-	defer eng.Close()
+			require.NoError(t, reg.Add(ctx, trigger))
+			require.NoError(t, reg.Add(ctx, mockConsensus()))
+			target1 := mockTarget()
+			require.NoError(t, reg.Add(ctx, target1))
 
-	eid := getExecutionId(t, eng, initFailed)
-	assert.Equal(t, cr, <-target1.response)
-	assert.Equal(t, cr, <-target2.response)
+			target2 := newMockCapability(
+				capabilities.MustNewCapabilityInfo(
+					"write_ethereum-testnet-sepolia",
+					capabilities.CapabilityTypeTarget,
+					"a write capability targeting ethereum sepolia testnet",
+					"v1.0.0",
+					nil,
+				),
+				func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+					m := req.Inputs.Underlying["report"].(*values.Map)
+					return capabilities.CapabilityResponse{
+						Value: m,
+					}, nil
+				},
+			)
+			require.NoError(t, reg.Add(ctx, target2))
 
-	state, err := eng.executionStates.get(ctx, eid)
-	require.NoError(t, err)
+			eng, testHooks := newTestEngine(
+				t,
+				reg,
+				hardcodedWorkflow,
+				func(c *Config) { c.Store = tc.store },
+			)
 
-	assert.Equal(t, state.status, statusCompleted)
+			err := eng.Start(ctx)
+			require.NoError(t, err)
+			defer eng.Close()
+
+			eid := getExecutionId(t, eng, testHooks)
+			assert.Equal(t, cr, <-target1.response)
+			assert.Equal(t, cr, <-target2.response)
+
+			state, err := eng.executionStates.Get(ctx, eid)
+			require.NoError(t, err)
+
+			assert.Equal(t, state.Status, store.StatusCompleted)
+		})
+	}
 }
 
 const (
 	simpleWorkflow = `
 triggers:
-  - type: "mercury-trigger"
+  - id: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -213,7 +256,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
         
 consensus:
-  - type: "offchain_reporting"
+  - id: "offchain_reporting"
     ref: "evm_median"
     inputs:
       observations:
@@ -235,7 +278,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - type: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -265,8 +308,22 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 	cr := capabilities.CapabilityResponse{
 		Value: resp,
 	}
-	mt.triggerEvent = cr
+	mt.triggerEvent = &cr
 	return mt, cr
+}
+
+func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
+	mt := &mockTriggerCapability{
+		CapabilityInfo: capabilities.MustNewCapabilityInfo(
+			"mercury-trigger",
+			capabilities.CapabilityTypeTrigger,
+			"issues a trigger when a mercury report is received.",
+			"v1.0.0",
+			nil,
+		),
+		ch: make(chan capabilities.CapabilityResponse, 10),
+	}
+	return mt
 }
 
 func mockFailingConsensus() *mockCapability {
@@ -340,25 +397,25 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockFailingConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	eng, initFailed := newTestEngine(t, reg, simpleWorkflow)
+	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
 
 	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := getExecutionId(t, eng, initFailed)
-	state, err := eng.executionStates.get(ctx, eid)
+	eid := getExecutionId(t, eng, hooks)
+	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.status, statusErrored)
+	assert.Equal(t, state.Status, store.StatusErrored)
 	// evm_median is the ref of our failing consensus step
-	assert.Equal(t, state.steps["evm_median"].status, statusErrored)
+	assert.Equal(t, state.Steps["evm_median"].Status, store.StatusErrored)
 }
 
 const (
 	multiStepWorkflow = `
 triggers:
-  - type: "mercury-trigger"
+  - id: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -366,14 +423,14 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
 
 actions:
-  - type: "read_chain_action"
+  - id: "read_chain_action"
     ref: "read_chain_action"
     inputs:
       action:
         - "$(trigger.outputs)"
         
 consensus:
-  - type: "offchain_reporting"
+  - id: "offchain_reporting"
     ref: "evm_median"
     inputs:
       observations:
@@ -396,7 +453,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - type: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -439,20 +496,20 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	action, out := mockAction()
 	require.NoError(t, reg.Add(ctx, action))
 
-	eng, initFailed := newTestEngine(t, reg, multiStepWorkflow)
+	eng, hooks := newTestEngine(t, reg, multiStepWorkflow)
 	err := eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
 
-	eid := getExecutionId(t, eng, initFailed)
-	state, err := eng.executionStates.get(ctx, eid)
+	eid := getExecutionId(t, eng, hooks)
+	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.status, statusCompleted)
+	assert.Equal(t, state.Status, store.StatusCompleted)
 
 	// The inputs to the consensus step should
 	// be the outputs of the two dependents.
-	inputs := state.steps["evm_median"].inputs
+	inputs := state.Steps["evm_median"].Inputs
 	unw, err := values.Unwrap(inputs)
 	require.NoError(t, err)
 
@@ -466,4 +523,117 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	o, err := values.Unwrap(out)
 	require.NoError(t, err)
 	assert.Equal(t, obs.([]any)[1], o)
+}
+
+func TestEngine_ResumesPendingExecutions(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger := mockNoopTrigger(t)
+	resp, err := values.NewMap(map[string]any{
+		"123": decimal.NewFromFloat(1.00),
+		"456": decimal.NewFromFloat(1.25),
+		"789": decimal.NewFromFloat(1.50),
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	require.NoError(t, reg.Add(ctx, mockTarget()))
+
+	action, _ := mockAction()
+	require.NoError(t, reg.Add(ctx, action))
+
+	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
+	ec := &store.WorkflowExecution{
+		Steps: map[string]*store.WorkflowExecutionStep{
+			keywordTrigger: {
+				Outputs: &store.StepOutput{
+					Value: resp,
+				},
+				Status:      store.StatusCompleted,
+				ExecutionID: "<execution-ID>",
+				Ref:         keywordTrigger,
+			},
+		},
+		WorkflowID:  "",
+		ExecutionID: "<execution-ID>",
+		Status:      store.StatusStarted,
+	}
+	err = dbstore.Add(ctx, ec)
+	require.NoError(t, err)
+
+	eng, hooks := newTestEngine(
+		t,
+		reg,
+		multiStepWorkflow,
+		func(c *Config) { c.Store = dbstore },
+	)
+	err = eng.Start(ctx)
+	require.NoError(t, err)
+
+	eid := getExecutionId(t, eng, hooks)
+	gotEx, err := dbstore.Get(ctx, eid)
+	require.NoError(t, err)
+	assert.Equal(t, store.StatusCompleted, gotEx.Status)
+}
+
+func TestEngine_TimesOutOldExecutions(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger := mockNoopTrigger(t)
+	resp, err := values.NewMap(map[string]any{
+		"123": decimal.NewFromFloat(1.00),
+		"456": decimal.NewFromFloat(1.25),
+		"789": decimal.NewFromFloat(1.50),
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	require.NoError(t, reg.Add(ctx, mockTarget()))
+
+	action, _ := mockAction()
+	require.NoError(t, reg.Add(ctx, action))
+
+	clock := clockwork.NewFakeClock()
+	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
+	ec := &store.WorkflowExecution{
+		Steps: map[string]*store.WorkflowExecutionStep{
+			keywordTrigger: {
+				Outputs: &store.StepOutput{
+					Value: resp,
+				},
+				Status:      store.StatusCompleted,
+				ExecutionID: "<execution-ID>",
+				Ref:         keywordTrigger,
+			},
+		},
+		WorkflowID:  "",
+		ExecutionID: "<execution-ID>",
+		Status:      store.StatusStarted,
+	}
+	err = dbstore.Add(ctx, ec)
+	require.NoError(t, err)
+
+	eng, hooks := newTestEngine(
+		t,
+		reg,
+		multiStepWorkflow,
+		func(c *Config) {
+			c.Store = dbstore
+			c.clock = clock
+		},
+	)
+	clock.Advance(15 * time.Minute)
+	err = eng.Start(ctx)
+	require.NoError(t, err)
+
+	_ = getExecutionId(t, eng, hooks)
+	gotEx, err := dbstore.Get(ctx, "<execution-ID>")
+	require.NoError(t, err)
+	assert.Equal(t, store.StatusTimeout, gotEx.Status)
 }

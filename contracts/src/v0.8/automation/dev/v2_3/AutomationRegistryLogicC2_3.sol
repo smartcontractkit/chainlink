@@ -585,6 +585,13 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
+   * @notice returns the amount of a particular token that is withdraw-able by finance admin
+   */
+  function getAvailableERC20ForPayment(IERC20 billingToken) external view returns (uint256) {
+    return billingToken.balanceOf(address(this)) - s_reserveAmounts[IERC20(address(billingToken))];
+  }
+
+  /**
    * @notice returns the size of the LINK liquidity pool
    */
   function linkAvailableForPayment() public view returns (int256) {
