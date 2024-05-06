@@ -90,7 +90,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
-	jobORM := job.NewORM(db, orm, btORM, keyStore, lggr, cfg.Database())
+	jobORM := job.NewORM(db, orm, btORM, keyStore, lggr)
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	delegate := directrequest.NewDelegate(lggr, runner, orm, legacyChains, mailMon)
 
@@ -99,8 +99,9 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	if specF != nil {
 		specF(jb)
 	}
-	require.NoError(t, jobORM.CreateJob(jb))
-	serviceArray, err := delegate.ServicesForSpec(testutils.Context(t), *jb)
+	ctx := testutils.Context(t)
+	require.NoError(t, jobORM.CreateJob(ctx, jb))
+	serviceArray, err := delegate.ServicesForSpec(ctx, *jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]

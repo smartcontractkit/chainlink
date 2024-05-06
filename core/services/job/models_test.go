@@ -20,44 +20,44 @@ import (
 
 func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 	type fields struct {
-		Relay       relay.Network
+		Relay       string
 		ChainID     string
 		RelayConfig JSONConfig
 	}
 	tests := []struct {
 		name    string
 		fields  fields
-		want    relay.ID
+		want    types.RelayID
 		wantErr bool
 	}{
 		{name: "err no chain id",
 			fields:  fields{},
-			want:    relay.ID{},
+			want:    types.RelayID{},
 			wantErr: true,
 		},
 		{
 			name: "evm explicitly configured",
 			fields: fields{
-				Relay:   relay.EVM,
+				Relay:   types.NetworkEVM,
 				ChainID: "1",
 			},
-			want: relay.ID{Network: relay.EVM, ChainID: "1"},
+			want: types.RelayID{Network: types.NetworkEVM, ChainID: "1"},
 		},
 		{
 			name: "evm implicitly configured",
 			fields: fields{
-				Relay:       relay.EVM,
+				Relay:       types.NetworkEVM,
 				RelayConfig: map[string]any{"chainID": 1},
 			},
-			want: relay.ID{Network: relay.EVM, ChainID: "1"},
+			want: types.RelayID{Network: types.NetworkEVM, ChainID: "1"},
 		},
 		{
 			name: "evm implicitly configured with bad value",
 			fields: fields{
-				Relay:       relay.EVM,
+				Relay:       types.NetworkEVM,
 				RelayConfig: map[string]any{"chainID": float32(1)},
 			},
-			want:    relay.ID{},
+			want:    types.RelayID{},
 			wantErr: true,
 		},
 	}
@@ -92,7 +92,7 @@ var (
 
 func TestOCR2OracleSpec(t *testing.T) {
 	val := OCR2OracleSpec{
-		Relay:                             relay.EVM,
+		Relay:                             types.NetworkEVM,
 		PluginType:                        types.Median,
 		ContractID:                        "foo",
 		OCRKeyBundleID:                    null.StringFrom("bar"),

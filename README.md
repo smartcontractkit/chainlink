@@ -167,19 +167,27 @@ go generate ./...
 
 5. Prepare your development environment:
 
-```bash
-export CL_DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
-```
+The tests require a postgres database. In turn, the environment variable
+`CL_DATABASE_URL` must be set to value that can connect to `_test` database, and the user must be able to create and drop
+the given `_test` database.
 
 Note: Other environment variables should not be set for all tests to pass
 
-6.  Drop/Create test database and run migrations:
+There helper script for initial setup to create an appropriate test user. It requires postgres to be running on localhost at port 5432. You will be prompted for
+the `postgres` user password 
 
+```bash
+make setup-testdb
 ```
+
+This script will save the `CL_DATABASE_URL` in `.dbenv`
+
+Changes to database require migrations to be run. Similarly, `pull`'ing the repo may require migrations to run.
+After the one-time setup above:
+```
+source .dbenv
 make testdb
 ```
-
-If you do end up modifying the migrations for the database, you will need to rerun
 
 7. Run tests:
 

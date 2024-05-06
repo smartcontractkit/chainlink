@@ -258,7 +258,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	switch b.cleanUpType {
 	case CleanUpTypeStandard:
 		b.t.Cleanup(func() {
-			if err := b.te.Cleanup(); err != nil {
+			// Cleanup test environment
+			if err := b.te.Cleanup(CleanupOpts{TestName: b.t.Name()}); err != nil {
 				b.l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		})

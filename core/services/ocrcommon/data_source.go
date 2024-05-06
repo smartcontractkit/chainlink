@@ -113,18 +113,23 @@ type DataSourceCacheService interface {
 	median.DataSource
 }
 
-func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheCfg config.JuelsPerFeeCoinCache) (DataSourceCacheService, error) {
+func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheCfg *config.JuelsPerFeeCoinCache) (DataSourceCacheService, error) {
 	inMemoryDS, ok := ds.(*inMemoryDataSource)
 	if !ok {
 		return nil, errors.Errorf("unsupported data source type: %T, only inMemoryDataSource supported", ds)
 	}
-
-	updateInterval, stalenessAlertThreshold := cacheCfg.UpdateInterval.Duration(), cacheCfg.StalenessAlertThreshold.Duration()
-	if updateInterval == 0 {
+	var updateInterval, stalenessAlertThreshold time.Duration
+	if cacheCfg == nil {
 		updateInterval = defaultUpdateInterval
-	}
-	if stalenessAlertThreshold == 0 {
 		stalenessAlertThreshold = defaultStalenessAlertThreshold
+	} else {
+		updateInterval, stalenessAlertThreshold = cacheCfg.UpdateInterval.Duration(), cacheCfg.StalenessAlertThreshold.Duration()
+		if updateInterval == 0 {
+			updateInterval = defaultUpdateInterval
+		}
+		if stalenessAlertThreshold == 0 {
+			stalenessAlertThreshold = defaultStalenessAlertThreshold
+		}
 	}
 
 	dsCache := &inMemoryDataSourceCache{

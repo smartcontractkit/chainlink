@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
@@ -212,7 +213,7 @@ func SetupVRFV2Contracts(
 		*vrfv2Config.MaxGasLimitCoordinatorConfig,
 		*vrfv2Config.StalenessSeconds,
 		*vrfv2Config.GasAfterPaymentCalculation,
-		big.NewInt(*vrfv2Config.FallbackWeiPerUnitLink),
+		decimal.RequireFromString(*vrfv2Config.FallbackWeiPerUnitLink).BigInt(),
 		vrfCoordinatorV2FeeConfig,
 	)
 	if err != nil {
@@ -505,7 +506,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
 	randomWordsFulfilledEventTimeout time.Duration,
-) (*contracts.CoordinatorRandomWordsFulfilled, error) {
+) (*contracts.CoordinatorRandomWordsRequested, *contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := RequestRandomness(
 		l,
 		consumer,
@@ -519,18 +520,18 @@ func RequestRandomnessAndWaitForFulfillment(
 		randomnessRequestCountPerRequestDeviation,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	fulfillmentEvents, err := WaitRandomWordsFulfilledEvent(
+	randomWordsFulfilledEvent, err := WaitRandomWordsFulfilledEvent(
 		coordinator,
 		randomWordsRequestedEvent.RequestId,
 		randomWordsFulfilledEventTimeout,
 		l,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return fulfillmentEvents, nil
+	return randomWordsRequestedEvent, randomWordsFulfilledEvent, nil
 }
 
 func RequestRandomness(

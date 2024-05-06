@@ -862,6 +862,47 @@ Command="some random command"
 				require.Error(t, err)
 				require.ErrorContains(t, err, "failed to find binary")
 			},
+		}, {
+			name: "minimal OCR2 oracle spec with JuelsPerFeeCoinCache",
+			toml: `
+type               = "offchainreporting2"
+pluginType         = "median"
+schemaVersion      = 1
+relay              = "evm"
+contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+observationSource  = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+[relayConfig]
+chainID = 1337
+[pluginConfig]
+juelsPerFeeCoinSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+[pluginConfig.JuelsPerFeeCoinCache]
+Disable=false
+UpdateInterval="1m"
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.NoError(t, err)
+				b, err := jsonapi.Marshal(os.OCR2OracleSpec)
+				require.NoError(t, err)
+				var r job.OCR2OracleSpec
+				err = jsonapi.Unmarshal(b, &r)
+				require.NoError(t, err)
+				assert.Equal(t, "median", string(r.PluginType))
+				var pc medianconfig.PluginConfig
+				require.NoError(t, json.Unmarshal(r.PluginConfig.Bytes(), &pc))
+				require.NoError(t, medianconfig.ValidatePluginConfig(pc))
+			},
 		},
 	}
 

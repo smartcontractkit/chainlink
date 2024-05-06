@@ -254,7 +254,8 @@ func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
 	wrapperGasOverhead uint,
-	coordinatorGasOverhead, coordinatorGasOverheadPerWord uint,
+	coordinatorGasOverheadNative, coordinatorGasOverheadLink uint,
+	coordinatorGasOverheadPerWord uint,
 	nativePremiumPercentage, linkPremiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
@@ -269,7 +270,8 @@ func WrapperConfigure(
 	tx, err := wrapper.SetConfig(
 		e.Owner,
 		uint32(wrapperGasOverhead),
-		uint32(coordinatorGasOverhead),
+		uint32(coordinatorGasOverheadNative),
+		uint32(coordinatorGasOverheadLink),
 		uint16(coordinatorGasOverheadPerWord),
 		uint8(nativePremiumPercentage),
 		uint8(linkPremiumPercentage),
@@ -283,6 +285,13 @@ func WrapperConfigure(
 
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func PrintWrapperConfig(wrapper *vrfv2plus_wrapper.VRFV2PlusWrapper) {
+	cfg, err := wrapper.GetConfig(nil)
+	helpers.PanicErr(err)
+	fmt.Printf("Wrapper config: %+v\n", cfg)
+	fmt.Printf("Wrapper Keyhash: %s\n", fmt.Sprintf("0x%x", cfg.KeyHash))
 }
 
 func WrapperConsumerDeploy(

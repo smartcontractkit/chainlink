@@ -182,7 +182,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 		withKey(),
 		withMocks(ethClient),
 	)
-	db := app.GetSqlxDB()
+	db := app.GetDB()
 	client, _ := app.NewShellAndRenderer()
 
 	cltest.AssertCount(t, db, "evm.key_states", 1) // The initial funding key
@@ -306,7 +306,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	_, err = ethKeyStore.Get(testutils.Context(t), address)
 	require.Error(t, err)
 
-	cltest.AssertCount(t, app.GetSqlxDB(), "evm.key_states", 0)
+	cltest.AssertCount(t, app.GetDB(), "evm.key_states", 0)
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)

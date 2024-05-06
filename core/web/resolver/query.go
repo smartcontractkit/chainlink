@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
@@ -69,7 +68,7 @@ func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*Ch
 		return nil, err
 	}
 
-	cs, _, err := r.App.EVMORM().Chains(relay.ChainID(args.ID))
+	cs, _, err := r.App.EVMORM().Chains(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +132,7 @@ func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID 
 		return nil, err
 	}
 
-	mgr, err := r.App.GetFeedsService().GetManager(id)
+	mgr, err := r.App.GetFeedsService().GetManager(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewFeedsManagerPayload(nil, err), nil
@@ -150,7 +149,7 @@ func (r *Resolver) FeedsManagers(ctx context.Context) (*FeedsManagersPayloadReso
 		return nil, err
 	}
 
-	mgrs, err := r.App.GetFeedsService().ListManagers()
+	mgrs, err := r.App.GetFeedsService().ListManagers(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +168,7 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 		return nil, err
 	}
 
-	j, err := r.App.JobORM().FindJobWithoutSpecErrors(id)
+	j, err := r.App.JobORM().FindJobWithoutSpecErrors(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewJobPayload(r.App, nil, err), nil
@@ -198,7 +197,7 @@ func (r *Resolver) Jobs(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	jobs, count, err := r.App.JobORM().FindJobs(offset, limit)
+	jobs, count, err := r.App.JobORM().FindJobs(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +328,7 @@ func (r *Resolver) JobProposal(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	jp, err := r.App.GetFeedsService().GetJobProposal(id)
+	jp, err := r.App.GetFeedsService().GetJobProposal(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewJobProposalPayload(nil, err), nil
@@ -378,7 +377,7 @@ func (r *Resolver) JobRuns(ctx context.Context, args struct {
 	limit := pageLimit(args.Limit)
 	offset := pageOffset(args.Offset)
 
-	runs, count, err := r.App.JobORM().PipelineRuns(nil, offset, limit)
+	runs, count, err := r.App.JobORM().PipelineRuns(ctx, nil, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +397,7 @@ func (r *Resolver) JobRun(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	jr, err := r.App.JobORM().FindPipelineRunByID(id)
+	jr, err := r.App.JobORM().FindPipelineRunByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewJobRunPayload(nil, r.App, err), nil

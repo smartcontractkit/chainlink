@@ -33,6 +33,11 @@ func main() {
 	ghRunID := flag.String("gh_run_id", "", "run id of the gh workflow")
 	flag.Parse()
 
+	runAttempt := os.Getenv("GITHUB_RUN_ATTEMPT")
+	if runAttempt == "" {
+		log.Fatalf("GITHUB_RUN_ATTEMPT is required")
+	}
+
 	if *grafanaHost == "" {
 		log.Fatal("Error re-running flakey tests: `grafana_host` is required")
 	}
@@ -62,7 +67,7 @@ func main() {
 		readers = append(readers, r)
 	}
 
-	meta := flakeytests.GetGithubMetadata(*ghRepo, *ghEventName, *ghSHA, *ghEventPath, *ghRunID)
+	meta := flakeytests.GetGithubMetadata(*ghRepo, *ghEventName, *ghSHA, *ghEventPath, *ghRunID, runAttempt)
 	rep := flakeytests.NewLokiReporter(*grafanaHost, *grafanaAuth, *grafanaOrgID, *command, meta)
 	r := flakeytests.NewRunner(readers, rep, numReruns)
 	err := r.Run(ctx)

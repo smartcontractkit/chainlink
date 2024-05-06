@@ -5,8 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -25,7 +24,7 @@ type DelegateConfig interface {
 // Delegate represents a Flux Monitor delegate
 type Delegate struct {
 	cfg            DelegateConfig
-	db             *sqlx.DB
+	ds             sqlutil.DataSource
 	ethKeyStore    keystore.Eth
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
@@ -43,13 +42,13 @@ func NewDelegate(
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
 		cfg:            cfg,
-		db:             db,
+		ds:             ds,
 		ethKeyStore:    ethKeyStore,
 		jobORM:         jobORM,
 		pipelineORM:    pipelineORM,
@@ -86,8 +85,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 
 	fm, err := NewFromJobSpec(
 		jb,
-		d.db,
-		NewORM(d.db, d.lggr, chain.TxManager(), strategy, checker),
+		d.ds,
+		NewORM(d.ds, d.lggr, chain.TxManager(), strategy, checker),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),

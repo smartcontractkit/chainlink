@@ -802,7 +802,6 @@ describe('AutomationRegistrar2_3', () => {
   })
 
   describe('#approve', () => {
-    let hash: string
     let params: RegistrationParams
 
     beforeEach(async () => {
@@ -834,47 +833,40 @@ describe('AutomationRegistrar2_3', () => {
       const tx = await linkToken
         .connect(requestSender)
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
-      const receipt = await tx.wait()
-      hash = receipt.logs[2].topics[1]
+      await tx.wait()
     })
 
     it('reverts if not called by the owner', async () => {
-      const tx = registrar.connect(stranger).approve(
-        {
-          name: upkeepName,
-          encryptedEmail: emptyBytes,
-          upkeepContract: mock.address,
-          gasLimit: performGas,
-          adminAddress: await admin.getAddress(),
-          checkData: emptyBytes,
-          triggerType: Trigger.CONDITION,
-          triggerConfig: trigger,
-          offchainConfig: emptyBytes,
-          amount,
-          billingToken: linkToken.address,
-        },
-        hash,
-      )
+      const tx = registrar.connect(stranger).approve({
+        name: upkeepName,
+        encryptedEmail: emptyBytes,
+        upkeepContract: mock.address,
+        gasLimit: performGas,
+        adminAddress: await admin.getAddress(),
+        checkData: emptyBytes,
+        triggerType: Trigger.CONDITION,
+        triggerConfig: trigger,
+        offchainConfig: emptyBytes,
+        amount,
+        billingToken: linkToken.address,
+      })
       await evmRevert(tx, 'Only callable by owner')
     })
 
     it('reverts if the hash does not exist', async () => {
-      const tx = registrar.connect(registrarOwner).approve(
-        {
-          name: upkeepName,
-          encryptedEmail: emptyBytes,
-          upkeepContract: mock.address,
-          gasLimit: performGas,
-          adminAddress: await admin.getAddress(),
-          checkData: emptyBytes,
-          triggerType: Trigger.CONDITION,
-          triggerConfig: trigger,
-          offchainConfig: emptyBytes,
-          amount,
-          billingToken: linkToken.address,
-        },
-        '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
-      )
+      const tx = registrar.connect(registrarOwner).approve({
+        name: upkeepName,
+        encryptedEmail: emptyBytes,
+        upkeepContract: mock.address,
+        gasLimit: performGas,
+        adminAddress: await admin.getAddress(),
+        checkData: emptyBytes,
+        triggerType: Trigger.CONDITION,
+        triggerConfig: trigger,
+        offchainConfig: emptyBytes,
+        amount,
+        billingToken: linkToken.address,
+      })
       await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
 
@@ -917,67 +909,58 @@ describe('AutomationRegistrar2_3', () => {
       for (let i = 0; i < invalidFields.length; i++) {
         const field = invalidFields[i]
         const badParams = Object.assign({}, params, field) as RegistrationParams
-        const tx = registrar.connect(registrarOwner).approve(badParams, hash)
+        const tx = registrar.connect(registrarOwner).approve(badParams)
         await expect(
           tx,
           `expected ${JSON.stringify(field)} to cause failure, but succeeded`,
-        ).to.be.revertedWithCustomError(registrar, errorMsgs.hashPayload)
+        ).to.be.revertedWithCustomError(registrar, errorMsgs.requestNotFound)
       }
     })
 
     it('approves an existing registration request', async () => {
-      const tx = await registrar.connect(registrarOwner).approve(
-        {
-          name: upkeepName,
-          encryptedEmail: emptyBytes,
-          upkeepContract: mock.address,
-          gasLimit: performGas,
-          adminAddress: await admin.getAddress(),
-          checkData: emptyBytes,
-          triggerType: Trigger.CONDITION,
-          triggerConfig: trigger,
-          offchainConfig,
-          amount,
-          billingToken: linkToken.address,
-        },
-        hash,
-      )
+      const tx = await registrar.connect(registrarOwner).approve({
+        name: upkeepName,
+        encryptedEmail: emptyBytes,
+        upkeepContract: mock.address,
+        gasLimit: performGas,
+        adminAddress: await admin.getAddress(),
+        checkData: emptyBytes,
+        triggerType: Trigger.CONDITION,
+        triggerConfig: trigger,
+        offchainConfig,
+        amount,
+        billingToken: linkToken.address,
+      })
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
     })
 
     it('deletes the request afterwards / reverts if the request DNE', async () => {
-      await registrar.connect(registrarOwner).approve(
-        {
-          name: upkeepName,
-          encryptedEmail: emptyBytes,
-          upkeepContract: mock.address,
-          gasLimit: performGas,
-          adminAddress: await admin.getAddress(),
-          checkData: emptyBytes,
-          triggerType: Trigger.CONDITION,
-          triggerConfig: trigger,
-          offchainConfig,
-          amount,
-          billingToken: linkToken.address,
-        },
-        hash,
-      )
-      const tx = registrar.connect(registrarOwner).approve(
-        {
-          name: upkeepName,
-          encryptedEmail: emptyBytes,
-          upkeepContract: mock.address,
-          gasLimit: performGas,
-          adminAddress: await admin.getAddress(),
-          checkData: emptyBytes,
-          triggerType: Trigger.CONDITION,
-          triggerConfig: trigger,
-          offchainConfig,
-          amount,
-          billingToken: linkToken.address,
-        },
-        hash,
-      )
+      await registrar.connect(registrarOwner).approve({
+        name: upkeepName,
+        encryptedEmail: emptyBytes,
+        upkeepContract: mock.address,
+        gasLimit: performGas,
+        adminAddress: await admin.getAddress(),
+        checkData: emptyBytes,
+        triggerType: Trigger.CONDITION,
+        triggerConfig: trigger,
+        offchainConfig,
+        amount,
+        billingToken: linkToken.address,
+      })
+      const tx = registrar.connect(registrarOwner).approve({
+        name: upkeepName,
+        encryptedEmail: emptyBytes,
+        upkeepContract: mock.address,
+        gasLimit: performGas,
+        adminAddress: await admin.getAddress(),
+        checkData: emptyBytes,
+        triggerType: Trigger.CONDITION,
+        triggerConfig: trigger,
+        offchainConfig,
+        amount,
+        billingToken: linkToken.address,
+      })
       await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
   })
@@ -1049,22 +1032,19 @@ describe('AutomationRegistrar2_3', () => {
       await registrar.connect(registrarOwner).cancel(hash)
       let tx = registrar.connect(registrarOwner).cancel(hash)
       await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
-      tx = registrar.connect(registrarOwner).approve(
-        {
-          name: upkeepName,
-          encryptedEmail: emptyBytes,
-          upkeepContract: mock.address,
-          gasLimit: performGas,
-          adminAddress: await admin.getAddress(),
-          checkData: emptyBytes,
-          triggerType: Trigger.CONDITION,
-          triggerConfig: trigger,
-          offchainConfig: emptyBytes,
-          amount,
-          billingToken: linkToken.address,
-        },
-        hash,
-      )
+      tx = registrar.connect(registrarOwner).approve({
+        name: upkeepName,
+        encryptedEmail: emptyBytes,
+        upkeepContract: mock.address,
+        gasLimit: performGas,
+        adminAddress: await admin.getAddress(),
+        checkData: emptyBytes,
+        triggerType: Trigger.CONDITION,
+        triggerConfig: trigger,
+        offchainConfig: emptyBytes,
+        amount,
+        billingToken: linkToken.address,
+      })
       await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
   })

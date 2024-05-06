@@ -213,7 +213,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for bridge: %+v", err))
 		return
 	}
-	jobsUsingBridge, err := btc.App.JobORM().FindJobIDsWithBridge(name)
+	jobsUsingBridge, err := btc.App.JobORM().FindJobIDsWithBridge(ctx, name)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated v2 jobs: %+v", err))
 		return

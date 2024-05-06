@@ -50,6 +50,22 @@ contribution information.
 
 Thank you!
 
+### Changesets
+
+We use [changesets](https://github.com/changesets/changesets) to manage versioning the contracts.
+
+Every PR that modifies any configuration or code, should most likely accompanied by a changeset file.
+
+To install `changesets`:
+  1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
+  2. Run `pnpm install`.
+
+Either after or before you create a commit, run the `pnpm changeset` command in the `contracts` directory to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
