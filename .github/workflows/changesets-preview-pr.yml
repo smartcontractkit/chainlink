@@ -44,14 +44,10 @@ jobs:
 
       - name: Generate new changelog
         if: steps.change.outputs.core-changeset == 'true'
+        id: changelog
         run: pnpm install && ./tools/ci/format_changelog
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get release version
-        if: steps.change.outputs.core-changeset == 'true'
-        id: get-release-version
-        run: echo "version=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
 
       - name: Create release preview PR
         if: steps.change.outputs.core-changeset == 'true'
@@ -64,12 +60,8 @@ jobs:
           commit-message: "changeset: release preview"
           committer: app-token-issuer-releng[bot] <app-token-issuer-releng[bot]@users.noreply.github.com>
           branch: changesets/release-preview
-          title: "[DO NOT MERGE] Changeset Release Preview - v${{ steps.get-release-version.outputs.version }}"
-          body: |
-            This PR is a preview of the changes that will be included in the next release. Please do not merge this PR.
-            <!--
-            This PR was created by the changesets-release-preview workflow.
-            -->
+          title: "[DO NOT MERGE] Changeset Release Preview - v${{ steps.changelog.outputs.version }}"
+          body: ${{ steps.changelog.outputs.pr_body }}
           draft: true
           labels: |
             release-preview

@@ -38,8 +38,35 @@ EOF
   done
 }
 
+set_pr_body() {
+  # GitHub Issues/PRs messages have a max size limit on the message body payload.
+  # This is the error: `body is too long (maximum is 65536 characters)`.
+  max_pr_desc_char_length=65000
+  version=$(jq -r '.version' package.json)
+  echo "version=$version" >> $GITHUB_OUTPUT
+  read -d '' pr_header <<EOF
+This PR is a preview of the changes that will be included in the next release. Please do not merge this PR.
+
+# Chainlink Core Release - v${version}
+---
+EOF
+  if [[ ${#changelog_content} -gt $max_pr_desc_char_length ]]; then
+    read -d '' pr_body <<EOF
+${pr_header}
+
+The changelog content is too long for the PR description. Please view the full changelog in the [CHANGELOG.md](https://github.com/smartcontractkit/chainlink/blob/changesets/release-preview/CHANGELOG.md)
+EOF
+  else
+    read -d '' pr_body <<EOF
+${pr_header}
+
+${changelog_content}
+EOF
+  fi
+  echo "pr_body=$pr_body" >> $GITHUB_OUTPUT
+}
+
 set_new_changelog_content() {
-  append_changelog_content
   read -d '' new_changelog <<EOF
 ${changelog_content}
 ${current_changelog}
@@ -130,5 +157,7 @@ while IFS= read -r line; do
 done < CHANGELOG.md
 
 match_tags
+append_changelog_content
+set_pr_body
 set_new_changelog_content
 cleanup
