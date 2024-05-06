@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -77,7 +76,7 @@ func generateTokenPriceUpdates(tokenAddr string, n int) []TokenPriceUpdate {
 
 func getGasTableRowCount(t *testing.T, ds sqlutil.DataSource) int {
 	var count int
-	stmt := fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, gasTableName)
+	stmt := `SELECT COUNT(*) FROM ccip.observed_gas_prices;`
 	err := ds.QueryRowxContext(testutils.Context(t), stmt).Scan(&count)
 	require.NoError(t, err)
 
@@ -86,7 +85,7 @@ func getGasTableRowCount(t *testing.T, ds sqlutil.DataSource) int {
 
 func getTokenTableRowCount(t *testing.T, ds sqlutil.DataSource) int {
 	var count int
-	stmt := fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, tokenTableName)
+	stmt := `SELECT COUNT(*) FROM ccip.observed_token_prices;`
 	err := ds.QueryRowxContext(testutils.Context(t), stmt).Scan(&count)
 	require.NoError(t, err)
 

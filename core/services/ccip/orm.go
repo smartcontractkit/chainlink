@@ -50,11 +50,6 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-const (
-	gasTableName   = "ccip.observed_gas_prices"
-	tokenTableName = "ccip.observed_token_prices"
-)
-
 func NewORM(ds sqlutil.DataSource) (ORM, error) {
 	if ds == nil {
 		return nil, fmt.Errorf("datasource to CCIP NewORM cannot be nil")
@@ -67,13 +62,13 @@ func NewORM(ds sqlutil.DataSource) (ORM, error) {
 
 func (o *orm) GetGasPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]GasPrice, error) {
 	var gasPrices []GasPrice
-	stmt := fmt.Sprintf(`
+	stmt := `
 		SELECT DISTINCT ON (source_chain_selector)
 		source_chain_selector, gas_price, created_at
-		FROM %s
+		FROM ccip.observed_gas_prices
 		WHERE chain_selector = $1
 		ORDER BY source_chain_selector, created_at DESC;
-	`, gasTableName)
+	`
 	err := o.ds.SelectContext(ctx, &gasPrices, stmt, destChainSelector)
 	if err != nil {
 		return nil, err
@@ -84,14 +79,13 @@ func (o *orm) GetGasPricesByDestChain(ctx context.Context, destChainSelector uin
 
 func (o *orm) GetTokenPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]TokenPrice, error) {
 	var tokenPrices []TokenPrice
-	stmt := fmt.Sprintf(`
+	stmt := `
 		SELECT DISTINCT ON (token_addr)
 		token_addr, token_price, created_at
-		FROM %s
+		FROM ccip.observed_token_prices
 		WHERE chain_selector = $1
 		ORDER BY token_addr, created_at DESC;
-
-	`, tokenTableName)
+	`
 	err := o.ds.SelectContext(ctx, &tokenPrices, stmt, destChainSelector)
 	if err != nil {
 		return nil, err
@@ -116,9 +110,9 @@ func (o *orm) InsertGasPricesForDestChain(ctx context.Context, destChainSelector
 	sqlStr = sqlStr[0 : len(sqlStr)-1]
 
 	stmt := fmt.Sprintf(`
-		INSERT INTO %s (chain_selector, job_id, source_chain_selector, gas_price, created_at)
+		INSERT INTO ccip.observed_gas_prices (chain_selector, job_id, source_chain_selector, gas_price, created_at)
 		VALUES %s;`,
-		gasTableName, sqlStr)
+		sqlStr)
 
 	_, err := o.ds.ExecContext(ctx, stmt, values...)
 	if err != nil {
@@ -143,9 +137,9 @@ func (o *orm) InsertTokenPricesForDestChain(ctx context.Context, destChainSelect
 	sqlStr = sqlStr[0 : len(sqlStr)-1]
 
 	stmt := fmt.Sprintf(`
-		INSERT INTO %s (chain_selector, job_id, token_addr, token_price, created_at)
+		INSERT INTO ccip.observed_token_prices (chain_selector, job_id, token_addr, token_price, created_at)
 		VALUES %s;`,
-		tokenTableName, sqlStr)
+		sqlStr)
 
 	_, err := o.ds.ExecContext(ctx, stmt, values...)
 	if err != nil {
@@ -155,14 +149,14 @@ func (o *orm) InsertTokenPricesForDestChain(ctx context.Context, destChainSelect
 }
 
 func (o *orm) ClearGasPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error {
-	stmt := fmt.Sprintf(`DELETE FROM %s WHERE chain_selector = $1 AND created_at < $2`, gasTableName)
+	stmt := `DELETE FROM ccip.observed_gas_prices WHERE chain_selector = $1 AND created_at < $2`
 
 	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, to)
 	return err
 }
 
 func (o *orm) ClearTokenPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error {
-	stmt := fmt.Sprintf(`DELETE FROM %s WHERE chain_selector = $1 AND created_at < $2`, tokenTableName)
+	stmt := `DELETE FROM ccip.observed_token_prices WHERE chain_selector = $1 AND created_at < $2`
 
 	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, to)
 	return err
