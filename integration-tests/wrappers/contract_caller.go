@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/seth"
 
 	evmClient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -50,66 +51,118 @@ func (w *WrappedContractBackend) getGethClient() *ethclient.Client {
 }
 
 func (w *WrappedContractBackend) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call CodeAt")
+	}
+
 	client := w.getGethClient()
 	return client.CodeAt(ctx, contract, blockNumber)
 }
 
 func (w *WrappedContractBackend) PendingCodeAt(ctx context.Context, contract common.Address) ([]byte, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call PendingCodeAt")
+	}
+
 	client := w.getGethClient()
 	return client.PendingCodeAt(ctx, contract)
 }
 
 func (w *WrappedContractBackend) CodeAtHash(ctx context.Context, contract common.Address, blockHash common.Hash) ([]byte, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call CodeAtHash")
+	}
+
 	client := w.getGethClient()
 	return client.CodeAtHash(ctx, contract, blockHash)
 }
 
 func (w *WrappedContractBackend) CallContractAtHash(ctx context.Context, call ethereum.CallMsg, blockHash common.Hash) ([]byte, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call CallContractAtHash")
+	}
+
 	client := w.getGethClient()
 	return client.CallContractAtHash(ctx, call, blockHash)
 }
 
 func (w *WrappedContractBackend) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call HeaderByNumber")
+	}
+
 	client := w.getGethClient()
 	return client.HeaderByNumber(ctx, number)
 }
 
 func (w *WrappedContractBackend) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return 0, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call PendingNonceAt")
+	}
+
 	client := w.getGethClient()
 	return client.PendingNonceAt(ctx, account)
 }
 
 func (w *WrappedContractBackend) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call SuggestGasPrice")
+	}
+
 	client := w.getGethClient()
 	return client.SuggestGasPrice(ctx)
 }
 
 func (w *WrappedContractBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call SuggestGasTipCap")
+	}
+
 	client := w.getGethClient()
 	return client.SuggestGasTipCap(ctx)
 }
 
 func (w *WrappedContractBackend) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return 0, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call EstimateGas")
+	}
+
 	client := w.getGethClient()
 	return client.EstimateGas(ctx, call)
 }
 
 func (w *WrappedContractBackend) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	if w.getErrorFromContext(ctx) != nil {
+		return errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call SendTransaction")
+	}
+
 	client := w.getGethClient()
 	return client.SendTransaction(ctx, tx)
 }
 
 func (w *WrappedContractBackend) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call FilterLogs")
+	}
+
 	client := w.getGethClient()
 	return client.FilterLogs(ctx, query)
 }
 
 func (w *WrappedContractBackend) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call SubscribeFilterLogs")
+	}
+
 	client := w.getGethClient()
 	return client.SubscribeFilterLogs(ctx, query, ch)
 }
 
 func (w *WrappedContractBackend) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call CallContract")
+	}
+
 	var hex hexutil.Bytes
 	client := w.getGethClient()
 	err := client.Client().CallContext(ctx, &hex, "eth_call", evmClient.ToBackwardCompatibleCallArg(msg), evmClient.ToBackwardCompatibleBlockNumArg(blockNumber))
@@ -120,6 +173,10 @@ func (w *WrappedContractBackend) CallContract(ctx context.Context, msg ethereum.
 }
 
 func (w *WrappedContractBackend) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	if w.getErrorFromContext(ctx) != nil {
+		return nil, errors.Wrapf(w.getErrorFromContext(ctx), "the context you passed had an error set. Won't call PendingCallContract")
+	}
+
 	var hex hexutil.Bytes
 	client := w.getGethClient()
 	err := client.Client().CallContext(ctx, &hex, "eth_call", evmClient.ToBackwardCompatibleCallArg(msg), "pending")
@@ -127,4 +184,12 @@ func (w *WrappedContractBackend) PendingCallContract(ctx context.Context, msg et
 		return nil, err
 	}
 	return hex, nil
+}
+
+func (w *WrappedContractBackend) getErrorFromContext(ctx context.Context) error {
+	if ctx.Value("error") != nil {
+		return ctx.Value("error").(error)
+	}
+
+	return nil
 }
