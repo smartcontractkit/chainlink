@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -64,12 +65,28 @@ func NewOCRContractTransmitter(
 	lggr logger.Logger,
 	reportToEvmTxMeta ReportToEthMetadata,
 ) (*contractTransmitter, error) {
+	return NewOCRContractTransmitterWithRetention(ctx, address, caller, contractABI, transmitter, lp, lggr, reportToEvmTxMeta, 0)
+}
+
+func NewOCRContractTransmitterWithRetention(
+	ctx context.Context,
+	address gethcommon.Address,
+	caller contractReader,
+	contractABI abi.ABI,
+	transmitter Transmitter,
+	lp logpoller.LogPoller,
+	lggr logger.Logger,
+	reportToEvmTxMeta ReportToEthMetadata,
+	retention time.Duration,
+) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
 
-	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
+	// TODO It would be better to keep MaxLogsKept = 1 for the OCR contract transmitter instead of Retention. We are always interested only in the latest log.
+	// Although MaxLogsKept is present in the Filter struct, it is not supported by LogPoller yet.
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: retention})
 	if err != nil {
 		return nil, err
 	}
