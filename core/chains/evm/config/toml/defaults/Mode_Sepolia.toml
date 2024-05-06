@@ -1,5 +1,6 @@
 ChainID = '919'
 FinalityTagEnabled = true
+ChainType = 'optimismBedrock'
 
 [GasEstimator]
 EIP1559DynamicFees = true
