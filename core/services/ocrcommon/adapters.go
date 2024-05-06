@@ -7,6 +7,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
@@ -79,31 +80,39 @@ func (c *OCR3ContractTransmitterAdapter) FromAccount() (ocrtypes.Account, error)
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 
 type OCR3OnchainKeyringMultiChainAdapter struct {
-	ks keystore.OCR2
-	st ocr2.OCR2OnchainSigningStrategy
-	// keep a map of chain-family -> key-bundle
+	ks         keystore.OCR2
+	st         ocr2.OCR2OnchainSigningStrategy
+	keyBundles map[relay.Network]ocr2key.KeyBundle
+	publicKey  ocrtypes.OnchainPublicKey
 }
 
-func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st ocr2.OCR2OnchainSigningStrategy) *OCR3OnchainKeyringMultiChainAdapter {
-	for a, _ := range relay.SupportedRelays {
-		// go through all the key-bundles and create a map of chain-family -> key-bundle, return an error when failing to get a key-bundle
+func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st ocr2.OCR2OnchainSigningStrategy) (*OCR3OnchainKeyringMultiChainAdapter, error) {
+	var keyBundles map[relay.Network]ocr2key.KeyBundle
+	for chainFamily, _ := range relay.SupportedRelays {
+		kbID, err := st.KeyBundleID(chainFamily)
+		if err != nil {
+			return nil, err
+		}
+		kb, err := ks.Get(kbID)
+		if err != nil {
+			return nil, err
+		}
+		keyBundles[chainFamily] = kb
 	}
-	return &OCR3OnchainKeyringMultiChainAdapter{ks, st}
-}
-
-func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublicKey {
-	// TODO: how do we handle errors if we cannot bubble them up? Do we use a logger?
-	pkKeyBundleID, _ := a.st.PublicKey()
-	kb, _ := a.ks.Get(pkKeyBundleID)
-	return kb.PublicKey()
-}
-
-func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
-	kbID, _ := a.st.KeyBundleID("") // TODO: how do we get the bundle name from the report info?
-	kb, err := a.ks.Get(kbID)
+	pkKeyBundleID, _ := st.PublicKey()
+	kb, err := ks.Get(pkKeyBundleID)
 	if err != nil {
 		return nil, err
 	}
+	return &OCR3OnchainKeyringMultiChainAdapter{ks, st, keyBundles, kb.PublicKey()}, nil
+}
+
+func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublicKey {
+	return a.publicKey
+}
+
+func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
+	kb := a.keyBundles[relay.EVM] // TODO: how do we get the bundle name from the report info?
 	return kb.Sign(ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -115,11 +124,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
-	kbID, _ := a.st.KeyBundleID("") // TODO: how do we get the bundle name from the report info?
-	kb, err := a.ks.Get(kbID)
-	if err != nil {
-		return false
-	}
+	kb := a.keyBundles[relay.EVM] // TODO: how do we get the bundle name from the report info?
 	return kb.Verify(opk, ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -131,10 +136,6 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicK
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) MaxSignatureLength() int {
-	kbID, _ := a.st.KeyBundleID("") // TODO: how do we get the bundle name in this case?
-	kb, err := a.ks.Get(kbID)
-	if err != nil {
-		return -1
-	}
+	kb := a.keyBundles[relay.EVM] // TODO: how do we get the bundle name at this point? No reporting info is available
 	return kb.MaxSignatureLength()
 }
