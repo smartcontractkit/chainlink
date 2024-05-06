@@ -2,8 +2,10 @@
 pragma solidity 0.8.19;
 
 import {IPool} from "../interfaces/IPool.sol";
+import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 
 import {ARM} from "../ARM.sol";
+import {PriceRegistry} from "../PriceRegistry.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {EVM2EVMOffRamp} from "../offRamp/EVM2EVMOffRamp.sol";
@@ -243,6 +245,17 @@ contract StructFactory {
       Internal.PriceUpdates({tokenPriceUpdates: tokenPriceUpdates, gasPriceUpdates: new Internal.GasPriceUpdate[](0)});
 
     return priceUpdates;
+  }
+
+  function getSingleTokenPriceFeedUpdateStruct(
+    address sourceToken,
+    address dataFeedAddress,
+    uint8 tokenDecimals
+  ) internal pure returns (PriceRegistry.TokenPriceFeedUpdate memory) {
+    return PriceRegistry.TokenPriceFeedUpdate({
+      sourceToken: sourceToken,
+      feedConfig: IPriceRegistry.TokenPriceFeedConfig({dataFeedAddress: dataFeedAddress, tokenDecimals: tokenDecimals})
+    });
   }
 
   // OffRamp

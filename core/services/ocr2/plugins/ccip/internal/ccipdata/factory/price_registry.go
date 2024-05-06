@@ -67,6 +67,15 @@ func initOrClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, ver
 			return nil, pr.Close()
 		}
 		return pr, nil
+	case ccipdata.V1_6_0:
+		pr, err := v1_2_0.NewPriceRegistry(lggr, priceRegistryEvmAddr, lp, cl, registerFilters)
+		if err != nil {
+			return nil, err
+		}
+		if closeReader {
+			return nil, pr.Close()
+		}
+		return pr, nil
 	default:
 		return nil, errors.Errorf("unsupported price registry version %v", version.String())
 	}
