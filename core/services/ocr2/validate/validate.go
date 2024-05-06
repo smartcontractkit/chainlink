@@ -207,6 +207,14 @@ func (o *OCR2OnchainSigningStrategy) PublicKey() (string, error) {
 	return pkString, nil
 }
 
+func (o *OCR2OnchainSigningStrategy) ConfigCopy() job.JSONConfig {
+	copiedConfig := make(job.JSONConfig)
+	for k, v := range o.Config {
+		copiedConfig[k] = v
+	}
+	return copiedConfig
+}
+
 func (o *OCR2OnchainSigningStrategy) KeyBundleID(name string) (string, error) {
 	kbID, ok := o.Config[name]
 	if !ok {

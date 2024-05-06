@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 )
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringAdapter)(nil)
@@ -83,17 +82,20 @@ func (c *OCR3ContractTransmitterAdapter) FromAccount() (ocrtypes.Account, error)
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 
+type OnchainSigningStrategy interface {
+	ConfigCopy() map[string]interface{}
+	KeyBundleID(name string) (string, error)
+}
+
 type OCR3OnchainKeyringMultiChainAdapter struct {
-	ks         keystore.OCR2
-	st         ocr2.OCR2OnchainSigningStrategy
 	keyBundles map[string]ocr2key.KeyBundle
 	publicKey  ocrtypes.OnchainPublicKey
 	lggr       logger.Logger
 }
 
-func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st ocr2.OCR2OnchainSigningStrategy, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
+func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st OnchainSigningStrategy, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
 	var keyBundles map[string]ocr2key.KeyBundle
-	for name, _ := range st.Config {
+	for name, _ := range st.ConfigCopy() {
 		kbID, err := st.KeyBundleID(name)
 		if err != nil {
 			return nil, err
@@ -105,7 +107,7 @@ func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st ocr2.OCR2Onchai
 		keyBundles[name] = kb
 	}
 	// We don't need to check for the existence of `publicKey` in the keyBundles map because it is required on validation on `validate/validate.go`
-	return &OCR3OnchainKeyringMultiChainAdapter{ks, st, keyBundles, keyBundles["publicKey"].PublicKey(), lggr}, nil
+	return &OCR3OnchainKeyringMultiChainAdapter{keyBundles, keyBundles["publicKey"].PublicKey(), lggr}, nil
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublicKey {
