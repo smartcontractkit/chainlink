@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
@@ -83,7 +84,7 @@ func (c *OCR3ContractTransmitterAdapter) FromAccount() (ocrtypes.Account, error)
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 
 type OnchainSigningStrategy interface {
-	ConfigCopy() map[string]interface{}
+	ConfigCopy() job.JSONConfig
 	KeyBundleID(name string) (string, error)
 }
 
