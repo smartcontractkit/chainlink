@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -44,7 +45,7 @@ var AnySliceToReadWithoutAnArgument = []uint64{3, 4}
 
 const AnyExtraValue = 3
 
-func RunChainReaderInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) {
+func RunChainReaderGetLatestValueInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) {
 	tests := []testcase{
 		{
 			name: "Gets the latest value",
@@ -60,7 +61,6 @@ func RunChainReaderInterfaceTests(t *testing.T, tester ChainReaderInterfaceTeste
 
 				actual := &TestStruct{}
 				params := &LatestParams{I: 1}
-
 				require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, MethodTakingLatestParamsReturningTestStruct, params, actual))
 				assert.Equal(t, &firstItem, actual)
 
@@ -206,5 +206,42 @@ func RunChainReaderInterfaceTests(t *testing.T, tester ChainReaderInterfaceTeste
 			},
 		},
 	}
+	runTests(t, tester, tests)
+}
+
+func RunQueryKeyInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) {
+	tests := []testcase{
+		{
+			name: "QueryKey returns not found if sequence never happened",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
+
+				sequenceDataType := &TestStruct{}
+				_, err := cr.QueryKey(ctx, AnyContractName, query.KeyFilter{Key: EventName}, query.LimitAndSort{}, &sequenceDataType)
+				assert.True(t, errors.Is(err, types.ErrNotFound))
+			},
+		},
+		{
+			name: "QueryKey returns sequence data properly",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
+				ts1 := CreateTestStruct(0, tester)
+				tester.TriggerEvent(t, &ts1)
+				ts2 := CreateTestStruct(1, tester)
+				tester.TriggerEvent(t, &ts2)
+
+				ts := &TestStruct{}
+				assert.Eventually(t, func() bool {
+					sequences, err := cr.QueryKey(ctx, AnyContractName, query.KeyFilter{Key: EventName}, query.LimitAndSort{}, ts)
+					return err == nil && len(sequences) == 2 && reflect.DeepEqual(&ts1, sequences[0].Data) && reflect.DeepEqual(&ts2, sequences[1].Data)
+				}, tester.MaxWaitTimeForEvents(), time.Millisecond*10)
+			},
+		},
+	}
+
 	runTests(t, tester, tests)
 }

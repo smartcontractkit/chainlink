@@ -2,7 +2,8 @@ package types
 
 import (
 	"context"
-	"time"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 )
 
 // Errors exposed to product plugins
@@ -38,11 +39,29 @@ type ChainReader interface {
 	// Note that implementations should ignore extra fields in params that are not expected in the call to allow easier
 	// use across chains and contract versions.
 	// Similarly, when using a struct for returnVal, fields in the return value that are not on-chain will not be set.
-	GetLatestValue(ctx context.Context, contractName string, method string, params, returnVal any) error
+	GetLatestValue(ctx context.Context, contractName, method string, params, returnVal any) error
 
 	// Bind will override current bindings for the same contract, if one has been set and will return an error if the
-	// contract is not known by the ChainReader, or if the address is invalid
+	// contract is not known by the ChainReader, or if the Address is invalid
+	// TODO: (BCF-3139) can't handle log poller filters,explore handling this through chain reader config.
 	Bind(ctx context.Context, bindings []BoundContract) error
+
+	// QueryKey provides fetching chain agnostic events (Sequence) with general querying capability.
+	// TODO: (BCF-3174) find a way to abstract EVM Log Poller IndexedLogsWithSigsExcluding, should be possible by adding a new filter.
+	QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]Sequence, error)
+}
+
+type Head struct {
+	Identifier string
+	Hash       []byte
+	Timestamp  uint64
+}
+
+type Sequence struct {
+	// This way we can retrieve past/future sequences (EVM log events) very granularly, but still hide the chain detail.
+	Cursor string
+	Head
+	Data any
 }
 
 type BoundContract struct {
@@ -51,21 +70,6 @@ type BoundContract struct {
 	Pending bool
 }
 
-type Event struct {
-	ChainID           string
-	EventIndexInBlock string
-	Address           string
-	TxHash            string
-	BlockHash         string
-	BlockNumber       int64
-	BlockTimestamp    time.Time
-	CreatedAt         time.Time
-	Keys              []string
-	Data              []byte
-}
-
-type EventFilter struct {
-	AddressList []string   // contract address
-	KeysList    [][]string // 2D list of indexed search keys, outer dim = AND, inner dim = OR.  Params[0] is the name of the event (or "event type"), rest are any narrowing parameters that may help further specify the event
-	Retention   time.Duration
+func (bc BoundContract) Key() string {
+	return bc.Address + "-" + bc.Name
 }

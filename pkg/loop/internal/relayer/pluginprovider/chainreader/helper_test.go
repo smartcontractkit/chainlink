@@ -2,9 +2,14 @@ package chainreader_test
 
 import (
 	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 )
 
 var errorTypes = []error{
@@ -52,6 +57,8 @@ func (f fakeTypeProvider) CreateType(itemType string, isEncode bool) (any, error
 	return f.CreateContractType("", itemType, isEncode)
 }
 
+var _ types.ContractTypeProvider = (*fakeTypeProvider)(nil)
+
 func (fakeTypeProvider) CreateContractType(_, itemType string, isEncode bool) (any, error) {
 	switch itemType {
 	case NilType:
@@ -88,4 +95,59 @@ func (fakeTypeProvider) CreateContractType(_, itemType string, isEncode bool) (a
 	}
 
 	return nil, types.ErrInvalidType
+}
+
+func generateQueryFilterTestCases(t *testing.T) []query.KeyFilter {
+	var queryFilters []query.KeyFilter
+	confirmationsValues := []primitives.ConfirmationLevel{primitives.Finalized, primitives.Unconfirmed}
+	operatorValues := []primitives.ComparisonOperator{primitives.Eq, primitives.Neq, primitives.Gt, primitives.Lt, primitives.Gte, primitives.Lte}
+	comparableValues := []string{"", " ", "number", "123"}
+
+	primitiveExpressions := []query.Expression{query.TxHash("txHash")}
+	for _, op := range operatorValues {
+		primitiveExpressions = append(primitiveExpressions, query.Block(123, op))
+		primitiveExpressions = append(primitiveExpressions, query.Timestamp(123, op))
+
+		var valueComparators []primitives.ValueComparator
+		for _, comparableValue := range comparableValues {
+			valueComparators = append(valueComparators, primitives.ValueComparator{
+				Value:    comparableValue,
+				Operator: op,
+			})
+		}
+		primitiveExpressions = append(primitiveExpressions, query.Comparator("someName", valueComparators...))
+	}
+
+	for _, conf := range confirmationsValues {
+		primitiveExpressions = append(primitiveExpressions, query.Confirmation(conf))
+	}
+
+	qf, err := query.Where("primitives", primitiveExpressions...)
+	require.NoError(t, err)
+	queryFilters = append(queryFilters, qf)
+
+	andOverPrimitivesBoolExpr := query.And(primitiveExpressions...)
+	orOverPrimitivesBoolExpr := query.Or(primitiveExpressions...)
+
+	nestedBoolExpr := query.And(
+		query.TxHash("txHash"),
+		andOverPrimitivesBoolExpr,
+		orOverPrimitivesBoolExpr,
+		query.TxHash("txHash"),
+	)
+	require.NoError(t, err)
+
+	qf, err = query.Where("andOverPrimitivesBoolExpr", andOverPrimitivesBoolExpr)
+	require.NoError(t, err)
+	queryFilters = append(queryFilters, qf)
+
+	qf, err = query.Where("orOverPrimitivesBoolExpr", orOverPrimitivesBoolExpr)
+	require.NoError(t, err)
+	queryFilters = append(queryFilters, qf)
+
+	qf, err = query.Where("nestedBoolExpr", nestedBoolExpr)
+	require.NoError(t, err)
+	queryFilters = append(queryFilters, qf)
+
+	return queryFilters
 }
