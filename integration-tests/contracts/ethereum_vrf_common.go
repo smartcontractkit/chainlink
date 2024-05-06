@@ -90,13 +90,8 @@ func parseRequestRandomnessLogs(coordinator Coordinator, logs []*types.Log) (*Co
 	var err error
 	for _, eventLog := range logs {
 		for _, topic := range eventLog.Topics {
-			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested{}.Topic()) == 0 {
-				randomWordsRequestedEvent, err = coordinator.ParseRandomWordsRequested(*eventLog)
-				if err != nil {
-					return nil, fmt.Errorf("parse RandomWordsRequested log failed, err: %w", err)
-				}
-			}
-			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()) == 0 {
+			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested{}.Topic()) == 0 ||
+				topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()) == 0 {
 				randomWordsRequestedEvent, err = coordinator.ParseRandomWordsRequested(*eventLog)
 				if err != nil {
 					return nil, fmt.Errorf("parse RandomWordsRequested log failed, err: %w", err)
@@ -111,14 +106,8 @@ func ParseRandomWordsFulfilledLogs(coordinator Coordinator, logs []*types.Log) (
 	var randomWordsFulfilledEventArr []*CoordinatorRandomWordsFulfilled
 	for _, eventLog := range logs {
 		for _, topic := range eventLog.Topics {
-			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled{}.Topic()) == 0 {
-				randomWordsFulfilledEvent, err := coordinator.ParseRandomWordsFulfilled(*eventLog)
-				if err != nil {
-					return nil, fmt.Errorf("parse RandomWordsFulfilled log failed, err: %w", err)
-				}
-				randomWordsFulfilledEventArr = append(randomWordsFulfilledEventArr, randomWordsFulfilledEvent)
-			}
-			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()) == 0 {
+			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled{}.Topic()) == 0 ||
+				topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()) == 0 {
 				randomWordsFulfilledEvent, err := coordinator.ParseRandomWordsFulfilled(*eventLog)
 				if err != nil {
 					return nil, fmt.Errorf("parse RandomWordsFulfilled log failed, err: %w", err)
