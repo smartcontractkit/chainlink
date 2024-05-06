@@ -10,7 +10,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -23,7 +23,7 @@ var (
 
 type PriceRegistry struct {
 	*v1_0_0.PriceRegistry
-	pr *price_registry.PriceRegistry
+	pr *price_registry_1_2_0.PriceRegistry
 }
 
 func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp logpoller.LogPoller, ec client.Client, registerFilters bool) (*PriceRegistry, error) {
@@ -31,7 +31,7 @@ func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp l
 	if err != nil {
 		return nil, err
 	}
-	priceRegistry, err := price_registry.NewPriceRegistry(priceRegistryAddr, ec)
+	priceRegistry, err := price_registry_1_2_0.NewPriceRegistry(priceRegistryAddr, ec)
 	if err != nil {
 		return nil, err
 	}
