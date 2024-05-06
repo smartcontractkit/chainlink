@@ -187,7 +187,7 @@ func (w *WrappedContractBackend) PendingCallContract(ctx context.Context, msg et
 }
 
 func (w *WrappedContractBackend) getErrorFromContext(ctx context.Context) error {
-	if ctxErr := ctx.Value("error"); ctxErr != nil {
+	if ctxErr := ctx.Value(seth.ContextErrorKey{}); ctxErr != nil {
 		if v, ok := ctxErr.(error); ok {
 			return v
 		}
