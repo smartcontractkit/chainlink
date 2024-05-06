@@ -63,7 +63,11 @@ ${pr_header}
 ${changelog_content}
 EOF
   fi
-  echo "pr_body=$pr_body" >> $GITHUB_OUTPUT
+  {
+    echo "$pr_body<<EOF"
+${pr_body}
+    echo EOF
+  } >> $GITHUB_OUTPUT
 }
 
 set_new_changelog_content() {
