@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 )
 
 const (
@@ -63,7 +65,8 @@ func MultiCallLogTriggerLoadGen(
 	if err != nil {
 		return nil, err
 	}
-	boundContract := bind.NewBoundContract(contractAddress, multiCallABI, client.Client, client.Client, client.Client)
+	wrapper := wrappers.MustNewWrappedContractBackend(nil, client)
+	boundContract := bind.NewBoundContract(contractAddress, multiCallABI, wrapper, wrapper, wrapper)
 
 	var call []Call
 	for i, d := range logTriggerData {
