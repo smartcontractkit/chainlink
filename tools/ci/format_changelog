@@ -46,20 +46,16 @@ set_pr_body() {
   echo "version=$version" >> $GITHUB_OUTPUT
   read -d '' pr_header <<EOF
 This PR is a preview of the changes that will be included in the next release. Please do not merge this PR.
-
-# Chainlink Core Release - v${version}
 ---
 EOF
   if [[ ${#changelog_content} -gt $max_pr_desc_char_length ]]; then
     read -d '' pr_body <<EOF
 ${pr_header}
-
 The changelog content is too long for the PR description. Please view the full changelog in the [CHANGELOG.md](https://github.com/smartcontractkit/chainlink/blob/changesets/release-preview/CHANGELOG.md)
 EOF
   else
     read -d '' pr_body <<EOF
 ${pr_header}
-
 ${changelog_content}
 EOF
   fi
