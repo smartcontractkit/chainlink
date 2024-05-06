@@ -21,6 +21,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	ocr3capability "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -82,8 +83,9 @@ type Relayer struct {
 	capabilitiesRegistry coretypes.CapabilitiesRegistry
 
 	// Mercury
-	mercuryORM     mercury.ORM
-	transmitterCfg mercury.TransmitterConfig
+	mercuryORM        mercury.ORM
+	transmitterCfg    mercury.TransmitterConfig
+	triggerCapability *triggers.MercuryTriggerService
 
 	// LLO/data streams
 	cdcFactory llo.ChannelDefinitionCacheFactory
@@ -154,6 +156,9 @@ func (r *Relayer) Start(context.Context) error {
 }
 
 func (r *Relayer) Close() error {
+	if r.triggerCapability != nil {
+		return r.triggerCapability.Close()
+	}
 	return nil
 }
 
@@ -255,6 +260,21 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 		clients[server.URL] = client
 	}
 
+	// initialize trigger capability service lazily
+	if relayConfig.EnableTriggerCapability && r.triggerCapability == nil {
+		if r.capabilitiesRegistry == nil {
+			lggr.Errorw("trigger capability is enabled but capabilities registry is not set")
+		} else {
+			r.triggerCapability = triggers.NewMercuryTriggerService(0, lggr)
+			if err := r.triggerCapability.Start(ctx); err != nil {
+				return nil, err
+			}
+			if err := r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// FIXME: We actually know the version here since it's in the feed ID, can
 	// we use generics to avoid passing three of this?
 	// https://smartcontract-it.atlassian.net/browse/MERC-1414
@@ -273,7 +293,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	default:
 		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
 	}
-	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec)
+	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, r.triggerCapability)
 
 	return NewMercuryProvider(cp, r.chainReader, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
