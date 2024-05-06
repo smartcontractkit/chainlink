@@ -43,8 +43,8 @@ type Engine struct {
 	stopCh              services.StopChan
 	newWorkerTimeout    time.Duration
 
-	// Used for testing to wait for an execution to complete
-	xxxExecutionFinished chan string
+	// testing lifecycle hook to signal when an execution is finished.
+	onExecutionFinished func(string)
 	// testing lifecycle hook to signal initialization status
 	afterInit func(success bool)
 	// Used for testing to control the number of retries
@@ -78,7 +78,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	//
 	triggersInitialized := true
 	for _, t := range e.workflow.triggers {
-		tg, err := e.registry.GetTrigger(ctx, t.Type)
+		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
 			e.logger.Errorf("failed to get trigger capability: %s", err)
 			// we don't immediately return here, since we want to retry all triggers
@@ -123,16 +123,16 @@ func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
 		return nil
 	}
 
-	cp, err := e.registry.Get(ctx, s.Type)
+	cp, err := e.registry.Get(ctx, s.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get capability with ref %s: %s", s.Type, err)
+		return fmt.Errorf("failed to get capability with ref %s: %s", s.ID, err)
 	}
 
 	// We configure actions, consensus and targets here, and
 	// they all satisfy the `CallbackCapability` interface
 	cc, ok := cp.(capabilities.CallbackCapability)
 	if !ok {
-		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.Type)
+		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.ID)
 	}
 
 	if s.config == nil {
@@ -275,7 +275,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
-		return fmt.Errorf("failed to instantiate trigger %s, %s", t.Type, err)
+		return fmt.Errorf("failed to instantiate trigger %s, %s", t.ID, err)
 	}
 
 	go func() {
@@ -511,14 +511,7 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 		return err
 	}
 
-	// Signal that an execution has finished in a
-	// non-blocking fashion. This is intended for
-	// testing purposes only.
-	select {
-	case e.xxxExecutionFinished <- executionID:
-	default:
-	}
-
+	e.onExecutionFinished(executionID)
 	return nil
 }
 
@@ -688,9 +681,10 @@ type Config struct {
 	PeerID           func() *p2ptypes.PeerID
 
 	// For testing purposes only
-	maxRetries int
-	retryMs    int
-	afterInit  func(success bool)
+	maxRetries          int
+	retryMs             int
+	afterInit           func(success bool)
+	onExecutionFinished func(weid string)
 }
 
 const (
@@ -718,6 +712,10 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	if cfg.afterInit == nil {
 		cfg.afterInit = func(success bool) {}
+	}
+
+	if cfg.onExecutionFinished == nil {
+		cfg.onExecutionFinished = func(weid string) {}
 	}
 
 	// TODO: validation of the workflow spec
@@ -756,11 +754,11 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		triggerEvents:       make(chan capabilities.CapabilityResponse),
 		stopCh:              make(chan struct{}),
 		newWorkerTimeout:    cfg.NewWorkerTimeout,
-		// For testing purposes only
-		xxxExecutionFinished: make(chan string),
-		afterInit:            cfg.afterInit,
-		maxRetries:           cfg.maxRetries,
-		retryMs:              cfg.retryMs,
+
+		onExecutionFinished: cfg.onExecutionFinished,
+		afterInit:           cfg.afterInit,
+		maxRetries:          cfg.maxRetries,
+		retryMs:             cfg.retryMs,
 	}
 	return engine, nil
 }

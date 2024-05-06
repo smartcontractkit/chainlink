@@ -28,8 +28,9 @@ compileContract () {
 }
 
 # Contracts
-compileContract operatorforwarder/dev/AuthorizedForwarder.sol
-compileContract operatorforwarder/dev/AuthorizedReceiver.sol
-compileContract operatorforwarder/dev/Operator.sol
-compileContract operatorforwarder/dev/OperatorFactory.sol
+compileContract operatorforwarder/AuthorizedForwarder.sol
+compileContract operatorforwarder/AuthorizedReceiver.sol
+compileContract operatorforwarder/LinkTokenReceiver.sol
+compileContract operatorforwarder/Operator.sol
+compileContract operatorforwarder/OperatorFactory.sol
 
