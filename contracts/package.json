@@ -18,7 +18,7 @@
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "pnpm publish --tag latest",
-    "solhint": "solhint --max-warnings 75 \"./src/v0.8/**/*.sol\""
+    "solhint": "solhint --max-warnings 69 \"./src/v0.8/**/*.sol\""
   },
   "files": [
     "src/v0.8",
