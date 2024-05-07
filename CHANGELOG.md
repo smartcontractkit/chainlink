@@ -1,5 +1,33 @@
 # Changelog Chainlink Core
 
+## 2.12.1
+
+### Patch Changes
+
+- [#13008](https://github.com/smartcontractkit/chainlink/pull/13008) [`841fe61daa`](https://github.com/smartcontractkit/chainlink/commit/841fe61daa90b980f1e1622d2f7bd8f850b55462) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - #internal Keystone - rename type -> id
+
+- [#12952](https://github.com/smartcontractkit/chainlink/pull/12952) [`7572a50a78`](https://github.com/smartcontractkit/chainlink/commit/7572a50a78a270188344786937f68233df82f65b) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - #added
+  compare user-defined max gas price with current gas price in automation simulation pipeline
+
+- [#13058](https://github.com/smartcontractkit/chainlink/pull/13058) [`a34a17ae9d`](https://github.com/smartcontractkit/chainlink/commit/a34a17ae9d62679a1ff15a7703f5cbcf6dfd1d0f) Thanks [@shileiwill](https://github.com/shileiwill)! - withdraw in offchain mode #bugfix
+
+- [#12813](https://github.com/smartcontractkit/chainlink/pull/12813) [`ac893364e6`](https://github.com/smartcontractkit/chainlink/commit/ac893364e6c6ede08e9bf04da7dc64e0da94ab6e) Thanks [@matYang](https://github.com/matYang)! - #added ORM and corresponding tables for CCIP gas prices and token prices
+
+- [#13080](https://github.com/smartcontractkit/chainlink/pull/13080) [`36cc95f625`](https://github.com/smartcontractkit/chainlink/commit/36cc95f6256b5ba418a916de2c9dc9597508147a) Thanks [@cds95](https://github.com/cds95)! - #internal Generate gethwrappers for capability registry changes
+
+- [#12952](https://github.com/smartcontractkit/chainlink/pull/12952) [`7572a50a78`](https://github.com/smartcontractkit/chainlink/commit/7572a50a78a270188344786937f68233df82f65b) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - #added
+  pass a gas estimator to registry 2.1 pipeline
+
+- [#13084](https://github.com/smartcontractkit/chainlink/pull/13084) [`d79bdf16c5`](https://github.com/smartcontractkit/chainlink/commit/d79bdf16c5129cf7bc7cc5114f92eb07fd3fbf02) Thanks [@austinborn](https://github.com/austinborn)! - #updated Add gethwrappers for operatorforwarder contracts
+
+- [#13088](https://github.com/smartcontractkit/chainlink/pull/13088) [`29b16360fb`](https://github.com/smartcontractkit/chainlink/commit/29b16360fb41e4372f72fe744aaf3ee8234a9b67) Thanks [@shileiwill](https://github.com/shileiwill)! - get available erc20 for payment #bugfix
+
+- [#13112](https://github.com/smartcontractkit/chainlink/pull/13112) [`80590662bd`](https://github.com/smartcontractkit/chainlink/commit/80590662bd9956d3c93449ca4703a2430e0613b7) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - #internal Normalize keystone workflow ref regex property to match id regex
+
+- [#13102](https://github.com/smartcontractkit/chainlink/pull/13102) [`700a827194`](https://github.com/smartcontractkit/chainlink/commit/700a82719451611381ab5dbb94fe00547660440b) Thanks [@cds95](https://github.com/cds95)! - #internal generate geth wrappers for capability registry remove nodes
+
+- [#12952](https://github.com/smartcontractkit/chainlink/pull/12952) [`7572a50a78`](https://github.com/smartcontractkit/chainlink/commit/7572a50a78a270188344786937f68233df82f65b) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - #added an integration test for max gas price check
+
 ## 2.12.0 - UNRELEASED
 
 ### Minor Changes
