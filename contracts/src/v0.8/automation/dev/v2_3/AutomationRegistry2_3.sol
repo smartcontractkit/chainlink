@@ -15,7 +15,7 @@ import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4
  * @notice Registry for adding work for Chainlink nodes to perform on client
  * contracts. Clients must support the AutomationCompatibleInterface interface.
  */
-contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chainable, IERC677Receiver {
+contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -95,6 +95,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     if (hotVars.paused) revert RegistryPaused();
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
+    // TODO One active transmitter will do the actual transmit
 
     // Verify signatures
     if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
@@ -106,6 +107,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
     uint32 epoch = uint32(epochAndRound >> 8);
 
+    // TODO One report could contain multiple upkeeps
     _handleReport(hotVars, report, gasOverhead);
 
     if (epoch > hotVars.latestEpoch) {
@@ -124,6 +126,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    */
   function _handleReport(HotVars memory hotVars, Report memory report, uint256 gasOverhead) private {
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
+    // TODO The transmitter state/balance start with 0 for this report
     TransmitVars memory transmitVars = TransmitVars({
       numUpkeepsPassedChecks: 0,
       totalCalldataWeight: 0,
@@ -134,6 +137,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     uint256 blocknumber = hotVars.chainModule.blockNumber();
     uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee();
 
+    // TODO Run check and perform for each upkeep
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
       upkeepTransmitInfo[i].triggerType = _getTriggerType(report.upkeepIds[i]);
@@ -191,6 +195,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
           if (i == 0 || upkeepTransmitInfo[i].upkeep.billingToken != upkeepTransmitInfo[i - 1].upkeep.billingToken) {
             billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken);
           }
+          // TODO The specific performed upkeep needs to pay with its own billing token
           PaymentReceipt memory receipt = _handlePayment(
             hotVars,
             PaymentParams({
@@ -222,26 +227,11 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       }
     }
     // record payments
+    // TODO Gas reimbursement is for the specific transmitter, premium is shared across all transmitters
     s_transmitters[msg.sender].balance += transmitVars.totalReimbursement;
     s_hotVars.totalPremium += transmitVars.totalPremium;
+    // TODO Both the above gas reimbursement and premium are in LINK, mark them as reserved so CLL cant withdraw them
     s_reserveAmounts[IERC20(address(i_link))] += transmitVars.totalReimbursement + transmitVars.totalPremium;
-  }
-
-  /**
-   * @notice uses LINK's transferAndCall to LINK and add funding to an upkeep
-   * @dev safe to cast uint256 to uint96 as total LINK supply is under UINT96MAX
-   * @param sender the account which transferred the funds
-   * @param amount number of LINK transfer
-   */
-  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
-    if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
-    if (data.length != 32) revert InvalidDataLength();
-    uint256 id = abi.decode(data, (uint256));
-    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidToken();
-    s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] + amount;
-    emit FundsAdded(id, sender, uint96(amount));
   }
 
   // ================================================================

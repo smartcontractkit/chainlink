@@ -17,7 +17,7 @@ import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 /**
  * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
  */
-contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
+contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IERC677Receiver {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -99,6 +99,23 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     emit UpkeepTriggerConfigSet(id, triggerConfig);
     emit UpkeepOffchainConfigSet(id, offchainConfig);
     return (id);
+  }
+
+  /**
+ * @notice uses LINK's transferAndCall to LINK and add funding to an upkeep
+   * @dev safe to cast uint256 to uint96 as total LINK supply is under UINT96MAX
+   * @param sender the account which transferred the funds
+   * @param amount number of LINK transfer
+   */
+  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
+    if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
+    if (data.length != 32) revert InvalidDataLength();
+    uint256 id = abi.decode(data, (uint256));
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidToken();
+    s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
+    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] + amount;
+    emit FundsAdded(id, sender, uint96(amount));
   }
 
   /**

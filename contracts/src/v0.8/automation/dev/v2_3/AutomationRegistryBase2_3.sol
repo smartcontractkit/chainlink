@@ -680,6 +680,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 denominatorScalingFactor = decimals < 18 ? 10 ** (18 - decimals) : 1;
 
     // gas calculation
+    // TODO gasWei has 18 decimals and nativeUSD has 8 decimals, so the final gasPaymentHexaicosaUSD is 26 decimals
     uint256 gasPaymentHexaicosaUSD = (gasWei *
       (paymentParams.gasLimit + paymentParams.gasOverhead) +
       paymentParams.l1CostWei) * paymentParams.nativeUSD; // gasPaymentHexaicosaUSD has an extra 8 zeros because of decimals on nativeUSD feed
@@ -688,10 +689,17 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       (gasPaymentHexaicosaUSD * numeratorScalingFactor) /
         (paymentParams.billingTokenParams.priceUSD * denominatorScalingFactor)
     );
+    // TODO linkUSD is 8 decimals, gasReimbursementInJuels is 18 decimals
     receipt.gasReimbursementInJuels = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.linkUSD);
 
     // premium calculation
+    // TODO 1 USD is 1e5 millicent
+    // TODO 1 USD = 1e18 attoUSD, Hexaicosa is 26 zeros
+    // TODO flatFeeMilliCents is in the billing token's decimals
+    // TODO flatFeeMilliCents already has 5 zeros.
+    // TODO flatFeeMilliCents: 2_000, // 2 cents
     uint256 flatFeeHexaicosaUSD = uint256(paymentParams.billingTokenParams.flatFeeMilliCents) * 1e21; // 1e13 for milliCents to attoUSD and 1e8 for attoUSD to hexaicosaUSD
+    // TODO gasFeePPB (9 decimals): 10_000_000, // 10%
     uint256 premiumHexaicosaUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
       paymentParams.billingTokenParams.gasFeePPB *
       paymentParams.nativeUSD) / 1e9) + flatFeeHexaicosaUSD;
@@ -990,6 +998,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 upkeepId,
     Upkeep memory upkeep
   ) internal returns (PaymentReceipt memory) {
+    // TODO If that upkeep has special billing configs, apply them
     if (upkeep.overridesEnabled) {
       BillingOverrides memory billingOverrides = s_billingOverrides[upkeepId];
       // use the overridden configs
@@ -1025,6 +1034,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
     s_reserveAmounts[paymentParams.billingToken] -= payment;
+    // TODO Update the reserve amount of that billing token so CLL cant withdraw
 
     return receipt;
   }
