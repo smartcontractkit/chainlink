@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -2278,7 +2279,21 @@ func (v *EthereumAutomationConsumerBenchmark) GetUpkeepCount(ctx context.Context
 	}, id)
 }
 
+// DeployKeeperConsumerBenchmark deploys a keeper consumer benchmark contract with a standard contract backend
 func DeployKeeperConsumerBenchmark(client *seth.Client) (AutomationConsumerBenchmark, error) {
+	return deployKeeperConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
+		return wrappers.MustNewWrappedContractBackend(nil, client)
+	})
+}
+
+// DeployKeeperConsumerBenchmarkWithRetry deploys a keeper consumer benchmark contract with a read-only operations retrying contract backend
+func DeployKeeperConsumerBenchmarkWithRetry(client *seth.Client, logger zerolog.Logger, maxAttempts uint, retryDelay time.Duration) (AutomationConsumerBenchmark, error) {
+	return deployKeeperConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
+		return wrappers.MustNewRetryingWrappedContractBackend(client, logger, maxAttempts, retryDelay)
+	})
+}
+
+func deployKeeperConsumerBenchmarkWithWrapperFn(client *seth.Client, wrapperConstrFn func(client *seth.Client) *wrappers.WrappedContractBackend) (AutomationConsumerBenchmark, error) {
 	abi, err := automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.GetAbi()
 	if err != nil {
 		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to get AutomationConsumerBenchmark ABI: %w", err)
@@ -2288,7 +2303,7 @@ func DeployKeeperConsumerBenchmark(client *seth.Client) (AutomationConsumerBench
 		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("AutomationConsumerBenchmark instance deployment have failed: %w", err)
 	}
 
-	instance, err := automation_consumer_benchmark.NewAutomationConsumerBenchmark(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	instance, err := automation_consumer_benchmark.NewAutomationConsumerBenchmark(data.Address, wrapperConstrFn(client))
 	if err != nil {
 		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to instantiate AutomationConsumerBenchmark instance: %w", err)
 	}
@@ -2325,9 +2340,9 @@ type KeeperConsumerBenchmarkUpkeepObserver struct {
 	l                       zerolog.Logger
 }
 
-// NewKeeperConsumerBenchmarkkUpkeepObserver provides a new instance of a KeeperConsumerBenchmarkkUpkeepObserver
+// NewKeeperConsumerBenchmarkUpkeepObserver provides a new instance of a NewKeeperConsumerBenchmarkUpkeepObserver
 // Used to track and log benchmark test results for keepers
-func NewKeeperConsumerBenchmarkkUpkeepObserver(
+func NewKeeperConsumerBenchmarkUpkeepObserver(
 	contract AutomationConsumerBenchmark,
 	registry KeeperRegistry,
 	upkeepID *big.Int,

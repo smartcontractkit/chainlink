@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -36,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	keepertestconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
 )
@@ -127,6 +129,14 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 	k.keeperConsumerContracts = make([]contracts.AutomationConsumerBenchmark, len(inputs.RegistryVersions))
 	k.upkeepIDs = make([][]*big.Int, len(inputs.RegistryVersions))
 	k.log.Debug().Interface("TestInputs", inputs).Msg("Setting up benchmark test")
+
+	// if not present disable it
+	if k.testConfig.GetKeeperConfig().Resiliency == nil {
+		k.testConfig.GetKeeperConfig().Resiliency = &keepertestconfig.ResiliencyConfig{
+			ContractCallLimit:    ptr.Ptr(uint(0)),
+			ContractCallInterval: ptr.Ptr(blockchain.StrDuration{Duration: 0 * time.Second}),
+		}
+	}
 
 	var err error
 	// Connect to networks and prepare for contract deployment
@@ -303,7 +313,7 @@ func (k *KeeperBenchmarkTest) Run() {
 				sub.Unsubscribe()
 				return
 			case err := <-sub.Err():
-				// no need to unsubscribe, subscripion errored
+				// no need to unsubscribe, subscription errored
 				k.log.Error().Err(err).Msg("header subscription failed. Trying to reconnect...")
 				connectionLostAt := time.Now()
 				// we use infinite loop here on purposes, these nodes can be down for extended periods of time ¯\_(ツ)_/¯
@@ -333,7 +343,7 @@ func (k *KeeperBenchmarkTest) Run() {
 				startedObservations.Add(1)
 				k.log.Info().Int("Channel index", chIndex).Str("UpkeepID", upkeepIDCopy.String()).Msg("Starting upkeep observation")
 
-				confirmer := contracts.NewKeeperConsumerBenchmarkkUpkeepObserver(
+				confirmer := contracts.NewKeeperConsumerBenchmarkUpkeepObserver(
 					k.keeperConsumerContracts[registryIndex],
 					k.keeperRegistries[registryIndex],
 					upkeepIDCopy,
@@ -802,11 +812,24 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 
 func (k *KeeperBenchmarkTest) DeployKeeperConsumersBenchmark() contracts.AutomationConsumerBenchmark {
 	// Deploy consumer
-	keeperConsumerInstance, err := contracts.DeployKeeperConsumerBenchmark(k.chainClient)
-	if err != nil {
-		k.log.Error().Err(err).Msg("Deploying AutomationConsumerBenchmark instance %d shouldn't fail")
+	var err error
+	var keeperConsumerInstance contracts.AutomationConsumerBenchmark
+	if *k.testConfig.GetKeeperConfig().Resiliency.ContractCallLimit != 0 && k.testConfig.GetKeeperConfig().Resiliency.ContractCallInterval.Duration != 0 {
+		maxRetryAttempts := *k.testConfig.GetKeeperConfig().Resiliency.ContractCallLimit
+		callRetryDelay := k.testConfig.GetKeeperConfig().Resiliency.ContractCallInterval.Duration
+		keeperConsumerInstance, err = contracts.DeployKeeperConsumerBenchmarkWithRetry(k.chainClient, k.log, maxRetryAttempts, callRetryDelay)
+		if err != nil {
+			k.log.Error().Err(err).Msg("Deploying AutomationConsumerBenchmark instance shouldn't fail")
+			keeperConsumerInstance, err = contracts.DeployKeeperConsumerBenchmarkWithRetry(k.chainClient, k.log, maxRetryAttempts, callRetryDelay)
+			require.NoError(k.t, err, "Error deploying AutomationConsumerBenchmark")
+		}
+	} else {
 		keeperConsumerInstance, err = contracts.DeployKeeperConsumerBenchmark(k.chainClient)
-		require.NoError(k.t, err, "Error deploying AutomationConsumerBenchmark")
+		if err != nil {
+			k.log.Error().Err(err).Msg("Deploying AutomationConsumerBenchmark instance %d shouldn't fail")
+			keeperConsumerInstance, err = contracts.DeployKeeperConsumerBenchmark(k.chainClient)
+			require.NoError(k.t, err, "Error deploying AutomationConsumerBenchmark")
+		}
 	}
 	k.log.Debug().
 		Str("Contract Address", keeperConsumerInstance.Address()).
