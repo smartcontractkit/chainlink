@@ -32,9 +32,9 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.21.1](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.21](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
-2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
+2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm v8 via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
 3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
    - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
