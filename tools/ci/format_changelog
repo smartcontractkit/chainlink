@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
-
 create_changesets_json() {
   echo "[[]]" > changesets.json
 }
@@ -105,7 +103,7 @@ cleanup() {
 }
 
 ### SCRIPT STARTS HERE ###
-cp CHANGELOG.md CHANGELOG.md.tmp
+
 tail -n +2 CHANGELOG.md > CHANGELOG.md.tmp
 
 pnpm changeset version
@@ -122,7 +120,6 @@ EOF
 
 current_changelog=$(cat CHANGELOG.md.tmp)
 is_current_version=false
-checking_current_changeset=false
 changesets_index=0
 tags_list=( "#nops" "#added" "#changed" "#removed" "#updated" "#deprecation_notice" "#breaking_change" "#db_update" "#wip" "#bugfix" "#internal" "#untagged")
 
@@ -143,12 +140,7 @@ while IFS= read -r line; do
   if [[ $is_current_version = true ]]; then
     # saving each changeset to changeset.json
     # check for start of changeset entry as it could be multi-lined entry
-    if [[ $line == "- ["* ]] && [[ $checking_current_changeset = true ]]; then
-      checking_current_changeset=false
-      changesets_index=$((changesets_index+1))
-      append_changeset_content "$line"
-    elif [[ $line == "- ["* ]] && [[ $checking_current_changeset = false ]]; then
-      checking_current_changeset=true
+    if [[ $line == "- ["* ]]; then
       changesets_index=$((changesets_index+1))
       append_changeset_content "$line"
     elif [[ $line != "##"* ]]; then
