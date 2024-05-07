@@ -27,22 +27,22 @@ actions:
     config: {}
     ref: "an-action"
     inputs:
-      trigger-output: $(trigger.outputs)
+      trigger_output: $(trigger.outputs)
 
 consensus:
   - id: "a-consensus@1"
     config: {}
     ref: "a-consensus"
     inputs:
-      trigger-output: $(trigger.outputs)
-      an-action-output: $(an-action.outputs)
+      trigger_output: $(trigger.outputs)
+      an-action_output: $(an-action.outputs)
 
 targets:
   - id: "a-target@1"
     config: {}
     ref: "a-target"
     inputs: 
-      consensus-output: $(a-consensus.outputs)
+      consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
 				keywordTrigger: {
@@ -70,7 +70,7 @@ actions:
     config: {}
     ref: "an-action"
     inputs:
-      trigger-output: $(trigger.outputs)
+      trigger_output: $(trigger.outputs)
       output: $(a-second-action.outputs)
   - id: "a-second-action@1"
     config: {}
@@ -83,15 +83,15 @@ consensus:
     config: {}
     ref: "a-consensus"
     inputs:
-      trigger-output: $(trigger.outputs)
-      an-action-output: $(an-action.outputs)
+      trigger_output: $(trigger.outputs)
+      an-action_output: $(an-action.outputs)
 
 targets:
   - id: "a-target@1"
     config: {}
     ref: "a-target"
     inputs: 
-      consensus-output: $(a-consensus.outputs)
+      consensus_output: $(a-consensus.outputs)
 `,
 			errMsg: "edge would create a cycle",
 		},
@@ -107,8 +107,8 @@ actions:
     config: {}
     ref: "an-action"
     inputs:
-      trigger-output: $(trigger.outputs)
-      action-output: $(a-third-action.outputs)
+      trigger_output: $(trigger.outputs)
+      action_output: $(a-third-action.outputs)
   - id: "a-second-action@1"
     config: {}
     ref: "a-second-action"
@@ -125,15 +125,15 @@ consensus:
     config: {}
     ref: "a-consensus"
     inputs:
-      trigger-output: $(trigger.outputs)
-      an-action-output: $(an-action.outputs)
+      trigger_output: $(trigger.outputs)
+      an-action_output: $(an-action.outputs)
 
 targets:
   - id: "a-target@1"
     config: {}
     ref: "a-target"
     inputs: 
-      consensus-output: $(a-consensus.outputs)
+      consensus_output: $(a-consensus.outputs)
 `,
 			errMsg: "edge would create a cycle",
 		},
@@ -149,22 +149,22 @@ actions:
     config: {}
     ref: "an-action"
     inputs:
-      trigger-output: $(trigger.outputs)
-      action-output: $(missing-action.outputs)
+      trigger_output: $(trigger.outputs)
+      action_output: $(missing-action.outputs)
 
 consensus:
   - id: "a-consensus@1"
     config: {}
     ref: "a-consensus"
     inputs:
-      an-action-output: $(an-action.outputs)
+      an-action_output: $(an-action.outputs)
 
 targets:
   - id: "a-target@1"
     config: {}
     ref: "a-target"
     inputs: 
-      consensus-output: $(a-consensus.outputs)
+      consensus_output: $(a-consensus.outputs)
 `,
 			errMsg: "source vertex missing-action: vertex not found",
 		},
@@ -182,21 +182,21 @@ actions:
     config: {}
     ref: "an-action"
     inputs:
-      trigger-output: $(trigger.outputs)
+      trigger_output: $(trigger.outputs)
 
 consensus:
   - id: "a-consensus@1"
     config: {}
     ref: "a-consensus"
     inputs:
-      an-action-output: $(an-action.outputs)
+      an-action_output: $(an-action.outputs)
 
 targets:
   - id: "a-target@1"
     config: {}
     ref: "a-target"
     inputs:
-      consensus-output: $(a-consensus.outputs)
+      consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
 				keywordTrigger: {
@@ -230,14 +230,14 @@ consensus:
     config: {}
     ref: "a-consensus"
     inputs:
-      trigger-output: $(trigger.outputs)
-      action-output: $(an-action.outputs)
+      trigger_output: $(trigger.outputs)
+      action_output: $(an-action.outputs)
 targets:
   - id: "a-target@1"
     config: {}
     ref: "a-target"
     inputs:
-      consensus-output: $(a-consensus.outputs)
+      consensus_output: $(a-consensus.outputs)
 `,
 			errMsg: "all non-trigger steps must have a dependent ref",
 		},
