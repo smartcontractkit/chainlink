@@ -828,7 +828,6 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 	)
 
 	return
-
 }
 
 func (n *node) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) (val []byte, err error) {
@@ -855,7 +854,6 @@ func (n *node) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) (v
 	)
 
 	return
-
 }
 
 func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {

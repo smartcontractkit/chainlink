@@ -1050,7 +1050,6 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	// Set the prometheus gauge metrics.
 	for _, status := range []JobProposalStatus{JobProposalStatusPending, JobProposalStatusApproved,
 		JobProposalStatusCancelled, JobProposalStatusRejected, JobProposalStatusDeleted, JobProposalStatusRevoked} {
-
 		status := status
 
 		promJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
@@ -1131,7 +1130,6 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
-
 	}
 	if err != nil {
 		return nil, err

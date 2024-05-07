@@ -232,7 +232,6 @@ func (r *Runner) runTests(rep *Report) (*Report, error) {
 					report.SetTest(pkg, t, 1)
 				}
 			}
-
 		}
 	}
 
@@ -292,7 +291,6 @@ func dedupeEntries(report *Report) (*Report, error) {
 
 			out.SetTest(pkg, tn, report.tests[pkg][tn])
 		}
-
 	}
 
 	return out, nil

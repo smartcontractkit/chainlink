@@ -392,5 +392,4 @@ func TestUnit_Pool_LeaseDuration(t *testing.T) {
 	nodeSwitch.isAlive = true
 	nodeSwitch.mu.Unlock()
 	testutils.WaitForLogMessage(t, observedLogs, `Switching to best node from "n2" to "n1"`)
-
 }

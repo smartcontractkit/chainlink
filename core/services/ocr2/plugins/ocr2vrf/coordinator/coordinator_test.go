@@ -1299,7 +1299,6 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, present)
 	})
-
 }
 
 func TestCoordinator_ConfirmationDelays(t *testing.T) {

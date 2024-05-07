@@ -211,7 +211,7 @@ type stepDefinitionYaml struct {
 	//  - “ref” has a circular reference.
 	//
 	// NOTE: Should introduce a custom validator to cover trigger case
-	Ref string `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_]+$"`
+	Ref string `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_-]+$"`
 
 	// Capabilities can specify an additional optional ”inputs” property. It allows specifying a dependency on the result of one or more other capabilities. These are always runtime values that cannot be provided upfront. It takes a map of the argument name internal to the capability and an explicit reference to the values.
 	//

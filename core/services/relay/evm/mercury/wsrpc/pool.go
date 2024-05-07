@@ -181,7 +181,6 @@ func (p *pool) remove(serverURL string, clientPubKey credentials.StaticSizedPubl
 	if len(p.connections[serverURL]) == 0 {
 		delete(p.connections, serverURL)
 	}
-
 }
 
 func (p *pool) newConnection(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) *connection {
