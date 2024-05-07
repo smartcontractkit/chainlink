@@ -256,7 +256,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			latestFinalizedBN := latestFinalized.BlockNumber()
 			if latestFinalizedBN > localHighestChainInfo.FinalizedBlockNumber {
 				promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
-				n.latestChainInfo.FinalizedBlockNumber = latestFinalizedBN
+				localHighestChainInfo.FinalizedBlockNumber = latestFinalizedBN
 			}
 		}
 
