@@ -227,9 +227,8 @@ func (p *logEventProvider) Close() error {
 
 		if p.opts.BufferVersion == BufferVersionV1 {
 			return p.bufferV1.Close()
-		} else {
-			return nil
 		}
+		return nil
 	})
 }
 

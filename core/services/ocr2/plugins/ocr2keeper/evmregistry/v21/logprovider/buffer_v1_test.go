@@ -2,9 +2,10 @@ package logprovider
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 	"math/big"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"

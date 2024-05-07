@@ -2,13 +2,15 @@ package logprovider_test
 
 import (
 	"context"
-	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
-	"github.com/stretchr/testify/mock"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/mock"
+
+	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
