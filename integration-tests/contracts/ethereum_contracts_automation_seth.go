@@ -287,6 +287,22 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 	}
 }
 
+func (v *EthereumKeeperRegistry) SetUpkeepOffchainConfig(id *big.Int, offchainConfig []byte) error {
+	switch v.version {
+	case ethereum.RegistryVersion_2_0:
+		_, err := v.client.Decode(v.registry2_0.SetUpkeepOffchainConfig(v.client.NewTXOpts(), id, offchainConfig))
+		return err
+	case ethereum.RegistryVersion_2_1:
+		_, err := v.client.Decode(v.registry2_1.SetUpkeepOffchainConfig(v.client.NewTXOpts(), id, offchainConfig))
+		return err
+	case ethereum.RegistryVersion_2_2:
+		_, err := v.client.Decode(v.registry2_2.SetUpkeepOffchainConfig(v.client.NewTXOpts(), id, offchainConfig))
+		return err
+	default:
+		return fmt.Errorf("SetUpkeepOffchainConfig is not supported by keeper registry version %d", v.version)
+	}
+}
+
 // Pause pauses the registry.
 func (v *EthereumKeeperRegistry) Pause() error {
 	txOpts := v.client.NewTXOpts()

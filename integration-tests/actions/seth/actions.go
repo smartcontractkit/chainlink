@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
@@ -954,12 +954,12 @@ var OneEphemeralKeysLiveTestnetAutoFixFn = func(sethCfg *seth.Config) error {
 }
 
 // GetChainClient returns a seth client for the given network after validating the config
-func GetChainClient(config tc.SethConfig, network blockchain.EVMNetwork) (*seth.Client, error) {
+func GetChainClient(config ctf_config.SethConfig, network blockchain.EVMNetwork) (*seth.Client, error) {
 	return GetChainClientWithConfigFunction(config, network, noOpSethConfigFn)
 }
 
 // GetChainClientWithConfigFunction returns a seth client for the given network after validating the config and applying the config function
-func GetChainClientWithConfigFunction(config tc.SethConfig, network blockchain.EVMNetwork, configFn SethConfigFunction) (*seth.Client, error) {
+func GetChainClientWithConfigFunction(config ctf_config.SethConfig, network blockchain.EVMNetwork, configFn SethConfigFunction) (*seth.Client, error) {
 	readSethCfg := config.GetSethConfig()
 	if readSethCfg == nil {
 		return nil, fmt.Errorf("Seth config not found")

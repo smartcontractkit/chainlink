@@ -1173,7 +1173,7 @@ func SetupLogPollerTestDocker(
 	env, err = test_env.NewCLTestEnvBuilder().
 		WithTestConfig(testConfig).
 		WithTestInstance(t).
-		WithPrivateEthereumNetwork(privateNetwork).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(clNodesCount).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(chainlinkNodeFunding)).

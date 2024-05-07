@@ -57,13 +57,15 @@ func TestBase64ConfigRead(t *testing.T) {
 				},
 			},
 		},
-		Network: &ctf_config.NetworkConfig{
-			SelectedNetworks: []string{"OPTIMISM_GOERLI"},
-			RpcHttpUrls: map[string][]string{
-				"OPTIMISM_GOERLI": {"http://localhost:8545"},
-			},
-			WalletKeys: map[string][]string{
-				"OPTIMISM_GOERLI": {"0x3333333333333333333333333333333333333333"},
+		TestConfig: ctf_config.TestConfig{
+			Network: &ctf_config.NetworkConfig{
+				SelectedNetworks: []string{"OPTIMISM_GOERLI"},
+				RpcHttpUrls: map[string][]string{
+					"OPTIMISM_GOERLI": {"http://localhost:8545"},
+				},
+				WalletKeys: map[string][]string{
+					"OPTIMISM_GOERLI": {"0x3333333333333333333333333333333333333333"},
+				},
 			},
 		},
 	}

@@ -8,11 +8,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
 type stepRequest struct {
 	stepRef string
-	state   executionState
+	state   store.WorkflowExecution
 }
 
 // stepDefinition is the parsed representation of a step in a workflow.
