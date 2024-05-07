@@ -282,9 +282,6 @@ func (w *WrappedContractBackend) getErrorFromContext(ctx context.Context) error 
 		if v, ok := ctxErr.(error); ok {
 			return v
 		}
-		if v, ok := ctxErr.(seth.ContextErrorValue); ok {
-			return v.Error
-		}
 		return errors.Wrapf(errors.New("unknown error type"), "error in context: %v", ctxErr)
 	}
 
