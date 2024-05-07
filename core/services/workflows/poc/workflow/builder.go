@@ -100,7 +100,7 @@ func AddStep[I, O any](wb *Builder[I], a capabilities.Action[I, O]) (*Builder[O]
 
 	ar := &actionRunner[I, O]{
 		nonTriggerCapability: nonTriggerCapability{
-			inputs: map[string]any{"action": wb.current.Outputs()},
+			inputs: map[string]any{"action": wb.current.Output()},
 			ref:    a.Ref(),
 		},
 		Action: a,
@@ -132,7 +132,7 @@ func AddConsensus[I, O any](wb *Builder[I], c capabilities.Consensus[I, O]) (*Bu
 
 	cr := &consensusRunner[I, O]{
 		nonTriggerCapability: nonTriggerCapability{
-			inputs: map[string]any{"report": wb.current.Outputs()},
+			inputs: map[string]any{"observations": wb.current.Output()},
 			ref:    c.Ref(),
 		},
 		Consensus: c,
@@ -163,7 +163,7 @@ func AddTarget[O any](wb *Builder[capabilities.ConsensusResult[O]], t capabiliti
 	wb.root.names[t.Ref()] = true
 
 	tr := &targetRunner[O]{
-		inputs: map[string]any{"report": wb.current.Outputs()},
+		inputs: map[string]any{"report": wb.current.Output()},
 		Target: t,
 	}
 	wb.root.spec.Targets = append(wb.root.spec.Targets, capabilityToStepDef(tr))

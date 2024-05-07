@@ -5,8 +5,6 @@ import (
     "fmt"
 
     "github.com/smartcontractkit/chainlink-common/pkg/values"
-
-    "github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/capabilities"
 )
 
 {{ range (rangeIm2 .) }}
@@ -17,12 +15,11 @@ type mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O any] struct {
 }
 
 func (m mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]) Run(value values.Value) (values.Value, bool, error) {
-	ls := value.(*values.List).Underlying
 	{{- range (rangeI .) }}
-    v{{.}}, err := capabilities.UnwrapValue[{{nis .}}](ls[{{.}}-1])
-	if err != nil {
-		return nil, false, err
-	}
+    v{{.}}, err := unwrapAction[{{nis .}}](value, "{{.}}")
+    if err != nil {
+        return nil, false, err
+    }
 	{{- end }}
 
 	merged, err :=  m.fn({{range (rangeI .) }}v{{.}},{{ end }})

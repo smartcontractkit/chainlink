@@ -11,8 +11,8 @@ type triggerRunner[O any] struct {
 	capabilities.Trigger[O]
 }
 
-func (t triggerRunner[O]) Outputs() []string {
-	return []string{"$(trigger.outputs)"}
+func (t triggerRunner[O]) Output() string {
+	return "$(trigger.outputs)"
 }
 
 func (t triggerRunner[O]) Inputs() map[string]any {

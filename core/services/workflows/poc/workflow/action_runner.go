@@ -19,10 +19,11 @@ func (a *actionRunner[I, O]) capabilityType() commoncap.CapabilityType {
 }
 
 func (a *actionRunner[I, O]) Run(value values.Value) (values.Value, bool, error) {
-	i, err := capabilities.UnwrapValue[I](value)
+	i, err := unwrapAction[I](value, "")
 	if err != nil {
 		return nil, false, err
 	}
+
 	o, cont, err := a.Invoke(i)
 	if err != nil || !cont {
 		return nil, false, err
@@ -30,4 +31,10 @@ func (a *actionRunner[I, O]) Run(value values.Value) (values.Value, bool, error)
 
 	wrapped, err := values.Wrap(o)
 	return wrapped, true, err
+}
+
+func unwrapAction[I any](value values.Value, suffix string) (I, error) {
+	action := value.(*values.Map).Underlying["action"+suffix]
+	i, err := capabilities.UnwrapValue[I](action)
+	return i, err
 }

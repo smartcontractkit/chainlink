@@ -20,11 +20,15 @@ func (c consensusRunner[I, O]) capabilityType() commoncap.CapabilityType {
 
 func (c consensusRunner[I, O]) Run(value values.Value) (values.Value, bool, error) {
 	observations := value.(*values.Map).Underlying["observations"]
-	inputs, err := capabilities.UnwrapValue[[]I](observations)
+	// Seems odd that consensus implementations must all know that this can be a list or not a list...
+	if _, ok := observations.(*values.List); !ok {
+		observations, _ = values.NewList([]any{observations})
+	}
+	inputs, err := capabilities.UnwrapValue[*[]I](observations)
 	if err != nil {
 		return nil, false, err
 	}
-	consensus, err := c.Invoke(inputs)
+	consensus, err := c.Invoke(*inputs)
 	if err != nil {
 		return nil, false, err
 

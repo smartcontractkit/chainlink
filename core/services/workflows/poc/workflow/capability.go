@@ -9,7 +9,7 @@ type capability interface {
 	Type() string
 	Ref() string
 	Inputs() map[string]any
-	Outputs() []string
+	Output() string
 	capabilityType() capabilities.CapabilityType
 	LocalCapability
 	private()

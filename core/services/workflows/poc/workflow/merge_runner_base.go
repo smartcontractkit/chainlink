@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"fmt"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/capabilities"
@@ -23,9 +25,9 @@ func (m mergeRunnerBase) capabilityType() commoncap.CapabilityType {
 }
 
 func mergeOutputs(cs ...capability) map[string]any {
-	outputs := make(map[string]any)
-	for _, c := range cs {
-		outputs[c.Ref()] = c.Outputs()
+	outputs := map[string]any{}
+	for i, c := range cs {
+		outputs[fmt.Sprintf("action%d", i+1)] = c.Output()
 	}
 	return outputs
 }

@@ -254,9 +254,9 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 			"789": decimal.NewFromFloat(1.50),
 		},
 		"Decimals": map[string]any{
-			"123": map[string]int{"Places": 19},
-			"456": map[string]int{"Places": 19},
-			"789": map[string]int{"Places": 8},
+			"123": 19,
+			"456": 19,
+			"789": 8,
 		},
 		"Metadata": map[string]any{"TriggerRef": "Mercury"},
 	})
@@ -504,12 +504,6 @@ func TestEngine_MultiStepDependenciesCode(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
-	require.NoError(t, reg.Add(context.Background(), &localCodeCapability{
-		Workflow:       nil,
-		CapabilityType: capabilities.CapabilityTypeConsensus,
-		Id:             pocCapabilities.LocalCodeConsensusCapability,
-	}))
-
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 	trigger, cr := mockTrigger(t)
 
@@ -531,6 +525,12 @@ func TestEngine_MultiStepDependenciesCode(t *testing.T) {
 		Id:             pocCapabilities.LocalCodeActionCapability,
 	}))
 
+	require.NoError(t, reg.Add(context.Background(), &localCodeCapability{
+		Workflow:       spec,
+		CapabilityType: capabilities.CapabilityTypeConsensus,
+		Id:             pocCapabilities.LocalCodeConsensusCapability,
+	}))
+
 	eng, initFailed := newTestEngine(t, reg, csb)
 	err = eng.Start(ctx)
 	require.NoError(t, err)
@@ -542,20 +542,22 @@ func TestEngine_MultiStepDependenciesCode(t *testing.T) {
 
 	require.Equal(t, state.status, statusCompleted)
 
-	// The inputs to the consensus step should
+	// The mergeInput to the consensus step should
 	// be the outputs of the two dependents.
-	inputs := state.steps["evm_median"].inputs
-	unw, err := values.Unwrap(inputs)
+	mergeInput := state.steps["mergeReadAndLogic"].inputs
+	unw, err := values.Unwrap(mergeInput)
 	require.NoError(t, err)
 
-	obs := unw.(map[string]any)["observations"]
-	assert.Len(t, obs, 2)
-
+	obs := unw.(map[string]any)
 	tunw, err := values.Unwrap(cr.Value)
 	require.NoError(t, err)
-	assert.Equal(t, obs.([]any)[0], tunw)
+	assert.Equal(t, tunw, obs["action1"])
 
 	o, err := values.Unwrap(out)
 	require.NoError(t, err)
-	assert.Equal(t, obs.([]any)[1], o)
+	assert.Equal(t, o, obs["action2"])
+
+	targetInput, err := state.steps["write"].inputs.Unwrap()
+	require.NoError(t, err)
+	assert.Equal(t, tunw, targetInput.(map[string]any)["report"])
 }

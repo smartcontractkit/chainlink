@@ -17,8 +17,8 @@ func (m *multiTriggerRunner[O]) Inputs() map[string]any {
 	return map[string]any{}
 }
 
-func (m *multiTriggerRunner[O]) Outputs() []string {
-	return []string{"$(trigger.outputs)"}
+func (m *multiTriggerRunner[O]) Output() string {
+	return "$(trigger.outputs)"
 }
 
 func (m *multiTriggerRunner[O]) Ref() string {

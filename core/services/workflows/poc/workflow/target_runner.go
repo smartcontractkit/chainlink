@@ -16,8 +16,8 @@ func (t targetRunner[O]) Inputs() map[string]any {
 	return t.inputs
 }
 
-func (t targetRunner[O]) Outputs() []string {
-	return []string{"$(target.outputs)"}
+func (t targetRunner[O]) Output() string {
+	return "$(target.outputs)"
 }
 
 func (t targetRunner[O]) Run(value values.Value) (values.Value, bool, error) {
