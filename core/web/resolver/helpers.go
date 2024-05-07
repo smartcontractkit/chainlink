@@ -83,7 +83,6 @@ func ValidateBridgeType(bt *bridges.BridgeTypeRequest) error {
 	}
 	if bt.MinimumContractPayment != nil &&
 		bt.MinimumContractPayment.Cmp(assets.NewLinkFromJuels(0)) < 0 {
-
 		return errors.New("MinimumContractPayment must be positive")
 	}
 

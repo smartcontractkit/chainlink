@@ -61,7 +61,6 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 		created := map[chaintype.ChainType]bool{}
 		for _, chain := range chaintype.SupportedChainTypes {
-
 			// validate no keys exist for chain
 			keys, err := ks.GetAllOfType(chain)
 			require.NoError(t, err)

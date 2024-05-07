@@ -117,7 +117,6 @@ func (w *Wei) text(suf string, exp int32) string {
 		return "0"
 	}
 	return fmt.Sprintf("%s %s", d, suf)
-
 }
 
 const u64Eth = 1_000_000_000_000_000_000
@@ -201,7 +200,6 @@ func (w *Wei) UnmarshalText(b []byte) error {
 		}
 		*w = (Wei)(*d.BigInt())
 		return nil
-
 	}
 	// unrecognized or missing suffix
 	d, err := decimal.NewFromString(s)

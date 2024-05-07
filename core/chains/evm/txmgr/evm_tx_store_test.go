@@ -1027,7 +1027,6 @@ func TestORM_SaveInProgressAttempt(t *testing.T) {
 		attemptResult, err := txStore.FindTxAttempt(ctx, attempt.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attemptResult.State)
-
 	})
 }
 

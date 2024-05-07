@@ -17,7 +17,6 @@ func NewRedialBackoff() backoff.Backoff {
 		Max:    15 * time.Second,
 		Jitter: true,
 	}
-
 }
 
 // MinFunc returns the minimum value of the given element array with respect

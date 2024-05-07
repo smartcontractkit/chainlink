@@ -516,7 +516,6 @@ func (o *orm) insertFinishedRun(ctx context.Context, run *Run, saveSuccessfulTas
 		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);`
 	_, err = o.ds.NamedExecContext(ctx, sql, run.PipelineTaskRuns)
 	return errors.Wrap(err, "failed to insert pipeline_task_runs")
-
 }
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
