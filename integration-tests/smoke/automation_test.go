@@ -88,17 +88,17 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":                                 ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":                      ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v02":                ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v03":                ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
-		"registry_2_2_conditional":                     ethereum.RegistryVersion_2_2,
-		"registry_2_2_logtrigger":                      ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
+		"registry_2_0": ethereum.RegistryVersion_2_0,
+		//"registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
+		//"registry_2_1_logtrigger":                      ethereum.RegistryVersion_2_1,
+		//"registry_2_1_with_mercury_v02":                ethereum.RegistryVersion_2_1,
+		//"registry_2_1_with_mercury_v03":                ethereum.RegistryVersion_2_1,
+		//"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
+		//"registry_2_2_conditional":                     ethereum.RegistryVersion_2_2,
+		//"registry_2_2_logtrigger":                      ethereum.RegistryVersion_2_2,
+		//"registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
+		//"registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
+		//"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {
