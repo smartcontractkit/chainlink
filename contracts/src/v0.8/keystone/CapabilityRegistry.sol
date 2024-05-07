@@ -106,6 +106,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param nodeOperatorId The ID of the node operator that manages this node
   event NodeAdded(bytes32 p2pId, uint256 nodeOperatorId);
 
+  /// @notice This event is emitted when a node is removed
+  /// @param p2pId The P2P ID of the node that was removed
+  event NodeRemoved(bytes32 p2pId);
+
   /// @notice This event is emitted when a node is updated
   /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
@@ -266,6 +270,26 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       s_nodes[node.p2pId] = node;
       emit NodeAdded(node.p2pId, node.nodeOperatorId);
+    }
+  }
+
+  /// @notice Removes nodes.  The node operator admin or contract owner
+  /// can remove nodes
+  /// @param removedNodeP2PIds The P2P Ids of the nodes to remove
+  function removeNodes(bytes32[] calldata removedNodeP2PIds) external {
+    bool isOwner = msg.sender == owner();
+    for (uint256 i; i < removedNodeP2PIds.length; ++i) {
+      bytes32 p2pId = removedNodeP2PIds[i];
+      Node memory node = s_nodes[p2pId];
+
+      bool nodeExists = s_nodes[p2pId].supportedHashedCapabilityIds.length > 0;
+      if (!nodeExists) revert InvalidNodeP2PId(p2pId);
+
+      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
+
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+      delete s_nodes[p2pId];
+      emit NodeRemoved(p2pId);
     }
   }
 

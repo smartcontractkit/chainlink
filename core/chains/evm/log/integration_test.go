@@ -241,7 +241,6 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		<-cltest.SimulateIncomingHeads(t, blocks.Slice(12, 13), helper.lb)
 		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 4 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 4 but was %d", len(listener.getUniqueLogs()))
-
 	}()
 
 	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, testutils.WaitTimeout(t), time.Second)

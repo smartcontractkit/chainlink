@@ -461,7 +461,6 @@ func formatTime(at time.Time) string {
 // SetOracleAddress sets the oracle address which matches the node's keys.
 // If none match, it uses the first available key
 func (fm *FluxMonitor) SetOracleAddress() error {
-
 	// fm on deprecation path, using dangling context
 	ctx, cancel := fm.chStop.NewCtx()
 	defer cancel()

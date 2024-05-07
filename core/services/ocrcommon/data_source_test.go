@@ -190,7 +190,6 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 	assert.Equal(t, jsonParseTaskValue, val.String()) // returns expected value after pipeline run
 	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromOcrMedianValues))
 	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromBridgeJsonParseValues))
-
 }
 
 type mockSaver struct {
