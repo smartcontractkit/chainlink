@@ -129,8 +129,13 @@ func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
 		return jb, fmt.Errorf("toml unmarshal error on job: %w", err)
 	}
 
-	if err := spec.Validate(); err != nil {
+	if err = spec.Validate(); err != nil {
 		return jb, err
+	}
+
+	_, err = Parse(spec.Workflow)
+	if err != nil {
+		return jb, fmt.Errorf("could not validate workflow: %w", err)
 	}
 
 	jb.WorkflowSpec = &spec

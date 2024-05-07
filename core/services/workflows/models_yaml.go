@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/invopop/jsonschema"
+	validate "github.com/santhosh-tekuri/jsonschema/v5"
 	"github.com/shopspring/decimal"
 	"sigs.k8s.io/yaml"
 
@@ -21,10 +22,34 @@ func GenerateJsonSchema() ([]byte, error) {
 }
 
 func ParseWorkflowSpecYaml(data string) (workflowSpec, error) {
+	var url = "https://github.com/smartcontractkit/chainlink/"
 	w := workflowSpecYaml{}
 	err := yaml.Unmarshal([]byte(data), &w)
+	if err != nil {
+		return workflowSpec{}, err
+	}
+	schemaStr, err := GenerateJsonSchema()
+	if err != nil {
+		return workflowSpec{}, err
+	}
 
-	return w.toWorkflowSpec(), err
+	schema, err := validate.CompileString(url, string(schemaStr))
+	if err != nil {
+		return workflowSpec{}, err
+	}
+
+	var jsonToValidate any
+	err = yaml.Unmarshal([]byte(data), &jsonToValidate)
+	if err != nil {
+		return workflowSpec{}, err
+	}
+
+	err = schema.Validate(jsonToValidate)
+	if err != nil {
+		return workflowSpec{}, err
+	}
+
+	return w.toWorkflowSpec(), nil
 }
 
 // workflowSpecYaml is the YAML representation of a workflow spec.
@@ -105,6 +130,11 @@ func (m *mapping) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// convertNumber detects if a json.Number is an integer or a decimal and converts it to the appropriate type.
+//
+// Supported type conversions:
+// - json.Number -> int64
+// - json.Number -> float64 -> decimal.Decimal
 func convertNumber(el any) (any, error) {
 	switch elv := el.(type) {
 	case json.Number:
@@ -304,7 +334,13 @@ func (stepDefinitionID) JSONSchema() *jsonschema.Schema {
 	reflector := jsonschema.Reflector{DoNotReference: true, ExpandedStruct: true}
 	tableSchema := reflector.Reflect(&stepDefinitionTableID{})
 	stringSchema := &jsonschema.Schema{
-		ID:      "string",
+		ID: "string",
+		// Allow for a-z, 0-9, _, -, and : characters as the capability type, follwed by a semver regex allowing only major versions.
+		//
+		// Prereleases and build metadata are also allowed
+		//
+		// Ex. read_chain:chain_ethereum:network_mainnet@1
+		// Ex. read_chain:chain_ethereum:network_mainnet@1-rc1.1+build1
 		Pattern: "^[a-z0-9_\\-:]+@(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
 	}
 
@@ -319,7 +355,10 @@ func (stepDefinitionID) JSONSchema() *jsonschema.Schema {
 
 // stepDefinitionTableID is the structured representation of a stepDefinitionID.
 type stepDefinitionTableID struct {
-	Name    string            `json:"name"`
+	Name string `json:"name"`
+	// Version is a semver supporting only major versions.
+	//
+	// Prereleases and build metadata are also allowed
 	Version string            `json:"version" jsonschema:"pattern=(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"`
 	Labels  map[string]string `json:"labels"`
 }

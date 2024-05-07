@@ -397,7 +397,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				owner := "00000000000000000000000000000000000000aa"
 				workflow := `
 triggers:
-  - id: "mercury-trigger"
+  - id: "mercury-trigger@1"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
@@ -405,7 +405,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
 
 consensus:
-  - id: "offchain_reporting"
+  - id: "offchain_reporting@2"
     ref: "evm_median"
     inputs:
       observations:
@@ -427,14 +427,14 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai@3"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-  - id: "write_ethereum-testnet-sepolia"
+  - id: "write_ethereum-testnet-sepolia@4"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
