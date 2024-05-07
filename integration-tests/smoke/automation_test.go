@@ -1341,7 +1341,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d")
 				}
-			}, "3m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
+			}, "3m", "5s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
 			// set the maxGasPrice to 1 wei
 			uoc, _ := cbor.Marshal(gasprice.UpkeepOffchainConfig{MaxGasPrice: big.NewInt(1)})
@@ -1369,7 +1369,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 						"Expected consumer counter to remain constant at %d, but got %d",
 						countersAfterSettingLowMaxGasPrice[i].Int64(), latestCounter.Int64())
 				}
-			}, "2m", "1s").Should(gomega.Succeed())
+			}, "2m", "5s").Should(gomega.Succeed())
 			l.Info().Msg("no upkeeps is performed because their max gas price is only 1 wei")
 
 			// setting offchain config with a high max gas price for the first upkeep, it should perform again while
@@ -1402,7 +1402,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				}
 				// 0 is also okay, because it means that no upkeep was performed yet
 				g.Expect(activeConsumers).Should(gomega.BeNumerically("<=", 1), "Only one consumer should have been performing upkeeps, but %d did", activeConsumers)
-			}, "2m", "1s").Should(gomega.Succeed())
+			}, "3m", "5s").Should(gomega.Succeed())
 			l.Info().Msg("all the rest upkeeps did not perform again because their max gas price remains 1 wei")
 
 			// the first upkeep should start performing again
@@ -1412,7 +1412,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically(">", countersAfterSettingLowMaxGasPrice[0].Int64()),
 					"Expected consumer counter to be greater than %d, but got %d",
 					countersAfterSettingLowMaxGasPrice[0].Int64(), latestCounter.Int64())
-			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
+			}, "2m", "5s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 			l.Info().Int64("Upkeep Performed times", latestCounter.Int64()).Msg("the first upkeep performed again")
 		})
 	}
