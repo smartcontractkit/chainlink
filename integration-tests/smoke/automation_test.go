@@ -1360,7 +1360,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 			}
 
 			var latestCounter *big.Int
-			// the counters of all the upkeeps should stay constant because they are no longer getting serviced
+			// the upkeepsPerformed of all the upkeeps should stay constant because they are no longer getting serviced
 			gom.Consistently(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err = consumers[i].Counter(testcontext.Get(t))
@@ -1380,15 +1380,28 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 			err = a.Registry.SetUpkeepOffchainConfig(upkeepIDs[0], uoc)
 			require.NoError(t, err, "Error setting upkeep offchain config")
 
-			// the counters of all other upkeeps should stay constant because their max gas price remains very low
+			upkeepsPerformed := make(map[int]int64)
+			for i := 0; i < len(upkeepIDs); i++ {
+				latestCounter, err = consumers[i].Counter(testcontext.Get(t))
+				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+				upkeepsPerformed[i] = latestCounter.Int64()
+			}
+
+			// the upkeepsPerformed of all other upkeeps should stay constant because their max gas price remains very low
+			// consumer at index N, might not be correlated with upkeep at index N, so instead of focusing on one of them
+			// we iterate over all of them and make sure that at most only one is performing upkeeps
 			gom.Consistently(func(g gomega.Gomega) {
-				for i := 1; i < len(upkeepIDs); i++ {
+				activeConsumers := 0
+				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err = consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterSettingLowMaxGasPrice[i].Int64()),
-						"Expected consumer counter to remain constant at %d, but got %d",
-						countersAfterSettingLowMaxGasPrice[i].Int64(), latestCounter.Int64())
+					if latestCounter.Int64() != upkeepsPerformed[i] {
+						activeConsumers++
+					}
+					upkeepsPerformed[i] = latestCounter.Int64()
 				}
+				// 0 is also okay, because it means that no upkeep was performed yet
+				g.Expect(activeConsumers).Should(gomega.BeNumerically("<=", 1), "Only one consumer should have been performing upkeeps, but %d did", activeConsumers)
 			}, "2m", "1s").Should(gomega.Succeed())
 			l.Info().Msg("all the rest upkeeps did not perform again because their max gas price remains 1 wei")
 
