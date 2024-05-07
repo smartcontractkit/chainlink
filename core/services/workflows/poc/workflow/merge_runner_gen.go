@@ -53,17 +53,21 @@ func Merge2[ I,II, O any](ref string, wb1 *Builder[I], wb2 *Builder[II],  merge 
 	wb1.root.open[wb1.current.Ref()] = false
 	wb1.root.open[wb2.current.Ref()] = false
 
+    mr := &mergeRunner2[ I,II, O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs(wb1.current,wb2.current,),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner2[ I,II, O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs(wb1.current,wb2.current,),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 
@@ -118,17 +122,21 @@ func Merge3[ I,II,III, O any](ref string, wb1 *Builder[I], wb2 *Builder[II], wb3
 	wb1.root.open[wb2.current.Ref()] = false
 	wb1.root.open[wb3.current.Ref()] = false
 
+    mr := &mergeRunner3[ I,II,III, O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner3[ I,II,III, O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 
@@ -191,17 +199,21 @@ func Merge4[ I,II,III,IIII, O any](ref string, wb1 *Builder[I], wb2 *Builder[II]
 	wb1.root.open[wb3.current.Ref()] = false
 	wb1.root.open[wb4.current.Ref()] = false
 
+    mr := &mergeRunner4[ I,II,III,IIII, O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner4[ I,II,III,IIII, O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 
@@ -272,17 +284,21 @@ func Merge5[ I,II,III,IIII,IIIII, O any](ref string, wb1 *Builder[I], wb2 *Build
 	wb1.root.open[wb4.current.Ref()] = false
 	wb1.root.open[wb5.current.Ref()] = false
 
+    mr := &mergeRunner5[ I,II,III,IIII,IIIII, O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner5[ I,II,III,IIII,IIIII, O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 
@@ -361,17 +377,21 @@ func Merge6[ I,II,III,IIII,IIIII,IIIIII, O any](ref string, wb1 *Builder[I], wb2
 	wb1.root.open[wb5.current.Ref()] = false
 	wb1.root.open[wb6.current.Ref()] = false
 
+    mr := &mergeRunner6[ I,II,III,IIII,IIIII,IIIIII, O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner6[ I,II,III,IIII,IIIII,IIIIII, O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 
@@ -458,17 +478,21 @@ func Merge7[ I,II,III,IIII,IIIII,IIIIII,IIIIIII, O any](ref string, wb1 *Builder
 	wb1.root.open[wb6.current.Ref()] = false
 	wb1.root.open[wb7.current.Ref()] = false
 
+    mr := &mergeRunner7[ I,II,III,IIII,IIIII,IIIIII,IIIIIII, O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner7[ I,II,III,IIII,IIIII,IIIIII,IIIIIII, O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 
@@ -563,17 +587,21 @@ func Merge8[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII, O any](ref string, wb1
 	wb1.root.open[wb7.current.Ref()] = false
 	wb1.root.open[wb8.current.Ref()] = false
 
+    mr := &mergeRunner8[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII, O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,wb8.current,),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner8[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII, O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,wb8.current,),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 
@@ -676,17 +704,21 @@ func Merge9[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII, O any](ref s
 	wb1.root.open[wb8.current.Ref()] = false
 	wb1.root.open[wb9.current.Ref()] = false
 
+    mr := &mergeRunner9[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII, O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,wb8.current,wb9.current,),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner9[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII, O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,wb8.current,wb9.current,),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 
@@ -797,17 +829,21 @@ func Merge10[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII,IIIIIIIIII, 
 	wb1.root.open[wb9.current.Ref()] = false
 	wb1.root.open[wb10.current.Ref()] = false
 
+    mr := &mergeRunner10[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII,IIIIIIIIII, O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,wb8.current,wb9.current,wb10.current,),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner10[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII,IIIIIIIIII, O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,wb8.current,wb9.current,wb10.current,),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 

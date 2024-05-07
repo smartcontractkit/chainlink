@@ -20,7 +20,7 @@ func NewWorkflowBuilder[O any](
 		names:        map[string]bool{runner.Ref(): true},
 		open:         map[string]bool{},
 		spec: &Spec{
-			Triggers:        []StepDefinition{triggerToStepDef(tr)},
+			Triggers:        []StepDefinition{capabilityToStepDef(tr)},
 			LocalExecutions: map[string]LocalCapability{},
 		},
 	}
@@ -30,6 +30,7 @@ func NewWorkflowBuilder[O any](
 		tr = &triggerRunner[O]{Trigger: t}
 		root.names[t.Ref()] = true
 		runner.triggers[t.Ref()] = tr
+		root.spec.Triggers = append(root.spec.Triggers, capabilityToStepDef(tr))
 		root.capabilities = append(root.capabilities, tr)
 	}
 
@@ -37,11 +38,11 @@ func NewWorkflowBuilder[O any](
 	return root, &Builder[O]{root: root, current: runner}
 }
 
-func triggerToStepDef[O any](tr *triggerRunner[O]) StepDefinition {
+func capabilityToStepDef(tr capability) StepDefinition {
 	return StepDefinition{
 		TypeRef:        tr.Type(),
 		Ref:            tr.Ref(),
-		Inputs:         nil,
+		Inputs:         tr.Inputs(),
 		CapabilityType: tr.capabilityType(),
 	}
 }
@@ -105,6 +106,7 @@ func AddStep[I, O any](wb *Builder[I], a capabilities.Action[I, O]) (*Builder[O]
 		Action: a,
 	}
 
+	wb.root.spec.Actions = append(wb.root.spec.Actions, capabilityToStepDef(ar))
 	wb.root.capabilities = append(wb.root.capabilities, ar)
 
 	wb.root.spec.LocalExecutions[a.Ref()] = ar
@@ -136,6 +138,7 @@ func AddConsensus[I, O any](wb *Builder[I], c capabilities.Consensus[I, O]) (*Bu
 		Consensus: c,
 	}
 
+	wb.root.spec.Consensus = append(wb.root.spec.Consensus, capabilityToStepDef(cr))
 	wb.root.capabilities = append(wb.root.capabilities, cr)
 
 	wb.root.spec.LocalExecutions[c.Ref()] = cr
@@ -159,10 +162,12 @@ func AddTarget[O any](wb *Builder[capabilities.ConsensusResult[O]], t capabiliti
 	}
 	wb.root.names[t.Ref()] = true
 
-	wb.root.capabilities = append(wb.root.capabilities, &targetRunner[O]{
+	tr := &targetRunner[O]{
 		inputs: map[string]any{"report": wb.current.Outputs()},
 		Target: t,
-	})
+	}
+	wb.root.spec.Targets = append(wb.root.spec.Targets, capabilityToStepDef(tr))
+	wb.root.capabilities = append(wb.root.capabilities, tr)
 
 	return nil
 }

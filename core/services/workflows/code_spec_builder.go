@@ -21,12 +21,10 @@ func (c *codeSpecBuilder) Build() (workflowSpec, error) {
 func (c *codeSpecBuilder) convertDefs(pocDefs []pocWorkflow.StepDefinition) []stepDefinition {
 	defs := make([]stepDefinition, len(pocDefs))
 	for i, pocDef := range pocDefs {
-		var stepType string
+		stepType := pocDef.TypeRef
 		rawStepType, ok := c.CodeConfig.TypeMap[pocDef.TypeRef]
 		if ok {
-			stepType = rawStepType.String()
-		} else {
-			stepType = pocDef.TypeRef
+			stepType = rawStepType
 		}
 
 		defs[i] = stepDefinition{

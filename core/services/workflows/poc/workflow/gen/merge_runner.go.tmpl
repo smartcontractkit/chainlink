@@ -57,17 +57,21 @@ func Merge{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O any](ref string, {{r
 	wb1.root.open[wb{{.}}.current.Ref()] = false
 	{{- end }}
 
+    mr := &mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs({{range (rangeI .) }}wb{{.}}.current,{{ end }}),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
     return &Builder[O]{
         root: wb1.root,
-        current: &mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]{
-            fn: merge,
-            mergeRunnerBase: mergeRunnerBase{
-                nonTriggerCapability{
-                    inputs: mergeOutputs({{range (rangeI .) }}wb{{.}}.current,{{ end }}),
-                    ref:    ref,
-                },
-            },
-        },
+        current: mr,
     }, nil
 }
 {{ end }}

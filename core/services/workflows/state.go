@@ -252,6 +252,17 @@ func deepMap(input any, transform func(el string) (any, error)) (any, error) {
 			a = append(a, ne)
 		}
 		return a, nil
+	case []string:
+		var a []any
+		for _, el := range tv {
+			ne, err := deepMap(el, transform)
+			if err != nil {
+				return nil, err
+			}
+
+			a = append(a, ne)
+		}
+		return a, nil
 	}
 
 	return nil, fmt.Errorf("cannot traverse item %+v of type %T", input, input)

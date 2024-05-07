@@ -588,6 +588,7 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          msg.state.workflowID,
 			WorkflowExecutionID: msg.state.executionID,
+			StepRef:             step.Ref,
 		},
 	}
 

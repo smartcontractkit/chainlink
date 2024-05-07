@@ -175,25 +175,8 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 	require.NoError(t, reg.Add(ctx, trigger))
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
-	target1 := mockTarget()
-	require.NoError(t, reg.Add(ctx, target1))
-
-	target2 := newMockCapability(
-		capabilities.MustNewCapabilityInfo(
-			"write_ethereum-testnet-sepolia",
-			capabilities.CapabilityTypeTarget,
-			"a write capability targeting ethereum sepolia testnet",
-			"v1.0.0",
-			nil,
-		),
-		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-			m := req.Inputs.Underlying["report"].(*values.Map)
-			return capabilities.CapabilityResponse{
-				Value: m,
-			}, nil
-		},
-	)
-	require.NoError(t, reg.Add(ctx, target2))
+	target := mockTarget()
+	require.NoError(t, reg.Add(ctx, target))
 
 	eng, initFailed := newTestEngineFromSpec(t, reg, hardcodedWorkflow)
 
@@ -202,8 +185,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	defer eng.Close()
 
 	eid := getExecutionId(t, eng, initFailed)
-	assert.Equal(t, cr, <-target1.response)
-	assert.Equal(t, cr, <-target2.response)
+	assert.Equal(t, cr, <-target.response)
 
 	state, err := eng.executionStates.get(ctx, eid)
 	require.NoError(t, err)
@@ -489,13 +471,13 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 // This is out of scope for this POC.
 const multiStepWorkflowCodeConfig = `
 type_map:
-  - write_chain: write_polygon-testnet-mumbai
+  write_chain: 'write_polygon-testnet-mumbai'
 config:
-  - mercury-trigger:
+  mercury-trigger:
       feedlist:
         - '0x1111111111111111111100000000000000000000000000000000000000000000'
         - '0x2222222222222222222200000000000000000000000000000000000000000000'
-  - evm_median: null
+  evm_median:
     aggregation_method: data_feeds_2_0
     aggregation_config:
       '0x1111111111111111111100000000000000000000000000000000000000000000':
@@ -510,7 +492,7 @@ config:
     encoder: EVM
     encoder_config:
       abi: 'mercury_reports bytes[]'
-  - write_chain:
+  write_chain:
       address: '0x3F3554832c636721F1fD1822Ccca0354576741Ef'
       params:
         - $(report)
@@ -522,18 +504,13 @@ func TestEngine_MultiStepDependenciesCode(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
-	// This should be done automatically when they run for with code
-	require.NoError(t, reg.Add(context.Background(), &localCodeCapability{
-		Workflow:       nil,
-		CapabilityType: capabilities.CapabilityTypeAction,
-		Id:             pocCapabilities.LocalCodeActionCapability,
-	}))
 	require.NoError(t, reg.Add(context.Background(), &localCodeCapability{
 		Workflow:       nil,
 		CapabilityType: capabilities.CapabilityTypeConsensus,
 		Id:             pocCapabilities.LocalCodeConsensusCapability,
 	}))
 
+	require.NoError(t, reg.Add(ctx, mockTarget()))
 	trigger, cr := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
@@ -543,15 +520,16 @@ func TestEngine_MultiStepDependenciesCode(t *testing.T) {
 
 	spec, err := test_workflow.CreateWorkflow()
 	require.NoError(t, err)
-	csb := &codeSpecBuilder{
-		CodeConfig: &codeConfig{
-			TypeMap: map[string]stepDefinitionType{
-				"write_chain": {typeStr: "write_polygon-testnet-mumbai"},
-			},
-		},
-		Workflow: spec,
-	}
-	require.NoError(t, yaml.Unmarshal([]byte(multiStepWorkflowCodeConfig), &csb.CodeConfig.Config))
+	csb := &codeSpecBuilder{Workflow: spec}
+
+	require.NoError(t, yaml.Unmarshal([]byte(multiStepWorkflowCodeConfig), &csb.CodeConfig))
+
+	// This should be done automatically when they run for with code
+	require.NoError(t, reg.Add(context.Background(), &localCodeCapability{
+		Workflow:       spec,
+		CapabilityType: capabilities.CapabilityTypeAction,
+		Id:             pocCapabilities.LocalCodeActionCapability,
+	}))
 
 	eng, initFailed := newTestEngine(t, reg, csb)
 	err = eng.Start(ctx)
@@ -562,7 +540,7 @@ func TestEngine_MultiStepDependenciesCode(t *testing.T) {
 	state, err := eng.executionStates.get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.status, statusCompleted)
+	require.Equal(t, state.status, statusCompleted)
 
 	// The inputs to the consensus step should
 	// be the outputs of the two dependents.
