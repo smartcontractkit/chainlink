@@ -41,6 +41,24 @@ func (_m *LogPoller) Close() error {
 	return r0
 }
 
+// DeleteLogsAndBlocksAfter provides a mock function with given fields: ctx, start
+func (_m *LogPoller) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
+	ret := _m.Called(ctx, start)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteLogsAndBlocksAfter")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = rf(ctx, start)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // FilteredLogs provides a mock function with given fields: filter, limitAndSrt
 func (_m *LogPoller) FilteredLogs(filter query.KeyFilter, limitAndSrt query.LimitAndSort) ([]logpoller.Log, error) {
 	ret := _m.Called(filter, limitAndSrt)
@@ -69,24 +87,6 @@ func (_m *LogPoller) FilteredLogs(filter query.KeyFilter, limitAndSrt query.Limi
 	}
 
 	return r0, r1
-}
-
-// DeleteLogsAndBlocksAfter provides a mock function with given fields: ctx, start
-func (_m *LogPoller) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
-	ret := _m.Called(ctx, start)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeleteLogsAndBlocksAfter")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
-		r0 = rf(ctx, start)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // FindLCA provides a mock function with given fields: ctx
