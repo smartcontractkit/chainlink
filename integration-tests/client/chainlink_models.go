@@ -1160,7 +1160,8 @@ observationSource                      = """
 type VRFV2PlusJobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
+	PublicKey                     string        `toml:"publicKey"` // Public key of the proving key
 	ExternalJobID                 string        `toml:"externalJobID"`
 	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
@@ -1185,6 +1186,7 @@ type                     = "vrf"
 schemaVersion            = 1
 name                     = "{{.Name}}"
 coordinatorAddress       = "{{.CoordinatorAddress}}"
+{{ if .BatchFulfillmentEnabled }}batchCoordinatorAddress                = "{{.BatchCoordinatorAddress}}"{{ else }}{{ end }}
 fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
@@ -1207,7 +1209,8 @@ observationSource = """
 type VRFV2JobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
+	PublicKey                     string        `toml:"publicKey"` // Public key of the proving key
 	ExternalJobID                 string        `toml:"externalJobID"`
 	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
@@ -1236,6 +1239,7 @@ schemaVersion            = 1
 name                     = "{{.Name}}"
 forwardingAllowed        = {{.ForwardingAllowed}}
 coordinatorAddress       = "{{.CoordinatorAddress}}"
+{{ if .BatchFulfillmentEnabled }}batchCoordinatorAddress                = "{{.BatchCoordinatorAddress}}"{{ else }}{{ end }}
 fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
