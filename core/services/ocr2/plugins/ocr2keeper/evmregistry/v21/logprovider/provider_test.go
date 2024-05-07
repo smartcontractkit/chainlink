@@ -21,7 +21,8 @@ import (
 )
 
 func TestLogEventProvider_GetFilters(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
+	p, err := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), newMockBlockSubscriber(), NewOptions(200, big.NewInt(1)))
+	require.NoError(t, err)
 
 	_, f := newEntry(p, 1)
 	p.filterStore.AddActiveUpkeeps(f)
@@ -63,8 +64,8 @@ func TestLogEventProvider_GetFilters(t *testing.T) {
 }
 
 func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
-
+	p, err := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), newMockBlockSubscriber(), NewOptions(200, big.NewInt(1)))
+	require.NoError(t, err)
 	n := 10
 
 	// entries := map[string]upkeepFilter{}
@@ -179,7 +180,8 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			opts := NewOptions(200, big.NewInt(1))
 			opts.ReadInterval = readInterval
 
-			p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), opts)
+			p, err := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), newMockBlockSubscriber(), opts)
+			require.NoError(t, err)
 
 			var ids []*big.Int
 			for i, id := range tc.ids {
@@ -254,8 +256,8 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	}, nil)
 
 	filterStore := NewUpkeepFilterStore()
-	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, NewOptions(200, big.NewInt(1)))
-
+	p, err := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, newMockBlockSubscriber(), NewOptions(200, big.NewInt(1)))
+	require.NoError(t, err)
 	var ids []*big.Int
 	for i := 0; i < 10; i++ {
 		cfg, f := newEntry(p, i+1)

@@ -110,7 +110,9 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 				// assuming that our service was closed and restarted,
 				// we should be able to backfill old logs and fetch new ones
 				filterStore := logprovider.NewUpkeepFilterStore()
-				logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, big.NewInt(1), logprovider.NewLogEventsPacker(), filterStore, opts)
+
+				logProvider2, err := logprovider.NewLogProvider(logger.TestLogger(t), lp, big.NewInt(1), logprovider.NewLogEventsPacker(), filterStore, newMockBlockSubscriber(), opts)
+				require.NoError(t, err)
 
 				poll(backend.Commit())
 				go func() {

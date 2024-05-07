@@ -1,6 +1,8 @@
 package logprovider
 
 import (
+	"context"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 	"math/big"
 	"testing"
 
@@ -12,7 +14,8 @@ import (
 )
 
 func TestLogEventBufferV1(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1)
+	buf, err := NewLogBuffer(logger.TestLogger(t), newMockBlockSubscriber(), 10, 20, 1)
+	require.NoError(t, err)
 
 	buf.Enqueue(big.NewInt(1),
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -32,7 +35,8 @@ func TestLogEventBufferV1(t *testing.T) {
 }
 
 func TestLogEventBufferV1_SyncFilters(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1)
+	buf, err := NewLogBuffer(logger.TestLogger(t), newMockBlockSubscriber(), 10, 20, 1)
+	require.NoError(t, err)
 
 	buf.Enqueue(big.NewInt(1),
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -136,7 +140,8 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewLogBuffer(logger.TestLogger(t), uint32(tc.lookback), uint32(tc.args.blockRate), uint32(tc.args.upkeepLimit))
+			buf, err := NewLogBuffer(logger.TestLogger(t), newMockBlockSubscriber(), uint32(tc.lookback), uint32(tc.args.blockRate), uint32(tc.args.upkeepLimit))
+			require.NoError(t, err)
 			for id, logs := range tc.logsInBuffer {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
@@ -248,7 +253,8 @@ func TestLogEventBufferV1_Enqueue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewLogBuffer(logger.TestLogger(t), tc.lookback, tc.blockRate, tc.upkeepLimit)
+			buf, err := NewLogBuffer(logger.TestLogger(t), newMockBlockSubscriber(), tc.lookback, tc.blockRate, tc.upkeepLimit)
+			require.NoError(t, err)
 			for id, logs := range tc.logsToAdd {
 				added, dropped := buf.Enqueue(id, logs...)
 				sid := id.String()
@@ -329,7 +335,8 @@ func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
 }
 
 func TestLogEventBufferV1_UpkeepQueue_reorg(t *testing.T) {
-	bufI := NewLogBuffer(logger.TestLogger(t), 10, 5, 1)
+	bufI, err := NewLogBuffer(logger.TestLogger(t), newMockBlockSubscriber(), 10, 5, 1)
+	require.NoError(t, err)
 	buf := bufI.(*logBuffer)
 
 	buf.Enqueue(big.NewInt(1),
@@ -360,7 +367,8 @@ func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
 	})
 
 	t.Run("happy path", func(t *testing.T) {
-		buf := NewLogBuffer(logger.TestLogger(t), 10, 5, 1)
+		buf, err := NewLogBuffer(logger.TestLogger(t), newMockBlockSubscriber(), 10, 5, 1)
+		require.NoError(t, err)
 
 		buf.Enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -493,4 +501,45 @@ func createDummyLogSequence(n, startIndex int, block int64, tx common.Hash) []lo
 		}
 	}
 	return logs
+}
+
+func newMockBlockSubscriber() automation.BlockSubscriber {
+	ch := make(chan automation.BlockHistory)
+	return &mockBlockSubscriber{
+		SubscribeFn: func() (int, chan automation.BlockHistory, error) {
+			return 0, ch, nil
+		},
+		UnsubscribeFn: func(i int) error {
+			return nil
+		},
+		StartFn: func(ctx context.Context) error {
+			return nil
+		},
+		CloseFn: func() error {
+			return nil
+		},
+	}
+}
+
+type mockBlockSubscriber struct {
+	SubscribeFn   func() (int, chan automation.BlockHistory, error)
+	UnsubscribeFn func(int) error
+	StartFn       func(context.Context) error
+	CloseFn       func() error
+}
+
+func (s *mockBlockSubscriber) Subscribe() (int, chan automation.BlockHistory, error) {
+	return s.SubscribeFn()
+}
+
+func (s *mockBlockSubscriber) Unsubscribe(i int) error {
+	return s.UnsubscribeFn(i)
+}
+
+func (s *mockBlockSubscriber) Start(ctx context.Context) error {
+	return s.StartFn(ctx)
+}
+
+func (s *mockBlockSubscriber) Close() error {
+	return s.CloseFn()
 }

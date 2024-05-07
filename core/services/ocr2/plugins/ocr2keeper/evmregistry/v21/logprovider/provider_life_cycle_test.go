@@ -100,7 +100,8 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 		},
 	}
 
-	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
+	p, err := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), newMockBlockSubscriber(), NewOptions(200, big.NewInt(1)))
+	require.NoError(t, err)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -152,7 +153,8 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	mp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
-	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
+	p, err := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), newMockBlockSubscriber(), NewOptions(200, big.NewInt(1)))
+	require.NoError(t, err)
 
 	require.NoError(t, p.RegisterFilter(ctx, FilterOptions{
 		UpkeepID: core.GenUpkeepID(types.LogTrigger, "1111").BigInt(),
@@ -231,7 +233,8 @@ func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
 		},
 	}
 
-	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
+	p, err := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), newMockBlockSubscriber(), NewOptions(200, big.NewInt(1)))
+	require.NoError(t, err)
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := p.validateLogTriggerConfig(tc.cfg)
