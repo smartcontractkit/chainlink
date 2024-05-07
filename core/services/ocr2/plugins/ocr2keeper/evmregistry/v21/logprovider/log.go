@@ -63,11 +63,10 @@ func (b *logBuffer) latestBlockNumber(logs ...logpoller.Log) (int64, map[int64]b
 	var latest int64
 	var latestBlockHash common.Hash
 
-	blockHashes := map[int64]string{}
 	reorgBlocks := map[int64]bool{}
 
 	for _, l := range logs {
-		blockHashes[l.BlockNumber] = l.BlockHash.String()
+		b.blockHashes[l.BlockNumber] = l.BlockHash.String()
 		if l.BlockNumber > latest {
 			latest = l.BlockNumber
 			latestBlockHash = l.BlockHash
@@ -76,17 +75,15 @@ func (b *logBuffer) latestBlockNumber(logs ...logpoller.Log) (int64, map[int64]b
 
 	subscriberLatest := b.latestBlockHash.Load()
 
-	// if we haven't seen a reorg, write these hashes into the buffer for next time
-	if subscriberLatest.String() == latestBlockHash.String() {
-		for number, hash := range blockHashes {
-			b.blockHashes[number] = hash
-		}
-	} else {
-		// if we have seen a reorg, update the stored hashes for the reorg blocks, and collect the reorg block numbers
-		// so that we can later evict logs
-		for number, hash := range blockHashes {
-			if b.blockHashes[number] != hash {
-				b.blockHashes[number] = hash
+	// if we see a reorg, update the stored hashes for the reorg blocks, and collect the reorg block numbers
+	// so that we can later evict logs for those block numbers
+	if subscriberLatest.String() != latestBlockHash.String() {
+		for _, block := range b.history {
+			number := int64(block.Number)
+			historyBlockHash := common.Hash(block.Hash).String()
+
+			if hash, ok := b.blockHashes[number]; ok && hash != historyBlockHash {
+				b.blockHashes[number] = historyBlockHash
 				reorgBlocks[number] = true
 			}
 		}

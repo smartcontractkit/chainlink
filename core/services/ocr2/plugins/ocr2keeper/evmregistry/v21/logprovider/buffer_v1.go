@@ -91,6 +91,7 @@ type logBuffer struct {
 	lock            sync.RWMutex
 	blockHashes     map[int64]string
 	latestBlockHash atomic.Pointer[common.Hash]
+	history         automation.BlockHistory
 	subID           int
 	blockChan       chan automation.BlockHistory
 	threadCtrl      utils.ThreadControl
@@ -140,6 +141,7 @@ func (b *logBuffer) listen(ctx context.Context) {
 		} else {
 			hash := common.Hash(latest.Hash)
 			b.latestBlockHash.Store(&hash)
+			b.history = history
 		}
 	}
 }
