@@ -99,16 +99,13 @@ deployments:
       upgradeArgs: ["--timeout", "10m"]
       displayOutput: true
       chart:
-        name: root
-        path: ../charts/root
+        name: ${CCIP_HELM_CHART_URI}
+        version: "0.1.0"
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
       values:
-        podSecurityContext:
-          fsGroup: 999
-
-        chainlink-cluster:
+        crib-chainlink-cluster:
           chainlink:
             global:
               overridesToml: |-
@@ -406,12 +403,11 @@ deployments:
               # AWS ALB private CIDRs and optionally other custom CIDRs.
               # Example format: 10.0.0.0/16,192.168.0.1/24
               customCidrs: ${DEVSPACE_INGRESS_CIDRS}
-        ccip-scripts:
-          ccipScriptsDeployment:
-            enabled: true
-            image: ${DEVSPACE_CCIP_SCRIPTS_IMAGE}
-            oidcRoleARN: ${DEVSPACE_CCIP_SCRIPTS_OIDC_ROLE_ARN}
-            outputBucketName: ${DEVSPACE_CCIP_SCRIPTS_OUTPUT_BUCKET_NAME}
+        ccipScriptsDeployment:
+          enabled: true
+          image: ${DEVSPACE_CCIP_SCRIPTS_IMAGE}
+          oidcRoleARN: ${DEVSPACE_CCIP_SCRIPTS_OIDC_ROLE_ARN}
+          outputBucketName: ${DEVSPACE_CCIP_SCRIPTS_OUTPUT_BUCKET_NAME}
 profiles:
   - name: local-dev
     patches:
@@ -421,7 +417,7 @@ profiles:
         path: deployments.app.helm.values.chainlink-cluster.chainlink.global.overridesToml
       - op: add
         path: deployments.app.helm.valuesFiles
-        value: ["../charts/chainlink-cluster/values-profiles/values-dev.yaml"]
+        value: ["./values-profiles/values-dev.yaml"]
       - op: replace
-        path: deployments.app.helm.values.ccip-scripts.ccipScriptsDeployment.enabled
+        path: deployments.app.helm.values.ccipScriptsDeployment.enabled
         value: false

@@ -1,4 +1,4 @@
-chainlink-cluster:
+crib-chainlink-cluster:
   # Disable geth if using existing testnets.
   geth:
     enabled: false

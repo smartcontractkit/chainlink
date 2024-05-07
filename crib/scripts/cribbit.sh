@@ -151,7 +151,7 @@ extract_ecr_host_uri() {
         echo "${BASH_REMATCH[1]}"
     else
         echo "No valid ECR host URI found in the URI."
-        echo "Have you set CHAINLINK_CLUSTER_HELM_CHART_URI env var?"
+        echo "Have you set CCIP_HELM_CHART_URI env var?"
         exit 1
     fi
 }
@@ -167,16 +167,10 @@ else
         --password-stdin "${aws_account_id_ecr_registry}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
   echo "Info: Logging helm into AWS ECR registry."
-  helm_registry_uri=$(extract_ecr_host_uri "${CHAINLINK_CLUSTER_HELM_CHART_URI}")
+  helm_registry_uri=$(extract_ecr_host_uri "${CCIP_HELM_CHART_URI}")
   aws ecr get-login-password --region "${AWS_REGION}" \
    | helm registry login "$helm_registry_uri" --username AWS --password-stdin
 fi
-
-##
-# Helm dependencies
-##
-
-./scripts/helm_updates.sh
 
 ##
 # Setup DevSpace

@@ -99,17 +99,6 @@ Check this [doc](../integration-tests/load/ocr/README.md)
 
 If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
 
-# Helm
-
-If you would like to use `helm` directly, please uncomment data in `values.yaml`
-
-## Install from local files
-
-```
-cd charts/root
-helm install -f values.yaml cl-cluster .
-```
-
 Forward all apps (in another terminal)
 
 ```
