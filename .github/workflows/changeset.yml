@@ -4,7 +4,11 @@
 #
 name: Changeset
 
-on: pull_request
+on:
+  pull_request:
+    # skipping keystone related branches
+    branches:
+      - '!ks-+\d'
 
 jobs:
   changeset:
