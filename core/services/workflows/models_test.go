@@ -21,26 +21,30 @@ func TestParse_Graph(t *testing.T) {
 			name: "basic example",
 			yaml: `
 triggers:
-  - id: "a-trigger"
+  - id: "a-trigger@1"
+    config: {}
 
 actions:
-  - id: "an-action"
+  - id: "an-action@1"
+    config: {}
     ref: "an-action"
     inputs:
-      trigger_output: $(trigger.outputs)
+      trigger-output: $(trigger.outputs)
 
 consensus:
-  - id: "a-consensus"
+  - id: "a-consensus@1"
+    config: {}
     ref: "a-consensus"
     inputs:
-      trigger_output: $(trigger.outputs)
-      an-action_output: $(an-action.outputs)
+      trigger-output: $(trigger.outputs)
+      an-action-output: $(an-action.outputs)
 
 targets:
-  - id: "a-target"
+  - id: "a-target@1"
+    config: {}
     ref: "a-target"
     inputs: 
-      consensus_output: $(a-consensus.outputs)
+      consensus-output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
 				workflows.KeywordTrigger: {
@@ -60,31 +64,36 @@ targets:
 			name: "circular relationship",
 			yaml: `
 triggers:
-  - id: "a-trigger"
+  - id: "a-trigger@1"
+    config: {}
 
 actions:
-  - id: "an-action"
+  - id: "an-action@1"
+    config: {}
     ref: "an-action"
     inputs:
-      trigger_output: $(trigger.outputs)
+      trigger-output: $(trigger.outputs)
       output: $(a-second-action.outputs)
-  - id: "a-second-action"
+  - id: "a-second-action@1"
+    config: {}
     ref: "a-second-action"
     inputs:
       output: $(an-action.outputs)
 
 consensus:
-  - id: "a-consensus"
+  - id: "a-consensus@1"
+    config: {}
     ref: "a-consensus"
     inputs:
-      trigger_output: $(trigger.outputs)
-      an-action_output: $(an-action.outputs)
+      trigger-output: $(trigger.outputs)
+      an-action-output: $(an-action.outputs)
 
 targets:
-  - id: "a-target"
+  - id: "a-target@1"
+    config: {}
     ref: "a-target"
     inputs: 
-      consensus_output: $(a-consensus.outputs)
+      consensus-output: $(a-consensus.outputs)
 `,
 			errMsg: "edge would create a cycle",
 		},
@@ -92,35 +101,41 @@ targets:
 			name: "indirect circular relationship",
 			yaml: `
 triggers:
-  - id: "a-trigger"
+  - id: "a-trigger@1"
+    config: {}
 
 actions:
-  - id: "an-action"
+  - id: "an-action@1"
+    config: {}
     ref: "an-action"
     inputs:
-      trigger_output: $(trigger.outputs)
-      action_output: $(a-third-action.outputs)
-  - id: "a-second-action"
+      trigger-output: $(trigger.outputs)
+      action-output: $(a-third-action.outputs)
+  - id: "a-second-action@1"
+    config: {}
     ref: "a-second-action"
     inputs:
       output: $(an-action.outputs)
-  - id: "a-third-action"
+  - id: "a-third-action@1"
+    config: {}
     ref: "a-third-action"
     inputs:
       output: $(a-second-action.outputs)
 
 consensus:
-  - id: "a-consensus"
+  - id: "a-consensus@1"
+    config: {}
     ref: "a-consensus"
     inputs:
-      trigger_output: $(trigger.outputs)
-      an-action_output: $(an-action.outputs)
+      trigger-output: $(trigger.outputs)
+      an-action-output: $(an-action.outputs)
 
 targets:
-  - id: "a-target"
+  - id: "a-target@1"
+    config: {}
     ref: "a-target"
     inputs: 
-      consensus_output: $(a-consensus.outputs)
+      consensus-output: $(a-consensus.outputs)
 `,
 			errMsg: "edge would create a cycle",
 		},
@@ -128,26 +143,30 @@ targets:
 			name: "relationship doesn't exist",
 			yaml: `
 triggers:
-  - id: "a-trigger"
+  - id: "a-trigger@1"
+    config: {}
 
 actions:
-  - id: "an-action"
+  - id: "an-action@1"
+    config: {}
     ref: "an-action"
     inputs:
-      trigger_output: $(trigger.outputs)
-      action_output: $(missing-action.outputs)
+      trigger-output: $(trigger.outputs)
+      action-output: $(missing-action.outputs)
 
 consensus:
-  - id: "a-consensus"
+  - id: "a-consensus@1"
+    config: {}
     ref: "a-consensus"
     inputs:
-      an-action_output: $(an-action.outputs)
+      an-action-output: $(an-action.outputs)
 
 targets:
-  - id: "a-target"
+  - id: "a-target@1"
+    config: {}
     ref: "a-target"
     inputs: 
-      consensus_output: $(a-consensus.outputs)
+      consensus-output: $(a-consensus.outputs)
 `,
 			errMsg: "source vertex missing-action: vertex not found",
 		},
@@ -155,26 +174,31 @@ targets:
 			name: "two trigger nodes",
 			yaml: `
 triggers:
-  - id: "a-trigger"
-  - id: "a-second-trigger"
+  - id: "a-trigger@1"
+    config: {}
+  - id: "a-second-trigger@1"
+    config: {}
 
 actions:
-  - id: "an-action"
+  - id: "an-action@1"
+    config: {}
     ref: "an-action"
     inputs:
-      trigger_output: $(trigger.outputs)
+      trigger-output: $(trigger.outputs)
 
 consensus:
-  - id: "a-consensus"
+  - id: "a-consensus@1"
+    config: {}
     ref: "a-consensus"
     inputs:
-      an-action_output: $(an-action.outputs)
+      an-action-output: $(an-action.outputs)
 
 targets:
-  - id: "a-target"
+  - id: "a-target@1"
+    config: {}
     ref: "a-target"
     inputs:
-      consensus_output: $(a-consensus.outputs)
+      consensus-output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
 				workflows.KeywordTrigger: {
@@ -193,24 +217,29 @@ targets:
 			name: "non-trigger step with no dependent refs",
 			yaml: `
 triggers:
-  - id: "a-trigger"
-  - id: "a-second-trigger"
+  - id: "a-trigger@1"
+    config: {}
+  - id: "a-second-trigger@1"
+    config: {}
 actions:
-  - id: "an-action"
+  - id: "an-action@1"
+    config: {}
     ref: "an-action"
     inputs:
       hello: "world"
 consensus:
-  - id: "a-consensus"
+  - id: "a-consensus@1"
+    config: {}
     ref: "a-consensus"
     inputs:
-      trigger_output: $(trigger.outputs)
-      action_output: $(an-action.outputs)
+      trigger-output: $(trigger.outputs)
+      action-output: $(an-action.outputs)
 targets:
-  - id: "a-target"
+  - id: "a-target@1"
+    config: {}
     ref: "a-target"
     inputs:
-      consensus_output: $(a-consensus.outputs)
+      consensus-output: $(a-consensus.outputs)
 `,
 			errMsg: "all non-trigger steps must have a dependent ref",
 		},
