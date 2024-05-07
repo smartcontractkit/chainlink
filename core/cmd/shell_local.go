@@ -759,7 +759,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 		return s.errorOut(err)
 	}
 	lggr.Debugf("Migrating database: %#v", parsed.String())
-	if err := migrateDB(ctx, cfg, lggr); err != nil {
+	if err := migrateDB(ctx, cfg, s.Config.WebServer().HTTPPort(), lggr); err != nil {
 		return s.errorOut(err)
 	}
 	schema, err := dumpSchema(parsed)
@@ -768,7 +768,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 	}
 	lggr.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
 	var baseVersionID int64 = 54
-	if err := downAndUpDB(ctx, cfg, lggr, baseVersionID); err != nil {
+	if err := downAndUpDB(ctx, cfg, s.Config.WebServer().HTTPPort(), lggr, baseVersionID); err != nil {
 		return s.errorOut(err)
 	}
 	if err := checkSchema(parsed, schema); err != nil {
@@ -922,7 +922,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	}
 
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(ctx, cfg, s.Logger); err != nil {
+	if err := migrateDB(ctx, cfg, s.Config.WebServer().HTTPPort(), s.Logger); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
@@ -1116,19 +1116,19 @@ func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 	return nil
 }
 
-func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger) error {
+func migrateDB(ctx context.Context, config dbConfig, healtReportPort uint16, lggr logger.Logger) error {
 	db, err := newConnection(config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Migrate(ctx, db.DB); err != nil {
+	if err = migrate.Migrate(ctx, db.DB, healtReportPort, lggr); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	return db.Close()
 }
 
-func downAndUpDB(ctx context.Context, cfg dbConfig, lggr logger.Logger, baseVersionID int64) error {
+func downAndUpDB(ctx context.Context, cfg dbConfig, healtReportPort uint16, lggr logger.Logger, baseVersionID int64) error {
 	db, err := newConnection(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
@@ -1136,7 +1136,7 @@ func downAndUpDB(ctx context.Context, cfg dbConfig, lggr logger.Logger, baseVers
 	if err = migrate.Rollback(ctx, db.DB, null.IntFrom(baseVersionID)); err != nil {
 		return fmt.Errorf("test rollback failed: %v", err)
 	}
-	if err = migrate.Migrate(ctx, db.DB); err != nil {
+	if err = migrate.Migrate(ctx, db.DB, healtReportPort, lggr); err != nil {
 		return fmt.Errorf("second migrateDB failed: %v", err)
 	}
 	return db.Close()

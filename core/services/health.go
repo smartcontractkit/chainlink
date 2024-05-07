@@ -37,6 +37,7 @@ type Checker interface {
 type InBackupHealthReport struct {
 	server http.Server
 	lggr   logger.Logger
+	mux    *http.ServeMux
 }
 
 func (i *InBackupHealthReport) Stop() {
@@ -50,7 +51,7 @@ func (i *InBackupHealthReport) Stop() {
 
 func (i *InBackupHealthReport) Start() {
 	go func() {
-		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		i.mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 		})
 		i.lggr.Info("Starting InBackupHealthReport")
@@ -61,10 +62,12 @@ func (i *InBackupHealthReport) Start() {
 }
 
 // NewInBackupHealthReport creates a new InBackupHealthReport that will serve the /health endpoint, useful for
-// preventing shutdowns due to health-checks when running long backup tasks
+// preventing shutdowns due to health-checks when running long backup tasks or migrations
 func NewInBackupHealthReport(port uint16, lggr logger.Logger) *InBackupHealthReport {
+	mux := http.NewServeMux()
 	return &InBackupHealthReport{
-		server: http.Server{Addr: fmt.Sprintf(":%d", port), ReadHeaderTimeout: time.Second * 5},
 		lggr:   lggr,
+		mux:    mux,
+		server: http.Server{Addr: fmt.Sprintf(":%d", port), ReadHeaderTimeout: time.Second * 5, Handler: mux},
 	}
 }
