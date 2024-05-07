@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"time"
 
+	"errors"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -138,12 +140,29 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		lggr.Debug("Polling disabled")
 	}
 
-	var pollFinalizedHeadCh <-chan time.Time
-	if n.chainCfg.FinalityTagEnabled() && n.nodePoolCfg.FinalizedBlockPollInterval() > 0 {
+	finalizedPollInterval := n.nodePoolCfg.FinalizedBlockPollInterval()
+	var finalizedHeadCh <-chan *HEAD
+	if n.chainCfg.FinalityTagEnabled() && finalizedPollInterval > 0 {
 		lggr.Debugw("Finalized block polling enabled")
-		pollT := time.NewTicker(n.nodePoolCfg.FinalizedBlockPollInterval())
-		defer pollT.Stop()
-		pollFinalizedHeadCh = pollT.C
+
+		pollFunc := func(ctx context.Context) (*HEAD, error) {
+			latestFinalized, pollErr := n.RPC().LatestFinalizedBlock(ctx)
+			if pollErr != nil {
+				return nil, errors.New("Failed to fetch latest finalized block")
+			}
+			if !latestFinalized.IsValid() {
+				return nil, errors.New("Latest finalized block is not valid")
+			}
+			return &latestFinalized, nil
+		}
+		timeout := finalizedPollInterval
+
+		finalizedHeadPoller, ch := NewPoller[*HEAD](finalizedPollInterval, pollFunc, timeout, lggr)
+		if err = finalizedHeadPoller.Start(); err != nil {
+			lggr.Errorw("Failed to start finalized block poller", "err", err)
+		}
+		finalizedHeadCh = ch
+		defer finalizedHeadPoller.Unsubscribe()
 	}
 
 	_, highestReceivedBlockNumber, _ := n.StateAndLatest()
@@ -239,21 +258,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			n.declareOutOfSync(func(num int64, td *big.Int) bool { return num < highestReceivedBlockNumber })
 			return
-		case <-pollFinalizedHeadCh:
-			ctx, cancel := context.WithTimeout(n.nodeCtx, n.nodePoolCfg.FinalizedBlockPollInterval())
-			latestFinalized, err := n.RPC().LatestFinalizedBlock(ctx)
-			cancel()
-			if err != nil {
-				lggr.Warnw("Failed to fetch latest finalized block", "err", err)
+		case h := <-finalizedHeadCh:
+			if h == nil {
+				lggr.Error("Finalized block poller returned nil head")
 				continue
 			}
-
-			if !latestFinalized.IsValid() {
-				lggr.Warn("Latest finalized block is not valid")
-				continue
-			}
-
-			latestFinalizedBN := latestFinalized.BlockNumber()
+			latestFinalizedBN := (*h).BlockNumber()
 			if latestFinalizedBN > n.stateLatestFinalizedBlockNumber {
 				promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
 				n.stateLatestFinalizedBlockNumber = latestFinalizedBN
