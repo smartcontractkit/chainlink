@@ -1032,7 +1032,7 @@ jobs:
         get_solana_sha,
       ]
     container:
-      image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
+      image: "backpackapp/build:v0.30.0"
       env:
         RUSTUP_HOME: "/root/.rustup"
         FORCE_COLOR: 1
