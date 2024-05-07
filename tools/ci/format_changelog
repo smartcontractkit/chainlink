@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
+if [[ -z "${GITHUB_OUTPUT:-}" ]]; then
+  echo "GITHUB_OUTPUT environment variable is not set."
+  exit 1
+fi
+
 create_changesets_json() {
   echo "[[]]" > changesets.json
 }
