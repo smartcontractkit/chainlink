@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 create_changesets_json() {
   echo "[[]]" > changesets.json
 }
