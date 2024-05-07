@@ -215,9 +215,9 @@ func (p *logEventProvider) Start(ctx context.Context) error {
 
 		if p.opts.BufferVersion == BufferVersionV1 {
 			return p.bufferV1.Start(ctx)
-		} else {
-			return nil
 		}
+
+		return nil
 	})
 }
 

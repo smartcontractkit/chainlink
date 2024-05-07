@@ -2,15 +2,17 @@ package logprovider
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"sync/atomic"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

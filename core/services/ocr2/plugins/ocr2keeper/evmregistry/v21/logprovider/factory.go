@@ -1,9 +1,10 @@
 package logprovider
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
