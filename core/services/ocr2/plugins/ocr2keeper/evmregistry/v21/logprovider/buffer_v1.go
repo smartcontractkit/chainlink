@@ -93,7 +93,7 @@ type logBuffer struct {
 	lock            sync.RWMutex
 	blockHashes     map[int64]string
 	latestBlockHash atomic.Pointer[common.Hash]
-	history         automation.BlockHistory
+	history         atomic.Pointer[automation.BlockHistory]
 	subID           int
 	blockChan       chan automation.BlockHistory
 	threadCtrl      utils.ThreadControl
@@ -122,7 +122,7 @@ func NewLogBuffer(lggr logger.Logger, blockSubscriber automation.BlockSubscriber
 func (b *logBuffer) Start(context.Context) error {
 	return b.StartOnce(LogBufferServiceName, func() error {
 		b.threadCtrl.Go(func(ctx context.Context) {
-			b.listen(ctx)
+			b.readBlockHistory(ctx)
 		})
 		return nil
 	})
@@ -135,7 +135,7 @@ func (b *logBuffer) Close() error {
 	})
 }
 
-func (b *logBuffer) listen(ctx context.Context) {
+func (b *logBuffer) readBlockHistory(_ context.Context) {
 	for history := range b.blockChan {
 		latest, err := history.Latest()
 		if err != nil {
@@ -143,7 +143,7 @@ func (b *logBuffer) listen(ctx context.Context) {
 		} else {
 			hash := common.Hash(latest.Hash)
 			b.latestBlockHash.Store(&hash)
-			b.history = history
+			b.history.Store(&history)
 		}
 	}
 }
@@ -158,7 +158,7 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		b.setUpkeepQueue(uid, buf)
 	}
 
-	latestBlock, reorgBlocks := b.latestBlockNumber(logs...)
+	latestBlock, reorgBlocks := b.blockStatistics(logs...)
 	if len(reorgBlocks) > 0 {
 		b.evictReorgdLogs(reorgBlocks)
 	}

@@ -59,8 +59,8 @@ func logID(l logpoller.Log) string {
 	return hex.EncodeToString(ext.LogIdentifier())
 }
 
-// latestBlockNumber returns the latest block number from the given logs
-func (b *logBuffer) latestBlockNumber(logs ...logpoller.Log) (int64, map[int64]bool) {
+// blockStatistics returns the latest block number from the given logs and a map of blocks that have been reorg'd
+func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]bool) {
 	var latest int64
 	var latestBlockHash common.Hash
 
@@ -75,17 +75,18 @@ func (b *logBuffer) latestBlockNumber(logs ...logpoller.Log) (int64, map[int64]b
 	}
 
 	subscriberLatest := b.latestBlockHash.Load()
+	history := b.history.Load()
 
 	// if we see a reorg, update the stored hashes for the reorg blocks, and collect the reorg block numbers
 	// so that we can later evict logs for those block numbers
-	if subscriberLatest.String() != latestBlockHash.String() {
-		for _, block := range b.history {
-			number := int64(block.Number)
+	if subscriberLatest != nil && history != nil && subscriberLatest.String() != latestBlockHash.String() {
+		for _, block := range *history {
+			historyBlockNumber := int64(block.Number)
 			historyBlockHash := common.Hash(block.Hash).String()
 
-			if hash, ok := b.blockHashes[number]; ok && hash != historyBlockHash {
-				b.blockHashes[number] = historyBlockHash
-				reorgBlocks[number] = true
+			if hash, ok := b.blockHashes[historyBlockNumber]; ok && hash != historyBlockHash {
+				b.blockHashes[historyBlockNumber] = historyBlockHash
+				reorgBlocks[historyBlockNumber] = true
 			}
 		}
 	}
