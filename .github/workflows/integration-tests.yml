@@ -1054,7 +1054,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
-        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        # if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         # testing branch
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@test/node20-solana-build-contracts
         with:
