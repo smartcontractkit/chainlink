@@ -6,9 +6,20 @@ on:
 jobs:
   sanity:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       # Checks-out your repository, which is validated in the next step
       - uses: actions/checkout@v2
+      - name: Setup GitHub Token
+        id: setup-github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@main
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_CODEOWNERS_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.GATI_LAMBDA_FUNCTION_URL_FOUNDATIONS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-duration-seconds: "1800" # this is optional and defaults to 900
       - name: GitHub CODEOWNERS Validator
         uses: patrickhuie19/codeowners-validator@v0.1.7
         # input parameters
@@ -18,7 +29,7 @@ jobs:
           ## ==== PAT ====
           # GitHub access token is required only if the `owners` check is enabled
           # Disabed momentarily while waiting for GATI setup
-          #github_access_token: "${{ secrets.OWNERS_VALIDATOR_GITHUB_SECRET }}"
+          github_access_token: ${{ steps.setup-github-token.outputs.access-token }}
 
           # ==== GitHub Auth ====
 
