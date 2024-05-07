@@ -1599,7 +1599,6 @@ func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
 		res := bhe.EffectiveGasPrice(eipblock, tx)
 		assert.Nil(t, res)
 	})
-
 }
 
 func TestBlockHistoryEstimator_Block_Unmarshal(t *testing.T) {
@@ -2343,7 +2342,6 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 10 wei, which is above percentile=60%% (percentile tip cap: 6 wei) for blocks 3 thru 3 (checking 1 blocks)", attempts[0].TxHash))
 			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
-
 	})
 
 	t.Run("in EIP-1559 mode", func(t *testing.T) {

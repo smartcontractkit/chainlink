@@ -399,7 +399,6 @@ func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error 
 }
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
-
 	hash := l.TxHash.String()
 	if _, ok := r.txHashes[hash]; ok {
 		return nil

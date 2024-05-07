@@ -139,7 +139,6 @@ func TestStarknetSigner(t *testing.T) {
 	// TODO BCF-2242 remove this test once we have starknet smoke/integration tests
 	// that exercise the transaction signing.
 	t.Run("keystore adapter integration", func(t *testing.T) {
-
 		adapter := starktxm.NewKeystoreAdapter(lk)
 		baseKs.On("Get", starknetSenderAddr).Return(starkKey, nil)
 		hash, err := curve.Curve.PedersenHash([]*big.Int{big.NewInt(42)})

@@ -168,7 +168,6 @@ var _ loop.Keystore = &StarknetLooppSigner{}
 // the returned []byte is an encoded [github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/starknet.Signature].
 // this enables compatibility with [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
 func (lk *StarknetLooppSigner) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
-
 	k, err := lk.Get(id)
 	if err != nil {
 		return nil, err

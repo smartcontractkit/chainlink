@@ -240,7 +240,6 @@ func TestParsesIntsCorrectly(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(3600), n.Config["aggregation_config"].(map[string]any)["0x1111111111111111111100000000000000000000000000000000000000000000"].(map[string]any)["heartbeat"])
-
 }
 
 func TestMappingCustomType(t *testing.T) {

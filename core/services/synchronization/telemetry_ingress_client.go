@@ -127,7 +127,6 @@ func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
 
 		// Wait for close
 		<-tc.chDone
-
 	}()
 }
 

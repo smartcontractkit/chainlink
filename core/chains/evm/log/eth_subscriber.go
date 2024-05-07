@@ -104,7 +104,6 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride sql.NullInt64, addresse
 		// On ethereum its 15MB [https://github.com/ethereum/go-ethereum/blob/master/rpc/websocket.go#L40]
 		batchSize := int64(sub.config.LogBackfillBatchSize())
 		for from := q.FromBlock.Int64(); from <= latestHeight; from += batchSize {
-
 			to := from + batchSize - 1
 			if to > latestHeight {
 				to = latestHeight
@@ -204,7 +203,6 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 	defer cancel()
 
 	utils.RetryWithBackoff(ctx, func() (retry bool) {
-
 		filterQuery := ethereum.FilterQuery{
 			Addresses: addresses,
 			Topics:    [][]common.Hash{topics},
