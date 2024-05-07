@@ -501,7 +501,6 @@ func (p *AuditLogger) SetFrom(f *AuditLogger) {
 	if v := f.Headers; v != nil {
 		p.Headers = v
 	}
-
 }
 
 // LogLevel replaces dpanic with crit/CRIT
@@ -882,7 +881,6 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 		j.VerboseLogging = v
 	}
 	j.HTTPRequest.setFrom(&f.HTTPRequest)
-
 }
 
 type JobPipelineHTTPRequest struct {
@@ -1110,7 +1108,6 @@ func (k *Keeper) setFrom(f *Keeper) {
 	}
 
 	k.Registry.setFrom(&f.Registry)
-
 }
 
 type KeeperRegistry struct {

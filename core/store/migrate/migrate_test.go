@@ -336,7 +336,6 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 	require.Equal(t, jobIdAndContractId{ID: 30, ContractID: "evm_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[1])
 	require.Equal(t, jobIdAndContractId{ID: 10, ContractID: "terra_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[2])
 	require.Equal(t, jobIdAndContractId{ID: 20, ContractID: "sol_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[3])
-
 }
 
 func TestMigrate_101_GenericOCR2(t *testing.T) {
@@ -518,7 +517,6 @@ func TestNoTriggers(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 
 	assert_num_triggers := func(expected int) {
-
 		row := db.DB.QueryRow("select count(*) from information_schema.triggers")
 		var count int
 		err := row.Scan(&count)
@@ -536,7 +534,6 @@ func TestNoTriggers(t *testing.T) {
 	err := goose.UpTo(db.DB, migrationDir, int64(v))
 	require.NoError(t, err)
 	assert_num_triggers(1)
-
 }
 
 func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {

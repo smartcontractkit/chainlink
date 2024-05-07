@@ -474,7 +474,6 @@ func mockAction() (*mockCapability, values.Value) {
 			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-
 			return capabilities.CapabilityResponse{
 				Value: outputs,
 			}, nil

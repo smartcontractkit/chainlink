@@ -713,7 +713,6 @@ linkEthFeedAddress     	= "%s"
 	// First arg is the request ID, which starts at zero, second is the index into
 	// the random words.
 	gomega.NewWithT(t).Eventually(func() bool {
-
 		var errs []error
 		rw1, err2 := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(0))
 		t.Logf("TestRedeemRandomness 1st word err: %+v", err2)

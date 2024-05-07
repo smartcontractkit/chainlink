@@ -22,7 +22,6 @@ import (
 )
 
 func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
-
 	// Create mocks
 	telemClient := mocks.NewTelemClient(t)
 	csaKeystore := new(ksmocks.CSA)
