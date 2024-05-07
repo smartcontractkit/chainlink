@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
@@ -9,6 +10,31 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
+
+// RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
+//
+//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
+type RPCClient[
+	CHAIN_ID types.ID,
+	HEAD *evmtypes.Head,
+] interface {
+	// ChainID - fetches ChainID from the RPC to verify that it matches config
+	ChainID(ctx context.Context) (CHAIN_ID, error)
+	// Dial - prepares the RPC for usage. Can be called on fresh or closed RPC
+	Dial(ctx context.Context) error
+	// SubscribeToHeads - returns channel and subscription for new heads.
+	SubscribeToHeads(ctx context.Context) (<-chan HEAD, types.Subscription, error)
+	// SubscribeToFinalizedHeads - returns channel and subscription for finalized heads.
+	SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, types.Subscription, error)
+	// Ping - returns error if RPC is not reachable
+	Ping(context.Context) error
+	// IsSyncing - returns true if the RPC is in Syncing state and can not process calls
+	IsSyncing(ctx context.Context) (bool, error)
+	// UnsubscribeAllExcept - close all subscriptions except `subs`
+	UnsubscribeAllExcept(subs ...types.Subscription)
+	// Close - closes all subscriptions and aborts all RPC calls
+	Close()
+}
 
 // RPC includes all the necessary methods for a multi-node client to interact directly with any RPC endpoint.
 //
