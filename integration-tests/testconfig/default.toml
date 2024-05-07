@@ -323,8 +323,8 @@ BlockHistorySize = 200
 EIP1559FeeCapBufferBlocks = 0
 """
 
- 1337 = """
- AutoCreateKey = true
- FinalityDepth = 1
- MinContractPayment = 0
- """
+1337 = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+"""
