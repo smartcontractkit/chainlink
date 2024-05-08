@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
@@ -27,11 +28,15 @@ func (m *methodBinding) SetCodec(codec commontypes.RemoteCodec) {
 	m.codec = codec
 }
 
-func (m *methodBinding) Register(ctx context.Context) error {
+func (m *methodBinding) Register(_ context.Context) error {
 	return nil
 }
 
-func (m *methodBinding) Unregister(ctx context.Context) error {
+func (m *methodBinding) Unregister(_ context.Context) error {
+	return nil
+}
+
+func (m *methodBinding) UnregisterAll(_ context.Context) error {
 	return nil
 }
 
@@ -59,7 +64,11 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 	return m.codec.Decode(ctx, bytes, returnValue, wrapItemType(m.contractName, m.method, false))
 }
 
-func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
+	return nil, nil
+}
+
+func (m *methodBinding) Bind(_ context.Context, binding commontypes.BoundContract) error {
 	m.address = common.HexToAddress(binding.Address)
 	m.bound = true
 	return nil
