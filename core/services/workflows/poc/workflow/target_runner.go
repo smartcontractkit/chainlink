@@ -8,16 +8,8 @@ import (
 )
 
 type targetRunner[O any] struct {
-	inputs map[string]any
+	nonTriggerCapability
 	capabilities.Target[O]
-}
-
-func (t targetRunner[O]) Inputs() map[string]any {
-	return t.inputs
-}
-
-func (t targetRunner[O]) Output() string {
-	return "$(target.outputs)"
 }
 
 func (t targetRunner[O]) Run(_ string, value values.Value) (values.Value, bool, error) {

@@ -1,6 +1,8 @@
 package workflows
 
 import (
+	"fmt"
+
 	pocWorkflow "github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/workflow"
 )
 
@@ -27,10 +29,14 @@ func (c *codeSpecBuilder) convertDefs(pocDefs []pocWorkflow.StepDefinition) []st
 			stepType = rawStepType
 		}
 
+		inputs := map[string]any{}
+		for k, v := range pocDef.Inputs {
+			inputs[k] = fmt.Sprintf("$(%s.outputs)", v)
+		}
 		defs[i] = stepDefinition{
 			Type:   stepType,
 			Ref:    pocDef.Ref,
-			Inputs: pocDef.Inputs,
+			Inputs: inputs,
 			Config: c.CodeConfig.Config[pocDef.Ref],
 		}
 	}

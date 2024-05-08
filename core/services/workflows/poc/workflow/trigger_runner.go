@@ -11,12 +11,16 @@ type triggerRunner[O any] struct {
 	capabilities.Trigger[O]
 }
 
-func (t triggerRunner[O]) Output() string {
-	return "$(trigger.outputs)"
+func (t triggerRunner[O]) StepDependencies() []string {
+	return []string{}
 }
 
-func (t triggerRunner[O]) Inputs() map[string]any {
-	return map[string]any{}
+func (t triggerRunner[O]) Output() string {
+	return "trigger"
+}
+
+func (t triggerRunner[O]) Inputs() map[string]string {
+	return map[string]string{}
 }
 
 func (t triggerRunner[O]) Run(_ string, value values.Value) (values.Value, bool, error) {

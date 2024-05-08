@@ -56,6 +56,7 @@ func Merge2[ I,II, O any](ref string, wb1 *Builder[I], wb2 *Builder[II],  merge 
         nonTriggerCapability{
             inputs: mergeOutputs(wb1.current,wb2.current,),
             ref:    ref,
+            stepDependencies: []string{ wb1.current.Ref(),wb2.current.Ref(), },
         },
       },
     }
@@ -124,6 +125,7 @@ func Merge3[ I,II,III, O any](ref string, wb1 *Builder[I], wb2 *Builder[II], wb3
         nonTriggerCapability{
             inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,),
             ref:    ref,
+            stepDependencies: []string{ wb1.current.Ref(),wb2.current.Ref(),wb3.current.Ref(), },
         },
       },
     }
@@ -200,6 +202,7 @@ func Merge4[ I,II,III,IIII, O any](ref string, wb1 *Builder[I], wb2 *Builder[II]
         nonTriggerCapability{
             inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,),
             ref:    ref,
+            stepDependencies: []string{ wb1.current.Ref(),wb2.current.Ref(),wb3.current.Ref(),wb4.current.Ref(), },
         },
       },
     }
@@ -284,6 +287,7 @@ func Merge5[ I,II,III,IIII,IIIII, O any](ref string, wb1 *Builder[I], wb2 *Build
         nonTriggerCapability{
             inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,),
             ref:    ref,
+            stepDependencies: []string{ wb1.current.Ref(),wb2.current.Ref(),wb3.current.Ref(),wb4.current.Ref(),wb5.current.Ref(), },
         },
       },
     }
@@ -376,6 +380,7 @@ func Merge6[ I,II,III,IIII,IIIII,IIIIII, O any](ref string, wb1 *Builder[I], wb2
         nonTriggerCapability{
             inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,),
             ref:    ref,
+            stepDependencies: []string{ wb1.current.Ref(),wb2.current.Ref(),wb3.current.Ref(),wb4.current.Ref(),wb5.current.Ref(),wb6.current.Ref(), },
         },
       },
     }
@@ -476,6 +481,7 @@ func Merge7[ I,II,III,IIII,IIIII,IIIIII,IIIIIII, O any](ref string, wb1 *Builder
         nonTriggerCapability{
             inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,),
             ref:    ref,
+            stepDependencies: []string{ wb1.current.Ref(),wb2.current.Ref(),wb3.current.Ref(),wb4.current.Ref(),wb5.current.Ref(),wb6.current.Ref(),wb7.current.Ref(), },
         },
       },
     }
@@ -584,6 +590,7 @@ func Merge8[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII, O any](ref string, wb1
         nonTriggerCapability{
             inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,wb8.current,),
             ref:    ref,
+            stepDependencies: []string{ wb1.current.Ref(),wb2.current.Ref(),wb3.current.Ref(),wb4.current.Ref(),wb5.current.Ref(),wb6.current.Ref(),wb7.current.Ref(),wb8.current.Ref(), },
         },
       },
     }
@@ -700,6 +707,7 @@ func Merge9[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII, O any](ref s
         nonTriggerCapability{
             inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,wb8.current,wb9.current,),
             ref:    ref,
+            stepDependencies: []string{ wb1.current.Ref(),wb2.current.Ref(),wb3.current.Ref(),wb4.current.Ref(),wb5.current.Ref(),wb6.current.Ref(),wb7.current.Ref(),wb8.current.Ref(),wb9.current.Ref(), },
         },
       },
     }
@@ -824,6 +832,7 @@ func Merge10[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII,IIIIIIIIII, 
         nonTriggerCapability{
             inputs: mergeOutputs(wb1.current,wb2.current,wb3.current,wb4.current,wb5.current,wb6.current,wb7.current,wb8.current,wb9.current,wb10.current,),
             ref:    ref,
+            stepDependencies: []string{ wb1.current.Ref(),wb2.current.Ref(),wb3.current.Ref(),wb4.current.Ref(),wb5.current.Ref(),wb6.current.Ref(),wb7.current.Ref(),wb8.current.Ref(),wb9.current.Ref(),wb10.current.Ref(), },
         },
       },
     }

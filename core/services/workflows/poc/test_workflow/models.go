@@ -35,8 +35,6 @@ type ChainWriter interface {
 	AddWriteTarget(ref string, wb *workflow.Builder[capabilities.ConsensusResult[*MercuryTriggerResponse]]) error
 }
 
-type ChainWriteRequest struct{}
-
 func NewChainWriter(typeName string) ChainWriter {
 	return &chainWriter{typeName: typeName}
 }

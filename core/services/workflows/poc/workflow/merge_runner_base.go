@@ -24,8 +24,8 @@ func (m mergeRunnerBase) CapabilityType() commoncap.CapabilityType {
 	return commoncap.CapabilityTypeAction
 }
 
-func mergeOutputs(cs ...capability) map[string]any {
-	outputs := map[string]any{}
+func mergeOutputs(cs ...capability) map[string]string {
+	outputs := map[string]string{}
 	for i, c := range cs {
 		outputs[fmt.Sprintf("action%d", i+1)] = c.Output()
 	}

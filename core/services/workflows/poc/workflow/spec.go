@@ -28,8 +28,8 @@ func addAllRefs(refs map[string]*StepDefinition, steps []StepDefinition) {
 
 type StepDefinition struct {
 	TypeRef string
-	Ref     string         `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_]+$"`
-	Inputs  map[string]any `json:"inputs,omitempty"`
+	Ref     string            `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_]+$"`
+	Inputs  map[string]string `json:"inputs,omitempty"`
 	// Ideally, values.Value should be able to serialize anything that's kind is int, but hack around that for now.
 	CapabilityType int `json:"-"`
 }

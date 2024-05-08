@@ -11,11 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/workflow"
 )
 
-type Runner interface {
-	Run(*workflow.Spec) error
-}
-
-func NewRunner() Runner {
+func NewRunner() workflow.Runner {
 	return &wasmRunner{}
 }
 

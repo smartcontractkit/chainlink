@@ -8,7 +8,7 @@ import (
 type capability interface {
 	Type() string
 	Ref() string
-	Inputs() map[string]any
+	Inputs() map[string]string
 	Output() string
 	LocalCapability
 	private()
