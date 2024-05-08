@@ -61,10 +61,8 @@ func CreateVRFV2Job(
 		spec.VRFOwner = vrfJobSpecConfig.VRFOwnerConfig.OwnerAddress
 		spec.UseVRFOwner = true
 	}
-
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrParseJob, err)
-
+	if vrfJobSpecConfig.BatchFulfillmentEnabled {
+		spec.BatchCoordinatorAddress = vrfJobSpecConfig.BatchCoordinatorAddress
 	}
 	job, err := chainlinkNode.MustCreateJob(spec)
 	if err != nil {
@@ -200,6 +198,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Conf
 	vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
 		ForwardingAllowed:             *vrfv2Config.VRFJobForwardingAllowed,
 		CoordinatorAddress:            contracts.CoordinatorV2.Address(),
+		BatchCoordinatorAddress:       contracts.BatchCoordinatorV2.Address(),
 		FromAddresses:                 vrfNode.TXKeyAddressStrings,
 		EVMChainID:                    chainID.String(),
 		MinIncomingConfirmations:      int(*vrfv2Config.MinimumConfirmations),
@@ -359,7 +358,7 @@ func SetupVRFV2ForNewEnv(
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&testConfig).
-		WithPrivateEthereumNetwork(network).
+		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
 		WithCLNodes(len(newEnvConfig.NodesToCreate)).
 		WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
 		WithCustomCleanup(cleanupFn).

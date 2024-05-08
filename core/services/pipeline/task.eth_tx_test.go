@@ -72,7 +72,6 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
-
 				data := []byte("foobar")
 				gasLimit := uint64(12345)
 				jobID := int32(321)
@@ -394,7 +393,6 @@ func TestETHTxTask(t *testing.T) {
 			}),
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
-
 				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID).Return(nil, errors.New("uh oh"))
 			},
 			nil, pipeline.ErrTaskRunFailed, "while querying keystore", pipeline.RunInfo{IsRetryable: true},

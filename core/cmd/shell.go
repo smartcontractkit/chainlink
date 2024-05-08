@@ -203,7 +203,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
-
 	}
 
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)

@@ -1728,7 +1728,6 @@ func Benchmark_DeleteExpiredLogs(b *testing.B) {
 	for j := 0; j < 5; j++ {
 		var dbLogs []logpoller.Log
 		for i := 0; i < numberOfReports; i++ {
-
 			dbLogs = append(dbLogs, logpoller.Log{
 				EvmChainId:     ubig.New(chainId),
 				LogIndex:       int64(i + 1),

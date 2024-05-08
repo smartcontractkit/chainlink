@@ -120,7 +120,6 @@ func (o *orm) CreateEthTransaction(
 	gasLimit uint64,
 	idempotencyKey *string,
 ) (err error) {
-
 	_, err = o.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		IdempotencyKey: idempotencyKey,
 		FromAddress:    fromAddress,
