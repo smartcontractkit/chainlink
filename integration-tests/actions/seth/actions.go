@@ -1075,3 +1075,20 @@ func GetReportStalenessData(t *testing.T, chainClient *seth.Client, startBlock, 
 
 	return
 }
+
+func GetStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClient *seth.Client, startBlock uint64, registry contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) func() {
+	return func() {
+		if t.Failed() {
+			endBlock, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get end block")
+
+			total, ok, reverted, stale, err := GetReportStalenessData(t, chainClient, big.NewInt(int64(startBlock)), big.NewInt(int64(endBlock)), registry, registryVersion)
+			require.NoError(t, err, "Failed to get staleness data")
+			if stale > 0 || reverted > 0 {
+				logger.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			} else {
+				logger.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			}
+		}
+	}
+}

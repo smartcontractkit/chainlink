@@ -58,9 +58,6 @@ spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
 
-[Reorg.Seth]
-ephemeral_addresses_number = 20
-
 # load test specific overrides
 [Load.Seth]
 ephemeral_addresses_number = 100

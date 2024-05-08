@@ -528,8 +528,6 @@ Load Config:
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}
 
-	// a.ChainClient.Cfg.PendingNonceProtectionEnabled = false
-
 	g, err := wasp.NewGenerator(&wasp.Config{
 		T:           t,
 		LoadType:    wasp.RPS,

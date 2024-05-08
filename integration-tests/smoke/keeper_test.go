@@ -112,18 +112,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 			)
 
 			t.Cleanup(func() {
-				if t.Failed() {
-					eb, err := chainClient.Client.BlockNumber(context.Background())
-					require.NoError(t, err, "Failed to get end block")
-
-					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
-					require.NoError(t, err, "Failed to get staleness data")
-					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					} else {
-						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					}
-				}
+				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
@@ -207,18 +196,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				if t.Failed() {
-					eb, err := chainClient.Client.BlockNumber(context.Background())
-					require.NoError(t, err, "Failed to get end block")
-
-					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
-					require.NoError(t, err, "Failed to get staleness data")
-					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					} else {
-						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					}
-				}
+				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			keepersPerformedLowFreq := map[*big.Int][]string{}
@@ -366,18 +344,7 @@ func TestKeeperSimulation(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				if t.Failed() {
-					eb, err := chainClient.Client.BlockNumber(context.Background())
-					require.NoError(t, err, "Failed to get end block")
-
-					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
-					require.NoError(t, err, "Failed to get staleness data")
-					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					} else {
-						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					}
-				}
+				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			consumerPerformance := consumersPerformance[0]
@@ -456,18 +423,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				if t.Failed() {
-					eb, err := chainClient.Client.BlockNumber(context.Background())
-					require.NoError(t, err, "Failed to get end block")
-
-					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
-					require.NoError(t, err, "Failed to get staleness data")
-					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					} else {
-						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					}
-				}
+				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			gom := gomega.NewGomegaWithT(t)
@@ -599,18 +555,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				if t.Failed() {
-					eb, err := chainClient.Client.BlockNumber(context.Background())
-					require.NoError(t, err, "Failed to get end block")
-
-					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
-					require.NoError(t, err, "Failed to get staleness data")
-					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					} else {
-						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					}
-				}
+				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -707,18 +652,7 @@ func TestKeeperAddFunds(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				if t.Failed() {
-					eb, err := chainClient.Client.BlockNumber(context.Background())
-					require.NoError(t, err, "Failed to get end block")
-
-					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
-					require.NoError(t, err, "Failed to get staleness data")
-					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					} else {
-						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					}
-				}
+				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
@@ -793,18 +727,7 @@ func TestKeeperRemove(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				if t.Failed() {
-					eb, err := chainClient.Client.BlockNumber(context.Background())
-					require.NoError(t, err, "Failed to get end block")
-
-					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
-					require.NoError(t, err, "Failed to get staleness data")
-					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					} else {
-						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					}
-				}
+				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -890,18 +813,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				if t.Failed() {
-					eb, err := chainClient.Client.BlockNumber(context.Background())
-					require.NoError(t, err, "Failed to get end block")
-
-					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
-					require.NoError(t, err, "Failed to get staleness data")
-					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					} else {
-						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					}
-				}
+				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			// Observe that the upkeeps which are initially registered are performing
@@ -966,18 +878,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	t.Cleanup(func() {
-		if t.Failed() {
-			eb, err := chainClient.Client.BlockNumber(context.Background())
-			require.NoError(t, err, "Failed to get end block")
-
-			total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, ethereum.RegistryVersion_1_2)
-			require.NoError(t, err, "Failed to get staleness data")
-			if stale > 0 || reverted > 0 {
-				l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-			} else {
-				l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-			}
-		}
+		actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_2)()
 	})
 
 	// Deploy the second registry, second registrar, and the same number of upkeeps as the first one
@@ -1081,18 +982,7 @@ func TestKeeperNodeDown(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				if t.Failed() {
-					eb, err := chainClient.Client.BlockNumber(context.Background())
-					require.NoError(t, err, "Failed to get end block")
-
-					total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, registryVersion)
-					require.NoError(t, err, "Failed to get staleness data")
-					if stale > 0 || reverted > 0 {
-						l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					} else {
-						l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-					}
-				}
+				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -1202,18 +1092,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	t.Cleanup(func() {
-		if t.Failed() {
-			eb, err := chainClient.Client.BlockNumber(context.Background())
-			require.NoError(t, err, "Failed to get end block")
-
-			total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, ethereum.RegistryVersion_1_3)
-			require.NoError(t, err, "Failed to get staleness data")
-			if stale > 0 || reverted > 0 {
-				l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-			} else {
-				l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-			}
-		}
+		actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_3)()
 	})
 
 	gom := gomega.NewGomegaWithT(t)
@@ -1306,18 +1185,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	t.Cleanup(func() {
-		if t.Failed() {
-			eb, err := chainClient.Client.BlockNumber(context.Background())
-			require.NoError(t, err, "Failed to get end block")
-
-			total, ok, reverted, stale, err := actions_seth.GetReportStalenessData(t, chainClient, big.NewInt(int64(sb)), big.NewInt(int64(eb)), registry, ethereum.RegistryVersion_1_3)
-			require.NoError(t, err, "Failed to get staleness data")
-			if stale > 0 || reverted > 0 {
-				l.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-			} else {
-				l.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-			}
-		}
+		actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_3)()
 	})
 
 	gom := gomega.NewGomegaWithT(t)
