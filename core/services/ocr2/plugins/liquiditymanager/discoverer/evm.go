@@ -9,10 +9,15 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/liquiditymanager"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/graph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
+)
+
+const (
+	discoverGoroutines = 4
 )
 
 type evmLiquidityGetter func(ctx context.Context, selector models.NetworkSelector, lmAddress common.Address) (*big.Int, error)
@@ -93,26 +98,48 @@ func (e *evmDiscoverer) Discover(ctx context.Context) (graph.Graph, error) {
 	return discover(ctx, e.masterSelector, e.masterRebalancer, getVertexInfo)
 }
 
+// DiscoverBalances discovers the balances of all networks in the graph.
+// Up to discovererGoroutines goroutines are used to fetch the liquidities concurrently.
 func (e *evmDiscoverer) DiscoverBalances(ctx context.Context, g graph.Graph) error {
 	networks := g.GetNetworks()
 	liquidityGetter := e.liquidityGetter
 	if liquidityGetter == nil {
 		liquidityGetter = e.defaultLiquidityGetter
 	}
-	for _, selector := range networks {
-		if err := e.updateLiquidity(ctx, selector, g, liquidityGetter); err != nil {
-			return fmt.Errorf("get liquidity: %w", err)
+	running := make(chan struct{}, discoverGoroutines)
+	results := make(chan error, len(networks))
+	go func() {
+		for _, selector := range networks {
+			running <- struct{}{}
+			go func(c context.Context, selector models.NetworkSelector) {
+				defer func() { <-running }()
+				err := e.updateLiquidity(c, selector, g, liquidityGetter)
+				if err != nil {
+					err = fmt.Errorf("get liquidity: %w", err)
+				}
+				results <- err
+			}(ctx, selector)
+		}
+	}()
+
+	// wait for results, we expect the same number of results as networks
+	var errs error
+	for range networks {
+		err := <-results
+		if err != nil {
+			errs = multierr.Append(errs, err)
 		}
 	}
-	return nil
+
+	return errs
 }
 
 func (e *evmDiscoverer) updateLiquidity(ctx context.Context, selector models.NetworkSelector, g graph.Graph, liquidityGetter evmLiquidityGetter) error {
-	rebalancerAddress, err := g.GetRebalancerAddress(selector)
+	lmAddress, err := g.GetRebalancerAddress(selector)
 	if err != nil {
 		return fmt.Errorf("get rebalancer address: %w", err)
 	}
-	liquidity, err := liquidityGetter(ctx, selector, common.Address(rebalancerAddress))
+	liquidity, err := liquidityGetter(ctx, selector, common.Address(lmAddress))
 	if err != nil {
 		return fmt.Errorf("get liquidity: %w", err)
 	}

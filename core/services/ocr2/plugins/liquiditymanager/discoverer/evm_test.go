@@ -2,6 +2,7 @@ package discoverer
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -242,6 +243,58 @@ func Test_EvmDiscoverer_DiscoverBalances(t *testing.T) {
 				3: big.NewInt(100 * 3),
 			},
 		},
+		{
+			name: "error",
+			initialGraph: map[models.NetworkSelector]*big.Int{
+				1: big.NewInt(100),
+				2: big.NewInt(100),
+				3: big.NewInt(100),
+			},
+			liquidityGetter: func(ctx context.Context, network models.NetworkSelector, lmAddress common.Address) (*big.Int, error) {
+				if network%2 == 0 {
+					return nil, fmt.Errorf("dummy test error")
+				}
+				liq := big.NewInt(0).Mul(big.NewInt(100), big.NewInt(int64(network)))
+				return liq, nil
+			},
+			wantGraph: map[models.NetworkSelector]*big.Int{
+				1: big.NewInt(100),
+				2: big.NewInt(100),     // got error
+				3: big.NewInt(100 * 3), // 3 is the only one that should be updated
+			},
+			wantErr: true,
+		},
+		{
+			name: "10 networks",
+			initialGraph: map[models.NetworkSelector]*big.Int{
+				1:  big.NewInt(100),
+				2:  big.NewInt(100),
+				3:  big.NewInt(100),
+				4:  big.NewInt(100),
+				5:  big.NewInt(100),
+				6:  big.NewInt(100),
+				7:  big.NewInt(100),
+				8:  big.NewInt(100),
+				9:  big.NewInt(100),
+				10: big.NewInt(100),
+			},
+			liquidityGetter: func(ctx context.Context, network models.NetworkSelector, lmAddress common.Address) (*big.Int, error) {
+				liq := big.NewInt(0).Mul(big.NewInt(100), big.NewInt(int64(network)))
+				return liq, nil
+			},
+			wantGraph: map[models.NetworkSelector]*big.Int{
+				1:  big.NewInt(100),
+				2:  big.NewInt(100 * 2),
+				3:  big.NewInt(100 * 3),
+				4:  big.NewInt(100 * 4),
+				5:  big.NewInt(100 * 5),
+				6:  big.NewInt(100 * 6),
+				7:  big.NewInt(100 * 7),
+				8:  big.NewInt(100 * 8),
+				9:  big.NewInt(100 * 9),
+				10: big.NewInt(100 * 10),
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -256,9 +309,9 @@ func Test_EvmDiscoverer_DiscoverBalances(t *testing.T) {
 			err := d.DiscoverBalances(testutils.Context(t), g)
 			if tc.wantErr {
 				require.Error(t, err)
-				return
+			} else {
+				require.NoError(t, err)
 			}
-			require.NoError(t, err)
 			for network, expectedLiq := range tc.wantGraph {
 				liq, err := g.GetLiquidity(network)
 				require.NoError(t, err)
