@@ -193,7 +193,7 @@ func (o *OffRamp) GetSenderNonce(ctx context.Context, sender cciptypes.Address) 
 	return o.offRampV100.GetSenderNonce(&bind.CallOpts{Context: ctx}, evmAddr)
 }
 
-func (o *OffRamp) GetSendersNonce(ctx context.Context, senders []cciptypes.Address) (map[cciptypes.Address]uint64, error) {
+func (o *OffRamp) ListSenderNonces(ctx context.Context, senders []cciptypes.Address) (map[cciptypes.Address]uint64, error) {
 	if len(senders) == 0 {
 		return make(map[cciptypes.Address]uint64), nil
 	}
