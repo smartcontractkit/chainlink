@@ -19,6 +19,7 @@ import (
 	cciptest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip/test"
 	mediantest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
 	mercurytest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/test"
+	ocr3capabilitytest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ocr3capability/test"
 	ocr2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2/test"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
@@ -50,15 +51,16 @@ type nodeResponse struct {
 	total    int
 }
 type staticPluginRelayerConfig struct {
-	StaticChecks      bool
-	relayArgs         types.RelayArgs
-	pluginArgs        types.PluginArgs
-	medianProvider    testtypes.MedianProviderTester
-	agnosticProvider  testtypes.PluginProviderTester
-	mercuryProvider   mercurytest.MercuryProviderTester
-	executionProvider cciptest.ExecProviderTester
-	commitProvider    cciptest.CommitProviderTester
-	configProvider    ocr2test.ConfigProviderTester
+	StaticChecks           bool
+	relayArgs              types.RelayArgs
+	pluginArgs             types.PluginArgs
+	medianProvider         testtypes.MedianProviderTester
+	agnosticProvider       testtypes.PluginProviderTester
+	mercuryProvider        mercurytest.MercuryProviderTester
+	executionProvider      cciptest.ExecProviderTester
+	commitProvider         cciptest.CommitProviderTester
+	configProvider         ocr2test.ConfigProviderTester
+	ocr3CapabilityProvider testtypes.OCR3CapabilityProviderTester
 	// Note: add other Provider testers here when we implement them
 	// eg Functions, Automation, etc
 	nodeRequest        nodeRequest
@@ -70,14 +72,15 @@ type staticPluginRelayerConfig struct {
 func NewRelayerTester(staticChecks bool) testtypes.RelayerTester {
 	return staticPluginRelayer{
 		staticPluginRelayerConfig: staticPluginRelayerConfig{
-			StaticChecks:      staticChecks,
-			relayArgs:         RelayArgs,
-			pluginArgs:        PluginArgs,
-			medianProvider:    mediantest.MedianProvider,
-			mercuryProvider:   mercurytest.MercuryProvider,
-			executionProvider: cciptest.ExecutionProvider,
-			agnosticProvider:  ocr2test.AgnosticProvider,
-			configProvider:    ocr2test.ConfigProvider,
+			StaticChecks:           staticChecks,
+			relayArgs:              RelayArgs,
+			pluginArgs:             PluginArgs,
+			medianProvider:         mediantest.MedianProvider,
+			mercuryProvider:        mercurytest.MercuryProvider,
+			executionProvider:      cciptest.ExecutionProvider,
+			agnosticProvider:       ocr2test.AgnosticProvider,
+			configProvider:         ocr2test.ConfigProvider,
+			ocr3CapabilityProvider: ocr3capabilitytest.OCR3CapabilityProvider,
 			nodeRequest: nodeRequest{
 				pageSize:  137,
 				pageToken: "",
@@ -159,6 +162,19 @@ func (s staticPluginRelayer) NewPluginProvider(ctx context.Context, r types.Rela
 		}
 	}
 	return s.agnosticProvider, nil
+}
+
+func (s staticPluginRelayer) NewOCR3CapabilityProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.OCR3CapabilityProvider, error) {
+	if s.StaticChecks {
+		ra := newRelayArgsWithProviderType(types.OCR3Capability)
+		if !equalRelayArgs(r, ra) {
+			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", RelayArgs, r)
+		}
+		if !reflect.DeepEqual(PluginArgs, p) {
+			return nil, fmt.Errorf("expected plugin args %v but got %v", PluginArgs, p)
+		}
+	}
+	return s.ocr3CapabilityProvider, nil
 }
 
 func (s staticPluginRelayer) NewMercuryProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.MercuryProvider, error) {

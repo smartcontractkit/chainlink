@@ -23,6 +23,13 @@ func RegisterStandAloneProvider(s *grpc.Server, p types.PluginProvider, pType ty
 	case types.GenericPlugin:
 		relayer.RegisterStandAlonePluginProvider(s, p)
 		return nil
+	case types.OCR3Capability:
+		provider, ok := p.(types.OCR3CapabilityProvider)
+		if !ok {
+			return fmt.Errorf("expected OCR3 capability provider got %T", p)
+		}
+		relayer.RegisterStandAloneOCR3CapabilityProvider(s, provider)
+		return nil
 	default:
 		return fmt.Errorf("unsupported stand alone provider: %q", pType)
 	}

@@ -6,9 +6,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -99,6 +100,10 @@ type staticPluginProvider struct {
 	types.PluginProvider
 }
 
+type staticOCR3CapabilityProvider struct {
+	types.OCR3CapabilityProvider
+}
+
 type mockRelayer struct {
 	types.Relayer
 }
@@ -121,6 +126,10 @@ func (m *mockRelayer) NewAutomationProvider(rargs types.RelayArgs, pargs types.P
 
 func (m *mockRelayer) NewPluginProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
 	return staticPluginProvider{}, nil
+}
+
+func (m *mockRelayer) NewOCR3CapabilityProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.OCR3CapabilityProvider, error) {
+	return staticOCR3CapabilityProvider{}, nil
 }
 
 type mockRelayerExt struct {
@@ -168,6 +177,10 @@ func TestRelayerServerAdapter(t *testing.T) {
 		{
 			ProviderType: string(types.GenericPlugin),
 			Test:         isType[types.PluginProvider],
+		},
+		{
+			ProviderType: string(types.OCR3Capability),
+			Test:         isType[types.OCR3CapabilityProvider],
 		},
 	}
 

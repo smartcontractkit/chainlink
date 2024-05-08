@@ -50,6 +50,10 @@ func (r *RelayerAdapter) NewPluginProvider(ctx context.Context, rargs types.Rela
 	return r.Relayer.NewPluginProvider(rargs, pargs)
 }
 
+func (r *RelayerAdapter) NewOCR3CapabilityProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.OCR3CapabilityProvider, error) {
+	return r.Relayer.NewOCR3CapabilityProvider(rargs, pargs)
+}
+
 func (r *RelayerAdapter) Start(ctx context.Context) error {
 	var ms services.MultiStart
 	return ms.Start(ctx, r.RelayerExt, r.Relayer)

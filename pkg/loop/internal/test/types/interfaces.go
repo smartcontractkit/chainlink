@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
@@ -37,6 +38,12 @@ type ChainReaderEvaluator interface {
 type ContractTransmitterEvaluator interface {
 	libocr.ContractTransmitter
 	Evaluator[libocr.ContractTransmitter]
+}
+
+// OCR3ContractTransmitterEvaluator is a helper interface for testing OCR3 ContractTransmitters
+type OCR3ContractTransmitterEvaluator interface {
+	ocr3types.ContractTransmitter[[]byte]
+	Evaluator[ocr3types.ContractTransmitter[[]byte]]
 }
 
 // ContractConfigTrackerEvaluator is a helper interface for testing ContractConfigTrackers
@@ -95,6 +102,7 @@ type RelayerTester interface {
 	looptypes.MedianProvider
 	looptypes.CCIPExecProvider
 	looptypes.CCIPCommitProvider
+	looptypes.OCR3CapabilityProvider
 
 	AssertEqualer[looptypes.Relayer]
 }
@@ -108,4 +116,10 @@ type PluginProviderTester interface {
 	types.PluginProvider
 	AssertEqualer[types.PluginProvider]
 	Evaluator[types.PluginProvider]
+}
+
+type OCR3CapabilityProviderTester interface {
+	types.OCR3CapabilityProvider
+	AssertEqualer[types.OCR3CapabilityProvider]
+	Evaluator[types.OCR3CapabilityProvider]
 }

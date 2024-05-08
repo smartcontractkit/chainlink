@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ocr3capability"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2"
 	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -235,6 +236,8 @@ func WrapProviderClientConnection(providerType string, cc grpc.ClientConnInterfa
 		return median.NewProviderClient(broker, cc), nil
 	case string(types.GenericPlugin):
 		return ocr2.NewPluginProviderClient(broker, cc), nil
+	case string(types.OCR3Capability):
+		return ocr3capability.NewProviderClient(broker, cc), nil
 	case string(types.Mercury):
 		return mercury.NewProviderClient(broker, cc), nil
 	case string(types.CCIPExecution):
@@ -398,8 +401,41 @@ func (r *relayerServer) NewPluginProvider(ctx context.Context, request *pb.NewPl
 			return nil, err
 		}
 		return &pb.NewPluginProviderReply{PluginProviderID: id}, nil
+	case string(types.OCR3Capability):
+		id, err := r.newOCR3CapabilityProvider(ctx, relayArgs, pluginArgs)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.NewPluginProviderReply{PluginProviderID: id}, nil
 	}
 	return nil, fmt.Errorf("provider type not supported: %s", relayArgs.ProviderType)
+}
+
+func (r *relayerServer) newOCR3CapabilityProvider(ctx context.Context, relayArgs types.RelayArgs, pluginArgs types.PluginArgs) (uint32, error) {
+	i, ok := r.impl.(looptypes.OCR3CapabilityProvider)
+	if !ok {
+		return 0, status.Error(codes.Unimplemented, "median not supported")
+	}
+
+	provider, err := i.NewOCR3CapabilityProvider(ctx, relayArgs, pluginArgs)
+	if err != nil {
+		return 0, err
+	}
+	err = provider.Start(ctx)
+	if err != nil {
+		return 0, err
+	}
+	const name = "OCR3CapabilityProvider"
+	providerRes := net.Resource{Name: name, Closer: provider}
+
+	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
+		ocr3capability.RegisterProviderServices(s, provider)
+	}, providerRes)
+	if err != nil {
+		return 0, err
+	}
+
+	return id, err
 }
 
 func (r *relayerServer) newMedianProvider(ctx context.Context, relayArgs types.RelayArgs, pluginArgs types.PluginArgs) (uint32, error) {
@@ -578,4 +614,10 @@ func RegisterStandAloneMedianProvider(s *grpc.Server, p types.MedianProvider) {
 // this is a workaround to test the Node API on EVM until the EVM relayer is loopifyed.
 func RegisterStandAlonePluginProvider(s *grpc.Server, p types.PluginProvider) {
 	ocr2.RegisterPluginProviderServices(s, p)
+}
+
+// RegisterStandAloneOCR3CapabilityProvider register the servers needed for a generic plugin provider,
+// this is a workaround to test the Node API on EVM until the EVM relayer is loopifyed.
+func RegisterStandAloneOCR3CapabilityProvider(s *grpc.Server, p types.OCR3CapabilityProvider) {
+	ocr3capability.RegisterProviderServices(s, p)
 }

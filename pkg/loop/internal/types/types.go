@@ -35,6 +35,10 @@ type CCIPCommitProvider interface {
 	NewCommitProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.CCIPCommitProvider, error)
 }
 
+type OCR3CapabilityProvider interface {
+	NewOCR3CapabilityProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.OCR3CapabilityProvider, error)
+}
+
 // Relayer is like types.Relayer, but with a dynamic NewPluginProvider method.
 type Relayer interface {
 	types.ChainService

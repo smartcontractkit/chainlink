@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -268,43 +267,13 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 }
 
 func (r *reportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte]) (bool, error) {
-	info := &pbtypes.ReportInfo{}
-	err := proto.Unmarshal(rwi.Info, info)
-	if err != nil {
-		r.lggr.Error("could not unmarshal info")
-		return false, err
-	}
-
-	resp := map[string]any{}
-	if info.ShouldReport {
-		resp["report"] = []byte(rwi.Report)
-	} else {
-		resp["report"] = nil
-	}
-
-	v, err := values.Wrap(resp)
-	if err != nil {
-		r.lggr.Error("could not wrap report", "payload", resp)
-		return false, err
-	}
-
-	r.lggr.Debugw("ShouldAcceptAttestedReport transmitting", "shouldReport", info.ShouldReport, "len", len(rwi.Report))
-	err = r.r.transmitResponse(ctx, &outputs{
-		CapabilityResponse: capabilities.CapabilityResponse{
-			Value: v,
-		},
-		WorkflowExecutionID: info.Id.WorkflowExecutionId,
-	})
-	if err != nil {
-		r.lggr.Errorw("could not transmit response", "error", err, "weid", info.Id.WorkflowExecutionId)
-		return false, err
-	}
-
-	return false, nil
+	// True because we always want to transmit a report, even if shouldReport = false.
+	return true, nil
 }
 
 func (r *reportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte]) (bool, error) {
-	return false, nil
+	// True because we always want to transmit a report, even if shouldReport = false.
+	return true, nil
 }
 
 func (r *reportingPlugin) Close() error {

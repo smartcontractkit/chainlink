@@ -122,4 +122,5 @@ type Relayer interface {
 	NewAutomationProvider(rargs RelayArgs, pargs PluginArgs) (AutomationProvider, error)
 	NewLLOProvider(rargs RelayArgs, pargs PluginArgs) (LLOProvider, error)
 	NewPluginProvider(rargs RelayArgs, pargs PluginArgs) (PluginProvider, error)
+	NewOCR3CapabilityProvider(rargs RelayArgs, pargs PluginArgs) (OCR3CapabilityProvider, error)
 }
