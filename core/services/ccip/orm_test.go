@@ -212,7 +212,8 @@ func TestORM_InsertAndDeleteGasPrices(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	interimTimeStamp := time.Now()
+	sleepSec := 2
+	time.Sleep(time.Duration(sleepSec) * time.Second)
 
 	// insert for the 2nd time after interimTimeStamp
 	for _, updatesPerSelector := range updates {
@@ -222,13 +223,13 @@ func TestORM_InsertAndDeleteGasPrices(t *testing.T) {
 
 	assert.Equal(t, 2*numSourceChainSelectors*numUpdatesPerSourceSelector, getGasTableRowCount(t, db))
 
-	// clear by interimTimeStamp should delete rows inserted before it
-	err := orm.ClearGasPricesByDestChain(ctx, destSelector, interimTimeStamp)
+	// clear by sleepSec should delete rows inserted before it
+	err := orm.ClearGasPricesByDestChain(ctx, destSelector, sleepSec)
 	assert.NoError(t, err)
 	assert.Equal(t, numSourceChainSelectors*numUpdatesPerSourceSelector, getGasTableRowCount(t, db))
 
-	// clear by Now() should delete all rows
-	err = orm.ClearGasPricesByDestChain(ctx, destSelector, time.Now())
+	// clear by 0 expiration seconds should delete all rows
+	err = orm.ClearGasPricesByDestChain(ctx, destSelector, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, getGasTableRowCount(t, db))
 }
@@ -324,7 +325,8 @@ func TestORM_InsertAndDeleteTokenPrices(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	interimTimeStamp := time.Now()
+	sleepSec := 2
+	time.Sleep(time.Duration(sleepSec) * time.Second)
 
 	// insert for the 2nd time after interimTimeStamp
 	for _, updatesPerAddr := range updates {
@@ -334,13 +336,13 @@ func TestORM_InsertAndDeleteTokenPrices(t *testing.T) {
 
 	assert.Equal(t, 2*numAddresses*numUpdatesPerAddress, getTokenTableRowCount(t, db))
 
-	// clear by interimTimeStamp should delete rows inserted before it
-	err := orm.ClearTokenPricesByDestChain(ctx, destSelector, interimTimeStamp)
+	// clear by sleepSec should delete rows inserted before it
+	err := orm.ClearTokenPricesByDestChain(ctx, destSelector, sleepSec)
 	assert.NoError(t, err)
 	assert.Equal(t, numAddresses*numUpdatesPerAddress, getTokenTableRowCount(t, db))
 
-	// clear by Now() should delete all rows
-	err = orm.ClearTokenPricesByDestChain(ctx, destSelector, time.Now())
+	// clear by 0 expiration seconds should delete all rows
+	err = orm.ClearTokenPricesByDestChain(ctx, destSelector, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, getTokenTableRowCount(t, db))
 }
