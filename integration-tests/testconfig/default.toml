@@ -253,78 +253,12 @@ DeltaReconcile = '5s'
 
 # override config toml related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink toml
 CommonChainConfigTOML = """
-[GasEstimator]
-PriceMax = '200 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '200 gwei'
-"""
-
-# chainlink override config toml for EVMNode config specific to EVM chains with chain id as mentioned in the key
-[NodeConfig.ChainConfigTOMLByChainID]
-# applicable for arbitrum-goerli chain
-421613 = """
-[GasEstimator]
-PriceMax = '400 gwei'
-LimitDefault = 100000000
-FeeCapDefault = '200 gwei'
-BumpThreshold = 60
-BumpPercent = 20
-BumpMin = '100 gwei'
-"""
-
-# applicable for optimism-goerli chain
-420 = """
-[GasEstimator]
-PriceMax = '150 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '150 gwei'
-BumpThreshold = 60
-BumpPercent = 20
-BumpMin = '100 gwei'
-
-[GasEstimator.BlockHistory]
-BlockHistorySize = 200
-EIP1559FeeCapBufferBlocks = 0
-"""
-
-# applicable for base-goerli chain
-84531 = """
-[GasEstimator]
-PriceMax = '150 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '150 gwei'
-BumpThreshold = 60
-BumpPercent = 20
-BumpMin = '100 gwei'
-
-[GasEstimator.BlockHistory]
-BlockHistorySize = 200
-EIP1559FeeCapBufferBlocks = 0
-"""
-
-# applicable for avalanche-fuji chain
-43113 = """
-[GasEstimator]
-PriceMax = '200 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '200 gwei'
-BumpThreshold = 60
-"""
-
-# applicable for sepolia chain
-11155111 = """
-[GasEstimator]
-PriceMax = '200 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '200 gwei'
-
-[GasEstimator.BlockHistory]
-BlockHistorySize = 200
-EIP1559FeeCapBufferBlocks = 0
-"""
-
-1337 = """
 AutoCreateKey = true
 FinalityDepth = 1
 MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
 """

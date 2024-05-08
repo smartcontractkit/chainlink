@@ -2,17 +2,14 @@ package smoke
 
 import (
 	"fmt"
-	"math/big"
-	"strconv"
-	"testing"
-	"time"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"math/big"
+	"strconv"
+	"testing"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
@@ -23,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -1152,14 +1147,6 @@ func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 	contracts.LinkToken,
 	*test_env.CLClusterTestEnv,
 ) {
-	clNodeConfig := node.NewConfig(node.NewBaseConfig(), node.WithP2Pv2())
-	turnLookBack := int64(0)
-	syncInterval := *commonconfig.MustNewDuration(5 * time.Second)
-	performGasOverhead := uint32(150000)
-	clNodeConfig.Keeper.TurnLookBack = &turnLookBack
-	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
-	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
-
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, config)
 	require.NoError(t, err, "Error building ethereum network config")
 
@@ -1168,7 +1155,6 @@ func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 		WithTestConfig(config).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(5).
-		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(.5)).
 		WithStandardCleanup().
 		Build()

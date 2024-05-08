@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
@@ -46,7 +45,6 @@ type CLTestEnvBuilder struct {
 	clNodeConfig            *chainlink.Config
 	secretsConfig           string
 	clNodesCount            int
-	clNodesOpts             []func(*ClNode)
 	customNodeCsaKeys       []string
 	defaultNodeCsaKeys      []string
 	l                       zerolog.Logger
@@ -55,8 +53,7 @@ type CLTestEnvBuilder struct {
 	isNonEVM                bool
 	cleanUpType             CleanUpType
 	cleanUpCustomFn         func()
-	chainOptionsFn          []ChainOption
-	evmClientNetworkOption  []EVMClientNetworkOption
+	evmNetworkOption        []EVMNetworkOption
 	privateEthereumNetworks []*ctf_config.EthereumNetworkConfig
 	testConfig              ctf_config.GlobalTestConfig
 
@@ -126,17 +123,6 @@ func (b *CLTestEnvBuilder) WithTestConfig(cfg ctf_config.GlobalTestConfig) *CLTe
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuilder {
-	b.clNodesOpts = append(b.clNodesOpts, opt...)
-	return b
-}
-
-// Deprecated: Use TOML instead
-func (b *CLTestEnvBuilder) WithForwarders() *CLTestEnvBuilder {
-	b.hasForwarders = true
-	return b
-}
-
 func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 	b.ETHFunds = eth
 	return b
@@ -144,6 +130,12 @@ func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 
 func (b *CLTestEnvBuilder) WithSeth() *CLTestEnvBuilder {
 	b.hasSeth = true
+	b.hasEVMClient = false
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithoutEvmClients() *CLTestEnvBuilder {
+	b.hasSeth = false
 	b.hasEVMClient = false
 	return b
 }
@@ -196,20 +188,14 @@ func (b *CLTestEnvBuilder) WithCustomCleanup(customFn func()) *CLTestEnvBuilder 
 	return b
 }
 
-type ChainOption = func(*evmcfg.Chain) *evmcfg.Chain
+type EVMNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
 
-func (b *CLTestEnvBuilder) WithChainOptions(opts ...ChainOption) *CLTestEnvBuilder {
-	b.chainOptionsFn = make([]ChainOption, 0)
-	b.chainOptionsFn = append(b.chainOptionsFn, opts...)
-
-	return b
-}
-
-type EVMClientNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
-
-func (b *CLTestEnvBuilder) EVMClientNetworkOptions(opts ...EVMClientNetworkOption) *CLTestEnvBuilder {
-	b.evmClientNetworkOption = make([]EVMClientNetworkOption, 0)
-	b.evmClientNetworkOption = append(b.evmClientNetworkOption, opts...)
+// WithEVMNetworkOptions sets the options for the EVM network. This is especially useful for simulated networks, which
+// by usually use default options, so if we want to change any of them before the configuration is passed to evm client
+// or Chainlnik node, we can do it here.
+func (b *CLTestEnvBuilder) WithEVMNetworkOptions(opts ...EVMNetworkOption) *CLTestEnvBuilder {
+	b.evmNetworkOption = make([]EVMNetworkOption, 0)
+	b.evmNetworkOption = append(b.evmNetworkOption, opts...)
 
 	return b
 }
@@ -366,7 +352,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 
-		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
+		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -411,7 +397,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if !b.hasSeth && !b.hasEVMClient {
-		return nil, errors.New("you need to specify, which evm client to use: Seth or EVMClient")
+		log.Debug().Msg("No EVM client or SETH client specified, not starting any clients")
 	}
 
 	if b.hasSeth && b.hasEVMClient {
@@ -419,8 +405,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.isNonEVM == false {
-		if b.evmClientNetworkOption != nil && len(b.evmClientNetworkOption) > 0 {
-			for _, fn := range b.evmClientNetworkOption {
+		if b.evmNetworkOption != nil && len(b.evmNetworkOption) > 0 {
+			for _, fn := range b.evmNetworkOption {
 				fn(&networkConfig)
 			}
 		}
@@ -470,42 +456,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	// Start Chainlink Nodes
 	if b.clNodesCount > 0 {
-		var cfg *chainlink.Config
-		if b.clNodeConfig != nil {
-			cfg = b.clNodeConfig
-		} else {
-			cfg = node.NewConfig(node.NewBaseConfig(),
-				node.WithOCR1(),
-				node.WithP2Pv2(),
-			)
-		}
-
-		if b.isNonEVM == false {
-			// var httpUrls []string
-			// var wsUrls []string
-			// rpcProvider, ok := b.te.rpcProviders[networkConfig.ChainID]
-			// if !ok {
-			// 	return nil, fmt.Errorf("rpc provider for chain %d not found", networkConfig.ChainID)
-			// }
-			// if networkConfig.Simulated {
-			// 	httpUrls = rpcProvider.PrivateHttpUrls()
-			// 	wsUrls = rpcProvider.PrivateWsUrsl()
-			// } else {
-			// 	httpUrls = networkConfig.HTTPURLs
-			// 	wsUrls = networkConfig.URLs
-			// }
-
-			// node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
-
-			if b.chainOptionsFn != nil && len(b.chainOptionsFn) > 0 {
-				for _, fn := range b.chainOptionsFn {
-					for _, evmCfg := range cfg.EVM {
-						fn(&evmCfg.Chain)
-					}
-				}
-			}
-		}
-
 		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
 		for _, en := range b.te.EVMNetworks {
 			network := *en
@@ -538,7 +488,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 		fmt.Printf("Node config: %v\n", string(m))
 
-		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
+		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig)
 		if err != nil {
 			return nil, err
 		}

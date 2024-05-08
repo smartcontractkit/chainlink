@@ -3,21 +3,19 @@ package node
 import (
 	"bytes"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"math/big"
 	"strconv"
 	"time"
 
-	"github.com/segmentio/ksuid"
 	"go.uber.org/zap/zapcore"
 
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -86,88 +84,6 @@ func NewConfigFromToml(tomlConfig []byte, opts ...NodeConfigOpt) (*chainlink.Con
 		opt(&cfg)
 	}
 	return &cfg, nil
-}
-
-func WithOCR1() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.OCR = toml.OCR{
-			Enabled: ptr.Ptr(true),
-		}
-	}
-}
-
-func WithOCR2() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.OCR2 = toml.OCR2{
-			Enabled: ptr.Ptr(true),
-		}
-	}
-}
-
-func WithP2Pv2() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.P2P.V2 = toml.P2PV2{
-			ListenAddresses: &[]string{"0.0.0.0:6690"},
-		}
-	}
-}
-
-func WithTracing() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.Tracing = toml.Tracing{
-			Enabled:         ptr.Ptr(true),
-			CollectorTarget: ptr.Ptr("otel-collector:4317"),
-			// ksortable unique id
-			NodeID:        ptr.Ptr(ksuid.New().String()),
-			SamplingRatio: ptr.Ptr(1.0),
-			Mode:          ptr.Ptr("unencrypted"),
-			Attributes: map[string]string{
-				"env": "smoke",
-			},
-		}
-	}
-}
-
-func SetChainConfig(
-	cfg *chainlink.Config,
-	wsUrls,
-	httpUrls []string,
-	chain blockchain.EVMNetwork,
-	forwarders bool,
-) {
-	if cfg.EVM == nil {
-		var nodes []*evmcfg.Node
-		for i := range wsUrls {
-			node := evmcfg.Node{
-				Name:     ptr.Ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
-				WSURL:    it_utils.MustURL(wsUrls[i]),
-				HTTPURL:  it_utils.MustURL(httpUrls[i]),
-				SendOnly: ptr.Ptr(false),
-			}
-
-			nodes = append(nodes, &node)
-		}
-		var chainConfig evmcfg.Chain
-		if chain.Simulated {
-			chainConfig = evmcfg.Chain{
-				AutoCreateKey:      ptr.Ptr(true),
-				FinalityDepth:      ptr.Ptr[uint32](1),
-				MinContractPayment: commonassets.NewLinkFromJuels(0),
-			}
-		}
-		cfg.EVM = evmcfg.EVMConfigs{
-			{
-				ChainID: ubig.New(big.NewInt(chain.ChainID)),
-				Chain:   chainConfig,
-				Nodes:   nodes,
-			},
-		}
-		if forwarders {
-			cfg.EVM[0].Transactions = evmcfg.Transactions{
-				ForwardersEnabled: ptr.Ptr(true),
-			}
-		}
-	}
 }
 
 func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg.Chain, chainSpecificConfig map[int64]evmcfg.Chain) NodeConfigOpt {
@@ -270,6 +186,12 @@ func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonCh
 			return nil, "", err
 		}
 	}
+
+	// we need unique id for each node for OTEL tracing
+	if tomlCfg.Tracing.Enabled != nil && *tomlCfg.Tracing.Enabled {
+		tomlCfg.Tracing.NodeID = ptr.Ptr(ksuid.New().String())
+	}
+
 	tomlStr, err := tomlCfg.TOMLString()
 	return tomlCfg, tomlStr, err
 }

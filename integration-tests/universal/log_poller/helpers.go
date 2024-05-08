@@ -24,12 +24,10 @@ import (
 
 	"github.com/smartcontractkit/wasp"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -39,8 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
@@ -270,7 +266,7 @@ func emitEvents(ctx context.Context, l zerolog.Logger, logEmitter *contracts.Log
 			}
 
 			if (i+1)%10 == 0 {
-				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", i+1, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitted all three events")
+				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", i+1, *cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted %d four events", len(cfg.General.EventsToEmit))
 			}
 		}
 	}
@@ -1006,46 +1002,17 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 	}()
 }
 
-// GetFinalityDepth returns the finality depth for the provided chain ID
-func GetFinalityDepth(chainId int64) (int64, error) {
-	var finalityDepth int64
-	switch chainId {
-	// Ethereum Sepolia
-	case 11155111:
-		finalityDepth = 50
-	// Polygon Mumbai
-	case 80001:
-		finalityDepth = 500
-	// Simulated network
-	case 1337:
-		finalityDepth = 10
-	default:
-		return 0, fmt.Errorf("no known finality depth for chain %d", chainId)
-	}
-
-	return finalityDepth, nil
-}
-
 // GetEndBlockToWaitFor returns the end block to wait for based on chain id and finality tag provided in config
-func GetEndBlockToWaitFor(endBlock, chainId int64, cfg *lp_config.Config) (int64, error) {
+func GetEndBlockToWaitFor(endBlock int64, network blockchain.EVMNetwork, cfg *lp_config.Config) (int64, error) {
 	if *cfg.General.UseFinalityTag {
 		return endBlock + 1, nil
 	}
 
-	finalityDepth, err := GetFinalityDepth(chainId)
-	if err != nil {
-		return 0, err
-	}
-
-	return endBlock + finalityDepth, nil
+	return endBlock + int64(network.FinalityDepth), nil
 }
 
 const (
-	automationDefaultUpkeepGasLimit  = uint32(2500000)
-	automationDefaultLinkFunds       = int64(9e18)
-	automationDefaultUpkeepsToDeploy = 10
-	automationExpectedData           = "abcdef"
-	defaultAmountOfUpkeeps           = 2
+	defaultAmountOfUpkeeps = 2
 )
 
 var (
@@ -1071,8 +1038,6 @@ func SetupLogPollerTestDocker(
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
 	upkeepsNeeded int,
-	lpPollingInterval time.Duration,
-	backupPollingInterval uint64,
 	finalityTagEnabled bool,
 	testConfig *tc.TestConfig,
 ) (
@@ -1090,37 +1055,17 @@ func SetupLogPollerTestDocker(
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
 
-	finalityDepth, err := GetFinalityDepth(network.ChainID)
-	require.NoError(t, err, "Error getting finality depth")
-
-	// build the node config
-	clNodeConfig := node.NewConfig(node.NewBaseConfig())
-	syncInterval := *commonconfig.MustNewDuration(5 * time.Minute)
-	clNodeConfig.Feature.LogPoller = ptr.Ptr[bool](true)
-	clNodeConfig.OCR2.Enabled = ptr.Ptr[bool](true)
-	clNodeConfig.Keeper.TurnLookBack = ptr.Ptr[int64](int64(0))
-	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
-	clNodeConfig.Keeper.Registry.PerformGasOverhead = ptr.Ptr[uint32](uint32(150000))
-	clNodeConfig.P2P.V2.Enabled = ptr.Ptr[bool](true)
-	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
-	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
-
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
 	chainlinkNodeFunding := 0.5
 	l.Debug().Msgf("Funding amount: %f", chainlinkNodeFunding)
 	clNodesCount := 5
 
-	var logPolllerSettingsFn = func(chain *evmcfg.Chain) *evmcfg.Chain {
-		chain.LogPollInterval = commonconfig.MustNewDuration(lpPollingInterval)
-		chain.FinalityDepth = ptr.Ptr[uint32](uint32(finalityDepth))
-		chain.FinalityTagEnabled = ptr.Ptr[bool](finalityTagEnabled)
-		chain.BackupLogPollerBlockDelay = ptr.Ptr[uint64](backupPollingInterval)
-		return chain
-	}
-
-	var evmClientSettingsFn = func(network *blockchain.EVMNetwork) *blockchain.EVMNetwork {
-		network.FinalityDepth = uint64(finalityDepth)
+	var evmNetworkExtraSettingsFn = func(network *blockchain.EVMNetwork) *blockchain.EVMNetwork {
+		// we need it, because by default finality depth is 0 for our simulated network
+		if network.Simulated && !finalityTagEnabled {
+			network.FinalityDepth = 10
+		}
 		network.FinalityTag = finalityTagEnabled
 		return network
 	}
@@ -1133,10 +1078,8 @@ func SetupLogPollerTestDocker(
 		WithTestInstance(t).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(clNodesCount).
-		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(chainlinkNodeFunding)).
-		WithChainOptions(logPolllerSettingsFn).
-		EVMClientNetworkOptions(evmClientSettingsFn).
+		WithEVMNetworkOptions(evmNetworkExtraSettingsFn).
 		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")

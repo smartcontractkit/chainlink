@@ -58,6 +58,16 @@ DeltaDial = '500ms'
 DeltaReconcile = '5s'
 """
 
+# Chainlnk node settings that will be used by all tests
+# BackupLogPollerBlockDelay = 0 disables the backup log poller
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityTagEnabled = true
+"""
+
 # product defaults
 [LogPoller]
 [LogPoller.General]
@@ -65,9 +75,6 @@ generator = "looped"
 contracts = 2
 events_per_tx = 4
 use_finality_tag = true
-log_poll_interval = "500ms"
-# 0 disables backup poller
-backup_log_poller_block_delay = 0
 
 [LogPoller.Looped]
 execution_count = 100
@@ -75,6 +82,15 @@ min_emit_wait_time_ms = 200
 max_emit_wait_time_ms = 500
 
 # test-specific
+[TestLogPollerFewFiltersFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
 [TestLogPollerFewFiltersFixedDepth.LogPoller.General]
 use_finality_tag = false
 
@@ -84,6 +100,16 @@ events_per_tx = 3
 
 [TestLogManyFiltersPollerFinalityTag.LogPoller.Looped]
 execution_count = 30
+
+[TestLogManyFiltersPollerFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
 
 [TestLogManyFiltersPollerFixedDepth.LogPoller.General]
 use_finality_tag = false
@@ -99,6 +125,16 @@ execution_count = 30
 experiment_count = 4
 target_component = "chainlink"
 
+[TestLogPollerWithChaosFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
+
 [TestLogPollerWithChaosFixedDepth.LogPoller.General]
 execution_count = 30
 use_finality_tag = false
@@ -112,6 +148,16 @@ execution_count = 30
 experiment_count = 4
 target_component = "postgres"
 
+[TestLogPollerWithChaosPostgresFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
+
 [TestLogPollerWithChaosPostgresFixedDepth.LogPoller.General]
 execution_count = 30
 use_finality_tag = false
@@ -119,6 +165,15 @@ use_finality_tag = false
 experiment_count = 4
 target_component = "postgres"
 
+[TestLogPollerReplayFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
 [TestLogPollerReplayFixedDepth.LogPoller.General]
 use_finality_tag = false
 
