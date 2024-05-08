@@ -96,12 +96,11 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		return err
 	}
 	// NOTE: temporary hard-coded capabilities
-	capId := "mercury-trigger"
+	capId := "mercury-trigger@1"
 	triggerInfo := commoncap.CapabilityInfo{
 		ID:             capId,
 		CapabilityType: commoncap.CapabilityTypeTrigger,
 		Description:    "Remote Trigger",
-		Version:        "0.0.1",
 		DON:            &triggerCapabilityDonInfo,
 	}
 	myId := s.peerWrapper.GetPeer().ID().String()

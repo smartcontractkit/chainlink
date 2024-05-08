@@ -210,7 +210,6 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 					"write_ethereum-testnet-sepolia@1",
 					capabilities.CapabilityTypeTarget,
 					"a write capability targeting ethereum sepolia testnet",
-					"v1.0.0",
 					nil,
 				),
 				func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
@@ -294,7 +293,6 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 			"mercury-trigger@1",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
-			"v1.0.0",
 			nil,
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
@@ -318,7 +316,6 @@ func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 			"mercury-trigger@1",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
-			"v1.0.0",
 			nil,
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
@@ -332,7 +329,6 @@ func mockFailingConsensus() *mockCapability {
 			"offchain_reporting@1",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
-			"v3.0.0",
 			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
@@ -347,7 +343,6 @@ func mockConsensus() *mockCapability {
 			"offchain_reporting@1",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
-			"v3.0.0",
 			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
@@ -374,7 +369,6 @@ func mockTarget() *mockCapability {
 			"write_polygon-testnet-mumbai@1",
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
-			"v1.0.0",
 			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
@@ -471,7 +465,6 @@ func mockAction() (*mockCapability, values.Value) {
 			"read_chain_action@1",
 			capabilities.CapabilityTypeAction,
 			"a read chain action",
-			"v1.0.0",
 			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
