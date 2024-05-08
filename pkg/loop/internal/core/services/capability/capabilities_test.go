@@ -163,7 +163,6 @@ func newCapabilityPlugin(t *testing.T, capability capabilities.BaseCapability) (
 }
 
 func Test_Capabilities(t *testing.T) {
-
 	testContext := tests.Context(t)
 
 	t.Run("fetching a trigger capability and sending responses propagate to client", func(t *testing.T) {

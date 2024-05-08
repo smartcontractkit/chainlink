@@ -6,12 +6,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 func TestProviderServer(t *testing.T) {

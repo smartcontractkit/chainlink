@@ -78,7 +78,7 @@ func TestOnDemandTrigger_GenerateSchema(t *testing.T) {
 	require.NotNil(t, schema)
 	require.NoError(t, err)
 
-	var shouldUpdate = true 
+	var shouldUpdate = true
 	if shouldUpdate {
 		err = os.WriteFile("./testdata/fixtures/ondemand/schema.json", []byte(schema), 0600)
 		require.NoError(t, err)

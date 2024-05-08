@@ -239,7 +239,7 @@ func TestEpochToTimeHook(t *testing.T) {
 		assert.Equal(t, "foo", actual)
 	})
 
-	t.Run("pointers are maintained in non-converstion scenarios", func(t *testing.T) {
+	t.Run("pointers are maintained in non-conversion scenarios", func(t *testing.T) {
 		t.Run("*time.Time to *time.Time", func(t *testing.T) {
 			tp := reflect.PointerTo(reflect.TypeOf(testTime))
 			output, err := EpochToTimeHook(tp, tp, &testTime)

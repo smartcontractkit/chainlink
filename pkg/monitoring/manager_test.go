@@ -168,5 +168,4 @@ func TestManager(t *testing.T) {
 		closeWG.Wait() // wait for managed funcs
 		subs.Wait()    // wait for manager
 	})
-
 }

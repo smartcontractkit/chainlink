@@ -30,7 +30,6 @@ func registerTrigger(
 	<-chan capabilities.CapabilityResponse,
 	capabilities.CapabilityRequest,
 ) {
-
 	var unregisterRequest capabilities.CapabilityRequest
 
 	inputs, err := values.NewMap(map[string]interface{}{

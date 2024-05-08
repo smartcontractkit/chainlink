@@ -36,5 +36,4 @@ func Test_BoolUnwrapTo(t *testing.T) {
 	err = fa.UnwrapTo(&varAny)
 	require.NoError(t, err)
 	assert.False(t, varAny.(bool))
-
 }
