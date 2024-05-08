@@ -225,7 +225,6 @@ func (r *registrations) sendLogs(ctx context.Context, logsToSend []logsOnBlock, 
 
 	for _, logsPerBlock := range logsToSend {
 		for numConfirmations, handlers := range r.handlersByConfs {
-
 			if numConfirmations != 0 && latestBlockNumber < uint64(numConfirmations) {
 				// Skipping send because the block is definitely too young
 				continue
@@ -392,7 +391,6 @@ func (r *handler) sendLog(ctx context.Context, log types.Log, latestHead evmtype
 	broadcasts map[LogBroadcastAsKey]bool,
 	bc broadcastCreator,
 	logger logger.Logger) {
-
 	topic := log.Topics[0]
 
 	latestBlockNumber := uint64(latestHead.Number)

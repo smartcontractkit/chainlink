@@ -48,7 +48,7 @@
         },
         "ref": {
           "type": "string",
-          "pattern": "^[a-z0-9_]+$"
+          "pattern": "^[a-z0-9_-]+$"
         },
         "inputs": {
           "$ref": "#/$defs/mapping"

@@ -146,7 +146,6 @@ func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contr
 
 func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract log.AbigenContract, numConfirmations uint32,
 	topics map[common.Hash][][]log.Topic) {
-
 	unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
 		Contract:                 contract.Address(),
 		ParseLog:                 contract.ParseLog,
@@ -328,10 +327,8 @@ func (listener *simpleLogListener) handleLogBroadcast(ctx context.Context, lb lo
 		return false
 	}
 	if !consumed && !listener.skipMarkingConsumed.Load() {
-
 		err = listener.MarkConsumed(ctx, lb)
 		if assert.NoError(t, err) {
-
 			consumed2, err := listener.WasAlreadyConsumed(ctx, lb)
 			if assert.NoError(t, err) {
 				assert.True(t, consumed2)

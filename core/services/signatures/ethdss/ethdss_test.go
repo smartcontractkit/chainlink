@@ -266,7 +266,6 @@ func _genDistSecret() []*dkg.DistKeyShare {
 		dkss[i] = dks
 	}
 	return dkss
-
 }
 
 func genDistSecret(checkValidPublicKey bool) []*dkg.DistKeyShare {

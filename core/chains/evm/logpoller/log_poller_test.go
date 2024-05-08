@@ -75,7 +75,6 @@ func populateDatabase(t testing.TB, o logpoller.ORM, chainID *big.Int) (common.H
 				Data:           logpoller.EvmWord(uint64(i + 1000*j)).Bytes(),
 				CreatedAt:      blockTimestamp,
 			})
-
 		}
 		require.NoError(t, o.InsertLogs(ctx, logs))
 		require.NoError(t, o.InsertBlock(ctx, utils.RandomHash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour), 0))
@@ -1679,7 +1678,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		th.EmitterAddress1,
 		0,
 		common.Hash{},
-		logpoller.Finalized,
+		evmtypes.Finalized,
 	)
 	require.NoError(t, err)
 	require.Len(t, finalizedLogs, firstBatchLen, fmt.Sprintf("len(finalizedLogs) = %d, should have been %d", len(finalizedLogs), firstBatchLen))
@@ -1691,7 +1690,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		th.EmitterAddress1,
 		0,
 		common.Hash{},
-		logpoller.Confirmations(numberOfConfirmations),
+		evmtypes.Confirmations(numberOfConfirmations),
 	)
 	require.NoError(t, err)
 	require.Len(t, logsByConfs, firstBatchLen+secondBatchLen-numberOfConfirmations)
@@ -1956,7 +1955,6 @@ func TestFindLCA(t *testing.T) {
 		}).Once()
 		_, err := lp.FindLCA(lCtx)
 		require.ErrorContains(t, err, "aborted, FindLCA request cancelled")
-
 	})
 	t.Run("Fails, if RPC returns an error", func(t *testing.T) {
 		expectedError := fmt.Errorf("failed to call RPC")
