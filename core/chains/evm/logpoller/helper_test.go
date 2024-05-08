@@ -4,17 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -37,7 +38,8 @@ type TestHarness struct {
 	ChainID, ChainID2                *big.Int
 	ORM, ORM2                        logpoller.ORM
 	LogPoller                        logpoller.LogPollerTest
-	Client                           *backends.SimulatedBackend
+	Client                           simulated.Client
+	Backend                          *simulated.Backend
 	Owner                            *bind.TransactOpts
 	Emitter1, Emitter2               *log_emitter.LogEmitter
 	EmitterAddress1, EmitterAddress2 common.Address
@@ -48,22 +50,23 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
+	dataDir, err := os.MkdirTemp("", "simgethdata")
+	require.NoError(t, err)
 
 	o := logpoller.NewORM(chainID, db, lggr)
 	o2 := logpoller.NewORM(chainID2, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+
+	backend := simulated.NewBackend(types.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
+	}, simulated.WithBlockGasLimit(10e6), withDataDir(dataDir))
+	ec := backend.Client()
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
-	esc := client.NewSimulatedBackendClient(t, ec, chainID)
-	// Mark genesis block as finalized to avoid any nulls in the tests
-	//TODO OK to drop?
-	//head := esc.Backend().Blockchain().CurrentHeader()
-	//esc.Backend().Blockchain().SetFinalized(head)
+
+	esc := client.NewSimulatedBackendClient(t, backend, chainID)
 
 	if opts.PollPeriod == 0 {
 		opts.PollPeriod = 1 * time.Hour
@@ -73,7 +76,8 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
-	ec.Commit()
+	backend.Commit()
+
 	return TestHarness{
 		Lggr:            lggr,
 		ChainID:         chainID,
@@ -82,6 +86,7 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		ORM2:            o2,
 		LogPoller:       lp,
 		Client:          ec,
+		Backend:         backend,
 		Owner:           owner,
 		Emitter1:        emitter1,
 		Emitter2:        emitter2,
