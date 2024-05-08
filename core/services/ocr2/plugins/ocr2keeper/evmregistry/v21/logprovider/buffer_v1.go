@@ -90,7 +90,7 @@ type logBuffer struct {
 	latestBlockHash atomic.Pointer[common.Hash]
 	history         atomic.Pointer[automation.BlockHistory]
 	subID           int
-	blockChan       chan automation.BlockHistory
+	blockHistoryCh  chan automation.BlockHistory
 	threadCtrl      utils.ThreadControl
 	blockSubscriber automation.BlockSubscriber
 }
@@ -108,7 +108,7 @@ func NewLogBuffer(lggr logger.Logger, blockSubscriber automation.BlockSubscriber
 		queues:          make(map[string]*upkeepLogQueue),
 		blockHashes:     make(map[int64]string),
 		subID:           id,
-		blockChan:       blockChan,
+		blockHistoryCh:  blockChan,
 		threadCtrl:      utils.NewThreadControl(),
 		blockSubscriber: blockSubscriber,
 	}, nil
@@ -131,7 +131,7 @@ func (b *logBuffer) Close() error {
 }
 
 func (b *logBuffer) readBlockHistory(_ context.Context) {
-	for history := range b.blockChan {
+	for history := range b.blockHistoryCh {
 		latest, err := history.Latest()
 		if err != nil {
 			b.lggr.Errorw("unable to read latest block from block history", "error", err.Error())
@@ -309,7 +309,6 @@ type upkeepLogQueue struct {
 }
 
 func newUpkeepLogQueue(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
-	//maxLogs := int(opts.windowLimit.Load()) * opts.windows() // limit per window * windows
 	return &upkeepLogQueue{
 		lggr:         lggr.With("upkeepID", id.String()),
 		id:           id,
