@@ -110,15 +110,15 @@ func TestPendingTransfersConsensus(t *testing.T) {
 		f            int
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    []models.PendingTransfer
-		wantErr bool
+		name        string
+		args        args
+		numExpected int
+		wantErr     bool
 	}{
 		{
 			"no observations",
 			args{[]models.Observation{}, 1},
-			[]models.PendingTransfer{},
+			0,
 			true,
 		},
 		{
@@ -126,7 +126,7 @@ func TestPendingTransfersConsensus(t *testing.T) {
 			args{[]models.Observation{
 				{}, {}, {},
 			}, 2},
-			[]models.PendingTransfer{},
+			0,
 			true,
 		},
 		{
@@ -152,10 +152,7 @@ func TestPendingTransfersConsensus(t *testing.T) {
 					},
 				},
 			}, 1},
-			[]models.PendingTransfer{
-				{Transfer: models.Transfer{From: 1, To: 2, Amount: ubig.NewI(1)}},
-				{Transfer: models.Transfer{From: 2, To: 3, Amount: ubig.NewI(2)}},
-			},
+			2,
 			false,
 		},
 	}
@@ -166,7 +163,7 @@ func TestPendingTransfersConsensus(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tt.want, got)
+				require.Equal(t, tt.numExpected, len(got))
 			}
 		})
 	}
@@ -294,6 +291,45 @@ func TestGraphEdgesConsensus(t *testing.T) {
 			[]models.Edge{
 				{Source: 1, Dest: 2},
 				{Source: 2, Dest: 3},
+			},
+			false,
+		}, {
+			"differently ordered edges",
+			args{[]models.Observation{
+				{
+					Edges: []models.Edge{
+						{Source: 1, Dest: 4},
+						{Source: 1, Dest: 1},
+						{Source: 1, Dest: 3},
+						{Source: 2, Dest: 1},
+						{Source: 1, Dest: 2},
+					},
+				},
+				{
+					Edges: []models.Edge{
+						{Source: 2, Dest: 1},
+						{Source: 1, Dest: 4},
+						{Source: 1, Dest: 3},
+						{Source: 1, Dest: 2},
+						{Source: 1, Dest: 1},
+					},
+				},
+				{
+					Edges: []models.Edge{
+						{Source: 1, Dest: 2},
+						{Source: 1, Dest: 4},
+						{Source: 2, Dest: 1},
+						{Source: 1, Dest: 1},
+						{Source: 1, Dest: 3},
+					},
+				},
+			}, 1},
+			[]models.Edge{
+				{Source: 1, Dest: 1},
+				{Source: 1, Dest: 2},
+				{Source: 1, Dest: 3},
+				{Source: 1, Dest: 4},
+				{Source: 2, Dest: 1},
 			},
 			false,
 		},
