@@ -116,7 +116,6 @@ cleanup() {
   rm -f CHANGELOG.md.tmp
   rm -f changesets.json
   rm -f tags.json
-  rm test
 }
 
 ### SCRIPT STARTS HERE ###
