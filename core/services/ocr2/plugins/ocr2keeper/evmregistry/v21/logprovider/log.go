@@ -80,6 +80,7 @@ func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]boo
 	// if we see a reorg, update the stored hashes for the reorg blocks, and collect the reorg block numbers
 	// so that we can later evict logs for those block numbers
 	if subscriberLatest != nil && history != nil && subscriberLatest.String() != latestBlockHash.String() {
+		b.lggr.Debugw("latest block hash does not match subscriber latest, assuming reorg")
 		for _, block := range *history {
 			historyBlockNumber := int64(block.Number)
 			historyBlockHash := common.Hash(block.Hash).String()
