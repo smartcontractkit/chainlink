@@ -29,7 +29,7 @@ func (m *multiTriggerRunner[O]) Type() string {
 	return capabilities.LocalCodeActionCapability
 }
 
-func (m *multiTriggerRunner[O]) Run(value values.Value) (values.Value, bool, error) {
+func (m *multiTriggerRunner[O]) Run(stepRef string, value values.Value) (values.Value, bool, error) {
 	// in real life, we would probably nest the values so metadata isn't in the head, but I didn't want to impact the real tests.
 	// also be safer here?
 	vals := map[string]any{}
@@ -41,10 +41,10 @@ func (m *multiTriggerRunner[O]) Run(value values.Value) (values.Value, bool, err
 	if !ok {
 		return nil, false, errors.New("unknown trigger ref")
 	}
-	return trigger.Run(value)
+	return trigger.Run(stepRef, value)
 }
 
-func (m *multiTriggerRunner[O]) capabilityType() commoncap.CapabilityType {
+func (m *multiTriggerRunner[O]) CapabilityType() commoncap.CapabilityType {
 	return commoncap.CapabilityTypeTrigger
 }
 

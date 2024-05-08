@@ -1,15 +1,15 @@
 package workflow
 
-import (
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-)
-
 type Spec struct {
-	Triggers        []StepDefinition `json:"triggers" jsonschema:"required"`
-	Actions         []StepDefinition `json:"actions,omitempty"`
-	Consensus       []StepDefinition `json:"consensus" jsonschema:"required"`
-	Targets         []StepDefinition `json:"targets" jsonschema:"required"`
+	SpecBase
 	LocalExecutions map[string]LocalCapability
+}
+
+type SpecBase struct {
+	Triggers  []StepDefinition `json:"triggers" jsonschema:"required"`
+	Actions   []StepDefinition `json:"actions,omitempty"`
+	Consensus []StepDefinition `json:"consensus" jsonschema:"required"`
+	Targets   []StepDefinition `json:"targets" jsonschema:"required"`
 }
 
 func (w *Spec) ToWorkflow() Workflow {
@@ -27,10 +27,11 @@ func addAllRefs(refs map[string]*StepDefinition, steps []StepDefinition) {
 }
 
 type StepDefinition struct {
-	TypeRef        string
-	Ref            string                      `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_]+$"`
-	Inputs         map[string]any              `json:"inputs,omitempty"`
-	CapabilityType capabilities.CapabilityType `json:"-"`
+	TypeRef string
+	Ref     string         `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_]+$"`
+	Inputs  map[string]any `json:"inputs,omitempty"`
+	// Ideally, values.Value should be able to serialize anything that's kind is int, but hack around that for now.
+	CapabilityType int `json:"-"`
 }
 
 type Workflow struct {

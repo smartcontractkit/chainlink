@@ -20,7 +20,7 @@ func (m mergeRunnerBase) Ref() string {
 	return m.ref
 }
 
-func (m mergeRunnerBase) capabilityType() commoncap.CapabilityType {
+func (m mergeRunnerBase) CapabilityType() commoncap.CapabilityType {
 	return commoncap.CapabilityTypeAction
 }
 

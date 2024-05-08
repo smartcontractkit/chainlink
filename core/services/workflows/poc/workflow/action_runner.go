@@ -14,11 +14,11 @@ type actionRunner[I, O any] struct {
 	capabilities.Action[I, O]
 }
 
-func (a *actionRunner[I, O]) capabilityType() commoncap.CapabilityType {
+func (a *actionRunner[I, O]) CapabilityType() commoncap.CapabilityType {
 	return commoncap.CapabilityTypeAction
 }
 
-func (a *actionRunner[I, O]) Run(value values.Value) (values.Value, bool, error) {
+func (a *actionRunner[I, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
 	i, err := unwrapAction[I](value, "")
 	if err != nil {
 		return nil, false, err

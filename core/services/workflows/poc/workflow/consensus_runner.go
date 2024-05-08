@@ -14,11 +14,11 @@ type consensusRunner[I, O any] struct {
 	capabilities.Consensus[I, O]
 }
 
-func (c consensusRunner[I, O]) capabilityType() commoncap.CapabilityType {
+func (c consensusRunner[I, O]) CapabilityType() commoncap.CapabilityType {
 	return commoncap.CapabilityTypeConsensus
 }
 
-func (c consensusRunner[I, O]) Run(value values.Value) (values.Value, bool, error) {
+func (c consensusRunner[I, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
 	observations := value.(*values.Map).Underlying["observations"]
 	// Seems odd that consensus implementations must all know that this can be a list or not a list...
 	if _, ok := observations.(*values.List); !ok {

@@ -10,11 +10,11 @@ type capability interface {
 	Ref() string
 	Inputs() map[string]any
 	Output() string
-	capabilityType() capabilities.CapabilityType
 	LocalCapability
 	private()
 }
 
 type LocalCapability interface {
-	Run(value values.Value) (values.Value, bool, error)
+	Run(ref string, value values.Value) (values.Value, bool, error)
+	CapabilityType() capabilities.CapabilityType
 }

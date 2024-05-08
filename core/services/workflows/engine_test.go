@@ -3,6 +3,7 @@ package workflows
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -19,6 +20,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	pocCapabilities "github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/test_workflow"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/poc/wasm/host"
 )
 
 const hardcodedWorkflow = `
@@ -498,6 +500,74 @@ config:
         - $(report)
       abi: receive(report bytes)
 `
+
+func TestEngine_MultiStepDependenciesWasm(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	require.NoError(t, reg.Add(ctx, mockTarget()))
+	trigger, cr := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	out, _ := values.NewMap(map[string]any{"Read": "output"})
+
+	bytes, err := os.ReadFile("poc/test_workflow/wasm/go.wasm")
+	require.NoError(t, err)
+	guestRunner, err := host.NewWasmGuestRunner(bytes)
+	require.NoError(t, err)
+
+	spec, err := guestRunner.Run()
+	require.NoError(t, err)
+
+	csb := &codeSpecBuilder{Workflow: spec}
+
+	require.NoError(t, yaml.Unmarshal([]byte(multiStepWorkflowCodeConfig), &csb.CodeConfig))
+
+	require.NoError(t, reg.Add(context.Background(), &localCodeCapability{
+		Workflow:       spec,
+		CapabilityType: capabilities.CapabilityTypeAction,
+		Id:             pocCapabilities.LocalCodeActionCapability,
+	}))
+
+	require.NoError(t, reg.Add(context.Background(), &localCodeCapability{
+		Workflow:       spec,
+		CapabilityType: capabilities.CapabilityTypeConsensus,
+		Id:             pocCapabilities.LocalCodeConsensusCapability,
+	}))
+
+	eng, initFailed := newTestEngine(t, reg, csb)
+	err = eng.Start(ctx)
+	require.NoError(t, err)
+	defer eng.Close()
+
+	eid := getExecutionId(t, eng, initFailed)
+	state, err := eng.executionStates.get(ctx, eid)
+	require.NoError(t, err)
+
+	require.Equal(t, state.status, statusCompleted)
+
+	// The mergeInput to the consensus step should
+	// be the outputs of the two dependents.
+	mergeInput := state.steps["mergeReadAndLogic"].inputs
+	unw, err := values.Unwrap(mergeInput)
+	require.NoError(t, err)
+
+	obs := unw.(map[string]any)
+	tunw, err := values.Unwrap(cr.Value)
+	require.NoError(t, err)
+	assert.Equal(t, tunw, obs["action1"])
+
+	o, err := values.Unwrap(out)
+	require.NoError(t, err)
+	assert.Equal(t, o, obs["action2"])
+
+	targetInput, err := state.steps["write"].inputs.Unwrap()
+	require.NoError(t, err)
+	assert.Equal(t, tunw, targetInput.(map[string]any)["report"])
+}
 
 func TestEngine_MultiStepDependenciesCode(t *testing.T) {
 	t.Parallel()

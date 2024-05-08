@@ -14,7 +14,7 @@ type mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O any] struct {
 	fn func({{range (rangeI .) }}{{nis .}}, {{ end }}) (O, error)
 }
 
-func (m mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]) Run(_ string, value values.Value) (values.Value, bool, error) {
 	{{- range (rangeI .) }}
     v{{.}}, err := unwrapAction[{{nis .}}](value, "{{.}}")
     if err != nil {

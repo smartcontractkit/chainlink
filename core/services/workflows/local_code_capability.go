@@ -33,11 +33,12 @@ func (l *localCodeCapability) UnregisterFromWorkflow(_ context.Context, _ capabi
 }
 
 func (l *localCodeCapability) Execute(_ context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
-	s, ok := l.Workflow.LocalExecutions[request.Metadata.StepRef]
+	sr := request.Metadata.StepRef
+	s, ok := l.Workflow.LocalExecutions[sr]
 	if !ok {
 		return nil, fmt.Errorf("step %s not found", request.Metadata.StepRef)
 	}
-	results, cont, err := s.Run(request.Inputs)
+	results, cont, err := s.Run(sr, request.Inputs)
 	ch := make(chan capabilities.CapabilityResponse, 1)
 	if cont || err != nil {
 		ch <- capabilities.CapabilityResponse{

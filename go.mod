@@ -113,6 +113,8 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
+require github.com/bytecodealliance/wasmtime-go/v19 v19.0.0 // indirect
+
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
 	cosmossdk.io/api v0.3.1 // indirect

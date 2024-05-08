@@ -6,8 +6,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
-const LocalCodeActionCapability = "Local::Code::Action"
-const LocalCodeConsensusCapability = "Local::Code::Consensus"
+const LocalCapabilityPrefix = "Local::"
+const LocalCodeActionCapability = LocalCapabilityPrefix + "Code::Action"
+const LocalCodeConsensusCapability = LocalCapabilityPrefix + "Code::Consensus"
 
 func UnwrapValue[O any](a values.Value) (O, error) {
 	var o O

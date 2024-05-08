@@ -11,16 +11,16 @@ import (
 func NewWorkflowBuilder[O any](
 	trigger capabilities.Trigger[O], additionalTriggers ...capabilities.Trigger[O]) (*Root, *Builder[O]) {
 	tr := &triggerRunner[O]{Trigger: trigger}
-	runner := &multiTriggerRunner[O]{
-		triggers: map[string]capability{tr.Ref(): tr},
-	}
+	runner := &multiTriggerRunner[O]{triggers: map[string]capability{tr.Ref(): tr}}
 
 	root := &Root{
 		capabilities: []capability{runner},
 		names:        map[string]bool{runner.Ref(): true},
 		open:         map[string]bool{},
 		spec: &Spec{
-			Triggers:        []StepDefinition{capabilityToStepDef(tr)},
+			SpecBase: SpecBase{
+				Triggers: []StepDefinition{capabilityToStepDef(tr)},
+			},
 			LocalExecutions: map[string]LocalCapability{},
 		},
 	}
@@ -43,7 +43,7 @@ func capabilityToStepDef(tr capability) StepDefinition {
 		TypeRef:        tr.Type(),
 		Ref:            tr.Ref(),
 		Inputs:         tr.Inputs(),
-		CapabilityType: tr.capabilityType(),
+		CapabilityType: int(tr.CapabilityType()),
 	}
 }
 

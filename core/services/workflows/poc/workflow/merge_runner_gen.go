@@ -14,7 +14,7 @@ type mergeRunner2[ I,II, O any] struct {
 	fn func(I, II, ) (O, error)
 }
 
-func (m mergeRunner2[ I,II, O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner2[ I,II, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
     v1, err := unwrapAction[I](value, "1")
     if err != nil {
         return nil, false, err
@@ -74,7 +74,7 @@ type mergeRunner3[ I,II,III, O any] struct {
 	fn func(I, II, III, ) (O, error)
 }
 
-func (m mergeRunner3[ I,II,III, O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner3[ I,II,III, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
     v1, err := unwrapAction[I](value, "1")
     if err != nil {
         return nil, false, err
@@ -142,7 +142,7 @@ type mergeRunner4[ I,II,III,IIII, O any] struct {
 	fn func(I, II, III, IIII, ) (O, error)
 }
 
-func (m mergeRunner4[ I,II,III,IIII, O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner4[ I,II,III,IIII, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
     v1, err := unwrapAction[I](value, "1")
     if err != nil {
         return nil, false, err
@@ -218,7 +218,7 @@ type mergeRunner5[ I,II,III,IIII,IIIII, O any] struct {
 	fn func(I, II, III, IIII, IIIII, ) (O, error)
 }
 
-func (m mergeRunner5[ I,II,III,IIII,IIIII, O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner5[ I,II,III,IIII,IIIII, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
     v1, err := unwrapAction[I](value, "1")
     if err != nil {
         return nil, false, err
@@ -302,7 +302,7 @@ type mergeRunner6[ I,II,III,IIII,IIIII,IIIIII, O any] struct {
 	fn func(I, II, III, IIII, IIIII, IIIIII, ) (O, error)
 }
 
-func (m mergeRunner6[ I,II,III,IIII,IIIII,IIIIII, O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner6[ I,II,III,IIII,IIIII,IIIIII, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
     v1, err := unwrapAction[I](value, "1")
     if err != nil {
         return nil, false, err
@@ -394,7 +394,7 @@ type mergeRunner7[ I,II,III,IIII,IIIII,IIIIII,IIIIIII, O any] struct {
 	fn func(I, II, III, IIII, IIIII, IIIIII, IIIIIII, ) (O, error)
 }
 
-func (m mergeRunner7[ I,II,III,IIII,IIIII,IIIIII,IIIIIII, O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner7[ I,II,III,IIII,IIIII,IIIIII,IIIIIII, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
     v1, err := unwrapAction[I](value, "1")
     if err != nil {
         return nil, false, err
@@ -494,7 +494,7 @@ type mergeRunner8[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII, O any] struct {
 	fn func(I, II, III, IIII, IIIII, IIIIII, IIIIIII, IIIIIIII, ) (O, error)
 }
 
-func (m mergeRunner8[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII, O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner8[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
     v1, err := unwrapAction[I](value, "1")
     if err != nil {
         return nil, false, err
@@ -602,7 +602,7 @@ type mergeRunner9[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII, O any]
 	fn func(I, II, III, IIII, IIIII, IIIIII, IIIIIII, IIIIIIII, IIIIIIIII, ) (O, error)
 }
 
-func (m mergeRunner9[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII, O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner9[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
     v1, err := unwrapAction[I](value, "1")
     if err != nil {
         return nil, false, err
@@ -718,7 +718,7 @@ type mergeRunner10[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII,IIIIII
 	fn func(I, II, III, IIII, IIIII, IIIIII, IIIIIII, IIIIIIII, IIIIIIIII, IIIIIIIIII, ) (O, error)
 }
 
-func (m mergeRunner10[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII,IIIIIIIIII, O]) Run(value values.Value) (values.Value, bool, error) {
+func (m mergeRunner10[ I,II,III,IIII,IIIII,IIIIII,IIIIIII,IIIIIIII,IIIIIIIII,IIIIIIIIII, O]) Run(_ string, value values.Value) (values.Value, bool, error) {
     v1, err := unwrapAction[I](value, "1")
     if err != nil {
         return nil, false, err

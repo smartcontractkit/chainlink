@@ -20,7 +20,7 @@ func (t targetRunner[O]) Output() string {
 	return "$(target.outputs)"
 }
 
-func (t targetRunner[O]) Run(value values.Value) (values.Value, bool, error) {
+func (t targetRunner[O]) Run(_ string, value values.Value) (values.Value, bool, error) {
 	unwrapped, err := capabilities.UnwrapValue[O](value)
 	if err != nil {
 		return nil, false, err
@@ -28,7 +28,7 @@ func (t targetRunner[O]) Run(value values.Value) (values.Value, bool, error) {
 	return nil, false, t.Invoke(unwrapped)
 }
 
-func (t targetRunner[O]) capabilityType() commoncap.CapabilityType {
+func (t targetRunner[O]) CapabilityType() commoncap.CapabilityType {
 	return commoncap.CapabilityTypeTarget
 }
 func (t targetRunner[O]) private() {}

@@ -19,7 +19,7 @@ func (t triggerRunner[O]) Inputs() map[string]any {
 	return map[string]any{}
 }
 
-func (t triggerRunner[O]) Run(value values.Value) (values.Value, bool, error) {
+func (t triggerRunner[O]) Run(_ string, value values.Value) (values.Value, bool, error) {
 	vmap := value.(*values.Map).Underlying["action"]
 	output, err := t.Transform(vmap)
 	if err != nil {
@@ -29,7 +29,7 @@ func (t triggerRunner[O]) Run(value values.Value) (values.Value, bool, error) {
 	return wrapped, err == nil, err
 }
 
-func (t triggerRunner[O]) capabilityType() commoncap.CapabilityType {
+func (t triggerRunner[O]) CapabilityType() commoncap.CapabilityType {
 	return commoncap.CapabilityTypeTrigger
 }
 
