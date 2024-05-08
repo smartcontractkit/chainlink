@@ -318,7 +318,6 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 		n.log.Errorw("could not close cpu profile", "err", err)
 		return
 	}
-
 }
 
 func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
@@ -485,5 +484,4 @@ func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {
 		out = append(out, info)
 	}
 	return out, nil
-
 }

@@ -323,7 +323,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				return fmt.Sprintf(testspecs.FluxMonitorSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-
 				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
 
 				errs := cltest.ParseJSONAPIErrors(t, r.Body)

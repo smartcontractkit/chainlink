@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -35,6 +36,10 @@ type chainReader struct {
 	parsed           *parsedTypes
 	codec            commontypes.RemoteCodec
 	commonservices.StateMachine
+}
+
+func (cr *chainReader) QueryKey(_ context.Context, _ string, _ query.KeyFilter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
+	return nil, nil
 }
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error

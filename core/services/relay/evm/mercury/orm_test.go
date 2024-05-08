@@ -148,7 +148,6 @@ func TestORM(t *testing.T) {
 	transmissions, err = orm.GetTransmitRequests(ctx, sURL2, jobID)
 	require.NoError(t, err)
 	require.Len(t, transmissions, 1)
-
 }
 
 func TestORM_PruneTransmitRequests(t *testing.T) {

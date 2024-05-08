@@ -53,7 +53,6 @@ func NewConfigOverriderImpl(
 	flags *ContractFlags,
 	pollTicker utils.TickerBase,
 ) (*ConfigOverriderImpl, error) {
-
 	if !flags.ContractExists() {
 		return nil, errors.Errorf("OCRConfigOverrider: Flags contract instance is missing, the contract does not exist: %s. "+
 			"Please create the contract or remove the OCR.TransmitterAddress configuration variable", contractAddress.Address())

@@ -128,7 +128,6 @@ func NewApp(s *Shell) *cli.App {
 		}
 
 		return nil
-
 	}
 	app.After = func(c *cli.Context) error {
 		if s.CloseLogger != nil {
