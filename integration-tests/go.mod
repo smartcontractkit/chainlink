@@ -50,6 +50,9 @@ require (
 exclude github.com/hashicorp/consul v1.2.1
 
 replace (
+	github.com/smartcontractkit/chainlink-common => github.com/smartcontractkit/chainlink-common v0.1.7-0.20240523212217-240daca4f50d
+
+	// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
