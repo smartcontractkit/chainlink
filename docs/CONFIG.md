@@ -6541,7 +6541,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 300
+HistoryDepth = 1100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 

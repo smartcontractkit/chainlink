@@ -18,7 +18,7 @@ BlockHistorySize = 60
 ResendAfterThreshold = '30s'
 
 [HeadTracker]
-HistoryDepth = 300
+HistoryDepth = 1100
 
 [NodePool]
 SyncThreshold = 10
