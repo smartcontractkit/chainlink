@@ -2,7 +2,6 @@ package logprovider
 
 import (
 	"context"
-	"math"
 	"math/big"
 	"sort"
 	"sync"
@@ -76,10 +75,6 @@ func (o *logBufferOptions) override(lookback, blockRate, logLimit uint32) {
 	o.windowLimit.Store(logLimit * 10)
 	o.lookback.Store(lookback)
 	o.blockRate.Store(blockRate)
-}
-
-func (o *logBufferOptions) windows() int {
-	return int(math.Ceil(float64(o.lookback.Load()) / float64(o.blockRate.Load())))
 }
 
 type logBuffer struct {
@@ -406,7 +401,6 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 			q.logs[log.BlockNumber] = []logpoller.Log{log}
 			q.blockNumbers = append(q.blockNumbers, log.BlockNumber)
 		}
-
 	}
 
 	var dropped int
