@@ -168,6 +168,11 @@ type DON struct {
 
 // CapabilityInfo is a struct for the info of a capability.
 type CapabilityInfo struct {
+	// The capability ID is a fully qualified identifier for the capability.
+	//
+	// It takes the form of `{name}:{label1_key}_{labe1_value}:{label2_key}_{label2_value}@{version}`
+	//
+	// The labels within the ID are ordered alphanumerically.
 	ID             string
 	CapabilityType CapabilityType
 	Description    string
