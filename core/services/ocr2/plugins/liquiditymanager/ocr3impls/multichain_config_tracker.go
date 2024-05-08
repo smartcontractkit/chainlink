@@ -37,6 +37,8 @@ var (
 	_ ocrtypes.ContractConfigTracker = &multichainConfigTracker{}
 
 	defaultTimeout = 1 * time.Minute
+
+	configTrackerWorkers = 4
 )
 
 func init() {
@@ -179,28 +181,44 @@ func (m *multichainConfigTracker) GetContractAddresses() map[relay.ID]common.Add
 
 func (m *multichainConfigTracker) Start() {
 	_ = m.StartOnce("MultichainConfigTracker", func() error {
-		if m.fromBlocks != nil {
-			m.replaying.Store(true)
-			defer m.replaying.Store(false)
+		if len(m.fromBlocks) == 0 {
+			return nil
+		}
+		m.replaying.Store(true)
+		defer m.replaying.Store(false)
 
-			// TODO: replay multiple chains in parallel?
-			var errs error
+		networks := len(m.fromBlocks)
+		ctx := context.Background() // TODO: deadline?
+		running := make(chan struct{}, configTrackerWorkers)
+		results := make(chan error, networks)
+		go func() {
 			for id, fromBlock := range m.fromBlocks {
-				err := m.ReplayChain(context.Background(), relay.NewID("evm", id), fromBlock)
-				if err != nil {
-					m.lggr.Errorw("failed to replay chain", "chain", id, "fromBlock", fromBlock, "err", err)
-					errs = multierr.Append(errs, err)
-				} else {
-					m.lggr.Infow("successfully replayed chain", "chain", id, "fromBlock", fromBlock)
-				}
+				running <- struct{}{}
+				go func(id string, fromBlock int64) {
+					defer func() { <-running }()
+					err := m.ReplayChain(ctx, relay.NewID("evm", id), fromBlock)
+					if err != nil {
+						m.lggr.Errorw("failed to replay chain", "chain", id, "fromBlock", fromBlock, "err", err)
+					} else {
+						m.lggr.Infow("successfully replayed chain", "chain", id, "fromBlock", fromBlock)
+					}
+					results <- err
+				}(id, fromBlock)
 			}
+		}()
 
-			if errs != nil {
-				m.lggr.Errorw("failed to replay some chains", "err", errs)
-				return errs
+		// wait for results, we expect the same number of results as networks
+		var errs error
+		for i := 0; i < networks; i++ {
+			err := <-results
+			if err != nil {
+				errs = multierr.Append(errs, err)
 			}
 		}
-		return nil
+		if errs != nil {
+			m.lggr.Errorw("failed to replay some chains", "err", errs)
+		}
+		return errs
 	})
 }
 
