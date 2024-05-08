@@ -8,8 +8,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/report_encoder"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // ConfigDigest wraps ocrtypes.ConfigDigest and adds json encoding support
@@ -95,7 +95,7 @@ func (r Report) ToLiquidityInstructions() (report_encoder.ILiquidityManagerLiqui
 	}, nil
 }
 
-func (r Report) GetDestinationChain() relay.ID {
+func (r Report) GetDestinationChain() commontypes.RelayID {
 	networkID := r.NetworkID
 
 	ch, exists := chainsel.ChainBySelector(uint64(r.NetworkID))
@@ -103,7 +103,7 @@ func (r Report) GetDestinationChain() relay.ID {
 		networkID = NetworkSelector(ch.EvmChainID)
 	}
 
-	return relay.NewID(relay.EVM, fmt.Sprintf("%d", networkID))
+	return commontypes.NewRelayID(commontypes.NetworkEVM, fmt.Sprintf("%d", networkID))
 }
 
 func (r Report) GetDestinationConfigDigest() ocrtypes.ConfigDigest {

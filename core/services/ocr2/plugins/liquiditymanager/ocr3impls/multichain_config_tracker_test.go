@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/no_op_ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -24,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/graph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/ocr3impls"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 func setupLogPoller[RI ocr3impls.MultichainMeta](t *testing.T, db *sqlx.DB, bs *keyringsAndSigners[RI]) (logpoller.LogPoller, testUniverse[RI]) {
@@ -55,15 +55,15 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, uni := setupLogPoller[multichainMeta](t, db, nil)
 
-		masterChain := relay.ID{
-			Network: relay.EVM,
+		masterChain := commontypes.RelayID{
+			Network: commontypes.NetworkEVM,
 			ChainID: testutils.SimulatedChainID.String(),
 		}
 		mockDiscovererFactory := discoverermocks.NewFactory(t)
 		_, err := ocr3impls.NewMultichainConfigTracker(
 			masterChain,
 			logger.TestLogger(t),
-			map[relay.ID]logpoller.LogPoller{},
+			map[commontypes.RelayID]logpoller.LogPoller{},
 			uni.simClient,
 			uni.wrapper.Address(),
 			mockDiscovererFactory,
@@ -77,15 +77,15 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		lp, uni := setupLogPoller[multichainMeta](t, db, nil)
 
-		masterChain := relay.ID{
-			Network: relay.EVM,
+		masterChain := commontypes.RelayID{
+			Network: commontypes.NetworkEVM,
 			ChainID: testutils.SimulatedChainID.String(),
 		}
 		mockDiscovererFactory := discoverermocks.NewFactory(t)
 		_, err := ocr3impls.NewMultichainConfigTracker(
 			masterChain,
 			logger.TestLogger(t),
-			map[relay.ID]logpoller.LogPoller{masterChain: lp},
+			map[commontypes.RelayID]logpoller.LogPoller{masterChain: lp},
 			uni.simClient,
 			uni.wrapper.Address(),
 			mockDiscovererFactory,
@@ -99,14 +99,14 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		lp, uni := setupLogPoller[multichainMeta](t, db, nil)
 
-		masterChain := relay.ID{
-			Network: relay.EVM,
+		masterChain := commontypes.RelayID{
+			Network: commontypes.NetworkEVM,
 			ChainID: testutils.SimulatedChainID.String(),
 		}
 		_, err := ocr3impls.NewMultichainConfigTracker(
 			masterChain,
 			logger.TestLogger(t),
-			map[relay.ID]logpoller.LogPoller{masterChain: lp},
+			map[commontypes.RelayID]logpoller.LogPoller{masterChain: lp},
 			uni.simClient,
 			uni.wrapper.Address(),
 			nil,
@@ -123,8 +123,8 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 	require.NoError(t, lp.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
-	masterChain := relay.ID{
-		Network: relay.EVM,
+	masterChain := commontypes.RelayID{
+		Network: commontypes.NetworkEVM,
 		ChainID: testutils.SimulatedChainID.String(),
 	}
 
@@ -148,7 +148,7 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 	tracker, err := ocr3impls.NewMultichainConfigTracker(
 		masterChain,
 		logger.TestLogger(t),
-		map[relay.ID]logpoller.LogPoller{masterChain: lp},
+		map[commontypes.RelayID]logpoller.LogPoller{masterChain: lp},
 		uni.simClient,
 		uni.wrapper.Address(),
 		mockDiscovererFactory,
@@ -222,12 +222,12 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 	// create the multichain config tracker
 	// the chain id's we're using in the mappings are different from the
 	// simulated chain id but that should be fine for this test.
-	masterChain := relay.ID{
-		Network: relay.EVM,
+	masterChain := commontypes.RelayID{
+		Network: commontypes.NetworkEVM,
 		ChainID: strconv.FormatUint(chainsel.TEST_90000001.EvmChainID, 10),
 	}
-	secondChain := relay.ID{
-		Network: relay.EVM,
+	secondChain := commontypes.RelayID{
+		Network: commontypes.NetworkEVM,
 		ChainID: strconv.FormatUint(chainsel.TEST_90000002.EvmChainID, 10),
 	}
 
@@ -257,7 +257,7 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 	tracker, err := ocr3impls.NewMultichainConfigTracker(
 		masterChain,
 		logger.TestLogger(t),
-		map[relay.ID]logpoller.LogPoller{
+		map[commontypes.RelayID]logpoller.LogPoller{
 			masterChain: lp1,
 			secondChain: lp2,
 		},

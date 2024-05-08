@@ -7,12 +7,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type MultichainMeta interface {
-	GetDestinationChain() relay.ID
+	GetDestinationChain() commontypes.RelayID
 	GetDestinationConfigDigest() types.ConfigDigest
 }
 
@@ -20,12 +20,12 @@ type MultichainMeta interface {
 // It uses the information in the MultichainMeta to determine which chain to transmit to.
 // Note that this would only work with the appropriate multi-chain config tracker implementation.
 type multichainTransmitterOCR3[RI MultichainMeta] struct {
-	transmitters map[relay.ID]ocr3types.ContractTransmitter[RI]
+	transmitters map[commontypes.RelayID]ocr3types.ContractTransmitter[RI]
 	lggr         logger.Logger
 }
 
 func NewMultichainTransmitterOCR3[RI MultichainMeta](
-	transmitters map[relay.ID]ocr3types.ContractTransmitter[RI],
+	transmitters map[commontypes.RelayID]ocr3types.ContractTransmitter[RI],
 	lggr logger.Logger,
 ) (*multichainTransmitterOCR3[RI], error) {
 	return &multichainTransmitterOCR3[RI]{

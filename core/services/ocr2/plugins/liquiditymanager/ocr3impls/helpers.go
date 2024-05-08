@@ -9,12 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/no_op_ocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-func configTrackerFilterName(id relay.ID, addr common.Address) string {
+func configTrackerFilterName(id commontypes.RelayID, addr common.Address) string {
 	return logpoller.FilterName("OCR3 MultichainConfigTracker", id.String(), addr.String())
 }
 
@@ -57,7 +57,7 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 
 // TransmitterCombiner is a CombinerFn that combines all transmitter addresses
 // for the same signer on many different chains into a single string.
-func TransmitterCombiner(masterChain relay.ID, contractConfigs map[relay.ID]ocrtypes.ContractConfig) (ocrtypes.ContractConfig, error) {
+func TransmitterCombiner(masterChain commontypes.RelayID, contractConfigs map[commontypes.RelayID]ocrtypes.ContractConfig) (ocrtypes.ContractConfig, error) {
 	masterConfig, ok := contractConfigs[masterChain]
 	if !ok {
 		return ocrtypes.ContractConfig{}, fmt.Errorf("unable to find master chain %s in contract configs", masterChain)
@@ -118,7 +118,7 @@ func TransmitterCombiner(masterChain relay.ID, contractConfigs map[relay.ID]ocrt
 // EncodeTransmitter encodes the provided relay ID and transmitter
 // into a single string the following way:
 // "<relayID.ChainID>:<transmitter>"
-func EncodeTransmitter(relayID relay.ID, transmitter ocrtypes.Account) string {
+func EncodeTransmitter(relayID commontypes.RelayID, transmitter ocrtypes.Account) string {
 	return fmt.Sprintf("%s:%s", relayID.ChainID, transmitter)
 }
 
@@ -137,8 +137,8 @@ func JoinTransmitters(transmitters []string) string {
 // into a map of chainID -> signerIdx -> transmitter
 // This is so that we can verify the config digest offchain in the
 // offchain config digester.
-func SplitMultiTransmitter(multiTransmitter ocrtypes.Account) (map[relay.ID]ocrtypes.Account, error) {
-	toReturn := map[relay.ID]ocrtypes.Account{}
+func SplitMultiTransmitter(multiTransmitter ocrtypes.Account) (map[commontypes.RelayID]ocrtypes.Account, error) {
+	toReturn := map[commontypes.RelayID]ocrtypes.Account{}
 	for _, chainAndTransmitter := range strings.Split(string(multiTransmitter), ",") {
 		parts := strings.Split(chainAndTransmitter, ":")
 		if len(parts) != 2 {
@@ -146,7 +146,7 @@ func SplitMultiTransmitter(multiTransmitter ocrtypes.Account) (map[relay.ID]ocrt
 			return nil, fmt.Errorf("split on ':' must contain exactly 2 parts, got: %d (%+v)",
 				len(parts), parts)
 		}
-		chainID := relay.NewID(relay.EVM, parts[0])
+		chainID := commontypes.NewRelayID(commontypes.NetworkEVM, parts[0])
 		transmitter := ocrtypes.Account(parts[1])
 
 		if _, ok := toReturn[chainID]; ok {

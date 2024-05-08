@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -233,7 +232,7 @@ func (params CCIPJobSpecParams) CommitJobSpec() (*OCR2TaskJobSpec, error) {
 	}
 
 	ocrSpec := job.OCR2OracleSpec{
-		Relay:                             relay.EVM,
+		Relay:                             types.NetworkEVM,
 		PluginType:                        types.CCIPCommit,
 		ContractID:                        params.CommitStore.Hex(),
 		ContractConfigConfirmations:       1,
@@ -265,7 +264,7 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		return nil, err
 	}
 	ocrSpec := job.OCR2OracleSpec{
-		Relay:                             relay.EVM,
+		Relay:                             types.NetworkEVM,
 		PluginType:                        types.CCIPExecution,
 		ContractID:                        params.OffRamp.Hex(),
 		ContractConfigConfirmations:       1,
@@ -305,7 +304,7 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 func (params CCIPJobSpecParams) BootstrapJob(contractID string) *OCR2TaskJobSpec {
 	bootstrapSpec := job.OCR2OracleSpec{
 		ContractID:                        contractID,
-		Relay:                             relay.EVM,
+		Relay:                             types.NetworkEVM,
 		ContractConfigConfirmations:       1,
 		ContractConfigTrackerPollInterval: models.Interval(20 * time.Second),
 		RelayConfig: map[string]interface{}{
