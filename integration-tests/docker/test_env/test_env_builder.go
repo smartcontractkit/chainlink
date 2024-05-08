@@ -3,11 +3,11 @@ package test_env
 import (
 	"errors"
 	"fmt"
-	"github.com/pelletier/go-toml/v2"
 	"math/big"
 	"os"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/seth"
@@ -39,7 +39,6 @@ const (
 type CLTestEnvBuilder struct {
 	hasLogStream            bool
 	hasKillgrave            bool
-	hasForwarders           bool
 	hasSeth                 bool
 	hasEVMClient            bool
 	clNodeConfig            *chainlink.Config
@@ -50,7 +49,7 @@ type CLTestEnvBuilder struct {
 	l                       zerolog.Logger
 	t                       *testing.T
 	te                      *CLClusterTestEnv
-	isNonEVM                bool
+	isEVM                   bool
 	cleanUpType             CleanUpType
 	cleanUpCustomFn         func()
 	evmNetworkOption        []EVMNetworkOption
@@ -168,7 +167,7 @@ func (b *CLTestEnvBuilder) WithMockAdapter() *CLTestEnvBuilder {
 
 // WithNonEVM sets the test environment to not use EVM when built.
 func (b *CLTestEnvBuilder) WithNonEVM() *CLTestEnvBuilder {
-	b.isNonEVM = true
+	b.isEVM = false
 	return b
 }
 
@@ -404,7 +403,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		return nil, errors.New("you can't use both Seth and EMVClient at the same time")
 	}
 
-	if b.isNonEVM == false {
+	if b.isEVM {
 		if b.evmNetworkOption != nil && len(b.evmNetworkOption) > 0 {
 			for _, fn := range b.evmNetworkOption {
 				fn(&networkConfig)

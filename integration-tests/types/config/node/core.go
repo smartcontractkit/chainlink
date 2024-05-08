@@ -3,11 +3,11 @@ package node
 import (
 	"bytes"
 	"fmt"
-	"github.com/segmentio/ksuid"
 	"math/big"
 	"strconv"
 	"time"
 
+	"github.com/segmentio/ksuid"
 	"go.uber.org/zap/zapcore"
 
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"

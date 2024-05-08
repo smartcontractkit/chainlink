@@ -2,13 +2,14 @@ package smoke
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"strconv"
-	"testing"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
