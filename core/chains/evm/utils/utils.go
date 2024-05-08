@@ -186,7 +186,6 @@ func NewRedialBackoff() backoff.Backoff {
 		Max:    15 * time.Second,
 		Jitter: true,
 	}
-
 }
 
 // RetryWithBackoff retries the sleeper and backs off if not Done

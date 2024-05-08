@@ -70,6 +70,5 @@ func TestSubscriptionErrorWrapper(t *testing.T) {
 			_, ok = <-wrapper.Err()
 			return !ok
 		})
-
 	})
 }

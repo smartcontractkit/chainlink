@@ -387,7 +387,6 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 }
 
 func addConfig(t *testing.T, user *bind.TransactOpts, configStoreContract *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple, config ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimpleConfigurationEVMSimple) {
-
 	_, err := configStoreContract.AddConfig(user, config)
 	require.NoError(t, err)
 }

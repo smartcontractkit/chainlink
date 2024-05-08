@@ -376,7 +376,6 @@ func assertNoSubmission(t *testing.T,
 	duration time.Duration,
 	msg string,
 ) {
-
 	// drain the channel
 	for len(submissionReceived) > 0 {
 		<-submissionReceived

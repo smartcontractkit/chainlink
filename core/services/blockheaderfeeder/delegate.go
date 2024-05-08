@@ -114,7 +114,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		var c *v1.VRFCoordinator
 		if c, err = v1.NewVRFCoordinator(
 			jb.BlockHeaderFeederSpec.CoordinatorV1Address.Address(), chain.Client()); err != nil {
-
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
 		var coord *blockhashstore.V1Coordinator
@@ -128,7 +127,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		var c *v2.VRFCoordinatorV2
 		if c, err = v2.NewVRFCoordinatorV2(
 			jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address(), chain.Client()); err != nil {
-
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
 		var coord *blockhashstore.V2Coordinator
@@ -142,7 +140,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		var c v2plus.IVRFCoordinatorV2PlusInternalInterface
 		if c, err = v2plus.NewIVRFCoordinatorV2PlusInternal(
 			jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
-
 			return nil, errors.Wrap(err, "building V2 plus coordinator")
 		}
 		var coord *blockhashstore.V2PlusCoordinator

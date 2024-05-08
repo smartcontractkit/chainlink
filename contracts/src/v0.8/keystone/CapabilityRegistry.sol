@@ -106,6 +106,20 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param nodeOperatorId The ID of the node operator that manages this node
   event NodeAdded(bytes32 p2pId, uint256 nodeOperatorId);
 
+  /// @notice This event is emitted when a node is removed
+  /// @param p2pId The P2P ID of the node that was removed
+  event NodeRemoved(bytes32 p2pId);
+
+  /// @notice This event is emitted when a node is updated
+  /// @param p2pId The P2P ID of the node
+  /// @param nodeOperatorId The ID of the node operator that manages this node
+  /// @param signer The node's signer address
+  event NodeUpdated(bytes32 p2pId, uint256 nodeOperatorId, address signer);
+
+  /// @notice This error is thrown when trying to set the node's
+  /// signer address to zero
+  error InvalidNodeSigner();
+
   /// @notice This error is thrown when trying add a capability that already
   /// exists.
   error CapabilityAlreadyExists();
@@ -236,11 +250,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < nodes.length; ++i) {
       Node memory node = nodes[i];
 
+      bool isOwner = msg.sender == owner();
+
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
-      if (msg.sender != nodeOperator.admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
       bool nodeExists = s_nodes[node.p2pId].supportedHashedCapabilityIds.length > 0;
       if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+
+      if (node.signer == address(0)) revert InvalidNodeSigner();
 
       if (node.supportedHashedCapabilityIds.length == 0)
         revert InvalidNodeCapabilities(node.supportedHashedCapabilityIds);
@@ -252,6 +270,56 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       s_nodes[node.p2pId] = node;
       emit NodeAdded(node.p2pId, node.nodeOperatorId);
+    }
+  }
+
+  /// @notice Removes nodes.  The node operator admin or contract owner
+  /// can remove nodes
+  /// @param removedNodeP2PIds The P2P Ids of the nodes to remove
+  function removeNodes(bytes32[] calldata removedNodeP2PIds) external {
+    bool isOwner = msg.sender == owner();
+    for (uint256 i; i < removedNodeP2PIds.length; ++i) {
+      bytes32 p2pId = removedNodeP2PIds[i];
+      Node memory node = s_nodes[p2pId];
+
+      bool nodeExists = s_nodes[p2pId].supportedHashedCapabilityIds.length > 0;
+      if (!nodeExists) revert InvalidNodeP2PId(p2pId);
+
+      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
+
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+      delete s_nodes[p2pId];
+      emit NodeRemoved(p2pId);
+    }
+  }
+
+  /// @notice Updates nodes.  The node admin can update the node's signer address
+  /// and reconfigure its supported capabilities
+  /// @param nodes The nodes to update
+  function updateNodes(Node[] calldata nodes) external {
+    for (uint256 i; i < nodes.length; ++i) {
+      Node memory node = nodes[i];
+
+      bool isOwner = msg.sender == owner();
+
+      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+
+      bool nodeExists = s_nodes[node.p2pId].supportedHashedCapabilityIds.length > 0;
+      if (!nodeExists) revert InvalidNodeP2PId(node.p2pId);
+
+      if (node.signer == address(0)) revert InvalidNodeSigner();
+
+      if (node.supportedHashedCapabilityIds.length == 0)
+        revert InvalidNodeCapabilities(node.supportedHashedCapabilityIds);
+
+      for (uint256 j; j < node.supportedHashedCapabilityIds.length; ++j) {
+        if (!s_hashedCapabilityIds.contains(node.supportedHashedCapabilityIds[j]))
+          revert InvalidNodeCapabilities(node.supportedHashedCapabilityIds);
+      }
+
+      s_nodes[node.p2pId] = node;
+      emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
     }
   }
 

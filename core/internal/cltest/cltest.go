@@ -341,7 +341,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			case UseRealExternalInitiatorManager:
 				externalInitiatorManager = webhook.NewExternalInitiatorManager(ds, clhttptest.NewTestLocalOnlyHTTPClient())
 			}
-
 		}
 	}
 
@@ -411,7 +410,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
-
 	}
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
@@ -1017,7 +1015,6 @@ func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
 	time := uint64(0)
 	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	return &h
-
 }
 
 // LegacyTransactionsFromGasPrices returns transactions matching the given gas prices

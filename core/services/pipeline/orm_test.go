@@ -238,7 +238,6 @@ func TestInsertFinishedRuns(t *testing.T) {
 
 	err = orm.InsertFinishedRuns(ctx, runs, true)
 	require.NoError(t, err)
-
 }
 
 func Test_PipelineORM_InsertFinishedRunWithSpec(t *testing.T) {
@@ -471,7 +470,6 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 	ds1 := run.ByDotID("ds1")
 	require.Equal(t, ds1.Output.Val, int64(2))
 	require.True(t, ds1.FinishedAt.Valid)
-
 }
 
 func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
