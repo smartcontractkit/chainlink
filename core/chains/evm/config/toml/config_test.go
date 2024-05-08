@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
-func Test_Validate_Defaults(t *testing.T) {
+func TestEVMConfig_ValidateConfig(t *testing.T) {
 	var err error
 	for _, id := range toml.DefaultIDs {
 		t.Run(fmt.Sprintf("chainID-%s", id), func(t *testing.T) {
