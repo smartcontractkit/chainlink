@@ -993,7 +993,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, wa
 	return txaIds
 }
 
-// Head given the value convert it into an Head
+// Head given the value convert it into a Head
 func Head(val interface{}) *evmtypes.Head {
 	var h evmtypes.Head
 	time := uint64(0)
