@@ -414,7 +414,7 @@ func valuesFromCursor(cursor string) (int64, string, int, error) {
 		return 0, "", 0, fmt.Errorf("%w: block number not parsable as int64", ErrUnexpectedCursorFormat)
 	}
 
-	logIdx, err := strconv.ParseInt(parts[2], 10, 64)
+	logIdx, err := strconv.ParseInt(parts[2], 10, 32)
 	if err != nil {
 		return 0, "", 0, fmt.Errorf("%w: log index not parsable as int", ErrUnexpectedCursorFormat)
 	}
