@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -859,18 +861,65 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 	}
 	require.NoError(t, o1.InsertLogs(ctx, inputLogs))
 
+	filter := func(sigs []common.Hash, startBlock, endBlock int64) query.KeyFilter {
+		filters := []query.Expression{
+			logpoller.NewAddressFilter(sourceAddr),
+		}
+
+		if len(sigs) > 0 {
+			exp := make([]query.Expression, len(sigs))
+			for idx, val := range sigs {
+				exp[idx] = logpoller.NewEventSigFilter(val)
+			}
+
+			filters = append(filters, query.Expression{
+				BoolExpression: query.BoolExpression{
+					Expressions:  exp,
+					BoolOperator: query.OR,
+				},
+			})
+		}
+
+		filters = append(filters, query.Expression{
+			BoolExpression: query.BoolExpression{
+				Expressions: []query.Expression{
+					query.Block(uint64(startBlock), primitives.Gte),
+					query.Block(uint64(endBlock), primitives.Lte),
+				},
+				BoolOperator: query.AND,
+			},
+		})
+
+		return query.KeyFilter{
+			Expressions: filters,
+		}
+	}
+
+	limiter := query.LimitAndSort{
+		SortBy: []query.SortBy{query.NewSortBySequence(query.Asc)},
+	}
+
+	assertion := func(t *testing.T, logs []logpoller.Log, err error, startBlock, endBlock int64) {
+		require.NoError(t, err)
+		assert.Len(t, logs, 4)
+		for _, l := range logs {
+			assert.Equal(t, sourceAddr, l.Address, "wrong log address")
+			assert.True(t, bytes.Equal(topic.Bytes(), l.EventSig.Bytes()) || bytes.Equal(topic2.Bytes(), l.EventSig.Bytes()), "wrong log topic")
+			assert.True(t, l.BlockNumber >= startBlock && l.BlockNumber <= endBlock)
+		}
+	}
+
 	startBlock, endBlock := int64(10), int64(15)
 	logs, err := o1.SelectLogsWithSigs(ctx, startBlock, endBlock, sourceAddr, []common.Hash{
 		topic,
 		topic2,
 	})
-	require.NoError(t, err)
-	assert.Len(t, logs, 4)
-	for _, l := range logs {
-		assert.Equal(t, sourceAddr, l.Address, "wrong log address")
-		assert.True(t, bytes.Equal(topic.Bytes(), l.EventSig.Bytes()) || bytes.Equal(topic2.Bytes(), l.EventSig.Bytes()), "wrong log topic")
-		assert.True(t, l.BlockNumber >= startBlock && l.BlockNumber <= endBlock)
-	}
+
+	assertion(t, logs, err, startBlock, endBlock)
+
+	logs, err = th.ORM.FilteredLogs(ctx, filter([]common.Hash{topic, topic2}, startBlock, endBlock), limiter)
+
+	assertion(t, logs, err, startBlock, endBlock)
 }
 
 func TestORM_DeleteBlocksBefore(t *testing.T) {
@@ -1404,29 +1453,92 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 			},
 		},
 	}
+
+	filter := func(timestamp time.Time, confs evmtypes.Confirmations, topicIdx int, topicVals []common.Hash) query.KeyFilter {
+		var queryConfs primitives.ConfirmationLevel
+
+		switch confs {
+		case evmtypes.Finalized:
+			queryConfs = primitives.Finalized
+		case evmtypes.Unconfirmed:
+			queryConfs = primitives.Unconfirmed
+		default:
+			fmt.Println("default")
+			queryConfs = primitives.ConfirmationLevel(confs)
+		}
+
+		filters := []query.Expression{
+			logpoller.NewAddressFilter(address),
+			logpoller.NewEventSigFilter(event),
+		}
+
+		if len(topicVals) > 0 {
+			exp := make([]query.Expression, len(topicVals))
+			for idx, val := range topicVals {
+				exp[idx] = logpoller.NewEventByTopicFilter(common.Hash{}, uint64(topicIdx), []primitives.ValueComparator{
+					{Value: val.String(), Operator: primitives.Eq},
+				})
+			}
+
+			filters = append(filters, query.Expression{
+				BoolExpression: query.BoolExpression{
+					Expressions:  exp,
+					BoolOperator: query.OR,
+				},
+			})
+		}
+
+		filters = append(filters, []query.Expression{
+			query.Timestamp(uint64(timestamp.Unix()), primitives.Gt),
+			query.Confirmation(queryConfs),
+		}...)
+
+		return query.KeyFilter{
+			Expressions: filters,
+		}
+	}
+
+	limiter := query.LimitAndSort{
+		SortBy: []query.SortBy{
+			query.NewSortBySequence(query.Asc),
+		},
+	}
+
+	assertion := func(t *testing.T, logs []logpoller.Log, err error, exp []expectedLog) {
+		require.NoError(t, err)
+		require.Len(t, logs, len(exp))
+
+		for i, log := range logs {
+			assert.Equal(t, exp[i].block, log.BlockNumber)
+			assert.Equal(t, exp[i].log, log.LogIndex)
+		}
+	}
+
 	for _, tt := range tests {
-		t.Run("SelectLogsCreatedAfter"+tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			logs, err := th.ORM.SelectLogsCreatedAfter(ctx, address, event, tt.after, tt.confs)
-			require.NoError(t, err)
-			require.Len(t, logs, len(tt.expectedLogs))
 
-			for i, log := range logs {
-				require.Equal(t, tt.expectedLogs[i].block, log.BlockNumber)
-				require.Equal(t, tt.expectedLogs[i].log, log.LogIndex)
-			}
-		})
+			assertion(t, logs, err, tt.expectedLogs)
 
-		t.Run("SelectIndexedLogsCreatedAfter"+tt.name, func(t *testing.T) {
-			logs, err := th.ORM.SelectIndexedLogsCreatedAfter(ctx, address, event, 1, []common.Hash{event}, tt.after, tt.confs)
-			require.NoError(t, err)
-			require.Len(t, logs, len(tt.expectedLogs))
+			logs, err = th.ORM.FilteredLogs(ctx, filter(tt.after, tt.confs, 0, nil), limiter)
 
-			for i, log := range logs {
-				require.Equal(t, tt.expectedLogs[i].block, log.BlockNumber)
-				require.Equal(t, tt.expectedLogs[i].log, log.LogIndex)
-			}
+			assertion(t, logs, err, tt.expectedLogs)
 		})
 	}
+
+	t.Run("SelectIndexedLogsCreatedAfter", func(t *testing.T) {
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				logs, err := th.ORM.SelectIndexedLogsCreatedAfter(ctx, address, event, 1, []common.Hash{event}, tt.after, tt.confs)
+
+				assertion(t, logs, err, tt.expectedLogs)
+
+				logs, err = th.ORM.FilteredLogs(ctx, filter(tt.after, tt.confs, 1, []common.Hash{event}), limiter)
+
+				assertion(t, logs, err, tt.expectedLogs)
+			})
+		}
+	})
 }
 
 func TestNestedLogPollerBlocksQuery(t *testing.T) {
@@ -1612,6 +1724,12 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 		logpoller.NewLogPollerBlock(utils.RandomBytes32(), 10, time.Now(), 1),
 	)
 	require.NoError(t, err)
+	limiter := query.LimitAndSort{
+		SortBy: []query.SortBy{
+			query.NewSortByBlock(query.Asc),
+			query.NewSortBySequence(query.Asc),
+		},
+	}
 
 	tests := []struct {
 		name         string
@@ -1640,15 +1758,40 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 		},
 	}
 
+	wordFilter := func(word uint64) query.KeyFilter {
+		return query.KeyFilter{
+			Expressions: []query.Expression{
+				logpoller.NewAddressFilter(address),
+				logpoller.NewEventSigFilter(eventSig),
+				logpoller.NewEventByWordFilter(eventSig, 0, []primitives.ValueComparator{
+					{Value: logpoller.EvmWord(word).Hex(), Operator: primitives.Lte},
+				}),
+				logpoller.NewEventByWordFilter(eventSig, 1, []primitives.ValueComparator{
+					{Value: logpoller.EvmWord(word).Hex(), Operator: primitives.Gte},
+				}),
+				query.Confirmation(primitives.Unconfirmed),
+			},
+		}
+	}
+
+	assertion := func(t *testing.T, logs []logpoller.Log, err error, expected []int64) {
+		require.NoError(t, err)
+		assert.Len(t, logs, len(expected))
+
+		for index := range logs {
+			assert.Equal(t, expected[index], logs[index].BlockNumber)
+		}
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logs, err1 := th.ORM.SelectLogsDataWordBetween(ctx, address, eventSig, 0, 1, logpoller.EvmWord(tt.wordValue), evmtypes.Unconfirmed)
-			assert.NoError(t, err1)
-			assert.Len(t, logs, len(tt.expectedLogs))
+			logs, err := th.ORM.SelectLogsDataWordBetween(ctx, address, eventSig, 0, 1, logpoller.EvmWord(tt.wordValue), evmtypes.Unconfirmed)
 
-			for index := range logs {
-				assert.Equal(t, tt.expectedLogs[index], logs[index].BlockNumber)
-			}
+			assertion(t, logs, err, tt.expectedLogs)
+
+			logs, err = th.ORM.FilteredLogs(ctx, wordFilter(tt.wordValue), limiter)
+
+			assertion(t, logs, err, tt.expectedLogs)
 		})
 	}
 }

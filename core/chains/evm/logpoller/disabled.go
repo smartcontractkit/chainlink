@@ -118,8 +118,8 @@ func (d disabled) LogsDataWordBetween(ctx context.Context, eventSig common.Hash,
 	return nil, ErrDisabled
 }
 
-func (d disabled) FilteredLogs(_ query.KeyFilter, _ query.LimitAndSort) ([]Log, error) {
-	return nil, nil
+func (d disabled) FilteredLogs(_ context.Context, _ query.KeyFilter, _ query.LimitAndSort) ([]Log, error) {
+	return nil, ErrDisabled
 }
 
 func (d disabled) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
