@@ -225,6 +225,13 @@ func (r *Receipt) GetBlockHash() common.Hash {
 	return r.BlockHash
 }
 
+type Confirmations int
+
+const (
+	Finalized   = Confirmations(-1)
+	Unconfirmed = Confirmations(0)
+)
+
 // Log represents a contract log event.
 //
 // Copied from go-ethereum: https://github.com/ethereum/go-ethereum/blob/ce9a289fa48e0d2593c4aaa7e207c8a5dd3eaa8a/core/types/log.go
