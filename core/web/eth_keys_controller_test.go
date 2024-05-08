@@ -73,11 +73,9 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 		if balance.Address == expectedKeys[0].Address.Hex() {
 			assert.Equal(t, "0.000000000000000256", balance.EthBalance.String())
 			assert.Equal(t, "256", balance.LinkBalance.String())
-
 		} else {
 			assert.Equal(t, "0.000000000000000001", balance.EthBalance.String())
 			assert.Equal(t, "1", balance.LinkBalance.String())
-
 		}
 	}
 }

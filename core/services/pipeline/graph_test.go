@@ -265,5 +265,4 @@ func TestParse(t *testing.T) {
 			assert.Error(t, err)
 		})
 	}
-
 }

@@ -118,7 +118,6 @@ func testTransition(t *testing.T, rpc *mockNodeClient[types.ID, Head], transitio
 		}, "Expected transition from `%s` to `%s` to panic", nodeState, destinationState)
 		m.AssertNotCalled(t)
 		assert.Equal(t, nodeState, node.State(), "Expected node to remain in initial state on invalid transition")
-
 	}
 }
 

@@ -47,5 +47,4 @@ func TestHead_LatestFinalizedHead(t *testing.T) {
 			}
 		})
 	}
-
 }

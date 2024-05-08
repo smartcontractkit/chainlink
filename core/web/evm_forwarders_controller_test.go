@@ -100,7 +100,6 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 		},
 	}
 	for _, fwdr := range fwdrs {
-
 		body, err := json.Marshal(web.TrackEVMForwarderRequest{
 			EVMChainID: chainId,
 			Address:    fwdr.Address,

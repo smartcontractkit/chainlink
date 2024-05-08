@@ -40,5 +40,4 @@ func (g *fetchKeys) Run(args []string) {
 		panic(err)
 	}
 	fmt.Println("Functions OCR2 public keys have been saved to:", filepath)
-
 }

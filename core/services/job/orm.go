@@ -1121,7 +1121,6 @@ func (o *orm) loadPipelineRunIDs(ctx context.Context, jobID *int32, offset, limi
 					return
 				}
 				lggr.Debugw("loadPipelineRunIDs empty batch", "minId", minID, "maxID", maxID, "n", n, "len(ids)", len(ids), "limit", limit, "offset", offset, "skipped", skipped)
-
 			}
 		}
 		maxID = minID - 1
