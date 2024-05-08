@@ -53,7 +53,7 @@ jobs:
         working-directory: ./contracts
 
       - name: Assume role capable of dispatching action
-        uses: smartcontractkit/.github/actions/setup-github-token@9e7cc0779934cae4a9028b8588c9adb64d8ce68c # setup-github-token@0.1.0 
+        uses: smartcontractkit/.github/actions/setup-github-token@7fd30e516b3a6afa06c7a636d8027dba868ccb29 # setup-github-token@0.1.0 
         id: get-gh-token
         with:
           aws-role-arn:  ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
