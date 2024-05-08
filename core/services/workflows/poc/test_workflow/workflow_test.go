@@ -37,5 +37,6 @@ func TestWorkflow(t *testing.T) {
 	runner := wrokflowtesting.NewRunner(registry)
 	require.NoError(t, runner.Run(workflow))
 
-	assert.Equal(t, []*test_workflow.MercuryTriggerResponse{trigger}, writeTarget.Seen)
+	assert.Len(t, writeTarget.Seen, 1)
+	assert.Equal(t, trigger, writeTarget.Seen[0])
 }

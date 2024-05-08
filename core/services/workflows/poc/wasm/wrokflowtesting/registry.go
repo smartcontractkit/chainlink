@@ -6,17 +6,15 @@ import (
 
 func NewRegistry() *Registry {
 	return &Registry{
-		remoteActions:   map[string]func(value values.Value) (values.Value, error){},
-		remoteConsensus: map[string]func(value values.Value) (values.Value, error){},
-		remoteTargets:   map[string]func(value values.Value) error{},
+		remoteActionsAndConsensus: map[string]func(value values.Value) (values.Value, error){},
+		remoteTargets:             map[string]func(value values.Value) error{},
 	}
 }
 
 type Registry struct {
-	triggers        []*valueAndRef
-	remoteActions   map[string]func(value values.Value) (values.Value, error)
-	remoteConsensus map[string]func(value values.Value) (values.Value, error)
-	remoteTargets   map[string]func(value values.Value) error
+	triggers                  []*valueAndRef
+	remoteActionsAndConsensus map[string]func(value values.Value) (values.Value, error)
+	remoteTargets             map[string]func(value values.Value) error
 }
 
 // RegisterTrigger should be called from generated code to assure type safety
@@ -31,12 +29,12 @@ func (r *Registry) RegisterTrigger(ref string, value any) error {
 
 // RegisterRemoteAction should be called from generated code to assure type safety
 func (r *Registry) RegisterRemoteAction(ref string, action func(value values.Value) (values.Value, error)) {
-	r.remoteActions[ref] = action
+	r.remoteActionsAndConsensus[ref] = action
 }
 
 // RegisterRemoteConsensus should be called from generated code to assure type safety
 func (r *Registry) RegisterRemoteConsensus(ref string, consensus func(value values.Value) (values.Value, error)) {
-	r.remoteConsensus[ref] = consensus
+	r.remoteActionsAndConsensus[ref] = consensus
 }
 
 // RegisterRemoteTarget should be called from generated code to assure type safety
