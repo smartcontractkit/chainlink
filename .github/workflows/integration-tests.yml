@@ -529,12 +529,12 @@ jobs:
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             id: vrfv2
-            nodes: 5
+            nodes: 6
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             id: vrfv2plus
-            nodes: 8
+            nodes: 9
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr

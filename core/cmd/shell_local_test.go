@@ -56,7 +56,6 @@ func genTestEVMRelayers(t *testing.T, opts legacyevm.ChainRelayExtenderConfig, k
 		t.Fatal(err)
 	}
 	return relayers
-
 }
 
 func TestShell_RunNodeWithPasswords(t *testing.T) {
@@ -491,7 +490,6 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 				app.On("GetConfig").Return(config).Once()
 				require.NoError(t, client.RebroadcastTransactions(c))
 			}
-
 		})
 	}
 }

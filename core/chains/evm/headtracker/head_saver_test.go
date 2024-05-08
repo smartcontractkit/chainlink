@@ -143,5 +143,4 @@ func TestHeadSaver_Load(t *testing.T) {
 	uncleChain := saver.Chain(h2Uncle.Hash)
 	require.NotNil(t, uncleChain)
 	require.Equal(t, uint32(2), uncleChain.ChainLength()) // h2Uncle -> h1
-
 }

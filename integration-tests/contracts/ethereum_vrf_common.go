@@ -14,6 +14,7 @@ import (
 
 type Coordinator interface {
 	ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error)
+	ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error)
 	Address() string
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
@@ -88,13 +89,8 @@ func parseRequestRandomnessLogs(coordinator Coordinator, logs []*types.Log) (*Co
 	var err error
 	for _, eventLog := range logs {
 		for _, topic := range eventLog.Topics {
-			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested{}.Topic()) == 0 {
-				randomWordsRequestedEvent, err = coordinator.ParseRandomWordsRequested(*eventLog)
-				if err != nil {
-					return nil, fmt.Errorf("parse RandomWordsRequested log failed, err: %w", err)
-				}
-			}
-			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()) == 0 {
+			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested{}.Topic()) == 0 ||
+				topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()) == 0 {
 				randomWordsRequestedEvent, err = coordinator.ParseRandomWordsRequested(*eventLog)
 				if err != nil {
 					return nil, fmt.Errorf("parse RandomWordsRequested log failed, err: %w", err)
@@ -103,4 +99,21 @@ func parseRequestRandomnessLogs(coordinator Coordinator, logs []*types.Log) (*Co
 		}
 	}
 	return randomWordsRequestedEvent, nil
+}
+
+func ParseRandomWordsFulfilledLogs(coordinator Coordinator, logs []*types.Log) ([]*CoordinatorRandomWordsFulfilled, error) {
+	var randomWordsFulfilledEventArr []*CoordinatorRandomWordsFulfilled
+	for _, eventLog := range logs {
+		for _, topic := range eventLog.Topics {
+			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled{}.Topic()) == 0 ||
+				topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()) == 0 {
+				randomWordsFulfilledEvent, err := coordinator.ParseRandomWordsFulfilled(*eventLog)
+				if err != nil {
+					return nil, fmt.Errorf("parse RandomWordsFulfilled log failed, err: %w", err)
+				}
+				randomWordsFulfilledEventArr = append(randomWordsFulfilledEventArr, randomWordsFulfilledEvent)
+			}
+		}
+	}
+	return randomWordsFulfilledEventArr, nil
 }

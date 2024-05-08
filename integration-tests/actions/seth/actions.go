@@ -28,11 +28,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
@@ -969,12 +969,12 @@ var OneEphemeralKeysLiveTestnetAutoFixFn = func(sethCfg *seth.Config) error {
 }
 
 // GetChainClient returns a seth client for the given network after validating the config
-func GetChainClient(config tc.SethConfig, network blockchain.EVMNetwork) (*seth.Client, error) {
+func GetChainClient(config ctf_config.SethConfig, network blockchain.EVMNetwork) (*seth.Client, error) {
 	return GetChainClientWithConfigFunction(config, network, noOpSethConfigFn)
 }
 
 // GetChainClientWithConfigFunction returns a seth client for the given network after validating the config and applying the config function
-func GetChainClientWithConfigFunction(config tc.SethConfig, network blockchain.EVMNetwork, configFn SethConfigFunction) (*seth.Client, error) {
+func GetChainClientWithConfigFunction(config ctf_config.SethConfig, network blockchain.EVMNetwork, configFn SethConfigFunction) (*seth.Client, error) {
 	readSethCfg := config.GetSethConfig()
 	if readSethCfg == nil {
 		return nil, fmt.Errorf("Seth config not found")

@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
@@ -39,6 +40,12 @@ type EthereumVRFCoordinatorV2 struct {
 	address     common.Address
 	client      *seth.Client
 	coordinator *vrf_coordinator_v2.VRFCoordinatorV2
+}
+
+type EthereumBatchVRFCoordinatorV2 struct {
+	address          common.Address
+	client           *seth.Client
+	batchCoordinator *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
 }
 
 // EthereumVRFConsumerV2 represents VRFv2 consumer contract
@@ -134,6 +141,38 @@ func LoadVRFCoordinatorV2(seth *seth.Client, address string) (*EthereumVRFCoordi
 		address:     common.HexToAddress(address),
 		coordinator: contract,
 	}, nil
+}
+
+func DeployBatchVRFCoordinatorV2(seth *seth.Client, coordinatorAddress string) (BatchVRFCoordinatorV2, error) {
+	abi, err := batch_vrf_coordinator_v2.BatchVRFCoordinatorV2MetaData.GetAbi()
+	if err != nil {
+		return &EthereumBatchVRFCoordinatorV2{}, fmt.Errorf("failed to get BatchVRFCoordinatorV2 ABI: %w", err)
+	}
+
+	coordinatorDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinatorV2Plus",
+		*abi,
+		common.FromHex(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2MetaData.Bin),
+		common.HexToAddress(coordinatorAddress))
+	if err != nil {
+		return &EthereumBatchVRFCoordinatorV2{}, fmt.Errorf("BatchVRFCoordinatorV2 instance deployment have failed: %w", err)
+	}
+
+	contract, err := batch_vrf_coordinator_v2.NewBatchVRFCoordinatorV2(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumBatchVRFCoordinatorV2{}, fmt.Errorf("failed to instantiate BatchVRFCoordinatorV2 instance: %w", err)
+	}
+
+	return &EthereumBatchVRFCoordinatorV2{
+		client:           seth,
+		batchCoordinator: contract,
+		address:          coordinatorDeploymentData.Address,
+	}, err
+}
+
+func (v *EthereumBatchVRFCoordinatorV2) Address() string {
+	return v.address.Hex()
 }
 
 func DeployVRFOwner(seth *seth.Client, coordinatorAddress string) (VRFOwner, error) {
@@ -519,6 +558,21 @@ func (v *EthereumVRFCoordinatorV2) ParseRandomWordsRequested(log types.Log) (*Co
 		Sender:                      requested.Sender,
 		ExtraArgs:                   nil,
 		Raw:                         requested.Raw,
+	}, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error) {
+	fulfilled, err := v.coordinator.ParseRandomWordsFulfilled(log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse RandomWordsFulfilled event: %w", err)
+	}
+
+	return &CoordinatorRandomWordsFulfilled{
+		RequestId:  fulfilled.RequestId,
+		OutputSeed: fulfilled.OutputSeed,
+		Payment:    fulfilled.Payment,
+		Success:    fulfilled.Success,
+		Raw:        fulfilled.Raw,
 	}, nil
 }
 

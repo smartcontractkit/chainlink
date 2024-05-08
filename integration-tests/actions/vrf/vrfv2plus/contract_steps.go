@@ -36,13 +36,18 @@ func DeployVRFV2_5Contracts(
 	}
 	coordinator, err := contracts.DeployVRFCoordinatorV2_5(chainClient, bhs.Address())
 	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrDeployCoordinator, err)
+		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+	}
+	batchCoordinator, err := contracts.DeployBatchVRFCoordinatorV2Plus(chainClient, coordinator.Address())
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrDeployBatchCoordinatorV2Plus, err)
 	}
 	return &vrfcommon.VRFContracts{
-		CoordinatorV2Plus: coordinator,
-		BHS:               bhs,
-		BatchBHS:          batchBHS,
-		VRFV2PlusConsumer: nil,
+		CoordinatorV2Plus:      coordinator,
+		BatchCoordinatorV2Plus: batchCoordinator,
+		BHS:                    bhs,
+		BatchBHS:               batchBHS,
+		VRFV2PlusConsumer:      nil,
 	}, nil
 }
 

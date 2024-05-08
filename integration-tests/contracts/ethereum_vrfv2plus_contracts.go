@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -25,6 +26,12 @@ type EthereumVRFCoordinatorV2_5 struct {
 	address     common.Address
 	client      *seth.Client
 	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface
+}
+
+type EthereumBatchVRFCoordinatorV2Plus struct {
+	address          common.Address
+	client           *seth.Client
+	batchCoordinator *batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2Plus
 }
 
 type EthereumVRFCoordinatorV2PlusUpgradedVersion struct {
@@ -131,7 +138,39 @@ func DeployVRFCoordinatorV2_5(seth *seth.Client, bhsAddr string) (VRFCoordinator
 	}, err
 }
 
+func DeployBatchVRFCoordinatorV2Plus(seth *seth.Client, coordinatorAddress string) (BatchVRFCoordinatorV2Plus, error) {
+	abi, err := batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusMetaData.GetAbi()
+	if err != nil {
+		return &EthereumBatchVRFCoordinatorV2Plus{}, fmt.Errorf("failed to get BatchVRFCoordinatorV2Plus ABI: %w", err)
+	}
+
+	coordinatorDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinatorV2Plus",
+		*abi,
+		common.FromHex(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusMetaData.Bin),
+		common.HexToAddress(coordinatorAddress))
+	if err != nil {
+		return &EthereumBatchVRFCoordinatorV2Plus{}, fmt.Errorf("BatchVRFCoordinatorV2Plus instance deployment have failed: %w", err)
+	}
+
+	contract, err := batch_vrf_coordinator_v2plus.NewBatchVRFCoordinatorV2Plus(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumBatchVRFCoordinatorV2Plus{}, fmt.Errorf("failed to instantiate BatchVRFCoordinatorV2Plus instance: %w", err)
+	}
+
+	return &EthereumBatchVRFCoordinatorV2Plus{
+		client:           seth,
+		batchCoordinator: contract,
+		address:          coordinatorDeploymentData.Address,
+	}, err
+}
+
 func (v *EthereumVRFCoordinatorV2_5) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumBatchVRFCoordinatorV2Plus) Address() string {
 	return v.address.Hex()
 }
 
@@ -189,6 +228,23 @@ func (v *EthereumVRFCoordinatorV2_5) ParseRandomWordsRequested(log types.Log) (*
 		Raw:                         randomWordsRequested.Raw,
 	}
 	return coordinatorRandomWordsRequested, nil
+}
+
+func (v *EthereumVRFCoordinatorV2_5) ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error) {
+	fulfilled, err := v.coordinator.ParseRandomWordsFulfilled(log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse RandomWordsFulfilled event: %w", err)
+	}
+	return &CoordinatorRandomWordsFulfilled{
+		RequestId:     fulfilled.RequestId,
+		OutputSeed:    fulfilled.OutputSeed,
+		Payment:       fulfilled.Payment,
+		SubId:         fulfilled.SubId.String(),
+		NativePayment: fulfilled.NativePayment,
+		OnlyPremium:   fulfilled.OnlyPremium,
+		Success:       fulfilled.Success,
+		Raw:           fulfilled.Raw,
+	}, nil
 }
 
 func (v *EthereumVRFCoordinatorV2_5) GetSubscription(ctx context.Context, subID *big.Int) (Subscription, error) {
@@ -894,6 +950,23 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) ParseRandomWordsRequested(
 		Raw:                         randomWordsRequested.Raw,
 	}
 	return coordinatorRandomWordsRequested, nil
+}
+
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error) {
+	fulfilled, err := v.coordinator.ParseRandomWordsFulfilled(log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse RandomWordsFulfilled event: %w", err)
+	}
+	return &CoordinatorRandomWordsFulfilled{
+		RequestId:     fulfilled.RequestId,
+		OutputSeed:    fulfilled.OutputSeed,
+		Payment:       fulfilled.Payment,
+		SubId:         fulfilled.SubId.String(),
+		NativePayment: fulfilled.NativePayment,
+		OnlyPremium:   fulfilled.OnlyPremium,
+		Success:       fulfilled.Success,
+		Raw:           fulfilled.Raw,
+	}, nil
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error) {

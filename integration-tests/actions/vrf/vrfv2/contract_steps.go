@@ -47,13 +47,13 @@ func DeployVRFV2Contracts(
 	if useTestCoordinator {
 		testCoordinator, err := contracts.DeployVRFCoordinatorTestV2(sethClient, linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
+			return nil, fmt.Errorf("%s, err %w", ErrDeployCoordinatorV2, err)
 		}
 		coordinatorAddress = testCoordinator.Address()
 	} else {
 		coordinator, err := contracts.DeployVRFCoordinatorV2(sethClient, linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
+			return nil, fmt.Errorf("%s, err %w", ErrDeployCoordinatorV2, err)
 		}
 		coordinatorAddress = coordinator.Address()
 	}
@@ -62,27 +62,35 @@ func DeployVRFV2Contracts(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrLoadingCoordinator, err)
 	}
+
+	batchCoordinator, err := contracts.DeployBatchVRFCoordinatorV2(sethClient, coordinator.Address())
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrDeployBatchCoordinatorV2, err)
+	}
+
 	if useVRFOwner {
 		vrfOwner, err := contracts.DeployVRFOwner(sethClient, coordinatorAddress)
 		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
+			return nil, fmt.Errorf("%s, err %w", ErrDeployCoordinatorV2, err)
 		}
 		return &vrfcommon.VRFContracts{
-			CoordinatorV2:   coordinator,
-			VRFOwner:        vrfOwner,
-			BHS:             bhs,
-			VRFV2Consumers:  nil,
-			LinkToken:       linkTokenContract,
-			MockETHLINKFeed: linkEthFeedContract,
+			CoordinatorV2:      coordinator,
+			BatchCoordinatorV2: batchCoordinator,
+			VRFOwner:           vrfOwner,
+			BHS:                bhs,
+			VRFV2Consumers:     nil,
+			LinkToken:          linkTokenContract,
+			MockETHLINKFeed:    linkEthFeedContract,
 		}, nil
 	}
 	return &vrfcommon.VRFContracts{
-		CoordinatorV2:   coordinator,
-		VRFOwner:        nil,
-		BHS:             bhs,
-		VRFV2Consumers:  nil,
-		LinkToken:       linkTokenContract,
-		MockETHLINKFeed: linkEthFeedContract,
+		CoordinatorV2:      coordinator,
+		BatchCoordinatorV2: batchCoordinator,
+		VRFOwner:           nil,
+		BHS:                bhs,
+		VRFV2Consumers:     nil,
+		LinkToken:          linkTokenContract,
+		MockETHLINKFeed:    linkEthFeedContract,
 	}, nil
 }
 

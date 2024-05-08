@@ -1,5 +1,4 @@
 name: gha_postgres
-version: "3.8"
 services:
   postgres:
     ports:
