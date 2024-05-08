@@ -128,7 +128,7 @@ type Local interface {
 // to have all of the dependencies required in order to create the capability service, e.g relayer config,
 // pipeline runner, etc.
 //
-//go:generate mockery --name CapabilityFactory --output ./mocks/ --case underscore
+//go:generate mockery --name CapabilityFactory --inpackage --inpackage-suffix --case underscore
 type CapabilityFactory interface {
 	// CapabilityID returns the unique identifier of the capability being implemented.
 	CapabilityID() CapabilityID
