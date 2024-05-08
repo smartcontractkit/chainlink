@@ -145,7 +145,7 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 	}
 
 	r.m[id] = c
-	r.lggr.Infow("capability added", "id", id, "type", info.CapabilityType, "description", info.Description, "version", info.Version)
+	r.lggr.Infow("capability added", "id", id, "type", info.CapabilityType, "description", info.Description, "version", info.Version())
 	return nil
 }
 

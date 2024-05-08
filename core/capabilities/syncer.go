@@ -125,12 +125,11 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		return
 	}
 	// NOTE: temporary hard-coded capabilities
-	capId := "streams-trigger"
+	capId := "streams-trigger@1"
 	triggerInfo := capabilities.CapabilityInfo{
 		ID:             capId,
 		CapabilityType: capabilities.CapabilityTypeTrigger,
 		Description:    "Remote Trigger",
-		Version:        "0.0.1",
 		DON:            &triggerCapabilityDonInfo,
 	}
 	myId := s.peerWrapper.GetPeer().ID().String()

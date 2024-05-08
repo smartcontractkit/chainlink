@@ -46,17 +46,16 @@ type EvmWrite struct {
 
 func NewEvmWrite(chain legacyevm.Chain, lggr logger.Logger) *EvmWrite {
 	// generate ID based on chain selector
-	name := fmt.Sprintf("write_%v", chain.ID())
+	name := fmt.Sprintf("write_%v@1", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
 	if err == nil {
-		name = fmt.Sprintf("write_%v", chainName)
+		name = fmt.Sprintf("write_%v@1", chainName)
 	}
 
 	info := capabilities.MustNewCapabilityInfo(
 		name,
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
-		"v1.0.0",
 		nil,
 	)
 
