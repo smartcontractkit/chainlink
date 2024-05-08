@@ -80,33 +80,31 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     address configurationContract;
   }
 
-  // CapabilityConfiguration is a struct that holds the capability
-  // configuration for a DON instance. This configuration may differ between
-  // DON instances serving the same capability.
+  /// @notice CapabilityConfiguration is a struct that holds the capability configuration
+  /// for a specific DON
   struct CapabilityConfiguration {
-    // This is unique for a DON instance .
+    /// @notice The capability Id
     bytes32 capabilityId;
-    // This configuration is expected to be decodeable on-chain (not enforced).
-    // Any configuration that does not need to be verified on chain should live
-    // in the `offchainConfig`. This configuration can be updated together with
-    // DON nodes.
-    bytes onchainConfig;
-    // This allows fine-grained configuration of capabilities across DON
-    // instances. This configuration can be updated together with DON nodes.
-    bytes offchainConfig;
+    /// @notice The capability config specific to a DON.  This will be decoded
+    /// offchain
+    bytes config;
   }
 
-  // DON (Decentralized Oracle Network) is a grouping of nodes that support
+  /// @notice DON (Decentralized Oracle Network) is a grouping of nodes that support
   // the same capabilities.
   struct DON {
-    // Computed. Auto-increment.
+    /// @notice Computed. Auto-increment.
     uint32 id;
-    // Whether the DON accepts external capability requests.
+    /// @notice True if the DON is public.  A public DON means that it accepts
+    /// external capability requests
     bool isPublic;
-    // A set of p2pIds of nodes that belong to this DON. A node (the same
+    /// @notice The set of p2pIds of nodes that belong to this DON. A node (the same
     // p2pId) can belong to multiple DONs.
     bytes32[] nodes;
-    CapabilityConfiguration[] capabilitiesConfigurations;
+    /// @notice The set of capabilityIds
+    EnumerableSet.Bytes32Set capabilityIds;
+    /// @notice Mapping from hashed capability IDs to configs
+    mapping(bytes32 capabilityId => bytes config) capabilityConfigs;
   }
 
   /// @notice This error is thrown when a caller is not allowed
@@ -148,6 +146,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param signer The node's signer address
   event NodeUpdated(bytes32 p2pId, uint256 nodeOperatorId, address signer);
 
+  /// @notice This event is emitted when a new DON is created
+  /// @param donId The ID of the newly created DON
+  /// @param isPublic True if the newly created DON is public
+  event DONAdded(uint256 donId, bool isPublic);
+
   /// @notice This error is thrown when trying to set the node's
   /// signer address to zero
   error InvalidNodeSigner();
@@ -156,10 +159,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// exists.
   error CapabilityAlreadyExists();
 
+  /// @notice This error is thrown when trying to add a capability configuration
+  /// for a capability that was already configured on a DON
+  /// @param donId The ID of the DON that the capability was configured for
+  /// @param capabilityId The ID of the capability that was configured
+  error DonCapabilityExists(uint32 donId, bytes32 capabilityId);
+
   /// @notice This error is thrown when a capability with the provided hashed ID is
   /// not found.
-  /// @param hashedCapabilityId The hashed ID used for the lookup.
-  error CapabilityDoesNotExist(bytes32 hashedCapabilityId);
+  /// @param capabilityId The hashed ID used for the lookup.
+  error CapabilityDoesNotExist(bytes32 capabilityId);
 
   /// @notice This error is thrown when trying to deprecate a capability that
   /// is already deprecated.
@@ -213,9 +222,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Mapping of nodes
   mapping(bytes32 p2pId => Node node) private s_nodes;
 
+  /// @notice Mapping of DON IDs to DONs
+  mapping(uint32 donId => DON don) private s_dons;
+
   /// @notice The latest node operator ID
   /// @dev No getter for this as this is an implementation detail
   uint256 private s_nodeOperatorId;
+
+  /// @notice Starting with 1 to avoid confusion with the zero value.
+  /// @dev No getter for this as this is an implementation detail
+  uint32 private s_donId = 1;
 
   function typeAndVersion() external pure override returns (string memory) {
     return "CapabilityRegistry 1.0.0";
@@ -439,66 +455,58 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     return s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId);
   }
 
-  //   // CapabilityConfiguration is a struct that holds the capability
-  // // configuration for a DON instance. This configuration may differ between
-  // // DON instances serving the same capability.
-  // struct CapabilityConfiguration {
-  //   // This is unique for a DON instance .
-  //   bytes32 capabilityId;
-  //   // This is used in the config digest to ensure uniqueness. Computed,
-  //   // auto-incremented.
-  //   uint32 onchainConfigVersion;
-  //   // This is used in the config digest to ensure uniqueness. Computed,
-  //   // auto-incremented.
-  //   uint32 offchainConfigVersion;
-  //   // This configuration is expected to be decodeable on-chain (not enforced).
-  //   // Any configuration that does not need to be verified on chain should live
-  //   // in the `offchainConfig`. This configuration can be updated together with
-  //   // DON nodes.
-  //   bytes onchainConfig;
-  //   // This allows fine-grained configuration of capabilities across DON
-  //   // instances. This configuration can be updated together with DON nodes.
-  //   bytes offchainConfig;
-  // }
-
-  // // DON (Decentralized Oracle Network) is a grouping of nodes that support
-  // // the same capabilities.
-  // struct DON {
-  //   // Computed. Auto-increment.
-  //   uint32 id;
-  //   // Whether the DON accepts external capability requests.
-  //   bool isPublic;
-  //   // A set of p2pIds of nodes that belong to this DON. A node (the same
-  //   // p2pId) can belong to multiple DONs.
-  //   bytes32[] nodes;
-  //   CapabilityConfiguration[] capabilitiesConfigurations;
-  // }
-
-  // Starting with 1 to avoid confusion with the zero value.
-  uint32 private s_donId = 1;
-  mapping(uint32 => DON) private s_dons;
-
-  /// @notice Adds a DON
+  /// @notice Adds a DON made up by a group of nodes that support a list
+  /// of capability configurations
+  /// @param nodes The nodes making up the DON
+  /// @param capabilityConfigurations The list of configurations for the
+  /// capabilities supported by the DON
+  /// @param isPublic True if the DON is public
   function addDON(
     bytes32[] calldata nodes,
-    CapabilityConfiguration[] calldata capabilitiesConfigurations,
+    CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic
-  ) external {
+  ) external onlyOwner {
     uint32 id = s_donId;
 
+    s_dons[id].id = id;
     s_dons[id].isPublic = isPublic;
 
-    for (uint256 i; i < capabilitiesConfigurations.length; ++i) {
-      CapabilityConfiguration calldata configuration = capabilitiesConfigurations[i];
+    for (uint256 i; i < capabilityConfigurations.length; ++i) {
+      CapabilityConfiguration calldata configuration = capabilityConfigurations[i];
+      bytes32 capabilityIds = configuration.capabilityId;
 
-      if (!s_capabilityIds.contains(configuration.capabilityId))
-        revert CapabilityDoesNotExist(configuration.capabilityId);
+      if (s_capabilities[capabilityIds].version == bytes32("")) revert CapabilityDoesNotExist(capabilityIds);
 
-      s_dons[id].capabilitiesConfigurations[i] = configuration;
+      if (s_dons[id].capabilityIds.contains(capabilityIds)) revert DonCapabilityExists(id, capabilityIds);
+
+      s_dons[id].capabilityIds.add(capabilityIds);
+      s_dons[id].capabilityConfigs[capabilityIds] = configuration.config;
     }
 
+    // TODO:  Verify that the nodes added support the relevant capability
+    // TODO:  Verify that nodes are unique
     s_dons[id].nodes = nodes;
 
     ++s_donId;
+
+    emit DONAdded(id, isPublic);
+  }
+
+  /// @notice Get's a DON's data
+  /// @param donId The DON's ID
+  /// @return uint32 The DON ID
+  /// @return bool True if the DON is public
+  /// @return bytes32[] The list of node P2P IDs that are in the DON
+  /// @return bytes32[] The list of capability IDs supported by the DON
+  function getDON(uint32 donId) external view returns (uint32, bool, bytes32[] memory, bytes32[] memory) {
+    return (s_dons[donId].id, s_dons[donId].isPublic, s_dons[donId].nodes, s_dons[donId].capabilityIds.values());
+  }
+
+  /// @notice Returns the DON specific configuration for a capability
+  /// @param donId The DON's ID
+  /// @param capabilityId The Capability ID
+  /// @return bytes The DON specific configuration for the capability
+  function getDONCapabilityConfig(uint32 donId, bytes32 capabilityId) external view returns (bytes memory) {
+    return s_dons[donId].capabilityConfigs[capabilityId];
   }
 }
