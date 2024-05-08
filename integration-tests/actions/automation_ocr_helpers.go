@@ -193,8 +193,10 @@ func CreateOCRKeeperJobs(
 		contractVersion = "v2.1+"
 	} else if registryVersion == ethereum.RegistryVersion_2_1 {
 		contractVersion = "v2.1"
+	} else if registryVersion == ethereum.RegistryVersion_2_0 {
+		contractVersion = "v2.0"
 	} else {
-		require.FailNow(t, fmt.Sprintf("v2.1, and v2.2 are the only supported versions, but got something else: %v (iota)", registryVersion))
+		require.FailNow(t, fmt.Sprintf("v2.0, v2.1, and v2.2 are the only supported versions, but got something else: %v (iota)", registryVersion))
 	}
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{
