@@ -549,5 +549,4 @@ func TestErrorBuffer(t *testing.T) {
 		combined := buff.Flush()
 		require.Nil(t, combined)
 	})
-
 }

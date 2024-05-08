@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/grafana/pyroscope-go"
+	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -63,6 +64,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -319,6 +321,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
+		workflowORM    = workflowstore.NewDBStore(opts.DS, clockwork.NewRealClock())
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
@@ -388,6 +391,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger,
 		registry,
 		legacyEVMChains,
+		workflowORM,
 		func() *p2ptypes.PeerID {
 			if externalPeerWrapper == nil {
 				return nil

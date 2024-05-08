@@ -1096,7 +1096,6 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 			err := got.UnmarshalJSON(tt.args.data)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
-
 		})
 	}
 }
@@ -1149,7 +1148,6 @@ func assertTxnsEqual(t *testing.T, txns1, txns2 []evmtypes.Transaction) {
 	}
 }
 func TestTxType_JSONRoundtrip(t *testing.T) {
-
 	t.Run("non zero", func(t *testing.T) {
 		t.Parallel()
 		want := evmtypes.TxType(2)

@@ -269,7 +269,6 @@ func (s *scheduler) Run() {
 				s.waiting++
 			}
 		}
-
 	}
 
 	close(s.taskCh)

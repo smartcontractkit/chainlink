@@ -258,7 +258,6 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 }
 
 func TestShell_RemoteLogin(t *testing.T) {
-
 	app := startNewApplicationV2(t, nil)
 	orm := app.AuthenticationProvider()
 
@@ -492,7 +491,6 @@ func TestShell_Profile_InvalidSecondsParam(t *testing.T) {
 	err = client.Profile(cli.NewContext(nil, set, nil))
 	wantErr := cmd.ErrProfileTooLong
 	require.ErrorAs(t, err, &wantErr)
-
 }
 
 func TestShell_Profile(t *testing.T) {
