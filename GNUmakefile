@@ -33,7 +33,6 @@ gomodtidy: gomods ## Run go mod tidy on all modules.
 	cd ./integration-tests && go mod tidy
 	cd ./integration-tests/load && go mod tidy
 	cd ./dashboard-lib && go mod tidy
-	cd ./charts/chainlink-cluster && go mod tidy
 
 .PHONY: godoc
 godoc: ## Install and run godoc
@@ -92,7 +91,6 @@ generate: pnpmdep abigen codecgen mockery protoc gomods ## Execute all go:genera
 	cd ./integration-tests && go generate -x ./...
 	cd ./integration-tests/load && go generate -x ./...
 	cd ./dashboard-lib && go generate -x ./...
-	cd ./charts/chainlink-cluster && go generate -x ./...
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
