@@ -50,14 +50,14 @@ func NewServer(impl core.KeyValueStore) *Server {
 	return &Server{impl: impl}
 }
 
-func (s Server) Store(ctx context.Context, req *pb.StoreKeyValueRequest) (*emptypb.Empty, error) {
+func (s Server) StoreKeyValue(ctx context.Context, req *pb.StoreKeyValueRequest) (*emptypb.Empty, error) {
 	if err := s.impl.Store(ctx, req.Key, req.Value); err != nil {
 		return nil, fmt.Errorf("failed to store bytes for key: %s: %w", req.Key, err)
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (s Server) Get(ctx context.Context, req *pb.GetValueForKeyRequest) (*pb.GetValueForKeyResponse, error) {
+func (s Server) GetValueForKey(ctx context.Context, req *pb.GetValueForKeyRequest) (*pb.GetValueForKeyResponse, error) {
 	bytes, err := s.impl.Get(ctx, req.Key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bytes for key: %s: %w ", req.Key, err)

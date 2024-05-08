@@ -29,9 +29,9 @@ func Test_KeyValueStoreServer(t *testing.T) {
 	// Setup
 	server := Server{impl: &testKeyValueStore{store: make(map[string][]byte)}}
 
-	_, err := server.Store(context.Background(), &pb.StoreKeyValueRequest{Key: "key", Value: []byte(`{"A":"a","B":1}`)})
+	_, err := server.StoreKeyValue(context.Background(), &pb.StoreKeyValueRequest{Key: "key", Value: []byte(`{"A":"a","B":1}`)})
 	assert.NoError(t, err)
-	resp, err := server.Get(context.Background(), &pb.GetValueForKeyRequest{Key: "key"})
+	resp, err := server.GetValueForKey(context.Background(), &pb.GetValueForKeyRequest{Key: "key"})
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(`{"A":"a","B":1}`), resp.Value)
 }
