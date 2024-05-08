@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -657,7 +656,7 @@ func (o *OffRamp) DecodeExecutionReport(ctx context.Context, report []byte) (cci
 	return DecodeExecReport(ctx, o.ExecutionReportArgs, report)
 }
 
-func (o *OffRamp) RegisterFilters(qopts ...pg.QOpt) error {
+func (o *OffRamp) RegisterFilters() error {
 	return logpollerutil.RegisterLpFilters(o.lp, o.filters)
 }
 
