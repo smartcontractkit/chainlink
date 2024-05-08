@@ -190,53 +190,16 @@ func jobSpecToCommitPluginConfig(ctx context.Context, lggr logger.Logger, jb job
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "failed offramp reader")
 	}
-	// Look up all destination offRamps connected to the same router
-	destRouterAddr, err := offRampReader.GetRouter(ctx)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	destRouterEvmAddr, err := ccipcalc.GenericAddrToEvm(destRouterAddr)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	destRouter, err := router.NewRouter(destRouterEvmAddr, params.destChain.Client())
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	destRouterOffRamps, err := destRouter.GetOffRamps(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	var destOffRampReaders []ccipdata.OffRampReader
-	for _, o := range destRouterOffRamps {
-		destOffRampAddr := cciptypes.Address(o.OffRamp.String())
-		destOffRampReader, err2 := factory.NewOffRampReader(
-			commitLggr,
-			versionFinder,
-			destOffRampAddr,
-			params.destChain.Client(),
-			params.destChain.LogPoller(),
-			params.destChain.GasEstimator(),
-			params.destChain.Config().EVM().GasEstimator().PriceMax().ToInt(),
-			true,
-			qopts...,
-		)
-		if err2 != nil {
-			return nil, nil, nil, err2
-		}
-
-		destOffRampReaders = append(destOffRampReaders, destOffRampReader)
-	}
 
 	onRampRouterAddr, err := onRampReader.RouterAddress(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	sourceRouterAddr, err := ccipcalc.GenericAddrToEvm(onRampRouterAddr)
+	routerAddr, err := ccipcalc.GenericAddrToEvm(onRampRouterAddr)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	sourceRouter, err := router.NewRouter(sourceRouterAddr, params.sourceChain.Client())
+	sourceRouter, err := router.NewRouter(routerAddr, params.sourceChain.Client())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -247,11 +210,9 @@ func jobSpecToCommitPluginConfig(ctx context.Context, lggr logger.Logger, jb job
 
 	// Prom wrappers
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, params.sourceChain.ID().Int64(), ccip.CommitPluginLabel)
+	offRampReader = observability.NewObservedOffRampReader(offRampReader, params.destChain.ID().Int64(), ccip.CommitPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, params.destChain.ID().Int64(), ccip.CommitPluginLabel)
 	metricsCollector := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, params.sourceChain.ID().Int64(), params.destChain.ID().Int64())
-	for i, o := range destOffRampReaders {
-		destOffRampReaders[i] = observability.NewObservedOffRampReader(o, params.destChain.ID().Int64(), ccip.CommitPluginLabel)
-	}
 
 	chainHealthcheck := cache.NewObservedChainHealthCheck(
 		cache.NewChainHealthcheck(
@@ -281,7 +242,7 @@ func jobSpecToCommitPluginConfig(ctx context.Context, lggr logger.Logger, jb job
 	return &CommitPluginStaticConfig{
 			lggr:                  commitLggr,
 			onRampReader:          onRampReader,
-			offRamps:              destOffRampReaders,
+			offRamp:               offRampReader,
 			sourceNative:          ccipcalc.EvmAddrToGeneric(sourceNative),
 			priceGetter:           priceGetter,
 			sourceChainSelector:   params.commitStoreStaticCfg.SourceChainSelector,
