@@ -2,6 +2,7 @@ package blockheaderfeeder
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -20,24 +22,31 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ job.ServiceCtx = &service{}
 
+type Config interface {
+	Feature() config.Feature
+	Database() config.Database
+}
+
 type Delegate struct {
+	cfg          Config
 	logger       logger.Logger
 	legacyChains legacyevm.LegacyChainContainer
 	ks           keystore.Eth
 }
 
 func NewDelegate(
+	cfg Config,
 	logger logger.Logger,
 	legacyChains legacyevm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
 	return &Delegate{
+		cfg:          cfg,
 		logger:       logger,
 		legacyChains: legacyChains,
 		ks:           ks,
@@ -54,6 +63,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if jb.BlockHeaderFeederSpec == nil {
 		return nil, errors.Errorf("Delegate expects a BlockHeaderFeederSpec to be present, got %+v", jb)
 	}
+	marshalledJob, err := json.MarshalIndent(jb.BlockHeaderFeederSpec, "", " ")
+	if err != nil {
+		return nil, err
+	}
+	d.logger.Debugw("Creating services for job spec", "job", string(marshalledJob))
 
 	chain, err := d.legacyChains.Get(jb.BlockHeaderFeederSpec.EVMChainID.String())
 	if err != nil {
@@ -61,7 +75,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			"getting chain ID %d: %w", jb.BlockHeaderFeederSpec.EVMChainID.ToInt(), err)
 	}
 
-	if !chain.Config().Feature().LogPoller() {
+	if !d.cfg.Feature().LogPoller() {
 		return nil, errors.New("log poller must be enabled to run blockheaderfeeder")
 	}
 
@@ -140,7 +154,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		coordinators = append(coordinators, coord)
 	}
 
-	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config().EVM().GasEstimator(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, nil, chain.ID(), d.ks)
+	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config().EVM().GasEstimator(), d.cfg.Database(), fromAddresses, chain.TxManager(), bhs, nil, chain.ID(), d.ks)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
@@ -209,7 +223,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -26,7 +27,7 @@ import (
 // https://www.notion.so/chainlink/Txm-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
 // ResumeCallback is assumed to be idempotent
-type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
+type ResumeCallback func(ctx context.Context, id uuid.UUID, result interface{}, err error) error
 
 // TxManager is the main component of the transaction manager.
 // It is also the interface to external callers.
@@ -41,7 +42,7 @@ type TxManager[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
-	types.HeadTrackable[HEAD, BLOCK_HASH]
+	headtracker.HeadTrackable[HEAD, BLOCK_HASH]
 	services.Service
 	Trigger(addr ADDR)
 	CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH]) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
@@ -56,7 +57,7 @@ type TxManager[
 	// Find transactions with a non-null TxMeta field that was provided and a receipt block number greater than or equal to the one provided
 	FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	// Find transactions loaded with transaction attempts and receipts by transaction IDs and states
-	FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
+	FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	FindEarliestUnconfirmedBroadcastTime(ctx context.Context) (nullv4.Time, error)
 	FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (nullv4.Int, error)
 	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error)
@@ -189,12 +190,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
 
-		/* Tracker currently disabled for BCI-2638; refactor required
-		b.logger.Info("Txm starting tracker")
 		if err := ms.Start(ctx, b.tracker); err != nil {
 			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
 		}
-		*/
 
 		b.logger.Info("Txm starting runLoop")
 		b.wg.Add(1)
@@ -274,12 +272,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close TxAttemptBuilder: %w", err))
 		}
 
-		/* Tracker currently disabled for BCI-2638; refactor required
-		if err := b.tracker.Close(); err != nil {
-			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close Tracker: %w", err))
-		}
-		*/
-
 		return nil
 	})
 }
@@ -328,6 +320,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		if err := b.broadcaster.closeInternal(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
 		}
+		if err := b.tracker.closeInternal(); err != nil {
+			b.logger.Panicw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
+		}
 		if err := b.confirmer.closeInternal(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
 		}
@@ -336,16 +331,17 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			close(r.done)
 		}
 		var wg sync.WaitGroup
-		// two goroutines to handle independent backoff retries starting:
+		// three goroutines to handle independent backoff retries starting:
 		// - Broadcaster
 		// - Confirmer
+		// - Tracker
 		// If chStop is closed, we mark stopped=true so that the main runloop
 		// can check and exit early if necessary
 		//
 		// execReset will not return until either:
-		// 1. Both Broadcaster and Confirmer started successfully
+		// 1. Broadcaster, Confirmer, and Tracker all started successfully
 		// 2. chStop was closed (txmgr exit)
-		wg.Add(2)
+		wg.Add(3)
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
@@ -355,6 +351,25 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				case <-time.After(backoff.Duration()):
 					if err := b.broadcaster.startInternal(ctx); err != nil {
 						b.logger.Criticalw("Failed to start Broadcaster", "err", err)
+						b.SvcErrBuffer.Append(err)
+						continue
+					}
+					return
+				case <-b.chStop:
+					stopOnce.Do(func() { stopped = true })
+					return
+				}
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			// Retry indefinitely on failure
+			backoff := iutils.NewRedialBackoff()
+			for {
+				select {
+				case <-time.After(backoff.Duration()):
+					if err := b.tracker.startInternal(ctx); err != nil {
+						b.logger.Criticalw("Failed to start Tracker", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -394,8 +409,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			b.broadcaster.Trigger(address)
 		case head := <-b.chHeads:
 			b.confirmer.mb.Deliver(head)
-			// Tracker currently disabled for BCI-2638; refactor required
-			// b.tracker.mb.Deliver(head.BlockNumber())
+			b.tracker.mb.Deliver(head.BlockNumber())
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
@@ -423,12 +437,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
 			}
-			/* Tracker currently disabled for BCI-2638; refactor required
 			err = b.tracker.Close()
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
 			}
-			*/
 			return
 		case <-keysChanged:
 			// This check prevents the weird edge-case where you can select
@@ -586,7 +598,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWi
 	return
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	txes, err = b.txStore.FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx, ids, states, chainID)
 	return
 }
@@ -666,7 +678,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Fin
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return txes, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return txes, errors.New(n.ErrMsg)
 }
 

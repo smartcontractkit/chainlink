@@ -9,8 +9,7 @@ import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
@@ -208,13 +207,13 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
             report.upkeepIds[i],
             upkeepTransmitInfo[i].upkeep
           );
-          transmitVars.totalPremium += receipt.premiumJuels;
-          transmitVars.totalReimbursement += receipt.gasReimbursementJuels;
+          transmitVars.totalPremium += receipt.premiumInJuels;
+          transmitVars.totalReimbursement += receipt.gasReimbursementInJuels;
 
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the LINK amount, but may change to billing token
+            receipt.gasReimbursementInJuels + receipt.premiumInJuels, // TODO - this is currently the LINK amount, but may change to billing token
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
@@ -226,37 +225,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     s_transmitters[msg.sender].balance += transmitVars.totalReimbursement;
     s_hotVars.totalPremium += transmitVars.totalPremium;
     s_reserveAmounts[IERC20(address(i_link))] += transmitVars.totalReimbursement + transmitVars.totalPremium;
-  }
-
-  /**
-   * @notice adds fund to an upkeep
-   * @param id the upkeepID
-   * @param amount the amount of funds to add, in the upkeep's billing token
-   */
-  function addFunds(uint256 id, uint96 amount) external payable {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-
-    if (msg.value != 0) {
-      if (upkeep.billingToken != IERC20(i_wrappedNativeToken)) {
-        revert InvalidToken();
-      }
-      amount = SafeCast.toUint96(msg.value);
-    }
-
-    s_upkeep[id].balance = upkeep.balance + amount;
-    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + amount;
-
-    if (msg.value == 0) {
-      // ERC20 payment
-      bool success = upkeep.billingToken.transferFrom(msg.sender, address(this), amount);
-      if (!success) revert TransferFailed();
-    } else {
-      // native payment
-      i_wrappedNativeToken.deposit{value: amount}();
-    }
-
-    emit FundsAdded(id, msg.sender, amount);
   }
 
   /**
@@ -352,6 +320,10 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       chainModule: onchainConfig.chainModule
     });
 
+    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
+    uint32 newLatestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
+    uint32 newConfigCount = s_storage.configCount + 1;
+
     s_storage = Storage({
       checkGasLimit: onchainConfig.checkGasLimit,
       maxPerformGas: onchainConfig.maxPerformGas,
@@ -362,16 +334,12 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       upkeepPrivilegeManager: onchainConfig.upkeepPrivilegeManager,
       financeAdmin: onchainConfig.financeAdmin,
       nonce: s_storage.nonce,
-      configCount: s_storage.configCount,
-      latestConfigBlockNumber: s_storage.latestConfigBlockNumber
+      configCount: newConfigCount,
+      latestConfigBlockNumber: newLatestConfigBlockNumber
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
     s_fallbackNativePrice = onchainConfig.fallbackNativePrice;
-
-    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
-    s_storage.configCount += 1;
 
     bytes memory onchainConfigBytes = abi.encode(onchainConfig);
 
@@ -387,7 +355,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       offchainConfig
     );
 
-    delete s_registrars;
+    for (uint256 idx = s_registrars.length(); idx > 0; idx--) {
+      s_registrars.remove(s_registrars.at(idx - 1));
+    }
 
     for (uint256 idx = 0; idx < onchainConfig.registrars.length; idx++) {
       s_registrars.add(onchainConfig.registrars[idx]);

@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -33,9 +34,9 @@ var ErrEmptySessionID = errors.New("session ID cannot be empty")
 // as local admin management (ie initial core node setup, initial admin user creation), is always
 // required no matter what the pluggable AuthenticationProvider implementation is.
 type BasicAdminUsersORM interface {
-	ListUsers() ([]User, error)
-	CreateUser(user *User) error
-	FindUser(email string) (User, error)
+	ListUsers(ctx context.Context) ([]User, error)
+	CreateUser(ctx context.Context, user *User) error
+	FindUser(ctx context.Context, email string) (User, error)
 }
 
 //go:generate mockery --quiet --name AuthenticationProvider --output ./mocks/ --case=underscore
@@ -43,24 +44,24 @@ type BasicAdminUsersORM interface {
 // AuthenticationProvider is an interface that abstracts the required application calls to a user management backend
 // Currently localauth (users table DB) or LDAP server (readonly)
 type AuthenticationProvider interface {
-	FindUser(email string) (User, error)
-	FindUserByAPIToken(apiToken string) (User, error)
-	ListUsers() ([]User, error)
-	AuthorizedUserWithSession(sessionID string) (User, error)
-	DeleteUser(email string) error
-	DeleteUserSession(sessionID string) error
-	CreateSession(sr SessionRequest) (string, error)
-	ClearNonCurrentSessions(sessionID string) error
-	CreateUser(user *User) error
-	UpdateRole(email, newRole string) (User, error)
-	SetAuthToken(user *User, token *auth.Token) error
-	CreateAndSetAuthToken(user *User) (*auth.Token, error)
-	DeleteAuthToken(user *User) error
-	SetPassword(user *User, newPassword string) error
-	TestPassword(email, password string) error
-	Sessions(offset, limit int) ([]Session, error)
-	GetUserWebAuthn(email string) ([]WebAuthn, error)
-	SaveWebAuthn(token *WebAuthn) error
+	FindUser(ctx context.Context, email string) (User, error)
+	FindUserByAPIToken(ctx context.Context, apiToken string) (User, error)
+	ListUsers(ctx context.Context) ([]User, error)
+	AuthorizedUserWithSession(ctx context.Context, sessionID string) (User, error)
+	DeleteUser(ctx context.Context, email string) error
+	DeleteUserSession(ctx context.Context, sessionID string) error
+	CreateSession(ctx context.Context, sr SessionRequest) (string, error)
+	ClearNonCurrentSessions(ctx context.Context, sessionID string) error
+	CreateUser(ctx context.Context, user *User) error
+	UpdateRole(ctx context.Context, email, newRole string) (User, error)
+	SetAuthToken(ctx context.Context, user *User, token *auth.Token) error
+	CreateAndSetAuthToken(ctx context.Context, user *User) (*auth.Token, error)
+	DeleteAuthToken(ctx context.Context, user *User) error
+	SetPassword(ctx context.Context, user *User, newPassword string) error
+	TestPassword(ctx context.Context, email, password string) error
+	Sessions(ctx context.Context, offset, limit int) ([]Session, error)
+	GetUserWebAuthn(ctx context.Context, email string) ([]WebAuthn, error)
+	SaveWebAuthn(ctx context.Context, token *WebAuthn) error
 
-	FindExternalInitiator(eia *auth.Token) (initiator *bridges.ExternalInitiator, err error)
+	FindExternalInitiator(ctx context.Context, eia *auth.Token) (initiator *bridges.ExternalInitiator, err error)
 }

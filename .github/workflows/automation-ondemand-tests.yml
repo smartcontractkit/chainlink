@@ -226,7 +226,15 @@ jobs:
           UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
           PYROSCOPE_SERVER: ${{ matrix.tests.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}          
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          RUN_ID: ${{ github.run_id }}
+          TEST_LOG_COLLECT: "true"
+          LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          LOKI_BASIC_AUTH:  ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+          GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
         run: |
           echo ::add-mask::$UPGRADE_IMAGE
           echo ::add-mask::$OLD_IMAGE
@@ -242,6 +250,14 @@ jobs:
             pyroscope_enabled=false
           fi          
 
+          if [ -n "$TEST_LOG_COLLECT" ]; then
+          test_log_collect=true
+          else
+          test_log_collect=false
+          fi
+
+          log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
+
           cat << EOF > config.toml
           [Network]
           selected_networks=$selected_networks
@@ -253,6 +269,22 @@ jobs:
           [ChainlinkUpgradeImage]
           image="$UPGRADE_IMAGE"
           version="$UPGRADE_VERSION"
+
+          [Logging]
+          test_log_collect=$test_log_collect
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_ENDPOINT"
+          basic_auth_secret="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dashboard_url="$GRAFANA_DASHBOARD_URL"
 
           [Pyroscope]
           enabled=$pyroscope_enabled
@@ -270,7 +302,7 @@ jobs:
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ steps.determine-build.outputs.image }}
           cl_image_tag: ${{ steps.determine-build.outputs.version }}

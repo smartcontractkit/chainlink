@@ -8,8 +8,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -69,11 +69,11 @@ func (pm *PersistenceManager) Close() error {
 }
 
 func (pm *PersistenceManager) Insert(ctx context.Context, req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) error {
-	return pm.orm.InsertTransmitRequest(pm.serverURL, req, pm.jobID, reportCtx, pg.WithParentCtx(ctx))
+	return pm.orm.InsertTransmitRequest(ctx, pm.serverURL, req, pm.jobID, reportCtx)
 }
 
 func (pm *PersistenceManager) Delete(ctx context.Context, req *pb.TransmitRequest) error {
-	return pm.orm.DeleteTransmitRequests(pm.serverURL, []*pb.TransmitRequest{req}, pg.WithParentCtx(ctx))
+	return pm.orm.DeleteTransmitRequests(ctx, pm.serverURL, []*pb.TransmitRequest{req})
 }
 
 func (pm *PersistenceManager) AsyncDelete(req *pb.TransmitRequest) {
@@ -81,7 +81,7 @@ func (pm *PersistenceManager) AsyncDelete(req *pb.TransmitRequest) {
 }
 
 func (pm *PersistenceManager) Load(ctx context.Context) ([]*Transmission, error) {
-	return pm.orm.GetTransmitRequests(pm.serverURL, pm.jobID, pg.WithParentCtx(ctx))
+	return pm.orm.GetTransmitRequests(ctx, pm.serverURL, pm.jobID)
 }
 
 func (pm *PersistenceManager) runFlushDeletesLoop() {
@@ -98,7 +98,7 @@ func (pm *PersistenceManager) runFlushDeletesLoop() {
 			return
 		case <-ticker.C:
 			queuedReqs := pm.resetDeleteQueue()
-			if err := pm.orm.DeleteTransmitRequests(pm.serverURL, queuedReqs, pg.WithParentCtx(ctx)); err != nil {
+			if err := pm.orm.DeleteTransmitRequests(ctx, pm.serverURL, queuedReqs); err != nil {
 				pm.lggr.Errorw("Failed to delete queued transmit requests", "err", err)
 				pm.addToDeleteQueue(queuedReqs...)
 			} else {
@@ -111,7 +111,7 @@ func (pm *PersistenceManager) runFlushDeletesLoop() {
 func (pm *PersistenceManager) runPruneLoop() {
 	defer pm.wg.Done()
 
-	ctx, cancel := pm.stopCh.Ctx(context.Background())
+	ctx, cancel := pm.stopCh.NewCtx()
 	defer cancel()
 
 	ticker := time.NewTicker(utils.WithJitter(pm.pruneFrequency))
@@ -121,11 +121,15 @@ func (pm *PersistenceManager) runPruneLoop() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			if err := pm.orm.PruneTransmitRequests(pm.serverURL, pm.jobID, pm.maxTransmitQueueSize, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout()); err != nil {
-				pm.lggr.Errorw("Failed to prune transmit requests table", "err", err)
-			} else {
-				pm.lggr.Debugw("Pruned transmit requests table")
-			}
+			func(ctx context.Context) {
+				ctx, cancelPrune := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+				defer cancelPrune()
+				if err := pm.orm.PruneTransmitRequests(ctx, pm.serverURL, pm.jobID, pm.maxTransmitQueueSize); err != nil {
+					pm.lggr.Errorw("Failed to prune transmit requests table", "err", err)
+				} else {
+					pm.lggr.Debugw("Pruned transmit requests table")
+				}
+			}(ctx)
 		}
 	}
 }

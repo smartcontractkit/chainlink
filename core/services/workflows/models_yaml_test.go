@@ -52,6 +52,7 @@ var transformJSON = cmp.FilterValues(func(x, y []byte) bool {
 }))
 
 func TestWorkflowSpecMarshalling(t *testing.T) {
+	t.Parallel()
 	fixtureReader := yamlFixtureReaderBytes(t, "marshalling")
 
 	t.Run("Type coercion", func(t *testing.T) {
@@ -168,6 +169,7 @@ func TestWorkflowSpecMarshalling(t *testing.T) {
 }
 
 func TestJsonSchema(t *testing.T) {
+	t.Parallel()
 	t.Run("GenerateJsonSchema", func(t *testing.T) {
 		expectedSchemaPath := fixtureDir + "workflow_schema.json"
 		generatedSchema, err := GenerateJsonSchema()

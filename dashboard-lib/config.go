@@ -8,7 +8,7 @@ import (
 )
 
 type EnvConfig struct {
-	DashboardName            string
+	Name                     string
 	Platform                 string
 	GrafanaURL               string
 	GrafanaToken             string
@@ -16,6 +16,7 @@ type EnvConfig struct {
 	GrafanaBasicAuthPassword string
 	GrafanaFolder            string
 	DataSources              DataSources
+	PanelsIncluded           map[string]bool
 }
 
 type DataSources struct {
@@ -61,6 +62,16 @@ func ReadEnvDeployOpts() EnvConfig {
 	if prometheusDataSourceName == "" {
 		L.Fatal().Msg("PROMETHEUS_DATA_SOURCE_NAME must be provided")
 	}
+	panelsIncludedString := os.Getenv("PANELS_INCLUDED")
+	panelsIncludedArray := strings.Split(panelsIncludedString, ",")
+	panelsIncluded := make(map[string]bool)
+
+	if panelsIncludedString != "" {
+		for _, panelName := range panelsIncludedArray {
+			panelsIncluded[panelName] = true
+		}
+	}
+
 	ba := os.Getenv("GRAFANA_BASIC_AUTH")
 	grafanaToken := os.Getenv("GRAFANA_TOKEN")
 	if grafanaToken == "" && ba == "" {
@@ -74,8 +85,9 @@ func ReadEnvDeployOpts() EnvConfig {
 			L.Fatal().Err(err).Msg("failed to decode basic auth")
 		}
 	}
+
 	return EnvConfig{
-		DashboardName:            name,
+		Name:                     name,
 		GrafanaURL:               grafanaURL,
 		GrafanaToken:             grafanaToken,
 		GrafanaBasicAuthUser:     user,
@@ -86,6 +98,7 @@ func ReadEnvDeployOpts() EnvConfig {
 			Loki:       loki,
 			Prometheus: prom,
 		},
+		PanelsIncluded: panelsIncluded,
 	}
 }
 

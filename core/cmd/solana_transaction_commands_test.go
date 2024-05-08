@@ -19,11 +19,13 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
 func TestShell_SolanaSendSol(t *testing.T) {
+	ctx := testutils.Context(t)
 	chainID := "localnet"
 	url := solanaClient.SetupLocalSolNode(t)
 	node := solcfg.Node{
@@ -36,7 +38,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 		Enabled: ptr(true),
 	}
 	app := solanaStartNewApplication(t, &cfg)
-	from, err := app.GetKeyStore().Solana().Create()
+	from, err := app.GetKeyStore().Solana().Create(ctx)
 	require.NoError(t, err)
 	to, err := solanago.NewRandomPrivateKey()
 	require.NoError(t, err)

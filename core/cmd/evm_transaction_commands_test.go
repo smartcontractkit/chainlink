@@ -32,7 +32,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB())
+	txStore := cltest.NewTestTxStore(t, app.GetDB())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 	attempt := tx.TxAttempts[0]
 
@@ -70,7 +70,7 @@ func TestShell_ShowTransaction(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
 
-	db := app.GetSqlxDB()
+	db := app.GetDB()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
 	txStore := cltest.NewTestTxStore(t, db)
@@ -97,7 +97,7 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB())
+	txStore := cltest.NewTestTxStore(t, app.GetDB())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 
 	// page 1
@@ -156,7 +156,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 		withMocks(ethMock, key),
 	)
 	client, r := app.NewShellAndRenderer()
-	db := app.GetSqlxDB()
+	db := app.GetDB()
 	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	set := flag.NewFlagSet("sendether", 0)
 	flagSetApplyFromAction(client.SendEther, set, "")
@@ -221,7 +221,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 		withMocks(ethMock, key),
 	)
 	client, r := app.NewShellAndRenderer()
-	db := app.GetSqlxDB()
+	db := app.GetDB()
 	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 
 	set := flag.NewFlagSet("sendether", 0)

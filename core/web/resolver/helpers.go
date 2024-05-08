@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -52,8 +53,8 @@ func pageLimit(limit *int32) int {
 // ValidateBridgeTypeUniqueness checks that a bridge has not already been created
 //
 // / This validation function should be moved into a bridge service.
-func ValidateBridgeTypeUniqueness(bt *bridges.BridgeTypeRequest, orm bridges.ORM) error {
-	_, err := orm.FindBridge(bt.Name)
+func ValidateBridgeTypeUniqueness(ctx context.Context, bt *bridges.BridgeTypeRequest, orm bridges.ORM) error {
+	_, err := orm.FindBridge(ctx, bt.Name)
 	if err == nil {
 		return fmt.Errorf("bridge type %v already exists", bt.Name)
 	}

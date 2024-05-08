@@ -30,7 +30,8 @@ func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
 	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn))
-	require.NoError(t, app.Start(testutils.Context(t)))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.Start(ctx))
 
 	client := app.NewHTTPClient(nil)
 

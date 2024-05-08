@@ -25,6 +25,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
           role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: goreleaser-build-publish-chainlink.push-develop
       - name: Build, sign, and publish image
         id: build-sign-publish
         uses: ./.github/actions/goreleaser-build-sign-publish

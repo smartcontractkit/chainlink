@@ -14,7 +14,7 @@ type jobProposalBatcher struct {
 	app chainlink.Application
 }
 
-func (b *jobProposalBatcher) loadByManagersIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *jobProposalBatcher) loadByManagersIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
@@ -28,7 +28,7 @@ func (b *jobProposalBatcher) loadByManagersIDs(_ context.Context, keys dataloade
 		keyOrder[key.String()] = ix
 	}
 
-	jps, err := b.app.GetFeedsService().ListJobProposalsByManagersIDs(mgrsIDs)
+	jps, err := b.app.GetFeedsService().ListJobProposalsByManagersIDs(ctx, mgrsIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

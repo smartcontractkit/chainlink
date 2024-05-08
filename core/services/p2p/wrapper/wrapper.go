@@ -66,7 +66,9 @@ func convertPeerConfig(keystoreP2P keystore.P2P, p2pConfig config.P2P) (p2p.Peer
 		DeltaDial:          p2pConfig.V2().DeltaDial().Duration(),
 		DiscovererDatabase: discovererDB,
 
-		MetricsRegisterer: prometheus.DefaultRegisterer,
+		// NOTE: this is equivalent to prometheus.DefaultRegisterer, but we need to use a separate
+		// object to avoid conflicts with the OCR registerer
+		MetricsRegisterer: prometheus.NewRegistry(),
 	}
 
 	return peerConfig, nil

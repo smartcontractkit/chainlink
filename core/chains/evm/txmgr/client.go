@@ -18,6 +18,7 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -25,11 +26,12 @@ import (
 var _ TxmClient = (*evmTxmClient)(nil)
 
 type evmTxmClient struct {
-	client client.Client
+	client       client.Client
+	clientErrors evmconfig.ClientErrors
 }
 
-func NewEvmTxmClient(c client.Client) *evmTxmClient {
-	return &evmTxmClient{client: c}
+func NewEvmTxmClient(c client.Client, clientErrors evmconfig.ClientErrors) *evmTxmClient {
+	return &evmTxmClient{client: c, clientErrors: clientErrors}
 }
 
 func (c *evmTxmClient) PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error) {
@@ -84,7 +86,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 				return
 			}
 			sendErr := reqs[i].Error
-			codes[i] = client.ClassifySendError(sendErr, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+			codes[i] = client.ClassifySendError(sendErr, c.clientErrors, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
 			txErrs[i] = sendErr
 		}(index)
 	}

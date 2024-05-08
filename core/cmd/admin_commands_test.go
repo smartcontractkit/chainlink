@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -33,8 +34,8 @@ func TestShell_CreateUser(t *testing.T) {
 		role  string
 		err   string
 	}{
-		{"Invalid request", "//", "", "parseResponse error"},
-		{"No params", "", "", "Invalid role"},
+		{"Invalid email", "//", "", "mail: missing '@' or angle-addr"},
+		{"No params", "", "", "Must enter an email"},
 		{"No email", "", "view", "Must enter an email"},
 		{"User exists", cltest.APIEmailAdmin, "admin", fmt.Sprintf(`user with email %s already exists`, cltest.APIEmailAdmin)},
 		{"Valid params", cltest.MustRandomUser(t).Email, "view", ""},
@@ -60,10 +61,11 @@ func TestShell_CreateUser(t *testing.T) {
 }
 
 func TestShell_ChangeRole(t *testing.T) {
+	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(ctx, &user))
 
 	tests := []struct {
 		name  string
@@ -99,10 +101,11 @@ func TestShell_ChangeRole(t *testing.T) {
 }
 
 func TestShell_DeleteUser(t *testing.T) {
+	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(ctx, &user))
 
 	tests := []struct {
 		name  string
@@ -133,10 +136,11 @@ func TestShell_DeleteUser(t *testing.T) {
 }
 
 func TestShell_ListUsers(t *testing.T) {
+	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(ctx, &user))
 
 	set := flag.NewFlagSet("test", 0)
 	flagSetApplyFromAction(client.ListUsers, set, "")

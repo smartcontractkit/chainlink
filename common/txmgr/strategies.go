@@ -3,7 +3,6 @@ package txmgr
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -14,9 +13,9 @@ var _ txmgrtypes.TxStrategy = SendEveryStrategy{}
 
 // NewQueueingTxStrategy creates a new TxStrategy that drops the oldest transactions after the
 // queue size is exceeded if a queue size is specified, and otherwise does not drop transactions.
-func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32, queryTimeout time.Duration) (strategy txmgrtypes.TxStrategy) {
+func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy txmgrtypes.TxStrategy) {
 	if queueSize > 0 {
-		strategy = NewDropOldestStrategy(subject, queueSize, queryTimeout)
+		strategy = NewDropOldestStrategy(subject, queueSize)
 	} else {
 		strategy = SendEveryStrategy{}
 	}
@@ -41,15 +40,14 @@ var _ txmgrtypes.TxStrategy = DropOldestStrategy{}
 // DropOldestStrategy will send the newest N transactions, older ones will be
 // removed from the queue
 type DropOldestStrategy struct {
-	subject      uuid.UUID
-	queueSize    uint32
-	queryTimeout time.Duration
+	subject   uuid.UUID
+	queueSize uint32
 }
 
 // NewDropOldestStrategy creates a new TxStrategy that drops the oldest transactions after the
 // queue size is exceeded.
-func NewDropOldestStrategy(subject uuid.UUID, queueSize uint32, queryTimeout time.Duration) DropOldestStrategy {
-	return DropOldestStrategy{subject, queueSize, queryTimeout}
+func NewDropOldestStrategy(subject uuid.UUID, queueSize uint32) DropOldestStrategy {
+	return DropOldestStrategy{subject, queueSize}
 }
 
 func (s DropOldestStrategy) Subject() uuid.NullUUID {
@@ -57,10 +55,6 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 }
 
 func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) (ids []int64, err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, s.queryTimeout)
-	defer cancel()
-
 	// NOTE: We prune one less than the queue size to prevent the queue from exceeding the max queue size. Which could occur if a new transaction is added to the queue right after we prune.
 	ids, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize-1, s.subject)
 	if err != nil {

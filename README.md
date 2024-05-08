@@ -37,7 +37,7 @@ regarding Chainlink social accounts, news, and networking.
 2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
 3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
-   - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 15.x due to the bundled client.
+   - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
    - You should [configure Postgres](https://www.postgresql.org/docs/current/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
 4. Ensure you have Python 3 installed (this is required by [solc-select](https://github.com/crytic/solc-select) which is needed to compile solidity contracts)
 5. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
@@ -167,19 +167,27 @@ go generate ./...
 
 5. Prepare your development environment:
 
-```bash
-export CL_DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
-```
+The tests require a postgres database. In turn, the environment variable
+`CL_DATABASE_URL` must be set to value that can connect to `_test` database, and the user must be able to create and drop
+the given `_test` database.
 
 Note: Other environment variables should not be set for all tests to pass
 
-6.  Drop/Create test database and run migrations:
+There helper script for initial setup to create an appropriate test user. It requires postgres to be running on localhost at port 5432. You will be prompted for
+the `postgres` user password 
 
+```bash
+make setup-testdb
 ```
+
+This script will save the `CL_DATABASE_URL` in `.dbenv`
+
+Changes to database require migrations to be run. Similarly, `pull`'ing the repo may require migrations to run.
+After the one-time setup above:
+```
+source .dbenv
 make testdb
 ```
-
-If you do end up modifying the migrations for the database, you will need to rerun
 
 7. Run tests:
 

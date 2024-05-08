@@ -82,7 +82,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/l2ep @chris-de-leon-cll
 /contracts/src/v0.8/llo-feeds @smartcontractkit/mercury-team
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
-/contracts/src/v0.8/operatorforwarder @RensR
+/contracts/src/v0.8/operatorforwarder @austinborn
 /contracts/src/v0.8/shared @RensR
 # TODO: tests folder, folder should be removed and files moved to the correct folders
 # TODO: transmission folder, owner should be found

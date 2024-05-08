@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -105,7 +106,7 @@ func TestResolver_OCRCreateBundle(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.ocr.On("Create").Return(fakeKey, nil)
+				f.Mocks.ocr.On("Create", mock.Anything).Return(fakeKey, nil)
 				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -163,7 +164,7 @@ func TestResolver_OCRDeleteBundle(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.ocr.On("Delete", fakeKey.ID()).Return(fakeKey, nil)
+				f.Mocks.ocr.On("Delete", mock.Anything, fakeKey.ID()).Return(fakeKey, nil)
 				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -176,7 +177,7 @@ func TestResolver_OCRDeleteBundle(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.ocr.
-					On("Delete", fakeKey.ID()).
+					On("Delete", mock.Anything, fakeKey.ID()).
 					Return(ocrkey.KeyV2{}, keystore.KeyNotFoundError{ID: "helloWorld", KeyType: "OCR"})
 				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)

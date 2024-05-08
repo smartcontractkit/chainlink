@@ -13,6 +13,7 @@ jobs:
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         with:
+          id: scripts
           name: lint-scripts
           go-directory: core/scripts/ccip
           go-version-file: core/scripts/go.mod

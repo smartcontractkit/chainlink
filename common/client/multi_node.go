@@ -561,6 +561,13 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return n.RPC().PendingSequenceAt(ctx, addr)
 }
 
+type sendTxErrors map[SendTxReturnCode][]error
+
+// String - returns string representation of the errors map. Required by logger to properly represent the value
+func (errs sendTxErrors) String() string {
+	return fmt.Sprint(map[SendTxReturnCode][]error(errs))
+}
+
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) SendEmptyTransaction(
 	ctx context.Context,
 	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt any, err error),
@@ -602,7 +609,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	ctx, cancel := c.chStop.Ctx(ctx)
 	defer cancel()
 	requiredResults := int(math.Ceil(float64(healthyNodesNum) * sendTxQuorum))
-	errorsByCode := map[SendTxReturnCode][]error{}
+	errorsByCode := sendTxErrors{}
 	var softTimeoutChan <-chan time.Time
 	var resultsCount int
 loop:
@@ -639,7 +646,7 @@ loop:
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult) {
 	defer c.wg.Done()
-	resultsByCode := map[SendTxReturnCode][]error{}
+	resultsByCode := sendTxErrors{}
 	// txResults eventually will be closed
 	for txResult := range txResults {
 		resultsByCode[txResult.ResultCode] = append(resultsByCode[txResult.ResultCode], txResult.Err)
@@ -653,7 +660,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 }
 
-func aggregateTxResults(resultsByCode map[SendTxReturnCode][]error) (txResult error, err error) {
+func aggregateTxResults(resultsByCode sendTxErrors) (txResult error, err error) {
 	severeErrors, hasSevereErrors := findFirstIn(resultsByCode, sendTxSevereErrors)
 	successResults, hasSuccess := findFirstIn(resultsByCode, sendTxSuccessfulCodes)
 	if hasSuccess {

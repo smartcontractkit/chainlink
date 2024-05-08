@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
 
@@ -69,7 +68,7 @@ func NewReportingPlugin(logger commontypes.Logger, config *PluginConfig, orm s4.
 func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Query, error) {
 	promReportingPluginQuery.WithLabelValues(c.config.ProductName).Inc()
 
-	snapshot, err := c.orm.GetSnapshot(c.addressRange, pg.WithParentCtx(ctx))
+	snapshot, err := c.orm.GetSnapshot(ctx, c.addressRange)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to GetVersions in Query()")
 	}
@@ -111,7 +110,7 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 	promReportingPluginObservation.WithLabelValues(c.config.ProductName).Inc()
 
 	now := time.Now().UTC()
-	count, err := c.orm.DeleteExpired(c.config.MaxDeleteExpiredEntries, now, pg.WithParentCtx(ctx))
+	count, err := c.orm.DeleteExpired(ctx, c.config.MaxDeleteExpiredEntries, now)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to DeleteExpired in Observation()")
 	}
@@ -122,7 +121,7 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 		return MarshalRows(convertRows(rows))
 	}
 
-	unconfirmedRows, err := c.orm.GetUnconfirmedRows(c.config.MaxObservationEntries, pg.WithParentCtx(ctx))
+	unconfirmedRows, err := c.orm.GetUnconfirmedRows(ctx, c.config.MaxObservationEntries)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to GetUnconfirmedRows in Observation()")
 	}
@@ -138,7 +137,7 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 	if err != nil {
 		c.logger.Error("Failed to unmarshal query (likely malformed)", commontypes.LogFields{"err": err})
 	} else {
-		snapshot, err := c.orm.GetSnapshot(addressRange, pg.WithParentCtx(ctx))
+		snapshot, err := c.orm.GetSnapshot(ctx, addressRange)
 		if err != nil {
 			c.logger.Error("ORM GetSnapshot error", commontypes.LogFields{"err": err})
 		} else {
@@ -178,7 +177,7 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 			}
 
 			for _, k := range toBeAdded {
-				row, err := c.orm.Get(k.address, k.slotID, pg.WithParentCtx(ctx))
+				row, err := c.orm.Get(ctx, k.address, k.slotID)
 				if err == nil {
 					remainingRows = append(remainingRows, row)
 				} else if !errors.Is(err, s4.ErrNotFound) {
@@ -283,7 +282,7 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, ts types.Repor
 			continue
 		}
 
-		err = c.orm.Update(ormRow, pg.WithParentCtx(ctx))
+		err = c.orm.Update(ctx, ormRow)
 		if err != nil && !errors.Is(err, s4.ErrVersionTooLow) {
 			c.logger.Error("Failed to Update a row in ShouldAcceptFinalizedReport()", commontypes.LogFields{"err": err})
 			continue

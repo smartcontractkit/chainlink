@@ -2,9 +2,6 @@ name: "Build Chainlink"
 
 on:
   pull_request:
-  push:
-    branches:
-      - master
 
 jobs:
   build-chainlink:

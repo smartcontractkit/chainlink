@@ -111,6 +111,7 @@ func setupNodeOCR2(
 	b *backends.SimulatedBackend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
+	ctx := testutils.Context(t)
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
@@ -157,7 +158,7 @@ func setupNodeOCR2(
 	require.NoError(t, err)
 	b.Commit()
 
-	kb, err := app.GetKeyStore().OCR2().Create("evm")
+	kb, err := app.GetKeyStore().OCR2().Create(ctx, "evm")
 	require.NoError(t, err)
 
 	if useForwarder {
@@ -308,7 +309,7 @@ fromBlock = %d
 				}))
 				t.Cleanup(servers[s].Close)
 				u, _ := url.Parse(servers[i].URL)
-				require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+				require.NoError(t, apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 					URL:  models.WebURL(*u),
 				}))
@@ -518,6 +519,7 @@ updateInterval = "1m"
 				}
 			}()
 
+			ctx := testutils.Context(t)
 			for trial := 0; trial < 2; trial++ {
 				var retVal int
 
@@ -536,7 +538,7 @@ updateInterval = "1m"
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						completedRuns, err2 := apps[ic].JobORM().FindPipelineRunIDsByJobID(jids[ic], 0, 1000)
+						completedRuns, err2 := apps[ic].JobORM().FindPipelineRunIDsByJobID(ctx, jids[ic], 0, 1000)
 						require.NoError(t, err2)
 						// Want at least 2 runs so we see all the metadata.
 						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
@@ -557,7 +559,7 @@ updateInterval = "1m"
 				}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal(fmt.Sprintf("%d", 2*retVal)))
 
 				for _, app := range apps {
-					jobs, _, err2 := app.JobORM().FindJobs(0, 1000)
+					jobs, _, err2 := app.JobORM().FindJobs(ctx, 0, 1000)
 					require.NoError(t, err2)
 					// No spec errors
 					for _, j := range jobs {
@@ -757,6 +759,7 @@ chainID 			= 1337
 	expectedMeta := map[string]struct{}{
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
+	ctx := testutils.Context(t)
 	for i := 0; i < 4; i++ {
 		s := i
 		require.NoError(t, apps[i].Start(testutils.Context(t)))
@@ -789,7 +792,7 @@ chainID 			= 1337
 			servers[s].Close()
 		})
 		u, _ := url.Parse(servers[i].URL)
-		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
 		}))
@@ -881,7 +884,7 @@ updateInterval = "1m"
 	}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal("20"))
 
 	for _, app := range apps {
-		jobs, _, err := app.JobORM().FindJobs(0, 1000)
+		jobs, _, err := app.JobORM().FindJobs(ctx, 0, 1000)
 		require.NoError(t, err)
 		// No spec errors
 		for _, j := range jobs {

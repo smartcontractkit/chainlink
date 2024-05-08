@@ -20,7 +20,7 @@ subscription_billing_type = "LINK_AND_NATIVE"
 number_of_words = 3
 callback_gas_limit = 1000000
 max_gas_limit_coordinator_config = 2500000
-fallback_wei_per_unit_link = 60000000000000000
+fallback_wei_per_unit_link = "60000000000000000"
 staleness_seconds = 86400
 gas_after_payment_calculation = 33825
 number_of_sub_to_create = 1
@@ -29,17 +29,21 @@ randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
 wait_for_256_blocks_timeout = "10m"
+
+fulfillment_flat_fee_native_ppm=0
+fulfillment_flat_fee_link_discount_ppm=0
+native_premium_percentage=24
+link_premium_percentage=20
+
 wrapped_gas_overhead = 50000
-coordinator_gas_overhead = 52000
-wrapper_premium_percentage = 25
+coordinator_gas_overhead_native = 52000
+coordinator_gas_overhead_link = 74000
+coordinator_gas_overhead_per_word = 440
 wrapper_max_number_of_words = 10
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 10
-fulfillment_flat_fee_link_ppm=500
-fulfillment_flat_fee_native_ppm=500
-fulfillment_flat_fee_link_discount_ppm=100
-native_premium_percentage=1
-link_premium_percentage=1
+coordinator_native_premium_percentage=24
+coordinator_link_premium_percentage=20
 
 # VRF Job config
 vrf_job_forwarding_allowed = false

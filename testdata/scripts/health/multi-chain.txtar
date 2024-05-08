@@ -61,6 +61,7 @@ URL = 'http://stark.node'
 
 -- out.txt --
 ok Cosmos.Foo.Chain
+ok Cosmos.Foo.Relayer
 ok Cosmos.Foo.Txm
 ok EVM.1
 ok EVM.1.BalanceMonitor
@@ -93,6 +94,15 @@ ok TelemetryManager
       "id": "Cosmos.Foo.Chain",
       "attributes": {
         "name": "Cosmos.Foo.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.Relayer",
+      "attributes": {
+        "name": "Cosmos.Foo.Relayer",
         "status": "passing",
         "output": ""
       }
