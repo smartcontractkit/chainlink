@@ -130,7 +130,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
 				require.Equal(t, `{"success":true,"rows":[{"slot_id":1,"version":1,"expiration":1},{"slot_id":2,"version":2,"expiration":2}]}`, string(msg.Body.Payload))
-
 			}).Return(nil).Once()
 
 			handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -142,7 +141,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"Failed to list secrets: boom"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -187,7 +185,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
 				require.Equal(t, `{"success":true}`, string(msg.Body.Payload))
-
 			}).Return(nil).Once()
 
 			handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -200,7 +197,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"Failed to set secret: boom"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -216,7 +212,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"Failed to set secret: wrong signature"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -231,7 +226,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"Bad request to set secret: invalid character 's' looking for beginning of object key string"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -244,7 +238,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"user subscription has insufficient balance"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)

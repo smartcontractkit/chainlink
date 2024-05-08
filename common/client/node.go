@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -45,6 +47,7 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
+	Errors() config.ClientErrors
 }
 
 type ChainConfig interface {

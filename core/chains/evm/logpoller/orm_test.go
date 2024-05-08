@@ -1728,7 +1728,6 @@ func Benchmark_DeleteExpiredLogs(b *testing.B) {
 	for j := 0; j < 5; j++ {
 		var dbLogs []logpoller.Log
 		for i := 0; i < numberOfReports; i++ {
-
 			dbLogs = append(dbLogs, logpoller.Log{
 				EvmChainId:     ubig.New(chainId),
 				LogIndex:       int64(i + 1),
@@ -1758,4 +1757,34 @@ func Benchmark_DeleteExpiredLogs(b *testing.B) {
 		err1 = tx.Rollback()
 		assert.NoError(b, err1)
 	}
+}
+
+func TestSelectOldestBlock(t *testing.T) {
+	th := SetupTH(t, lpOpts)
+	o1 := th.ORM
+	o2 := th.ORM2
+	ctx := testutils.Context(t)
+	t.Run("Selects oldest within given chain", func(t *testing.T) {
+		// insert blocks
+		require.NoError(t, o2.InsertBlock(ctx, common.HexToHash("0x1231"), 11, time.Now(), 0))
+		require.NoError(t, o2.InsertBlock(ctx, common.HexToHash("0x1232"), 12, time.Now(), 0))
+		// insert newer block from different chain
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1233"), 13, time.Now(), 0))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1231"), 14, time.Now(), 0))
+		block, err := o1.SelectOldestBlock(ctx, 0)
+		require.NoError(t, err)
+		require.NotNil(t, block)
+		require.Equal(t, block.BlockNumber, int64(13))
+		require.Equal(t, block.BlockHash, common.HexToHash("0x1233"))
+	})
+	t.Run("Does not select blocks older than specified limit", func(t *testing.T) {
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1232"), 11, time.Now(), 0))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1233"), 13, time.Now(), 0))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1234"), 15, time.Now(), 0))
+		block, err := o1.SelectOldestBlock(ctx, 12)
+		require.NoError(t, err)
+		require.NotNil(t, block)
+		require.Equal(t, block.BlockNumber, int64(13))
+		require.Equal(t, block.BlockHash, common.HexToHash("0x1233"))
+	})
 }

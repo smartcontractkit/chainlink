@@ -6,71 +6,44 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
-const (
-	statusStarted   = "started"
-	statusErrored   = "errored"
-	statusTimeout   = "timeout"
-	statusCompleted = "completed"
-)
-
-type stepOutput struct {
-	err   error
-	value values.Value
-}
-
-type stepState struct {
-	executionID string
-	ref         string
-	status      string
-
-	inputs  *values.Map
-	outputs *stepOutput
-}
-
-type executionState struct {
-	steps       map[string]*stepState
-	executionID string
-	workflowID  string
-
-	status string
-}
-
 // copyState returns a deep copy of the input executionState
-func copyState(es executionState) executionState {
-	steps := map[string]*stepState{}
-	for ref, step := range es.steps {
+func copyState(es store.WorkflowExecution) store.WorkflowExecution {
+	steps := map[string]*store.WorkflowExecutionStep{}
+	for ref, step := range es.Steps {
 		var mval *values.Map
-		if step.inputs != nil {
-			mp := values.Proto(step.inputs).GetMapValue()
+		if step.Inputs != nil {
+			mp := values.Proto(step.Inputs).GetMapValue()
 			mval = values.FromMapValueProto(mp)
 		}
 
-		op := values.Proto(step.outputs.value)
+		op := values.Proto(step.Outputs.Value)
 		copiedov := values.FromProto(op)
 
-		newState := &stepState{
-			executionID: step.executionID,
-			ref:         step.ref,
-			status:      step.status,
+		newState := &store.WorkflowExecutionStep{
+			ExecutionID: step.ExecutionID,
+			Ref:         step.Ref,
+			Status:      step.Status,
 
-			outputs: &stepOutput{
-				err:   step.outputs.err,
-				value: copiedov,
+			Outputs: &store.StepOutput{
+				Err:   step.Outputs.Err,
+				Value: copiedov,
 			},
 
-			inputs: mval,
+			Inputs: mval,
 		}
 
 		steps[ref] = newState
 	}
-	return executionState{
-		executionID: es.executionID,
-		workflowID:  es.workflowID,
-		status:      es.status,
-		steps:       steps,
+	return store.WorkflowExecution{
+		ExecutionID: es.ExecutionID,
+		WorkflowID:  es.WorkflowID,
+		Status:      es.Status,
+		Steps:       steps,
 	}
 }
 
@@ -84,7 +57,7 @@ func copyState(es executionState) executionState {
 // If a key has more than two parts, then we traverse the parts
 // to find the value we want to replace.
 // We support traversing both nested maps and lists and any combination of the two.
-func interpolateKey(key string, state executionState) (any, error) {
+func interpolateKey(key string, state store.WorkflowExecution) (any, error) {
 	parts := strings.Split(key, ".")
 
 	if len(parts) < 2 {
@@ -92,7 +65,7 @@ func interpolateKey(key string, state executionState) (any, error) {
 	}
 
 	// lookup the step we want to get either input or output state from
-	sc, ok := state.steps[parts[0]]
+	sc, ok := state.Steps[parts[0]]
 	if !ok {
 		return "", fmt.Errorf("could not find ref `%s`", parts[0])
 	}
@@ -100,13 +73,13 @@ func interpolateKey(key string, state executionState) (any, error) {
 	var value values.Value
 	switch parts[1] {
 	case "inputs":
-		value = sc.inputs
+		value = sc.Inputs
 	case "outputs":
-		if sc.outputs.err != nil {
+		if sc.Outputs.Err != nil {
 			return "", fmt.Errorf("cannot interpolate ref part `%s` in `%+v`: step has errored", parts[1], sc)
 		}
 
-		value = sc.outputs.value
+		value = sc.Outputs.Value
 	default:
 		return "", fmt.Errorf("cannot interpolate ref part `%s` in `%+v`: second part must be `inputs` or `outputs`", parts[1], sc)
 	}
@@ -153,7 +126,7 @@ var (
 // identifies any values that should be replaced from `state`.
 //
 // A value `v` should be replaced if it is wrapped as follows: `$(v)`.
-func findAndInterpolateAllKeys(input any, state executionState) (any, error) {
+func findAndInterpolateAllKeys(input any, state store.WorkflowExecution) (any, error) {
 	return deepMap(
 		input,
 		func(el string) (any, error) {

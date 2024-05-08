@@ -120,7 +120,7 @@ func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.L
 func parsePaginatedResponseToDocument(input []byte, resource interface{}, document *jsonapi.Document) error {
 	err := ParseJSONAPIResponse(input, resource)
 	if err != nil {
-		return errors.Wrap(err, "ParseJSONAPIResponse error")
+		return errors.Wrapf(err, "ParseJSONAPIResponse error body: %s", string(input))
 	}
 
 	// Unmarshal using the stdlib Unmarshal to extract the links part of the document

@@ -136,7 +136,9 @@ type ContractDeployer interface {
 	DeployVRFV2PlusWrapperLoadTestConsumer(vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
+	DeployBatchVRFCoordinatorV2(coordinatorAddress string) (BatchVRFCoordinatorV2, error)
 	DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error)
+	DeployBatchVRFCoordinatorV2Plus(coordinatorAddress string) (BatchVRFCoordinatorV2Plus, error)
 	DeployVRFCoordinatorV2PlusUpgradedVersion(bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error)
 	DeployVRFV2Wrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2Wrapper, error)
 	DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string, subId *big.Int) (VRFV2PlusWrapper, error)
@@ -435,7 +437,7 @@ func (e *EthereumContractDeployer) DeployStakingEventsMock() (StakingEventsMock,
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumStakingEventsMock{
+	return &LegacyEthereumStakingEventsMock{
 		client:     e.client,
 		eventsMock: instance.(*eth_contracts.StakingEventsMock),
 		address:    address,
@@ -452,7 +454,7 @@ func (e *EthereumContractDeployer) DeployFunctionsV1EventsMock() (FunctionsV1Eve
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsV1EventsMock{
+	return &LegacyEthereumFunctionsV1EventsMock{
 		client:     e.client,
 		eventsMock: instance.(*functions_v1_events_mock.FunctionsV1EventsMock),
 		address:    address,
@@ -469,7 +471,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry11Mock() (KeeperRegistry1
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumKeeperRegistry11Mock{
+	return &LegacyEthereumKeeperRegistry11Mock{
 		client:       e.client,
 		registryMock: instance.(*keeper_registry_wrapper1_1_mock.KeeperRegistryMock),
 		address:      address,
@@ -486,7 +488,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar12Mock() (KeeperRegistra
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumKeeperRegistrar12Mock{
+	return &LegacyEthereumKeeperRegistrar12Mock{
 		client:        e.client,
 		registrarMock: instance.(*keeper_registrar_wrapper1_2_mock.KeeperRegistrarMock),
 		address:       address,
@@ -503,7 +505,7 @@ func (e *EthereumContractDeployer) DeployKeeperGasWrapperMock() (KeeperGasWrappe
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumKeeperGasWrapperMock{
+	return &LegacyEthereumKeeperGasWrapperMock{
 		client:         e.client,
 		gasWrapperMock: instance.(*gas_wrapper_mock.KeeperRegistryCheckUpkeepGasUsageWrapperMock),
 		address:        address,

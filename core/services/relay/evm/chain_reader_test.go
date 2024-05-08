@@ -32,7 +32,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -50,8 +49,8 @@ const (
 func TestChainReader(t *testing.T) {
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
-	RunChainReaderInterfaceTests(t, it)
-	RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
+	RunChainReaderGetLatestValueInterfaceTests(t, it)
+	RunChainReaderGetLatestValueInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t *testing.T) {
 		it.Setup(t)
@@ -120,7 +119,7 @@ func triggerFourTopics(t *testing.T, it *chainReaderInterfaceTester, i1, i2, i3 
 }
 
 type chainReaderInterfaceTester struct {
-	chain       *mocks.Chain
+	client      client.Client
 	address     string
 	address2    string
 	chainConfig types.ChainReaderConfig
@@ -157,12 +156,11 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 	})
 
 	// can re-use the same chain for tests, just make new contract for each test
-	if it.chain != nil {
+	if it.client != nil {
 		it.deployNewContracts(t)
 		return
 	}
 
-	it.chain = &mocks.Chain{}
 	it.setupChainNoClient(t)
 
 	testStruct := CreateTestStruct(0, it)
@@ -240,7 +238,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 			},
 		},
 	}
-	it.chain.On("Client").Return(client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337)))
+	it.client = client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337))
 	it.deployNewContracts(t)
 }
 
@@ -270,10 +268,9 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 		RpcBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), it.chain.Client(), lggr, lpOpts)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), it.client, lggr, lpOpts)
 	require.NoError(t, lp.Start(ctx))
-	it.chain.On("LogPoller").Return(lp)
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.chain, it.chainConfig)
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, it.chainConfig)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
@@ -288,7 +285,7 @@ func (it *chainReaderInterfaceTester) TriggerEvent(t *testing.T, testStruct *Tes
 	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_example.LatestValueHolderTransactor).TriggerEvent)
 }
 
-func (it *chainReaderInterfaceTester) GetBindings(t *testing.T) []clcommontypes.BoundContract {
+func (it *chainReaderInterfaceTester) GetBindings(_ *testing.T) []clcommontypes.BoundContract {
 	return []clcommontypes.BoundContract{
 		{Name: AnyContractName, Address: it.address, Pending: true},
 		{Name: AnySecondContractName, Address: it.address2, Pending: true},

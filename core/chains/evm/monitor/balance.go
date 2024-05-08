@@ -103,7 +103,6 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *evmtypes.He
 	if !ok {
 		bm.logger.Debugw("BalanceMonitor: ignoring OnNewLongestChain call, balance monitor is not started", "state", bm.State())
 	}
-
 }
 
 func (bm *balanceMonitor) checkBalance(head *evmtypes.Head) {

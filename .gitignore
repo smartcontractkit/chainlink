@@ -24,7 +24,6 @@ tools/clroot/db.sqlite3-wal
 .envrc
 .env*
 .dbenv
-!charts/chainlink-cluster/.env.example
 !crib/.env.example
 !.github/actions/setup-postgres/.env
 .direnv
@@ -51,6 +50,7 @@ output.txt
 race.*
 golangci-lint-output.txt
 /golangci-lint/
+.covdata
 
 # DB state
 ./db/

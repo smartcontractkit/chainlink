@@ -189,7 +189,6 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 			continue
 		}
 		f.setCachedSenders(fwdr.Address, senders)
-
 	}
 }
 

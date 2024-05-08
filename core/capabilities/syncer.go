@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
@@ -70,7 +71,7 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		"12D3KooWN2hztiXNNS1jMQTTvvPRYcarK1C7T3Mdqk4x4gwyo5WS",
 	}
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
-	addPeersToDONInfo := func(peers []string, donInfo *remotetypes.DON) error {
+	addPeersToDONInfo := func(peers []string, donInfo *capabilities.DON) error {
 		for _, peerID := range peers {
 			var p ragetypes.PeerID
 			err := p.UnmarshalText([]byte(peerID))
@@ -82,11 +83,11 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		}
 		return nil
 	}
-	workflowDonInfo := remotetypes.DON{ID: "workflowDon1", F: 1}
+	workflowDonInfo := capabilities.DON{ID: "workflowDon1", F: 1}
 	if err := addPeersToDONInfo(workflowDONPeers, &workflowDonInfo); err != nil {
 		return err
 	}
-	triggerCapabilityDonInfo := remotetypes.DON{ID: "capabilityDon1", F: 1}
+	triggerCapabilityDonInfo := capabilities.DON{ID: "capabilityDon1", F: 1}
 	if err := addPeersToDONInfo(triggerDONPeers, &triggerCapabilityDonInfo); err != nil {
 		return err
 	}
@@ -101,6 +102,7 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		CapabilityType: commoncap.CapabilityTypeTrigger,
 		Description:    "Remote Trigger",
 		Version:        "0.0.1",
+		DON:            &triggerCapabilityDonInfo,
 	}
 	myId := s.peerWrapper.GetPeer().ID().String()
 	config := remotetypes.RemoteTriggerConfig{
@@ -125,7 +127,7 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 	}
 	if slices.Contains(triggerDONPeers, myId) {
 		s.lggr.Info("member of a capability DON - starting remote publishers")
-		workflowDONs := map[string]remotetypes.DON{
+		workflowDONs := map[string]capabilities.DON{
 			workflowDonInfo.ID: workflowDonInfo,
 		}
 		underlying := triggers.NewMercuryTriggerService(1000, s.lggr)
