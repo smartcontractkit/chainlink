@@ -7,6 +7,7 @@ name: Release Preview - Changeset
 on:
   push:
     branches:
+      - fix/changesets-release-preview
       - develop
 
 jobs:

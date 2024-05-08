@@ -35,7 +35,7 @@ append_changelog_content() {
       continue
     fi
     changesets=$(jq -r --arg key "$tag" '.[$key] | join("\n\n")' tags.json)
-    read -d '' changelog_content <<EOF
+    read -d '' changelog_content <<EOF || true
 ${changelog_content}
 
 ## ${tag}
@@ -49,17 +49,17 @@ set_pr_body() {
   # GitHub Issues/PRs messages have a max size limit on the message body payload.
   # This is the error: `body is too long (maximum is 65536 characters)`.
   max_pr_desc_char_length=65000
-  read -d '' pr_header <<EOF
+  read -d '' pr_header <<EOF || true
 This PR is a preview of the changes that will be included in the next release. Please do not merge this PR.
 ---
 EOF
   if [[ ${#changelog_content} -gt $max_pr_desc_char_length ]]; then
-    read -d '' pr_body <<EOF
+    read -d '' pr_body <<EOF || true
 ${pr_header}
 The changelog content is too long for the PR description. Please view the full changelog in the [CHANGELOG.md](https://github.com/smartcontractkit/chainlink/blob/changesets/release-preview/CHANGELOG.md)
 EOF
   else
-    read -d '' pr_body <<EOF
+    read -d '' pr_body <<EOF || true
 ${pr_header}
 ${changelog_content}
 EOF
@@ -71,7 +71,7 @@ EOF
 }
 
 set_new_changelog_content() {
-  read -d '' new_changelog <<EOF
+  read -d '' new_changelog <<EOF || true
 ${changelog_content}
 ${current_changelog}
 EOF
@@ -128,6 +128,11 @@ EOF
 current_changelog=$(cat CHANGELOG.md.tmp)
 is_current_version=false
 changesets_index=0
+pr_header=""
+pr_body=""
+changeset_content=""
+changelog_content=""
+new_changelog=""
 tags_list=( "#nops" "#added" "#changed" "#removed" "#updated" "#deprecation_notice" "#breaking_change" "#db_update" "#wip" "#bugfix" "#internal" "#untagged")
 
 create_changesets_json
