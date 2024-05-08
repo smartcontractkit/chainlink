@@ -125,7 +125,6 @@ func TestAutomationChaos(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]eth_contracts.KeeperRegistryVersion{
-		// TODO is this correct? Action used to to configure OCR doesn't support registry 2.0 ¯\_(ツ)_/¯
 		"registry_2_0": eth_contracts.RegistryVersion_2_0,
 		"registry_2_1": eth_contracts.RegistryVersion_2_1,
 		"registry_2_2": eth_contracts.RegistryVersion_2_2,
@@ -220,14 +219,14 @@ func TestAutomationChaos(t *testing.T) {
 						}).
 						AddHelm(testCase.networkChart).
 						AddHelm(testCase.clChart)
-						// TODO we need to update the image in CTF, the old one is not available anymore
-						// deploy blockscout if running on simulated
-						// AddHelm(testCase.clChart).
-						// AddChart(blockscout.New(&blockscout.Props{
-						// 	Name:    "geth-blockscout",
-						// 	WsURL:   network.URL,
-						// 	HttpURL: network.HTTPURLs[0],
-						// })
+					// TODO we need to update the image in CTF, the old one is not available anymore
+					// deploy blockscout if running on simulated
+					// AddHelm(testCase.clChart).
+					// AddChart(blockscout.New(&blockscout.Props{
+					// 	Name:    "geth-blockscout",
+					// 	WsURL:   network.URL,
+					// 	HttpURL: network.HTTPURLs[0],
+					// })
 					err = testEnvironment.Run()
 					require.NoError(t, err, "Error setting up test environment")
 					if testEnvironment.WillUseRemoteRunner() {
