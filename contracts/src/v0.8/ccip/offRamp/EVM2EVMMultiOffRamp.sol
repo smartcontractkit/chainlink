@@ -67,16 +67,27 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
   );
   event TokenAggregateRateLimitAdded(address sourceToken, address destToken);
   event TokenAggregateRateLimitRemoved(address sourceToken, address destToken);
+  event SourceChainSelectorAdded(uint64 sourceChainSelector);
+  event SourceChainConfigSet(uint64 indexed sourceChainSelector, SourceChainConfig sourceConfig);
 
   /// @notice Static offRamp config
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct StaticConfig {
     address commitStore; // ────────╮  CommitStore address on the destination chain
     uint64 chainSelector; // ───────╯  Destination chainSelector
-    uint64 sourceChainSelector; // ─╮  Source chainSelector
-    address onRamp; // ─────────────╯  OnRamp address on the source chain
-    address prevOffRamp; //            Address of previous-version OffRamp
     address armProxy; //               ARM proxy address
+  }
+
+  /// @notice Per-chain source config (defining a lane from a Source Chain -> Dest OffRamp)
+  struct SourceChainConfig {
+    // TODO: re-evaluate on removing this (can be controlled by CommitStore)
+    bool isEnabled; // ─────────╮  Flag whether the source chain is enabled or not
+    address prevOffRamp; // ────╯  Address of previous-version per-lane OffRamp. Used to be able to provide seequencing continuity during a zero downtime upgrade.
+    address onRamp; //             OnRamp address on the source chain
+    /// @dev Ensures that 2 identical messages sent to 2 different lanes will have a distinct hash.
+    /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in
+    /// the commitStore and i_metadataHash in the onRamp.
+    bytes32 metadataHash; //      Source-chain specific message hash preimage to ensure global uniqueness
   }
 
   /// @notice Dynamic offRamp config
@@ -96,25 +107,27 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
     address destToken;
   }
 
+  /// @notice Struct that represents a message route (sender -> receiver and source chain)
+  struct Any2EVMMessageRoute {
+    bytes sender; //                    Message sender
+    uint64 sourceChainSelector; // ───╮ Source chain that the message originates from
+    address receiver; // ─────────────╯ Address that receives the message
+  }
+
+  /// @notice SourceChainConfig update args scoped to one source chain
+  struct SourceChainConfigArgs {
+    uint64 sourceChainSelector; //  ───╮  Source chain selector of the config to update
+    bool isEnabled; //                 │  Flag whether the source chain is enabled or not
+    address prevOffRamp; // ───────────╯  Address of previous-version per-lane OffRamp. Used to be able to provide seequencing continuity during a zero downtime upgrade.
+    address onRamp; //                    OnRamp address on the source chain
+  }
+
   // STATIC CONFIG
   string public constant override typeAndVersion = "EVM2EVMMultiOffRamp 1.6.0-dev";
-
   /// @dev Commit store address on the destination chain
   address internal immutable i_commitStore;
-  /// @dev ChainSelector of the source chain
-  uint64 internal immutable i_sourceChainSelector;
   /// @dev ChainSelector of this chain
   uint64 internal immutable i_chainSelector;
-  /// @dev OnRamp address on the source chain
-  address internal immutable i_onRamp;
-  /// @dev metadataHash is a lane-specific prefix for a message hash preimage which ensures global uniqueness.
-  /// Ensures that 2 identical messages sent to 2 different lanes will have a distinct hash.
-  /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in
-  /// the commitStore and i_metadataHash in the onRamp.
-  bytes32 internal immutable i_metadataHash;
-  /// @dev The address of previous-version OffRamp for this lane.
-  /// Used to be able to provide sequencing continuity during a zero downtime upgrade.
-  address internal immutable i_prevOffRamp;
   /// @dev The address of the arm proxy
   address internal immutable i_armProxy;
 
@@ -123,6 +136,14 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
   /// @dev Tokens that should be included in Aggregate Rate Limiting
   /// An (address => address) map is used for backwards compatability of offchain code
   EnumerableMapAddresses.AddressToAddressMap internal s_rateLimitedTokensDestToSource;
+
+  // TODO: evaluate whether this should be pulled in (since this can be inferred from SourceChainSelectorAdded events instead)
+  /// @notice all source chains available in s_sourceChainConfigs
+  // uint64[] internal s_sourceChainSelectors;
+
+  /// @notice SourceConfig per chain
+  /// (forms lane configurations from sourceChainSelector => StaticConfig.chainSelector)
+  mapping(uint64 sourceChainSelector => SourceChainConfig) internal s_sourceChainConfigs;
 
   // STATE
   /// @dev The expected nonce for a given sender.
@@ -137,21 +158,17 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
 
   constructor(
     StaticConfig memory staticConfig,
+    SourceChainConfigArgs[] memory sourceChainConfigs,
+    // TODO: convert to array to support per-chain config once multi-ARL is ready
     RateLimiter.Config memory rateLimiterConfig
   ) OCR2BaseNoChecks() AggregateRateLimiter(rateLimiterConfig) {
-    if (staticConfig.onRamp == address(0) || staticConfig.commitStore == address(0)) revert ZeroAddressNotAllowed();
-    // Ensures we can never deploy a new offRamp that points to a commitStore that
-    // already has roots committed.
-    if (ICommitStore(staticConfig.commitStore).getExpectedNextSequenceNumber() != 1) revert CommitStoreAlreadyInUse();
+    if (staticConfig.commitStore == address(0)) revert ZeroAddressNotAllowed();
 
     i_commitStore = staticConfig.commitStore;
-    i_sourceChainSelector = staticConfig.sourceChainSelector;
     i_chainSelector = staticConfig.chainSelector;
-    i_onRamp = staticConfig.onRamp;
-    i_prevOffRamp = staticConfig.prevOffRamp;
     i_armProxy = staticConfig.armProxy;
 
-    i_metadataHash = _metadataHash(Internal.EVM_2_EVM_MESSAGE_HASH);
+    _applySourceChainConfigUpdates(sourceChainConfigs);
   }
 
   // ================================================================
@@ -194,10 +211,11 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
   function getSenderNonce(address sender) public view returns (uint64 nonce) {
     uint256 senderNonce = s_senderNonce[sender];
 
-    if (senderNonce == 0 && i_prevOffRamp != address(0)) {
-      // If OffRamp was upgraded, check if sender has a nonce from the previous OffRamp.
-      return IAny2EVMOffRamp(i_prevOffRamp).getSenderNonce(sender);
-    }
+    // TODO: re-implement for multi-lane
+    // if (senderNonce == 0 && i_prevOffRamp != address(0)) {
+    //   // If OffRamp was upgraded, check if sender has a nonce from the previous OffRamp.
+    //   return IAny2EVMOffRamp(i_prevOffRamp).getSenderNonce(sender);
+    // }
     return uint64(senderNonce);
   }
 
@@ -243,7 +261,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
       Internal.EVM2EVMMessage memory message = report.messages[i];
       // We do this hash here instead of in _verifyMessages to avoid two separate loops
       // over the same data, which increases gas cost
-      hashedLeaves[i] = Internal._hash(message, i_metadataHash);
+      hashedLeaves[i] = Internal._hash(message, s_sourceChainConfigs[message.sourceChainSelector].metadataHash);
       // For EVM2EVM offramps, the messageID is the leaf hash.
       // Asserting that this is true ensures we don't accidentally commit and then execute
       // a message with an unexpected hash.
@@ -293,8 +311,11 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
       // given sender allows us to skip the current message if it would not be the next according
       // to the old offRamp. This preserves sequencing between updates.
       uint64 prevNonce = s_senderNonce[message.sender];
-      if (prevNonce == 0 && i_prevOffRamp != address(0)) {
-        prevNonce = IAny2EVMOffRamp(i_prevOffRamp).getSenderNonce(message.sender);
+      address prevOffRamp = s_sourceChainConfigs[message.sourceChainSelector].prevOffRamp;
+      if (prevNonce == 0 && prevOffRamp != address(0)) {
+        // TODO: assuming prevOffRamp is always a lane-specific off ramp
+        //       Update to additionally support IAny2EVMMultiOffRamp backwards compatibility
+        prevNonce = IAny2EVMOffRamp(prevOffRamp).getSenderNonce(message.sender);
         if (prevNonce + 1 != message.nonce) {
           // the starting v2 onramp nonce, i.e. the 1st message nonce v2 offramp is expected to receive,
           // is guaranteed to equal (largest v1 onramp nonce + 1).
@@ -374,7 +395,8 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
     uint256 dataLength,
     uint256 offchainTokenDataLength
   ) private view {
-    if (sourceChainSelector != i_sourceChainSelector) revert InvalidSourceChain(sourceChainSelector);
+    // If onRamp address is 0, that means the source chain is not configured
+    if (s_sourceChainConfigs[sourceChainSelector].onRamp == address(0)) revert InvalidSourceChain(sourceChainSelector);
     if (numberOfTokens > uint256(s_dynamicConfig.maxNumberOfTokensPerMsg)) {
       revert UnsupportedNumberOfTokens(sequenceNumber);
     }
@@ -425,7 +447,14 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](0);
     if (message.tokenAmounts.length > 0) {
       destTokenAmounts = _releaseOrMintTokens(
-        message.tokenAmounts, abi.encode(message.sender), message.receiver, message.sourceTokenData, offchainTokenData
+        message.tokenAmounts,
+        Any2EVMMessageRoute({
+          sender: abi.encode(message.sender),
+          sourceChainSelector: message.sourceChainSelector,
+          receiver: message.receiver
+        }),
+        message.sourceTokenData,
+        offchainTokenData
       );
     }
     // There are three cases in which we skip calling the receiver:
@@ -453,8 +482,8 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
   }
 
   /// @notice creates a unique hash to be used in message hashing.
-  function _metadataHash(bytes32 prefix) internal view returns (bytes32) {
-    return keccak256(abi.encode(prefix, i_sourceChainSelector, i_chainSelector, i_onRamp));
+  function _metadataHash(uint64 sourceChainSelector, address onRamp, bytes32 prefix) internal view returns (bytes32) {
+    return keccak256(abi.encode(prefix, sourceChainSelector, i_chainSelector, onRamp));
   }
 
   // ================================================================
@@ -465,20 +494,69 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
   /// @dev This function will always return the same struct as the contents is static and can never change.
   /// RMN depends on this function, if changing, please notify the RMN maintainers.
   function getStaticConfig() external view returns (StaticConfig memory) {
-    return StaticConfig({
-      commitStore: i_commitStore,
-      chainSelector: i_chainSelector,
-      sourceChainSelector: i_sourceChainSelector,
-      onRamp: i_onRamp,
-      prevOffRamp: i_prevOffRamp,
-      armProxy: i_armProxy
-    });
+    return StaticConfig({commitStore: i_commitStore, chainSelector: i_chainSelector, armProxy: i_armProxy});
   }
 
   /// @notice Returns the current dynamic config.
   /// @return The current config.
   function getDynamicConfig() external view returns (DynamicConfig memory) {
     return s_dynamicConfig;
+  }
+
+  /// @notice Returns the source chain config for the provided source chain selector
+  /// @param sourceChainSelector chain to retrieve configuration for
+  /// @return SourceChainConfig config for the source chain
+  function getSourceChainConfig(uint64 sourceChainSelector) external view returns (SourceChainConfig memory) {
+    return s_sourceChainConfigs[sourceChainSelector];
+  }
+
+  /// @notice Returns all configured source chain selectors
+  /// @return sourceChainSelectors source chain selectors
+  // function getSourceChainSelectors() external view returns (uint64[] memory) {
+  //   return s_sourceChainSelectors;
+  // }
+
+  /// @notice Updates source configs
+  /// @param sourceChainConfigUpdates Source chain configs
+  function applySourceChainConfigUpdates(SourceChainConfigArgs[] memory sourceChainConfigUpdates) external onlyOwner {
+    _applySourceChainConfigUpdates(sourceChainConfigUpdates);
+  }
+
+  /// @notice Updates source configs
+  /// @param sourceChainConfigUpdates Source chain configs
+  function _applySourceChainConfigUpdates(SourceChainConfigArgs[] memory sourceChainConfigUpdates) internal {
+    for (uint256 i = 0; i < sourceChainConfigUpdates.length; ++i) {
+      SourceChainConfigArgs memory sourceConfigUpdate = sourceChainConfigUpdates[i];
+      uint64 sourceChainSelector = sourceConfigUpdate.sourceChainSelector;
+
+      if (sourceConfigUpdate.onRamp == address(0)) {
+        revert ZeroAddressNotAllowed();
+      }
+
+      // OnRamp can never be zero - if it is, then the source chain has been added for the first time
+      if (s_sourceChainConfigs[sourceChainSelector].onRamp == address(0)) {
+        // s_sourceChainSelectors.push(sourceChainSelector);
+        emit SourceChainSelectorAdded(sourceChainSelector);
+      }
+
+      // TODO: re-introduce check when MultiCommitStore is ready
+      // Ensures we can never deploy a new offRamp that points to a commitStore that
+      // already has roots committed.
+      // if (ICommitStore(staticConfig.commitStore).getExpectedNextSequenceNumber() != 1) revert CommitStoreAlreadyInUse();
+
+      SourceChainConfig memory sourceChainConfig = SourceChainConfig({
+        isEnabled: sourceConfigUpdate.isEnabled,
+        prevOffRamp: sourceConfigUpdate.prevOffRamp,
+        onRamp: sourceConfigUpdate.onRamp,
+        metadataHash: _metadataHash(sourceChainSelector, sourceConfigUpdate.onRamp, Internal.EVM_2_EVM_MESSAGE_HASH)
+      });
+      // TODO: confirm if re-updating is allowed
+      //       If it can happen - reset nonces
+      //       If it cannot - validate and restrict
+      s_sourceChainConfigs[sourceChainSelector] = sourceChainConfig;
+
+      emit SourceChainConfigSet(sourceChainSelector, sourceChainConfig);
+    }
   }
 
   /// @notice Sets the dynamic config. This function is called during `setOCR2Config` flow
@@ -490,15 +568,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
     s_dynamicConfig = dynamicConfig;
 
     emit ConfigSet(
-      StaticConfig({
-        commitStore: i_commitStore,
-        chainSelector: i_chainSelector,
-        sourceChainSelector: i_sourceChainSelector,
-        onRamp: i_onRamp,
-        prevOffRamp: i_prevOffRamp,
-        armProxy: i_armProxy
-      }),
-      dynamicConfig
+      StaticConfig({commitStore: i_commitStore, chainSelector: i_chainSelector, armProxy: i_armProxy}), dynamicConfig
     );
   }
 
@@ -542,8 +612,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
 
   /// @notice Uses pools to release or mint a number of different tokens to a receiver address.
   /// @param sourceTokenAmounts List of tokens and amount values to be released/minted.
-  /// @param originalSender The message sender.
-  /// @param receiver The address that will receive the tokens.
+  /// @param messageRoute Message route details (original sender, receiver and source chain)
   /// @param encodedSourceTokenData Array of token data returned by token pools on the source chain.
   /// @param offchainTokenData Array of token data fetched offchain by the DON.
   /// @dev This function wrappes the token pool call in a try catch block to gracefully handle
@@ -551,8 +620,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
   /// we bubble it up. If we encounter a non-rate limiting error we wrap it in a TokenHandlingError.
   function _releaseOrMintTokens(
     Client.EVMTokenAmount[] memory sourceTokenAmounts,
-    bytes memory originalSender,
-    address receiver,
+    Any2EVMMessageRoute memory messageRoute,
     bytes[] memory encodedSourceTokenData,
     bytes[] memory offchainTokenData
   ) internal returns (Client.EVMTokenAmount[] memory destTokenAmounts) {
@@ -584,10 +652,10 @@ contract EVM2EVMMultiOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndV
         abi.encodeWithSelector(
           IPool.releaseOrMint.selector,
           Pool.ReleaseOrMintInV1({
-            originalSender: originalSender,
-            receiver: receiver,
+            originalSender: messageRoute.sender,
+            receiver: messageRoute.receiver,
             amount: sourceTokenAmounts[i].amount,
-            remoteChainSelector: i_sourceChainSelector,
+            remoteChainSelector: messageRoute.sourceChainSelector,
             sourcePoolAddress: sourceTokenData.sourcePoolAddress,
             sourcePoolData: sourceTokenData.extraData,
             offchainTokenData: offchainTokenData[i]

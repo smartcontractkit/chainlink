@@ -42,6 +42,7 @@ compileContractLowOpts () {
 # Solc produces and overwrites intermediary contracts.
 # Contracts should be ordered in reverse-import-complexity-order to minimize overwrite risks.
 compileContract ccip/offRamp/EVM2EVMOffRamp.sol
+compileContract ccip/offRamp/EVM2EVMMultiOffRamp.sol
 compileContract ccip/applications/PingPongDemo.sol
 compileContract ccip/applications/SelfFundedPingPong.sol
 compileContract ccip/applications/EtherSenderReceiver.sol
