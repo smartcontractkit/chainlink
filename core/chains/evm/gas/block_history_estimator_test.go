@@ -1001,7 +1001,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		// And for X Layer
 		cfg.ChainTypeF = string(config.ChainXLayer)
-		bhe.Recalculate(cltest.Head(0))
+		bhe.Recalculate(testutils.Head(0))
 		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
 	})
 
