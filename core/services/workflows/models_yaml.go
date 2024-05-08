@@ -267,6 +267,10 @@ func (s stepDefinitionID) String() string {
 		return s.idStr
 	}
 
+	if s.idTable == nil {
+		return ""
+	}
+
 	return s.idTable.String()
 }
 

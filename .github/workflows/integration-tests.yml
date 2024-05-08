@@ -192,7 +192,7 @@ jobs:
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        if: always()
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
