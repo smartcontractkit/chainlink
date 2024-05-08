@@ -131,29 +131,29 @@ func (n *node[CHAIN_ID, HEAD, RPC]) getCachedState() nodeState {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) recalculateState() nodeState {
-	if n.state != nodeStateAlive || !n.nodePoolCfg.EnforceRepeatableRead() {
+	if n.state != nodeStateAlive {
 		return n.state
 	}
 
 	// double check that node is not lagging on finalized block
-	if n.isFinalizedStateOutOfSync() {
+	if n.nodePoolCfg.EnforceRepeatableRead() && n.isFinalizedBlockOutOfSync() {
 		return nodeStateFinalizedBlockOutOfSync
 	}
 
 	return nodeStateAlive
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedStateOutOfSync() bool {
+func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 	if n.poolInfoProvider == nil {
 		return false
 	}
 
-	highest := n.poolInfoProvider.HighestChainInfo()
+	observedByCaller := n.poolInfoProvider.HighestChainInfo()
 	if n.chainCfg.FinalityTagEnabled() {
-		return n.latestChainInfo.FinalizedBlockNumber < highest.FinalizedBlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
+		return n.latestChainInfo.FinalizedBlockNumber < observedByCaller.FinalizedBlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
 	}
 
-	return n.latestChainInfo.BlockNumber < highest.BlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
+	return n.latestChainInfo.BlockNumber < observedByCaller.BlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
 }
 
 // StateAndLatestChainInfo returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
