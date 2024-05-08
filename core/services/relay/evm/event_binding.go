@@ -395,7 +395,7 @@ func (e *eventBinding) remapPrimitive(key string, expression query.Expression) (
 			return logpoller.NewEventByWordFilter(e.hash, val, primitive.ValueComparators), nil
 		}
 
-		return logpoller.NewEventByTopicFilter(e.hash, e.topics[key].Index, primitive.ValueComparators), nil
+		return logpoller.NewEventByTopicFilter(e.topics[key].Index, primitive.ValueComparators), nil
 	default:
 		return expression, nil
 	}

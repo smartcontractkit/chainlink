@@ -172,7 +172,14 @@ func (v *pgDSLParser) VisitEventByWordFilter(p *eventByWordFilter) {
 
 func (v *pgDSLParser) VisitEventTopicsByValueFilter(p *eventByTopicFilter) {
 	if len(p.ValueComparers) > 0 {
-		topicIdx := v.args.withIndexedField("topic_index", p.Topic)
+		if !(p.Topic == 1 || p.Topic == 2 || p.Topic == 3) {
+			v.err = fmt.Errorf("invalid index for topic: %d", p.Topic)
+
+			return
+		}
+
+		// Add 1 since postgresql arrays are 1-indexed.
+		topicIdx := v.args.withIndexedField("topic_index", p.Topic+1)
 
 		comps := make([]string, len(p.ValueComparers))
 		for idx, comp := range p.ValueComparers {
@@ -478,14 +485,12 @@ func (f *eventByWordFilter) Accept(visitor primitives.Visitor) {
 }
 
 type eventByTopicFilter struct {
-	EventSig       common.Hash
 	Topic          uint64
 	ValueComparers []primitives.ValueComparator
 }
 
-func NewEventByTopicFilter(eventSig common.Hash, topicIndex uint64, valueComparers []primitives.ValueComparator) query.Expression {
+func NewEventByTopicFilter(topicIndex uint64, valueComparers []primitives.ValueComparator) query.Expression {
 	return query.Expression{Primitive: &eventByTopicFilter{
-		EventSig:       eventSig,
 		Topic:          topicIndex,
 		ValueComparers: valueComparers,
 	}}
