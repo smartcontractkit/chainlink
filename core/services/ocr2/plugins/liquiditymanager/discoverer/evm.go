@@ -3,6 +3,8 @@ package discoverer
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"sync"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -13,15 +15,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 )
 
+type evmLiquidityGetter func(ctx context.Context, selector models.NetworkSelector, lmAddress common.Address) (*big.Int, error)
+
 type evmDiscoverer struct {
+	lock             sync.RWMutex
 	evmClients       map[models.NetworkSelector]evmDep
 	masterRebalancer models.Address
 	masterSelector   models.NetworkSelector
+	liquidityGetter  evmLiquidityGetter
 }
 
 func (e *evmDiscoverer) Discover(ctx context.Context) (graph.Graph, error) {
 	getVertexInfo := func(ctx context.Context, selector models.NetworkSelector, rebalancerAddress models.Address) (graph.Data, []dataItem, error) {
-		dep, ok := e.evmClients[selector]
+		dep, ok := e.getDep(selector)
 		if !ok {
 			return graph.Data{}, nil, fmt.Errorf("no client for master chain %+v", selector)
 		}
@@ -85,6 +91,58 @@ func (e *evmDiscoverer) Discover(ctx context.Context) (graph.Graph, error) {
 	}
 
 	return discover(ctx, e.masterSelector, e.masterRebalancer, getVertexInfo)
+}
+
+func (e *evmDiscoverer) DiscoverBalances(ctx context.Context, g graph.Graph) error {
+	networks := g.GetNetworks()
+	liquidityGetter := e.liquidityGetter
+	if liquidityGetter == nil {
+		liquidityGetter = e.defaultLiquidityGetter
+	}
+	for _, selector := range networks {
+		if err := e.updateLiquidity(ctx, selector, g, liquidityGetter); err != nil {
+			return fmt.Errorf("get liquidity: %w", err)
+		}
+	}
+	return nil
+}
+
+func (e *evmDiscoverer) updateLiquidity(ctx context.Context, selector models.NetworkSelector, g graph.Graph, liquidityGetter evmLiquidityGetter) error {
+	rebalancerAddress, err := g.GetRebalancerAddress(selector)
+	if err != nil {
+		return fmt.Errorf("get rebalancer address: %w", err)
+	}
+	liquidity, err := liquidityGetter(ctx, selector, common.Address(rebalancerAddress))
+	if err != nil {
+		return fmt.Errorf("get liquidity: %w", err)
+	}
+	_ = g.SetLiquidity(selector, liquidity) // TODO: handle non-existing network
+	return nil
+}
+
+func (e *evmDiscoverer) getDep(selector models.NetworkSelector) (*evmDep, bool) {
+	e.lock.RLock()
+	defer e.lock.RUnlock()
+
+	dep, ok := e.evmClients[selector]
+	if !ok {
+		return nil, false
+	}
+	return &dep, true
+}
+
+func (e *evmDiscoverer) defaultLiquidityGetter(ctx context.Context, selector models.NetworkSelector, lmAddress common.Address) (*big.Int, error) {
+	dep, ok := e.getDep(selector)
+	if !ok {
+		return nil, fmt.Errorf("no client for master chain %+v", selector)
+	}
+	rebal, err := liquiditymanager.NewLiquidityManager(lmAddress, dep.ethClient)
+	if err != nil {
+		return nil, fmt.Errorf("new liquiditymanager: %w", err)
+	}
+	return rebal.GetLiquidity(&bind.CallOpts{
+		Context: ctx,
+	})
 }
 
 type dataItem struct {

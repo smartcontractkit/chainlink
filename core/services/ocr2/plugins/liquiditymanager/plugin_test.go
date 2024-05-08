@@ -276,12 +276,14 @@ func TestPlugin_Observation(t *testing.T) {
 			// syncGraph
 			mockDiscoverer := discoverermocks.NewDiscoverer(t)
 			p.discovererFactory.
-				On("NewDiscoverer", p.plugin.rootNetwork, p.plugin.rootAddress).
-				Return(mockDiscoverer, nil)
+				On("NewDiscoverer", mock.Anything, mock.Anything).
+				Return(mockDiscoverer, nil).Maybe()
 			g, err := tc.observedGraph(t)
 			mockDiscoverer.
 				On("Discover", ctx).
 				Return(g, err)
+			mockDiscoverer.On("DiscoverBalances", ctx, g).Return(nil).Maybe()
+			p.plugin.discoverer = mockDiscoverer
 
 			// loadPendingTransfers && resolveProposedTransfers
 			for sourceDest, bridgeFn := range tc.bridges {
@@ -778,7 +780,7 @@ func TestPlugin_Reports(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := newPluginWithMocksAndDefaults(t)
 			for net, addr := range tc.rebalancerAddress {
-				p.plugin.rebalancerGraph.AddNetwork(net, graph.Data{RebalancerAddress: addr, NetworkSelector: net})
+				p.plugin.liquidityGraph.AddNetwork(net, graph.Data{RebalancerAddress: addr, NetworkSelector: net})
 			}
 
 			reports, err := p.plugin.Reports(tc.seqNr, tc.outcome.Encode())
@@ -1061,7 +1063,7 @@ func TestPlugin_Close(t *testing.T) {
 	g.AddNetwork(networkA, graph.Data{RebalancerAddress: rebalancerA})
 	g.AddNetwork(networkB, graph.Data{RebalancerAddress: rebalancerB})
 	g.AddNetwork(networkC, graph.Data{RebalancerAddress: rebalancerC})
-	p.plugin.rebalancerGraph = g
+	p.plugin.liquidityGraph = g
 
 	rbA := liquiditymanagermocks.NewLiquidityManager(t)
 	rbB := liquiditymanagermocks.NewLiquidityManager(t)
@@ -1108,13 +1110,14 @@ func TestPlugin_E2EWithMocks(t *testing.T) {
 					n.resetMocks(t)
 
 					// the node will first discover the graph, let's mock the observed graph
+					g := round.discoveredGraphPerNode[i]()
 					discoverer := discoverermocks.NewDiscoverer(t)
-					n.discovererFactory.
-						On("NewDiscoverer", n.plugin.rootNetwork, n.plugin.rootAddress).
-						Return(discoverer, nil).Maybe()
 					discoverer.
 						On("Discover", mock.Anything).
-						Return(round.discoveredGraphPerNode[i](), nil).Maybe()
+						Return(g, nil).Maybe()
+					discoverer.On("DiscoverBalances", mock.Anything, mock.Anything).Return(nil).Maybe()
+					n.plugin.discoverer = discoverer
+					n.plugin.liquidityGraph = g
 
 					// the node will now try to load the pending transfers of all the available bridges
 					// let's mock the pending transfers
@@ -1523,7 +1526,8 @@ type node struct {
 
 func (n *node) resetMocks(t *testing.T) {
 	lmFactory := mocks.NewFactory(t)
-	discovererFactory := discoverermocks.NewFactory(t)
+	discovererMock := discoverermocks.NewDiscoverer(t)
+	discovererMock.On("DiscoverBalances", mock.Anything, mock.Anything).Return(nil).Maybe()
 	bridgeFactory := bridgemocks.NewFactory(t)
 	bridgeMocks := make(map[[2]models.NetworkSelector]*bridgemocks.Bridge)
 	for _, b := range bridges {
@@ -1531,18 +1535,22 @@ func (n *node) resetMocks(t *testing.T) {
 	}
 
 	n.bridgeFactory = bridgeFactory
-	n.discovererFactory = discovererFactory
 	n.rbFactory = lmFactory
 	n.bridges = bridgeMocks
 
 	n.plugin.bridgeFactory = bridgeFactory
-	n.plugin.discovererFactory = discovererFactory
+	n.plugin.discoverer = discovererMock
 	n.plugin.liquidityManagerFactory = lmFactory
 }
 
 func newNode(t *testing.T, lggr logger.Logger, f int) node {
 	lmFactory := mocks.NewFactory(t)
 	discovererFactory := discoverermocks.NewFactory(t)
+	discovererMock := discoverermocks.NewDiscoverer(t)
+	discovererMock.On("DiscoverBalances", mock.Anything, mock.Anything).Return(nil).Maybe()
+	// g := graph.NewGraph()
+	// discovererMock.On("Discover", mock.Anything).Return(g, nil).Maybe()
+	discovererFactory.On("NewDiscoverer", mock.Anything, mock.Anything).Return(discovererMock, nil).Maybe()
 	bridgeFactory := bridgemocks.NewFactory(t)
 	rebalancerAlg := liquidityrebalancer.NewPingPong()
 
@@ -1552,7 +1560,7 @@ func newNode(t *testing.T, lggr logger.Logger, f int) node {
 		networkA,
 		models.Address(utils.RandomAddress()),
 		lmFactory,
-		discovererFactory,
+		discovererMock,
 		bridgeFactory,
 		rebalancerAlg,
 		NewJsonReportCodec(),
@@ -1603,6 +1611,8 @@ func newPluginWithMocks(
 ) *pluginWithMocks {
 	lmFactory := mocks.NewFactory(t)
 	discovererFactory := discoverermocks.NewFactory(t)
+	discovererMock := discoverermocks.NewDiscoverer(t)
+	discovererFactory.On("NewDiscoverer", mock.Anything, mock.Anything).Return(discovererMock, nil).Maybe()
 	bridgeFactory := bridgemocks.NewFactory(t)
 	rebalancerAlg := liquidityrebalancer.NewPingPong()
 	return &pluginWithMocks{
@@ -1612,7 +1622,7 @@ func newPluginWithMocks(
 			rootNetwork,
 			rootAddress,
 			lmFactory,
-			discovererFactory,
+			discovererMock,
 			bridgeFactory,
 			rebalancerAlg,
 			NewJsonReportCodec(),

@@ -208,3 +208,62 @@ func Test_discover(t *testing.T) {
 		})
 	}
 }
+
+func Test_EvmDiscoverer_DiscoverBalances(t *testing.T) {
+	tests := []struct {
+		name            string
+		initialGraph    map[models.NetworkSelector]*big.Int
+		liquidityGetter func(ctx context.Context, network models.NetworkSelector, lmAddress common.Address) (*big.Int, error)
+		wantGraph       map[models.NetworkSelector]*big.Int
+		wantErr         bool
+	}{
+		{
+			name:         "empty",
+			initialGraph: map[models.NetworkSelector]*big.Int{},
+			liquidityGetter: func(ctx context.Context, network models.NetworkSelector, lmAddress common.Address) (*big.Int, error) {
+				return big.NewInt(100), nil
+			},
+			wantGraph: map[models.NetworkSelector]*big.Int{},
+		},
+		{
+			name: "happy path",
+			initialGraph: map[models.NetworkSelector]*big.Int{
+				1: big.NewInt(100),
+				2: big.NewInt(100),
+				3: big.NewInt(100),
+			},
+			liquidityGetter: func(ctx context.Context, network models.NetworkSelector, lmAddress common.Address) (*big.Int, error) {
+				liq := big.NewInt(0).Mul(big.NewInt(100), big.NewInt(int64(network)))
+				return liq, nil
+			},
+			wantGraph: map[models.NetworkSelector]*big.Int{
+				1: big.NewInt(100),
+				2: big.NewInt(100 * 2),
+				3: big.NewInt(100 * 3),
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := graph.NewGraph()
+			for network, liq := range tc.initialGraph {
+				g.AddNetwork(network, graph.Data{Liquidity: liq})
+			}
+			d := &evmDiscoverer{
+				liquidityGetter: tc.liquidityGetter,
+			}
+			err := d.DiscoverBalances(testutils.Context(t), g)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			for network, expectedLiq := range tc.wantGraph {
+				liq, err := g.GetLiquidity(network)
+				require.NoError(t, err)
+				require.Equalf(t, expectedLiq, liq, "wrong liquidity for network %d", network)
+			}
+		})
+	}
+}
