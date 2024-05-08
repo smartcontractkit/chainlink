@@ -676,7 +676,7 @@ func aggregateTxResults(resultsByCode sendTxErrors) (txResult error, err error) 
 		}
 
 		// other errors are temporary - we are safe to return success
-		return severeErrorsList, nil
+		return successResults[0], nil
 	}
 
 	if hasSevereErrors {
