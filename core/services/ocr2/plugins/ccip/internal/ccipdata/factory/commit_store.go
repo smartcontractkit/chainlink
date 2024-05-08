@@ -21,19 +21,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-func NewCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int, pgOpts ...pg.QOpt) (ccipdata.CommitStoreReader, error) {
-	return initOrCloseCommitStoreReader(lggr, versionFinder, address, ec, lp, estimator, sourceMaxGasPrice, false, pgOpts...)
+func NewCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) (ccipdata.CommitStoreReader, error) {
+	return initOrCloseCommitStoreReader(lggr, versionFinder, address, ec, lp, estimator, sourceMaxGasPrice, false)
 }
 
-func CloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int, pgOpts ...pg.QOpt) error {
-	_, err := initOrCloseCommitStoreReader(lggr, versionFinder, address, ec, lp, estimator, sourceMaxGasPrice, true, pgOpts...)
+func CloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) error {
+	_, err := initOrCloseCommitStoreReader(lggr, versionFinder, address, ec, lp, estimator, sourceMaxGasPrice, true)
 	return err
 }
 
-func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int, closeReader bool, pgOpts ...pg.QOpt) (ccipdata.CommitStoreReader, error) {
+func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int, closeReader bool) (ccipdata.CommitStoreReader, error) {
 	contractType, version, err := versionFinder.TypeAndVersion(address, ec)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to read type and version")
@@ -58,7 +57,7 @@ func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinde
 		if closeReader {
 			return nil, cs.Close()
 		}
-		return cs, cs.RegisterFilters(pgOpts...)
+		return cs, cs.RegisterFilters()
 	case ccipdata.V1_2_0:
 		cs, err := v1_2_0.NewCommitStore(lggr, evmAddr, ec, lp, estimator, sourceMaxGasPrice)
 		if err != nil {

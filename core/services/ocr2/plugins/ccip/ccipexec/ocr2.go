@@ -270,7 +270,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 	// We don't use inflightCache here to avoid cases in which inflight cache keeps progressing but due to transmission failures
 	// previous reports are not included onchain. That can lead to issues with IncorrectNonce skips,
 	// because we enforce sequential processing per sender (per sender's nonce ordering is enforced by Offramp contract)
-	sendersNonce, err := r.offRampReader.GetSendersNonce(ctx, report.uniqueSenders())
+	sendersNonce, err := r.offRampReader.ListSenderNonces(ctx, report.uniqueSenders())
 	if err != nil {
 		lggr.Errorw("Fetching senders nonce", "err", err)
 		return []ccip.ObservedMessage{}, []messageExecStatus{}
