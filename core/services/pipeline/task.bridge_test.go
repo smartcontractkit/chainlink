@@ -464,7 +464,6 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		// w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]interface{}{"pending": true}
 		require.NoError(t, json.NewEncoder(w).Encode(response))
-
 	})
 
 	server := httptest.NewServer(handler)
@@ -672,7 +671,6 @@ func TestBridgeTask_Variables(t *testing.T) {
 				if test.expectedErrorContains != "" {
 					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
 				}
-
 			} else {
 				require.NoError(t, result.Error)
 				require.NotNil(t, result.Value)
@@ -942,7 +940,6 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 }
 
 func TestBridgeTask_Headers(t *testing.T) {
-
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -983,7 +980,6 @@ func TestBridgeTask_Headers(t *testing.T) {
 	standardHeaders := []string{"Content-Length", "38", "Content-Type", "application/json", "User-Agent", "Go-http-client/1.1"}
 
 	t.Run("sends headers", func(t *testing.T) {
-
 		task := pipeline.BridgeTask{
 			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 			Name:        bridge.Name.String(),
@@ -1027,7 +1023,6 @@ func TestBridgeTask_Headers(t *testing.T) {
 	})
 
 	t.Run("allows to override content-type", func(t *testing.T) {
-
 		task := pipeline.BridgeTask{
 			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 			Name:        bridge.Name.String(),

@@ -16,7 +16,6 @@ func TestNewCache(t *testing.T) {
 
 func TestCache(t *testing.T) {
 	t.Run("Happy path, no overwrites.", func(t *testing.T) {
-
 		now := time.Now().UTC()
 
 		tests := []struct {
@@ -65,7 +64,6 @@ func TestCache(t *testing.T) {
 	})
 
 	t.Run("Happy path, override middle item.", func(t *testing.T) {
-
 		now := time.Now().UTC()
 
 		tests := []struct {
@@ -105,7 +103,6 @@ func TestCache(t *testing.T) {
 	})
 
 	t.Run("Happy path, override last item.", func(t *testing.T) {
-
 		now := time.Now().UTC()
 
 		tests := []struct {

@@ -106,7 +106,6 @@ func Test_EVMChainsController_Index(t *testing.T) {
 	// sort test chain ids to make expected comparison easy
 	chainIDs := []*big.Int{testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID()}
 	sort.Slice(chainIDs, func(i, j int) bool {
-
 		return chainIDs[i].String() < chainIDs[j].String()
 	})
 

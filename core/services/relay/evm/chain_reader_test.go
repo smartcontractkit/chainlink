@@ -49,8 +49,8 @@ const (
 func TestChainReader(t *testing.T) {
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
-	RunChainReaderInterfaceTests(t, it)
-	RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
+	RunChainReaderGetLatestValueInterfaceTests(t, it)
+	RunChainReaderGetLatestValueInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t *testing.T) {
 		it.Setup(t)

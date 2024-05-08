@@ -154,7 +154,6 @@ func (o *DSORM) DeleteFilter(ctx context.Context, name string) error {
 		`DELETE FROM evm.log_poller_filters WHERE name = $1 AND evm_chain_id = $2`,
 		name, ubig.New(o.chainID))
 	return err
-
 }
 
 // LoadFilters returns all filters for this chain

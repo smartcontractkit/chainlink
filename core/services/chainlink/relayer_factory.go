@@ -102,7 +102,6 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 	unique := make(map[string]struct{})
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
-
 		relayID := types.RelayID{Network: types.NetworkSolana, ChainID: *chainCfg.ChainID}
 		_, alreadyExists := unique[relayID.Name()]
 		if alreadyExists {
@@ -119,7 +118,6 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 		lggr := solLggr.Named(relayID.ChainID)
 
 		if cmdName := env.SolanaPlugin.Cmd.Get(); cmdName != "" {
-
 			// setup the solana relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
 				Solana solana.TOMLConfig
@@ -142,7 +140,6 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 			}
 
 			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), signer)
-
 		} else {
 			// fallback to embedded chain
 			opts := solana.ChainOpts{
@@ -233,7 +230,6 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 		}
 	}
 	return starknetRelayers, nil
-
 }
 
 type CosmosFactoryConfig struct {
@@ -290,8 +286,6 @@ func (r *RelayerFactory) NewCosmos(config CosmosFactoryConfig) (map[types.RelayI
 		}
 
 		relayers[relayID] = NewCosmosLoopRelayerChain(cosmos.NewRelayer(lggr, chain), chain)
-
 	}
 	return relayers, nil
-
 }
