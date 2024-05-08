@@ -4,18 +4,23 @@ import (
 	"context"
 	"database/sql"
 	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/gofrs/flock"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,11 +44,36 @@ type TestHarness struct {
 	ChainID, ChainID2                *big.Int
 	ORM, ORM2                        logpoller.ORM
 	LogPoller                        logpoller.LogPollerTest
-	Client                           *backends.SimulatedBackend
+	Client                           simulated.Client
+	Backend                          *simulated.Backend
 	Owner                            *bind.TransactOpts
 	Emitter1, Emitter2               *log_emitter.LogEmitter
 	EmitterAddress1, EmitterAddress2 common.Address
 	EthDB                            ethdb.Database
+}
+
+// WithDataDir configures the simulated backend with a custom DataDir
+//
+//	Simulated chain will create its chaindb in this dir instead of using an in-memory db
+func withDataDir(dataDir string) func(nodeConf *node.Config, ethConf *ethconfig.Config) {
+	return func(nodeConf *node.Config, ethConf *ethconfig.Config) {
+		nodeConf.Name = "logPollerTestHelper"
+		nodeConf.DataDir = dataDir
+	}
+}
+
+func openChainDb(t testing.TB, dataDir string) ethdb.Database {
+	instPath := filepath.Join(dataDir, "logPollerTestHelper", "chaindata")
+	lock := flock.New(filepath.Join(instPath, "LOCK"))
+	require.False(t, lock.Locked())
+	err := lock.Unlock()
+	require.NoError(t, err)
+	db, err := rawdb.Open(rawdb.OpenOptions{
+		Directory: instPath,
+		Namespace: "eth/db/chaindata",
+	})
+	require.NoError(t, err)
+	return db
 }
 
 func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
@@ -51,22 +81,21 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
+	dataDir, err := os.MkdirTemp("", "simgethdata")
+	require.NoError(t, err)
 
 	o := logpoller.NewORM(chainID, db, lggr)
 	o2 := logpoller.NewORM(chainID2, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
-	ethDB := rawdb.NewMemoryDatabase()
-	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
+	backend := simulated.NewBackend(types.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
+	}, simulated.WithBlockGasLimit(10e6), withDataDir(dataDir))
+	ec := backend.Client()
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
-	esc := client.NewSimulatedBackendClient(t, ec, chainID)
-	// Mark genesis block as finalized to avoid any nulls in the tests
-	head := esc.Backend().Blockchain().CurrentHeader()
-	esc.Backend().Blockchain().SetFinalized(head)
+	esc := client.NewSimulatedBackendClient(t, backend, chainID)
 
 	if opts.PollPeriod == 0 {
 		opts.PollPeriod = 1 * time.Hour
@@ -76,7 +105,8 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
-	ec.Commit()
+	backend.Commit()
+	ethDb := openChainDb(t, dataDir)
 	return TestHarness{
 		Lggr:            lggr,
 		ChainID:         chainID,
@@ -85,12 +115,13 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		ORM2:            o2,
 		LogPoller:       lp,
 		Client:          ec,
+		Backend:         backend,
 		Owner:           owner,
 		Emitter1:        emitter1,
 		Emitter2:        emitter2,
 		EmitterAddress1: emitterAddress1,
 		EmitterAddress2: emitterAddress2,
-		EthDB:           ethDB,
+		EthDB:           ethDb,
 	}
 }
 
