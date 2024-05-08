@@ -111,7 +111,6 @@ type fakeContractTransmitter struct {
 }
 
 func (f fakeContractTransmitter) Transmit(ctx context.Context, rc ocrtypes.ReportContext, report ocrtypes.Report, s []ocrtypes.AttributedOnchainSignature) error {
-
 	if !reflect.DeepEqual(report, rwi.Report) {
 		return fmt.Errorf("expected Report %v but got %v", rwi.Report, report)
 	}

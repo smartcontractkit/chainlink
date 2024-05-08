@@ -404,7 +404,6 @@ func (s *OCR2OracleSpec) getChainID() (string, error) {
 }
 
 func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
-
 	v, exists := s.RelayConfig["chainID"]
 	if !exists {
 		return "", fmt.Errorf("chainID does not exist")

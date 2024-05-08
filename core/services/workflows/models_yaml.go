@@ -166,17 +166,19 @@ func (m mapping) MarshalJSON() ([]byte, error) {
 // It allows for multiple ways of defining a step, which we later
 // convert to a single representation, `stepDefinition`.
 type stepDefinitionYaml struct {
-	// A universally unique name for a capability will be defined under the “type” property. The uniqueness will, eventually, be enforced in the Capability Registry . Semver must be used to specify the version of the Capability at the end of the type field. Capability versions must be immutable.
+	// A universally unique name for a capability will be defined under the “id” property. The uniqueness will, eventually, be enforced in the Capability Registry.
+	//
+	// Semver must be used to specify the version of the Capability at the end of the id field. Capability versions must be immutable.
 	//
 	// Initially, we will require major versions. This will ease upgrades early on while we develop the infrastructure.
 	//
 	// Eventually, we might support minor version and specific version pins. This will allow workflow authors to have flexibility when selecting the version, and node operators will be able to determine when they should update their capabilities.
 	//
-	// There are two ways to specify a type - using a string as a fully qualified ID or a structured table. When using a table, tags are ordered alphanumerically and joined into a string following a
-	//  {type}:{tag1_key}_{tag1_value}:{tag2_key}_{tag2_value}@{version}
+	// There are two ways to specify an id - using a string as a fully qualified ID or a structured table. When using a table, labels are ordered alphanumerically and joined into a string following a
+	//  {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
 	// pattern.
 	//
-	// The “type” supports [a-z0-9_-:] characters followed by an @ and [semver regex] at the end.
+	// The “id” supports [a-z0-9_-:] characters followed by an @ and [semver regex] at the end.
 	//
 	// Validation must throw an error if:
 	//
@@ -184,19 +186,19 @@ type stepDefinitionYaml struct {
 	// (For Keystone only.) More specific than a major version is specified.
 	//
 	// Example (string)
-	//  type: read_chain:chain_ethereum:network_mainnet@1
+	//  id: read_chain:chain_ethereum:network_mainnet@1
 	//
 	// Example (table)
 	//
-	//  type:
+	//  id:
 	//    name: read_chain
 	//    version: 1
-	//    tags:
+	//    labels:
 	//      chain: ethereum
 	//      network: mainnet
 	//
 	// [semver regex]: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
-	Type stepDefinitionType `json:"type" jsonschema:"required"`
+	ID stepDefinitionID `json:"id" jsonschema:"required"`
 
 	// Actions and Consensus capabilities have a required “ref” property that must be unique within a Workflow file (not universally) This property enables referencing outputs and is required because Actions and Consensus always need to be referenced in the following phases. Triggers can optionally specify  if they need to be referenced.
 	//
@@ -209,11 +211,11 @@ type stepDefinitionYaml struct {
 	//  - “ref” has a circular reference.
 	//
 	// NOTE: Should introduce a custom validator to cover trigger case
-	Ref string `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_]+$"`
+	Ref string `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_-]+$"`
 
 	// Capabilities can specify an additional optional ”inputs” property. It allows specifying a dependency on the result of one or more other capabilities. These are always runtime values that cannot be provided upfront. It takes a map of the argument name internal to the capability and an explicit reference to the values.
 	//
-	// References are specified using the [type].[ref].[path_to_value] pattern.
+	// References are specified using the [id].[ref].[path_to_value] pattern.
 	//
 	// The interpolation of “inputs” is allowed
 	//
@@ -231,7 +233,7 @@ type stepDefinitionYaml struct {
 	//
 	// Example
 	//  targets:
-	//    - type: write_polygon_mainnet@1
+	//    - id: write_polygon_mainnet@1
 	//      inputs:
 	//        report:
 	//          - consensus.evm_median.outputs.report
@@ -248,66 +250,66 @@ type stepDefinitionYaml struct {
 func (s stepDefinitionYaml) toStepDefinition() stepDefinition {
 	return stepDefinition{
 		Ref:    s.Ref,
-		Type:   s.Type.String(),
+		ID:     s.ID.String(),
 		Inputs: s.Inputs,
 		Config: s.Config,
 	}
 }
 
-// stepDefinitionType represents both the string and table representations of the "type" field in a stepDefinition.
-type stepDefinitionType struct {
-	typeStr   string
-	typeTable *stepDefinitionTableType
+// stepDefinitionID represents both the string and table representations of the "id" field in a stepDefinition.
+type stepDefinitionID struct {
+	idStr   string
+	idTable *stepDefinitionTableID
 }
 
-func (s stepDefinitionType) String() string {
-	if s.typeStr != "" {
-		return s.typeStr
+func (s stepDefinitionID) String() string {
+	if s.idStr != "" {
+		return s.idStr
 	}
 
-	return s.typeTable.String()
+	return s.idTable.String()
 }
 
-func (s *stepDefinitionType) UnmarshalJSON(data []byte) error {
+func (s *stepDefinitionID) UnmarshalJSON(data []byte) error {
 	// Unmarshal the JSON data into a map to determine if it's a string or a table
 	var m string
 	err := json.Unmarshal(data, &m)
 	if err == nil {
-		s.typeStr = m
+		s.idStr = m
 		return nil
 	}
 
-	// If the JSON data is a table, unmarshal it into a stepDefinitionTableType
-	var table stepDefinitionTableType
+	// If the JSON data is a table, unmarshal it into a stepDefinitionTableID
+	var table stepDefinitionTableID
 	err = json.Unmarshal(data, &table)
 	if err != nil {
 		return err
 	}
-	s.typeTable = &table
+	s.idTable = &table
 	return nil
 }
 
-func (s *stepDefinitionType) MarshalJSON() ([]byte, error) {
-	if s.typeStr != "" {
-		return json.Marshal(s.typeStr)
+func (s *stepDefinitionID) MarshalJSON() ([]byte, error) {
+	if s.idStr != "" {
+		return json.Marshal(s.idStr)
 	}
 
-	return json.Marshal(s.typeTable)
+	return json.Marshal(s.idTable)
 }
 
-// JSONSchema returns the JSON schema for a stepDefinitionType.
+// JSONSchema returns the JSON schema for a stepDefinitionID.
 //
 // The schema is a oneOf schema that allows either a string or a table.
-func (stepDefinitionType) JSONSchema() *jsonschema.Schema {
+func (stepDefinitionID) JSONSchema() *jsonschema.Schema {
 	reflector := jsonschema.Reflector{DoNotReference: true, ExpandedStruct: true}
-	tableSchema := reflector.Reflect(&stepDefinitionTableType{})
+	tableSchema := reflector.Reflect(&stepDefinitionTableID{})
 	stringSchema := &jsonschema.Schema{
-		Type:    "string",
+		ID:      "string",
 		Pattern: "^[a-z0-9_\\-:]+@(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
 	}
 
 	return &jsonschema.Schema{
-		Title: "type",
+		Title: "id",
 		OneOf: []*jsonschema.Schema{
 			stringSchema,
 			tableSchema,
@@ -315,26 +317,26 @@ func (stepDefinitionType) JSONSchema() *jsonschema.Schema {
 	}
 }
 
-// stepDefinitionTableType is the structured representation of a stepDefinitionType.
-type stepDefinitionTableType struct {
+// stepDefinitionTableID is the structured representation of a stepDefinitionID.
+type stepDefinitionTableID struct {
 	Name    string            `json:"name"`
 	Version string            `json:"version" jsonschema:"pattern=(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"`
-	Tags    map[string]string `json:"tags"`
+	Labels  map[string]string `json:"labels"`
 }
 
-// String returns the string representation of a stepDefinitionTableType.
+// String returns the string representation of a stepDefinitionTableID.
 //
 // It follows the format:
 //
-//	{name}:{tag1_key}_{tag1_value}:{tag2_key}_{tag2_value}@{version}
+//	{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
 //
-// where tags are ordered alphanumerically.
-func (s stepDefinitionTableType) String() string {
-	tags := make([]string, 0, len(s.Tags))
-	for k, v := range s.Tags {
-		tags = append(tags, fmt.Sprintf("%s_%s", k, v))
+// where labels are ordered alphanumerically.
+func (s stepDefinitionTableID) String() string {
+	labels := make([]string, 0, len(s.Labels))
+	for k, v := range s.Labels {
+		labels = append(labels, fmt.Sprintf("%s_%s", k, v))
 	}
-	slices.Sort(tags)
+	slices.Sort(labels)
 
-	return fmt.Sprintf("%s:%s@%s", s.Name, strings.Join(tags, ":"), s.Version)
+	return fmt.Sprintf("%s:%s@%s", s.Name, strings.Join(labels, ":"), s.Version)
 }

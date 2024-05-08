@@ -190,7 +190,6 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, attempts, 1)
 	assert.Equal(t, attempts[0].Hash, output.Hash)
-
 }
 
 func TestShell_SendEther_From_Txm_WEI(t *testing.T) {

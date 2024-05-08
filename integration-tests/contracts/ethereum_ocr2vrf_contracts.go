@@ -13,7 +13,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
@@ -111,24 +110,6 @@ func (e *EthereumContractDeployer) DeployVRFBeacon(vrfCoordinatorAddress string,
 		client:    e.client,
 		vrfBeacon: instance.(*vrf_beacon.VRFBeacon),
 		address:   address,
-	}, err
-}
-
-// DeployBatchBlockhashStore deploys DeployBatchBlockhashStore contract
-func (e *EthereumContractDeployer) DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error) {
-	address, _, instance, err := e.client.DeployContract("BatchBlockhashStore", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return batch_blockhash_store.DeployBatchBlockhashStore(auth, backend, common.HexToAddress(blockhashStoreAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &LegacyEthereumBatchBlockhashStore{
-		client:              e.client,
-		batchBlockhashStore: instance.(*batch_blockhash_store.BatchBlockhashStore),
-		address:             address,
 	}, err
 }
 

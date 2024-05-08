@@ -192,7 +192,7 @@ func prepareVRFtestEnv(t *testing.T, l zerolog.Logger) (*test_env.CLClusterTestE
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(privateNetwork).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
