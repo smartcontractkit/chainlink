@@ -1,6 +1,7 @@
 ChainID = '11155420'
 ChainType = 'optimismBedrock'
-FinalityDepth = 200
+FinalityDepth = 1000
+FinalityTagEnabled = true
 LogPollInterval = '2s'
 NoNewHeadsThreshold = '40s'
 MinIncomingConfirmations = 1
