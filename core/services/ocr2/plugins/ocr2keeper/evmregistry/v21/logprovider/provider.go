@@ -119,6 +119,9 @@ type logEventProvider struct {
 	currentIteration    int
 	calculateIterations bool
 	iterations          int
+
+	dequeuedLogs    map[int64]int
+	dequeuedMinimum map[int64]bool
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
@@ -133,6 +136,8 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big
 		filterStore:         filterStore,
 		chainID:             chainID,
 		calculateIterations: true,
+		dequeuedLogs:        map[int64]int{},
+		dequeuedMinimum:     map[int64]bool{},
 	}
 }
 
@@ -295,10 +300,25 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	case BufferVersionV1:
 		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
 
+		latestBlockWindow, _, isWindowComplete := getBlockWindow(latestBlock, blockRate)
+
+		var dequeuedLatestCompleteWindow bool
+		// if the current latest window is incomplete, check that we have dequeued the second most recent window
+		if !isWindowComplete {
+			penultimateBlockWindow, _, _ := getBlockWindow(latestBlock-int64(blockRate), blockRate)
+
+			if dequeuedPenultimate, ok := p.dequeuedMinimum[penultimateBlockWindow]; ok {
+				dequeuedLatestCompleteWindow = dequeuedPenultimate
+			}
+		} else if dequeuedLatest, ok := p.dequeuedMinimum[latestBlockWindow]; ok {
+			dequeuedLatestCompleteWindow = dequeuedLatest
+		}
+
 		if p.iterations == p.currentIteration {
 			p.calculateIterations = true
 		}
 
+		numberOfUpkeeps := p.bufferV1.NumOfUpkeeps()
 		if p.calculateIterations {
 			p.calculateIterations = false
 			p.currentIteration = 0
@@ -313,11 +333,31 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		}
 
 		for len(payloads) < maxResults && start <= latestBlock {
-			startWindow, end := getBlockWindow(start, blockRate)
+			startWindow, end, _ := getBlockWindow(start, blockRate)
+
+			// if haven't dequeued all block windows to the guaranteed minimum, fast forward until we find a window that needs a min dequeue
+			if !dequeuedLatestCompleteWindow && p.dequeuedMinimum[startWindow] {
+				p.lggr.Debugw("Previously dequeued minimum logs, bumping to next window", "start", start, "latestBlock", latestBlock)
+				start += int64(blockRate)
+				continue
+			}
+
+			// if we have dequeued the minimum logs for this window, mark it as such, then bump the dequeue window - TOOD should we return instead?
+			if !p.dequeuedMinimum[startWindow] && p.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
+				p.lggr.Debugw("Dequeued minimum logs, bumping to next window", "start", start, "latestBlock", latestBlock)
+				p.dequeuedMinimum[startWindow] = true
+				start += int64(blockRate)
+				continue
+			}
+
+			if dequeuedLatestCompleteWindow {
+				p.lggr.Debugw("Dequeuing logs on a best effort basis", "start", start, "latestBlock", latestBlock)
+			}
 
 			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
+				p.dequeuedLogs[startWindow] += len(logs)
 			}
 			for _, l := range logs {
 				payload, err := p.createPayload(l.ID, l.Log)

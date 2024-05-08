@@ -432,7 +432,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 			expired++
 			continue
 		}
-		start, _ := getBlockWindow(l.BlockNumber, blockRate)
+		start, _, _ := getBlockWindow(l.BlockNumber, blockRate)
 		if start != currentWindowStart {
 			// new window, reset capacity
 			currentWindowStart = start
@@ -478,12 +478,13 @@ func (q *upkeepLogQueue) cleanStates(blockThreshold int64) {
 }
 
 // getBlockWindow returns the start and end block of the window for the given block.
-func getBlockWindow(block int64, blockRate int) (start int64, end int64) {
+func getBlockWindow(block int64, blockRate int) (start int64, end int64, isWindowComplete bool) {
 	windowSize := int64(blockRate)
 	if windowSize == 0 {
-		return block, block
+		return
 	}
 	start = block - (block % windowSize)
 	end = start + windowSize - 1
+	isWindowComplete = block == end
 	return
 }
