@@ -105,6 +105,10 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 }
 
 func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	if !e.bound {
+		return nil, fmt.Errorf("%w: event not bound", commontypes.ErrInvalidType)
+	}
+
 	remapped, err := e.remap(filter)
 	if err != nil {
 		return nil, err
