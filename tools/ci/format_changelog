@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# This script will generate the next release using changeset.
+# However, since changeset has its own semvar versioning system
+# and we have our custom tags, this script rewrites the CHANGELOG.md
+# with each tag as its header and group respective changeset that has
+# the tag under it.
+#
+# The workflow is here:
+# https://github.com/smartcontractkit/chainlink/actions/workflows/changesets-preview-pr.yml
+
 set -euo pipefail
 
 if [[ -z "${GITHUB_OUTPUT:-}" ]]; then
@@ -107,6 +116,7 @@ cleanup() {
   rm -f CHANGELOG.md.tmp
   rm -f changesets.json
   rm -f tags.json
+  rm test
 }
 
 ### SCRIPT STARTS HERE ###
@@ -118,7 +128,7 @@ pnpm changeset version
 version=$(jq -r '.version' package.json)
 echo "version=$version" >> $GITHUB_OUTPUT
 
-read -d '' changelog_content <<EOF
+read -d '' changelog_content <<EOF || true
 # Changelog Chainlink Core
 
 ## ${version} - PREVIEW
@@ -128,11 +138,6 @@ EOF
 current_changelog=$(cat CHANGELOG.md.tmp)
 is_current_version=false
 changesets_index=0
-pr_header=""
-pr_body=""
-changeset_content=""
-changelog_content=""
-new_changelog=""
 tags_list=( "#nops" "#added" "#changed" "#removed" "#updated" "#deprecation_notice" "#breaking_change" "#db_update" "#wip" "#bugfix" "#internal" "#untagged")
 
 create_changesets_json
