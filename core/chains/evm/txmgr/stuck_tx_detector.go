@@ -215,7 +215,6 @@ func compareGasFees(attemptGas gas.EvmFee, marketGas gas.EvmFee) int {
 		return attemptGas.DynamicTipCap.Cmp(marketGas.DynamicTipCap)
 	}
 	return attemptGas.DynamicFeeCap.Cmp(marketGas.DynamicFeeCap)
-
 }
 
 // Assumes tx attempts are loaded newest to oldest
