@@ -138,7 +138,7 @@ func (b *logBuffer) trackBlockNumbersForUpkeep(uid *big.Int, uniqueBlocks map[in
 		if blockNumbers, ok := b.enqueuedBlocks[blockNumber]; ok {
 			if upkeepBlockInstances, ok := blockNumbers[uid.String()]; ok {
 				blockNumbers[uid.String()] = upkeepBlockInstances + 1
-				b.lggr.Debugw("enqueuing logs again for a previously seen block for this upkeep", "blockNumber", blockNumber, "numberOfEnqueues", b.enqueuedBlocks[blockNumber], "upkeepID", uid.String())
+				b.lggr.Debugw("enqueuing logs again for a previously seen block for this upkeep", "blockNumber", blockNumber, "upkeepID", uid.String())
 			} else {
 				blockNumbers[uid.String()] = 1
 			}
