@@ -42,7 +42,7 @@ ListenAddresses = ['0.0.0.0:6690']
 """
 
 [Common]
-chainlink_node_funding = 0.1
+chainlink_node_funding = 0.5
 
 [VRFv2Plus]
 [VRFv2Plus.General]
