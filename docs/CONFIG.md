@@ -7183,7 +7183,7 @@ Threshold configures the number of blocks a transaction has to remain unconfirme
 ```toml
 MinAttempts = 3 # Example
 ```
-MinAttempts cnofigures the minimum number of broadcasted attempts a transaction has to have before it is evaluated further for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain.
+MinAttempts configures the minimum number of broadcasted attempts a transaction has to have before it is evaluated further for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain. Ensure the gas estimator configs take more bump attempts before reaching the configured max gas price.
 
 ## EVM.BalanceMonitor
 ```toml
