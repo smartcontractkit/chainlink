@@ -228,7 +228,7 @@ func TestDSLParser(t *testing.T) {
 	t.Run("query for event topic", func(t *testing.T) {
 		t.Parallel()
 
-		topicFilter := NewEventByTopicFilter(8, []primitives.ValueComparator{
+		topicFilter := NewEventByTopicFilter(2, []primitives.ValueComparator{
 			{Value: "a", Operator: primitives.Gt},
 			{Value: "b", Operator: primitives.Lt},
 		})
