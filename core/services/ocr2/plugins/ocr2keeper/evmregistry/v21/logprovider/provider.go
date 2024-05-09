@@ -346,8 +346,10 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 			if !p.dequeuedMinimum[startWindow] && p.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
 				p.lggr.Debugw("Dequeued minimum logs, bumping to next window", "start", start, "latestBlock", latestBlock)
 				p.dequeuedMinimum[startWindow] = true
+
 				start += int64(blockRate)
 				continue
+
 			}
 
 			if dequeuedLatestCompleteWindow {

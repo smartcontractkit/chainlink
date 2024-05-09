@@ -890,7 +890,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 40, blockWindowCounts[2])
 		assert.Equal(t, 50, blockWindowCounts[3])
 
-		for i := 3; i < 100; i++ {
+		for i := 2; i < 100; i++ {
 			payloads, err = provider.GetLatestPayloads(ctx)
 			assert.NoError(t, err)
 
@@ -917,6 +917,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 40, blockWindowCounts[1])
 		assert.Equal(t, 40, blockWindowCounts[2])
 		assert.Equal(t, 40, blockWindowCounts[3])
+		assert.Equal(t, 40, blockWindowCounts[99])
 		assert.Equal(t, 50, blockWindowCounts[100])
 
 		// at this point, all block windows except for the latest block window will have been dequeued
