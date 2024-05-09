@@ -302,6 +302,9 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 			p.calculateIterations = false
 			p.currentIteration = 0
 			p.iterations = int(math.Ceil(float64(p.bufferV1.NumOfUpkeeps()*logLimitLow) / float64(maxResults)))
+			if p.iterations == 0 {
+				p.iterations = 1
+			}
 		}
 
 		upkeepSelectorFn := func(id *big.Int) bool {
