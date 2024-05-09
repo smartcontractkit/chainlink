@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 type Capability struct {
@@ -22,11 +21,12 @@ type Capability struct {
 }
 
 type Config struct {
-	RequestTimeout *time.Duration
-	BatchSize      int
-	Logger         logger.Logger
-	EncoderFactory EncoderFactory
-	SendBufferSize int
+	RequestTimeout    *time.Duration
+	BatchSize         int
+	Logger            logger.Logger
+	AggregatorFactory types.AggregatorFactory
+	EncoderFactory    types.EncoderFactory
+	SendBufferSize    int
 
 	store      *store
 	capability *capability
@@ -38,8 +38,6 @@ const (
 	defaultBatchSize                    = 1000
 	defaultSendBufferSize               = 10
 )
-
-type EncoderFactory func(config *values.Map) (types.Encoder, error)
 
 func NewOCR3(config Config) *Capability {
 	if config.RequestTimeout == nil {
@@ -64,7 +62,7 @@ func NewOCR3(config Config) *Capability {
 	}
 
 	if config.capability == nil {
-		ci := newCapability(config.store, config.clock, *config.RequestTimeout, config.EncoderFactory, config.Logger,
+		ci := newCapability(config.store, config.clock, *config.RequestTimeout, config.AggregatorFactory, config.EncoderFactory, config.Logger,
 			config.SendBufferSize)
 		config.capability = ci
 	}

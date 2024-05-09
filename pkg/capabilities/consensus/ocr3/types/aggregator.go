@@ -3,6 +3,7 @@ package types
 import (
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
@@ -30,3 +31,5 @@ func AppendWorkflowIDs(outcome *AggregationOutcome, workflowID string, workflowE
 	outcome.EncodableOutcome.Fields[ExecutionIDFieldName] = values.Proto(valueWEID)
 	return outcome, nil
 }
+
+type AggregatorFactory func(name string, config values.Map, lggr logger.Logger) (Aggregator, error)

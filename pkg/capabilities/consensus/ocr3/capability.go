@@ -9,9 +9,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -46,9 +44,10 @@ type capability struct {
 	requestTimeout time.Duration
 	clock          clockwork.Clock
 
-	aggregators map[string]types.Aggregator
+	aggregatorFactory types.AggregatorFactory
+	aggregators       map[string]types.Aggregator
 
-	encoderFactory EncoderFactory
+	encoderFactory types.EncoderFactory
 	encoders       map[string]types.Encoder
 
 	transmitCh chan *outputs
@@ -61,19 +60,20 @@ var _ capabilityIface = (*capability)(nil)
 var _ capabilities.ConsensusCapability = (*capability)(nil)
 var ocr3CapabilityValidator = capabilities.NewValidator[config, inputs, outputs](capabilities.ValidatorArgs{Info: info})
 
-func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration, encoderFactory EncoderFactory, lggr logger.Logger,
+func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration, aggregatorFactory types.AggregatorFactory, encoderFactory types.EncoderFactory, lggr logger.Logger,
 	callbackChannelBufferSize int) *capability {
 	o := &capability{
-		CapabilityInfo: info,
-		Validator:      ocr3CapabilityValidator,
-		store:          s,
-		clock:          clock,
-		requestTimeout: requestTimeout,
-		stopCh:         make(chan struct{}),
-		lggr:           logger.Named(lggr, "OCR3CapabilityClient"),
-		encoderFactory: encoderFactory,
-		aggregators:    map[string]types.Aggregator{},
-		encoders:       map[string]types.Encoder{},
+		CapabilityInfo:    info,
+		Validator:         ocr3CapabilityValidator,
+		store:             s,
+		clock:             clock,
+		requestTimeout:    requestTimeout,
+		stopCh:            make(chan struct{}),
+		lggr:              logger.Named(lggr, "OCR3CapabilityClient"),
+		aggregatorFactory: aggregatorFactory,
+		aggregators:       map[string]types.Aggregator{},
+		encoderFactory:    encoderFactory,
+		encoders:          map[string]types.Encoder{},
 
 		transmitCh: make(chan *outputs),
 		newTimerCh: make(chan *request),
@@ -111,25 +111,17 @@ func (o *capability) RegisterToWorkflow(ctx context.Context, request capabilitie
 		return err
 	}
 
-	switch c.AggregationMethod {
-	case "data_feeds_2_0":
-		mc := mercury.NewCodec()
-		agg, err := datafeeds.NewDataFeedsAggregator(*c.AggregationConfig, mc, o.lggr)
-		if err != nil {
-			return err
-		}
-
-		o.aggregators[request.Metadata.WorkflowID] = agg
-
-		encoder, err := o.encoderFactory(c.EncoderConfig)
-		if err != nil {
-			return err
-		}
-		o.encoders[request.Metadata.WorkflowID] = encoder
-	default:
-		return fmt.Errorf("aggregator %s not supported", c.AggregationMethod)
+	agg, err := o.aggregatorFactory(c.AggregationMethod, *c.AggregationConfig, o.lggr)
+	if err != nil {
+		return err
 	}
+	o.aggregators[request.Metadata.WorkflowID] = agg
 
+	encoder, err := o.encoderFactory(c.EncoderConfig)
+	if err != nil {
+		return err
+	}
+	o.encoders[request.Metadata.WorkflowID] = encoder
 	return nil
 }
 
