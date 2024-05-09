@@ -74,8 +74,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     });
     vm.expectRevert(
       abi.encodeWithSelector(
-        CapabilityRegistry.NodeDoesNotSupportDONCapability.selector,
-        1,
+        CapabilityRegistry.NodeDoesNotSupportCapability.selector,
         P2P_ID_TWO,
         s_capabilityWithConfigurationContractId
       )

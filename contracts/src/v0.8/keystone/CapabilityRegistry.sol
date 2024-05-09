@@ -33,6 +33,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     address signer;
   }
 
+  struct NodeCapability {
+    /// @notice The number of times the node's capability has been updated
+    uint256 configCount;
+    /// @notice The node's supported capabilities
+    /// @dev This is stored as a map so that we can easily update to a set of
+    /// new capabilities by incrementing the configCount and creating a
+    /// new set of supported capability IDs
+    mapping(uint256 configCount => EnumerableSet.Bytes32Set capabilityId) supportedCapabilityIds;
+  }
+
   // CapabilityResponseType indicates whether remote response requires
   // aggregation or is an already aggregated report. There are multiple
   // possible ways to aggregate.
@@ -157,10 +167,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice This error is thrown when trying to add a node to a DON where
   /// the node does not support the capability
-  /// @param donId The ID of the DON
   /// @param nodeP2PId The P2P ID of the node
   /// @param capabilityId The ID of the capability
-  error NodeDoesNotSupportDONCapability(uint32 donId, bytes32 nodeP2PId, bytes32 capabilityId);
+  error NodeDoesNotSupportCapability(bytes32 nodeP2PId, bytes32 capabilityId);
 
   /// @notice This error is thrown when trying to add a capability configuration
   /// for a capability that was already configured on a DON
@@ -234,8 +243,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   mapping(uint32 donId => DON don) private s_dons;
 
   /// @notice Mapping between node P2P IDs to supported capabilities
-  mapping(bytes32 nodeP2PId => EnumerableSet.Bytes32Set supportedHashedCapabilityIds)
-    private s_nodeSupportedCapabilities;
+  mapping(bytes32 nodeP2PId => NodeCapability nodeCapability) private s_nodeSupportedCapabilities;
 
   /// @notice The latest node operator ID
   /// @dev No getter for this as this is an implementation detail
@@ -327,9 +335,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bytes32[] memory capabilityIds = supportedHashedCapabilityIds[i];
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
 
+      s_nodeSupportedCapabilities[node.p2pId].configCount++;
+
+      uint256 capabilityConfigCount = s_nodeSupportedCapabilities[node.p2pId].configCount;
       for (uint256 j; j < capabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(capabilityIds[j])) revert InvalidNodeCapabilities(capabilityIds);
-        s_nodeSupportedCapabilities[node.p2pId].add(capabilityIds[j]);
+        s_nodeSupportedCapabilities[node.p2pId].supportedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
       }
 
       s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
@@ -355,6 +366,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
       delete s_nodes[p2pId];
+      delete s_nodeSupportedCapabilities[p2pId];
       emit NodeRemoved(p2pId);
     }
   }
@@ -375,7 +387,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      bool nodeExists = s_nodes[node.p2pId].signer == address(0);
+      bool nodeExists = s_nodes[node.p2pId].signer != address(0);
       if (!nodeExists) revert InvalidNodeP2PId(node.p2pId);
 
       if (node.signer == address(0)) revert InvalidNodeSigner();
@@ -383,10 +395,14 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bytes32[] memory supportedCapabilityIds = supportedHashedCapabilityIds[i];
       if (supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedCapabilityIds);
 
+      s_nodeSupportedCapabilities[node.p2pId].configCount++;
+      uint256 capabilityConfigCount = s_nodeSupportedCapabilities[node.p2pId].configCount;
       for (uint256 j; j < supportedCapabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(supportedCapabilityIds[j]))
           revert InvalidNodeCapabilities(supportedCapabilityIds);
-        s_nodeSupportedCapabilities[node.p2pId].add(supportedCapabilityIds[j]);
+        s_nodeSupportedCapabilities[node.p2pId].supportedCapabilityIds[capabilityConfigCount].add(
+          supportedCapabilityIds[j]
+        );
       }
 
       s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
@@ -401,9 +417,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node to query for
   /// @return Node The node data
   function getNode(bytes32 p2pId) external view returns (Node memory, bytes32[] memory) {
+    uint256 capabilityConfigCount = s_nodeSupportedCapabilities[p2pId].configCount;
     return (
       Node({nodeOperatorId: s_nodes[p2pId].nodeOperatorId, p2pId: s_nodes[p2pId].p2pId, signer: s_nodes[p2pId].signer}),
-      s_nodeSupportedCapabilities[p2pId].values()
+      s_nodeSupportedCapabilities[p2pId].supportedCapabilityIds[capabilityConfigCount].values()
     );
   }
 
@@ -510,8 +527,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       for (uint256 j; j < nodes.length; ++j) {
         bytes32 nodeP2PId = nodes[j];
-        if (!s_nodeSupportedCapabilities[nodeP2PId].contains(capabilityId))
-          revert NodeDoesNotSupportDONCapability(id, nodeP2PId, capabilityId);
+        uint256 capabilityConfigCount = s_nodeSupportedCapabilities[nodeP2PId].configCount;
+
+        if (
+          !s_nodeSupportedCapabilities[nodeP2PId].supportedCapabilityIds[capabilityConfigCount].contains(capabilityId)
+        ) revert NodeDoesNotSupportCapability(nodeP2PId, capabilityId);
       }
 
       s_dons[id].capabilityIds.add(capabilityId);
