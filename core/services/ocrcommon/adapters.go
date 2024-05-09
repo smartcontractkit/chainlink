@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -97,10 +97,12 @@ type OCR3OnchainKeyringMultiChainAdapter struct {
 func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st OnchainSigningStrategy, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
 	keyBundles := map[string]ocr2key.KeyBundle{}
 	for name := range st.ConfigCopy() {
+		fmt.Println(name)
 		kbID, err := st.KeyBundleID(name)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println(kbID)
 		kb, err := ks.Get(kbID)
 		if err != nil {
 			return nil, err
@@ -116,12 +118,13 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublic
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
-	info := structpb.Struct{}
-	err = proto.Unmarshal(r.Info, &info)
+	info := new(structpb.Struct)
+	err = protojson.Unmarshal(r.Info, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal report info: %v", err)
 	}
 	infoMap := info.AsMap()
+	fmt.Println(infoMap)
 	keyBundleName, ok := infoMap["keyBundleName"]
 	if !ok {
 		return nil, errors.New("keyBundleName not found in report info")
@@ -143,20 +146,20 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
 	info := structpb.Struct{}
-	err := proto.Unmarshal(ri.Info, &info)
+	err := protojson.Unmarshal(ri.Info, &info)
 	if err != nil {
-		a.lggr.Warn("failed to unmarshal report info", "err", err)
+		a.lggr.Warn("Verify: failed to unmarshal report info", "err", err)
 		return false
 	}
 	infoMap := info.AsMap()
 	keyBundleName, ok := infoMap["keyBundleName"]
 	if !ok {
-		a.lggr.Warn("keyBundleName not found in report info")
+		a.lggr.Warn("Verify: keyBundleName not found in report info")
 		return false
 	}
 	name, ok := keyBundleName.(string)
 	if !ok {
-		a.lggr.Warn("keyBundleName is not a string")
+		a.lggr.Warn("Verify: keyBundleName is not a string")
 		return false
 	}
 	kb := a.keyBundles[name]
