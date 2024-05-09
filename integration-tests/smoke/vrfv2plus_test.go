@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -63,7 +64,7 @@ func TestVRFv2Plus(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -693,7 +694,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -800,7 +801,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1223,7 +1224,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1456,7 +1457,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1610,7 +1611,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1807,7 +1808,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
+			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}

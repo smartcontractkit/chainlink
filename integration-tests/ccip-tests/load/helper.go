@@ -69,7 +69,7 @@ func (l *LoadArgs) Setup() {
 		envName = "ccip-runner"
 	}
 	l.TestSetupArgs = testsetups.CCIPDefaultTestSetUp(l.TestCfg.Test, lggr, envName, nil, l.TestCfg)
-	namespace := l.TestCfg.TestGroupInput.TestRunName
+	namespace := l.TestCfg.TestGroupInput.LoadProfile.TestRunName
 	if l.TestSetupArgs.Env != nil && l.TestSetupArgs.Env.K8Env != nil && l.TestSetupArgs.Env.K8Env.Cfg != nil {
 		namespace = l.TestSetupArgs.Env.K8Env.Cfg.Namespace
 	}
@@ -85,19 +85,19 @@ func (l *LoadArgs) Setup() {
 func (l *LoadArgs) setSchedule() {
 	var segments []*wasp.Segment
 	var segmentDuration time.Duration
-	require.Greater(l.t, len(l.TestCfg.TestGroupInput.RequestPerUnitTime), 0, "RequestPerUnitTime must be set")
+	require.Greater(l.t, len(l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime), 0, "RequestPerUnitTime must be set")
 
-	if len(l.TestCfg.TestGroupInput.RequestPerUnitTime) > 1 {
-		for i, req := range l.TestCfg.TestGroupInput.RequestPerUnitTime {
-			duration := l.TestCfg.TestGroupInput.StepDuration[i].Duration()
+	if len(l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime) > 1 {
+		for i, req := range l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime {
+			duration := l.TestCfg.TestGroupInput.LoadProfile.StepDuration[i].Duration()
 			segmentDuration += duration
 			segments = append(segments, wasp.Plain(req, duration)...)
 		}
-		totalDuration := l.TestCfg.TestGroupInput.TestDuration.Duration()
+		totalDuration := l.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration()
 		repeatTimes := totalDuration.Seconds() / segmentDuration.Seconds()
 		l.schedules = wasp.CombineAndRepeat(int(math.Round(repeatTimes)), segments)
 	} else {
-		l.schedules = wasp.Plain(l.TestCfg.TestGroupInput.RequestPerUnitTime[0], l.TestCfg.TestGroupInput.TestDuration.Duration())
+		l.schedules = wasp.Plain(l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime[0], l.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration())
 	}
 }
 
@@ -113,9 +113,10 @@ func (l *LoadArgs) SanityCheck() {
 		ccipLoad := NewCCIPLoad(
 			l.TestCfg.Test, lane,
 			l.TestCfg.TestGroupInput.PhaseTimeout.Duration(),
-			1, 0, nil,
+			1, l.TestCfg.TestGroupInput.LoadProfile.MsgProfile,
+			0, nil,
 		)
-		ccipLoad.BeforeAllCall(false, big.NewInt(*l.TestCfg.TestGroupInput.MsgDetails.DestGasLimit))
+		ccipLoad.BeforeAllCall()
 		resp := ccipLoad.Call(nil)
 		require.False(l.t, resp.Failed, "request failed in sanity check")
 	}
@@ -169,6 +170,8 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 
 	for _, lane := range lanes {
 		// try to send requests on lanes on which curse is applied on source RMN and the request should revert
+		// data-only transfer is sufficient
+		lane.Source.TransferAmount = []*big.Int{}
 		failedTx, _, _, err := lane.Source.SendRequest(
 			lane.Dest.ReceiverDapp.EthAddress,
 			big.NewInt(600_000), // gas limit
@@ -231,7 +234,7 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 
 func (l *LoadArgs) TriggerLoadByLane() {
 	l.setSchedule()
-	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
+	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration())
 
 	// start load for a lane
 	startLoad := func(lane *actions.CCIPLane) {
@@ -239,13 +242,13 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			Str("Source Network", lane.SourceNetworkName).
 			Str("Destination Network", lane.DestNetworkName).
 			Msg("Starting load for lane")
-		sendMaxData := pointer.GetInt64(l.TestCfg.TestGroupInput.SendMaxDataInEveryMsgCount)
+		sendMaxData := pointer.GetInt64(l.TestCfg.TestGroupInput.LoadProfile.SendMaxDataInEveryMsgCount)
 		ccipLoad := NewCCIPLoad(
 			l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(),
-			100000, sendMaxData,
-			l.TestCfg.TestGroupInput.SkipRequestIfAnotherRequestTriggeredWithin,
+			100000, l.TestCfg.TestGroupInput.LoadProfile.MsgProfile, sendMaxData,
+			l.TestCfg.TestGroupInput.LoadProfile.SkipRequestIfAnotherRequestTriggeredWithin,
 		)
-		ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgDetails.IsTokenTransfer(), big.NewInt(*l.TestCfg.TestGroupInput.MsgDetails.DestGasLimit))
+		ccipLoad.BeforeAllCall()
 		// if it's not multicall set the tokens to nil to free up some space,
 		// we have already formed the msg to be sent in load, there is no need to store the bridge tokens anymore
 		// In case of multicall we still need the BridgeTokens to transfer amount from mutlicall to owner
@@ -265,14 +268,14 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),
 			Schedule:              l.schedules,
 			LoadType:              wasp.RPS,
-			RateLimitUnitDuration: l.TestCfg.TestGroupInput.TimeUnit.Duration(),
+			RateLimitUnitDuration: l.TestCfg.TestGroupInput.LoadProfile.TimeUnit.Duration(),
 			CallResultBufLen:      10, // we keep the last 10 call results for each generator, as the detailed report is generated at the end of the test
 			CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
 			Gun:                   ccipLoad,
 			Logger:                ccipLoad.Lane.Logger,
 			LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
 			Labels:                labels,
-			FailOnErr:             pointer.GetBool(l.TestCfg.TestGroupInput.FailOnFirstErrorInLoad),
+			FailOnErr:             pointer.GetBool(l.TestCfg.TestGroupInput.LoadProfile.FailOnFirstErrorInLoad),
 		}
 		waspCfg.LokiConfig.Timeout = time.Minute
 		loadRunner, err := wasp.NewGenerator(waspCfg)
@@ -385,9 +388,9 @@ func (l *LoadArgs) TearDown() {
 }
 
 func (l *LoadArgs) TriggerLoadBySource() {
-	require.NotNil(l.t, l.TestCfg.TestGroupInput.TestDuration, "test duration input is nil")
-	require.GreaterOrEqual(l.t, 1, len(l.TestCfg.TestGroupInput.RequestPerUnitTime), "time unit input must be specified")
-	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
+	require.NotNil(l.t, l.TestCfg.TestGroupInput.LoadProfile.TestDuration, "test duration input is nil")
+	require.GreaterOrEqual(l.t, 1, len(l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime), "time unit input must be specified")
+	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration())
 	var laneBySource = make(map[string][]*actions.CCIPLane)
 	for _, lane := range l.TestSetupArgs.Lanes {
 		laneBySource[lane.ForwardLane.SourceNetworkName] = append(laneBySource[lane.ForwardLane.SourceNetworkName], lane.ForwardLane)
@@ -409,22 +412,22 @@ func (l *LoadArgs) TriggerLoadBySource() {
 				allLabels[k] = v
 			}
 			allLabels["source_chain"] = source
-			multiCallGen, err := NewMultiCallLoadGenerator(l.TestCfg, lanes, l.TestCfg.TestGroupInput.RequestPerUnitTime[0], allLabels)
+			multiCallGen, err := NewMultiCallLoadGenerator(l.TestCfg, lanes, l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime[0], allLabels)
 			require.NoError(l.t, err)
 			lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 			loadRunner, err := wasp.NewGenerator(&wasp.Config{
 				T:                     l.TestCfg.Test,
 				GenName:               fmt.Sprintf("Source %s", source),
-				Schedule:              wasp.Plain(1, l.TestCfg.TestGroupInput.TestDuration.Duration()), // hardcoded request per unit time to 1 as we are using multiCallGen
+				Schedule:              wasp.Plain(1, l.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration()), // hardcoded request per unit time to 1 as we are using multiCallGen
 				LoadType:              wasp.RPS,
-				RateLimitUnitDuration: l.TestCfg.TestGroupInput.TimeUnit.Duration(),
+				RateLimitUnitDuration: l.TestCfg.TestGroupInput.LoadProfile.TimeUnit.Duration(),
 				CallResultBufLen:      10, // we keep the last 10 call results for each generator, as the detailed report is generated at the end of the test
 				CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
 				Gun:                   multiCallGen,
 				Logger:                multiCallGen.logger,
 				LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
 				Labels:                allLabels,
-				FailOnErr:             pointer.GetBool(l.TestCfg.TestGroupInput.FailOnFirstErrorInLoad),
+				FailOnErr:             pointer.GetBool(l.TestCfg.TestGroupInput.LoadProfile.FailOnFirstErrorInLoad),
 			})
 			require.NoError(l.TestCfg.Test, err, "initiating loadgen for source %s", source)
 			loadRunner.Run(false)

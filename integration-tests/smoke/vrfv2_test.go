@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2"
@@ -61,7 +62,7 @@ func TestVRFv2Basic(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -554,7 +555,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -662,7 +663,7 @@ func TestVRFOwner(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -805,7 +806,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}

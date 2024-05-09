@@ -1,7 +1,9 @@
 package test_env
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
@@ -26,6 +28,25 @@ func (c *ClCluster) Start() error {
 		nodeIndex := i
 		eg.Go(func() error {
 			err := nodes[nodeIndex].StartContainer()
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+
+	return eg.Wait()
+}
+
+func (c *ClCluster) Stop() error {
+	eg := &errgroup.Group{}
+	nodes := c.Nodes
+	timeout := time.Minute * 1
+
+	for i := 0; i < len(nodes); i++ {
+		nodeIndex := i
+		eg.Go(func() error {
+			err := nodes[nodeIndex].Container.Stop(context.Background(), &timeout)
 			if err != nil {
 				return err
 			}

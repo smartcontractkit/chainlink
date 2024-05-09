@@ -165,15 +165,15 @@ func NewConfig() (*Config, error) {
 // Common is the generic config struct which can be used with product specific configs.
 // It contains generic DON and networks config which can be applied to all product based tests.
 type Common struct {
-	EnvUser                 string                               `toml:",omitempty"`
-	EnvToConnect            *string                              `toml:",omitempty"`
-	TTL                     *config.Duration                     `toml:",omitempty"`
-	ExistingCLCluster       *CLCluster                           `toml:",omitempty"` // ExistingCLCluster is the existing chainlink cluster to use, if specified it will be used instead of creating a new one
-	Mockserver              *string                              `toml:",omitempty"`
-	NewCLCluster            *ChainlinkDeployment                 `toml:",omitempty"` // NewCLCluster is the new chainlink cluster to create, if specified along with ExistingCLCluster this will be ignored
-	Network                 *ctfconfig.NetworkConfig             `toml:",omitempty"`
-	PrivateEthereumNetworks map[string]*test_env.EthereumNetwork `toml:",omitempty"`
-	Logging                 *ctfconfig.LoggingConfig             `toml:",omitempty"`
+	EnvUser                 string                                      `toml:",omitempty"`
+	EnvToConnect            *string                                     `toml:",omitempty"`
+	TTL                     *config.Duration                            `toml:",omitempty"`
+	ExistingCLCluster       *CLCluster                                  `toml:",omitempty"` // ExistingCLCluster is the existing chainlink cluster to use, if specified it will be used instead of creating a new one
+	Mockserver              *string                                     `toml:",omitempty"`
+	NewCLCluster            *ChainlinkDeployment                        `toml:",omitempty"` // NewCLCluster is the new chainlink cluster to create, if specified along with ExistingCLCluster this will be ignored
+	Network                 *ctfconfig.NetworkConfig                    `toml:",omitempty"`
+	PrivateEthereumNetworks map[string]*ctfconfig.EthereumNetworkConfig `toml:",omitempty"`
+	Logging                 *ctfconfig.LoggingConfig                    `toml:",omitempty"`
 }
 
 func (p *Common) GetSethConfig() *seth.Config {
@@ -208,12 +208,12 @@ func (p *Common) Validate() error {
 		}
 
 		builder := test_env.NewEthereumNetworkBuilder()
-		config, err := builder.WithExistingConfig(*v).Build()
+		ethNetwork, err := builder.WithExistingConfig(*v).Build()
 		if err != nil {
-			return fmt.Errorf("error building private ethereum network config %w", err)
+			return fmt.Errorf("error building private ethereum network ethNetworks %w", err)
 		}
 
-		p.PrivateEthereumNetworks[k] = &config
+		p.PrivateEthereumNetworks[k] = &ethNetwork.EthereumNetworkConfig
 	}
 
 	if p.ExistingCLCluster != nil {
@@ -255,7 +255,7 @@ func (p *Common) GetPyroscopeConfig() *ctfconfig.PyroscopeConfig {
 	return nil
 }
 
-func (p *Common) GetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork {
+func (p *Common) GetPrivateEthereumNetworkConfig() *ctfconfig.EthereumNetworkConfig {
 	return nil
 }
 

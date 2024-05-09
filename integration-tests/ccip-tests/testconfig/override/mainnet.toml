@@ -688,19 +688,20 @@ NetworkPairs = [
 
 BiDirectionalLane = true
 PhaseTimeout = '20m'
-TestDuration = '5h'
 ExistingDeployment = true
-RequestPerUnitTime = [1]
-TimeUnit = '1h'
-TestRunName = 'mainnet-2.7-ccip1.2'
-FailOnFirstErrorInLoad = true
-SkipRequestIfAnotherRequestTriggeredWithin = '40m'
 
 [CCIP.Groups.load.TokenConfig]
 NoOfTokensPerChain = 1
 
+[CCIP.Groups.load.LoadProfile]
+RequestPerUnitTime = [1]
+TimeUnit = '1h'
+TestDuration = '5h'
+TestRunName = 'mainnet-2.7-ccip1.2'
+FailOnFirstErrorInLoad = true
+SkipRequestIfAnotherRequestTriggeredWithin = '40m'
 
-[CCIP.Groups.load.MsgDetails]
+[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
 MsgType = 'Data'
 DestGasLimit = 0
 DataLength = 100
@@ -745,7 +746,7 @@ PhaseTimeout = '20m'
 LocalCluster = false
 ExistingDeployment = true
 ReuseContracts = true
-TestRunName = 'mainnet-2.7-ccip1.2'
+
 
 [CCIP.Groups.smoke.TokenConfig]
 NoOfTokensPerChain = 1

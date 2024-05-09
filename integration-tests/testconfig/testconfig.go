@@ -19,8 +19,6 @@ import (
 	"github.com/smartcontractkit/seth"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
@@ -35,15 +33,6 @@ import (
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 )
-
-type GlobalTestConfig interface {
-	GetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig
-	GetLoggingConfig() *ctf_config.LoggingConfig
-	GetNetworkConfig() *ctf_config.NetworkConfig
-	GetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
-	GetPyroscopeConfig() *ctf_config.PyroscopeConfig
-	SethConfig
-}
 
 type UpgradeableChainlinkTestConfig interface {
 	GetChainlinkUpgradeImageConfig() *ctf_config.ChainlinkImageConfig
@@ -81,24 +70,8 @@ type Ocr2TestConfig interface {
 	GetOCR2Config() *ocr2_config.Config
 }
 
-type NamedConfiguration interface {
-	GetConfigurationName() string
-}
-
-type SethConfig interface {
-	GetSethConfig() *seth.Config
-}
-
 type TestConfig struct {
-	ChainlinkImage         *ctf_config.ChainlinkImageConfig `toml:"ChainlinkImage"`
-	ChainlinkUpgradeImage  *ctf_config.ChainlinkImageConfig `toml:"ChainlinkUpgradeImage"`
-	Logging                *ctf_config.LoggingConfig        `toml:"Logging"`
-	Network                *ctf_config.NetworkConfig        `toml:"Network"`
-	Pyroscope              *ctf_config.PyroscopeConfig      `toml:"Pyroscope"`
-	PrivateEthereumNetwork *ctf_test_env.EthereumNetwork    `toml:"PrivateEthereumNetwork"`
-	WaspConfig             *ctf_config.WaspAutoBuildConfig  `toml:"WaspAutoBuild"`
-
-	Seth *seth.Config `toml:"Seth"`
+	ctf_config.TestConfig
 
 	Common     *Common                  `toml:"Common"`
 	Automation *a_config.Config         `toml:"Automation"`
@@ -183,7 +156,7 @@ func (c TestConfig) GetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig {
 	return c.ChainlinkImage
 }
 
-func (c TestConfig) GetPrivateEthereumNetworkConfig() *ctf_test_env.EthereumNetwork {
+func (c TestConfig) GetPrivateEthereumNetworkConfig() *ctf_config.EthereumNetworkConfig {
 	return c.PrivateEthereumNetwork
 }
 

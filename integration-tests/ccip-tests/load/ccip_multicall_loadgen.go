@@ -90,10 +90,11 @@ func NewMultiCallLoadGenerator(testCfg *testsetups.CCIPTestConfig, lanes []*acti
 		// cause oversized data for multicall
 		ccipLoad := NewCCIPLoad(
 			testCfg.Test, lane, testCfg.TestGroupInput.PhaseTimeout.Duration(),
-			100000, 0,
-			testCfg.TestGroupInput.SkipRequestIfAnotherRequestTriggeredWithin,
+			100000,
+			testCfg.TestGroupInput.LoadProfile.MsgProfile, 0,
+			testCfg.TestGroupInput.LoadProfile.SkipRequestIfAnotherRequestTriggeredWithin,
 		)
-		ccipLoad.BeforeAllCall(testCfg.TestGroupInput.MsgDetails.IsTokenTransfer(), big.NewInt(*testCfg.TestGroupInput.MsgDetails.DestGasLimit))
+		ccipLoad.BeforeAllCall()
 		m.E2ELoads[fmt.Sprintf("%s-%s", lane.SourceNetworkName, lane.DestNetworkName)] = ccipLoad
 	}
 

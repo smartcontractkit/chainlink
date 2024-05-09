@@ -281,7 +281,7 @@ func ReturnFunds(log zerolog.Logger, sethClient *seth.Client, chainlinkNodes []c
 			}
 
 			// if not set, it will be just set to empty string, which is okay as long as gas estimation is disabled
-			txPriority := sethClient.Cfg.Network.GasEstimationTxPriority
+			txPriority := sethClient.Cfg.Network.GasPriceEstimationTxPriority
 			txTimeout := sethClient.Cfg.Network.TxnTimeout.Duration()
 
 			if sethClient.Cfg.IsExperimentEnabled(seth.Experiment_SlowFundsReturn) {
@@ -291,7 +291,7 @@ func ReturnFunds(log zerolog.Logger, sethClient *seth.Client, chainlinkNodes []c
 			}
 
 			estimations := sethClient.CalculateGasEstimations(seth.GasEstimationRequest{
-				GasEstimationEnabled: sethClient.Cfg.Network.GasEstimationEnabled,
+				GasEstimationEnabled: sethClient.Cfg.Network.GasPriceEstimationEnabled,
 				FallbackGasPrice:     sethClient.Cfg.Network.GasPrice,
 				FallbackGasFeeCap:    sethClient.Cfg.Network.GasFeeCap,
 				FallbackGasTipCap:    sethClient.Cfg.Network.GasTipCap,

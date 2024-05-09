@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -87,7 +88,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			}
 		}
 		if !*testConfig.VRFv2Plus.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -223,7 +224,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 			}
 		}
 		if !*testConfig.VRFv2Plus.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}

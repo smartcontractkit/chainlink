@@ -13,6 +13,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/foundry"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
@@ -252,7 +254,7 @@ func DeployLocalCluster(
 ) (*test_env.CLClusterTestEnv, func() error) {
 	selectedNetworks := testInputs.SelectedNetworks
 
-	privateEthereumNetworks := []*ctftestenv.EthereumNetwork{}
+	privateEthereumNetworks := []*ctfconfig.EthereumNetworkConfig{}
 	for _, network := range testInputs.EnvInput.PrivateEthereumNetworks {
 		privateEthereumNetworks = append(privateEthereumNetworks, network)
 	}
@@ -272,16 +274,16 @@ func DeployLocalCluster(
 		}
 
 		for _, network := range missing {
-			chainConfig := &ctftestenv.EthereumChainConfig{}
+			chainConfig := &ctfconfig.EthereumChainConfig{}
 			err := chainConfig.Default()
 			if err != nil {
 				require.NoError(t, err, "failed to get default chain config: %w", err)
 			} else {
 				chainConfig.ChainID = int(network.ChainID)
-				eth1 := ctftestenv.EthereumVersion_Eth1
-				geth := ctftestenv.ExecutionLayer_Geth
+				eth1 := ctfconfig.EthereumVersion_Eth1
+				geth := ctfconfig.ExecutionLayer_Geth
 
-				privateEthereumNetworks = append(privateEthereumNetworks, &ctftestenv.EthereumNetwork{
+				privateEthereumNetworks = append(privateEthereumNetworks, &ctfconfig.EthereumNetworkConfig{
 					EthereumVersion:     &eth1,
 					ExecutionLayer:      &geth,
 					EthereumChainConfig: chainConfig,
@@ -455,7 +457,7 @@ func DeployEnvironments(
 	var charts []string
 	for i, network := range selectedNetworks {
 		if testInputs.EnvInput.Network.AnvilConfigs != nil {
-			// if forkconfig is specified for a network addhelm for anvil
+			// if anvilconfig is specified for a network addhelm for anvil
 			if anvilConfig, exists := testInputs.EnvInput.Network.AnvilConfigs[strings.ToUpper(network.Name)]; exists {
 				charts = append(charts, foundry.ChartName)
 				testEnvironment.
@@ -463,7 +465,7 @@ func DeployEnvironments(
 						NetworkName: network.Name,
 						Values: map[string]interface{}{
 							"anvil": map[string]interface{}{
-								"chainId":                   network.ChainID,
+								"chainId":                   fmt.Sprintf("%d", network.ChainID),
 								"blockTime":                 anvilConfig.BlockTime,
 								"forkURL":                   anvilConfig.URL,
 								"forkBlockNumber":           anvilConfig.BlockNumber,
@@ -472,9 +474,11 @@ func DeployEnvironments(
 								"forkComputeUnitsPerSecond": anvilConfig.ComputePerSecond,
 								"forkNoRateLimit":           anvilConfig.RateLimitDisabled,
 							},
+							"resources": testInputs.GethResourceProfile,
 						},
 					}))
 				selectedNetworks[i].Simulated = true
+				actions.NetworkChart = foundry.ChartName
 				continue
 			}
 		}

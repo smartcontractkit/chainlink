@@ -1,9 +1,14 @@
 package test_env
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -13,6 +18,7 @@ import (
 	tc "github.com/testcontainers/testcontainers-go"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -24,7 +30,7 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
 )
 
 var (
@@ -35,7 +41,7 @@ type CLClusterTestEnv struct {
 	Cfg           *TestEnvConfig
 	DockerNetwork *tc.DockerNetwork
 	LogStream     *logstream.LogStream
-	TestConfig    core_testconfig.GlobalTestConfig
+	TestConfig    ctf_config.GlobalTestConfig
 
 	/* components */
 	ClCluster              *ClCluster
@@ -44,7 +50,7 @@ type CLClusterTestEnv struct {
 	sethClients            map[int64]*seth.Client
 	ContractDeployer       contracts.ContractDeployer
 	ContractLoader         contracts.ContractLoader
-	PrivateEthereumConfigs []*test_env.EthereumNetwork // new approach to private chains, supporting eth1 and eth2
+	PrivateEthereumConfigs []*ctf_config.EthereumNetworkConfig
 	EVMNetworks            []*blockchain.EVMNetwork
 	rpcProviders           map[int64]*test_env.RpcProvider
 	l                      zerolog.Logger
@@ -90,18 +96,11 @@ func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
 	}
 }
 
-func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *test_env.EthereumNetwork) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
+func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetworkConfig) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
 	// if environment is being restored from a previous state, use the existing config
 	// this might fail terribly if temporary folders with chain data on the host machine were removed
-	if te.Cfg != nil && te.Cfg.EthereumNetwork != nil {
-		builder := test_env.NewEthereumNetworkBuilder()
-		c, err := builder.WithExistingConfig(*te.Cfg.EthereumNetwork).
-			WithTest(te.t).
-			Build()
-		if err != nil {
-			return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
-		}
-		cfg = &c
+	if te.Cfg != nil && te.Cfg.EthereumNetworkConfig != nil {
+		cfg = te.Cfg.EthereumNetworkConfig
 	}
 
 	te.l.Info().
@@ -110,7 +109,16 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *test_env.EthereumNetwork) 
 		Str("Custom Docker Images", fmt.Sprintf("%v", cfg.CustomDockerImages)).
 		Msg("Starting Ethereum network")
 
-	n, rpc, err := cfg.Start()
+	builder := test_env.NewEthereumNetworkBuilder()
+	c, err := builder.WithExistingConfig(*cfg).
+		WithTest(te.t).
+		WithLogStream(te.LogStream).
+		Build()
+	if err != nil {
+		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
+	}
+
+	n, rpc, err := c.Start()
 
 	if err != nil {
 		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
@@ -124,7 +132,7 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 }
 
 // pass config here
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig core_testconfig.GlobalTestConfig, opts ...ClNodeOption) error {
+func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig ctf_config.GlobalTestConfig, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
@@ -199,8 +207,12 @@ func (te *CLClusterTestEnv) Terminate() error {
 	return nil
 }
 
+type CleanupOpts struct {
+	TestName string
+}
+
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
-func (te *CLClusterTestEnv) Cleanup() error {
+func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	te.l.Info().Msg("Cleaning up test environment")
 
 	runIdErr := runid.RemoveLocalRunId(te.TestConfig.GetLoggingConfig().RunId)
@@ -229,6 +241,11 @@ func (te *CLClusterTestEnv) Cleanup() error {
 		}
 	}
 
+	err := te.handleNodeCoverageReports(opts.TestName)
+	if err != nil {
+		te.l.Error().Err(err).Msg("Error handling node coverage reports")
+	}
+
 	// close EVMClient connections
 	for _, evmClient := range te.evmClients {
 		err := evmClient.Close()
@@ -240,6 +257,85 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	}
 
 	return nil
+}
+
+// handleNodeCoverageReports handles the coverage reports for the chainlink nodes
+func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
+	testName = strings.ReplaceAll(testName, "/", "_")
+	showHTMLCoverageReport := te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport
+	isCI := os.Getenv("CI") != ""
+
+	te.l.Info().
+		Bool("showCoverageReportFlag", showHTMLCoverageReport).
+		Bool("isCI", isCI).
+		Bool("show", showHTMLCoverageReport || isCI).
+		Msg("Checking if coverage report should be shown")
+
+	var covHelper *d.NodeCoverageHelper
+
+	if showHTMLCoverageReport || isCI {
+		// Stop all nodes in the chainlink cluster.
+		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
+		err := te.ClCluster.Stop()
+		if err != nil {
+			return err
+		}
+
+		clDir, err := getChainlinkDir()
+		if err != nil {
+			return err
+		}
+
+		var coverageRootDir string
+		if os.Getenv("GO_COVERAGE_DEST_DIR") != "" {
+			coverageRootDir = filepath.Join(os.Getenv("GO_COVERAGE_DEST_DIR"), testName)
+		} else {
+			coverageRootDir = filepath.Join(clDir, ".covdata", testName)
+		}
+
+		var containers []tc.Container
+		for _, node := range te.ClCluster.Nodes {
+			containers = append(containers, node.Container)
+		}
+
+		covHelper, err = d.NewNodeCoverageHelper(context.Background(), containers, clDir, coverageRootDir)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Show html coverage report when flag is set (local runs)
+	if showHTMLCoverageReport {
+		path, err := covHelper.SaveMergedHTMLReport()
+		if err != nil {
+			return err
+		}
+		te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage html report saved")
+	}
+
+	// Save percentage coverage report when running in CI
+	if isCI {
+		// Save coverage percentage to a file to show in the CI
+		path, err := covHelper.SaveMergedCoveragePercentage()
+		if err != nil {
+			te.l.Error().Err(err).Str("testName", testName).Msg("Failed to save coverage percentage for test")
+		} else {
+			te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage percentage report saved")
+		}
+	}
+
+	return nil
+}
+
+// getChainlinkDir returns the path to the chainlink directory
+func getChainlinkDir() (string, error) {
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		return "", fmt.Errorf("cannot determine the path of the calling file")
+	}
+	dir := filepath.Dir(filename)
+	chainlinkDir := filepath.Clean(filepath.Join(dir, "../../.."))
+	return chainlinkDir, nil
 }
 
 func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {

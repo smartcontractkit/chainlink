@@ -1,147 +1,79 @@
 [CCIP]
-[CCIP.Deployments]
-Data = """
-{
-  "lane_configs": {
-    "geth_1337": {
-      "is_mock_arm": true,
-      "fee_token": "0xf5059a5D33d5853360D16C683c16e67980206f36",
-      "bridge_tokens": [
-        "0x70e0bA845a1A0F2DA3359C97E0285013525FFC49",
-        "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF"
-      ],
-      "bridge_tokens_pools": [
-        "0x9d4454B023096f34B160D6B654540c56A1F81688",
-        "0x1291Be112d480055DaFd8a610b7d1e203891C274"
-      ],
-      "arm": "0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690",
-      "router": "0x1613beB3B2C4f22Ee086B2b38C1476A3cE7f78E8",
-      "price_registry": "0x82e01223d51Eb87e16A03E24687EDF0F294da6f1",
-      "wrapped_native": "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB",
-      "multicall": "0x0000000000000000000000000000000000000000",
-      "src_contracts": {
-        "geth_2337": {
-          "on_ramp": "0xc351628EB244ec633d5f21fBD6621e1a683B1181",
-          "deployed_at": 258
-        }
-      },
-      "dest_contracts": {
-        "geth_2337": {
-          "off_ramp": "0x922D6956C99E12DFeB3224DEA977D0939758A1Fe",
-          "commit_store": "0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07",
-          "receiver_dapp": "0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6"
-        }
-      }
-    },
-    "geth_2337": {
-      "is_mock_arm": true,
-      "fee_token": "0x20Fbd46DeEd5EEDEB6e5c87eeB31924e9CA312ad",
-      "bridge_tokens": [
-        "0xAd5d57aD9bB17d34Debb88566ab2F5dB879Cc46F",
-        "0x7290f72B5C67052DDE8e6E179F7803c493e90d3f"
-      ],
-      "bridge_tokens_pools": [
-        "0xc63d2a04762529edB649d7a4cC3E57A0085e8544",
-        "0xD499f5F7d3C918D0e553BA03954c4E02af16B6e4"
-      ],
-      "arm": "0xcEC91d876E8f003110D43381359b1bAd124e7F2b",
-      "router": "0x8613A4029EaA95dA61AE65380aC2e7366451bF2b",
-      "price_registry": "0x49FcbCC4E425add3a45AFC82F4dD0E5c227A0Ff8",
-      "wrapped_native": "0x5370F78c6af2Da9cF6642382A3a75F9D5aEc9cc1",
-      "multicall": "0x0000000000000000000000000000000000000000",
-      "src_contracts": {
-        "geth_1337": {
-          "on_ramp": "0xA82ED5224ba72f2f776e09B11DC99E30Ee65Da8d",
-          "deployed_at": 258
-        }
-      },
-      "dest_contracts": {
-        "geth_1337": {
-          "off_ramp": "0x199c27B10a195ee79e02d50846e59A4aFB82CAD1",
-          "commit_store": "0xf69E1dFAc3D43F438Bae80090b8E186B0231CFeb",
-          "receiver_dapp": "0x7798A400cBe0Ca14a7D614ECa1CD15adE5055413"
-        }
-      }
-    }
-  }
-}
-"""
-
 [CCIP.Env]
-Mockserver = 'http://127.1.27.12:1080'
+Mockserver = 'http://mockserver:1080'
 
 [CCIP.Env.Network]
-selected_networks = ['geth_1337', 'geth_2337']
+selected_networks = ['AVALANCHE_FUJI', 'BSC_TESTNET']
 
-[CCIP.Env.Network.EVMNetworks.geth_1337]
-evm_name = 'geth_1337'
-evm_chain_id = 1337
-evm_urls = ['wss://skudasov-crib-ccip-geth-1337-ws.main.stage.cldev.sh']
-evm_http_urls = ['https://skudasov-crib-ccip-geth-1337-ws.main.stage.cldev.sh']
-evm_keys = ['ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80']
-evm_simulated = true
+[CCIP.Env.Network.EVMNetworks.AVALANCHE_FUJI]
+evm_name = 'Avalanche Fuji'
+evm_chain_id = 43113
+evm_urls = ['wss://...']
+evm_http_urls = ['https://...']
+evm_keys = ['<your private key>']
+evm_simulated = false
 client_implementation = 'Ethereum'
-evm_chainlink_transaction_limit = 500000
+evm_chainlink_transaction_limit = 50000
 evm_transaction_timeout = '2m'
 evm_minimum_confirmations = 1
-evm_gas_estimation_buffer = 10000
+evm_gas_estimation_buffer = 1000
 evm_supports_eip1559 = true
 evm_default_gas_limit = 6000000
-evm_finality_depth = 1
+evm_finality_tag = true
 
-[CCIP.Env.Network.EVMNetworks.geth_2337]
-evm_name = 'geth_2337'
-evm_chain_id = 2337
-evm_urls = ['wss://skudasov-crib-ccip-geth-2337-ws.main.stage.cldev.sh']
-evm_http_urls = ['https://skudasov-crib-ccip-geth-2337-ws.main.stage.cldev.sh']
-evm_keys = ['59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d']
-evm_simulated = true
-client_implementation = 'Ethereum'
-evm_chainlink_transaction_limit = 500000
+[CCIP.Env.Network.EVMNetworks.BSC_TESTNET]
+evm_name = 'BSC Testnet'
+evm_chain_id = 97
+evm_urls = ['wss://...']
+evm_http_urls = ['https://...']
+evm_keys = ['<your private key>']
+evm_simulated = false
+client_implementation = 'BSC'
+evm_chainlink_transaction_limit = 50000
 evm_transaction_timeout = '2m'
-evm_minimum_confirmations = 1
-evm_gas_estimation_buffer = 10000
+evm_minimum_confirmations = 3
+evm_gas_estimation_buffer = 0
 evm_supports_eip1559 = true
 evm_default_gas_limit = 6000000
-evm_finality_depth = 1
+evm_finality_tag = true
 
 [CCIP.Env.ExistingCLCluster]
 Name = 'crib-ani'
 NoOfNodes = 6
 
 [[CCIP.Env.ExistingCLCluster.NodeConfigs]]
-URL = 'https://skudasov-crib-ccip-node1.main.stage.cldev.sh/'
+URL = 'https://crib-ani-demo-node1.main.stage.cldev.sh/'
 Email = 'notreal@fakeemail.ch'
 Password = 'fj293fbBnlQ!f9vNs'
 InternalIP = 'app-node-1'
 
 
 [[CCIP.Env.ExistingCLCluster.NodeConfigs]]
-URL = 'https://skudasov-crib-ccip-node2.main.stage.cldev.sh/'
+URL = 'https://crib-ani-demo-node2.main.stage.cldev.sh/'
 Email = 'notreal@fakeemail.ch'
 Password = 'fj293fbBnlQ!f9vNs'
 InternalIP = 'app-node-2'
 
 [[CCIP.Env.ExistingCLCluster.NodeConfigs]]
-URL = 'https://skudasov-crib-ccip-node3.main.stage.cldev.sh/'
+URL = 'https://crib-ani-demo-node3.main.stage.cldev.sh/'
 Email = 'notreal@fakeemail.ch'
 Password = 'fj293fbBnlQ!f9vNs'
 InternalIP = 'app-node-3'
 
 [[CCIP.Env.ExistingCLCluster.NodeConfigs]]
-URL = 'https://skudasov-crib-ccip-node4.main.stage.cldev.sh/'
+URL = 'https://crib-ani-demo-node4.main.stage.cldev.sh/'
 Email = 'notreal@fakeemail.ch'
 Password = 'fj293fbBnlQ!f9vNs'
 InternalIP = 'app-node-4'
 
 [[CCIP.Env.ExistingCLCluster.NodeConfigs]]
-URL = 'https://skudasov-crib-ccip-node5.main.stage.cldev.sh/'
+URL = 'https://crib-ani-demo-node5.main.stage.cldev.sh/'
 Email = 'notreal@fakeemail.ch'
 Password = 'fj293fbBnlQ!f9vNs'
 InternalIP = 'app-node-5'
 
 [[CCIP.Env.ExistingCLCluster.NodeConfigs]]
-URL = 'https://skudasov-crib-ccip-node6.main.stage.cldev.sh/'
+URL = 'https://crib-ani-demo-node6.main.stage.cldev.sh/'
 Email = 'notreal@fakeemail.ch'
 Password = 'fj293fbBnlQ!f9vNs'
 InternalIP = 'app-node-6'
@@ -149,15 +81,16 @@ InternalIP = 'app-node-6'
 [CCIP.Groups]
 [CCIP.Groups.smoke]
 LocalCluster = false
-TestRunName = 'skudasov-crib-ccip'
+TestRunName = 'crib-ani-demo'
 NodeFunding = 1000.0
-ExistingDeployment = true
+
 
 [CCIP.Groups.load]
 LocalCluster = false
-TestRunName = 'skudasov-crib-ccip'
+
+[CCIP.Groups.load.LoadProfile]
+TestRunName = 'crib-ani-demo'
 TimeUnit = '1s'
 TestDuration = '15m'
 RequestPerUnitTime = [1]
 NodeFunding = 1000.0
-ExistingDeployment = true
