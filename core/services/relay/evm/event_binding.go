@@ -126,6 +126,7 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 		return nil, err
 	}
 
+	// no need to return an error. an empty list is fine
 	if len(logs) == 0 {
 		return nil, commontypes.ErrNotFound
 	}
@@ -329,17 +330,17 @@ func (e *eventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 			},
 		}
 
-		var tpVal reflect.Value
+		var typeVal reflect.Value
 
-		tpInto := reflect.TypeOf(into)
-		if tpInto.Kind() == reflect.Pointer {
-			tpVal = reflect.New(tpInto.Elem())
+		typeInto := reflect.TypeOf(into)
+		if typeInto.Kind() == reflect.Pointer {
+			typeVal = reflect.New(typeInto.Elem())
 		} else {
-			tpVal = reflect.Indirect(reflect.New(tpInto))
+			typeVal = reflect.Indirect(reflect.New(typeInto))
 		}
 
 		// create a new value of the same type as 'into' for the data to be extracted to
-		sequences[idx].Data = tpVal.Interface()
+		sequences[idx].Data = typeVal.Interface()
 
 		if err := e.decodeLog(ctx, &logs[idx], sequences[idx].Data); err != nil {
 			return nil, err
@@ -387,8 +388,8 @@ func (e *eventBinding) remapExpression(key string, expression query.Expression) 
 	return e.remapPrimitive(key, expression)
 }
 
+// remap chain agnostic primitives to chain specific
 func (e *eventBinding) remapPrimitive(key string, expression query.Expression) (query.Expression, error) {
-	// remap chain agnostic primitives to chain specific
 	switch primitive := expression.Primitive.(type) {
 	case *primitives.Comparator:
 		if val, ok := e.eventDataWords[primitive.Name]; ok {

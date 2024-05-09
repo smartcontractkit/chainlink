@@ -18,20 +18,18 @@ import (
 )
 
 const (
-	sequenceFieldAlias = "sequence"
-	sequenceField      = "CONCAT(block_number, '-', tx_hash, '-', log_index)"
 	blockFieldName     = "block_number"
 	timestampFieldName = "block_timestamp"
 	txHashFieldName    = "tx_hash"
 	eventSigFieldName  = "event_sig"
-	chainIDFieldName   = "evm_chain_id"
 )
 
 var (
 	ErrUnexpectedCursorFormat = errors.New("unexpected cursor format")
 )
 
-// pgDSLParser is a visitor that builds a postgres query and arguments from a commontypes.QueryFilter
+// The parser builds SQL expressions piece by piece for each Accept function call and resets the error and expression
+// values after every call.
 type pgDSLParser struct {
 	args *queryArgs
 
@@ -42,7 +40,7 @@ type pgDSLParser struct {
 
 var _ primitives.Visitor = (*pgDSLParser)(nil)
 
-func (v *pgDSLParser) Comparator(p primitives.Comparator) {}
+func (v *pgDSLParser) Comparator(_ primitives.Comparator) {}
 
 func (v *pgDSLParser) Block(p primitives.Block) {
 	cmp, err := cmpOpToString(p.Operator)
