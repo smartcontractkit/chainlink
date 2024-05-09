@@ -15,7 +15,7 @@ services:
 
   node-db:
     container_name: chainlink-db
-    image: postgres:11.6
+    image: postgres:14
     volumes:
       - node-db-data:/var/lib/postgresql/data
     environment:
@@ -24,7 +24,7 @@ services:
 
   node-db-2:
     container_name: chainlink-db-2
-    image: postgres:11.6
+    image: postgres:14
     volumes:
       - node-db-2-data:/var/lib/postgresql/data
     environment:
