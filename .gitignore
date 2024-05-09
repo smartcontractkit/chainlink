@@ -32,6 +32,7 @@ tools/clroot/db.sqlite3-wal
 *.iml
 debug.env
 *.txt
+operator_ui/install
 
 # codeship
 *.aes
@@ -102,4 +103,3 @@ override*.toml
 .venv/
 
 ocr_soak_report.csv
-
