@@ -38,7 +38,7 @@ func TestHead_LatestFinalizedHead(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.Name, func(t *testing.T) {
-			actual := tc.Head.LatestFinalizedHead()
+			actual, _ := tc.Head.LatestFinalizedHead()
 			if tc.Finalized == nil {
 				assert.Nil(t, actual)
 			} else {
