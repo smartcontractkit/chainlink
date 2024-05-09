@@ -100,7 +100,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bool isPublic;
     /// @notice The set of p2pIds of nodes that belong to this DON. A node (the same
     // p2pId) can belong to multiple DONs.
-    bytes32[] nodes;
+    EnumerableSet.Bytes32Set nodes;
     /// @notice The set of capabilityIds
     EnumerableSet.Bytes32Set capabilityIds;
     /// @notice Mapping from hashed capability IDs to configs
@@ -163,12 +163,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// for a capability that was already configured on a DON
   /// @param donId The ID of the DON that the capability was configured for
   /// @param capabilityId The ID of the capability that was configured
-  error DonCapabilityExists(uint32 donId, bytes32 capabilityId);
+  error DuplicateDONCapability(uint32 donId, bytes32 capabilityId);
+
+  /// @notice This error is thrown when trying to add a duplicate node to a DON
+  /// @param donId The ID of the DON that the node was added for
+  /// @param nodeP2PId The P2P ID of the node
+  error DuplicateDONNode(uint32 donId, bytes32 nodeP2PId);
 
   /// @notice This error is thrown when a capability with the provided hashed ID is
   /// not found.
-  /// @param capabilityId The hashed ID used for the lookup.
-  error CapabilityDoesNotExist(bytes32 capabilityId);
+  /// @param hashedCapabilityId The hashed ID used for the lookup.
+  error CapabilityDoesNotExist(bytes32 hashedCapabilityId);
 
   /// @notice This error is thrown when trying to deprecate a capability that
   /// is already deprecated.
@@ -473,19 +478,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
     for (uint256 i; i < capabilityConfigurations.length; ++i) {
       CapabilityConfiguration calldata configuration = capabilityConfigurations[i];
-      bytes32 capabilityIds = configuration.capabilityId;
+      bytes32 capabilityId = configuration.capabilityId;
 
-      if (s_capabilities[capabilityIds].version == bytes32("")) revert CapabilityDoesNotExist(capabilityIds);
+      if (!s_hashedCapabilityIds.contains(capabilityId)) revert CapabilityDoesNotExist(capabilityId);
 
-      if (s_dons[id].capabilityIds.contains(capabilityIds)) revert DonCapabilityExists(id, capabilityIds);
+      if (s_dons[id].capabilityIds.contains(capabilityId)) revert DuplicateDONCapability(id, capabilityId);
 
-      s_dons[id].capabilityIds.add(capabilityIds);
-      s_dons[id].capabilityConfigs[capabilityIds] = configuration.config;
+      s_dons[id].capabilityIds.add(capabilityId);
+      s_dons[id].capabilityConfigs[capabilityId] = configuration.config;
     }
 
     // TODO:  Verify that the nodes added support the relevant capability
-    // TODO:  Verify that nodes are unique
-    s_dons[id].nodes = nodes;
+    for (uint256 i; i < nodes.length; ++i) {
+      bytes32 nodeP2PId = nodes[i];
+      if (s_dons[id].nodes.contains(nodeP2PId)) revert DuplicateDONNode(id, nodeP2PId);
+
+      s_dons[id].nodes.add(nodeP2PId);
+    }
 
     ++s_donId;
 
@@ -499,7 +508,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @return bytes32[] The list of node P2P IDs that are in the DON
   /// @return bytes32[] The list of capability IDs supported by the DON
   function getDON(uint32 donId) external view returns (uint32, bool, bytes32[] memory, bytes32[] memory) {
-    return (s_dons[donId].id, s_dons[donId].isPublic, s_dons[donId].nodes, s_dons[donId].capabilityIds.values());
+    return (
+      s_dons[donId].id,
+      s_dons[donId].isPublic,
+      s_dons[donId].nodes.values(),
+      s_dons[donId].capabilityIds.values()
+    );
   }
 
   /// @notice Returns the DON specific configuration for a capability

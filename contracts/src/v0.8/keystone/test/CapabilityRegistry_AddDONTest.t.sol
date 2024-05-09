@@ -83,8 +83,24 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     });
 
     vm.expectRevert(
-      abi.encodeWithSelector(CapabilityRegistry.DonCapabilityExists.selector, 1, s_basicHashedCapabilityId)
+      abi.encodeWithSelector(CapabilityRegistry.DuplicateDONCapability.selector, 1, s_basicHashedCapabilityId)
     );
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+  }
+
+  function test_RevertWhen_DuplicateNodeAdded() public {
+    changePrank(ADMIN);
+    bytes32[] memory nodes = new bytes32[](2);
+    nodes[0] = P2P_ID;
+    nodes[1] = P2P_ID;
+
+    CapabilityRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
+      capabilityId: s_basicHashedCapabilityId,
+      config: CONFIG
+    });
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.DuplicateDONNode.selector, 1, P2P_ID));
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
   }
 
