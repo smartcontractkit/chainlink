@@ -2396,8 +2396,71 @@ func TestBlockHistoryEstimatorV2_Bumps(t *testing.T) {
 func TestBlockHistoryEstimatorV2_WeightedGasPrices(t *testing.T) {
 	t.Parallel()
 
-	t.Run("returns different gas prices for different limits", func(t *testing.T) {})
+	l1Oracle := rollupMocks.NewL1Oracle(t)
 
+	cfg := gas.NewMockConfig()
+	bhCfg := newBlockHistoryConfig()
+
+	bhCfg.TransactionPercentileF = uint16(50)
+	bhCfg.CheckInclusionBlocksF = uint16(0)
+	bhCfg.BlockHistorySizeF = uint16(8)
+
+	maxGasPrice := assets.NewWeiI(1000000)
+	geCfg := &gas.MockGasEstimatorConfig{}
+	geCfg.EIP1559DynamicFeesF = false
+	geCfg.PriceMaxF = maxGasPrice
+	geCfg.PriceMinF = assets.NewWeiI(0)
+
+	bhe := newBlockHistoryEstimatorV2(t, nil, cfg, geCfg, bhCfg, l1Oracle)
+
+	blocks := []evmtypes.Block{
+		{
+			Number:       0,
+			Hash:         utils.NewHash(),
+			// Gas Cost: 1,500,000
+			Transactions: legacyTransactionsFromGasPricesAndLimit(100_000, 15),
+		},
+		{
+			Number:       1,
+			Hash:         utils.NewHash(),
+			// Gas Cost: 2,600,000
+			Transactions: legacyTransactionsFromGasPricesAndLimit(20_000, 130),
+		},
+		{
+			Number:       2,
+			Hash:         utils.NewHash(),
+			// Gas Cost: 3,000,000
+			Transactions: legacyTransactionsFromGasPricesAndLimit(20_000, 150),
+		},
+		{
+			BaseFeePerGas: assets.NewWeiI(100),
+			Number:       3,
+			Hash:         utils.NewHash(),
+			// Gas Cost: 3,000,000
+			Transactions: dynamicTransactionsFromBaseFeeTipCapAndLimit(20_000, assets.NewWeiI(100), assets.NewWeiI(60), assets.NewWeiI(20)),
+		},
+	}
+
+	gas.SetRollingBlockHistoryV2(bhe, blocks)
+	bhe.Recalculate(cltest.Head(3))
+	gas.SimulateStartV2(t, bhe)
+
+	t.Run("returns different gas prices for different limits", func(t *testing.T) {
+		fee, limit, err := bhe.GetLegacyGas(tests.Context(t), []byte{}, 20_000, maxGasPrice)
+		require.NoError(t, err)
+
+		assert.Equal(t, assets.NewWeiI(130), fee)
+		assert.Equal(t, 20_000, int(limit))
+
+		fee, limit, err = bhe.GetLegacyGas(tests.Context(t), []byte{}, 100_000, maxGasPrice)
+		require.NoError(t, err)
+
+		assert.Equal(t, assets.NewWeiI(26), fee)
+		assert.Equal(t, 100_000, int(limit))
+	})
+}
+
+func TestBlockHistoryEstimatorV2_WeightedTipCaps(t *testing.T) {
 	t.Run("returns different priority fees for different limits", func(t *testing.T) {})
 
 	t.Run("returns different priority fees for different base fees", func(t *testing.T) {})
@@ -2412,6 +2475,14 @@ func legacyTransactionsFromGasPricesAndLimit(limit uint32, gasPrices ...int64) [
 	txs := make([]evmtypes.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
 		txs[i] = evmtypes.Transaction{Type: 0x0, GasPrice: assets.NewWeiI(gasPrice), GasLimit: limit}
+	}
+	return txs
+}
+
+func dynamicTransactionsFromBaseFeeTipCapAndLimit(limit uint32, baseFee *assets.Wei, tipCaps ...*assets.Wei) []evmtypes.Transaction {
+	txs := make([]evmtypes.Transaction, len(tipCaps))
+	for i, tipCap := range tipCaps {
+		txs[i] = evmtypes.Transaction{Type: 0x2, MaxFeePerGas: baseFee.Add(tipCap), MaxPriorityFeePerGas: tipCap, GasLimit: limit}
 	}
 	return txs
 }
