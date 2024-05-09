@@ -176,7 +176,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		l1Oracle := rollups.NewArbitrumL1GasOracle(logger.Test(t), feeEstimatorClient)
 
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, feeEstimatorClient, l1Oracle)
-		_, err := o.GetDynamicFee(testutils.Context(t), maxGasPrice)
+		_, err := o.GetDynamicFee(testutils.Context(t), gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 
@@ -189,7 +189,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			FeeCap: assets.NewWeiI(42),
 			TipCap: assets.NewWeiI(5),
 		}
-		_, err := o.BumpDynamicFee(testutils.Context(t), fee, maxGasPrice, nil)
+		_, err := o.BumpDynamicFee(testutils.Context(t), fee, gasLimit, maxGasPrice, nil)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 

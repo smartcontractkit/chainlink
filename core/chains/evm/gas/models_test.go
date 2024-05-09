@@ -33,11 +33,11 @@ func TestWrappedEvmEstimator(t *testing.T) {
 	limitMultiplier := float32(1.5)
 
 	est := mocks.NewEvmEstimator(t)
-	est.On("GetDynamicFee", mock.Anything, mock.Anything).
+	est.On("GetDynamicFee", mock.Anything, mock.Anything, mock.Anything).
 		Return(dynamicFee, nil).Twice()
 	est.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(legacyFee, gasLimit, nil).Twice()
-	est.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	est.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(dynamicFee, nil).Once()
 	est.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(legacyFee, gasLimit, nil).Once()

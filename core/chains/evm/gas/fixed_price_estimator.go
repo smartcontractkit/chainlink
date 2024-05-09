@@ -90,7 +90,7 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
 
-func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, maxGasPriceWei *assets.Wei) (d DynamicFee, err error) {
+func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, _ uint64, maxGasPriceWei *assets.Wei) (d DynamicFee, err error) {
 	gasTipCap := f.config.TipCapDefault()
 
 	if gasTipCap == nil {
@@ -115,6 +115,7 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, maxGasPriceWei *a
 func (f *fixedPriceEstimator) BumpDynamicFee(
 	_ context.Context,
 	originalFee DynamicFee,
+	_ uint64,
 	maxGasPriceWei *assets.Wei,
 	_ []EvmPriorAttempt,
 ) (bumped DynamicFee, err error) {

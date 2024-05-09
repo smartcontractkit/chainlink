@@ -121,6 +121,7 @@ Enabled = true # Default
 #
 # - `FixedPrice` uses static configured values for gas price (can be set via API call).
 # - `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
+# - `BlockHistoryV2` dynamically adjusts default gas price based on heuristics on gas costs from mined blocks.
 # - `L2Suggested` mode is deprecated and replaced with `SuggestedPrice`.
 # - `SuggestedPrice` is a mode which uses the gas price suggested by the rpc endpoint via `eth_gasPrice`.
 # - `Arbitrum` is a special mode only for use with Arbitrum blockchains. It uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
@@ -131,7 +132,7 @@ Enabled = true # Default
 #
 # An important point to note is that the Chainlink node does _not_ ship with built-in support for go-ethereum's `estimateGas` call. This is for several reasons, including security and reliability. We have found empirically that it is not generally safe to rely on the remote ETH node's idea of what gas price should be.
 Mode = 'BlockHistory' # Default
-# PriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
+# PriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` and `BlockHistoryEstimatorV2` if enabled, and might be increased if gas bumping is enabled.
 #
 # (Only applies to legacy transactions)
 #

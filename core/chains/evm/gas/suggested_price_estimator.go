@@ -161,12 +161,12 @@ func (o *SuggestedPriceEstimator) forceRefresh(ctx context.Context) (err error) 
 
 func (o *SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
-func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ *assets.Wei) (fee DynamicFee, err error) {
+func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint64, _ *assets.Wei) (fee DynamicFee, err error) {
 	err = pkgerrors.New("dynamic fees are not implemented for this estimator")
 	return
 }
 
-func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
+func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint64, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
 	err = pkgerrors.New("dynamic fees are not implemented for this estimator")
 	return
 }

@@ -91,6 +91,10 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		newEstimator = func(l logger.Logger) EvmEstimator {
 			return NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID(), l1Oracle)
 		}
+	case "BlockHistoryV2":
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewBlockHistoryEstimatorV2(lggr, ethClient, cfg, geCfg, bh, ethClient.ConfiguredChainID(), l1Oracle)
+		}
 	case "FixedPrice":
 		newEstimator = func(l logger.Logger) EvmEstimator {
 			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, l1Oracle)
@@ -141,13 +145,13 @@ type EvmEstimator interface {
 	BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint64, err error)
 	// GetDynamicFee Calculates initial gas fee for gas for EIP1559 transactions
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetDynamicFee(ctx context.Context, maxGasPriceWei *assets.Wei) (fee DynamicFee, err error)
+	GetDynamicFee(ctx context.Context, gasLimit uint64, maxGasPriceWei *assets.Wei) (fee DynamicFee, err error)
 	// BumpDynamicFee Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method returns an error
 	// attempts must:
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x2
-	BumpDynamicFee(ctx context.Context, original DynamicFee, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error)
+	BumpDynamicFee(ctx context.Context, original DynamicFee, gasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error)
 
 	L1Oracle() rollups.L1Oracle
 }
@@ -262,7 +266,7 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 	// get dynamic fee
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
-		dynamicFee, err = e.EvmEstimator.GetDynamicFee(ctx, maxFeePrice)
+		dynamicFee, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
 		if err != nil {
 			return
 		}
@@ -315,7 +319,7 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 			DynamicFee{
 				TipCap: originalFee.DynamicTipCap,
 				FeeCap: originalFee.DynamicFeeCap,
-			}, maxFeePrice, attempts)
+			}, feeLimit, maxFeePrice, attempts)
 		if err != nil {
 			return
 		}
@@ -499,7 +503,7 @@ func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, ma
 			// estimate a higher gas than the maximum allowed
 			lggr.AssumptionViolationf("Ignoring current %s of %s that would exceed max %s of %s", feeType, currentFeePrice.String(), feeType, maxGasPrice.String())
 		} else if bumpedFeePrice.Cmp(currentFeePrice) < 0 {
-			// If the current gas price is higher than the old price bumped, use that instead
+			// If the current gas price is higher than the old price bumped, use that instead to avoid replacement transaction underpriced error
 			bumpedFeePrice = currentFeePrice
 		}
 	}

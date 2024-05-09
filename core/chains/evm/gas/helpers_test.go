@@ -24,14 +24,14 @@ func BlockHistoryEstimatorFromInterface(bhe EvmEstimator) *BlockHistoryEstimator
 	return bhe.(*BlockHistoryEstimator)
 }
 
-func SetRollingBlockHistory(bhe EvmEstimator, blocks []evmtypes.Block) {
-	bhe.(*BlockHistoryEstimator).blocksMu.Lock()
-	defer bhe.(*BlockHistoryEstimator).blocksMu.Unlock()
-	bhe.(*BlockHistoryEstimator).blocks = blocks
+func SetRollingBlockHistory(bhe *BlockHistoryEstimator, blocks []evmtypes.Block) {
+	bhe.blocksMu.Lock()
+	defer bhe.blocksMu.Unlock()
+	bhe.blocks = blocks
 }
 
-func GetRollingBlockHistory(bhe EvmEstimator) []evmtypes.Block {
-	return bhe.(*BlockHistoryEstimator).getBlocks()
+func GetRollingBlockHistory(bhe *BlockHistoryEstimator) []evmtypes.Block {
+	return bhe.getBlocks()
 }
 
 func SetGasPrice(b *BlockHistoryEstimator, gp *assets.Wei) {
@@ -69,6 +69,49 @@ func GetLatestBaseFee(b *BlockHistoryEstimator) *assets.Wei {
 
 func SimulateStart(t *testing.T, b *BlockHistoryEstimator) {
 	require.NoError(t, b.StartOnce("BlockHistoryEstimatorSimulatedStart", func() error { return nil }))
+}
+
+func BlockHistoryEstimatorV2FromInterface(bhe EvmEstimator) *BlockHistoryEstimatorV2 {
+	return bhe.(*BlockHistoryEstimatorV2)
+}
+
+func (b *BlockHistoryEstimatorV2) CheckConnectivityV2(attempts []EvmPriorAttempt) error {
+	return b.checkConnectivity(attempts)
+}
+
+func GetRollingBlockHistoryV2(bhe *BlockHistoryEstimatorV2) []evmtypes.Block {
+	return bhe.getBlocks()
+}
+
+func SetRollingBlockHistoryV2(bhe *BlockHistoryEstimatorV2, blocks []evmtypes.Block) {
+	bhe.blocksMu.Lock()
+	defer bhe.blocksMu.Unlock()
+	bhe.blocks = blocks
+}
+
+func SetGasCost(b *BlockHistoryEstimatorV2, gc *assets.Wei) {
+	b.costMu.Lock()
+	defer b.costMu.Unlock()
+	b.gasCost = gc
+}
+
+func GetGasCost(b *BlockHistoryEstimatorV2) *assets.Wei {
+	b.costMu.RLock()
+	defer b.costMu.RUnlock()
+	return b.gasCost
+}
+
+func GetLatestBaseFeeV2(b *BlockHistoryEstimatorV2) *assets.Wei {
+	b.latestMu.RLock()
+	defer b.latestMu.RUnlock()
+	if b.latest == nil {
+		return nil
+	}
+	return b.latest.BaseFeePerGas
+}
+
+func SimulateStartV2(t *testing.T, b *BlockHistoryEstimatorV2) {
+	require.NoError(t, b.StartOnce("BlockHistoryEstimatorV2SimulatedStart", func() error { return nil }))
 }
 
 type MockBlockHistoryConfig struct {
