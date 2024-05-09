@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
@@ -28,6 +29,10 @@ type PluginProvider interface {
 	ContractTransmitter() ocrtypes.ContractTransmitter
 	ChainReader() ChainReader
 	Codec() Codec
+}
+
+type OCR3ContractTransmitter interface {
+	OCR3ContractTransmitter() ocr3types.ContractTransmitter[[]byte]
 }
 
 // General error types for providers to return--can be used to wrap more specific errors.

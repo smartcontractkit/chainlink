@@ -666,6 +666,7 @@ func TestUint64(t *testing.T) {
 }
 
 func TestBuilderInt(t *testing.T) {
+
 	t.Run("Wraps encoding and decoding for 8 bytes", func(t *testing.T) {
 		codec, err := bi.Int(1)
 		require.NoError(t, err)
@@ -822,6 +823,7 @@ func TestBuilderInt(t *testing.T) {
 }
 
 func TestGetUintTypeCodecByByteSize(t *testing.T) {
+
 	t.Run("Wraps encoding and decoding for 8 bytes", func(t *testing.T) {
 		codec, err := bi.Uint(1)
 		require.NoError(t, err)
