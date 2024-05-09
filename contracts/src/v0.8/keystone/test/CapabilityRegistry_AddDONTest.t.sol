@@ -20,31 +20,32 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     s_capabilityRegistry.addCapability(s_basicCapability);
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
 
-    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](2);
+    CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](2);
     bytes32[] memory capabilityIds = new bytes32[](2);
     capabilityIds[0] = s_basicHashedCapabilityId;
     capabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodes[0] = CapabilityRegistry.NodeParams({
+    nodes[0] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      supportedHashedCapabilityIds: capabilityIds
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
     });
 
     bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
     nodeTwoCapabilityIds[0] = s_basicHashedCapabilityId;
 
-    nodes[1] = CapabilityRegistry.NodeParams({
+    nodes[1] = CapabilityRegistry.Node({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_TWO,
-      signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
-      supportedHashedCapabilityIds: nodeTwoCapabilityIds
+      signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS
     });
 
     changePrank(NODE_OPERATOR_ONE_ADMIN);
 
-    s_capabilityRegistry.addNodes(nodes);
+    bytes32[][] memory nodeCapabilityIds = new bytes32[][](2);
+    nodeCapabilityIds[0] = capabilityIds;
+    nodeCapabilityIds[1] = nodeTwoCapabilityIds;
+    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
   }
 
   function test_RevertWhen_CalledByNonAdmin() public {
