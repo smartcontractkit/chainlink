@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# This script will generate the next release using changeset.
+# However, since changeset has its own semvar versioning system
+# and we have our custom tags, this script rewrites the CHANGELOG.md
+# with each tag as its header and group respective changeset that has
+# the tag under it.
+#
+# The workflow is here:
+# https://github.com/smartcontractkit/chainlink/actions/workflows/changesets-preview-pr.yml
+
 set -euo pipefail
 
 if [[ -z "${GITHUB_OUTPUT:-}" ]]; then
@@ -35,7 +44,7 @@ append_changelog_content() {
       continue
     fi
     changesets=$(jq -r --arg key "$tag" '.[$key] | join("\n\n")' tags.json)
-    read -d '' changelog_content <<EOF
+    read -d '' changelog_content <<EOF || true
 ${changelog_content}
 
 ## ${tag}
@@ -49,17 +58,17 @@ set_pr_body() {
   # GitHub Issues/PRs messages have a max size limit on the message body payload.
   # This is the error: `body is too long (maximum is 65536 characters)`.
   max_pr_desc_char_length=65000
-  read -d '' pr_header <<EOF
+  read -d '' pr_header <<EOF || true
 This PR is a preview of the changes that will be included in the next release. Please do not merge this PR.
 ---
 EOF
   if [[ ${#changelog_content} -gt $max_pr_desc_char_length ]]; then
-    read -d '' pr_body <<EOF
+    read -d '' pr_body <<EOF || true
 ${pr_header}
 The changelog content is too long for the PR description. Please view the full changelog in the [CHANGELOG.md](https://github.com/smartcontractkit/chainlink/blob/changesets/release-preview/CHANGELOG.md)
 EOF
   else
-    read -d '' pr_body <<EOF
+    read -d '' pr_body <<EOF || true
 ${pr_header}
 ${changelog_content}
 EOF
@@ -71,7 +80,7 @@ EOF
 }
 
 set_new_changelog_content() {
-  read -d '' new_changelog <<EOF
+  read -d '' new_changelog <<EOF || true
 ${changelog_content}
 ${current_changelog}
 EOF
@@ -118,7 +127,7 @@ pnpm changeset version
 version=$(jq -r '.version' package.json)
 echo "version=$version" >> $GITHUB_OUTPUT
 
-read -d '' changelog_content <<EOF
+read -d '' changelog_content <<EOF || true
 # Changelog Chainlink Core
 
 ## ${version} - PREVIEW

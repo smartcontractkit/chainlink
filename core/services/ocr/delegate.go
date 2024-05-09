@@ -14,7 +14,6 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
@@ -155,9 +154,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		v2Bootstrappers = peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 	}
 
-	ocrLogger := commonlogger.NewOCRWrapper(lggr, d.cfg.OCR().TraceLogging(), func(msg string) {
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR().TraceLogging(), func(ctx context.Context, msg string) {
 		d.jobORM.TryRecordError(ctx, jb.ID, msg)
 	})
+	services = append(services, ocrLogger)
 
 	lc := toLocalConfig(chain.Config().EVM(), chain.Config().EVM().OCR(), d.cfg.Insecure(), *concreteSpec, d.cfg.OCR())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
