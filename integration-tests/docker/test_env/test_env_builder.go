@@ -82,7 +82,7 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 		hasEVMClient: true,
 		chainlinkNodeLogScannerSettings: &ChainlinkNodeLogScannerSettings{
 			FailingLogLevel: zapcore.DPanicLevel,
-			Threshold:       1,
+			Threshold:       1, // we want to fail on the first concerning log
 			AllowedMessages: []testreporters.AllowedLogMessage{
 				testreporters.NewAllowedLogMessage("Failed to get LINK balance", "Happens only when we deploy LINK token for test purposes. Harmless.", zapcore.ErrorLevel, testreporters.LogAllowed_No),
 			},
