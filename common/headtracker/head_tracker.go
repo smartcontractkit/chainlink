@@ -250,9 +250,9 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		}
 	} else {
 		ht.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
-		prevLatestFinalized := prevHead.LatestFinalizedHead()
+		prevLatestFinalized, err := prevHead.LatestFinalizedHead()
 
-		if prevLatestFinalized != nil && prevLatestFinalized.IsValid() && head.BlockNumber() <= prevLatestFinalized.BlockNumber() {
+		if err == nil && head.BlockNumber() <= prevLatestFinalized.BlockNumber() {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
 			ht.SvcErrBuffer.Append(errors.New("got very old block"))

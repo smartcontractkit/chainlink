@@ -203,7 +203,7 @@ func (_m *Head[BLOCK_HASH]) IsValid() bool {
 }
 
 // LatestFinalizedHead provides a mock function with given fields:
-func (_m *Head[BLOCK_HASH]) LatestFinalizedHead() types.Head[BLOCK_HASH] {
+func (_m *Head[BLOCK_HASH]) LatestFinalizedHead() (types.Head[BLOCK_HASH], error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
@@ -211,6 +211,10 @@ func (_m *Head[BLOCK_HASH]) LatestFinalizedHead() types.Head[BLOCK_HASH] {
 	}
 
 	var r0 types.Head[BLOCK_HASH]
+	var r1 error
+	if rf, ok := ret.Get(0).(func() (types.Head[BLOCK_HASH], error)); ok {
+		return rf()
+	}
 	if rf, ok := ret.Get(0).(func() types.Head[BLOCK_HASH]); ok {
 		r0 = rf()
 	} else {
@@ -219,7 +223,13 @@ func (_m *Head[BLOCK_HASH]) LatestFinalizedHead() types.Head[BLOCK_HASH] {
 		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // NewHead creates a new instance of Head. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

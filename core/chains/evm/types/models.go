@@ -167,15 +167,16 @@ func (h *Head) ChainHashes() []common.Hash {
 	return hashes
 }
 
-func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
+func (h *Head) LatestFinalizedHead() (commontypes.Head[common.Hash], error) {
 	for h != nil {
 		if h.IsFinalized {
-			return h
+			return h, nil
 		}
+
 		h = h.Parent
 	}
 
-	return nil
+	return nil, pkgerrors.New("no finalized head")
 }
 
 func (h *Head) ChainID() *big.Int {

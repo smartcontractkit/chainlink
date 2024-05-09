@@ -40,5 +40,5 @@ type Head[BLOCK_HASH Hashable] interface {
 	IsValid() bool
 
 	// Returns the latest finalized based on finality tag or depth
-	LatestFinalizedHead() Head[BLOCK_HASH]
+	LatestFinalizedHead() (Head[BLOCK_HASH], error)
 }
