@@ -64,7 +64,6 @@ func TestManagerAgents(t *testing.T) {
 }
 
 func TestNewManager(t *testing.T) {
-
 	type endpointTest struct {
 		network       string
 		chainID       string
@@ -181,7 +180,6 @@ func TestNewManager(t *testing.T) {
 			}
 			require.Equal(t, true, found, "cannot find log: %s", e.expectedError)
 		}
-
 	}
 
 	require.Equal(t, "TelemetryManager", m.Name())
@@ -246,7 +244,6 @@ func TestCorrectEndpointRouting(t *testing.T) {
 			Network: e.network,
 			client:  clientMock,
 		}
-
 	}
 	//Unknown networks or chainID
 	noopEndpoint := tm.GenMonitoringEndpoint("unknown-network", "unknown-chainID", "some-contractID", "some-type")
@@ -282,5 +279,4 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		require.Equal(t, telemType, string(clientSent[i].TelemType))
 		require.Equal(t, []byte(e.chainID), clientSent[i].Telemetry)
 	}
-
 }

@@ -81,7 +81,6 @@ func NewOCR2KeeperRelayer(ds sqlutil.DataSource, chain legacyevm.Chain, lggr log
 }
 
 func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error) {
-
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 

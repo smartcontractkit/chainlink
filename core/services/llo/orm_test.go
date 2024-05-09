@@ -30,7 +30,6 @@ func Test_ORM(t *testing.T) {
 
 			assert.Zero(t, cd)
 			assert.Zero(t, blockNum)
-
 		})
 		t.Run("loads channel definitions from database", func(t *testing.T) {
 			expectedBlockNum := rand.Int63()

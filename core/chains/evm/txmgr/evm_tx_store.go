@@ -1272,7 +1272,6 @@ func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, tim
 		}
 		if _, err := orm.q.ExecContext(ctx, `UPDATE evm.txes SET state = 'confirmed_missing_receipt' WHERE id = $1`, attempt.TxID); err != nil {
 			return pkgerrors.Wrap(err, "failed to update evm.txes")
-
 		}
 		return nil
 	})
@@ -1814,7 +1813,6 @@ func (o *evmTxStore) CreateTransaction(ctx context.Context, txRequest TxRequest,
 	var dbEtx DbEthTx
 	err = o.Transact(ctx, false, func(orm *evmTxStore) error {
 		if txRequest.PipelineTaskRunID != nil {
-
 			err = orm.q.GetContext(ctx, &dbEtx, `SELECT * FROM evm.txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, txRequest.PipelineTaskRunID, chainID.String())
 			// If no eth_tx matches (the common case) then continue
 			if !errors.Is(err, sql.ErrNoRows) {

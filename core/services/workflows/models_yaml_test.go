@@ -116,7 +116,7 @@ func TestWorkflowSpecMarshalling(t *testing.T) {
 		}
 	})
 
-	t.Run("Table and string capability type", func(t *testing.T) {
+	t.Run("Table and string capability id", func(t *testing.T) {
 		workflowBytes := fixtureReader("workflow_2")
 
 		spec := workflowSpecYaml{}
@@ -240,7 +240,6 @@ func TestParsesIntsCorrectly(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(3600), n.Config["aggregation_config"].(map[string]any)["0x1111111111111111111100000000000000000000000000000000000000000000"].(map[string]any)["heartbeat"])
-
 }
 
 func TestMappingCustomType(t *testing.T) {

@@ -169,7 +169,6 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(ctx context.Context, nonce evmty
 	attempt.SignedRawTx = signedTxBytes
 	attempt.Hash = hash
 	return attempt, nil
-
 }
 
 func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(ctx context.Context, etx Tx, fee gas.DynamicFee, gasLimit uint64) (attempt TxAttempt, err error) {

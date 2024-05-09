@@ -607,7 +607,6 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]interface{}{}
 		require.NoError(t, json.NewEncoder(w).Encode(response))
-
 	})
 
 	// 1. Setup bridge
@@ -739,7 +738,6 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]interface{}{}
 		require.NoError(t, json.NewEncoder(w).Encode(response))
-
 	})
 
 	// 1. Setup bridge

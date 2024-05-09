@@ -20,9 +20,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	ocr3capability "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -70,13 +72,14 @@ func init() {
 var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
 
 type Relayer struct {
-	ds          sqlutil.DataSource
-	chain       legacyevm.Chain
-	lggr        logger.Logger
-	ks          CSAETHKeystore
-	mercuryPool wsrpc.Pool
-	chainReader commontypes.ChainReader
-	codec       commontypes.Codec
+	ds                   sqlutil.DataSource
+	chain                legacyevm.Chain
+	lggr                 logger.Logger
+	ks                   CSAETHKeystore
+	mercuryPool          wsrpc.Pool
+	chainReader          commontypes.ChainReader
+	codec                commontypes.Codec
+	capabilitiesRegistry coretypes.CapabilitiesRegistry
 
 	// Mercury
 	mercuryORM     mercury.ORM
@@ -95,8 +98,9 @@ type CSAETHKeystore interface {
 type RelayerOpts struct {
 	DS sqlutil.DataSource
 	CSAETHKeystore
-	MercuryPool       wsrpc.Pool
-	TransmitterConfig mercury.TransmitterConfig
+	MercuryPool          wsrpc.Pool
+	TransmitterConfig    mercury.TransmitterConfig
+	CapabilitiesRegistry coretypes.CapabilitiesRegistry
 }
 
 func (c RelayerOpts) Validate() error {
@@ -107,7 +111,9 @@ func (c RelayerOpts) Validate() error {
 	if c.CSAETHKeystore == nil {
 		err = errors.Join(err, errors.New("nil Keystore"))
 	}
-
+	if c.CapabilitiesRegistry == nil {
+		err = errors.Join(err, errors.New("nil CapabilitiesRegistry"))
+	}
 	if err != nil {
 		err = fmt.Errorf("invalid RelayerOpts: %w", err)
 	}
@@ -125,15 +131,16 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	lloORM := llo.NewORM(opts.DS, chain.ID())
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
 	return &Relayer{
-		ds:             opts.DS,
-		chain:          chain,
-		lggr:           lggr,
-		ks:             opts.CSAETHKeystore,
-		mercuryPool:    opts.MercuryPool,
-		cdcFactory:     cdcFactory,
-		lloORM:         lloORM,
-		mercuryORM:     mercuryORM,
-		transmitterCfg: opts.TransmitterConfig,
+		ds:                   opts.DS,
+		chain:                chain,
+		lggr:                 lggr,
+		ks:                   opts.CSAETHKeystore,
+		mercuryPool:          opts.MercuryPool,
+		cdcFactory:           cdcFactory,
+		lloORM:               lloORM,
+		mercuryORM:           mercuryORM,
+		transmitterCfg:       opts.TransmitterConfig,
+		capabilitiesRegistry: opts.CapabilitiesRegistry,
 	}, nil
 }
 
@@ -161,8 +168,24 @@ func (r *Relayer) HealthReport() (report map[string]error) {
 	return
 }
 
-func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
+func (r *Relayer) NewOCR3CapabilityProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.OCR3CapabilityProvider, error) {
+	pp, err := r.NewPluginProvider(rargs, pargs)
+	if err != nil {
+		return nil, err
+	}
 
+	fromAccount, err := pp.ContractTransmitter().FromAccount()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ocr3CapabilityProvider{
+		PluginProvider: pp,
+		transmitter:    ocr3capability.NewContractTransmitter(r.lggr, r.capabilitiesRegistry, string(fromAccount)),
+	}, nil
+}
+
+func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
@@ -256,7 +279,6 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 }
 
 func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
-
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
@@ -317,7 +339,6 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 }
 
 func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
-
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
@@ -422,7 +443,6 @@ func newConfigWatcher(lggr logger.Logger,
 		replayCtx:        replayCtx,
 		replayCancel:     replayCancel,
 	}
-
 }
 
 func (c *configWatcher) Name() string {

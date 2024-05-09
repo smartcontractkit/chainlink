@@ -502,7 +502,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		state, num, _ := n.StateAndLatest()
 		assert.Equal(t, NodeStateAlive, state)
 		assert.Equal(t, int64(stall), num)
-
 	})
 }
 

@@ -144,7 +144,7 @@ package gethwrappers
 // Log tester
 
 // ChainReader test contract
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.abi ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.bin LatestValueHolder chain_reader_example
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.abi ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.bin ChainReaderTester chain_reader_tester
 
 // Chainlink Functions
 //go:generate go generate ./functions
@@ -154,6 +154,9 @@ package gethwrappers
 
 // Mercury
 //go:generate go generate ./llo-feeds
+
+// Operator Forwarder
+//go:generate go generate ./operatorforwarder
 
 // Shared
 //go:generate go generate ./shared

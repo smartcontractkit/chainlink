@@ -135,7 +135,6 @@ func TestShell_OCR2Keys(t *testing.T) {
 		require.Equal(t, 1, len(r.Renders))
 		output := *r.Renders[0].(*cmd.OCR2KeyBundlePresenter)
 		assert.Equal(t, key.ID(), output.ID)
-
 	})
 
 	t.Run("ImportExportOCR2Key", func(tt *testing.T) {
