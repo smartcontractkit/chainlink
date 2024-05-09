@@ -41,6 +41,8 @@
 
 ### Patch Changes
 
+- [#13151](https://github.com/smartcontractkit/chainlink/pull/13151) [`b3d431c41a`](https://github.com/smartcontractkit/chainlink/commit/b3d431c41ae78a678a9d0c769ec20874785cbcda) Thanks [@jmank88](https://github.com/jmank88)! - core/services: fix ocrWrapper saveError contexts #internal
+
 - [#12907](https://github.com/smartcontractkit/chainlink/pull/12907) [`f0439ec840`](https://github.com/smartcontractkit/chainlink/commit/f0439ec8408b39456a74c37df9a264782ed4725c) Thanks [@ilija42](https://github.com/ilija42)! - Fix in memory data source cache changes/bug that only allowed pipeline results where none of the data sources failed. #bugfix
 
 - [#12996](https://github.com/smartcontractkit/chainlink/pull/12996) [`0a37c0ed53`](https://github.com/smartcontractkit/chainlink/commit/0a37c0ed5346df509b545c88278c026cb2adf375) Thanks [@DeividasK](https://github.com/DeividasK)! - #wip Keystone contract wrappers updated
