@@ -20,16 +20,26 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     s_capabilityRegistry.addCapability(s_basicCapability);
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
 
-    CapabilityRegistry.Node[] memory nodes = new CapabilityRegistry.Node[](1);
+    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](2);
     bytes32[] memory capabilityIds = new bytes32[](2);
     capabilityIds[0] = s_basicHashedCapabilityId;
     capabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodes[0] = CapabilityRegistry.Node({
+    nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       supportedHashedCapabilityIds: capabilityIds
+    });
+
+    bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
+    nodeTwoCapabilityIds[0] = s_basicHashedCapabilityId;
+
+    nodes[1] = CapabilityRegistry.NodeParams({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: P2P_ID_TWO,
+      signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
+      supportedHashedCapabilityIds: nodeTwoCapabilityIds
     });
 
     changePrank(NODE_OPERATOR_ONE_ADMIN);
@@ -48,6 +58,27 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
       capabilityId: s_basicHashedCapabilityId,
       config: CONFIG
     });
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+  }
+
+  function test_RevertWhen_NodeDoesNotSupportCapability() public {
+    changePrank(ADMIN);
+    bytes32[] memory nodes = new bytes32[](1);
+    nodes[0] = P2P_ID_TWO;
+    CapabilityRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
+      capabilityId: s_capabilityWithConfigurationContractId,
+      config: CONFIG
+    });
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        CapabilityRegistry.NodeDoesNotSupportDONCapability.selector,
+        1,
+        P2P_ID_TWO,
+        s_capabilityWithConfigurationContractId
+      )
+    );
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
   }
 
