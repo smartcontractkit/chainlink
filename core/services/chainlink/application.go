@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -177,6 +178,7 @@ type ApplicationOpts struct {
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
+	CapabilitiesRegistry       coretypes.CapabilitiesRegistry
 }
 
 // NewApplication initializes a new store if one is not already
@@ -195,7 +197,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
-	registry := capabilities.NewRegistry(globalLogger)
+
+	if opts.CapabilitiesRegistry == nil {
+		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
@@ -206,8 +211,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		srvcs = append(srvcs, externalPeerWrapper)
 
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
-		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, registry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, dispatcher, globalLogger)
+		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger)
 		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 
@@ -386,7 +391,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
-		registry,
+		opts.CapabilitiesRegistry,
 		legacyEVMChains,
 		func() *p2ptypes.PeerID {
 			if externalPeerWrapper == nil {
@@ -469,7 +474,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
-			registry,
+			opts.CapabilitiesRegistry,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,

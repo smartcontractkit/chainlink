@@ -19,6 +19,7 @@ import (
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -33,7 +34,8 @@ type RelayerFactory struct {
 	logger.Logger
 	*plugins.LoopRegistry
 	loop.GRPCOpts
-	MercuryPool wsrpc.Pool
+	MercuryPool          wsrpc.Pool
+	CapabilitiesRegistry *capabilities.Registry
 }
 
 type EVMFactoryConfig struct {
@@ -69,10 +71,11 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DS:                ccOpts.DS,
-			CSAETHKeystore:    config.CSAETHKeystore,
-			MercuryPool:       r.MercuryPool,
-			TransmitterConfig: config.MercuryTransmitter,
+			DS:                   ccOpts.DS,
+			CSAETHKeystore:       config.CSAETHKeystore,
+			MercuryPool:          r.MercuryPool,
+			TransmitterConfig:    config.MercuryTransmitter,
+			CapabilitiesRegistry: r.CapabilitiesRegistry,
 		}
 		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
