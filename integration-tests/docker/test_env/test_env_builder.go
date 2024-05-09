@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/seth"
@@ -65,6 +64,7 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 		l:            log.Logger,
 		hasLogStream: true,
 		hasEVMClient: true,
+		isEVM:        true,
 	}
 }
 
@@ -442,12 +442,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			if err != nil {
 				return nil, err
 			}
-			seth, err := seth.NewClientWithConfig(&sethCfg)
+			sethClient, err := seth.NewClientWithConfig(&sethCfg)
 			if err != nil {
 				return nil, err
 			}
 
-			b.te.sethClients[networkConfig.ChainID] = seth
+			b.te.sethClients[networkConfig.ChainID] = sethClient
 		}
 	}
 
@@ -480,12 +480,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		m, err := toml.Marshal(nodeConfig)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("Node config: %v\n", string(m))
 
 		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig)
 		if err != nil {
