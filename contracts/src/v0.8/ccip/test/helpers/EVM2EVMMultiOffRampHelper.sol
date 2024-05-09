@@ -14,6 +14,18 @@ contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
     RateLimiter.Config memory rateLimiterConfig
   ) EVM2EVMMultiOffRamp(staticConfig, sourceChainConfigs, rateLimiterConfig) {}
 
+  function setExecutionStateHelper(
+    uint64 sourceChainSelector,
+    uint64 sequenceNumber,
+    Internal.MessageExecutionState state
+  ) public {
+    _setExecutionState(sourceChainSelector, sequenceNumber, state);
+  }
+
+  function getExecutionStateBitMap(uint64 sourceChainSelector, uint64 bitmapIndex) public view returns (uint256) {
+    return s_executionStates[sourceChainSelector][bitmapIndex];
+  }
+
   function metadataHash(uint64 sourceChainSelector, address onRamp) external view returns (bytes32) {
     return _metadataHash(sourceChainSelector, onRamp, Internal.EVM_2_EVM_MESSAGE_HASH);
   }
@@ -25,5 +37,9 @@ contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
     bytes[] calldata offchainTokenData
   ) external returns (Client.EVMTokenAmount[] memory) {
     return _releaseOrMintTokens(sourceTokenAmounts, messageRoute, sourceTokenData, offchainTokenData);
+  }
+
+  function execute(Internal.ExecutionReport memory rep, uint256[] memory manualExecGasLimits) external {
+    _execute(rep, manualExecGasLimits);
   }
 }

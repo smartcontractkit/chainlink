@@ -21,6 +21,14 @@ import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
+  uint64 internal constant SOURCE_CHAIN_SELECTOR_1 = 16015286601757825753;
+  uint64 internal constant SOURCE_CHAIN_SELECTOR_2 = 6433500567565415381;
+  uint64 internal constant SOURCE_CHAIN_SELECTOR_3 = 4051577828743386545;
+
+  address internal constant ON_RAMP_ADDRESS_1 = 0x11118e64e1FB0c487f25dD6D3601FF6aF8d32E4e;
+  address internal constant ON_RAMP_ADDRESS_2 = 0xaA3f843Cf8E33B1F02dd28303b6bD87B1aBF8AE4;
+  address internal constant ON_RAMP_ADDRESS_3 = 0x71830C37Cb193e820de488Da111cfbFcC680a1b9;
+
   MockCommitStore internal s_mockCommitStore;
   IAny2EVMMessageReceiver internal s_receiver;
   IAny2EVMMessageReceiver internal s_secondary_receiver;
@@ -32,9 +40,13 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
   event ExecutionStateChanged(
-    uint64 indexed sequenceNumber, bytes32 indexed messageId, Internal.MessageExecutionState state, bytes returnData
+    uint64 indexed sourceChainSelector,
+    uint64 indexed sequenceNumber,
+    bytes32 indexed messageId,
+    Internal.MessageExecutionState state,
+    bytes returnData
   );
-  event SkippedIncorrectNonce(uint64 indexed nonce, address indexed sender);
+  event SkippedIncorrectNonce(uint64 sourceChainSelector, uint64 nonce, address indexed sender);
 
   function setUp() public virtual override(TokenSetup, PriceRegistrySetup, OCR2BaseSetup) {
     TokenSetup.setUp();
@@ -48,10 +60,10 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
 
     s_maybeRevertingPool = MaybeRevertingBurnMintTokenPool(s_destPoolByToken[s_destTokens[1]]);
 
-    deployOffRamp(s_mockCommitStore, s_destRouter, address(0));
+    deployOffRamp(s_mockCommitStore, s_destRouter);
   }
 
-  function deployOffRamp(ICommitStore commitStore, Router router, address prevOffRamp) internal {
+  function deployOffRamp(ICommitStore commitStore, Router router) internal {
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0);
 
@@ -73,11 +85,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
       abi.encode("")
     );
 
-    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
-    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](2);
-    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: address(s_offRamp)});
-    offRampUpdates[1] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: address(prevOffRamp)});
-    s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
     EVM2EVMMultiOffRamp.RateLimitToken[] memory tokensToAdd =
       new EVM2EVMMultiOffRamp.RateLimitToken[](s_sourceTokens.length);
     for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
@@ -113,15 +120,17 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     });
   }
 
-  function _generateAny2EVMMessageNoTokens(uint64 sequenceNumber)
-    internal
-    view
-    returns (Internal.EVM2EVMMessage memory)
-  {
-    return _generateAny2EVMMessage(sequenceNumber, new Client.EVMTokenAmount[](0));
+  function _generateAny2EVMMessageNoTokens(
+    uint64 sourceChainSelector,
+    address onRamp,
+    uint64 sequenceNumber
+  ) internal view returns (Internal.EVM2EVMMessage memory) {
+    return _generateAny2EVMMessage(sourceChainSelector, onRamp, sequenceNumber, new Client.EVMTokenAmount[](0));
   }
 
   function _generateAny2EVMMessageWithTokens(
+    uint64 sourceChainSelector,
+    address onRamp,
     uint64 sequenceNumber,
     uint256[] memory amounts
   ) internal view returns (Internal.EVM2EVMMessage memory) {
@@ -129,10 +138,12 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     for (uint256 i = 0; i < tokenAmounts.length; ++i) {
       tokenAmounts[i].amount = amounts[i];
     }
-    return _generateAny2EVMMessage(sequenceNumber, tokenAmounts);
+    return _generateAny2EVMMessage(sourceChainSelector, onRamp, sequenceNumber, tokenAmounts);
   }
 
   function _generateAny2EVMMessage(
+    uint64 sourceChainSelector,
+    address onRamp,
     uint64 sequenceNumber,
     Client.EVMTokenAmount[] memory tokenAmounts
   ) internal view returns (Internal.EVM2EVMMessage memory) {
@@ -143,7 +154,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
       nonce: sequenceNumber,
       gasLimit: GAS_LIMIT,
       strict: false,
-      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
+      sourceChainSelector: sourceChainSelector,
       receiver: address(s_receiver),
       data: data,
       tokenAmounts: tokenAmounts,
@@ -165,28 +176,31 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     }
 
     message.messageId = Internal._hash(
-      message,
-      keccak256(
-        abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_SELECTOR, DEST_CHAIN_SELECTOR, ON_RAMP_ADDRESS)
-      )
+      message, keccak256(abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, sourceChainSelector, DEST_CHAIN_SELECTOR, onRamp))
     );
 
     return message;
   }
 
-  function _generateBasicMessages() internal view returns (Internal.EVM2EVMMessage[] memory) {
+  function _generateBasicMessages(
+    uint64 sourceChainSelector,
+    address onRamp
+  ) internal view returns (Internal.EVM2EVMMessage[] memory) {
     Internal.EVM2EVMMessage[] memory messages = new Internal.EVM2EVMMessage[](1);
-    messages[0] = _generateAny2EVMMessageNoTokens(1);
+    messages[0] = _generateAny2EVMMessageNoTokens(sourceChainSelector, onRamp, 1);
     return messages;
   }
 
-  function _generateMessagesWithTokens() internal view returns (Internal.EVM2EVMMessage[] memory) {
+  function _generateMessagesWithTokens(
+    uint64 sourceChainSelector,
+    address onRamp
+  ) internal view returns (Internal.EVM2EVMMessage[] memory) {
     Internal.EVM2EVMMessage[] memory messages = new Internal.EVM2EVMMessage[](2);
     Client.EVMTokenAmount[] memory tokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
     tokenAmounts[0].amount = 1e18;
     tokenAmounts[1].amount = 5e18;
-    messages[0] = _generateAny2EVMMessage(1, tokenAmounts);
-    messages[1] = _generateAny2EVMMessage(2, tokenAmounts);
+    messages[0] = _generateAny2EVMMessage(sourceChainSelector, onRamp, 1, tokenAmounts);
+    messages[1] = _generateAny2EVMMessage(sourceChainSelector, onRamp, 2, tokenAmounts);
 
     return messages;
   }
