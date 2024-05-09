@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -34,7 +35,7 @@ func main() {
 	unpackPath := filepath.Join(rootDir, unpackDir)
 	err := rmrf(unpackPath)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	subPath := "package/artifacts/"
@@ -50,7 +51,7 @@ func rootDir() string {
 func thisExecutablesDir() string {
 	exec, err := os.Executable()
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	dir := filepath.Dir(exec)
 
@@ -60,7 +61,7 @@ func thisExecutablesDir() string {
 func mustReadTagFile(file string) string {
 	tagBytes, err := os.ReadFile(file)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	tag := string(tagBytes)
 	return strings.TrimSpace(tag)
@@ -88,21 +89,21 @@ func mustDownloadSubAsset(downloadUrl string, downloadTimeoutSeconds int, unpack
 	/* #nosec G107 */
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadUrl, nil)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		panic(fmt.Errorf("failed to fetch asset: %s", resp.Status))
+		log.Fatalln(fmt.Errorf("failed to fetch asset: %s", resp.Status))
 	}
 
 	err = decompressTgzSubpath(resp.Body, unpackPath, subPath)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 }
 
@@ -154,6 +155,7 @@ func decompressTgzSubpath(file io.Reader, destPath string, subPath string) error
 			if err != nil {
 				return fmt.Errorf("failed to open file: %w", err)
 			}
+			/* #nosec G110 */
 			if _, err := io.Copy(f, tr); err != nil {
 				f.Close()
 				return fmt.Errorf("failed to write file: %w", err)
