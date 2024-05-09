@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -70,6 +71,7 @@ type VRFCoordinatorV2 interface {
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 	CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
 	FindSubscriptionID(subID uint64) (uint64, error)
+	FilterRandomWordsFulfilledEvent(opts *bind.FilterOpts, requestId *big.Int) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
 	WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
@@ -118,6 +120,7 @@ type VRFCoordinatorV2_5 interface {
 	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
 	GetLinkTotalBalance(ctx context.Context) (*big.Int, error)
 	FindSubscriptionID(subID *big.Int) (*big.Int, error)
+	FilterRandomWordsFulfilledEvent(opts *bind.FilterOpts, requestId *big.Int) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForSubscriptionCreatedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated, error)
 	WaitForSubscriptionCanceledEvent(subID *big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error)
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
@@ -159,6 +162,7 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_v2plus_upgraded_version.GetSubscription, error)
 	GetActiveSubscriptionIds(ctx context.Context, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	FindSubscriptionID() (*big.Int, error)
+	FilterRandomWordsFulfilledEvent(opts *bind.FilterOpts, requestId *big.Int) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted, error)
 	ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error)

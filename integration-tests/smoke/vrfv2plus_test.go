@@ -2028,6 +2028,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 			vrfContracts.CoordinatorV2Plus,
 			randomWordsRequestedEvent.RequestId,
 			subID,
+			randomWordsRequestedEvent.Raw.BlockNumber,
 			isNativeBilling,
 			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
