@@ -798,7 +798,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		{
 			Name:                "Returns success and logs critical error on success and Fatal",
 			ExpectedTxResult:    "success",
-			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
+			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error(s): ; fatal",
 			ResultsByCode: sendTxErrors{
 				Successful: {errors.New("success")},
 				Fatal:      {errors.New("fatal")},
@@ -807,7 +807,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		{
 			Name:                "Returns TransactionAlreadyKnown and logs critical error on TransactionAlreadyKnown and Fatal",
 			ExpectedTxResult:    "tx_already_known",
-			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
+			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error(s): ; unsupported",
 			ResultsByCode: sendTxErrors{
 				TransactionAlreadyKnown: {errors.New("tx_already_known")},
 				Unsupported:             {errors.New("unsupported")},
