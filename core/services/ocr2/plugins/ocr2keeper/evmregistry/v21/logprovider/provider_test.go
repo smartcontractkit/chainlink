@@ -288,7 +288,6 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	})
 
 	// TODO: test rate limiting
-
 }
 
 func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upkeepFilter) {

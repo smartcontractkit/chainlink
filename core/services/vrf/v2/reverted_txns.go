@@ -111,7 +111,6 @@ func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
 	ds sqlutil.DataSource,
 	chainID uint64,
 	pollPeriod time.Duration) ([]TxnReceiptDB, error) {
-
 	// (state = 'confirmed' OR state = 'unconfirmed')
 	sqlQuery := fmt.Sprintf(`
 		WITH already_ff as (
@@ -234,7 +233,6 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 	ds sqlutil.DataSource,
 	chainID uint64,
 	pollPeriod time.Duration) ([]TxnReceiptDB, error) {
-
 	sqlQuery := fmt.Sprintf(`
 		WITH txes AS (
 			SELECT *
@@ -416,7 +414,6 @@ func (lsn *listenerV2) postSqlLog(ctx context.Context, begin time.Time, pollPeri
 
 func (lsn *listenerV2) filterRevertedTxns(ctx context.Context,
 	recentReceipts []TxnReceiptDB) []RevertedVRFTxn {
-
 	revertedVRFTxns := make([]RevertedVRFTxn, 0)
 	for _, txnReceipt := range recentReceipts {
 		switch txnReceipt.ToAddress.Hex() {
@@ -471,7 +468,6 @@ func (lsn *listenerV2) filterRevertedTxns(ctx context.Context,
 func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 	txnReceiptDB TxnReceiptDB) (
 	*RevertedVRFTxn, error) {
-
 	requestID := common.HexToHash(txnReceiptDB.RequestID).Big()
 	commitment, err := lsn.coordinator.GetCommitment(&bind.CallOpts{Context: ctx}, requestID)
 	if err != nil {

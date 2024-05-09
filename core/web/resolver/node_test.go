@@ -57,7 +57,6 @@ func TestResolver_Nodes(t *testing.T) {
 						}},
 					},
 				})
-
 			},
 			query: query,
 			result: `

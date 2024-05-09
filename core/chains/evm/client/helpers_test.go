@@ -196,7 +196,6 @@ func NewChainClientWithEmptyNode(
 	noNewHeadsThreshold time.Duration,
 	chainID *big.Int,
 ) Client {
-
 	lggr := logger.Test(t)
 
 	var chainType commonconfig.ChainType
@@ -213,7 +212,6 @@ func NewChainClientWithMockedRpc(
 	chainID *big.Int,
 	rpc RPCClient,
 ) Client {
-
 	lggr := logger.Test(t)
 
 	var chainType commonconfig.ChainType
