@@ -184,7 +184,7 @@ func (r *CommitReportingPlugin) observePriceUpdates(
 	}
 
 	sortedLaneTokens, filteredLaneTokens, err := ccipcommon.GetFilteredSortedLaneTokens(ctx, r.offRampReader, r.destPriceRegistryReader, r.priceGetter)
-	lggr.Debugw("Filtered bridgeable tokens with no configured price getter", filteredLaneTokens)
+	lggr.Debugw("Filtered bridgeable tokens with no configured price getter", "filteredLaneTokens", filteredLaneTokens)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("get destination tokens: %w", err)
