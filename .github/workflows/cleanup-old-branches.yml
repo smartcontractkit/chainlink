@@ -1,0 +1,22 @@
+name: Cleanup Old Branches
+on:
+  schedule:
+    # Runs at 00:00 UTC every Monday.
+    - cron: "0 0 * * 1"
+  # Allows this to be manually invoked.
+  workflow_dispatch:
+
+jobs:
+  cleanup-old-branches:
+    name: Cleanup Old Branches
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # To delete branches.
+      pull-requests: read # To list PR's in order to find open branches.
+    steps:
+      - uses: smartcontractkit/.github/actions/cleanup-old-branches@033324feb567e736cabd0d7eea8c41ed8b9e7f7a # cleanup-old-branches@0.2.1
+        with:
+          branch-days-to-keep: 90
+          checkout-repo: "true"
+          dry-run: "false"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
