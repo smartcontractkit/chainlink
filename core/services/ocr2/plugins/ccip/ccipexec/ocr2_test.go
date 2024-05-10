@@ -1531,61 +1531,83 @@ func generateExecutionReport(t *testing.T, numMsgs, tokensPerMsg, bytesPerMsg in
 }
 
 func Test_selectReportsToFillBatch(t *testing.T) {
-	reports := []cciptypes.CommitStoreReport{
-		{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 10}},
-		{Interval: cciptypes.CommitStoreInterval{Min: 11, Max: 20}},
-		{Interval: cciptypes.CommitStoreInterval{Min: 21, Max: 25}},
-		{Interval: cciptypes.CommitStoreInterval{Min: 26, Max: math.MaxUint64}},
-	}
 
 	tests := []struct {
 		name            string
-		step            uint64
-		numberOfBatches int
+		messagesLimit   uint64 // maximum number of messages that can be included in a batch.
+		expectedBatches int    // expected number of batches.
+		expectedReports int    // expected number of selected reports.
 	}{
 		{
-			name:            "pick all at once when step size is high",
-			step:            100,
-			numberOfBatches: 1,
+			name:            "pick all at once when messages limit is high",
+			messagesLimit:   5000,
+			expectedBatches: 1,
+			expectedReports: 10,
 		},
 		{
-			name:            "pick one by one when step size is 1",
-			step:            1,
-			numberOfBatches: 4,
+			name:            "pick none when messages limit is below commit report size",
+			messagesLimit:   199,
+			expectedBatches: 0,
+			expectedReports: 0,
 		},
 		{
-			name:            "pick two when step size doesn't match report",
-			step:            15,
-			numberOfBatches: 2,
+			name:            "pick exactly the number in each report",
+			messagesLimit:   200,
+			expectedBatches: 10,
+			expectedReports: 10,
 		},
 		{
-			name:            "pick one by one when step size is smaller then reports",
-			step:            4,
-			numberOfBatches: 4,
+			name:            "messages limit larger than individual reports",
+			messagesLimit:   300,
+			expectedBatches: 10,
+			expectedReports: 10,
 		},
 		{
-			name:            "batch some reports together",
-			step:            7,
-			numberOfBatches: 3,
+			name:            "messages limit larger than several reports",
+			messagesLimit:   650,
+			expectedBatches: 4,
+			expectedReports: 10,
+		},
+		{
+			name:            "default limit",
+			messagesLimit:   1024,
+			expectedBatches: 2,
+			expectedReports: 10,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
+			nbCommitStoreReports := 10
+			nbMsgPerRoot := 200
+
+			var reports []cciptypes.CommitStoreReport
+			for i := 0; i < nbCommitStoreReports; i++ {
+				reports = append(reports, cciptypes.CommitStoreReport{Interval: cciptypes.CommitStoreInterval{Min: uint64(i * nbMsgPerRoot), Max: uint64((i+1)*nbMsgPerRoot - 1)}})
+			}
+
 			var unexpiredReportsBatches [][]cciptypes.CommitStoreReport
 			for i := 0; i < len(reports); {
-				unexpiredReports, step := selectReportsToFillBatch(reports[i:], tt.step)
+				unexpiredReports, step := selectReportsToFillBatch(reports[i:], tt.messagesLimit)
+				if step == 0 {
+					break
+				}
 				unexpiredReportsBatches = append(unexpiredReportsBatches, unexpiredReports)
 				i += step
 			}
-			assert.Len(t, unexpiredReportsBatches, tt.numberOfBatches)
+			assert.Len(t, unexpiredReportsBatches, tt.expectedBatches)
 
 			var flatten []cciptypes.CommitStoreReport
 			for _, r := range unexpiredReportsBatches {
 				flatten = append(flatten, r...)
 			}
-			assert.Len(t, flatten, len(reports))
-			assert.Equal(t, reports, flatten)
+			assert.Equal(t, tt.expectedReports, len(flatten))
+			if tt.expectedBatches > 0 {
+				assert.Equal(t, reports, flatten)
+			} else {
+				assert.Empty(t, flatten)
+			}
 		})
 	}
 }

@@ -193,14 +193,14 @@ func (o *OnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	arm, err := arm_contract.NewARMContract(staticConfig.ArmProxy, o.client)
+	arm, err := arm_contract.NewARMContract(staticConfig.RmnProxy, o.client)
 	if err != nil {
-		return false, fmt.Errorf("intializing Arm contract through the ArmProxy: %w", err)
+		return false, fmt.Errorf("intializing RMN contract through the RmnProxy: %w", err)
 	}
 
 	cursed, err := arm.IsCursed(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return false, fmt.Errorf("checking if source Arm is cursed: %w", err)
+		return false, fmt.Errorf("checking if source is cursed by RMN: %w", err)
 	}
 	return cursed, nil
 }

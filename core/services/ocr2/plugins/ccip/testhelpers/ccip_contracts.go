@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
@@ -249,7 +250,7 @@ func (c *CCIPContracts) DeployNewOffRamp(t *testing.T) {
 			SourceChainSelector: c.Source.ChainSelector,
 			OnRamp:              c.Source.OnRamp.Address(),
 			PrevOffRamp:         prevOffRamp,
-			ArmProxy:            c.Dest.ARMProxy.Address(),
+			RmnProxy:            c.Dest.ARMProxy.Address(), // RMN formerly ARM
 		},
 		evm_2_evm_offramp.RateLimiterConfig{
 			IsEnabled: true,
@@ -306,7 +307,7 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 			DefaultTxGasLimit: 200_000,
 			MaxNopFeesJuels:   big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
 			PrevOnRamp:        prevOnRamp,
-			ArmProxy:          c.Source.ARM.Address(), // ARM
+			RmnProxy:          c.Source.ARM.Address(), // RMN, formerly ARM
 		},
 		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 			Router:                            c.Source.Router.Address(),
@@ -377,10 +378,10 @@ func (c *CCIPContracts) EnableOnRamp(t *testing.T) {
 }
 
 func (c *CCIPContracts) DeployNewCommitStore(t *testing.T) {
-	commitStoreAddress, _, _, err := commit_store_helper.DeployCommitStoreHelper(
+	commitStoreAddress, _, _, err := commit_store_helper_1_2_0.DeployCommitStoreHelper(
 		c.Dest.User,  // user
 		c.Dest.Chain, // client
-		commit_store_helper.CommitStoreStaticConfig{
+		commit_store_helper_1_2_0.CommitStoreStaticConfig{
 			ChainSelector:       c.Dest.ChainSelector,
 			SourceChainSelector: c.Source.ChainSelector,
 			OnRamp:              c.Source.OnRamp.Address(),
@@ -1021,7 +1022,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			DefaultTxGasLimit: 200_000,
 			MaxNopFeesJuels:   big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
 			PrevOnRamp:        common.HexToAddress(""),
-			ArmProxy:          armProxySourceAddress, // ARM
+			RmnProxy:          armProxySourceAddress, // RMN, formerly ARM
 		},
 		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 			Router:                            sourceRouterAddress,
@@ -1094,10 +1095,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 
 	// Deploy commit store.
-	commitStoreAddress, _, _, err := commit_store_helper.DeployCommitStoreHelper(
+	commitStoreAddress, _, _, err := commit_store_helper_1_2_0.DeployCommitStoreHelper(
 		destUser,  // user
 		destChain, // client
-		commit_store_helper.CommitStoreStaticConfig{
+		commit_store_helper_1_2_0.CommitStoreStaticConfig{
 			ChainSelector:       destChainSelector,
 			SourceChainSelector: sourceChainSelector,
 			OnRamp:              onRamp.Address(),
@@ -1120,7 +1121,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			SourceChainSelector: sourceChainSelector,
 			OnRamp:              onRampAddress,
 			PrevOffRamp:         common.HexToAddress(""),
-			ArmProxy:            armProxyDestAddress,
+			RmnProxy:            armProxyDestAddress, // RMN, formerly ARM
 		},
 		evm_2_evm_offramp.RateLimiterConfig{
 			IsEnabled: true,
