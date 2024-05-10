@@ -31,8 +31,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// This key is guaranteed to be unique in the CapabilityRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
-    /// @notice The list of supported hashed capability IDs supported
-    /// by the node
+    /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
   }
 
@@ -340,7 +339,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
 
-      s_nodes[node.p2pId].configCount++;
+      ++s_nodes[node.p2pId].configCount;
 
       uint32 capabilityConfigCount = s_nodes[node.p2pId].configCount;
       for (uint256 j; j < capabilityIds.length; ++j) {
@@ -548,8 +547,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     emit DONAdded(id, isPublic);
   }
 
-  /// @notice Get's a DON's data
-  /// @param donId The DON's ID
+  /// @notice Gets DON's data
+  /// @param donId The DON ID
   /// @return uint32 The DON ID
   /// @return bool True if the DON is public
   /// @return bytes32[] The list of node P2P IDs that are in the DON

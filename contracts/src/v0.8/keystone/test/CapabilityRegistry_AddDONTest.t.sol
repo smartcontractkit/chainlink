@@ -44,6 +44,8 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
 
     changePrank(NODE_OPERATOR_ONE_ADMIN);
     s_capabilityRegistry.addNodes(nodes);
+
+    changePrank(ADMIN);
   }
 
   function test_RevertWhen_CalledByNonAdmin() public {
@@ -61,7 +63,6 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
   }
 
   function test_RevertWhen_NodeDoesNotSupportCapability() public {
-    changePrank(ADMIN);
     bytes32[] memory nodes = new bytes32[](1);
     nodes[0] = P2P_ID_TWO;
     CapabilityRegistry.CapabilityConfiguration[]
@@ -81,7 +82,6 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
   }
 
   function test_RevertWhen_CapabilityDoesNotExist() public {
-    changePrank(ADMIN);
     bytes32[] memory nodes = new bytes32[](1);
     CapabilityRegistry.CapabilityConfiguration[]
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
@@ -96,7 +96,6 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
   }
 
   function test_RevertWhen_DuplicateCapabilityAdded() public {
-    changePrank(ADMIN);
     bytes32[] memory nodes = new bytes32[](1);
     nodes[0] = P2P_ID;
 
@@ -118,7 +117,6 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
   }
 
   function test_RevertWhen_DeprecatedCapabilityAdded() public {
-    changePrank(ADMIN);
     bytes32 capabilityId = s_basicHashedCapabilityId;
     s_capabilityRegistry.deprecateCapability(capabilityId);
 
@@ -134,7 +132,6 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
   }
 
   function test_RevertWhen_DuplicateNodeAdded() public {
-    changePrank(ADMIN);
     bytes32[] memory nodes = new bytes32[](2);
     nodes[0] = P2P_ID;
     nodes[1] = P2P_ID;
@@ -150,7 +147,6 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
   }
 
   function test_AddDON() public {
-    changePrank(ADMIN);
     bytes32[] memory nodes = new bytes32[](1);
     nodes[0] = P2P_ID;
 
