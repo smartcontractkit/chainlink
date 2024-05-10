@@ -124,13 +124,14 @@ func setupNodeOCR3(
 
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.InfoLevel)
+	ctx := testutils.Context(t)
 	clients := make(map[int64]client.Client)
 
 	for chainID, backend := range chainIDToBackend {
 		clients[chainID] = client.NewSimulatedBackendClient(t, backend, big.NewInt(chainID))
 	}
 
-	master := keystore.New(db, utils.FastScryptParams, lggr, config.Database())
+	master := keystore.New(db, utils.FastScryptParams, lggr)
 
 	keystore := KeystoreSim{
 		eks: &EthKeystoreSim{
@@ -152,8 +153,7 @@ func setupNodeOCR3(
 				return client
 			},
 			MailMon: mailMon,
-			DB:      db,
-			SqlxDB:  db,
+			DS:      db,
 		},
 		CSAETHKeystore: keystore,
 	}
@@ -168,7 +168,7 @@ func setupNodeOCR3(
 
 	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     config,
-		SqlxDB:                     db,
+		DS:                         db,
 		KeyStore:                   master,
 		RelayerChainInteroperators: rci,
 		Logger:                     lggr,
@@ -181,8 +181,8 @@ func setupNodeOCR3(
 		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing()),
 	})
 	require.NoError(t, err)
-	require.NoError(t, app.GetKeyStore().Unlock("password"))
-	_, err = app.GetKeyStore().P2P().Create()
+	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
+	_, err = app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
 	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
@@ -212,7 +212,7 @@ func setupNodeOCR3(
 	}
 	require.Len(t, transmitters, len(chainIDToBackend))
 
-	keybundle, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
+	keybundle, err := app.GetKeyStore().OCR2().Create(ctx, chaintype.EVM)
 	require.NoError(t, err)
 
 	return &ocr3Node{

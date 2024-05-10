@@ -207,7 +207,7 @@ func Test_GetSendersNonce(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			offramp := OffRamp{evmBatchCaller: test.batchCaller, Logger: logger.TestLogger(t)}
-			nonce, err := offramp.GetSendersNonce(testutils.Context(t), test.addresses)
+			nonce, err := offramp.ListSenderNonces(testutils.Context(t), test.addresses)
 
 			if test.expectedError {
 				require.Error(t, err)

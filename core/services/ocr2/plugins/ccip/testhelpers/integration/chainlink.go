@@ -416,6 +416,7 @@ func setupNodeCCIP(
 	})
 
 	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
 
 	// The in-memory geth sim does not let you create a custom ChainID, it will always be 1337.
 	// In particular this means that if you sign an eip155 tx, the chainID used MUST be 1337
@@ -430,7 +431,7 @@ func setupNodeCCIP(
 	key, err := csakey.NewV2()
 	require.NoError(t, err)
 	csaKeyStore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-	keyStore := NewKsa(db, lggr, csaKeyStore, config)
+	keyStore := NewKsa(db, lggr, csaKeyStore)
 
 	simEthKeyStore := testhelpers.EthKeyStoreSim{
 		ETHKS: keyStore.Eth(),
@@ -450,8 +451,7 @@ func setupNodeCCIP(
 				return nil
 			},
 			MailMon: mailMon,
-			DB:      db,
-			SqlxDB:  db,
+			DS:      db,
 		},
 		CSAETHKeystore: simEthKeyStore,
 	}
@@ -474,7 +474,7 @@ func setupNodeCCIP(
 
 	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     config,
-		SqlxDB:                     db,
+		DS:                         db,
 		KeyStore:                   keyStore,
 		RelayerChainInteroperators: relayChainInterops,
 		Logger:                     lggr,
@@ -487,8 +487,8 @@ func setupNodeCCIP(
 		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing()),
 	})
 	require.NoError(t, err)
-	require.NoError(t, app.GetKeyStore().Unlock("password"))
-	_, err = app.GetKeyStore().P2P().Create()
+	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
+	_, err = app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
 	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
@@ -517,7 +517,7 @@ func setupNodeCCIP(
 	require.NoError(t, err)
 	destChain.Commit()
 
-	kb, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
+	kb, err := app.GetKeyStore().OCR2().Create(ctx, chaintype.EVM)
 	require.NoError(t, err)
 	return app, peerID.Raw(), transmitter, kb
 }
@@ -613,10 +613,11 @@ func (c *CCIPIntegrationTestHarness) jobSpecProposal(t *testing.T, specTemplate 
 }
 
 func (c *CCIPIntegrationTestHarness) SetupFeedsManager(t *testing.T) {
+	ctx := testutils.Context(t)
 	for _, node := range c.Nodes {
 		f := node.App.GetFeedsService()
 
-		managers, err := f.ListManagers()
+		managers, err := f.ListManagers(ctx)
 		require.NoError(t, err)
 		if len(managers) > 0 {
 			// Use at most one feeds manager, don't register if one already exists
@@ -649,7 +650,7 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCI
 
 	for _, node := range c.Nodes {
 		f := node.App.GetFeedsService()
-		managers, err := f.ListManagers()
+		managers, err := f.ListManagers(ctx)
 		require.NoError(t, err)
 		require.Len(t, managers, 1, "expected exactly one feeds manager")
 
@@ -997,9 +998,9 @@ func (k *ksa) CSA() keystore.CSA {
 	return k.csa
 }
 
-func NewKsa(db *sqlx.DB, lggr logger.Logger, csa keystore.CSA, config chainlink.GeneralConfig) *ksa {
+func NewKsa(db *sqlx.DB, lggr logger.Logger, csa keystore.CSA) *ksa {
 	return &ksa{
-		Master: keystore.New(db, clutils.FastScryptParams, lggr, config.Database()),
+		Master: keystore.New(db, clutils.FastScryptParams, lggr),
 		csa:    csa,
 	}
 }

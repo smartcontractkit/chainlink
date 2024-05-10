@@ -676,6 +676,11 @@ func (_m *Service) SyncNodeInfo(ctx context.Context, id int64) error {
 	return r0
 }
 
+// Unsafe_SetConnectionsManager provides a mock function with given fields: _a0
+func (_m *Service) Unsafe_SetConnectionsManager(_a0 feeds.ConnectionsManager) {
+	_m.Called(_a0)
+}
+
 // UpdateChainConfig provides a mock function with given fields: ctx, cfg
 func (_m *Service) UpdateChainConfig(ctx context.Context, cfg feeds.ChainConfig) (int64, error) {
 	ret := _m.Called(ctx, cfg)
