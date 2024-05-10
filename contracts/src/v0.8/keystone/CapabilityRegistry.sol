@@ -31,6 +31,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// This key is guaranteed to be unique in the CapabilityRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
+    /// @notice The list of supported hashed capability IDs supported
+    /// by the node
+    bytes32[] hashedCapabilityIds;
   }
 
   struct Node {
@@ -320,11 +323,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Adds nodes. Nodes can be added with deprecated capabilities to
   /// avoid breaking changes when deprecating capabilities.
   /// @param nodes The nodes to add
-  /// @param supportedHashedCapabilityIds The capabilities the nodes support
-  function addNodes(NodeParams[] calldata nodes, bytes32[][] calldata supportedHashedCapabilityIds) external {
-    if (nodes.length != supportedHashedCapabilityIds.length)
-      revert LengthMismatch(nodes.length, supportedHashedCapabilityIds.length);
-
+  function addNodes(NodeParams[] calldata nodes) external {
     for (uint256 i; i < nodes.length; ++i) {
       NodeParams memory node = nodes[i];
 
@@ -338,7 +337,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       if (node.signer == address(0)) revert InvalidNodeSigner();
 
-      bytes32[] memory capabilityIds = supportedHashedCapabilityIds[i];
+      bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
 
       s_nodes[node.p2pId].configCount++;
@@ -378,11 +377,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Updates nodes.  The node admin can update the node's signer address
   /// and reconfigure its supported capabilities
   /// @param nodes The nodes to update
-  /// @param supportedHashedCapabilityIds The capabilities the nodes support
-  function updateNodes(NodeParams[] calldata nodes, bytes32[][] calldata supportedHashedCapabilityIds) external {
-    if (nodes.length != supportedHashedCapabilityIds.length)
-      revert LengthMismatch(nodes.length, supportedHashedCapabilityIds.length);
-
+  function updateNodes(NodeParams[] calldata nodes) external {
     for (uint256 i; i < nodes.length; ++i) {
       NodeParams memory node = nodes[i];
 
@@ -396,7 +391,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       if (node.signer == address(0)) revert InvalidNodeSigner();
 
-      bytes32[] memory supportedCapabilityIds = supportedHashedCapabilityIds[i];
+      bytes32[] memory supportedCapabilityIds = node.hashedCapabilityIds;
       if (supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedCapabilityIds);
 
       s_nodes[node.p2pId].configCount++;
@@ -417,14 +412,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Gets a node's data
   /// @param p2pId The P2P ID of the node to query for
   /// @return NodeParams The node data
-  function getNode(bytes32 p2pId) external view returns (NodeParams memory, bytes32[] memory) {
+  /// @return configCount The number of times the node has been configured
+  function getNode(bytes32 p2pId) external view returns (NodeParams memory, uint32 configCount) {
     return (
       NodeParams({
         nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
         p2pId: s_nodes[p2pId].p2pId,
-        signer: s_nodes[p2pId].signer
+        signer: s_nodes[p2pId].signer,
+        hashedCapabilityIds: s_nodes[p2pId].supportedCapabilityIds[s_nodes[p2pId].configCount].values()
       }),
-      s_nodes[p2pId].supportedCapabilityIds[s_nodes[p2pId].configCount].values()
+      s_nodes[p2pId].configCount
     );
   }
 
@@ -556,14 +553,21 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @return uint32 The DON ID
   /// @return bool True if the DON is public
   /// @return bytes32[] The list of node P2P IDs that are in the DON
-  /// @return bytes32[] The list of capability IDs supported by the DON
-  function getDON(uint32 donId) external view returns (uint32, bool, bytes32[] memory, bytes32[] memory) {
-    return (
-      s_dons[donId].id,
-      s_dons[donId].isPublic,
-      s_dons[donId].nodes.values(),
-      s_dons[donId].capabilityIds.values()
-    );
+  /// @return CapabilityConfiguration[] The list of capability configurations supported by the DON
+  function getDON(
+    uint32 donId
+  ) external view returns (uint32, bool, bytes32[] memory, CapabilityConfiguration[] memory) {
+    bytes32[] memory capabilityIds = s_dons[donId].capabilityIds.values();
+    CapabilityConfiguration[] memory capabilityConfigurations = new CapabilityConfiguration[](capabilityIds.length);
+
+    for (uint256 i; i < capabilityConfigurations.length; ++i) {
+      capabilityConfigurations[i] = CapabilityConfiguration({
+        capabilityId: capabilityIds[i],
+        config: s_dons[donId].capabilityConfigs[capabilityIds[i]]
+      });
+    }
+
+    return (s_dons[donId].id, s_dons[donId].isPublic, s_dons[donId].nodes.values(), capabilityConfigurations);
   }
 
   /// @notice Returns the DON specific configuration for a capability

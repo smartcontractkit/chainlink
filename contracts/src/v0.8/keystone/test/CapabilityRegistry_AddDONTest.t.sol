@@ -28,7 +28,8 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: capabilityIds
     });
 
     bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
@@ -37,15 +38,12 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     nodes[1] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_TWO,
-      signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
+      hashedCapabilityIds: nodeTwoCapabilityIds
     });
 
     changePrank(NODE_OPERATOR_ONE_ADMIN);
-
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](2);
-    nodeCapabilityIds[0] = capabilityIds;
-    nodeCapabilityIds[1] = nodeTwoCapabilityIds;
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
   }
 
   function test_RevertWhen_CalledByNonAdmin() public {
@@ -167,13 +165,16 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     emit DONAdded(1, true);
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
 
-    (uint32 id, bool isPublic, bytes32[] memory donNodes, bytes32[] memory capabilityIds) = s_capabilityRegistry.getDON(
-      1
-    );
+    (
+      uint32 id,
+      bool isPublic,
+      bytes32[] memory donNodes,
+      CapabilityRegistry.CapabilityConfiguration[] memory donCapabilityConfigs
+    ) = s_capabilityRegistry.getDON(1);
     assertEq(id, 1);
     assertEq(isPublic, true);
-    assertEq(capabilityIds.length, 1);
-    assertEq(capabilityIds[0], s_basicHashedCapabilityId);
+    assertEq(donCapabilityConfigs.length, 1);
+    assertEq(donCapabilityConfigs[0].capabilityId, s_basicHashedCapabilityId);
     assertEq(s_capabilityRegistry.getDONCapabilityConfig(1, s_basicHashedCapabilityId), CONFIG);
 
     assertEq(donNodes.length, 1);

@@ -26,15 +26,13 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
     changePrank(NODE_OPERATOR_ONE_ADMIN);
 
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](1);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
-
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
   }
 
   function test_RevertWhen_CalledByNonNodeOperatorAdminAndNonOwner() public {
@@ -74,12 +72,12 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     emit NodeRemoved(P2P_ID);
     s_capabilityRegistry.removeNodes(nodes);
 
-    (CapabilityRegistry.NodeParams memory node, bytes32[] memory supportedHashedCapabilityIds) = s_capabilityRegistry
-      .getNode(P2P_ID);
+    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, 0);
     assertEq(node.p2pId, bytes32(""));
     assertEq(node.signer, address(0));
-    assertEq(supportedHashedCapabilityIds.length, 0);
+    assertEq(node.hashedCapabilityIds.length, 0);
+    assertEq(configCount, 0);
   }
 
   function test_OwnerCanRemoveNodes() public {
@@ -92,11 +90,11 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     emit NodeRemoved(P2P_ID);
     s_capabilityRegistry.removeNodes(nodes);
 
-    (CapabilityRegistry.NodeParams memory node, bytes32[] memory supportedHashedCapabilityIds) = s_capabilityRegistry
-      .getNode(P2P_ID);
+    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, 0);
     assertEq(node.p2pId, bytes32(""));
     assertEq(node.signer, address(0));
-    assertEq(supportedHashedCapabilityIds.length, 0);
+    assertEq(node.hashedCapabilityIds.length, 0);
+    assertEq(configCount, 0);
   }
 }

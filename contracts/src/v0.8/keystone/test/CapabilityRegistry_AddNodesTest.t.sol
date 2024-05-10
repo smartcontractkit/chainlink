@@ -28,36 +28,12 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
     });
-
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](1);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
 
     vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
-  }
-
-  function test_RevertWhen_NumNodesNotEqualToNumCapabilityConfigs() public {
-    changePrank(NODE_OPERATOR_ONE_ADMIN);
-    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](1);
-
-    bytes32[] memory hashedCapabilityIds = new bytes32[](1);
-    hashedCapabilityIds[0] = s_basicHashedCapabilityId;
-
-    nodes[0] = CapabilityRegistry.NodeParams({
-      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
-      p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
-    });
-
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](2);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
-
-    vm.expectRevert(
-      abi.encodeWithSelector(CapabilityRegistry.LengthMismatch.selector, nodes.length, nodeCapabilityIds.length)
-    );
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
   }
 
   function test_RevertWhen_SignerAddressEmpty() public {
@@ -70,14 +46,12 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: address(0)
+      signer: address(0),
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](1);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
-
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeSigner.selector));
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
   }
 
   function test_RevertWhen_AddingDuplicateP2PId() public {
@@ -90,16 +64,14 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](1);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
-
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
 
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, P2P_ID));
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
   }
 
   function test_RevertWhen_P2PIDEmpty() public {
@@ -112,14 +84,12 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: bytes32(""),
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](1);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
-
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, bytes32("")));
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
   }
 
   function test_RevertWhen_AddingNodeWithoutCapabilities() public {
@@ -131,14 +101,12 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](1);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
-
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeCapabilities.selector, hashedCapabilityIds));
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
   }
 
   function test_RevertWhen_AddingNodeWithInvalidCapability() public {
@@ -151,14 +119,12 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](1);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
-
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeCapabilities.selector, hashedCapabilityIds));
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
   }
 
   function test_AddsNodeParams() public {
@@ -172,23 +138,21 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
     });
-
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](1);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
 
     vm.expectEmit(address(s_capabilityRegistry));
     emit NodeAdded(P2P_ID, TEST_NODE_OPERATOR_ONE_ID);
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
 
-    (CapabilityRegistry.NodeParams memory node, bytes32[] memory supportedHashedCapabilityIds) = s_capabilityRegistry
-      .getNode(P2P_ID);
+    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
     assertEq(node.p2pId, P2P_ID);
-    assertEq(supportedHashedCapabilityIds.length, 2);
-    assertEq(supportedHashedCapabilityIds[0], s_basicHashedCapabilityId);
-    assertEq(supportedHashedCapabilityIds[1], s_capabilityWithConfigurationContractId);
+    assertEq(node.hashedCapabilityIds.length, 2);
+    assertEq(node.hashedCapabilityIds[0], s_basicHashedCapabilityId);
+    assertEq(node.hashedCapabilityIds[1], s_capabilityWithConfigurationContractId);
+    assertEq(configCount, 1);
   }
 
   function test_OwnerCanAddNodes() public {
@@ -202,22 +166,20 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
     });
-
-    bytes32[][] memory nodeCapabilityIds = new bytes32[][](1);
-    nodeCapabilityIds[0] = hashedCapabilityIds;
 
     vm.expectEmit(address(s_capabilityRegistry));
     emit NodeAdded(P2P_ID, TEST_NODE_OPERATOR_ONE_ID);
-    s_capabilityRegistry.addNodes(nodes, nodeCapabilityIds);
+    s_capabilityRegistry.addNodes(nodes);
 
-    (CapabilityRegistry.NodeParams memory node, bytes32[] memory supportedHashedCapabilityIds) = s_capabilityRegistry
-      .getNode(P2P_ID);
+    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
     assertEq(node.p2pId, P2P_ID);
-    assertEq(supportedHashedCapabilityIds.length, 2);
-    assertEq(supportedHashedCapabilityIds[0], s_basicHashedCapabilityId);
-    assertEq(supportedHashedCapabilityIds[1], s_capabilityWithConfigurationContractId);
+    assertEq(node.hashedCapabilityIds.length, 2);
+    assertEq(node.hashedCapabilityIds[0], s_basicHashedCapabilityId);
+    assertEq(node.hashedCapabilityIds[1], s_capabilityWithConfigurationContractId);
+    assertEq(configCount, 1);
   }
 }
