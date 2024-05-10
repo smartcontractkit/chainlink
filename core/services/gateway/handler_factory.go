@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	FunctionsHandlerType HandlerType = "functions"
 	DummyHandlerType     HandlerType = "dummy"
+	FunctionsHandlerType HandlerType = "functions"
+	WorkflowSpecType     HandlerType = "workflow-spec"
 )
 
 type handlerFactory struct {
