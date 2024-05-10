@@ -119,6 +119,22 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
   }
 
+  function test_RevertWhen_DeprecatedCapabilityAdded() public {
+    changePrank(ADMIN);
+    bytes32 capabilityId = s_basicHashedCapabilityId;
+    s_capabilityRegistry.deprecateCapability(capabilityId);
+
+    bytes32[] memory nodes = new bytes32[](1);
+    nodes[0] = P2P_ID;
+
+    CapabilityRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({capabilityId: capabilityId, config: CONFIG});
+
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.CapabilityIsDeprecated.selector, capabilityId));
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+  }
+
   function test_RevertWhen_DuplicateNodeAdded() public {
     changePrank(ADMIN);
     bytes32[] memory nodes = new bytes32[](2);

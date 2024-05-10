@@ -197,9 +197,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   error CapabilityDoesNotExist(bytes32 hashedCapabilityId);
 
   /// @notice This error is thrown when trying to deprecate a capability that
-  /// is already deprecated.
-  /// @param hashedCapabilityId The hashed ID of the capability that is already deprecated.
-  error CapabilityAlreadyDeprecated(bytes32 hashedCapabilityId);
+  /// is deprecated.
+  /// @param hashedCapabilityId The hashed ID of the capability that is deprecated.
+  error CapabilityIsDeprecated(bytes32 hashedCapabilityId);
 
   /// @notice This error is thrown when trying to add a capability with a
   /// configuration contract that does not implement the required interface.
@@ -451,8 +451,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param hashedCapabilityId The ID of the capability to deprecate
   function deprecateCapability(bytes32 hashedCapabilityId) external onlyOwner {
     if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
-    if (s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId))
-      revert CapabilityAlreadyDeprecated(hashedCapabilityId);
+    if (s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityIsDeprecated(hashedCapabilityId);
 
     s_deprecatedHashedCapabilityIds.add(hashedCapabilityId);
     emit CapabilityDeprecated(hashedCapabilityId);
@@ -521,11 +520,19 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     s_dons[id].id = id;
     s_dons[id].isPublic = isPublic;
 
+    for (uint256 i; i < nodes.length; ++i) {
+      bytes32 nodeP2PId = nodes[i];
+      if (s_dons[id].nodes.contains(nodeP2PId)) revert DuplicateDONNode(id, nodeP2PId);
+
+      s_dons[id].nodes.add(nodeP2PId);
+    }
+
     for (uint256 i; i < capabilityConfigurations.length; ++i) {
       CapabilityConfiguration calldata configuration = capabilityConfigurations[i];
       bytes32 capabilityId = configuration.capabilityId;
 
       if (!s_hashedCapabilityIds.contains(capabilityId)) revert CapabilityDoesNotExist(capabilityId);
+      if (s_deprecatedHashedCapabilityIds.contains(capabilityId)) revert CapabilityIsDeprecated(capabilityId);
 
       if (s_dons[id].capabilityIds.contains(capabilityId)) revert DuplicateDONCapability(id, capabilityId);
 
@@ -537,13 +544,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       s_dons[id].capabilityIds.add(capabilityId);
       s_dons[id].capabilityConfigs[capabilityId] = configuration.config;
-    }
-
-    for (uint256 i; i < nodes.length; ++i) {
-      bytes32 nodeP2PId = nodes[i];
-      if (s_dons[id].nodes.contains(nodeP2PId)) revert DuplicateDONNode(id, nodeP2PId);
-
-      s_dons[id].nodes.add(nodeP2PId);
     }
 
     ++s_donId;
