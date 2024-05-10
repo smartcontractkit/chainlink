@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {OCR3Setup} from "./OCR3Setup.t.sol";
 import {OCR3Base} from "../../ocr/OCR3Base.sol";

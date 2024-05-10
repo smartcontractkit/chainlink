@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {OCR2BaseNoChecks} from "../../ocr/OCR2BaseNoChecks.sol";
 import {OCR2NoChecksHelper} from "../helpers/OCR2NoChecksHelper.sol";

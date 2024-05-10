@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {ILiquidityManager} from "../interfaces/ILiquidityManager.sol";
 import {IBridgeAdapter} from "../interfaces/IBridge.sol";
@@ -842,6 +842,7 @@ contract LiquidityManager_setMinimumLiquidity is LiquidityManagerSetup {
 
 contract LiquidityManager_withdrawNative is LiquidityManagerSetup {
   event NativeWithdrawn(uint256 amount, address destination);
+
   address private receiver = makeAddr("receiver");
 
   function setUp() public override {
