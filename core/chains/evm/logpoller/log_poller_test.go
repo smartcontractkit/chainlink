@@ -25,10 +25,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -717,7 +721,9 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		}
-		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, lpOpts)
+		simulatedClient := client.NewSimulatedBackendClient(t, ec, chainID)
+		ht := headtracker.NewSimulatedHeadTracker(tests.Context(t), simulatedClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		lp := logpoller.NewLogPoller(orm, simulatedClient, lggr, ht, lpOpts)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
@@ -1493,7 +1499,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, lpOpts)
+	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, nil, lpOpts)
 
 	err = lp.Replay(ctx, 5) // block number too high
 	require.ErrorContains(t, err, "Invalid replay block number")
@@ -1548,7 +1554,8 @@ func TestTooManyLogResults(t *testing.T) {
 		RpcBatchSize:             10,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(o, ec, lggr, lpOpts)
+	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	lp := logpoller.NewLogPoller(o, ec, lggr, headTracker, lpOpts)
 	expected := []int64{10, 5, 2, 1}
 
 	clientErr := client.JsonError{
@@ -1557,9 +1564,18 @@ func TestTooManyLogResults(t *testing.T) {
 		Message: "query returned more than 10000 results. Try with this block range [0x100E698, 0x100E6D4].",
 	}
 
+	newHeadWithFinalized := func(blockNumber int64) *evmtypes.Head {
+		head := &evmtypes.Head{Number: blockNumber}
+		finalized := &evmtypes.Head{Number: blockNumber - lpOpts.FinalityDepth, IsFinalized: true}
+		head.Parent = finalized
+		return head
+	}
+
+	// Simulate currentBlock = 300
+	headTracker.On("ChainWithLatestFinalized").Return(newHeadWithFinalized(300), nil).Once()
 	call1 := ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
 		if blockNumber == nil {
-			return &evmtypes.Head{Number: 300}, nil // Simulate currentBlock = 300
+			panic("unexpected call to get current head")
 		}
 		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
 	})
@@ -1601,9 +1617,10 @@ func TestTooManyLogResults(t *testing.T) {
 
 	// Now jump to block 500, but return error no matter how small the block range gets.
 	//  Should exit the loop with a critical error instead of hanging.
+	headTracker.On("ChainWithLatestFinalized").Return(newHeadWithFinalized(500), nil).Once()
 	call1.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
 		if blockNumber == nil {
-			return &evmtypes.Head{Number: 500}, nil // Simulate currentBlock = 300
+			panic("unexpected call to get current head")
 		}
 		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
 	})
@@ -1938,7 +1955,7 @@ func TestFindLCA(t *testing.T) {
 		KeepFinalizedBlocksDepth: 1000,
 	}
 
-	lp := logpoller.NewLogPoller(orm, ec, lggr, lpOpts)
+	lp := logpoller.NewLogPoller(orm, ec, lggr, nil, lpOpts)
 	t.Run("Fails, if failed to select oldest block", func(t *testing.T) {
 		_, err := lp.FindLCA(ctx)
 		require.ErrorContains(t, err, "failed to select the latest block")

@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -87,6 +88,12 @@ type Client interface {
 	ConfiguredChainID() *big.Int
 }
 
+//go:generate mockery --quiet --name HeadTracker --output ./ --case=underscore --structname HeadTracker --filename head_tracker_mock.go
+type HeadTracker interface {
+	// ChainWithLatestFinalized - returns highest block, whose ancestor is marked as finalized
+	ChainWithLatestFinalized() (*evmtypes.Head, error)
+}
+
 var (
 	_                       LogPollerTest = &logPoller{}
 	ErrReplayRequestAborted               = pkgerrors.New("aborted, replay request cancelled")
@@ -99,6 +106,7 @@ type logPoller struct {
 	services.StateMachine
 	ec                       Client
 	orm                      ORM
+	headTracker              HeadTracker
 	lggr                     logger.SugaredLogger
 	pollPeriod               time.Duration // poll period set by block production rate
 	useFinalityTag           bool          // indicates whether logPoller should use chain's finality or pick a fixed depth for finality
@@ -150,13 +158,14 @@ type Opts struct {
 //
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, opts Opts) *logPoller {
+func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, headTracker HeadTracker, opts Opts) *logPoller {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &logPoller{
 		ctx:                      ctx,
 		cancel:                   cancel,
 		ec:                       ec,
 		orm:                      orm,
+		headTracker:              headTracker,
 		lggr:                     logger.Sugared(logger.Named(lggr, "LogPoller")),
 		replayStart:              make(chan int64),
 		replayComplete:           make(chan error),
@@ -582,7 +591,7 @@ func (lp *logPoller) run() {
 				}
 				// Otherwise this is the first poll _ever_ on a new chain.
 				// Only safe thing to do is to start at the first finalized block.
-				latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(lp.ctx)
+				latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks()
 				if err != nil {
 					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
 					continue
@@ -702,7 +711,7 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) {
 		lp.backupPollerNextBlock = mathutil.Max(backupStartBlock, 0)
 	}
 
-	_, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
+	_, latestFinalizedBlockNumber, err := lp.latestBlocks()
 	if err != nil {
 		lp.lggr.Warnw("Backup logpoller failed to get latest block", "err", err)
 		return
@@ -919,7 +928,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	lp.lggr.Debugw("Polling for logs", "currentBlockNumber", currentBlockNumber)
 	// Intentionally not using logPoller.finalityDepth directly but the latestFinalizedBlockNumber returned from lp.latestBlocks()
 	// latestBlocks knows how to pick a proper latestFinalizedBlockNumber based on the logPoller's configuration
-	latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
+	latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks()
 	if err != nil {
 		lp.lggr.Warnw("Unable to get latestBlockNumber block", "err", err, "currentBlockNumber", currentBlockNumber)
 		return
@@ -1003,33 +1012,16 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 }
 
-// Returns information about latestBlock, latestFinalizedBlockNumber
-// If finality tag is not enabled, latestFinalizedBlockNumber is calculated as latestBlockNumber - lp.finalityDepth (configured param)
-// Otherwise, we return last finalized block number returned from chain
-func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, error) {
-	// If finality is not enabled, we can only fetch the latest block
-	if !lp.useFinalityTag {
-		// Example:
-		// finalityDepth = 2
-		// Blocks: 1->2->3->4->5(latestBlock)
-		// latestFinalizedBlockNumber would be 3
-		latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
-		if err != nil {
-			return nil, 0, err
-		}
-		// If chain has fewer blocks than finalityDepth, return 0
-		return latestBlock, mathutil.Max(latestBlock.Number-lp.finalityDepth, 0), nil
+// Returns information about latestBlock, latestFinalizedBlockNumber provided by HeadTracker
+func (lp *logPoller) latestBlocks() (*evmtypes.Head, int64, error) {
+	chain, err := lp.headTracker.ChainWithLatestFinalized()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get chain with latest finalized block from HeadTracker: %w", err)
 	}
 
-	// If finality is enabled, we need to get the latest and finalized blocks.
-	blocks, err := lp.batchFetchBlocks(ctx, []string{rpc.LatestBlockNumber.String(), rpc.FinalizedBlockNumber.String()}, 2)
-	if err != nil {
-		return nil, 0, err
-	}
-	latest := blocks[0]
-	finalized := blocks[1]
-	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalized.Number)
-	return latest, finalized.Number, nil
+	finalized := chain.LatestFinalizedHead()
+	lp.lggr.Debugw("Latest blocks read from chain", "latest", chain.Number, "finalized", finalized.BlockNumber())
+	return chain, finalized.BlockNumber(), nil
 }
 
 // Find the first place where our chain and their chain have the same block,
