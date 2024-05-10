@@ -2,4 +2,4 @@
 "ccip": patch
 ---
 
-Merge core v2.12.0-beta0
+Merge core v2.12.0-beta0 #updated
