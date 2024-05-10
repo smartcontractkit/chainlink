@@ -4,18 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"math/big"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/gofrs/flock"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -44,7 +38,7 @@ type TestHarness struct {
 	ChainID, ChainID2                *big.Int
 	ORM, ORM2                        logpoller.ORM
 	LogPoller                        logpoller.LogPollerTest
-	Client                           simulated.Client
+	Client                           *client.SimulatedBackendClient
 	Backend                          *simulated.Backend
 	Owner                            *bind.TransactOpts
 	Emitter1, Emitter2               *log_emitter.LogEmitter
@@ -55,34 +49,34 @@ type TestHarness struct {
 // WithDataDir configures the simulated backend with a custom DataDir
 //
 //	Simulated chain will create its chaindb in this dir instead of using an in-memory db
-func withDataDir(dataDir string) func(nodeConf *node.Config, ethConf *ethconfig.Config) {
-	return func(nodeConf *node.Config, ethConf *ethconfig.Config) {
-		nodeConf.Name = "logPollerTestHelper"
-		nodeConf.DataDir = dataDir
-	}
-}
+//func withDataDir(dataDir string) func(nodeConf *node.Config, ethConf *ethconfig.Config) {
+//	return func(nodeConf *node.Config, ethConf *ethconfig.Config) {
+//		nodeConf.Name = "logPollerTestHelper"
+//		nodeConf.DataDir = dataDir
+//	}
+//}
 
-func openChainDb(t testing.TB, dataDir string) ethdb.Database {
-	instPath := filepath.Join(dataDir, "logPollerTestHelper", "chaindata")
-	lock := flock.New(filepath.Join(instPath, "LOCK"))
-	require.False(t, lock.Locked())
-	err := lock.Unlock()
-	require.NoError(t, err)
-	db, err := rawdb.Open(rawdb.OpenOptions{
-		Directory: instPath,
-		Namespace: "eth/db/chaindata",
-	})
-	require.NoError(t, err)
-	return db
-}
+//func openChainDb(t testing.TB, dataDir string) ethdb.Database {
+//	instPath := filepath.Join(dataDir, "logPollerTestHelper", "chaindata")
+//	lock := flock.New(filepath.Join(instPath, "LOCK"))
+//	require.False(t, lock.Locked())
+//	err := lock.Unlock()
+//	require.NoError(t, err)
+//	db, err := rawdb.Open(rawdb.OpenOptions{
+//		Directory: instPath,
+//		Namespace: "eth/db/chaindata",
+//	})
+//	require.NoError(t, err)
+//	return db
+//}
 
 func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
-	dataDir, err := os.MkdirTemp("", "simgethdata")
-	require.NoError(t, err)
+	//dataDir, err := os.MkdirTemp("", "simgethdata")
+	//require.NoError(t, err)
 
 	o := logpoller.NewORM(chainID, db, lggr)
 	o2 := logpoller.NewORM(chainID2, db, lggr)
@@ -91,8 +85,8 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, simulated.WithBlockGasLimit(10e6), withDataDir(dataDir))
-	ec := backend.Client()
+	}, simulated.WithBlockGasLimit(10e6))
+
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
 	esc := client.NewSimulatedBackendClient(t, backend, chainID)
@@ -101,12 +95,11 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		opts.PollPeriod = 1 * time.Hour
 	}
 	lp := logpoller.NewLogPoller(o, esc, lggr, opts)
-	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
+	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, backend.Client())
 	require.NoError(t, err)
-	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
+	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
-	ethDb := openChainDb(t, dataDir)
 	return TestHarness{
 		Lggr:            lggr,
 		ChainID:         chainID,
@@ -114,14 +107,13 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		ORM:             o,
 		ORM2:            o2,
 		LogPoller:       lp,
-		Client:          ec,
+		Client:          esc,
 		Backend:         backend,
 		Owner:           owner,
 		Emitter1:        emitter1,
 		Emitter2:        emitter2,
 		EmitterAddress1: emitterAddress1,
 		EmitterAddress2: emitterAddress2,
-		EthDB:           ethDb,
 	}
 }
 
@@ -146,4 +138,11 @@ func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 		require.NoError(t, err)
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}
+}
+
+// Simulates an RPC failover event to an alternate rpc server. This can also be used to
+// simulate switching back to the primary rpc after it recovers.
+func (th *TestHarness) SetActiveClient(backend *simulated.Backend, optimismMode bool) {
+	th.Backend = backend
+	th.Client.SetBackend(backend, optimismMode)
 }

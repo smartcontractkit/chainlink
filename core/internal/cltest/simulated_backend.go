@@ -40,7 +40,7 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 
 	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
 	chainID := big.New(testutils.SimulatedChainID)
-	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
+	client := client.NewSimulatedBackendClient(t, backend.Backend, testutils.SimulatedChainID)
 
 	flagsAndDeps = append(flagsAndDeps, client, chainID)
 
@@ -66,7 +66,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 
 	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
 	chainID := big.New(testutils.SimulatedChainID)
-	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
+	client := client.NewSimulatedBackendClient(t, backend.Backend, testutils.SimulatedChainID)
 
 	flagsAndDeps = append(flagsAndDeps, client, chainID)
 
