@@ -41,7 +41,7 @@ const (
 	MaximumAllowedTokenDataWaitTimePerBatch = 2 * time.Second
 
 	// MessagesIterationStep limits number of messages fetched to memory at once when iterating through unexpired CommitRoots
-	MessagesIterationStep = 800
+	MessagesIterationStep = 1024
 )
 
 var (
@@ -1023,17 +1023,17 @@ func (r *ExecutionReportingPlugin) ensurePriceRegistrySynchronization(ctx contex
 // because it picks messages and execution states based on the report[0].Interval.Min - report[len-1].Interval.Max range.
 // Having unexpiredReports not sorted properly will lead to fetching more messages and execution states to the memory than the messagesLimit provided.
 // However, logs from LogPoller are returned ordered by (block_number, log_index), so it should preserve the order of Interval.Min.
-// Single CommitRoot can have up to 256 messages, with current MessagesIterationStep of 800, it means processing 4 CommitRoots at once.
+// Single CommitRoot can have up to 256 messages, with current MessagesIterationStep of 1024, it means processing 4 CommitRoots at once.
 func selectReportsToFillBatch(unexpiredReports []cciptypes.CommitStoreReport, messagesLimit uint64) ([]cciptypes.CommitStoreReport, int) {
 	currentNumberOfMessages := uint64(0)
-	var index int
-
-	for index = range unexpiredReports {
-		currentNumberOfMessages += unexpiredReports[index].Interval.Max - unexpiredReports[index].Interval.Min + 1
-		if currentNumberOfMessages >= messagesLimit {
+	nbReports := 0
+	for _, report := range unexpiredReports {
+		reportMsgCount := report.Interval.Max - report.Interval.Min + 1
+		if currentNumberOfMessages+reportMsgCount > messagesLimit {
 			break
 		}
+		currentNumberOfMessages += reportMsgCount
+		nbReports++
 	}
-	index = min(index+1, len(unexpiredReports))
-	return unexpiredReports[:index], index
+	return unexpiredReports[:nbReports], nbReports
 }
