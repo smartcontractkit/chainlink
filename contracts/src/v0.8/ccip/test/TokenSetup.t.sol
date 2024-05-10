@@ -51,7 +51,7 @@ contract TokenSetup is RouterSetup {
     }
 
     LockReleaseTokenPool pool =
-      new LockReleaseTokenPool(IERC20(token), new address[](0), address(s_mockARM), true, router);
+      new LockReleaseTokenPool(IERC20(token), new address[](0), address(s_mockRMN), true, router);
 
     if (isSourcePool) {
       s_sourcePoolByToken[address(token)] = address(pool);
@@ -68,7 +68,7 @@ contract TokenSetup is RouterSetup {
     }
 
     BurnMintTokenPool pool =
-      new MaybeRevertingBurnMintTokenPool(BurnMintERC677(token), new address[](0), address(s_mockARM), router);
+      new MaybeRevertingBurnMintTokenPool(BurnMintERC677(token), new address[](0), address(s_mockRMN), router);
     BurnMintERC677(token).grantMintAndBurnRoles(address(pool));
 
     if (isSourcePool) {

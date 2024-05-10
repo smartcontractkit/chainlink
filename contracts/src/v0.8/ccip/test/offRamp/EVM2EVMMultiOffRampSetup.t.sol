@@ -71,7 +71,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
       EVM2EVMMultiOffRamp.StaticConfig({
         commitStore: address(commitStore),
         chainSelector: DEST_CHAIN_SELECTOR,
-        armProxy: address(s_mockARM)
+        rmnProxy: address(s_mockRMN)
       }),
       sourceChainConfigs,
       getInboundRateLimiterConfig()

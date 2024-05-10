@@ -146,7 +146,7 @@ flake.lock @smartcontractkit/prodsec-public
 /core/services/ocr2/plugins/liquiditymanager @amirylm @ryanrhall @infiloop2 @makramkd
 
 # CCIP ARM
-/contracts/src/v0.8/ccip/ARM.sol @gtklocker @kaleofduty
+/contracts/src/v0.8/ccip/RMN.sol @gtklocker @kaleofduty
 /contracts/src/v0.8/ccip/ARMProxy.sol @gtklocker @kaleofduty
 /contracts/src/v0.8/ccip/interfaces/IARM.sol @gtklocker @kaleofduty
 /contracts/src/v0.8/ccip/test/arm @gtklocker @kaleofduty

@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_0_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
@@ -171,7 +171,7 @@ func TestCommitStoreReaders(t *testing.T) {
 		ArmProxy:            armAddr,
 	})
 	require.NoError(t, err)
-	addr2, _, ch2, err := commit_store_helper.DeployCommitStoreHelper(user, ec, commit_store_helper.CommitStoreStaticConfig{
+	addr2, _, ch2, err := commit_store_helper_1_2_0.DeployCommitStoreHelper(user, ec, commit_store_helper_1_2_0.CommitStoreStaticConfig{
 		ChainSelector:       testutils.SimulatedChainID.Uint64(),
 		SourceChainSelector: testutils.SimulatedChainID.Uint64(),
 		OnRamp:              onramp2,

@@ -26,9 +26,9 @@ abstract contract LegacyPoolWrapper is TokenPool {
   constructor(
     IERC20 token,
     address[] memory allowlist,
-    address armProxy,
+    address rmnProxy,
     address router
-  ) TokenPool(token, allowlist, armProxy, router) {}
+  ) TokenPool(token, allowlist, rmnProxy, router) {}
 
   // ================================================================
   // │                      Legacy Fallbacks                        │

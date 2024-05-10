@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IARM} from "../../interfaces/IARM.sol";
+import {IRMN} from "../../interfaces/IRMN.sol";
 
-import {ARM} from "../../ARM.sol";
-import {ARMSetup} from "./ARMSetup.t.sol";
+import {RMN} from "../../RMN.sol";
+import {RMNSetup} from "./RMNSetup.t.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract ConfigCompare is Test {
-  function assertConfigEq(ARM.Config memory actualConfig, ARM.Config memory expectedConfig) public pure {
+  function assertConfigEq(RMN.Config memory actualConfig, RMN.Config memory expectedConfig) public pure {
     assertEq(actualConfig.voters.length, expectedConfig.voters.length);
     for (uint256 i = 0; i < expectedConfig.voters.length; ++i) {
-      ARM.Voter memory expectedVoter = expectedConfig.voters[i];
-      ARM.Voter memory actualVoter = actualConfig.voters[i];
+      RMN.Voter memory expectedVoter = expectedConfig.voters[i];
+      RMN.Voter memory actualVoter = actualConfig.voters[i];
       assertEq(actualVoter.blessVoteAddr, expectedVoter.blessVoteAddr);
       assertEq(actualVoter.curseVoteAddr, expectedVoter.curseVoteAddr);
       assertEq(actualVoter.blessWeight, expectedVoter.blessWeight);
@@ -23,22 +23,22 @@ contract ConfigCompare is Test {
   }
 }
 
-contract ARM_constructor is ConfigCompare, ARMSetup {
+contract RMN_constructor is ConfigCompare, RMNSetup {
   function test_Constructor_Success() public view {
-    ARM.Config memory expectedConfig = armConstructorArgs();
-    (uint32 actualVersion,, ARM.Config memory actualConfig) = s_arm.getConfigDetails();
+    RMN.Config memory expectedConfig = rmnConstructorArgs();
+    (uint32 actualVersion,, RMN.Config memory actualConfig) = s_rmn.getConfigDetails();
     assertEq(actualVersion, 1);
     assertConfigEq(actualConfig, expectedConfig);
   }
 }
 
-contract ARM_voteToBlessRoots is ARMSetup {
-  event VotedToBless(uint32 indexed configVersion, address indexed voter, IARM.TaggedRoot taggedRoot, uint8 weight);
+contract RMN_voteToBlessRoots is RMNSetup {
+  event VotedToBless(uint32 indexed configVersion, address indexed voter, IRMN.TaggedRoot taggedRoot, uint8 weight);
 
   // Success
 
   function _getFirstBlessVoterAndWeight() internal pure returns (address, uint8) {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     return (cfg.voters[0].blessVoteAddr, cfg.voters[0].blessWeight);
   }
 
@@ -51,10 +51,10 @@ contract ARM_voteToBlessRoots is ARMSetup {
 
     vm.startPrank(voter);
     vm.resumeGasMetering();
-    s_arm.voteToBless(makeTaggedRootSingleton(1));
+    s_rmn.voteToBless(makeTaggedRootSingleton(1));
     vm.pauseGasMetering();
 
-    assertFalse(s_arm.isBlessed(makeTaggedRoot(1)));
+    assertFalse(s_rmn.isBlessed(makeTaggedRoot(1)));
     assertEq(voterWeight, getWeightOfVotesToBlessRoot(makeTaggedRoot(1)));
     assertTrue(hasVotedToBlessRoot(voter, makeTaggedRoot(1)));
     vm.resumeGasMetering();
@@ -71,11 +71,11 @@ contract ARM_voteToBlessRoots is ARMSetup {
 
     vm.startPrank(voter);
     vm.resumeGasMetering();
-    s_arm.voteToBless(makeTaggedRootsInclusive(1, 3));
+    s_rmn.voteToBless(makeTaggedRootsInclusive(1, 3));
     vm.pauseGasMetering();
 
     for (uint256 i = 1; i <= 3; ++i) {
-      assertFalse(s_arm.isBlessed(makeTaggedRoot(i)));
+      assertFalse(s_rmn.isBlessed(makeTaggedRoot(i)));
       assertEq(voterWeight, getWeightOfVotesToBlessRoot(makeTaggedRoot(i)));
       assertTrue(hasVotedToBlessRoot(voter, makeTaggedRoot(i)));
     }
@@ -93,11 +93,11 @@ contract ARM_voteToBlessRoots is ARMSetup {
 
     vm.startPrank(voter);
     vm.resumeGasMetering();
-    s_arm.voteToBless(makeTaggedRootsInclusive(1, 5));
+    s_rmn.voteToBless(makeTaggedRootsInclusive(1, 5));
     vm.pauseGasMetering();
 
     for (uint256 i = 1; i <= 5; ++i) {
-      assertFalse(s_arm.isBlessed(makeTaggedRoot(i)));
+      assertFalse(s_rmn.isBlessed(makeTaggedRoot(i)));
       assertEq(voterWeight, getWeightOfVotesToBlessRoot(makeTaggedRoot(i)));
       assertTrue(hasVotedToBlessRoot(voter, makeTaggedRoot(1)));
     }
@@ -105,17 +105,17 @@ contract ARM_voteToBlessRoots is ARMSetup {
   }
 
   function test_IsAlreadyBlessedIgnored_Success() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
 
     // Bless voters 2,3,4 vote to bless
     for (uint256 i = 1; i < cfg.voters.length; i++) {
       vm.startPrank(cfg.voters[i].blessVoteAddr);
-      s_arm.voteToBless(makeTaggedRootSingleton(1));
+      s_rmn.voteToBless(makeTaggedRootSingleton(1));
     }
 
     uint256 votesToBlessBefore = getWeightOfVotesToBlessRoot(makeTaggedRoot(1));
     vm.startPrank(cfg.voters[0].blessVoteAddr);
-    s_arm.voteToBless(makeTaggedRootSingleton(1));
+    s_rmn.voteToBless(makeTaggedRootSingleton(1));
     assertEq(votesToBlessBefore, getWeightOfVotesToBlessRoot(makeTaggedRoot(1)));
   }
 
@@ -123,67 +123,67 @@ contract ARM_voteToBlessRoots is ARMSetup {
     (address voter,) = _getFirstBlessVoterAndWeight();
 
     vm.startPrank(voter);
-    s_arm.voteToBless(makeTaggedRootSingleton(1));
+    s_rmn.voteToBless(makeTaggedRootSingleton(1));
     assertTrue(hasVotedToBlessRoot(voter, makeTaggedRoot(1)));
 
     uint256 votesToBlessBefore = getWeightOfVotesToBlessRoot(makeTaggedRoot(1));
-    s_arm.voteToBless(makeTaggedRootSingleton(1));
+    s_rmn.voteToBless(makeTaggedRootSingleton(1));
     assertEq(votesToBlessBefore, getWeightOfVotesToBlessRoot(makeTaggedRoot(1)));
   }
 
   // Reverts
 
   function test_Curse_Revert() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
 
     for (uint256 i = 0; i < cfg.voters.length; i++) {
       vm.startPrank(cfg.voters[i].curseVoteAddr);
-      s_arm.voteToCurse(makeCurseId(i));
+      s_rmn.voteToCurse(makeCurseId(i));
     }
 
     vm.startPrank(cfg.voters[0].blessVoteAddr);
-    vm.expectRevert(ARM.MustRecoverFromCurse.selector);
-    s_arm.voteToBless(makeTaggedRootSingleton(12903));
+    vm.expectRevert(RMN.MustRecoverFromCurse.selector);
+    s_rmn.voteToBless(makeTaggedRootSingleton(12903));
   }
 
   function test_InvalidVoter_Revert() public {
     vm.startPrank(STRANGER);
-    vm.expectRevert(abi.encodeWithSelector(ARM.InvalidVoter.selector, STRANGER));
-    s_arm.voteToBless(makeTaggedRootSingleton(12321));
+    vm.expectRevert(abi.encodeWithSelector(RMN.InvalidVoter.selector, STRANGER));
+    s_rmn.voteToBless(makeTaggedRootSingleton(12321));
   }
 }
 
-contract ARM_ownerUnbless is ARMSetup {
+contract RMN_ownerUnbless is RMNSetup {
   function test_Unbless_Success() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     for (uint256 i = 0; i < cfg.voters.length; ++i) {
       vm.startPrank(cfg.voters[i].blessVoteAddr);
-      s_arm.voteToBless(makeTaggedRootSingleton(1));
+      s_rmn.voteToBless(makeTaggedRootSingleton(1));
     }
-    assertTrue(s_arm.isBlessed(makeTaggedRoot(1)));
+    assertTrue(s_rmn.isBlessed(makeTaggedRoot(1)));
 
     vm.startPrank(OWNER);
-    s_arm.ownerResetBlessVotes(makeTaggedRootSingleton(1));
-    assertFalse(s_arm.isBlessed(makeTaggedRoot(1)));
+    s_rmn.ownerResetBlessVotes(makeTaggedRootSingleton(1));
+    assertFalse(s_rmn.isBlessed(makeTaggedRoot(1)));
   }
 }
 
-contract ARM_unvoteToCurse is ARMSetup {
+contract RMN_unvoteToCurse is RMNSetup {
   uint256 internal s_curser;
   bytes32 internal s_cursesHash;
 
   function setUp() public override {
-    ARM.Config memory cfg = armConstructorArgs();
-    ARMSetup.setUp();
-    cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
+    RMNSetup.setUp();
+    cfg = rmnConstructorArgs();
     s_curser = 0;
 
     vm.startPrank(cfg.voters[0].curseVoteAddr);
-    s_arm.voteToCurse(makeCurseId(1));
+    s_rmn.voteToCurse(makeCurseId(1));
     bytes32 expectedCursesHash = keccak256(abi.encode(bytes32(0), makeCurseId(1)));
-    assertFalse(s_arm.isCursed());
+    assertFalse(s_rmn.isCursed());
     (address[] memory cursers, uint32[] memory voteCounts, bytes32[] memory cursesHashes, uint16 weight, bool cursed) =
-      s_arm.getCurseProgress();
+      s_rmn.getCurseProgress();
     assertEq(1, cursers.length);
     assertEq(1, voteCounts.length);
     assertEq(cfg.voters[s_curser].curseVoteAddr, cursers[0]);
@@ -197,7 +197,7 @@ contract ARM_unvoteToCurse is ARMSetup {
   }
 
   function test_InvalidVoter() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     // Someone else cannot unvote to curse on the curser's behalf.
     address[] memory unauthorized = new address[](4);
     unauthorized[0] = cfg.voters[s_curser].blessVoteAddr;
@@ -206,57 +206,57 @@ contract ARM_unvoteToCurse is ARMSetup {
     unauthorized[3] = cfg.voters[s_curser ^ 1].curseUnvoteAddr;
 
     for (uint256 i = 0; i < unauthorized.length; ++i) {
-      bytes memory expectedRevert = abi.encodeWithSelector(ARM.InvalidVoter.selector, unauthorized[i]);
+      bytes memory expectedRevert = abi.encodeWithSelector(RMN.InvalidVoter.selector, unauthorized[i]);
       vm.startPrank(unauthorized[i]);
       // should fail when using the correct curses hash
       vm.expectRevert(expectedRevert);
-      s_arm.unvoteToCurse(cfg.voters[s_curser].curseVoteAddr, s_cursesHash);
+      s_rmn.unvoteToCurse(cfg.voters[s_curser].curseVoteAddr, s_cursesHash);
       // should fail when using garbage curses hash
       vm.expectRevert(expectedRevert);
-      s_arm.unvoteToCurse(
+      s_rmn.unvoteToCurse(
         cfg.voters[s_curser].curseVoteAddr, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
       );
     }
   }
 
   function test_InvalidCursesHash() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     vm.startPrank(cfg.voters[s_curser].curseUnvoteAddr);
     vm.expectRevert(
       abi.encodeWithSelector(
-        ARM.InvalidCursesHash.selector, s_cursesHash, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        RMN.InvalidCursesHash.selector, s_cursesHash, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
       )
     );
-    s_arm.unvoteToCurse(
+    s_rmn.unvoteToCurse(
       cfg.voters[s_curser].curseVoteAddr, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
     );
   }
 
   function test_ValidCursesHash() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     vm.startPrank(cfg.voters[s_curser].curseUnvoteAddr);
-    s_arm.unvoteToCurse(cfg.voters[s_curser].curseVoteAddr, s_cursesHash);
+    s_rmn.unvoteToCurse(cfg.voters[s_curser].curseVoteAddr, s_cursesHash);
   }
 
   function test_OwnerSucceeds() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     vm.startPrank(OWNER);
-    ARM.UnvoteToCurseRecord[] memory records = new ARM.UnvoteToCurseRecord[](1);
-    records[0] = ARM.UnvoteToCurseRecord({
+    RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](1);
+    records[0] = RMN.UnvoteToCurseRecord({
       curseVoteAddr: cfg.voters[s_curser].curseUnvoteAddr,
       cursesHash: s_cursesHash,
       forceUnvote: false
     });
-    s_arm.ownerUnvoteToCurse(records);
+    s_rmn.ownerUnvoteToCurse(records);
   }
 
   event SkippedUnvoteToCurse(address indexed voter, bytes32 expectedCursesHash, bytes32 actualCursesHash);
 
   function test_OwnerSkips() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     vm.startPrank(OWNER);
-    ARM.UnvoteToCurseRecord[] memory records = new ARM.UnvoteToCurseRecord[](1);
-    records[0] = ARM.UnvoteToCurseRecord({
+    RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](1);
+    records[0] = RMN.UnvoteToCurseRecord({
       curseVoteAddr: cfg.voters[s_curser].curseVoteAddr,
       cursesHash: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
       forceUnvote: false
@@ -267,19 +267,19 @@ contract ARM_unvoteToCurse is ARMSetup {
       s_cursesHash,
       0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
     );
-    s_arm.ownerUnvoteToCurse(records);
+    s_rmn.ownerUnvoteToCurse(records);
   }
 
   function test_InvalidCurseState_Revert() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     vm.startPrank(cfg.voters[1].curseUnvoteAddr);
 
-    vm.expectRevert(ARM.InvalidCurseState.selector);
-    s_arm.unvoteToCurse(cfg.voters[1].curseVoteAddr, "");
+    vm.expectRevert(RMN.InvalidCurseState.selector);
+    s_rmn.unvoteToCurse(cfg.voters[1].curseVoteAddr, "");
   }
 }
 
-contract ARM_voteToCurse is ARMSetup {
+contract RMN_voteToCurse is RMNSetup {
   event VotedToCurse(
     uint32 indexed configVersion,
     address indexed voter,
@@ -294,7 +294,7 @@ contract ARM_voteToCurse is ARMSetup {
   event RecoveredFromCurse();
 
   function _getFirstCurseVoterAndWeight() internal pure returns (address, uint8) {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     return (cfg.voters[0].curseVoteAddr, cfg.voters[0].curseWeight);
   }
 
@@ -311,10 +311,10 @@ contract ARM_voteToCurse is ARMSetup {
     );
 
     vm.resumeGasMetering();
-    s_arm.voteToCurse(makeCurseId(123));
+    s_rmn.voteToCurse(makeCurseId(123));
     vm.pauseGasMetering();
 
-    (address[] memory voters,,, uint16 votes, bool cursed) = s_arm.getCurseProgress();
+    (address[] memory voters,,, uint16 votes, bool cursed) = s_rmn.getCurseProgress();
     assertEq(1, voters.length);
     assertEq(voter, voters[0]);
     assertEq(weight, votes);
@@ -324,32 +324,32 @@ contract ARM_voteToCurse is ARMSetup {
   }
 
   function test_EmitCurse_Success() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     for (uint256 i = 0; i < cfg.voters.length - 1; ++i) {
       vm.startPrank(cfg.voters[i].curseVoteAddr);
-      s_arm.voteToCurse(makeCurseId(1));
+      s_rmn.voteToCurse(makeCurseId(1));
     }
 
     vm.expectEmit();
     emit Cursed(1, block.timestamp);
 
     vm.startPrank(cfg.voters[cfg.voters.length - 1].curseVoteAddr);
-    s_arm.voteToCurse(makeCurseId(1));
+    s_rmn.voteToCurse(makeCurseId(1));
   }
 
   function test_EvenIfAlreadyCursed_Success() public {
-    ARM.Config memory cfg = armConstructorArgs();
+    RMN.Config memory cfg = rmnConstructorArgs();
     uint16 weightSum = 0;
     for (uint256 i = 0; i < cfg.voters.length; ++i) {
       vm.startPrank(cfg.voters[i].curseVoteAddr);
-      s_arm.voteToCurse(makeCurseId(i));
+      s_rmn.voteToCurse(makeCurseId(i));
       weightSum += cfg.voters[i].curseWeight;
     }
 
     // Not part of the assertion of this test but good to have as a sanity
     // check. We want a curse to be active in order for the ultimate assertion
     // to make sense.
-    assert(s_arm.isCursed());
+    assert(s_rmn.isCursed());
 
     vm.expectEmit();
     emit VotedToCurse(
@@ -366,8 +366,8 @@ contract ARM_voteToCurse is ARMSetup {
       weightSum // accumulatedWeight
     );
     // Asserts that this call to vote with a new curse id goes through with no
-    // reverts even when the ARM contract is cursed.
-    s_arm.voteToCurse(makeCurseId(cfg.voters.length + 1));
+    // reverts even when the RMN contract is cursed.
+    s_rmn.voteToCurse(makeCurseId(cfg.voters.length + 1));
   }
 
   function test_OwnerCanCurseAndUncurse() public {
@@ -376,10 +376,10 @@ contract ARM_voteToCurse is ARMSetup {
     emit OwnerCursed(block.timestamp);
     vm.expectEmit();
     emit Cursed(1, block.timestamp);
-    s_arm.ownerCurse();
+    s_rmn.ownerCurse();
 
     {
-      (address[] memory voters,,, uint24 accWeight, bool cursed) = s_arm.getCurseProgress();
+      (address[] memory voters,,, uint24 accWeight, bool cursed) = s_rmn.getCurseProgress();
       assertEq(voters.length, 0);
       assertEq(accWeight, 0);
       assertTrue(cursed);
@@ -388,21 +388,21 @@ contract ARM_voteToCurse is ARMSetup {
     // ownerCurse again, this time we only get OwnerCursed, but not Cursed
     vm.expectEmit();
     emit OwnerCursed(block.timestamp);
-    s_arm.ownerCurse();
+    s_rmn.ownerCurse();
 
     {
-      (address[] memory voters,,, uint24 accWeight, bool cursed) = s_arm.getCurseProgress();
+      (address[] memory voters,,, uint24 accWeight, bool cursed) = s_rmn.getCurseProgress();
       assertEq(voters.length, 0);
       assertEq(accWeight, 0);
       assertTrue(cursed);
     }
 
-    ARM.UnvoteToCurseRecord[] memory unvoteRecords = new ARM.UnvoteToCurseRecord[](0);
+    RMN.UnvoteToCurseRecord[] memory unvoteRecords = new RMN.UnvoteToCurseRecord[](0);
     vm.expectEmit();
     emit RecoveredFromCurse();
-    s_arm.ownerUnvoteToCurse(unvoteRecords);
+    s_rmn.ownerUnvoteToCurse(unvoteRecords);
     {
-      (address[] memory voters,,, uint24 accWeight, bool cursed) = s_arm.getCurseProgress();
+      (address[] memory voters,,, uint24 accWeight, bool cursed) = s_rmn.getCurseProgress();
       assertEq(voters.length, 0);
       assertEq(accWeight, 0);
       assertFalse(cursed);
@@ -414,26 +414,26 @@ contract ARM_voteToCurse is ARMSetup {
   function test_InvalidVoter_Revert() public {
     vm.startPrank(STRANGER);
 
-    vm.expectRevert(abi.encodeWithSelector(ARM.InvalidVoter.selector, STRANGER));
-    s_arm.voteToCurse(makeCurseId(12312));
+    vm.expectRevert(abi.encodeWithSelector(RMN.InvalidVoter.selector, STRANGER));
+    s_rmn.voteToCurse(makeCurseId(12312));
   }
 
   function test_AlreadyVoted_Revert() public {
     (address voter,) = _getFirstCurseVoterAndWeight();
     vm.startPrank(voter);
-    s_arm.voteToCurse(makeCurseId(1));
+    s_rmn.voteToCurse(makeCurseId(1));
 
-    vm.expectRevert(abi.encodeWithSelector(ARM.AlreadyVotedToCurse.selector, voter, makeCurseId(1)));
-    s_arm.voteToCurse(makeCurseId(1));
+    vm.expectRevert(abi.encodeWithSelector(RMN.AlreadyVotedToCurse.selector, voter, makeCurseId(1)));
+    s_rmn.voteToCurse(makeCurseId(1));
   }
 }
 
-contract ARM_ownerUnvoteToCurse is ARMSetup {
+contract RMN_ownerUnvoteToCurse is RMNSetup {
   event RecoveredFromCurse();
 
   // These cursers are going to curse in setUp curseCount times.
   function getCursersAndCurseCounts() internal pure returns (address[] memory cursers, uint32[] memory curseCounts) {
-    // NOTE: Change this when changing setUp or armConstructorArgs.
+    // NOTE: Change this when changing setUp or rmnConstructorArgs.
     // This is a bit ugly and error prone but if we read from storage we would
     // not get an accurate gas reading for ownerUnvoteToCurse when we need it.
     cursers = new address[](4);
@@ -448,26 +448,26 @@ contract ARM_ownerUnvoteToCurse is ARMSetup {
   }
 
   function setUp() public virtual override {
-    ARMSetup.setUp();
+    RMNSetup.setUp();
     (address[] memory cursers, uint32[] memory curseCounts) = getCursersAndCurseCounts();
     for (uint256 i = 0; i < cursers.length; ++i) {
       vm.startPrank(cursers[i]);
       for (uint256 j = 0; j < curseCounts[i]; ++j) {
-        s_arm.voteToCurse(makeCurseId(j));
+        s_rmn.voteToCurse(makeCurseId(j));
       }
     }
   }
 
   function ownerUnvoteToCurse() internal {
-    s_arm.ownerUnvoteToCurse(makeUnvoteToCurseRecords());
+    s_rmn.ownerUnvoteToCurse(makeUnvoteToCurseRecords());
   }
 
-  function makeUnvoteToCurseRecords() internal pure returns (ARM.UnvoteToCurseRecord[] memory) {
+  function makeUnvoteToCurseRecords() internal pure returns (RMN.UnvoteToCurseRecord[] memory) {
     (address[] memory cursers,) = getCursersAndCurseCounts();
-    ARM.UnvoteToCurseRecord[] memory records = new ARM.UnvoteToCurseRecord[](cursers.length);
+    RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](cursers.length);
     for (uint256 i = 0; i < cursers.length; ++i) {
       records[i] =
-        ARM.UnvoteToCurseRecord({curseVoteAddr: cursers[i], cursesHash: bytes32(uint256(0)), forceUnvote: true});
+        RMN.UnvoteToCurseRecord({curseVoteAddr: cursers[i], cursesHash: bytes32(uint256(0)), forceUnvote: true});
     }
     return records;
   }
@@ -485,8 +485,8 @@ contract ARM_ownerUnvoteToCurse is ARMSetup {
     ownerUnvoteToCurse();
     vm.pauseGasMetering();
 
-    assertFalse(s_arm.isCursed());
-    (address[] memory voters,, bytes32[] memory cursesHashes, uint256 weight, bool cursed) = s_arm.getCurseProgress();
+    assertFalse(s_rmn.isCursed());
+    (address[] memory voters,, bytes32[] memory cursesHashes, uint256 weight, bool cursed) = s_rmn.getCurseProgress();
     assertEq(voters.length, 0);
     assertEq(cursesHashes.length, 0);
     assertEq(weight, 0);
@@ -499,9 +499,9 @@ contract ARM_ownerUnvoteToCurse is ARMSetup {
     ownerUnvoteToCurse();
     ownerUnvoteToCurse();
 
-    assertFalse(s_arm.isCursed());
+    assertFalse(s_rmn.isCursed());
     (address[] memory voters, uint32[] memory voteCounts, bytes32[] memory cursesHashes, uint256 weight, bool cursed) =
-      s_arm.getCurseProgress();
+      s_rmn.getCurseProgress();
     assertEq(voters.length, 0);
     assertEq(cursesHashes.length, 0);
     assertEq(voteCounts.length, 0);
@@ -519,15 +519,15 @@ contract ARM_ownerUnvoteToCurse is ARMSetup {
     ownerUnvoteToCurse();
 
     // Contract is now uncursed.
-    assertFalse(s_arm.isCursed());
+    assertFalse(s_rmn.isCursed());
 
     // Vote to bless should go through.
     vm.startPrank(BLESS_VOTER_1);
-    s_arm.voteToBless(makeTaggedRootSingleton(2387489729));
+    s_rmn.voteToBless(makeTaggedRootSingleton(2387489729));
 
     // Vote to curse should go through.
     vm.startPrank(CURSE_VOTER_1);
-    s_arm.voteToCurse(makeCurseId(73894728973));
+    s_rmn.voteToCurse(makeCurseId(73894728973));
   }
 
   // Reverts
@@ -539,25 +539,25 @@ contract ARM_ownerUnvoteToCurse is ARMSetup {
   }
 }
 
-contract ARM_setConfig is ConfigCompare, ARMSetup {
+contract RMN_setConfig is ConfigCompare, RMNSetup {
   /// @notice Test-specific function to use only in setConfig tests
-  function getDifferentConfigArgs() private pure returns (ARM.Config memory) {
-    ARM.Voter[] memory voters = new ARM.Voter[](2);
-    voters[0] = ARM.Voter({
+  function getDifferentConfigArgs() private pure returns (RMN.Config memory) {
+    RMN.Voter[] memory voters = new RMN.Voter[](2);
+    voters[0] = RMN.Voter({
       blessVoteAddr: BLESS_VOTER_1,
       curseVoteAddr: CURSE_VOTER_1,
       curseUnvoteAddr: CURSE_UNVOTER_1,
       blessWeight: WEIGHT_1,
       curseWeight: WEIGHT_1
     });
-    voters[1] = ARM.Voter({
+    voters[1] = RMN.Voter({
       blessVoteAddr: BLESS_VOTER_2,
       curseVoteAddr: CURSE_VOTER_2,
       curseUnvoteAddr: CURSE_UNVOTER_2,
       blessWeight: WEIGHT_10,
       curseWeight: WEIGHT_10
     });
-    return ARM.Config({
+    return RMN.Config({
       voters: voters,
       blessWeightThreshold: WEIGHT_1 + WEIGHT_10,
       curseWeightThreshold: WEIGHT_1 + WEIGHT_10
@@ -565,55 +565,55 @@ contract ARM_setConfig is ConfigCompare, ARMSetup {
   }
 
   function setUp() public virtual override {
-    ARMSetup.setUp();
-    ARM.Config memory cfg = armConstructorArgs();
+    RMNSetup.setUp();
+    RMN.Config memory cfg = rmnConstructorArgs();
 
     // Setup some partial state
     vm.startPrank(cfg.voters[0].blessVoteAddr);
-    s_arm.voteToBless(makeTaggedRootSingleton(1));
+    s_rmn.voteToBless(makeTaggedRootSingleton(1));
     vm.startPrank(cfg.voters[1].blessVoteAddr);
-    s_arm.voteToBless(makeTaggedRootSingleton(1));
+    s_rmn.voteToBless(makeTaggedRootSingleton(1));
     vm.startPrank(cfg.voters[1].curseVoteAddr);
-    s_arm.voteToCurse(makeCurseId(1));
+    s_rmn.voteToCurse(makeCurseId(1));
   }
 
   // Success
 
-  event ConfigSet(uint32 indexed configVersion, ARM.Config config);
+  event ConfigSet(uint32 indexed configVersion, RMN.Config config);
 
   function test_VoteToBlessByEjectedVoter_Revert() public {
     // Previous config included BLESS_VOTER_4. Change to new config that doesn't.
-    ARM.Config memory cfg = getDifferentConfigArgs();
+    RMN.Config memory cfg = getDifferentConfigArgs();
     vm.startPrank(OWNER);
-    s_arm.setConfig(cfg);
+    s_rmn.setConfig(cfg);
 
     // BLESS_VOTER_4 is not part of cfg anymore, vote to bless should revert.
     vm.startPrank(BLESS_VOTER_4);
-    vm.expectRevert(abi.encodeWithSelector(ARM.InvalidVoter.selector, BLESS_VOTER_4));
-    s_arm.voteToBless(makeTaggedRootSingleton(2));
+    vm.expectRevert(abi.encodeWithSelector(RMN.InvalidVoter.selector, BLESS_VOTER_4));
+    s_rmn.voteToBless(makeTaggedRootSingleton(2));
   }
 
   function test_SetConfigSuccess_gas() public {
     vm.pauseGasMetering();
-    ARM.Config memory cfg = getDifferentConfigArgs();
+    RMN.Config memory cfg = getDifferentConfigArgs();
 
     vm.startPrank(OWNER);
     vm.expectEmit();
     emit ConfigSet(2, cfg);
 
-    (uint32 configVersionBefore,,) = s_arm.getConfigDetails();
+    (uint32 configVersionBefore,,) = s_rmn.getConfigDetails();
     vm.resumeGasMetering();
-    s_arm.setConfig(cfg);
+    s_rmn.setConfig(cfg);
     vm.pauseGasMetering();
     // Assert VersionedConfig has changed correctly
-    (uint32 configVersionAfter,, ARM.Config memory configAfter) = s_arm.getConfigDetails();
+    (uint32 configVersionAfter,, RMN.Config memory configAfter) = s_rmn.getConfigDetails();
     assertEq(configVersionBefore + 1, configVersionAfter);
     assertConfigEq(configAfter, cfg);
 
     // Assert that curse votes have been cleared, except for CURSE_VOTER_2 who
     // has already voted and is also part of the new config
     (address[] memory curseVoters,, bytes32[] memory cursesHashes, uint256 curseWeight, bool cursed) =
-      s_arm.getCurseProgress();
+      s_rmn.getCurseProgress();
     assertEq(1, curseVoters.length);
     assertEq(WEIGHT_10, curseWeight);
     assertEq(1, cursesHashes.length);
@@ -631,72 +631,72 @@ contract ARM_setConfig is ConfigCompare, ARMSetup {
   // Reverts
 
   function test_NonOwner_Revert() public {
-    ARM.Config memory cfg = getDifferentConfigArgs();
+    RMN.Config memory cfg = getDifferentConfigArgs();
 
     vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
-    s_arm.setConfig(cfg);
+    s_rmn.setConfig(cfg);
   }
 
   function test_VotersLengthIsZero_Revert() public {
     vm.startPrank(OWNER);
-    vm.expectRevert(ARM.InvalidConfig.selector);
-    s_arm.setConfig(ARM.Config({voters: new ARM.Voter[](0), blessWeightThreshold: 1, curseWeightThreshold: 1}));
+    vm.expectRevert(RMN.InvalidConfig.selector);
+    s_rmn.setConfig(RMN.Config({voters: new RMN.Voter[](0), blessWeightThreshold: 1, curseWeightThreshold: 1}));
   }
 
   function test_EitherThresholdIsZero_Revert() public {
-    ARM.Config memory cfg = getDifferentConfigArgs();
+    RMN.Config memory cfg = getDifferentConfigArgs();
 
     vm.startPrank(OWNER);
-    vm.expectRevert(ARM.InvalidConfig.selector);
-    s_arm.setConfig(
-      ARM.Config({voters: cfg.voters, blessWeightThreshold: ZERO, curseWeightThreshold: cfg.curseWeightThreshold})
+    vm.expectRevert(RMN.InvalidConfig.selector);
+    s_rmn.setConfig(
+      RMN.Config({voters: cfg.voters, blessWeightThreshold: ZERO, curseWeightThreshold: cfg.curseWeightThreshold})
     );
-    vm.expectRevert(ARM.InvalidConfig.selector);
-    s_arm.setConfig(
-      ARM.Config({voters: cfg.voters, blessWeightThreshold: cfg.blessWeightThreshold, curseWeightThreshold: ZERO})
+    vm.expectRevert(RMN.InvalidConfig.selector);
+    s_rmn.setConfig(
+      RMN.Config({voters: cfg.voters, blessWeightThreshold: cfg.blessWeightThreshold, curseWeightThreshold: ZERO})
     );
   }
 
   function test_BlessVoterIsZeroAddress_Revert() public {
-    ARM.Config memory cfg = getDifferentConfigArgs();
+    RMN.Config memory cfg = getDifferentConfigArgs();
 
     vm.startPrank(OWNER);
     cfg.voters[0].blessVoteAddr = ZERO_ADDRESS;
-    vm.expectRevert(ARM.InvalidConfig.selector);
-    s_arm.setConfig(cfg);
+    vm.expectRevert(RMN.InvalidConfig.selector);
+    s_rmn.setConfig(cfg);
   }
 
   function test_WeightIsZeroAddress_Revert() public {
-    ARM.Config memory cfg = getDifferentConfigArgs();
+    RMN.Config memory cfg = getDifferentConfigArgs();
 
     vm.startPrank(OWNER);
     cfg.voters[0].blessWeight = ZERO;
     cfg.voters[0].curseWeight = ZERO;
-    vm.expectRevert(ARM.InvalidConfig.selector);
-    s_arm.setConfig(cfg);
+    vm.expectRevert(RMN.InvalidConfig.selector);
+    s_rmn.setConfig(cfg);
   }
 
   function test_TotalWeightsSmallerThanEachThreshold_Revert() public {
-    ARM.Config memory cfg = getDifferentConfigArgs();
+    RMN.Config memory cfg = getDifferentConfigArgs();
 
     vm.startPrank(OWNER);
-    vm.expectRevert(ARM.InvalidConfig.selector);
-    s_arm.setConfig(
-      ARM.Config({voters: cfg.voters, blessWeightThreshold: WEIGHT_40, curseWeightThreshold: cfg.curseWeightThreshold})
+    vm.expectRevert(RMN.InvalidConfig.selector);
+    s_rmn.setConfig(
+      RMN.Config({voters: cfg.voters, blessWeightThreshold: WEIGHT_40, curseWeightThreshold: cfg.curseWeightThreshold})
     );
-    vm.expectRevert(ARM.InvalidConfig.selector);
-    s_arm.setConfig(
-      ARM.Config({voters: cfg.voters, blessWeightThreshold: cfg.blessWeightThreshold, curseWeightThreshold: WEIGHT_40})
+    vm.expectRevert(RMN.InvalidConfig.selector);
+    s_rmn.setConfig(
+      RMN.Config({voters: cfg.voters, blessWeightThreshold: cfg.blessWeightThreshold, curseWeightThreshold: WEIGHT_40})
     );
   }
 
   function test_RepeatedAddress_Revert() public {
-    ARM.Config memory cfg = getDifferentConfigArgs();
+    RMN.Config memory cfg = getDifferentConfigArgs();
 
     vm.startPrank(OWNER);
     cfg.voters[0].blessVoteAddr = cfg.voters[1].curseVoteAddr;
-    vm.expectRevert(ARM.InvalidConfig.selector);
-    s_arm.setConfig(cfg);
+    vm.expectRevert(RMN.InvalidConfig.selector);
+    s_rmn.setConfig(cfg);
   }
 }

@@ -80,9 +80,9 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     ITokenMessenger tokenMessenger,
     IERC20 token,
     address[] memory allowlist,
-    address armProxy,
+    address rmnProxy,
     address router
-  ) TokenPool(token, allowlist, armProxy, router) {
+  ) TokenPool(token, allowlist, rmnProxy, router) {
     if (address(tokenMessenger) == address(0)) revert InvalidConfig();
     IMessageTransmitter transmitter = IMessageTransmitter(tokenMessenger.localMessageTransmitter());
     uint32 transmitterVersion = transmitter.version();
@@ -116,7 +116,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     external
     virtual
     override
-    whenHealthy
+    whenNotCursed(lockOrBurnIn.remoteChainSelector)
     returns (Pool.LockOrBurnOutV1 memory)
   {
     _checkAllowList(lockOrBurnIn.originalSender);
@@ -159,6 +159,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
     override
+    whenNotCursed(releaseOrMintIn.remoteChainSelector)
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);

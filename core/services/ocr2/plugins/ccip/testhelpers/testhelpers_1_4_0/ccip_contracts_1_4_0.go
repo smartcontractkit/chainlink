@@ -28,8 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
 	custom_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool_1_4_0"
 	evm_2_evm_offramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
@@ -198,11 +197,10 @@ type SourceChain struct {
 type DestinationChain struct {
 	Common
 
-	CommitStoreHelper *commit_store_helper.CommitStoreHelper
-	CommitStore       *commit_store.CommitStore
-	Router            *router.Router
-	OffRamp           *evm_2_evm_offramp.EVM2EVMOffRamp
-	Receivers         []MaybeRevertReceiver
+	CommitStore *commit_store_1_2_0.CommitStore
+	Router      *router.Router
+	OffRamp     *evm_2_evm_offramp.EVM2EVMOffRamp
+	Receivers   []MaybeRevertReceiver
 }
 
 type OCR2Config struct {
@@ -381,10 +379,10 @@ func (c *CCIPContracts) EnableOnRamp(t *testing.T) {
 }
 
 func (c *CCIPContracts) DeployNewCommitStore(t *testing.T) {
-	commitStoreAddress, _, _, err := commit_store_helper.DeployCommitStoreHelper(
+	commitStoreAddress, _, _, err := commit_store_1_2_0.DeployCommitStore(
 		c.Dest.User,  // user
 		c.Dest.Chain, // client
-		commit_store_helper.CommitStoreStaticConfig{
+		commit_store_1_2_0.CommitStoreStaticConfig{
 			ChainSelector:       c.Dest.ChainSelector,
 			SourceChainSelector: c.Source.ChainSelector,
 			OnRamp:              c.Source.OnRamp.Address(),
@@ -393,10 +391,8 @@ func (c *CCIPContracts) DeployNewCommitStore(t *testing.T) {
 	)
 	require.NoError(t, err)
 	c.Dest.Chain.Commit()
-	c.Dest.CommitStoreHelper, err = commit_store_helper.NewCommitStoreHelper(commitStoreAddress, c.Dest.Chain)
-	require.NoError(t, err)
 	// since CommitStoreHelper derives from CommitStore, it's safe to instantiate both on same address
-	c.Dest.CommitStore, err = commit_store.NewCommitStore(commitStoreAddress, c.Dest.Chain)
+	c.Dest.CommitStore, err = commit_store_1_2_0.NewCommitStore(commitStoreAddress, c.Dest.Chain)
 	require.NoError(t, err)
 }
 
@@ -1106,10 +1102,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 
 	// Deploy commit store.
-	commitStoreAddress, _, _, err := commit_store_helper.DeployCommitStoreHelper(
+	commitStoreAddress, _, _, err := commit_store_1_2_0.DeployCommitStore(
 		destUser,  // user
 		destChain, // client
-		commit_store_helper.CommitStoreStaticConfig{
+		commit_store_1_2_0.CommitStoreStaticConfig{
 			ChainSelector:       destChainSelector,
 			SourceChainSelector: sourceChainSelector,
 			OnRamp:              onRamp.Address(),
@@ -1118,9 +1114,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	)
 	require.NoError(t, err)
 	destChain.Commit()
-	commitStore, err := commit_store.NewCommitStore(commitStoreAddress, destChain)
-	require.NoError(t, err)
-	commitStoreHelper, err := commit_store_helper.NewCommitStoreHelper(commitStoreAddress, destChain)
+	commitStore, err := commit_store_1_2_0.NewCommitStore(commitStoreAddress, destChain)
 	require.NoError(t, err)
 
 	offRampAddress, _, _, err := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
@@ -1236,11 +1230,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			WrappedNative:     destWrapped,
 			WrappedNativePool: destWrappedPool,
 		},
-		CommitStoreHelper: commitStoreHelper,
-		CommitStore:       commitStore,
-		Router:            destRouter,
-		OffRamp:           offRamp,
-		Receivers:         []MaybeRevertReceiver{{Receiver: revertingMessageReceiver1, Strict: false}, {Receiver: revertingMessageReceiver2, Strict: true}},
+		CommitStore: commitStore,
+		Router:      destRouter,
+		OffRamp:     offRamp,
+		Receivers:   []MaybeRevertReceiver{{Receiver: revertingMessageReceiver1, Strict: false}, {Receiver: revertingMessageReceiver2, Strict: true}},
 	}
 
 	return CCIPContracts{
@@ -1418,7 +1411,7 @@ func (args *ManualExecArgs) ExecuteManually() (*types.Transaction, error) {
 		}
 		args.SeqNr = seqNr
 	}
-	commitStore, err := commit_store.NewCommitStore(common.HexToAddress(args.CommitStore), args.DestChain)
+	commitStore, err := commit_store_1_2_0.NewCommitStore(common.HexToAddress(args.CommitStore), args.DestChain)
 	if err != nil {
 		return nil, err
 	}
@@ -1433,7 +1426,7 @@ func (args *ManualExecArgs) ExecuteManually() (*types.Transaction, error) {
 		return nil, err
 	}
 
-	var commitReport *commit_store.CommitStoreCommitReport
+	var commitReport *commit_store_1_2_0.CommitStoreCommitReport
 	for iterator.Next() {
 		if iterator.Event.Report.Interval.Min <= args.SeqNr && iterator.Event.Report.Interval.Max >= args.SeqNr {
 			commitReport = &iterator.Event.Report
@@ -1448,7 +1441,7 @@ func (args *ManualExecArgs) ExecuteManually() (*types.Transaction, error) {
 	return args.execute(commitReport)
 }
 
-func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport) (*types.Transaction, error) {
+func (args *ManualExecArgs) execute(report *commit_store_1_2_0.CommitStoreCommitReport) (*types.Transaction, error) {
 	log.Info().Msg("Executing request manually")
 	seqNr := args.SeqNr
 	// Build a merkle tree for the report

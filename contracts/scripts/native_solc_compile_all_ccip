@@ -58,7 +58,7 @@ compileContract ccip/pools/LockReleaseTokenPoolAndProxy.sol
 compileContract ccip/pools/BurnMintTokenPoolAndProxy.sol
 compileContract ccip/pools/TokenPool.sol
 compileContract shared/token/ERC677/BurnMintERC677.sol
-compileContract ccip/ARM.sol
+compileContract ccip/RMN.sol
 compileContract ccip/ARMProxy.sol
 compileContract ccip/tokenAdminRegistry/TokenAdminRegistry.sol
 compileContract ccip/tokenAdminRegistry/RegistryModuleOwnerCustom.sol
@@ -68,7 +68,7 @@ compileContract ccip/test/helpers/BurnMintERC677Helper.sol
 compileContract ccip/test/helpers/CommitStoreHelper.sol
 compileContract ccip/test/helpers/CustomTokenPool.sol
 compileContract ccip/test/helpers/receivers/MaybeRevertMessageReceiver.sol
-compileContract ccip/test/mocks/MockARM.sol
+compileContract ccip/test/mocks/MockRMN.sol
 compileContract ccip/test/mocks/MockE2EUSDCTokenMessenger.sol
 compileContract ccip/test/mocks/MockE2EUSDCTransmitter.sol
 compileContract ccip/test/WETH9.sol

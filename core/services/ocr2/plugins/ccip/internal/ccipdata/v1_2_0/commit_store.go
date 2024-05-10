@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -35,7 +35,7 @@ var _ ccipdata.CommitStoreReader = &CommitStore{}
 
 type CommitStore struct {
 	// Static config
-	commitStore               *commit_store.CommitStore
+	commitStore               *commit_store_1_2_0.CommitStore
 	lggr                      logger.Logger
 	lp                        logpoller.LogPoller
 	address                   common.Address
@@ -70,33 +70,33 @@ func (c *CommitStore) EncodeCommitReport(_ context.Context, report cciptypes.Com
 }
 
 func EncodeCommitReport(commitReportArgs abi.Arguments, report cciptypes.CommitStoreReport) ([]byte, error) {
-	var tokenPriceUpdates []commit_store.InternalTokenPriceUpdate
+	var tokenPriceUpdates []commit_store_1_2_0.InternalTokenPriceUpdate
 	for _, tokenPriceUpdate := range report.TokenPrices {
 		tokenAddressEvm, err := ccipcalc.GenericAddrToEvm(tokenPriceUpdate.Token)
 		if err != nil {
 			return nil, fmt.Errorf("token price update address to evm: %w", err)
 		}
 
-		tokenPriceUpdates = append(tokenPriceUpdates, commit_store.InternalTokenPriceUpdate{
+		tokenPriceUpdates = append(tokenPriceUpdates, commit_store_1_2_0.InternalTokenPriceUpdate{
 			SourceToken: tokenAddressEvm,
 			UsdPerToken: tokenPriceUpdate.Value,
 		})
 	}
 
-	var gasPriceUpdates []commit_store.InternalGasPriceUpdate
+	var gasPriceUpdates []commit_store_1_2_0.InternalGasPriceUpdate
 	for _, gasPriceUpdate := range report.GasPrices {
-		gasPriceUpdates = append(gasPriceUpdates, commit_store.InternalGasPriceUpdate{
+		gasPriceUpdates = append(gasPriceUpdates, commit_store_1_2_0.InternalGasPriceUpdate{
 			DestChainSelector: gasPriceUpdate.DestChainSelector,
 			UsdPerUnitGas:     gasPriceUpdate.Value,
 		})
 	}
 
-	rep := commit_store.CommitStoreCommitReport{
-		PriceUpdates: commit_store.InternalPriceUpdates{
+	rep := commit_store_1_2_0.CommitStoreCommitReport{
+		PriceUpdates: commit_store_1_2_0.InternalPriceUpdates{
 			TokenPriceUpdates: tokenPriceUpdates,
 			GasPriceUpdates:   gasPriceUpdates,
 		},
-		Interval:   commit_store.CommitStoreInterval{Min: report.Interval.Min, Max: report.Interval.Max},
+		Interval:   commit_store_1_2_0.CommitStoreInterval{Min: report.Interval.Min, Max: report.Interval.Max},
 		MerkleRoot: report.MerkleRoot,
 	}
 	return commitReportArgs.PackValues([]interface{}{rep})
@@ -179,8 +179,7 @@ func (c *CommitStore) GasPriceEstimator(context.Context) (cciptypes.GasPriceEsti
 	return c.gasPriceEstimator, nil
 }
 
-// Do not change the JSON format of this struct without consulting with
-// the RDD people first.
+// Do not change the JSON format of this struct without consulting with the RDD people first.
 type JSONCommitOffchainConfig struct {
 	SourceFinalityDepth      uint32
 	DestFinalityDepth        uint32
@@ -393,11 +392,11 @@ func (c *CommitStore) RegisterFilters() error {
 }
 
 func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) (*CommitStore, error) {
-	commitStore, err := commit_store.NewCommitStore(addr, ec)
+	commitStore, err := commit_store_1_2_0.NewCommitStore(addr, ec)
 	if err != nil {
 		return nil, err
 	}
-	commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
+	commitStoreABI := abihelpers.MustParseABI(commit_store_1_2_0.CommitStoreABI)
 	eventSig := abihelpers.MustGetEventID(v1_0_0.ReportAccepted, commitStoreABI)
 	commitReportArgs := abihelpers.MustGetEventInputs(v1_0_0.ReportAccepted, commitStoreABI)
 	filters := []logpoller.Filter{

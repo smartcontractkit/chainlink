@@ -20,14 +20,14 @@ contract TokenPoolSetup is RouterSetup {
     s_token = new BurnMintERC677("LINK", "LNK", 18, 0);
     deal(address(s_token), OWNER, type(uint256).max);
 
-    s_tokenPool = new TokenPoolHelper(s_token, new address[](0), address(s_mockARM), address(s_sourceRouter));
+    s_tokenPool = new TokenPoolHelper(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
   }
 }
 
 contract TokenPool_constructor is TokenPoolSetup {
   function test_immutableFields_Success() public view {
     assertEq(address(s_token), address(s_tokenPool.getToken()));
-    assertEq(address(s_mockARM), s_tokenPool.getArmProxy());
+    assertEq(address(s_mockRMN), s_tokenPool.getRmnProxy());
     assertEq(false, s_tokenPool.getAllowListEnabled());
     assertEq(address(s_sourceRouter), s_tokenPool.getRouter());
   }
@@ -36,7 +36,7 @@ contract TokenPool_constructor is TokenPoolSetup {
   function test_ZeroAddressNotAllowed_Revert() public {
     vm.expectRevert(TokenPool.ZeroAddressNotAllowed.selector);
 
-    s_tokenPool = new TokenPoolHelper(IERC20(address(0)), new address[](0), address(s_mockARM), address(s_sourceRouter));
+    s_tokenPool = new TokenPoolHelper(IERC20(address(0)), new address[](0), address(s_mockRMN), address(s_sourceRouter));
   }
 }
 
@@ -601,7 +601,7 @@ contract TokenPoolWithAllowListSetup is TokenPoolSetup {
     s_allowedSenders.push(STRANGER);
     s_allowedSenders.push(DUMMY_CONTRACT_ADDRESS);
 
-    s_tokenPool = new TokenPoolHelper(s_token, s_allowedSenders, address(s_mockARM), address(s_sourceRouter));
+    s_tokenPool = new TokenPoolHelper(s_token, s_allowedSenders, address(s_mockRMN), address(s_sourceRouter));
   }
 }
 
@@ -715,7 +715,7 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
   }
 
   function test_AllowListNotEnabled_Revert() public {
-    s_tokenPool = new TokenPoolHelper(s_token, new address[](0), address(s_mockARM), address(s_sourceRouter));
+    s_tokenPool = new TokenPoolHelper(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
 
     vm.expectRevert(TokenPool.AllowListNotEnabled.selector);
 

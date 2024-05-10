@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
@@ -307,7 +308,7 @@ func (e *CCIPContractsDeployer) NewUSDCTokenPoolContract(addr common.Address) (
 	}, err
 }
 
-func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, tokenMessenger, armProxy common.Address, router common.Address) (
+func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, tokenMessenger, rmnProxy common.Address, router common.Address) (
 	*TokenPool,
 	error,
 ) {
@@ -323,7 +324,7 @@ func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, to
 			tokenMessenger,
 			token,
 			[]common.Address{},
-			armProxy,
+			rmnProxy,
 			router,
 		)
 	})
@@ -334,7 +335,7 @@ func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, to
 	return e.NewUSDCTokenPoolContract(*address)
 }
 
-func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr string, armProxy common.Address, router common.Address) (
+func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr string, rmnProxy common.Address, router common.Address) (
 	*TokenPool,
 	error,
 ) {
@@ -349,7 +350,7 @@ func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr str
 			wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
 			token,
 			[]common.Address{},
-			armProxy,
+			rmnProxy,
 			true,
 			router)
 	})
@@ -419,7 +420,7 @@ func (e *CCIPContractsDeployer) DeployCommitStore(sourceChainSelector, destChain
 				ChainSelector:       destChainSelector,
 				SourceChainSelector: sourceChainSelector,
 				OnRamp:              onRamp,
-				ArmProxy:            armProxy,
+				RmnProxy:            armProxy,
 			},
 		)
 	})
@@ -602,7 +603,7 @@ func (e *CCIPContractsDeployer) NewOnRamp(addr common.Address) (
 
 func (e *CCIPContractsDeployer) DeployOnRamp(
 	sourceChainSelector, destChainSelector uint64,
-	arm,
+	rmn,
 	router,
 	priceRegistry,
 	tokenAdminRegistry common.Address,
@@ -625,7 +626,7 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 				DefaultTxGasLimit: 200_000,
 				MaxNopFeesJuels:   big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
 				PrevOnRamp:        common.HexToAddress(""),
-				ArmProxy:          arm,
+				RmnProxy:          rmn,
 			},
 			evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 				Router:                            router,
@@ -680,7 +681,7 @@ func (e *CCIPContractsDeployer) NewOffRamp(addr common.Address) (
 	}, err
 }
 
-func (e *CCIPContractsDeployer) DeployOffRamp(sourceChainSelector, destChainSelector uint64, commitStore, onRamp common.Address, opts RateLimiterConfig, armProxy common.Address) (*OffRamp, error) {
+func (e *CCIPContractsDeployer) DeployOffRamp(sourceChainSelector, destChainSelector uint64, commitStore, onRamp common.Address, opts RateLimiterConfig, rmnProxy common.Address) (*OffRamp, error) {
 	address, _, instance, err := e.evmClient.DeployContract("OffRamp Contract", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
@@ -694,7 +695,7 @@ func (e *CCIPContractsDeployer) DeployOffRamp(sourceChainSelector, destChainSele
 				SourceChainSelector: sourceChainSelector,
 				OnRamp:              onRamp,
 				PrevOffRamp:         common.Address{},
-				ArmProxy:            armProxy,
+				RmnProxy:            rmnProxy,
 			},
 			evm_2_evm_offramp.RateLimiterConfig{
 				IsEnabled: true,
