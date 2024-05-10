@@ -33,6 +33,7 @@ import (
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 //go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
@@ -48,6 +49,21 @@ var (
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
 		Help: "Metric to track job proposal requests",
+	})
+
+	promWorkflowRequests = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_workflow_requests",
+		Help: "Metric to track workflow requests",
+	})
+
+	promWorkflowApprovals = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_workflow_approvals",
+		Help: "Metric to track workflow successful auto approvals",
+	})
+
+	promWorkflowFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_workflow_rejections",
+		Help: "Metric to track workflow failed auto approvals",
 	})
 
 	promJobProposalCounts = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -537,6 +553,8 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		}
 	}
 
+	specIsWF := isWFSpec(args.Spec)
+
 	// Validation for existing job proposals
 	if err == nil {
 		// Ensure that if the job proposal exists, that it belongs to the feeds
@@ -552,7 +570,11 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 			return 0, errors.Wrap(err, "failed to check existence of spec")
 		}
 
-		if exists {
+		// workflow specs are auto approved on the happy path. we want to guard against
+		// duplicate proposals for successful workflow auto approval, but allow re-proposals
+		// to accommodate transient failures of auto approval. All other cases require
+		// manually approval and we don't allow duplicate proposals.
+		if (exists && !specIsWF) || (specIsWF && existing.Status == JobProposalStatusPending) {
 			return 0, errors.New("proposed job spec version already exists")
 		}
 	}
@@ -596,15 +618,33 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	if err != nil {
 		return 0, err
 	}
-
-	// Track the given job proposal request
-	promJobProposalRequest.Inc()
+	// auto approve workflow specs
+	if specIsWF {
+		promWorkflowRequests.Inc()
+		err := s.ApproveSpec(ctx, id, true)
+		if err != nil {
+			promWorkflowFailures.Inc()
+			logger.Errorw("Failed to auto approve workflow spec", "id", id, "err", err)
+			return 0, fmt.Errorf("failed to approve workflow spec %d: %w", id, err)
+		}
+		logger.Infow("Successful workflow spec auto approval", "id", id)
+		promWorkflowApprovals.Inc()
+	} else {
+		// Track the given job proposal request
+		promJobProposalRequest.Inc()
+	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
 		logger.Errorw("Failed to push metrics for propose job", err)
 	}
 
 	return id, nil
+}
+
+func isWFSpec(spec string) bool {
+	var s presenters.WorkflowSpec
+	err := toml.Unmarshal([]byte(spec), &s)
+	return err == nil
 }
 
 // GetJobProposal gets a job proposal by id.
@@ -1323,6 +1363,7 @@ func extractName(defn string) null.String {
 	}
 
 	return spec.Name
+
 }
 
 // isApprovable returns nil if a spec can be approved based on the current
