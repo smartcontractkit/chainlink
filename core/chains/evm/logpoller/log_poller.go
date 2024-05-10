@@ -88,7 +88,6 @@ type Client interface {
 	ConfiguredChainID() *big.Int
 }
 
-//go:generate mockery --quiet --name HeadTracker --output ./ --case=underscore --structname HeadTracker --filename head_tracker_mock.go
 type HeadTracker interface {
 	// ChainWithLatestFinalized - returns highest block, whose ancestor is marked as finalized
 	ChainWithLatestFinalized() (*evmtypes.Head, error)
