@@ -39,7 +39,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
 		node.aliveLoop()
-
 	})
 	t.Run("if initial subscribe fails, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -58,7 +57,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
-
 	})
 	t.Run("if remote RPC connection is closed transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -150,7 +148,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
 		tests.AssertLogCountEventually(t, observedLogs, "Version poll successful", 2)
 		assert.True(t, ensuredAlive.Load(), "expected to ensure that node was alive")
-
 	})
 	t.Run("with threshold poll failures, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -365,7 +362,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, "Subscription channel unexpectedly closed")
 		assert.Equal(t, nodeStateUnreachable, node.State())
-
 	})
 	t.Run("updates block number and difficulty on new head", func(t *testing.T) {
 		t.Parallel()
@@ -874,7 +870,6 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
 		node.unreachableLoop()
-
 	})
 	t.Run("on failed redial, keeps trying", func(t *testing.T) {
 		t.Parallel()
@@ -1032,7 +1027,6 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
 		node.invalidChainIDLoop()
-
 	})
 	t.Run("on invalid dial becomes unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -1397,7 +1391,6 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 				}
 			}
 		}
-
 	})
 	t.Run("total difficulty selection mode", func(t *testing.T) {
 		const syncThreshold = 10
@@ -1453,7 +1446,6 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 				})
 			}
 		}
-
 	})
 }
 
@@ -1474,7 +1466,6 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
 		node.syncingLoop()
-
 	})
 	t.Run("on invalid dial becomes unreachable", func(t *testing.T) {
 		t.Parallel()

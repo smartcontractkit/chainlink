@@ -268,7 +268,6 @@ func mockBatchCallContext(t *testing.T, ec *evmclimocks.Client) {
 			}
 			result := e.Result.(*evmtypes.Head)
 			*result = evmtypes.Head{Number: num, Hash: utils.NewHash()}
-
 		}
 	})
 }

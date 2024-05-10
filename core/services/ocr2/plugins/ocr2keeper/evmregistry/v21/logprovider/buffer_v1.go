@@ -76,20 +76,25 @@ type logBuffer struct {
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
 	queues map[string]*upkeepLogQueue
-	lock   sync.RWMutex
+	// map for then number of times we have enqueued logs for a block number
+	enqueuedBlocks map[int64]map[string]int
+	lock           sync.RWMutex
 }
 
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
 	return &logBuffer{
-		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV1"),
-		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
-		lastBlockSeen: new(atomic.Int64),
-		queues:        make(map[string]*upkeepLogQueue),
+		lggr:           lggr.Named("KeepersRegistry.LogEventBufferV1"),
+		opts:           newLogBufferOptions(lookback, blockRate, logLimit),
+		lastBlockSeen:  new(atomic.Int64),
+		enqueuedBlocks: map[int64]map[string]int{},
+		queues:         make(map[string]*upkeepLogQueue),
 	}
 }
 
 // Enqueue adds logs to the buffer and might also drop logs if the limit for the
 // given upkeep was exceeded. It will create a new buffer if it does not exist.
+// Logs are expected to be enqueued in increasing order of block number.
+// All logs for an upkeep on a particular block will be enqueued in a single Enqueue call.
 // Returns the number of logs that were added and number of logs that were  dropped.
 func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	buf, ok := b.getUpkeepQueue(uid)
@@ -97,15 +102,52 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		buf = newUpkeepLogQueue(b.lggr, uid, b.opts)
 		b.setUpkeepQueue(uid, buf)
 	}
-	latestBlock := latestBlockNumber(logs...)
-	if b.lastBlockSeen.Load() < latestBlock {
-		b.lastBlockSeen.Store(latestBlock)
+
+	latestLogBlock, uniqueBlocks := blockStatistics(logs...)
+	if lastBlockSeen := b.lastBlockSeen.Load(); lastBlockSeen < latestLogBlock {
+		b.lastBlockSeen.Store(latestLogBlock)
+	} else if latestLogBlock < lastBlockSeen {
+		b.lggr.Debugw("enqueuing logs from a block older than latest seen block", "logBlock", latestLogBlock, "lastBlockSeen", lastBlockSeen)
 	}
+
+	b.trackBlockNumbersForUpkeep(uid, uniqueBlocks)
+
 	blockThreshold := b.lastBlockSeen.Load() - int64(b.opts.lookback.Load())
 	if blockThreshold <= 0 {
 		blockThreshold = 1
 	}
+
+	// clean up enqueued block counts
+	for block := range b.enqueuedBlocks {
+		if block < blockThreshold {
+			delete(b.enqueuedBlocks, block)
+		}
+	}
+
 	return buf.enqueue(blockThreshold, logs...)
+}
+
+// trackBlockNumbersForUpkeep keeps track of the number of times we enqueue logs for an upkeep,
+// for a specific block number. The expectation is that we will only enqueue logs for an upkeep for a
+// specific block number once, i.e. all logs for an upkeep for a block, will be enqueued in a single
+// enqueue call. In the event that we see upkeep logs enqueued for a particular block more than once,
+// we log a message.
+func (b *logBuffer) trackBlockNumbersForUpkeep(uid *big.Int, uniqueBlocks map[int64]bool) {
+	for blockNumber := range uniqueBlocks {
+		if blockNumbers, ok := b.enqueuedBlocks[blockNumber]; ok {
+			if upkeepBlockInstances, ok := blockNumbers[uid.String()]; ok {
+				blockNumbers[uid.String()] = upkeepBlockInstances + 1
+				b.lggr.Debugw("enqueuing logs again for a previously seen block for this upkeep", "blockNumber", blockNumber, "numberOfEnqueues", b.enqueuedBlocks[blockNumber], "upkeepID", uid.String())
+			} else {
+				blockNumbers[uid.String()] = 1
+			}
+			b.enqueuedBlocks[blockNumber] = blockNumbers
+		} else {
+			b.enqueuedBlocks[blockNumber] = map[string]int{
+				uid.String(): 1,
+			}
+		}
+	}
 }
 
 // Dequeue greedly pulls logs from the buffers.

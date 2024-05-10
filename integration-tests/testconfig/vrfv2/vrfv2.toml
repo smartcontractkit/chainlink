@@ -44,7 +44,7 @@ wrapper_consumer_funding_amount_link = 10
 # VRF Job config
 vrf_job_forwarding_allowed = false
 vrf_job_estimate_gas_multiplier = 1.0
-vrf_job_batch_fulfillment_enabled = false
+vrf_job_batch_fulfillment_enabled = true
 vrf_job_batch_fulfillment_gas_multiplier = 1.15
 vrf_job_poll_period = "1s"
 vrf_job_request_timeout = "24h"

@@ -275,7 +275,6 @@ func TestEVMTranscodeBool(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
 			out, err := EVMTranscodeBool(test.input)
 			assert.NoError(t, err)
 			assert.Equal(t, test.output, hexutil.Encode(out))
@@ -361,7 +360,6 @@ func TestEVMTranscodeUint256(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
 			out, err := EVMTranscodeUint256(test.input)
 			if test.wantError {
 				assert.Error(t, err)
@@ -451,7 +449,6 @@ func TestEVMTranscodeInt256(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
 			out, err := EVMTranscodeInt256(test.input)
 			if test.wantError {
 				assert.Error(t, err)

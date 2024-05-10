@@ -259,7 +259,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				localHighestChainInfo.FinalizedBlockNumber = latestFinalizedBN
 			}
 		}
-
 	}
 }
 
@@ -524,7 +523,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 			n.declareAlive()
 			return
 		}
-
 	}
 }
 

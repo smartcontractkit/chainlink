@@ -232,7 +232,6 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return rpc, err
 	}
 	return n.RPC(), nil
-
 }
 
 // selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
@@ -649,7 +648,6 @@ loop:
 	// ignore critical error as it's reported in reportSendTxAnomalies
 	result, _ := aggregateTxResults(errorsByCode)
 	return result
-
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult) {
@@ -767,7 +765,6 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 		c.wg.Add(1)
 		go c.reportSendTxAnomalies(tx, txResultsToReport)
-
 	})
 	if !ok {
 		return fmt.Errorf("aborted while broadcasting tx - multiNode is stopped: %w", context.Canceled)
