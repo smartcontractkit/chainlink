@@ -229,5 +229,4 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	chainInfo = rpc.GetInterceptedChainInfo()
 	assert.Equal(t, int64(0), chainInfo.BlockNumber)
 	assert.Equal(t, int64(128), chainInfo.FinalizedBlockNumber)
-
 }
