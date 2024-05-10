@@ -331,7 +331,7 @@ func setupOnRampV1_5_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 		DefaultTxGasLimit: 30000,
 		MaxNopFeesJuels:   big.NewInt(1000000),
 		PrevOnRamp:        common.Address{},
-		ArmProxy:          utils.RandomAddress(),
+		RmnProxy:          utils.RandomAddress(),
 	}
 	dynamicConfig := evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 		Router:                            common.HexToAddress("0x0000000000000000000000000000000000000150"),

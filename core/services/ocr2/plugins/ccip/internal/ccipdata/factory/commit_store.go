@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -68,6 +69,15 @@ func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinde
 			return nil, cs.Close()
 		}
 		return cs, cs.RegisterFilters()
+	case ccipdata.V1_5_0:
+		cs, err := v1_5_0.NewCommitStore(lggr, evmAddr, ec, lp, estimator, sourceMaxGasPrice)
+		if err != nil {
+			return nil, err
+		}
+		if closeReader {
+			return nil, cs.Close()
+		}
+		return cs, cs.RegisterFilters()
 	default:
 		return nil, errors.Errorf("unsupported commit store version %v", version.String())
 	}
@@ -87,7 +97,7 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 			}
 			return commitReportToEthTxMeta(commitReport)
 		}, nil
-	case ccipdata.V1_2_0:
+	case ccipdata.V1_2_0, ccipdata.V1_5_0:
 		commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
 			commitReport, err := v1_2_0.DecodeCommitReport(abihelpers.MustGetEventInputs(v1_0_0.ReportAccepted, commitStoreABI), report)

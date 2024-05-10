@@ -44,7 +44,7 @@ import (
 	evmUtils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -755,18 +755,18 @@ func (c *CCIPIntegrationTestHarness) NoNodesHaveExecutedSeqNum(t *testing.T, seq
 	return log
 }
 
-func (c *CCIPIntegrationTestHarness) EventuallyCommitReportAccepted(t *testing.T, currentBlock uint64, commitStoreOpts ...common.Address) commit_store.CommitStoreCommitReport {
-	var commitStore *commit_store.CommitStore
+func (c *CCIPIntegrationTestHarness) EventuallyCommitReportAccepted(t *testing.T, currentBlock uint64, commitStoreOpts ...common.Address) commit_store_1_2_0.CommitStoreCommitReport {
+	var commitStore *commit_store_1_2_0.CommitStore
 	var err error
 	if len(commitStoreOpts) > 0 {
-		commitStore, err = commit_store.NewCommitStore(commitStoreOpts[0], c.Dest.Chain)
+		commitStore, err = commit_store_1_2_0.NewCommitStore(commitStoreOpts[0], c.Dest.Chain)
 		require.NoError(t, err)
 	} else {
 		require.NotNil(t, c.Dest.CommitStore, "no commitStore configured")
 		commitStore = c.Dest.CommitStore
 	}
 	g := gomega.NewGomegaWithT(t)
-	var report commit_store.CommitStoreCommitReport
+	var report commit_store_1_2_0.CommitStoreCommitReport
 	g.Eventually(func() bool {
 		it, err := commitStore.FilterReportAccepted(&bind.FilterOpts{Start: currentBlock})
 		g.Expect(err).NotTo(gomega.HaveOccurred(), "Error filtering ReportAccepted event")
@@ -808,11 +808,11 @@ func (c *CCIPIntegrationTestHarness) EventuallyExecutionStateChangedToSuccess(t 
 }
 
 func (c *CCIPIntegrationTestHarness) EventuallyReportCommitted(t *testing.T, max int, commitStoreOpts ...common.Address) uint64 {
-	var commitStore *commit_store.CommitStore
+	var commitStore *commit_store_1_2_0.CommitStore
 	var err error
 	var committedSeqNum uint64
 	if len(commitStoreOpts) > 0 {
-		commitStore, err = commit_store.NewCommitStore(commitStoreOpts[0], c.Dest.Chain)
+		commitStore, err = commit_store_1_2_0.NewCommitStore(commitStoreOpts[0], c.Dest.Chain)
 		require.NoError(t, err)
 	} else {
 		require.NotNil(t, c.Dest.CommitStore, "no commitStore configured")
@@ -856,10 +856,10 @@ func (c *CCIPIntegrationTestHarness) EventuallySendRequested(t *testing.T, seqNu
 }
 
 func (c *CCIPIntegrationTestHarness) ConsistentlyReportNotCommitted(t *testing.T, max int, commitStoreOpts ...common.Address) {
-	var commitStore *commit_store.CommitStore
+	var commitStore *commit_store_1_2_0.CommitStore
 	var err error
 	if len(commitStoreOpts) > 0 {
-		commitStore, err = commit_store.NewCommitStore(commitStoreOpts[0], c.Dest.Chain)
+		commitStore, err = commit_store_1_2_0.NewCommitStore(commitStoreOpts[0], c.Dest.Chain)
 		require.NoError(t, err)
 	} else {
 		require.NotNil(t, c.Dest.CommitStore, "no commitStore configured")
