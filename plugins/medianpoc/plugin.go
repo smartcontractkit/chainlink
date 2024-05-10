@@ -66,6 +66,7 @@ func (p *Plugin) NewReportingPluginFactory(
 	telemetry core.TelemetryClient,
 	errorLog core.ErrorLog,
 	keyValueStore core.KeyValueStore,
+	relayerSet core.RelayerSet,
 ) (types.ReportingPluginFactory, error) {
 	f, err := p.newFactory(ctx, config, provider, pipelineRunner, telemetry, errorLog)
 	if err != nil {

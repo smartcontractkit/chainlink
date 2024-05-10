@@ -70,7 +70,6 @@ func (l *LoopRegistryServer) discoveryHandler(w http.ResponseWriter, req *http.R
 		w.WriteHeader(http.StatusInternalServerError)
 		l.logger.Error(err)
 	}
-
 }
 
 func metricTarget(hostName string, port int, path string) *targetgroup.Group {

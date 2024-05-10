@@ -28,13 +28,13 @@ import (
 	"github.com/smartcontractkit/chainlink-vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_coordinator"
-	vrf_wrapper "github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_coordinator"
-	dkg_wrapper "github.com/smartcontractkit/chainlink-vrf/gethwrappers/dkg"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	dkg_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
@@ -479,7 +479,6 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	currentHeight uint64,
 	recentBlockHashesStartHeight uint64,
 ) (blockhashesMapping map[uint64]common.Hash, err error) {
-
 	// Get all request + callback requests into a mapping.
 	rawBlocksRequested := make(map[uint64]struct{})
 	for _, l := range randomnessRequestedLogs {
@@ -586,7 +585,6 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 	currentHeight uint64,
 	currentBatchGasLimit int64,
 ) (callbacks []ocr2vrftypes.AbstractCostedCallbackRequest) {
-
 	/**
 	 * Callback batch ordering:
 	 * - Callbacks are first ordered by beacon output + confirmation delay (ascending), in other words
@@ -663,7 +661,6 @@ func (c *coordinator) filterEligibleCallbacks(
 	currentHeight uint64,
 	blockhashesMapping map[uint64]common.Hash,
 ) (callbacks []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested, unfulfilled []block, err error) {
-
 	for _, r := range randomnessFulfillmentRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
 		// confirmation delay, so this is more of a sanity check than anything else.
@@ -711,7 +708,6 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 	currentHeight uint64,
 	blockhashesMapping map[uint64]common.Hash,
 ) (unfulfilled []block, err error) {
-
 	for _, r := range randomnessRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
 		// confirmation delay, so this is more of a sanity check than anything else.
@@ -913,7 +909,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		ctx,
 		c.configSetTopic,
 		c.beaconAddress,
-		logpoller.Confirmations(c.finalityDepth),
+		evmtypes.Confirmations(c.finalityDepth),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest vrf ConfigSet by sig with confs")
@@ -924,7 +920,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		ctx,
 		c.configSetTopic,
 		c.dkgAddress,
-		logpoller.Confirmations(c.finalityDepth),
+		evmtypes.Confirmations(c.finalityDepth),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest dkg ConfigSet by sig with confs")

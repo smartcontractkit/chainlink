@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -33,13 +34,13 @@ func TestJobKVStore(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 
 	jobID := int32(1337)
-	kvStore := job.NewKVStore(jobID, db, config.Database(), lggr)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, cltest.NewKeyStore(t, db), config.Database())
+	kvStore := job.NewKVStore(jobID, db, lggr)
+	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, cltest.NewKeyStore(t, db))
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
 	jb.ID = jobID
-	require.NoError(t, jobORM.CreateJob(&jb))
+	require.NoError(t, jobORM.CreateJob(testutils.Context(t), &jb))
 
 	var values = [][]byte{
 		[]byte("Hello"),
@@ -72,5 +73,5 @@ func TestJobKVStore(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, td2, fetchedBytes)
 
-	require.NoError(t, jobORM.DeleteJob(jobID))
+	require.NoError(t, jobORM.DeleteJob(ctx, jobID))
 }

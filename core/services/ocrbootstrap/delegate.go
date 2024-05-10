@@ -7,12 +7,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,11 +21,12 @@ import (
 
 type RelayGetter interface {
 	Get(types.RelayID) (loop.Relayer, error)
+	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
 }
 
 // Delegate creates Bootstrap jobs
 type Delegate struct {
-	db          *sqlx.DB
+	ds          sqlutil.DataSource
 	jobORM      job.ORM
 	peerWrapper *ocrcommon.SingletonPeerWrapper
 	ocr2Cfg     validate.OCR2Config
@@ -48,7 +47,7 @@ type relayConfig struct {
 
 // NewDelegateBootstrap creates a new Delegate
 func NewDelegateBootstrap(
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	jobORM job.ORM,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
@@ -57,7 +56,7 @@ func NewDelegateBootstrap(
 	relayers RelayGetter,
 ) *Delegate {
 	return &Delegate{
-		db:          db,
+		ds:          ds,
 		jobORM:      jobORM,
 		peerWrapper: peerWrapper,
 		lggr:        logger.Sugared(lggr),
@@ -163,14 +162,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		"ContractTransmitterTransmitTimeout", lc.ContractTransmitterTransmitTimeout,
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr.Named("OCRBootstrap"), d.ocr2Cfg.TraceLogging(), func(ctx context.Context, msg string) {
+		logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
-		BootstrapperFactory:   d.peerWrapper.Peer2,
-		ContractConfigTracker: configProvider.ContractConfigTracker(),
-		Database:              NewDB(d.db.DB, spec.ID, lggr),
-		LocalConfig:           lc,
-		Logger: commonlogger.NewOCRWrapper(lggr.Named("OCRBootstrap"), d.ocr2Cfg.TraceLogging(), func(msg string) {
-			logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
-		}),
+		BootstrapperFactory:    d.peerWrapper.Peer2,
+		ContractConfigTracker:  configProvider.ContractConfigTracker(),
+		Database:               NewDB(d.ds, spec.ID, lggr),
+		LocalConfig:            lc,
+		Logger:                 ocrLogger,
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}
 	lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
@@ -178,7 +178,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 	}
-	return []job.ServiceCtx{configProvider, job.NewServiceAdapter(bootstrapper)}, nil
+	return []job.ServiceCtx{configProvider, ocrLogger, job.NewServiceAdapter(bootstrapper)}, nil
 }
 
 // AfterJobCreated satisfies the job.Delegate interface.

@@ -75,7 +75,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 
-	db := app.GetSqlxDB()
+	db := app.GetDB()
 	borm := bridges.NewORM(db)
 
 	eiFoo := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{

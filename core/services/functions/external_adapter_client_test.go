@@ -215,7 +215,6 @@ func TestRunComputation_ContextRespected(t *testing.T) {
 }
 
 func TestRunComputationRetrial(t *testing.T) {
-
 	t.Run("OK-retry_succeeds_after_one_failure", func(t *testing.T) {
 		counter := 0
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

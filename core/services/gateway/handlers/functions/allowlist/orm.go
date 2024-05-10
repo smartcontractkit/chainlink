@@ -67,6 +67,11 @@ func (o *orm) GetAllowedSenders(ctx context.Context, offset, limit uint) ([]comm
 }
 
 func (o *orm) CreateAllowedSenders(ctx context.Context, allowedSenders []common.Address) error {
+	if len(allowedSenders) == 0 {
+		o.lggr.Debugf("empty allowed senders list: %v for routerContractAddress: %s. skipping...", allowedSenders, o.routerContractAddress)
+		return nil
+	}
+
 	var valuesPlaceholder []string
 	for i := 1; i <= len(allowedSenders)*2; i += 2 {
 		valuesPlaceholder = append(valuesPlaceholder, fmt.Sprintf("($%d, $%d)", i, i+1))

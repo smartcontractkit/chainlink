@@ -144,7 +144,7 @@ func TestORM_TestCachedResponse(t *testing.T) {
 	orm := bridges.NewORM(db)
 
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(ctx, nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 
 	_, err = orm.GetCachedResponse(ctx, "dot", specID, 1*time.Second)

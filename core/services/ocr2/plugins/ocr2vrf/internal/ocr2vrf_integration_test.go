@@ -32,11 +32,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	dkg_wrapper "github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/dkg"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/load_test_beacon_consumer"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon"
-	"github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_beacon_consumer"
-	vrf_wrapper "github.com/smartcontractkit/chainlink-vrf/archive/gethwrappers/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -44,6 +39,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	dkg_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/load_test_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -713,7 +713,6 @@ linkEthFeedAddress     	= "%s"
 	// First arg is the request ID, which starts at zero, second is the index into
 	// the random words.
 	gomega.NewWithT(t).Eventually(func() bool {
-
 		var errs []error
 		rw1, err2 := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(0))
 		t.Logf("TestRedeemRandomness 1st word err: %+v", err2)

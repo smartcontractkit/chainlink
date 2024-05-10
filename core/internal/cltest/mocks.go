@@ -410,7 +410,6 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 	ch.On("Config").Return(scopedCfg)
 
 	return NewLegacyChainsWithChain(ch, cfg)
-
 }
 
 func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig, txm txmgr.TxManager) legacyevm.LegacyChainContainer {

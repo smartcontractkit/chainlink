@@ -12,7 +12,6 @@ type AutomationServices interface {
 }
 
 func New(keyring ocrtypes.OnchainKeyring) (AutomationServices, error) {
-
 	services := new(automationServices)
 
 	services.keyring = NewOnchainKeyringV3Wrapper(keyring)
