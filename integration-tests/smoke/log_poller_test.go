@@ -3,7 +3,6 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap/zapcore"
 	"math/big"
 	"testing"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"

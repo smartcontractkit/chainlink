@@ -2,7 +2,6 @@ package smoke
 
 import (
 	"fmt"
-	"go.uber.org/zap/zapcore"
 	"math/big"
 	"strings"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
