@@ -926,7 +926,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			// Create 4
 			th.Backend.Commit()
 			// Mark block 1 as finalized
-			//markBlockAsFinalized(t, th, 1)
+			if tt.finalityTag {
+				finalizeThroughBlock(t, th, 1)
+			}
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(5), newStart)
 			latest, err = th.ORM.SelectLatestBlock(testutils.Context(t))
@@ -961,7 +963,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			// Create 5
 			th.Backend.Commit()
 			// Mark block 2 as finalized
-			//markBlockAsFinalized(t, th, 3)
+			if tt.finalityTag {
+				finalizeThroughBlock(t, th, 3)
+			}
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(7), newStart)
@@ -991,7 +995,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 				th.Backend.Commit()
 			}
 			// Mark block 7 as finalized
-			//markBlockAsFinalized(t, th, 7)
+			if tt.finalityTag {
+				finalizeThroughBlock(t, th, 7)
+			}
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(11), newStart)
@@ -1082,51 +1088,50 @@ func TestLogPoller_ReorgDeeperThanFinality(t *testing.T) {
 			require.NoError(t, err)
 
 			// Test scenario
-			// Chain gen <- 1 <- 2 <- 3 (finalized) <- 4 (L1_1)
+			// Chain gen <- 1 <- 2 <- ... <- 32 (finalized) <- 33 (L1_1)
+			finalizeThroughBlock(t, th, 32)
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 			require.NoError(t, err)
 			th.Backend.Commit()
-			th.Backend.Commit()
-			th.Backend.Commit()
-			//markBlockAsFinalized(t, th, 3)
 
 			// Polling should get us the L1 log.
 			firstPoll := th.PollAndSaveLogs(testutils.Context(t), 1)
-			assert.Equal(t, int64(5), firstPoll)
+			assert.Equal(t, int64(34), firstPoll)
 			assert.NoError(t, th.LogPoller.Healthy())
 
 			// Fork deeper than finality depth
-			// Chain gen <- 1 <- 2 <- 3 (finalized) <- 4 (L1_1)
-			//              \  2' <- 3' <- 4' <- 5' <- 6' (finalized) <- 7' <- 8' <- 9' <- 10' (L1_2)
-			lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
+			// Chain gen <- 1 <- 2 <- 3 <- ... <- 32 (finalized) <- 33 (L1_1)
+			//              \      <- 3' <- ... <- 31' <- 32' (finalized) <- 33' <- 34' (L1_2)
+			lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(2))
 			require.NoError(t, err)
 			require.NoError(t, th.Backend.Fork(lca.Hash()))
 
-			// Create 2'
-			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
+			// Create 3'
+			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(3)})
 			require.NoError(t, err)
 			th.Backend.Commit()
 
-			// Create 3-10
-			for i := 3; i < 10; i++ {
+			finalizeThroughBlock(t, th, 32)
+
+			// Create 33' - 34'
+			for i := 33; i < 35; i++ {
 				_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 				require.NoError(t, err)
 				th.Backend.Commit()
 			}
-			//markBlockAsFinalized(t, th, 6)
 
 			secondPoll := th.PollAndSaveLogs(testutils.Context(t), firstPoll)
 			assert.Equal(t, firstPoll, secondPoll)
 			assert.Equal(t, logpoller.ErrFinalityViolated, th.LogPoller.Healthy())
 
-			// Manually remove latest block from the log poller to bring it back to life
+			// Manually remove re-org'd chain from the log poller to bring it back to life
 			// LogPoller should be healthy again after first poll
-			// Chain gen <- 1
-			//              \  2' <- 3' <- 4' <- 5' <- 6' (finalized) <- 7' <- 8' <- 9' <- 10' (L1_2)
-			require.NoError(t, th.ORM.DeleteLogsAndBlocksAfter(testutils.Context(t), 2))
+			// Chain gen <- 1 <- 2
+			//                    \ <- 3' <- 4' <- 5' <- 32' (finalized) <- 33' <- 34' (L1_2)
+			require.NoError(t, th.ORM.DeleteLogsAndBlocksAfter(testutils.Context(t), 3))
 			// Poll from latest
 			recoveryPoll := th.PollAndSaveLogs(testutils.Context(t), 1)
-			assert.Equal(t, int64(10), recoveryPoll)
+			assert.Equal(t, int64(35), recoveryPoll)
 			assert.NoError(t, th.LogPoller.Healthy())
 		})
 	}
@@ -1732,7 +1737,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 			name:                   "using finality from chain",
 			useFinalityTag:         true,
 			finalityDepth:          0,
-			expectedFinalizedBlock: 1,
+			expectedFinalizedBlock: 32,
 		},
 	}
 	for _, tt := range tests {
@@ -1752,6 +1757,10 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 			// Create a couple of blocks
 			for i := 0; i < numberOfBlocks-1; i++ {
 				th.Backend.Commit()
+			}
+
+			if tt.useFinalityTag {
+				finalizeThroughBlock(t, th, int64(tt.expectedFinalizedBlock))
 			}
 
 			th.PollAndSaveLogs(ctx, 1)
@@ -1819,10 +1828,13 @@ func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// Emit blocks to cover finality depth, because backup always backfill up to the one block before last finalized
-			for i := 0; i < int(tt.finalityDepth)+1; i++ {
-				th.Backend.Commit()
-				//markBlockAsFinalizedByHash(t, th, bh)
+			// Finalize current block, because backup always backfill up to one block before last finalized
+			if tt.finalityTag {
+				finalizeThroughBlock(t, th, currentBlock)
+			} else {
+				for i := 0; i < int(tt.finalityDepth)+1; i++ {
+					th.Backend.Commit()
+				}
 			}
 
 			// LogPoller should backfill entire history
@@ -1915,12 +1927,16 @@ func Test_PruneOldBlocks(t *testing.T) {
 	}
 }
 
-// Commits new blocks until blockNumber is finalized. This requires committing until the
-// latest block number reaches the next epoch boundary ( where blockNumber % 32 == 0 )
+// Commits new blocks until blockNumber is finalized. This requires committing all of
+// the rest of the blocks in the epoch blockNumber belongs to, where each new epoch
+// starts on a 32-block boundary (blockNumber % 32 == 0)
 func finalizeThroughBlock(t *testing.T, th TestHarness, blockNumber int64) {
 	var currentBlock common.Hash
 	ctx := testutils.Context(t)
-	targetBlockNumber := 32 * (blockNumber/32 + 1)
+	targetBlockNumber := blockNumber
+	if targetBlockNumber%32 != 0 {
+		targetBlockNumber = 32 * (blockNumber/32 + 1)
+	}
 	h, err := th.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
 	for n := h.Number.Int64(); n < targetBlockNumber; n++ {
