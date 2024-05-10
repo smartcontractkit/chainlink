@@ -7,11 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -391,7 +389,6 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 
 func TestMigrate(t *testing.T) {
 	ctx := testutils.Context(t)
-	lggr, observedLogs := logger.TestLoggerObserved(t, zap.InfoLevel)
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
@@ -403,11 +400,7 @@ func TestMigrate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(100), ver)
 
-	err = migrate.Migrate(ctx, db.DB, uint16(freeport.GetOne(t)), lggr)
-	logs := observedLogs.TakeAll()
-	require.Len(t, logs, 2)
-	require.Contains(t, logs[0].Message, "Starting InBackupHealthReport")
-	require.Contains(t, logs[1].Message, "InBackupHealthReport shutdown complete")
+	err = migrate.Migrate(ctx, db.DB)
 	require.NoError(t, err)
 
 	err = migrate.Rollback(ctx, db.DB, null.IntFrom(99))

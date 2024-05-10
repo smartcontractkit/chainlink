@@ -34,38 +34,38 @@ type Checker interface {
 	Close() error
 }
 
-type InBackupHealthReport struct {
+type StartUpHealthReport struct {
 	server http.Server
 	lggr   logger.Logger
 	mux    *http.ServeMux
 }
 
-func (i *InBackupHealthReport) Stop() {
+func (i *StartUpHealthReport) Stop() {
 	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), time.Second)
 	defer shutdownRelease()
 	if err := i.server.Shutdown(shutdownCtx); err != nil {
-		i.lggr.Errorf("InBackupHealthReport shutdown error: %v", err)
+		i.lggr.Errorf("StartUpHealthReport shutdown error: %v", err)
 	}
-	i.lggr.Info("InBackupHealthReport shutdown complete")
+	i.lggr.Info("StartUpHealthReport shutdown complete")
 }
 
-func (i *InBackupHealthReport) Start() {
+func (i *StartUpHealthReport) Start() {
 	go func() {
 		i.mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 		})
-		i.lggr.Info("Starting InBackupHealthReport")
+		i.lggr.Info("Starting StartUpHealthReport")
 		if err := i.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			i.lggr.Errorf("InBackupHealthReport server error: %v", err)
+			i.lggr.Errorf("StartUpHealthReport server error: %v", err)
 		}
 	}()
 }
 
-// NewInBackupHealthReport creates a new InBackupHealthReport that will serve the /health endpoint, useful for
+// NewStartUpHealthReport creates a new StartUpHealthReport that will serve the /health endpoint, useful for
 // preventing shutdowns due to health-checks when running long backup tasks or migrations
-func NewInBackupHealthReport(port uint16, lggr logger.Logger) *InBackupHealthReport {
+func NewStartUpHealthReport(port uint16, lggr logger.Logger) *StartUpHealthReport {
 	mux := http.NewServeMux()
-	return &InBackupHealthReport{
+	return &StartUpHealthReport{
 		lggr:   lggr,
 		mux:    mux,
 		server: http.Server{Addr: fmt.Sprintf(":%d", port), ReadHeaderTimeout: time.Second * 5, Handler: mux},

@@ -15,8 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
@@ -101,15 +99,12 @@ func ensureMigrated(ctx context.Context, db *sql.DB) error {
 	})
 }
 
-func Migrate(ctx context.Context, db *sql.DB, healthReportPort uint16, lggr logger.Logger) error {
+func Migrate(ctx context.Context, db *sql.DB) error {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return err
 	}
 	// WithAllowMissing is necessary when upgrading from 0.10.14 since it
 	// includes out-of-order migrations
-	ibhr := services.NewInBackupHealthReport(healthReportPort, lggr)
-	ibhr.Start()
-	defer ibhr.Stop()
 	return goose.Up(db, MIGRATIONS_DIR, goose.WithAllowMissing())
 }
 

@@ -13,13 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
-func TestNewInBackupHealthReport(t *testing.T) {
+func TestNewStartUpHealthReport(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-	ibhr := services.NewInBackupHealthReport(1234, lggr)
+	ibhr := services.NewStartUpHealthReport(1234, lggr)
 
 	ibhr.Start()
 	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
-	require.Equal(t, "Starting InBackupHealthReport", observed.TakeAll()[0].Message)
+	require.Equal(t, "Starting StartUpHealthReport", observed.TakeAll()[0].Message)
 
 	req, err := http.NewRequestWithContext(tests.Context(t), "GET", "http://localhost:1234/health", nil)
 	require.NoError(t, err)
@@ -29,5 +29,5 @@ func TestNewInBackupHealthReport(t *testing.T) {
 
 	ibhr.Stop()
 	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
-	require.Equal(t, "InBackupHealthReport shutdown complete", observed.TakeAll()[0].Message)
+	require.Equal(t, "StartUpHealthReport shutdown complete", observed.TakeAll()[0].Message)
 }
