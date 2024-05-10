@@ -561,7 +561,7 @@ Distribute your funds across multiple private keys and update your configuration
 `
 
 // GetAndAssertCorrectConcurrency checks Seth configuration for the number of ephemeral keys or static keys (depending on Seth configuration) and makes sure that
-// the number is at least minConcurrency. If the number is less than minConcurrency, it returns an error. Root key is always excuded from the count.
+// the number is at least minConcurrency. If the number is less than minConcurrency, it returns an error. The root key is always excluded from the count.
 func GetAndAssertCorrectConcurrency(client *seth.Client, minConcurrency int) (int, error) {
 	concurrency := client.Cfg.GetMaxConcurrency()
 

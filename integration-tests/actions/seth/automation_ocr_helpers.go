@@ -1,6 +1,5 @@
 package actions_seth
 
-//revive:disable:dot-imports
 import (
 	"math"
 	"math/big"

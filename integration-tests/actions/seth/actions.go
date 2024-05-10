@@ -819,7 +819,10 @@ func GetLatestFinalizedBlockHeader(ctx context.Context, client *seth.Client, net
 	return client.Client.HeaderByNumber(ctx, big.NewInt(int64(finalizedBlockNumber)))
 }
 
-// SendLinkFundsToDeploymentAddresses deploys MultiCall contract to send LINK to Seth's ephemeral keys
+// SendLinkFundsToDeploymentAddresses sends LINK token to all addresses, but the root one, from the root address. It uses
+// Multicall contract to batch all transfers in a single transaction. It also checks if the funds were transferred correctly.
+// It's primary use case is to fund addresses that will be used for Upkeep registration (as that requires LINK balance) during
+// Automation/Keeper test setup.
 func SendLinkFundsToDeploymentAddresses(
 	chainClient *seth.Client,
 	concurrency,
@@ -995,7 +998,9 @@ func GetChainClientWithConfigFunction(config ctf_config.SethConfig, network bloc
 	return chainClient, nil
 }
 
-func GetReportStalenessData(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpkeeps, succesfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
+// GenerateUpkeepReport generates a report of performed, successful, reverted and stale upkeeps for a given registry contract based on transaction logs. In case of test failure it can help us
+// to triage the issue by providing more context.
+func GenerateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpkeeps, successfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
 	registryLogs := []gethtypes.Log{}
 	l := logging.GetTestLogger(t)
 
@@ -1066,7 +1071,7 @@ func GetReportStalenessData(t *testing.T, chainClient *seth.Client, startBlock, 
 			if !parsedLog.Success {
 				revertedUpkeeps++
 			} else {
-				succesfulUpkeeps++
+				successfulUpkeeps++
 			}
 		} else if eventDetails.Name == "StaleUpkeepReport" {
 			staleUpkeeps++
@@ -1082,7 +1087,7 @@ func GetStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClien
 			endBlock, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get end block")
 
-			total, ok, reverted, stale, err := GetReportStalenessData(t, chainClient, big.NewInt(int64(startBlock)), big.NewInt(int64(endBlock)), registry, registryVersion)
+			total, ok, reverted, stale, err := GenerateUpkeepReport(t, chainClient, big.NewInt(int64(startBlock)), big.NewInt(int64(endBlock)), registry, registryVersion)
 			require.NoError(t, err, "Failed to get staleness data")
 			if stale > 0 || reverted > 0 {
 				logger.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
