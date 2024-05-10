@@ -67,15 +67,15 @@ import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
  * *****************************************************************************
  * @dev SECURITY CONSIDERATIONS
  *
- * @dev A method with the ability to call your fulfillRandomness method directly
+ * @dev A method with the ability to call your fulfillRandomWords method directly
  * @dev could spoof a VRF response with any random value, so it's critical that
  * @dev it cannot be directly called by anything other than this base contract
- * @dev (specifically, by the VRFConsumerBaseV2Plus.rawFulfillRandomness method).
+ * @dev (specifically, by the VRFConsumerBaseV2Plus.rawFulfillRandomWords method).
  *
  * @dev For your users to trust that your contract's random behavior is free
  * @dev from malicious interference, it's best if you can write it so that all
  * @dev behaviors implied by a VRF response are executed *during* your
- * @dev fulfillRandomness method. If your contract must store the response (or
+ * @dev fulfillRandomWords method. If your contract must store the response (or
  * @dev anything derived from it) and use it later, you must ensure that any
  * @dev user-significant behavior which depends on that stored value cannot be
  * @dev manipulated by a subsequent VRF request.
@@ -118,7 +118,7 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   }
 
   /**
-   * @notice fulfillRandomness handles the VRF response. Your contract must
+   * @notice fulfillRandomWords handles the VRF response. Your contract must
    * @notice implement it. See "SECURITY CONSIDERATIONS" above for important
    * @notice principles to keep in mind when implementing your fulfillRandomness
    * @notice method.
@@ -126,7 +126,7 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
    * @dev VRFConsumerBaseV2Plus expects its subcontracts to have a method with this
    * @dev signature, and will call it once it has verified the proof
    * @dev associated with the randomness. (It is triggered via a call to
-   * @dev rawFulfillRandomness, below.)
+   * @dev rawfulfillRandomWords, below.)
    *
    * @param requestId The Id initially returned by requestRandomness
    * @param randomWords the VRF output expanded to the requested number of words
@@ -134,8 +134,8 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal virtual;
 
-  // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF
-  // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
+  // rawfulfillRandomWords is called by VRFCoordinator when it receives a valid VRF
+  // proof. rawfulfillRandomWords then calls fulfillRandomWords, after validating
   // the origin of the call
   function rawFulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) external {
     if (msg.sender != address(s_vrfCoordinator)) {
