@@ -1675,7 +1675,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 	h, err := th.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, h)
-	// th.Client.Blockchain().SetFinalized(h)
+	finalizeThroughBlock(t, th, h.Number.Int64())
 
 	// Generate next blocks, not marked as finalized
 	for i := 0; i < secondBatchLen; i++ {
@@ -1685,7 +1685,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 	}
 
 	currentBlock := th.PollAndSaveLogs(ctx, 1)
-	require.Equal(t, int(currentBlock), firstBatchLen+secondBatchLen+2)
+	require.Equal(t, 32+secondBatchLen+1, int(currentBlock))
 
 	finalizedLogs, err := th.LogPoller.LogsDataWordGreaterThan(
 		ctx,
