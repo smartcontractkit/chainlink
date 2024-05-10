@@ -2,7 +2,6 @@ package smoke
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"go.uber.org/zap/zapcore"
 	"math/big"
 	"strconv"
@@ -20,6 +19,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
