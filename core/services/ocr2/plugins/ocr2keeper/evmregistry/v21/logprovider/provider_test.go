@@ -373,7 +373,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		payloads, err := provider.GetLatestPayloads(ctx)
+		_, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 
 		err = provider.ReadLogs(ctx, upkeepIDs...)
@@ -390,7 +390,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10000, len(bufV1.queues["4"].logs))
 		assert.Equal(t, 10000, len(bufV1.queues["5"].logs))
 
-		payloads, err = provider.GetLatestPayloads(ctx)
+		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 
 		// we dequeue a maximum of 100 logs
@@ -470,7 +470,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		payloads, err := provider.GetLatestPayloads(ctx)
+		_, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 
 		err = provider.ReadLogs(ctx, upkeepIDs...)
@@ -486,7 +486,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
 		assert.Equal(t, 10000, len(bufV1.queues["150"].logs))
 
-		payloads, err = provider.GetLatestPayloads(ctx)
+		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 2, provider.iterations)
@@ -597,7 +597,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		payloads, err := provider.GetLatestPayloads(ctx)
+		_, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 
 		err = provider.ReadLogs(ctx, upkeepIDs...)
@@ -615,7 +615,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
 		assert.Equal(t, 10000, len(bufV1.queues["150"].logs))
 
-		payloads, err = provider.GetLatestPayloads(ctx)
+		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 2, provider.iterations)
