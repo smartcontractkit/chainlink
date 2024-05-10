@@ -991,7 +991,7 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Get ProjectSerum Version
         id: psversion
-        uses: smartcontractkit/chainlink-solana/.github/actions/projectserum_version@4b971869e26b79c7ce3fb7c98005cc2e3f350915 # stable action on Oct 12 2022
+        uses: smartcontractkit/chainlink-solana/.github/actions/projectserum_version@3a7c0d9d22e312c9b08ceea9f4ba952a404b3d9c # stable action on Oct 12 2022
 
   solana-test-image-exists:
     environment: integration
@@ -1057,7 +1057,7 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
         if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@21675b3a7dcdff8e790391708d4763020cace21e # stable action on December 18 2023
+        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@3a7c0d9d22e312c9b08ceea9f4ba952a404b3d9c # stable action on December 18 2023
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
 
