@@ -33,7 +33,6 @@ import (
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
-	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 //go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
@@ -553,8 +552,6 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		}
 	}
 
-	specIsWF := isWFSpec(args.Spec)
-
 	// Validation for existing job proposals
 	if err == nil {
 		// Ensure that if the job proposal exists, that it belongs to the feeds
@@ -570,11 +567,8 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 			return 0, errors.Wrap(err, "failed to check existence of spec")
 		}
 
-		// workflow specs are auto approved on the happy path. we want to guard against
-		// duplicate proposals for successful workflow auto approval, but allow re-proposals
-		// to accommodate transient failures of auto approval. All other cases require
-		// manually approval and we don't allow duplicate proposals.
-		if (exists && !specIsWF) || (specIsWF && existing.Status == JobProposalStatusPending) {
+		if exists {
+			// note: CLO auto-increments the version number on re-proposal, so this should never happen
 			return 0, errors.New("proposed job spec version already exists")
 		}
 	}
@@ -619,7 +613,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		return 0, err
 	}
 	// auto approve workflow specs
-	if specIsWF {
+	if isWFSpec(args.Spec) {
 		promWorkflowRequests.Inc()
 		err := s.ApproveSpec(ctx, id, true)
 		if err != nil {
@@ -642,9 +636,12 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 }
 
 func isWFSpec(spec string) bool {
-	var s presenters.WorkflowSpec
+	var s job.WorkflowSpec
 	err := toml.Unmarshal([]byte(spec), &s)
-	return err == nil
+	if err != nil {
+		return false
+	}
+	return s.Validate() == nil
 }
 
 // GetJobProposal gets a job proposal by id.
