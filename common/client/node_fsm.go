@@ -156,8 +156,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 	return n.latestChainInfo.BlockNumber < observedByCaller.BlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
 }
 
-// StateAndLatestChainInfo returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
-func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatestChainInfo() (nodeState, ChainInfo) {
+// StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
+func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, ChainInfo) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.recalculateState(), n.latestChainInfo

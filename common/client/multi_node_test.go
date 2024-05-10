@@ -526,7 +526,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			for _, params := range tc.NodeParams {
 				node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-				node.On("StateAndLatestChainInfo").Return(params.State, params.LatestChainInfo)
+				node.On("StateAndLatest").Return(params.State, params.LatestChainInfo)
 				node.On("HighestChainInfo").Return(params.HighestChainInfo)
 				mn.nodes = append(mn.nodes, node)
 			}

@@ -163,12 +163,12 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) State() nodeState {
 	return r0
 }
 
-// StateAndLatestChainInfo provides a mock function with given fields:
-func (_m *mockNode[CHAIN_ID, HEAD, RPC]) StateAndLatestChainInfo() (nodeState, ChainInfo) {
+// StateAndLatest provides a mock function with given fields:
+func (_m *mockNode[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, ChainInfo) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for StateAndLatestChainInfo")
+		panic("no return value specified for StateAndLatest")
 	}
 
 	var r0 nodeState

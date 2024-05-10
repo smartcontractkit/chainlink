@@ -384,7 +384,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 		node.declareAlive()
 		tests.AssertEventually(t, func() bool {
-			state, chainInfo := node.StateAndLatestChainInfo()
+			state, chainInfo := node.StateAndLatest()
 			return state == nodeStateAlive && chainInfo.BlockNumber == expectedBlockNumber && bigmath.Equal(chainInfo.TotalDifficulty, expectedDiff) &&
 				// finality tag is enabled, so must not update finalized block number
 				chainInfo.FinalizedBlockNumber == 0

@@ -24,13 +24,13 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		node := newMockNode[types.ID, Head, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
-			node.On("StateAndLatestChainInfo").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: int64(-1)})
+			node.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: int64(-1)})
 		} else if i == 1 {
 			// second node is alive, LatestReceivedBlockNumber = 1
-			node.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(1)})
+			node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(1)})
 		} else {
 			// third node is alive, LatestReceivedBlockNumber = 2 (best node)
-			node.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(2)})
+			node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(2)})
 		}
 		node.On("Order").Maybe().Return(int32(1))
 		nodes = append(nodes, node)
@@ -42,7 +42,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 	t.Run("stick to the same node", func(t *testing.T) {
 		node := newMockNode[types.ID, Head, nodeClient](t)
 		// fourth node is alive, LatestReceivedBlockNumber = 2 (same as 3rd)
-		node.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(2)})
+		node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(2)})
 		node.On("Order").Return(int32(1))
 		nodes = append(nodes, node)
 
@@ -53,7 +53,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 	t.Run("another best node", func(t *testing.T) {
 		node := newMockNode[types.ID, Head, nodeClient](t)
 		// fifth node is alive, LatestReceivedBlockNumber = 3 (better than 3rd and 4th)
-		node.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
+		node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
 		node.On("Order").Return(int32(1))
 		nodes = append(nodes, node)
 
@@ -63,10 +63,10 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 
 	t.Run("nodes never update latest block number", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(-1)})
+		node1.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(-1)})
 		node1.On("Order").Return(int32(1))
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(-1)})
+		node2.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(-1)})
 		node2.On("Order").Return(int32(1))
 		selector := newNodeSelector(NodeSelectionModeHighestHead, []Node[types.ID, Head, nodeClient]{node1, node2})
 		assert.Same(t, node1, selector.Select())
@@ -83,10 +83,10 @@ func TestHighestHeadNodeSelector_None(t *testing.T) {
 		node := newMockNode[types.ID, Head, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
-			node.On("StateAndLatestChainInfo").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: int64(-1)})
+			node.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: int64(-1)})
 		} else {
 			// others are unreachable
-			node.On("StateAndLatestChainInfo").Return(nodeStateUnreachable, ChainInfo{BlockNumber: int64(-1)})
+			node.On("StateAndLatest").Return(nodeStateUnreachable, ChainInfo{BlockNumber: int64(-1)})
 		}
 		nodes = append(nodes, node)
 	}
@@ -104,7 +104,7 @@ func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
 	t.Run("same head and order", func(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			node := newMockNode[types.ID, Head, nodeClient](t)
-			node.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(1)})
+			node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(1)})
 			node.On("Order").Return(int32(2))
 			nodes = append(nodes, node)
 		}
@@ -115,15 +115,15 @@ func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
 
 	t.Run("same head but different order", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
+		node1.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
 		node1.On("Order").Return(int32(3))
 
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
+		node2.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
 		node2.On("Order").Return(int32(1))
 
 		node3 := newMockNode[types.ID, Head, nodeClient](t)
-		node3.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
+		node3.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
 		node3.On("Order").Return(int32(2))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3}
@@ -134,15 +134,15 @@ func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
 
 	t.Run("different head but same order", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(1)})
+		node1.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(1)})
 		node1.On("Order").Maybe().Return(int32(3))
 
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(2)})
+		node2.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(2)})
 		node2.On("Order").Maybe().Return(int32(3))
 
 		node3 := newMockNode[types.ID, Head, nodeClient](t)
-		node3.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
+		node3.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(3)})
 		node3.On("Order").Return(int32(3))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3}
@@ -153,19 +153,19 @@ func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
 
 	t.Run("different head and different order", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(10)})
+		node1.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(10)})
 		node1.On("Order").Maybe().Return(int32(3))
 
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(11)})
+		node2.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(11)})
 		node2.On("Order").Maybe().Return(int32(4))
 
 		node3 := newMockNode[types.ID, Head, nodeClient](t)
-		node3.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(11)})
+		node3.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(11)})
 		node3.On("Order").Maybe().Return(int32(3))
 
 		node4 := newMockNode[types.ID, Head, nodeClient](t)
-		node4.On("StateAndLatestChainInfo").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(10)})
+		node4.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(10)})
 		node4.On("Order").Maybe().Return(int32(1))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3, node4}

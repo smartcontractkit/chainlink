@@ -66,8 +66,8 @@ type Node[
 ] interface {
 	// State returns nodeState
 	State() nodeState
-	// StateAndLatestChainInfo returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
-	StateAndLatestChainInfo() (nodeState, ChainInfo)
+	// StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
+	StateAndLatest() (nodeState, ChainInfo)
 	// HighestChainInfo - returns highest ChainInfo ever observed by the Node
 	HighestChainInfo() ChainInfo
 	SetPoolChainInfoProvider(PoolChainInfoProvider)

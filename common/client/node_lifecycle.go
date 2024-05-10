@@ -182,7 +182,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				n.declareUnreachable()
 				return
 			}
-			_, ci := n.StateAndLatestChainInfo()
+			_, ci := n.StateAndLatest()
 			if outOfSync, liveNodes := n.syncStatus(ci.BlockNumber, ci.TotalDifficulty); outOfSync {
 				// note: there must be another live node for us to be out of sync
 				lggr.Errorw("RPC endpoint has fallen behind", "blockNumber", ci.BlockNumber, "totalDifficulty", ci.TotalDifficulty, "nodeState", n.getCachedState())

@@ -27,7 +27,7 @@ func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID
 	var aliveNodes []Node[CHAIN_ID, HEAD, RPC]
 
 	for _, n := range s {
-		state, currentChainInfo := n.StateAndLatestChainInfo()
+		state, currentChainInfo := n.StateAndLatest()
 		if state != nodeStateAlive {
 			continue
 		}

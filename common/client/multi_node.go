@@ -272,7 +272,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		TotalDifficulty: big.NewInt(0),
 	}
 	for _, n := range c.nodes {
-		if s, nodeChainInfo := n.StateAndLatestChainInfo(); s == nodeStateAlive {
+		if s, nodeChainInfo := n.StateAndLatest(); s == nodeStateAlive {
 			nLiveNodes++
 			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
 			ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
