@@ -373,7 +373,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		err := provider.ReadLogs(ctx, upkeepIDs...)
+		payloads, err := provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		err = provider.ReadLogs(ctx, upkeepIDs...)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 5, provider.bufferV1.NumOfUpkeeps())
@@ -387,7 +390,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10000, len(bufV1.queues["4"].logs))
 		assert.Equal(t, 10000, len(bufV1.queues["5"].logs))
 
-		payloads, err := provider.GetLatestPayloads(ctx)
+		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 
 		// we dequeue a maximum of 100 logs
@@ -467,7 +470,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		err := provider.ReadLogs(ctx, upkeepIDs...)
+		payloads, err := provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		err = provider.ReadLogs(ctx, upkeepIDs...)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 200, provider.bufferV1.NumOfUpkeeps())
@@ -480,7 +486,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
 		assert.Equal(t, 10000, len(bufV1.queues["150"].logs))
 
-		payloads, err := provider.GetLatestPayloads(ctx)
+		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 2, provider.iterations)
@@ -591,7 +597,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		err := provider.ReadLogs(ctx, upkeepIDs...)
+		payloads, err := provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		err = provider.ReadLogs(ctx, upkeepIDs...)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 200, provider.bufferV1.NumOfUpkeeps())
@@ -606,7 +615,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
 		assert.Equal(t, 10000, len(bufV1.queues["150"].logs))
 
-		payloads, err := provider.GetLatestPayloads(ctx)
+		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 2, provider.iterations)
