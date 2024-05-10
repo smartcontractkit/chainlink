@@ -225,6 +225,18 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 			lookback: 20,
 			results:  []logpoller.Log{},
 		},
+		{
+			name: "with upkeep selector",
+			logsInBuffer: map[*big.Int][]logpoller.Log{
+				big.NewInt(1): {
+					{BlockNumber: 12, TxHash: common.HexToHash("0x12"), LogIndex: 0},
+					{BlockNumber: 14, TxHash: common.HexToHash("0x15"), LogIndex: 1},
+				},
+			},
+			args:     newDequeueArgs(10, 3, 5, 10, func(id *big.Int) bool { return false }),
+			lookback: 20,
+			results:  []logpoller.Log{},
+		},
 	}
 
 	for _, tc := range tests {
@@ -234,7 +246,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
 			}
-			start, end := getBlockWindow(tc.args.block, tc.args.blockRate)
+			start, end, _ := getBlockWindow(tc.args.block, tc.args.blockRate)
 			results, remaining := buf.Dequeue(start, end, tc.args.upkeepLimit, tc.args.maxResults, tc.args.upkeepSelector)
 			require.Equal(t, len(tc.results), len(results))
 			require.Equal(t, tc.remaining, remaining)
@@ -593,61 +605,69 @@ func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
 
 func TestLogEventBufferV1_BlockWindow(t *testing.T) {
 	tests := []struct {
-		name      string
-		block     int64
-		blockRate int
-		wantStart int64
-		wantEnd   int64
+		name                 string
+		block                int64
+		blockRate            int
+		wantStart            int64
+		wantEnd              int64
+		wantIsWindowComplete bool
 	}{
 		{
-			name:      "block 0, blockRate 1",
-			block:     0,
-			blockRate: 1,
-			wantStart: 0,
-			wantEnd:   0,
+			name:                 "block 0, blockRate 1",
+			block:                0,
+			blockRate:            1,
+			wantStart:            0,
+			wantEnd:              0,
+			wantIsWindowComplete: true,
 		},
 		{
-			name:      "block 81, blockRate 1",
-			block:     81,
-			blockRate: 1,
-			wantStart: 81,
-			wantEnd:   81,
+			name:                 "block 81, blockRate 1",
+			block:                81,
+			blockRate:            1,
+			wantStart:            81,
+			wantEnd:              81,
+			wantIsWindowComplete: true,
 		},
 		{
-			name:      "block 0, blockRate 4",
-			block:     0,
-			blockRate: 4,
-			wantStart: 0,
-			wantEnd:   3,
+			name:                 "block 0, blockRate 4",
+			block:                0,
+			blockRate:            4,
+			wantStart:            0,
+			wantEnd:              3,
+			wantIsWindowComplete: false,
 		},
 		{
-			name:      "block 81, blockRate 4",
-			block:     81,
-			blockRate: 4,
-			wantStart: 80,
-			wantEnd:   83,
+			name:                 "block 81, blockRate 4",
+			block:                81,
+			blockRate:            4,
+			wantStart:            80,
+			wantEnd:              83,
+			wantIsWindowComplete: false,
 		},
 		{
-			name:      "block 83, blockRate 4",
-			block:     83,
-			blockRate: 4,
-			wantStart: 80,
-			wantEnd:   83,
+			name:                 "block 83, blockRate 4",
+			block:                83,
+			blockRate:            4,
+			wantStart:            80,
+			wantEnd:              83,
+			wantIsWindowComplete: true,
 		},
 		{
-			name:      "block 84, blockRate 4",
-			block:     84,
-			blockRate: 4,
-			wantStart: 84,
-			wantEnd:   87,
+			name:                 "block 84, blockRate 4",
+			block:                84,
+			blockRate:            4,
+			wantStart:            84,
+			wantEnd:              87,
+			wantIsWindowComplete: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			start, end := getBlockWindow(tc.block, tc.blockRate)
+			start, end, isWindowComplete := getBlockWindow(tc.block, tc.blockRate)
 			require.Equal(t, tc.wantStart, start)
 			require.Equal(t, tc.wantEnd, end)
+			require.Equal(t, tc.wantIsWindowComplete, isWindowComplete)
 		})
 	}
 }
