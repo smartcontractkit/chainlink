@@ -126,7 +126,8 @@ type RelayConfig struct {
 	SendingKeys pq.StringArray `json:"sendingKeys"`
 
 	// Mercury-specific
-	FeedID *common.Hash `json:"feedID"`
+	FeedID                  *common.Hash `json:"feedID"`
+	EnableTriggerCapability bool         `json:"enableTriggerCapability"`
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")
