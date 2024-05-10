@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -29,9 +27,7 @@ import (
 func Test_EthKeyStore(t *testing.T) {
 	t.Parallel()
 
-	db := sqlutil.WrapDataSource(pgtest.NewSqlxDB(t), logger.Test(t), sqlutil.TimeoutHook(func() time.Duration {
-		return 5 * time.Minute
-	}), sqlutil.MonitorHook(func() bool { return true }))
+	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
 	err := keyStore.Unlock(testutils.Context(t), cltest.Password)
@@ -309,7 +305,6 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 		}
 
 		{
-
 			// k2 and k4 are disabled address for SimulatedChainID so even though it's whitelisted, it will be ignored
 			addresses := []common.Address{k4.Address, k3.Address, k1.Address, k2.Address, testutils.NewAddress()}
 

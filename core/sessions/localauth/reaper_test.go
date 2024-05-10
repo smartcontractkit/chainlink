@@ -37,7 +37,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	orm := localauth.NewORM(db, config.SessionTimeout().Duration(), lggr, audit.NoopLogger)
 
-	r := localauth.NewSessionReaper(db.DB, config, lggr)
+	r := localauth.NewSessionReaper(db, config, lggr)
 	t.Cleanup(func() {
 		assert.NoError(t, r.Stop())
 	})

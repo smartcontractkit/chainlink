@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
@@ -24,7 +25,7 @@ func concatBytes[T bytesProducer](byteSlice []T) [][]byte {
 	return output
 }
 
-// queryArgs is a helper for building the arguments to a postgres query created by DbORM
+// queryArgs is a helper for building the arguments to a postgres query created by DSORM
 // Besides the convenience methods, it also keeps track of arguments validation and sanitization.
 type queryArgs struct {
 	args map[string]interface{}
@@ -104,7 +105,7 @@ func (q *queryArgs) withWordValue(wordValue common.Hash) *queryArgs {
 	return q.withCustomHashArg("word_value", wordValue)
 }
 
-func (q *queryArgs) withConfs(confs Confirmations) *queryArgs {
+func (q *queryArgs) withConfs(confs evmtypes.Confirmations) *queryArgs {
 	return q.withCustomArg("confs", confs)
 }
 

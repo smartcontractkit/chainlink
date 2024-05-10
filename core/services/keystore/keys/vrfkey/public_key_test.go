@@ -33,7 +33,6 @@ func TestValueScanIdentityPointSet(t *testing.T) {
 		assert.Equal(t, pk, nnPk,
 			"setting one PubliKey to another should result in equal keys")
 	}
-
 }
 
 // Tests that PublicKey.Hash gives the same result as the VRFCoordinator's

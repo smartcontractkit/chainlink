@@ -95,6 +95,24 @@ func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error
 	}, err
 }
 
+// DeployBatchBlockhashStore deploys DeployBatchBlockhashStore contract
+func (e *EthereumContractDeployer) DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error) {
+	address, _, instance, err := e.client.DeployContract("BatchBlockhashStore", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return batch_blockhash_store.DeployBatchBlockhashStore(auth, backend, common.HexToAddress(blockhashStoreAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &LegacyEthereumBatchBlockhashStore{
+		client:              e.client,
+		batchBlockhashStore: instance.(*batch_blockhash_store.BatchBlockhashStore),
+		address:             address,
+	}, err
+}
+
 // DeployVRFCoordinator deploys VRF coordinator contract
 func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(

@@ -42,7 +42,7 @@ var (
 	readJobQueueSize = 64
 	readLogsTimeout  = 10 * time.Second
 
-	readMaxBatchSize = 32
+	readMaxBatchSize = 56
 	// reorgBuffer is the number of blocks to add as a buffer to the block range when reading logs.
 	reorgBuffer   = int64(32)
 	readerThreads = 4
@@ -167,7 +167,6 @@ func (p *logEventProvider) WithBufferVersion(v BufferVersion) {
 
 func (p *logEventProvider) Start(context.Context) error {
 	return p.StartOnce(LogProviderServiceName, func() error {
-
 		readQ := make(chan []*big.Int, readJobQueueSize)
 
 		p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)

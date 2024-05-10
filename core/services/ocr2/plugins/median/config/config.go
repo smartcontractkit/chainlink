@@ -20,6 +20,7 @@ type PluginConfig struct {
 }
 
 type JuelsPerFeeCoinCache struct {
+	Disable                 bool            `json:"disable"`
 	UpdateInterval          models.Interval `json:"updateInterval"`
 	StalenessAlertThreshold models.Interval `json:"stalenessAlertThreshold"`
 }

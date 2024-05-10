@@ -98,7 +98,7 @@ type estimatorGasEstimatorConfig interface {
 type BlockHistoryEstimator struct {
 	services.StateMachine
 	ethClient feeEstimatorClient
-	chainID   big.Int
+	chainID   *big.Int
 	config    chainConfig
 	eConfig   estimatorGasEstimatorConfig
 	bhConfig  BlockHistoryConfig
@@ -127,7 +127,7 @@ type BlockHistoryEstimator struct {
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID *big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	b := &BlockHistoryEstimator{
@@ -721,7 +721,7 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 		err := b.ethClient.BatchCallContext(ctx, reqs[i:j])
 		if pkgerrors.Is(err, context.DeadlineExceeded) {
 			// We ran out of time, return what we have
-			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results", i, len(reqs))
+			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results: %v", i, len(reqs), err)
 			for k := i; k < len(reqs); k++ {
 				if k < j {
 					reqs[k].Error = pkgerrors.Wrap(err, "request failed")

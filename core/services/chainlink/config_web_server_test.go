@@ -45,5 +45,4 @@ func TestWebServerConfig(t *testing.T) {
 	mf := ws.MFA()
 	assert.Equal(t, "test-rpid", mf.RPID())
 	assert.Equal(t, "test-rp-origin", mf.RPOrigin())
-
 }

@@ -57,4 +57,10 @@ mkShell' {
 
   PGDATA = "db";
   CL_DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";
+
+  shellHook = ''
+    # Find the root of the git repository
+    repo_root=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+    export PATH=$PATH:$repo_root/crib/scripts
+  '';
 }

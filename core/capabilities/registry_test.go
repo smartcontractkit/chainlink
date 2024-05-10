@@ -42,6 +42,7 @@ func TestRegistry(t *testing.T) {
 		capabilities.CapabilityTypeAction,
 		"capability-1-description",
 		"v1.0.0",
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -70,6 +71,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 		capabilities.CapabilityTypeAction,
 		"capability-1-description",
 		"v1.0.0",
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -82,6 +84,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 		capabilities.CapabilityTypeConsensus,
 		"capability-2-description",
 		"v1.0.0",
+		nil,
 	)
 	require.NoError(t, err)
 	c2 := &mockCapability{CapabilityInfo: ci}
@@ -106,6 +109,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 					capabilities.CapabilityTypeAction,
 					"capability-1-description",
 					"v1.0.0",
+					nil,
 				)
 				require.NoError(t, err)
 
@@ -126,6 +130,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 					capabilities.CapabilityTypeTarget,
 					"capability-1-description",
 					"v1.0.0",
+					nil,
 				)
 				require.NoError(t, err)
 
@@ -159,6 +164,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 					capabilities.CapabilityTypeConsensus,
 					"capability-1-description",
 					"v1.0.0",
+					nil,
 				)
 				require.NoError(t, err)
 

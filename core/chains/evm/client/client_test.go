@@ -311,7 +311,6 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 					assert.Equal(t, strings.ToLower(contractAddress.Hex()), callArgs.Get("to").String()) &&
 					assert.Equal(t, hexutil.Encode(txData), callArgs.Get("data").String()) &&
 					assert.Equal(t, "latest", arr[1].String()) {
-
 					resp.Result = `"` + hexutil.EncodeBig(test.balance) + `"`
 				}
 				return
@@ -911,7 +910,6 @@ func TestEthClient_ErroringClient(t *testing.T) {
 
 	_, err = erroringClient.TransactionReceipt(ctx, common.Hash{})
 	require.Equal(t, err, commonclient.ErroringNodeError)
-
 }
 
 const headResult = client.HeadResult

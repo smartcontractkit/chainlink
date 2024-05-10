@@ -10,14 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(db, logger.TestLogger(t), pg.DefaultQueryTimeout)
+	orm := NewORM(db, logger.TestLogger(t))
 
 	err := orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8"))
 	require.NoError(t, err)
@@ -66,7 +65,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 
-	orm := NewORM(db, lggr, pg.DefaultQueryTimeout)
+	orm := NewORM(db, lggr)
 
 	err := orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8"))
 	require.NoError(t, err)
@@ -101,7 +100,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 func TestORM_NodeVersion_FindLatestNodeVersion(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(db, logger.TestLogger(t), pg.DefaultQueryTimeout)
+	orm := NewORM(db, logger.TestLogger(t))
 
 	// Not Found
 	_, err := orm.FindLatestNodeVersion(ctx)

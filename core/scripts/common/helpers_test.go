@@ -53,7 +53,6 @@ func TestBinarySearch(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
 			testFunc := func(val *big.Int) bool {
 				return val.Cmp(big.NewInt(test.result)) < 1
 			}

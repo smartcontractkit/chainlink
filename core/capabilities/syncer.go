@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
@@ -70,7 +71,7 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		"12D3KooWN2hztiXNNS1jMQTTvvPRYcarK1C7T3Mdqk4x4gwyo5WS",
 	}
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
-	addPeersToDONInfo := func(peers []string, donInfo *remotetypes.DON) error {
+	addPeersToDONInfo := func(peers []string, donInfo *capabilities.DON) error {
 		for _, peerID := range peers {
 			var p ragetypes.PeerID
 			err := p.UnmarshalText([]byte(peerID))
@@ -82,11 +83,11 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		}
 		return nil
 	}
-	workflowDonInfo := remotetypes.DON{ID: "workflowDon1", F: 1}
+	workflowDonInfo := capabilities.DON{ID: "workflowDon1", F: 1}
 	if err := addPeersToDONInfo(workflowDONPeers, &workflowDonInfo); err != nil {
 		return err
 	}
-	triggerCapabilityDonInfo := remotetypes.DON{ID: "capabilityDon1", F: 1}
+	triggerCapabilityDonInfo := capabilities.DON{ID: "capabilityDon1", F: 1}
 	if err := addPeersToDONInfo(triggerDONPeers, &triggerCapabilityDonInfo); err != nil {
 		return err
 	}
@@ -101,6 +102,7 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		CapabilityType: commoncap.CapabilityTypeTrigger,
 		Description:    "Remote Trigger",
 		Version:        "0.0.1",
+		DON:            &triggerCapabilityDonInfo,
 	}
 	myId := s.peerWrapper.GetPeer().ID().String()
 	config := remotetypes.RemoteTriggerConfig{
@@ -125,21 +127,38 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 	}
 	if slices.Contains(triggerDONPeers, myId) {
 		s.lggr.Info("member of a capability DON - starting remote publishers")
-		workflowDONs := map[string]remotetypes.DON{
+
+		{
+			// ---- This is for local tests only, until a full-blown Syncer is implemented
+			// ---- Normally this is set up asynchronously (by the Relayer + job specs in Mercury's case)
+			localTrigger := triggers.NewMercuryTriggerService(1000, s.lggr)
+			mockMercuryDataProducer := NewMockMercuryDataProducer(localTrigger, s.lggr)
+			err = s.registry.Add(ctx, localTrigger)
+			if err != nil {
+				s.lggr.Errorw("failed to add local trigger capability to registry", "error", err)
+				return err
+			}
+			s.subServices = append(s.subServices, localTrigger)
+			s.subServices = append(s.subServices, mockMercuryDataProducer)
+			// ----
+		}
+
+		underlying, err2 := s.registry.GetTrigger(ctx, capId)
+		if err2 != nil {
+			// NOTE: it's possible that the jobs are not launched yet at this moment.
+			// If not found yet, Syncer won't add to Registry but retry on the next tick.
+			return err2
+		}
+		workflowDONs := map[string]capabilities.DON{
 			workflowDonInfo.ID: workflowDonInfo,
 		}
-		underlying := triggers.NewMercuryTriggerService(1000, s.lggr)
 		triggerCap := remote.NewTriggerPublisher(config, underlying, triggerInfo, triggerCapabilityDonInfo, workflowDONs, s.dispatcher, s.lggr)
 		err = s.dispatcher.SetReceiver(capId, triggerCapabilityDonInfo.ID, triggerCap)
 		if err != nil {
 			s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", triggerCapabilityDonInfo.ID, "error", err)
 			return err
 		}
-		s.subServices = append(s.subServices, underlying)
 		s.subServices = append(s.subServices, triggerCap)
-		// NOTE: temporary mock Mercury data producer
-		mockMercuryDataProducer := NewMockMercuryDataProducer(underlying, s.lggr)
-		s.subServices = append(s.subServices, mockMercuryDataProducer)
 	}
 	// NOTE: temporary service start - should be managed by capability creation
 	for _, srv := range s.subServices {

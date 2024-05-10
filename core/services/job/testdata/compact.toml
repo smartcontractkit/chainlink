@@ -30,5 +30,12 @@ LatestTransmissionDetails = "{\n  \"chainSpecificName\": \"latestTransmissionDet
 [relayConfig.codec.configs.MedianReport]
 typeABI = "[\n  {\n    \"Name\": \"Timestamp\",\n    \"Type\": \"uint32\"\n  },\n  {\n    \"Name\": \"Observers\",\n    \"Type\": \"bytes32\"\n  },\n  {\n    \"Name\": \"Observations\",\n    \"Type\": \"int192[]\"\n  },\n  {\n    \"Name\": \"JuelsPerFeeCoin\",\n    \"Type\": \"int192\"\n  }\n]\n"
 
+[onchainSigningStrategy]
+strategyName = 'single-chain'
+
+[onchainSigningStrategy.config]
+evm = ''
+publicKey = '0xdeadbeef'
+
 [pluginConfig]
 juelsPerFeeCoinSource = "  // data source 1\n  ds1          [type=bridge name=\"%s\"];\n  ds1_parse    [type=jsonparse path=\"data\"];\n  ds1_multiply [type=multiply times=2];\n\n  // data source 2\n  ds2          [type=http method=GET url=\"%s\"];\n  ds2_parse    [type=jsonparse path=\"data\"];\n  ds2_multiply [type=multiply times=2];\n\n  ds1 -> ds1_parse -> ds1_multiply -> answer1;\n  ds2 -> ds2_parse -> ds2_multiply -> answer1;\n\n  answer1 [type=median index=0];\n"

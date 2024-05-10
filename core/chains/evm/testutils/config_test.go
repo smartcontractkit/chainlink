@@ -3,8 +3,9 @@ package testutils
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 func TestNewTestChainScopedConfigOverride(t *testing.T) {
@@ -17,5 +18,4 @@ func TestNewTestChainScopedConfigOverride(t *testing.T) {
 	assert.Equal(t, uint32(100), c.EVM().FinalityDepth())
 	// fallback.toml values
 	assert.Equal(t, false, c.EVM().GasEstimator().EIP1559DynamicFees())
-
 }

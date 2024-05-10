@@ -33,14 +33,12 @@ import (
 )
 
 func TestCoreRelayerChainInteroperators(t *testing.T) {
-
 	evmChainID1, evmChainID2 := ubig.New(big.NewInt(1)), ubig.New(big.NewInt(2))
 	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 	starknetChainID1, starknetChainID2 := "starknet-id-1", "starknet-id-2"
 	cosmosChainID1, cosmosChainID2 := "cosmos-id-1", "cosmos-id-2"
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-
 		cfg := evmcfg.Defaults(evmChainID1)
 		node1_1 := evmcfg.Node{
 			Name:     ptr("Test node chain1:1"),
@@ -212,8 +210,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					ChainOpts: legacyevm.ChainOpts{
 						AppConfig: cfg,
 						MailMon:   &mailbox.Monitor{},
-						SqlxDB:    db,
-						DB:        db,
+						DS:        db,
 					},
 					CSAETHKeystore: keyStore,
 				}),
@@ -265,8 +262,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:    keyStore.Cosmos(),
 					TOMLConfigs: cfg.CosmosConfigs(),
-					DB:          db,
-					QConfig:     cfg.Database()}),
+					DS:          db,
+				}),
 			},
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
@@ -287,8 +284,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						AppConfig: cfg,
 
 						MailMon: &mailbox.Monitor{},
-						SqlxDB:  db,
-						DB:      db,
+						DS:      db,
 					},
 					CSAETHKeystore: keyStore,
 				}),
@@ -298,8 +294,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:    keyStore.Cosmos(),
 					TOMLConfigs: cfg.CosmosConfigs(),
-					DB:          db,
-					QConfig:     cfg.Database(),
+					DS:          db,
 				}),
 			},
 			expectedEVMChainCnt: 2,
@@ -406,7 +401,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Len(t, nodesStats, expectedNodeCnt)
 				assert.Equal(t, cnt, len(nodesStats))
-
 			}
 			assert.EqualValues(t, gotRelayerNetworks, tt.expectedRelayerNetworks)
 
@@ -445,9 +439,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			unwanted, err := cr.Get(expectedMissing)
 			assert.Nil(t, unwanted)
 			assert.ErrorIs(t, err, chainlink.ErrNoSuchRelayer)
-
 		})
-
 	}
 
 	t.Run("bad init func", func(t *testing.T) {

@@ -427,7 +427,6 @@ func setupForwarderForNode(
 	backend *backends.SimulatedBackend,
 	recipient common.Address,
 	linkAddr common.Address) common.Address {
-
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend, linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
 
