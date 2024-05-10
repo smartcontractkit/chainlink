@@ -7,7 +7,7 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_RemoveNodesTest is BaseTest {
   event NodeRemoved(bytes32 p2pId);
 
-  uint256 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
+  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
   uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 1;
   bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
 

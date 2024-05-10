@@ -24,25 +24,32 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   struct NodeParams {
     /// @notice The id of the node operator that manages this node
-    uint256 nodeOperatorId;
+    uint32 nodeOperatorId;
+    /// @notice The signer address for application-layer message verification.
+    address signer;
     /// @notice This is an Ed25519 public key that is used to identify a node.
     /// This key is guaranteed to be unique in the CapabilityRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
-    /// @notice The signer address for application-layer message verification.
-    address signer;
   }
 
   struct Node {
     /// @notice The node's parameters
-    NodeParams params;
+    /// @notice The id of the node operator that manages this node
+    uint32 nodeOperatorId;
     /// @notice The number of times the node's capability has been updated
-    uint256 configCount;
+    uint32 configCount;
+    /// @notice The signer address for application-layer message verification.
+    address signer;
+    /// @notice This is an Ed25519 public key that is used to identify a node.
+    /// This key is guaranteed to be unique in the CapabilityRegistry. It is
+    /// used to identify a node in the the P2P network.
+    bytes32 p2pId;
     /// @notice The node's supported capabilities
     /// @dev This is stored as a map so that we can easily update to a set of
     /// new capabilities by incrementing the configCount and creating a
     /// new set of supported capability IDs
-    mapping(uint256 configCount => EnumerableSet.Bytes32Set capabilityId) supportedCapabilityIds;
+    mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedCapabilityIds;
   }
 
   // CapabilityResponseType indicates whether remote response requires
@@ -326,7 +333,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      bool nodeExists = s_nodes[node.p2pId].params.signer != address(0);
+      bool nodeExists = s_nodes[node.p2pId].signer != address(0);
       if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
       if (node.signer == address(0)) revert InvalidNodeSigner();
@@ -336,13 +343,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       s_nodes[node.p2pId].configCount++;
 
-      uint256 capabilityConfigCount = s_nodes[node.p2pId].configCount;
+      uint32 capabilityConfigCount = s_nodes[node.p2pId].configCount;
       for (uint256 j; j < capabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(capabilityIds[j])) revert InvalidNodeCapabilities(capabilityIds);
         s_nodes[node.p2pId].supportedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
       }
 
-      s_nodes[node.p2pId].params = node;
+      s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
+      s_nodes[node.p2pId].p2pId = node.p2pId;
+      s_nodes[node.p2pId].signer = node.signer;
       emit NodeAdded(node.p2pId, node.nodeOperatorId);
     }
   }
@@ -355,10 +364,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < removedNodeP2PIds.length; ++i) {
       bytes32 p2pId = removedNodeP2PIds[i];
 
-      bool nodeExists = s_nodes[p2pId].params.signer != address(0);
+      bool nodeExists = s_nodes[p2pId].signer != address(0);
       if (!nodeExists) revert InvalidNodeP2PId(p2pId);
 
-      NodeOperator memory nodeOperator = s_nodeOperators[s_nodes[p2pId].params.nodeOperatorId];
+      NodeOperator memory nodeOperator = s_nodeOperators[s_nodes[p2pId].nodeOperatorId];
 
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
       delete s_nodes[p2pId];
@@ -382,7 +391,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      bool nodeExists = s_nodes[node.p2pId].params.signer != address(0);
+      bool nodeExists = s_nodes[node.p2pId].signer != address(0);
       if (!nodeExists) revert InvalidNodeP2PId(node.p2pId);
 
       if (node.signer == address(0)) revert InvalidNodeSigner();
@@ -391,14 +400,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedCapabilityIds);
 
       s_nodes[node.p2pId].configCount++;
-      uint256 capabilityConfigCount = s_nodes[node.p2pId].configCount;
+      uint32 capabilityConfigCount = s_nodes[node.p2pId].configCount;
       for (uint256 j; j < supportedCapabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(supportedCapabilityIds[j]))
           revert InvalidNodeCapabilities(supportedCapabilityIds);
         s_nodes[node.p2pId].supportedCapabilityIds[capabilityConfigCount].add(supportedCapabilityIds[j]);
       }
 
-      s_nodes[node.p2pId].params = node;
+      s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
+      s_nodes[node.p2pId].p2pId = node.p2pId;
+      s_nodes[node.p2pId].signer = node.signer;
       emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
     }
   }
@@ -407,8 +418,14 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node to query for
   /// @return NodeParams The node data
   function getNode(bytes32 p2pId) external view returns (NodeParams memory, bytes32[] memory) {
-    uint256 capabilityConfigCount = s_nodes[p2pId].configCount;
-    return (s_nodes[p2pId].params, s_nodes[p2pId].supportedCapabilityIds[capabilityConfigCount].values());
+    return (
+      NodeParams({
+        nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
+        p2pId: s_nodes[p2pId].p2pId,
+        signer: s_nodes[p2pId].signer
+      }),
+      s_nodes[p2pId].supportedCapabilityIds[s_nodes[p2pId].configCount].values()
+    );
   }
 
   function addCapability(Capability calldata capability) external onlyOwner {
@@ -514,9 +531,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       for (uint256 j; j < nodes.length; ++j) {
         bytes32 nodeP2PId = nodes[j];
-        uint256 capabilityConfigCount = s_nodes[nodeP2PId].configCount;
-
-        if (!s_nodes[nodeP2PId].supportedCapabilityIds[capabilityConfigCount].contains(capabilityId))
+        if (!s_nodes[nodeP2PId].supportedCapabilityIds[s_nodes[nodeP2PId].configCount].contains(capabilityId))
           revert NodeDoesNotSupportCapability(nodeP2PId, capabilityId);
       }
 
