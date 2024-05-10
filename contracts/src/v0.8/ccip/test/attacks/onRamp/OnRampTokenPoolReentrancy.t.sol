@@ -27,7 +27,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
     s_facadeClient = new FacadeClient(address(s_sourceRouter), DEST_CHAIN_SELECTOR, s_sourceToken, s_feeToken);
 
     s_maliciousTokenPool = new ReentrantMaliciousTokenPool(
-      address(s_facadeClient), s_sourceToken, address(s_mockARM), address(s_sourceRouter)
+      address(s_facadeClient), s_sourceToken, address(s_mockRMN), address(s_sourceRouter)
     );
 
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);

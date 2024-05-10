@@ -18,7 +18,7 @@ contract BurnMintTokenPoolSetup is BurnMintSetup {
   function setUp() public virtual override {
     BurnMintSetup.setUp();
 
-    s_pool = new BurnMintTokenPool(s_burnMintERC677, new address[](0), address(s_mockARM), address(s_sourceRouter));
+    s_pool = new BurnMintTokenPool(s_burnMintERC677, new address[](0), address(s_mockRMN), address(s_sourceRouter));
     s_burnMintERC677.grantMintAndBurnRoles(address(s_pool));
 
     _applyChainUpdates(address(s_pool));
@@ -28,7 +28,7 @@ contract BurnMintTokenPoolSetup is BurnMintSetup {
 contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
   function test_Setup_Success() public view {
     assertEq(address(s_burnMintERC677), address(s_pool.getToken()));
-    assertEq(address(s_mockARM), s_pool.getArmProxy());
+    assertEq(address(s_mockRMN), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
     assertEq("BurnMintTokenPool 1.5.0-dev", s_pool.typeAndVersion());
   }
@@ -67,11 +67,11 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
 
   // Should not burn tokens if cursed.
   function test_PoolBurnRevertNotHealthy_Revert() public {
-    s_mockARM.voteToCurse(bytes32(0));
+    s_mockRMN.voteToCurse(bytes32(0));
     uint256 before = s_burnMintERC677.balanceOf(address(s_pool));
     vm.startPrank(s_burnMintOnRamp);
 
-    vm.expectRevert(EVM2EVMOnRamp.BadARMSignal.selector);
+    vm.expectRevert(TokenPool.CursedByRMN.selector);
     s_pool.lockOrBurn(
       Pool.LockOrBurnInV1({
         originalSender: OWNER,
@@ -124,11 +124,11 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
 
   function test_PoolMintNotHealthy_Revert() public {
     // Should not mint tokens if cursed.
-    s_mockARM.voteToCurse(bytes32(0));
+    s_mockRMN.voteToCurse(bytes32(0));
     uint256 before = s_burnMintERC677.balanceOf(OWNER);
     vm.startPrank(s_burnMintOffRamp);
 
-    vm.expectRevert(EVM2EVMOffRamp.BadARMSignal.selector);
+    vm.expectRevert(TokenPool.CursedByRMN.selector);
     s_pool.releaseOrMint(
       Pool.ReleaseOrMintInV1({
         originalSender: bytes(""),

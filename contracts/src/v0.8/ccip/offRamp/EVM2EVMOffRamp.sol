@@ -2,12 +2,12 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {IARM} from "../interfaces/IARM.sol";
 import {IAny2EVMMessageReceiver} from "../interfaces/IAny2EVMMessageReceiver.sol";
 import {IAny2EVMOffRamp} from "../interfaces/IAny2EVMOffRamp.sol";
 import {ICommitStore} from "../interfaces/ICommitStore.sol";
 import {IPool} from "../interfaces/IPool.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
+import {IRMN} from "../interfaces/IRMN.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 
 import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
@@ -50,7 +50,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   error ReceiverError(bytes error);
   error TokenHandlingError(bytes error);
   error EmptyReport();
-  error BadARMSignal();
+  error CursedByRMN();
   error InvalidMessageId();
   error NotACompatiblePool(address notPool);
   error InvalidDataLength(uint256 expected, uint256 got);
@@ -76,7 +76,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     uint64 sourceChainSelector; // ─╮  Source chainSelector
     address onRamp; // ─────────────╯  OnRamp address on the source chain
     address prevOffRamp; //            Address of previous-version OffRamp
-    address armProxy; //               ARM proxy address
+    address rmnProxy; //               RMN proxy address
   }
 
   /// @notice Dynamic offRamp config
@@ -115,8 +115,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   /// @dev The address of previous-version OffRamp for this lane.
   /// Used to be able to provide sequencing continuity during a zero downtime upgrade.
   address internal immutable i_prevOffRamp;
-  /// @dev The address of the arm proxy
-  address internal immutable i_armProxy;
+  /// @dev The address of the RMN proxy
+  address internal immutable i_rmnProxy;
 
   // DYNAMIC CONFIG
   DynamicConfig internal s_dynamicConfig;
@@ -149,7 +149,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     i_chainSelector = staticConfig.chainSelector;
     i_onRamp = staticConfig.onRamp;
     i_prevOffRamp = staticConfig.prevOffRamp;
-    i_armProxy = staticConfig.armProxy;
+    i_rmnProxy = staticConfig.rmnProxy;
 
     i_metadataHash = _metadataHash(Internal.EVM_2_EVM_MESSAGE_HASH);
   }
@@ -232,7 +232,9 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   /// @param manualExecGasLimits An array of gas limits to use for manual execution.
   /// @dev If called from the DON, this array is always empty.
   /// @dev If called from manual execution, this array is always same length as messages.
-  function _execute(Internal.ExecutionReport memory report, uint256[] memory manualExecGasLimits) internal whenHealthy {
+  function _execute(Internal.ExecutionReport memory report, uint256[] memory manualExecGasLimits) internal {
+    if (IRMN(i_rmnProxy).isCursed(bytes32(uint256(i_sourceChainSelector)))) revert CursedByRMN();
+
     uint256 numMsgs = report.messages.length;
     if (numMsgs == 0) revert EmptyReport();
     if (numMsgs != report.offchainTokenData.length) revert UnexpectedTokenData();
@@ -471,7 +473,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       sourceChainSelector: i_sourceChainSelector,
       onRamp: i_onRamp,
       prevOffRamp: i_prevOffRamp,
-      armProxy: i_armProxy
+      rmnProxy: i_rmnProxy
     });
   }
 
@@ -496,7 +498,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
         sourceChainSelector: i_sourceChainSelector,
         onRamp: i_onRamp,
         prevOffRamp: i_prevOffRamp,
-        armProxy: i_armProxy
+        rmnProxy: i_rmnProxy
       }),
       dynamicConfig
     );
@@ -621,7 +623,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   }
 
   // ================================================================
-  // │                        Access and ARM                        │
+  // │                            Access                            │
   // ================================================================
 
   /// @notice Reverts as this contract should not access CCIP messages
@@ -629,11 +631,5 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     /* solhint-disable */
     revert();
     /* solhint-enable*/
-  }
-
-  /// @notice Ensure that the ARM has not emitted a bad signal, and that the latest heartbeat is not stale.
-  modifier whenHealthy() {
-    if (IARM(i_armProxy).isCursed()) revert BadARMSignal();
-    _;
   }
 }

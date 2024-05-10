@@ -2,9 +2,9 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
-import {IARM} from "./interfaces/IARM.sol";
 import {IAny2EVMMessageReceiver} from "./interfaces/IAny2EVMMessageReceiver.sol";
 import {IEVM2AnyOnRamp} from "./interfaces/IEVM2AnyOnRamp.sol";
+import {IRMN} from "./interfaces/IRMN.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
 import {IRouterClient} from "./interfaces/IRouterClient.sol";
 import {IWrappedNative} from "./interfaces/IWrappedNative.sol";
@@ -51,7 +51,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   // repeated out-of-gas scenarios.
   uint16 public constant MAX_RET_BYTES = 4 + 4 * 32;
   // STATIC CONFIG
-  // Address of arm proxy contract.
+  // Address of RMN proxy contract (formerly known as ARM)
   address private immutable i_armProxy;
 
   // DYNAMIC CONFIG
@@ -105,7 +105,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   function ccipSend(
     uint64 destinationChainSelector,
     Client.EVM2AnyMessage memory message
-  ) external payable whenHealthy returns (bytes32) {
+  ) external payable whenNotCursed returns (bytes32) {
     address onRamp = s_onRamps[destinationChainSelector];
     if (onRamp == address(0)) revert UnsupportedDestinationChain(destinationChainSelector);
     uint256 feeTokenAmount;
@@ -155,7 +155,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     uint16 gasForCallExactCheck,
     uint256 gasLimit,
     address receiver
-  ) external override whenHealthy returns (bool success, bytes memory retData, uint256 gasUsed) {
+  ) external override whenNotCursed returns (bool success, bytes memory retData, uint256 gasUsed) {
     // We only permit offRamps to call this function.
     if (!isOffRamp(message.sourceChainSelector, msg.sender)) revert OnlyOffRamp();
 
@@ -196,8 +196,8 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     s_wrappedNative = wrappedNative;
   }
 
-  /// @notice Gets the arm address
-  /// @return The address of the ARM proxy contract.
+  /// @notice Gets the RMN address, formerly known as ARM
+  /// @return The address of the RMN proxy contract, formerly known as ARM
   function getArmProxy() external view returns (address) {
     return i_armProxy;
   }
@@ -282,9 +282,9 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   // │                           Access                             │
   // ================================================================
 
-  /// @notice Ensure that the ARM has not emitted a bad signal, and that the latest heartbeat is not stale.
-  modifier whenHealthy() {
-    if (IARM(i_armProxy).isCursed()) revert BadARMSignal();
+  /// @notice Ensure that the RMN has not cursed the network.
+  modifier whenNotCursed() {
+    if (IRMN(i_armProxy).isCursed()) revert BadARMSignal();
     _;
   }
 }

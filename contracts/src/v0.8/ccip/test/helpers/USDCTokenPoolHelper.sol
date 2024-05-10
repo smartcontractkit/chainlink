@@ -11,9 +11,9 @@ contract USDCTokenPoolHelper is USDCTokenPool {
     ITokenMessenger tokenMessenger,
     IBurnMintERC20 token,
     address[] memory allowlist,
-    address armProxy,
+    address rmnProxy,
     address router
-  ) USDCTokenPool(tokenMessenger, token, allowlist, armProxy, router) {}
+  ) USDCTokenPool(tokenMessenger, token, allowlist, rmnProxy, router) {}
 
   function validateMessage(bytes memory usdcMessage, SourceTokenDataPayload memory sourceTokenData) external view {
     return _validateMessage(usdcMessage, sourceTokenData);

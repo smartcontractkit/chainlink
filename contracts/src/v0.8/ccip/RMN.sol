@@ -2,15 +2,15 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
-import {IARM} from "./interfaces/IARM.sol";
+import {IRMN} from "./interfaces/IRMN.sol";
 
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 
 /// @dev This contract is owned by RMN, if changing, please notify the RMN maintainers.
 // solhint-disable chainlink-solidity/explicit-returns
-contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
+contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
   // STATIC CONFIG
-  string public constant override typeAndVersion = "ARM 1.0.0";
+  string public constant override typeAndVersion = "RMN 1.5.0-dev";
 
   uint256 private constant MAX_NUM_VOTERS = 128;
 
@@ -34,7 +34,7 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
     // or exceeds blessWeightThreshold, the tagged root becomes blessed.
     uint16 blessWeightThreshold;
     // When the total weight of voters that have voted to curse reaches or
-    // exceeds curseWeightThreshold, the ARM enters the cursed state.
+    // exceeds curseWeightThreshold, the RMN enters the cursed state.
     uint16 curseWeightThreshold;
   }
 
@@ -119,9 +119,9 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
 
   error InvalidConfig();
 
-  event TaggedRootBlessed(uint32 indexed configVersion, IARM.TaggedRoot taggedRoot, uint16 accumulatedWeight);
-  event TaggedRootBlessVotesReset(uint32 indexed configVersion, IARM.TaggedRoot taggedRoot, bool wasBlessed);
-  event VotedToBless(uint32 indexed configVersion, address indexed voter, IARM.TaggedRoot taggedRoot, uint8 weight);
+  event TaggedRootBlessed(uint32 indexed configVersion, IRMN.TaggedRoot taggedRoot, uint16 accumulatedWeight);
+  event TaggedRootBlessVotesReset(uint32 indexed configVersion, IRMN.TaggedRoot taggedRoot, bool wasBlessed);
+  event VotedToBless(uint32 indexed configVersion, address indexed voter, IRMN.TaggedRoot taggedRoot, uint8 weight);
 
   event VotedToCurse(
     uint32 indexed configVersion,
@@ -149,8 +149,8 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
 
   // These events make it easier for offchain logic to discover that it performs
   // the same actions multiple times.
-  event AlreadyVotedToBless(uint32 indexed configVersion, address indexed voter, IARM.TaggedRoot taggedRoot);
-  event AlreadyBlessed(uint32 indexed configVersion, address indexed voter, IARM.TaggedRoot taggedRoot);
+  event AlreadyVotedToBless(uint32 indexed configVersion, address indexed voter, IRMN.TaggedRoot taggedRoot);
+  event AlreadyBlessed(uint32 indexed configVersion, address indexed voter, IRMN.TaggedRoot taggedRoot);
 
   event RecoveredFromCurse();
 
@@ -188,13 +188,13 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
     }
   }
 
-  function _taggedRootHash(IARM.TaggedRoot memory taggedRoot) internal pure returns (bytes32) {
+  function _taggedRootHash(IRMN.TaggedRoot memory taggedRoot) internal pure returns (bytes32) {
     return keccak256(abi.encode(taggedRoot.commitStore, taggedRoot.root));
   }
 
   /// @param taggedRoots A tagged root is hashed as `keccak256(abi.encode(taggedRoot.commitStore
   /// /* address */, taggedRoot.root /* bytes32 */))`.
-  function voteToBless(IARM.TaggedRoot[] calldata taggedRoots) external {
+  function voteToBless(IRMN.TaggedRoot[] calldata taggedRoots) external {
     // If we have an active curse, something is really wrong. Let's err on the
     // side of caution and not accept further blessings during this time of
     // uncertainty.
@@ -205,7 +205,7 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
     if (blesserRecord.configVersion != configVersion) revert InvalidVoter(msg.sender);
 
     for (uint256 i = 0; i < taggedRoots.length; ++i) {
-      IARM.TaggedRoot memory taggedRoot = taggedRoots[i];
+      IRMN.TaggedRoot memory taggedRoot = taggedRoots[i];
       bytes32 taggedRootHash = _taggedRootHash(taggedRoot);
       BlessVoteProgress memory voteProgress = s_blessVoteProgressByTaggedRootHash[taggedRootHash];
       if (voteProgress.weightThresholdMet) {
@@ -249,13 +249,13 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
   }
 
   /// @notice Can be called by the owner to remove unintentionally voted or even blessed tagged roots in a recovery
-  /// scenario. The owner must ensure that there are no in-flight transactions by ARM nodes voting for any of the
+  /// scenario. The owner must ensure that there are no in-flight transactions by RMN nodes voting for any of the
   /// taggedRoots before calling this function, as such in-flight transactions could lead to the roots becoming
   /// re-blessed shortly after the call to this function, contrary to the original intention.
-  function ownerResetBlessVotes(IARM.TaggedRoot[] calldata taggedRoots) external onlyOwner {
+  function ownerResetBlessVotes(IRMN.TaggedRoot[] calldata taggedRoots) external onlyOwner {
     uint32 configVersion = s_versionedConfig.configVersion;
     for (uint256 i = 0; i < taggedRoots.length; ++i) {
-      IARM.TaggedRoot memory taggedRoot = taggedRoots[i];
+      IRMN.TaggedRoot memory taggedRoot = taggedRoots[i];
       bytes32 taggedRootHash = _taggedRootHash(taggedRoot);
       BlessVoteProgress memory voteProgress = s_blessVoteProgressByTaggedRootHash[taggedRootHash];
       delete s_blessVoteProgressByTaggedRootHash[taggedRootHash];
@@ -389,13 +389,17 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
     _setConfig(config);
   }
 
-  /// @inheritdoc IARM
-  function isBlessed(IARM.TaggedRoot calldata taggedRoot) external view override returns (bool) {
+  /// @inheritdoc IRMN
+  function isBlessed(IRMN.TaggedRoot calldata taggedRoot) external view override returns (bool) {
     return s_blessVoteProgressByTaggedRootHash[_taggedRootHash(taggedRoot)].weightThresholdMet;
   }
 
-  /// @inheritdoc IARM
+  /// @inheritdoc IRMN
   function isCursed() public view override returns (bool) {
+    return s_curseVoteProgress.curseActive;
+  }
+
+  function isCursed(bytes32) external view override returns (bool) {
     return s_curseVoteProgress.curseActive;
   }
 
@@ -411,7 +415,7 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
   /// @return accumulatedWeight sum of weights of voters, will be zero if voting took place with an older config version
   /// @return blessed will be accurate regardless of when voting took place
   /// @dev This is a helper method for offchain code so efficiency is not really a concern.
-  function getBlessProgress(IARM.TaggedRoot calldata taggedRoot)
+  function getBlessProgress(IRMN.TaggedRoot calldata taggedRoot)
     external
     view
     returns (address[] memory blessVoteAddrs, uint16 accumulatedWeight, bool blessed)

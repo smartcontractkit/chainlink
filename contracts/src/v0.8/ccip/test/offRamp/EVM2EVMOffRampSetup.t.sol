@@ -60,7 +60,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
         sourceChainSelector: SOURCE_CHAIN_SELECTOR,
         onRamp: ON_RAMP_ADDRESS,
         prevOffRamp: prevOffRamp,
-        armProxy: address(s_mockARM)
+        rmnProxy: address(s_mockRMN)
       }),
       getInboundRateLimiterConfig()
     );

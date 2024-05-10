@@ -60,12 +60,12 @@ contract USDCTokenPoolSetup is BaseTest {
     s_mockUSDC = new MockUSDCTokenMessenger(0, address(s_mockUSDCTransmitter));
 
     s_usdcTokenPool =
-      new USDCTokenPoolHelper(s_mockUSDC, s_token, new address[](0), address(s_mockARM), address(s_router));
+      new USDCTokenPoolHelper(s_mockUSDC, s_token, new address[](0), address(s_mockRMN), address(s_router));
     linkToken.grantMintAndBurnRoles(address(s_mockUSDC));
 
     s_allowedList.push(USER_1);
     s_usdcTokenPoolWithAllowList =
-      new USDCTokenPoolHelper(s_mockUSDC, s_token, s_allowedList, address(s_mockARM), address(s_router));
+      new USDCTokenPoolHelper(s_mockUSDC, s_token, s_allowedList, address(s_mockRMN), address(s_router));
 
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](2);
     chainUpdates[0] = TokenPool.ChainUpdate({
@@ -99,7 +99,7 @@ contract USDCTokenPoolSetup is BaseTest {
   }
 
   function setUpRamps() internal {
-    s_router = new Router(address(s_token), address(s_mockARM));
+    s_router = new Router(address(s_token), address(s_mockRMN));
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
     onRampUpdates[0] = Router.OnRamp({destChainSelector: DEST_CHAIN_SELECTOR, onRamp: s_routerAllowedOnRamp});

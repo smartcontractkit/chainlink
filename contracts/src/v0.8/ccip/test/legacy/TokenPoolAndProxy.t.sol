@@ -251,7 +251,7 @@ contract TokenPoolAndProxyMigration is EVM2EVMOnRampSetup {
 
   function _deployPool1_2() internal {
     vm.startPrank(OWNER);
-    s_legacyPool = new BurnMintTokenPool1_2(s_token, new address[](0), address(s_mockARM));
+    s_legacyPool = new BurnMintTokenPool1_2(s_token, new address[](0), address(s_mockRMN));
     s_token.grantMintAndBurnRoles(address(s_legacyPool));
 
     TokenPool1_2.RampUpdate[] memory onRampUpdates = new TokenPool1_2.RampUpdate[](1);
@@ -271,7 +271,7 @@ contract TokenPoolAndProxyMigration is EVM2EVMOnRampSetup {
 
   function _deployPool1_4() internal {
     vm.startPrank(OWNER);
-    s_legacyPool = new BurnMintTokenPool1_4(s_token, new address[](0), address(s_mockARM), address(s_sourceRouter));
+    s_legacyPool = new BurnMintTokenPool1_4(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
     s_token.grantMintAndBurnRoles(address(s_legacyPool));
 
     TokenPool1_4.ChainUpdate[] memory legacyChainUpdates = new TokenPool1_4.ChainUpdate[](2);
@@ -293,7 +293,7 @@ contract TokenPoolAndProxyMigration is EVM2EVMOnRampSetup {
   function _deploySelfServe() internal {
     vm.startPrank(OWNER);
     // Deploy the new pool
-    s_newPool = new BurnMintTokenPoolAndProxy(s_token, new address[](0), address(s_mockARM), address(s_sourceRouter));
+    s_newPool = new BurnMintTokenPoolAndProxy(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
     // Set the previous pool on the new pool
     s_newPool.setPreviousPool(s_legacyPool);
 
@@ -346,7 +346,7 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
   }
 
   function test_lockOrBurn_burnMint_Success() public {
-    s_pool = new BurnMintTokenPoolAndProxy(s_token, new address[](0), address(s_mockARM), address(s_sourceRouter));
+    s_pool = new BurnMintTokenPoolAndProxy(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
     _configurePool();
     _deployOldPool();
     _assertLockOrBurnCorrect();
@@ -359,7 +359,7 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
 
   function test_lockOrBurn_lockRelease_Success() public {
     s_pool =
-      new LockReleaseTokenPoolAndProxy(s_token, new address[](0), address(s_mockARM), false, address(s_sourceRouter));
+      new LockReleaseTokenPoolAndProxy(s_token, new address[](0), address(s_mockRMN), false, address(s_sourceRouter));
     _configurePool();
     _deployOldPool();
     _assertLockOrBurnCorrect();
@@ -371,7 +371,7 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
   }
 
   function _deployOldPool() internal {
-    s_legacyPool = new BurnMintTokenPool1_2(s_token, new address[](0), address(s_mockARM));
+    s_legacyPool = new BurnMintTokenPool1_2(s_token, new address[](0), address(s_mockRMN));
     s_token.grantMintAndBurnRoles(address(s_legacyPool));
 
     TokenPool1_2.RampUpdate[] memory onRampUpdates = new TokenPool1_2.RampUpdate[](1);
@@ -506,12 +506,12 @@ contract LockReleaseTokenPoolAndProxySetup is RouterSetup {
     s_token = new BurnMintERC677("LINK", "LNK", 18, 0);
     deal(address(s_token), OWNER, type(uint256).max);
     s_lockReleaseTokenPoolAndProxy =
-      new LockReleaseTokenPoolAndProxy(s_token, new address[](0), address(s_mockARM), true, address(s_sourceRouter));
+      new LockReleaseTokenPoolAndProxy(s_token, new address[](0), address(s_mockRMN), true, address(s_sourceRouter));
 
     s_allowedList.push(USER_1);
     s_allowedList.push(DUMMY_CONTRACT_ADDRESS);
     s_lockReleaseTokenPoolAndProxyWithAllowList =
-      new LockReleaseTokenPoolAndProxy(s_token, s_allowedList, address(s_mockARM), true, address(s_sourceRouter));
+      new LockReleaseTokenPoolAndProxy(s_token, s_allowedList, address(s_mockRMN), true, address(s_sourceRouter));
 
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
@@ -554,7 +554,7 @@ contract LockReleaseTokenPoolPoolAndProxy_canAcceptLiquidity is LockReleaseToken
     assertEq(true, s_lockReleaseTokenPoolAndProxy.canAcceptLiquidity());
 
     s_lockReleaseTokenPoolAndProxy =
-      new LockReleaseTokenPoolAndProxy(s_token, new address[](0), address(s_mockARM), false, address(s_sourceRouter));
+      new LockReleaseTokenPoolAndProxy(s_token, new address[](0), address(s_mockRMN), false, address(s_sourceRouter));
     assertEq(false, s_lockReleaseTokenPoolAndProxy.canAcceptLiquidity());
   }
 }
@@ -587,7 +587,7 @@ contract LockReleaseTokenPoolPoolAndProxy_provideLiquidity is LockReleaseTokenPo
 
   function test_LiquidityNotAccepted_Revert() public {
     s_lockReleaseTokenPoolAndProxy =
-      new LockReleaseTokenPoolAndProxy(s_token, new address[](0), address(s_mockARM), false, address(s_sourceRouter));
+      new LockReleaseTokenPoolAndProxy(s_token, new address[](0), address(s_mockRMN), false, address(s_sourceRouter));
 
     vm.expectRevert(LockReleaseTokenPoolAndProxy.LiquidityNotAccepted.selector);
     s_lockReleaseTokenPoolAndProxy.provideLiquidity(1);

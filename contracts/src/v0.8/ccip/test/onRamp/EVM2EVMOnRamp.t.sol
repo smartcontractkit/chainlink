@@ -25,7 +25,7 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
       defaultTxGasLimit: GAS_LIMIT,
       maxNopFeesJuels: MAX_NOP_FEES_JUELS,
       prevOnRamp: address(0),
-      armProxy: address(s_mockARM)
+      rmnProxy: address(s_mockRMN)
     });
     EVM2EVMOnRamp.DynamicConfig memory dynamicConfig =
       generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry), address(s_tokenAdminRegistry));
@@ -49,7 +49,7 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
     assertEq(staticConfig.defaultTxGasLimit, gotStaticConfig.defaultTxGasLimit);
     assertEq(staticConfig.maxNopFeesJuels, gotStaticConfig.maxNopFeesJuels);
     assertEq(staticConfig.prevOnRamp, gotStaticConfig.prevOnRamp);
-    assertEq(staticConfig.armProxy, gotStaticConfig.armProxy);
+    assertEq(staticConfig.rmnProxy, gotStaticConfig.rmnProxy);
 
     EVM2EVMOnRamp.DynamicConfig memory gotDynamicConfig = s_onRamp.getDynamicConfig();
     assertEq(dynamicConfig.router, gotDynamicConfig.router);
@@ -445,8 +445,8 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockARM.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-    vm.expectRevert(EVM2EVMOnRamp.BadARMSignal.selector);
+    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    vm.expectRevert(EVM2EVMOnRamp.CursedByRMN.selector);
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), 0, OWNER);
   }
 
@@ -609,7 +609,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     vm.startPrank(OWNER);
 
     MaybeRevertingBurnMintTokenPool newPool = new MaybeRevertingBurnMintTokenPool(
-      BurnMintERC677(sourceETH), new address[](0), address(s_mockARM), address(s_sourceRouter)
+      BurnMintERC677(sourceETH), new address[](0), address(s_mockRMN), address(s_sourceRouter)
     );
     // Allow Pool to burn/mint Eth
     BurnMintERC677(sourceETH).grantMintAndBurnRoles(address(newPool));
@@ -684,7 +684,7 @@ contract EVM2EVMOnRamp_forwardFromRouter_upgrade is EVM2EVMOnRampSetup {
         defaultTxGasLimit: GAS_LIMIT,
         maxNopFeesJuels: MAX_NOP_FEES_JUELS,
         prevOnRamp: address(s_prevOnRamp),
-        armProxy: address(s_mockARM)
+        rmnProxy: address(s_mockRMN)
       }),
       generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry), address(s_tokenAdminRegistry)),
       getOutboundRateLimiterConfig(),
@@ -774,7 +774,7 @@ contract EVM2EVMOnRamp_getFeeSetup is EVM2EVMOnRampSetup {
     s_tokenAdminRegistry.registerAdministratorPermissioned(CUSTOM_TOKEN, OWNER);
 
     LockReleaseTokenPool wrappedNativePool = new LockReleaseTokenPool(
-      IERC20(s_sourceRouter.getWrappedNative()), new address[](0), address(s_mockARM), true, address(s_sourceRouter)
+      IERC20(s_sourceRouter.getWrappedNative()), new address[](0), address(s_mockRMN), true, address(s_sourceRouter)
     );
 
     TokenPool.ChainUpdate[] memory wrappedNativeChainUpdate = new TokenPool.ChainUpdate[](1);
@@ -789,7 +789,7 @@ contract EVM2EVMOnRamp_getFeeSetup is EVM2EVMOnRampSetup {
     s_tokenAdminRegistry.setPool(s_sourceRouter.getWrappedNative(), address(wrappedNativePool));
 
     LockReleaseTokenPool customPool = new LockReleaseTokenPool(
-      IERC20(CUSTOM_TOKEN), new address[](0), address(s_mockARM), true, address(s_sourceRouter)
+      IERC20(CUSTOM_TOKEN), new address[](0), address(s_mockRMN), true, address(s_sourceRouter)
     );
     TokenPool.ChainUpdate[] memory customChainUpdate = new TokenPool.ChainUpdate[](1);
     customChainUpdate[0] = TokenPool.ChainUpdate({

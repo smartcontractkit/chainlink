@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IARM} from "../interfaces/IARM.sol";
 import {IPool} from "../interfaces/IPool.sol";
+import {IRMN} from "../interfaces/IRMN.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
@@ -27,7 +27,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
   error AllowListNotEnabled();
   error NonExistentChain(uint64 remoteChainSelector);
   error ChainNotAllowed(uint64 remoteChainSelector);
-  error BadARMSignal();
+  error CursedByRMN();
   error ChainAlreadyExists(uint64 chainSelector);
   error InvalidSourcePoolAddress(bytes sourcePoolAddress);
 
@@ -68,8 +68,8 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
 
   /// @dev The bridgeable token that is managed by this pool.
   IERC20 internal immutable i_token;
-  /// @dev The address of the arm proxy
-  address internal immutable i_armProxy;
+  /// @dev The address of the RMN proxy
+  address internal immutable i_rmnProxy;
   /// @dev The immutable flag that indicates if the pool is access-controlled.
   bool internal immutable i_allowlistEnabled;
   /// @dev A set of addresses allowed to trigger lockOrBurn as original senders.
@@ -85,10 +85,10 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
   EnumerableSet.UintSet internal s_remoteChainSelectors;
   mapping(uint64 remoteChainSelector => RemoteChainConfig) internal s_remoteChainConfigs;
 
-  constructor(IERC20 token, address[] memory allowlist, address armProxy, address router) {
+  constructor(IERC20 token, address[] memory allowlist, address rmnProxy, address router) {
     if (address(token) == address(0) || router == address(0)) revert ZeroAddressNotAllowed();
     i_token = token;
-    i_armProxy = armProxy;
+    i_rmnProxy = rmnProxy;
     s_router = IRouter(router);
 
     // Pool can be set as permissioned or permissionless at deployment time only to save hot-path gas.
@@ -98,10 +98,10 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
     }
   }
 
-  /// @notice Get ARM proxy address
-  /// @return armProxy Address of arm proxy
-  function getArmProxy() public view returns (address armProxy) {
-    return i_armProxy;
+  /// @notice Get RMN proxy address
+  /// @return rmnProxy Address of RMN proxy
+  function getRmnProxy() public view returns (address rmnProxy) {
+    return i_rmnProxy;
   }
 
   /// @notice Gets the IERC20 token that this pool can lock or burn.
@@ -354,9 +354,10 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
     }
   }
 
-  /// @notice Ensure that there is no active curse.
-  modifier whenHealthy() {
-    if (IARM(i_armProxy).isCursed()) revert BadARMSignal();
+  /// @notice Ensure that the RMN has not cursed the lane, and that the latest heartbeat is not stale.
+  /// @param remoteChainSelector - The chain ID of the remote chain
+  modifier whenNotCursed(uint64 remoteChainSelector) {
+    if (IRMN(i_rmnProxy).isCursed(bytes32(uint256(remoteChainSelector)))) revert CursedByRMN();
     _;
   }
 }

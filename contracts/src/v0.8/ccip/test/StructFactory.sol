@@ -4,8 +4,8 @@ pragma solidity 0.8.19;
 import {IPool} from "../interfaces/IPool.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 
-import {ARM} from "../ARM.sol";
 import {PriceRegistry} from "../PriceRegistry.sol";
+import {RMN} from "../RMN.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 
@@ -38,38 +38,38 @@ contract StructFactory {
   address internal constant USER_3 = address(3);
   address internal constant USER_4 = address(4);
 
-  // Arm
-  function armConstructorArgs() internal pure returns (ARM.Config memory) {
-    ARM.Voter[] memory voters = new ARM.Voter[](4);
-    voters[0] = ARM.Voter({
+  // RMN
+  function rmnConstructorArgs() internal pure returns (RMN.Config memory) {
+    RMN.Voter[] memory voters = new RMN.Voter[](4);
+    voters[0] = RMN.Voter({
       blessVoteAddr: BLESS_VOTER_1,
       curseVoteAddr: CURSE_VOTER_1,
       curseUnvoteAddr: CURSE_UNVOTER_1,
       blessWeight: WEIGHT_1,
       curseWeight: WEIGHT_1
     });
-    voters[1] = ARM.Voter({
+    voters[1] = RMN.Voter({
       blessVoteAddr: BLESS_VOTER_2,
       curseVoteAddr: CURSE_VOTER_2,
       curseUnvoteAddr: CURSE_UNVOTER_2,
       blessWeight: WEIGHT_10,
       curseWeight: WEIGHT_10
     });
-    voters[2] = ARM.Voter({
+    voters[2] = RMN.Voter({
       blessVoteAddr: BLESS_VOTER_3,
       curseVoteAddr: CURSE_VOTER_3,
       curseUnvoteAddr: CURSE_UNVOTER_3,
       blessWeight: WEIGHT_20,
       curseWeight: WEIGHT_20
     });
-    voters[3] = ARM.Voter({
+    voters[3] = RMN.Voter({
       blessVoteAddr: BLESS_VOTER_4,
       curseVoteAddr: CURSE_VOTER_4,
       curseUnvoteAddr: CURSE_UNVOTER_4,
       blessWeight: WEIGHT_40,
       curseWeight: WEIGHT_40
     });
-    return ARM.Config({
+    return RMN.Config({
       voters: voters,
       blessWeightThreshold: WEIGHT_10 + WEIGHT_20 + WEIGHT_40,
       curseWeightThreshold: WEIGHT_1 + WEIGHT_10 + WEIGHT_20 + WEIGHT_40

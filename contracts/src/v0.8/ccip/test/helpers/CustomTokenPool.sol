@@ -10,14 +10,14 @@ contract CustomTokenPool is TokenPool {
   event SynthBurned(uint256 amount);
   event SynthMinted(uint256 amount);
 
-  constructor(IERC20 token, address armProxy, address router) TokenPool(token, new address[](0), armProxy, router) {}
+  constructor(IERC20 token, address rmnProxy, address router) TokenPool(token, new address[](0), rmnProxy, router) {}
 
   /// @notice Locks the token in the pool
   function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
     external
     virtual
     override
-    whenHealthy
+    whenNotCursed(lockOrBurnIn.remoteChainSelector)
     returns (Pool.LockOrBurnOutV1 memory)
   {
     _onlyOnRamp(lockOrBurnIn.remoteChainSelector);
@@ -29,7 +29,7 @@ contract CustomTokenPool is TokenPool {
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
     override
-    whenHealthy
+    whenNotCursed(releaseOrMintIn.remoteChainSelector)
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);

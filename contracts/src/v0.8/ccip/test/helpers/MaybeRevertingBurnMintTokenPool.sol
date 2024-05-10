@@ -13,9 +13,9 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
   constructor(
     IBurnMintERC20 token,
     address[] memory allowlist,
-    address armProxy,
+    address rmnProxy,
     address router
-  ) BurnMintTokenPool(token, allowlist, armProxy, router) {}
+  ) BurnMintTokenPool(token, allowlist, rmnProxy, router) {}
 
   function setShouldRevert(bytes calldata revertReason) external {
     s_revertReason = revertReason;
@@ -29,7 +29,7 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     external
     virtual
     override
-    whenHealthy
+    whenNotCursed(lockOrBurnIn.remoteChainSelector)
     returns (Pool.LockOrBurnOutV1 memory)
   {
     _checkAllowList(lockOrBurnIn.originalSender);
@@ -56,7 +56,7 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     external
     virtual
     override
-    whenHealthy
+    whenNotCursed(releaseOrMintIn.remoteChainSelector)
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);

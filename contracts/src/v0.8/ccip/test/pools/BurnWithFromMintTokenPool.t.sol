@@ -15,7 +15,7 @@ contract BurnWithFromMintTokenPoolSetup is BurnMintSetup {
     BurnMintSetup.setUp();
 
     s_pool =
-      new BurnWithFromMintTokenPool(s_burnMintERC677, new address[](0), address(s_mockARM), address(s_sourceRouter));
+      new BurnWithFromMintTokenPool(s_burnMintERC677, new address[](0), address(s_mockRMN), address(s_sourceRouter));
     s_burnMintERC677.grantMintAndBurnRoles(address(s_pool));
 
     _applyChainUpdates(address(s_pool));
@@ -25,7 +25,7 @@ contract BurnWithFromMintTokenPoolSetup is BurnMintSetup {
 contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup {
   function test_Setup_Success() public view {
     assertEq(address(s_burnMintERC677), address(s_pool.getToken()));
-    assertEq(address(s_mockARM), s_pool.getArmProxy());
+    assertEq(address(s_mockRMN), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
     assertEq(type(uint256).max, s_burnMintERC677.allowance(address(s_pool), address(s_pool)));
     assertEq("BurnWithFromMintTokenPool 1.5.0-dev", s_pool.typeAndVersion());
@@ -65,11 +65,11 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
 
   // Should not burn tokens if cursed.
   function test_PoolBurnRevertNotHealthy_Revert() public {
-    s_mockARM.voteToCurse(bytes32(0));
+    s_mockRMN.voteToCurse(bytes32(0));
     uint256 before = s_burnMintERC677.balanceOf(address(s_pool));
     vm.startPrank(s_burnMintOnRamp);
 
-    vm.expectRevert(EVM2EVMOnRamp.BadARMSignal.selector);
+    vm.expectRevert(TokenPool.CursedByRMN.selector);
     s_pool.lockOrBurn(
       Pool.LockOrBurnInV1({
         originalSender: OWNER,

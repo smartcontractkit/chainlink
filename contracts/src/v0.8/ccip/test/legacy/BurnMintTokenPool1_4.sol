@@ -3,8 +3,8 @@ pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
-import {IARM} from "../../interfaces/IARM.sol";
 import {IPoolPriorTo1_5} from "../../interfaces/IPoolPriorTo1_5.sol";
+import {IRMN} from "../../interfaces/IRMN.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 
 import {OwnerIsCreator} from "../../../shared/access/OwnerIsCreator.sol";
@@ -326,7 +326,7 @@ abstract contract TokenPool1_4 is IPoolPriorTo1_5, OwnerIsCreator, IERC165 {
 
   /// @notice Ensure that there is no active curse.
   modifier whenHealthy() {
-    if (IARM(i_armProxy).isCursed()) revert BadARMSignal();
+    if (IRMN(i_armProxy).isCursed()) revert BadARMSignal();
     _;
   }
 }

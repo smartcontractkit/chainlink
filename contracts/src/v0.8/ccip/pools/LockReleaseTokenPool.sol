@@ -41,21 +41,21 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   constructor(
     IERC20 token,
     address[] memory allowlist,
-    address armProxy,
+    address rmnProxy,
     bool acceptLiquidity,
     address router
-  ) TokenPool(token, allowlist, armProxy, router) {
+  ) TokenPool(token, allowlist, rmnProxy, router) {
     i_acceptLiquidity = acceptLiquidity;
   }
 
   /// @notice Locks the token in the pool
-  /// @dev The whenHealthy check is important to ensure that even if a ramp is compromised
-  /// we're able to stop token movement via ARM.
+  /// @dev The whenNotCursed check is important to ensure that even if a ramp is compromised
+  /// we're able to stop token movement via RMN.
   function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
     external
     virtual
     override
-    whenHealthy
+    whenNotCursed(lockOrBurnIn.remoteChainSelector)
     returns (Pool.LockOrBurnOutV1 memory)
   {
     _checkAllowList(lockOrBurnIn.originalSender);
@@ -68,13 +68,13 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   }
 
   /// @notice Release tokens from the pool to the recipient
-  /// @dev The whenHealthy check is important to ensure that even if a ramp is compromised
-  /// we're able to stop token movement via ARM.
+  /// @dev The whenNotCursed check is important to ensure that even if a ramp is compromised
+  /// we're able to stop token movement via RMN.
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
     virtual
     override
-    whenHealthy
+    whenNotCursed(releaseOrMintIn.remoteChainSelector)
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);

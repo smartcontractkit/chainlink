@@ -2,13 +2,13 @@
 pragma solidity 0.8.19;
 
 import {StructFactory} from "./StructFactory.sol";
-import {MockARM} from "./mocks/MockARM.sol";
+import {MockRMN} from "./mocks/MockRMN.sol";
 import {Test, stdError} from "forge-std/Test.sol";
 
 contract BaseTest is Test, StructFactory {
   bool private s_baseTestInitialized;
 
-  MockARM internal s_mockARM;
+  MockRMN internal s_mockRMN;
 
   function setUp() public virtual {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
@@ -24,6 +24,6 @@ contract BaseTest is Test, StructFactory {
     // Set the block time to a constant known value
     vm.warp(BLOCK_TIME);
 
-    s_mockARM = new MockARM();
+    s_mockRMN = new MockRMN();
   }
 }
