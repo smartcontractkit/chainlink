@@ -40,8 +40,8 @@ type ORM interface {
 	InsertGasPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, gasPrices []GasPriceUpdate) error
 	InsertTokenPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, tokenPrices []TokenPriceUpdate) error
 
-	ClearGasPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error
-	ClearTokenPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error
+	ClearGasPricesByDestChain(ctx context.Context, destChainSelector uint64, expireSec int) error
+	ClearTokenPricesByDestChain(ctx context.Context, destChainSelector uint64, expireSec int) error
 }
 
 type orm struct {
@@ -99,7 +99,6 @@ func (o *orm) InsertGasPricesForDestChain(ctx context.Context, destChainSelector
 		return nil
 	}
 
-	now := time.Now()
 	insertData := make([]map[string]interface{}, 0, len(gasPrices))
 	for _, price := range gasPrices {
 		insertData = append(insertData, map[string]interface{}{
@@ -107,12 +106,12 @@ func (o *orm) InsertGasPricesForDestChain(ctx context.Context, destChainSelector
 			"job_id":                jobId,
 			"source_chain_selector": price.SourceChainSelector,
 			"gas_price":             price.GasPrice,
-			"created_at":            now,
 		})
 	}
 
+	// using statement_timestamp() to make testing easier
 	stmt := `INSERT INTO ccip.observed_gas_prices (chain_selector, job_id, source_chain_selector, gas_price, created_at)
-		VALUES (:chain_selector, :job_id, :source_chain_selector, :gas_price, :created_at);`
+		VALUES (:chain_selector, :job_id, :source_chain_selector, :gas_price, statement_timestamp());`
 	_, err := o.ds.NamedExecContext(ctx, stmt, insertData)
 	if err != nil {
 		err = fmt.Errorf("error inserting gas prices for job %d: %w", jobId, err)
@@ -126,7 +125,6 @@ func (o *orm) InsertTokenPricesForDestChain(ctx context.Context, destChainSelect
 		return nil
 	}
 
-	now := time.Now()
 	insertData := make([]map[string]interface{}, 0, len(tokenPrices))
 	for _, price := range tokenPrices {
 		insertData = append(insertData, map[string]interface{}{
@@ -134,12 +132,12 @@ func (o *orm) InsertTokenPricesForDestChain(ctx context.Context, destChainSelect
 			"job_id":         jobId,
 			"token_addr":     price.TokenAddr,
 			"token_price":    price.TokenPrice,
-			"created_at":     now,
 		})
 	}
 
+	// using statement_timestamp() to make testing easier
 	stmt := `INSERT INTO ccip.observed_token_prices (chain_selector, job_id, token_addr, token_price, created_at)
-		VALUES (:chain_selector, :job_id, :token_addr, :token_price, :created_at);`
+		VALUES (:chain_selector, :job_id, :token_addr, :token_price, statement_timestamp());`
 	_, err := o.ds.NamedExecContext(ctx, stmt, insertData)
 	if err != nil {
 		err = fmt.Errorf("error inserting token prices for job %d: %w", jobId, err)
@@ -148,16 +146,16 @@ func (o *orm) InsertTokenPricesForDestChain(ctx context.Context, destChainSelect
 	return err
 }
 
-func (o *orm) ClearGasPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error {
-	stmt := `DELETE FROM ccip.observed_gas_prices WHERE chain_selector = $1 AND created_at < $2`
+func (o *orm) ClearGasPricesByDestChain(ctx context.Context, destChainSelector uint64, expireSec int) error {
+	stmt := `DELETE FROM ccip.observed_gas_prices WHERE chain_selector = $1 AND created_at < (statement_timestamp() - $2 * interval '1 second')`
 
-	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, to)
+	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, expireSec)
 	return err
 }
 
-func (o *orm) ClearTokenPricesByDestChain(ctx context.Context, destChainSelector uint64, to time.Time) error {
-	stmt := `DELETE FROM ccip.observed_token_prices WHERE chain_selector = $1 AND created_at < $2`
+func (o *orm) ClearTokenPricesByDestChain(ctx context.Context, destChainSelector uint64, expireSec int) error {
+	stmt := `DELETE FROM ccip.observed_token_prices WHERE chain_selector = $1 AND created_at < (statement_timestamp() - $2 * interval '1 second')`
 
-	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, to)
+	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, expireSec)
 	return err
 }
