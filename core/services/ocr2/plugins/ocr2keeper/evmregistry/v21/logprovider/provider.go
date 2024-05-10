@@ -314,6 +314,11 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 			dequeuedLatestCompleteWindow = dequeuedLatest
 		}
 
+		bestEffort := false
+		if dequeuedLatestCompleteWindow {
+			bestEffort = true
+		}
+
 		if p.iterations == p.currentIteration {
 			p.calculateIterations = true
 		}
@@ -335,31 +340,21 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		for len(payloads) < maxResults && start <= latestBlock {
 			startWindow, end, _ := getBlockWindow(start, blockRate)
 
-			// if haven't dequeued all block windows to the guaranteed minimum, fast forward until we find a window that needs a min dequeue
-			if !dequeuedLatestCompleteWindow && p.dequeuedMinimum[startWindow] {
-				p.lggr.Debugw("Previously dequeued minimum logs, bumping to next window", "start", start, "latestBlock", latestBlock)
-				start += int64(blockRate)
-				continue
-			}
-
-			// if we have dequeued the minimum logs for this window, mark it as such, then bump the dequeue window - TOOD should we return instead?
-			if !p.dequeuedMinimum[startWindow] && p.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
-				p.lggr.Debugw("Dequeued minimum logs, bumping to next window", "start", start, "latestBlock", latestBlock)
-				p.dequeuedMinimum[startWindow] = true
-
-				start += int64(blockRate)
-				continue
-
-			}
-
-			if dequeuedLatestCompleteWindow {
+			if bestEffort {
 				p.lggr.Debugw("Dequeuing logs on a best effort basis", "start", start, "latestBlock", latestBlock)
+			} else if p.dequeuedMinimum[startWindow] {
+				p.lggr.Debugw("Previously dequeued minimum logs for this window, bumping to next window", "start", start, "latestBlock", latestBlock)
+				start += int64(blockRate)
+				continue
 			}
 
 			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 				p.dequeuedLogs[startWindow] += len(logs)
+				if p.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
+					p.dequeuedMinimum[startWindow] = true
+				}
 			}
 			for _, l := range logs {
 				payload, err := p.createPayload(l.ID, l.Log)

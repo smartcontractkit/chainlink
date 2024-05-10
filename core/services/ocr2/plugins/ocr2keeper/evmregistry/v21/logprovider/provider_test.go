@@ -890,7 +890,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 40, blockWindowCounts[2])
 		assert.Equal(t, 50, blockWindowCounts[3])
 
-		for i := 2; i < 100; i++ {
+		for i := 0; i < 97; i++ {
 			payloads, err = provider.GetLatestPayloads(ctx)
 			assert.NoError(t, err)
 
@@ -958,6 +958,114 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
 		assert.Equal(t, 30, blockWindowCounts[1])
 		assert.Equal(t, 40, blockWindowCounts[2])
+		assert.Equal(t, 40, blockWindowCounts[3])
+		assert.Equal(t, 40, blockWindowCounts[100])
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		// we dequeue a maximum of 10 logs
+		assert.Equal(t, 10, len(payloads))
+
+		// the dequeue is evenly distributed across the 5 upkeeps
+		assert.Equal(t, 796, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 796, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 796, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 796, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 796, len(bufV1.queues["5"].logs))
+
+		blockWindowCounts = map[int64]int{}
+
+		for _, q := range bufV1.queues {
+			for _, l := range q.logs {
+				blockWindowCounts[l.BlockNumber]++
+			}
+		}
+
+		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
+		assert.Equal(t, 20, blockWindowCounts[1])
+		assert.Equal(t, 40, blockWindowCounts[2])
+		assert.Equal(t, 40, blockWindowCounts[3])
+		assert.Equal(t, 40, blockWindowCounts[100])
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		// we dequeue a maximum of 10 logs
+		assert.Equal(t, 10, len(payloads))
+
+		// the dequeue is evenly distributed across the 5 upkeeps
+		assert.Equal(t, 794, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 794, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 794, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 794, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 794, len(bufV1.queues["5"].logs))
+
+		blockWindowCounts = map[int64]int{}
+
+		for _, q := range bufV1.queues {
+			for _, l := range q.logs {
+				blockWindowCounts[l.BlockNumber]++
+			}
+		}
+
+		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
+		assert.Equal(t, 10, blockWindowCounts[1])
+		assert.Equal(t, 40, blockWindowCounts[2])
+		assert.Equal(t, 40, blockWindowCounts[3])
+		assert.Equal(t, 40, blockWindowCounts[100])
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		// we dequeue a maximum of 10 logs
+		assert.Equal(t, 10, len(payloads))
+
+		// the dequeue is evenly distributed across the 5 upkeeps
+		assert.Equal(t, 792, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 792, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 792, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 792, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 792, len(bufV1.queues["5"].logs))
+
+		blockWindowCounts = map[int64]int{}
+
+		for _, q := range bufV1.queues {
+			for _, l := range q.logs {
+				blockWindowCounts[l.BlockNumber]++
+			}
+		}
+
+		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
+		assert.Equal(t, 0, blockWindowCounts[1])
+		assert.Equal(t, 40, blockWindowCounts[2])
+		assert.Equal(t, 40, blockWindowCounts[3])
+		assert.Equal(t, 40, blockWindowCounts[100])
+
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+
+		// we dequeue a maximum of 10 logs
+		assert.Equal(t, 10, len(payloads))
+
+		// the dequeue is evenly distributed across the 5 upkeeps
+		assert.Equal(t, 790, len(bufV1.queues["1"].logs))
+		assert.Equal(t, 790, len(bufV1.queues["2"].logs))
+		assert.Equal(t, 790, len(bufV1.queues["3"].logs))
+		assert.Equal(t, 790, len(bufV1.queues["4"].logs))
+		assert.Equal(t, 790, len(bufV1.queues["5"].logs))
+
+		blockWindowCounts = map[int64]int{}
+
+		for _, q := range bufV1.queues {
+			for _, l := range q.logs {
+				blockWindowCounts[l.BlockNumber]++
+			}
+		}
+
+		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
+		assert.Equal(t, 0, blockWindowCounts[1])
+		assert.Equal(t, 30, blockWindowCounts[2])
 		assert.Equal(t, 40, blockWindowCounts[3])
 		assert.Equal(t, 40, blockWindowCounts[100])
 	})
