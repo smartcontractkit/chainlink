@@ -221,7 +221,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   /**
    * @notice Request a set of random words.
-   * @param req - a struct containing following fiels for randomness request:
+   * @param req - a struct containing following fields for randomness request:
    * keyHash - Corresponds to a particular oracle job which uses
    * that key for generating the VRF proof. Different keyHash's have different gas price
    * ceilings, so you can select a specific one to bound your maximum per request cost.
