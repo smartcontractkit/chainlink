@@ -87,6 +87,10 @@ RPCDefaultBatchSize = 250 # Default
 # available from the connected node via RPC, due to race conditions in the code of the remote ETH node. In this case you will get false
 # "zero" blocks that are missing transactions.
 RPCBlockQueryDelay = 1 # Default
+# FinalizedBlockOffset defines the number of blocks by which the latest finalized block will be shifted. E.g if RPC returns block 100 as latest finalized, node will treat block `100 - FinalizedBlockOffset` as the latest finalized block.
+# In case of `FinalityTagEnabled = false` Node will treat block `latest - FinalityDepth - FinalizedBlockOffset` as the latest finalized block.
+# With `EnforceRepeatableRead = true`, RPC is considered healthy only if its most recent finalized block is larger or equal to the highest finalized block observed by the Node minus `FinalizedBlockOffset`.
+FinalizedBlockOffset = 0 # Default
 
 [EVM.Transactions]
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.

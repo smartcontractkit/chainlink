@@ -362,6 +362,7 @@ type Chain struct {
 	OperatorFactoryAddress    *types.EIP55Address
 	RPCDefaultBatchSize       *uint32
 	RPCBlockQueryDelay        *uint16
+	FinalizedBlockOffset      *uint32
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`

@@ -181,6 +181,5 @@ func (e *EVMConfig) LogPrunePageSize() uint32 {
 }
 
 func (e *EVMConfig) FinalizedBlockOffset() uint32 {
-	// TODO: DH implement me
-	return 0
+	return *e.C.FinalizedBlockOffset
 }

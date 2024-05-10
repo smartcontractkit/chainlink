@@ -164,6 +164,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.RPCBlockQueryDelay; v != nil {
 		c.RPCBlockQueryDelay = v
 	}
+	if v := f.FinalizedBlockOffset; v != nil {
+		c.FinalizedBlockOffset = v
+	}
 
 	c.Transactions.setFrom(&f.Transactions)
 	c.BalanceMonitor.setFrom(&f.BalanceMonitor)

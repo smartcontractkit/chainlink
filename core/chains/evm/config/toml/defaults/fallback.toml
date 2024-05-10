@@ -14,6 +14,7 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
 
 [Transactions]
 ForwardersEnabled = false
