@@ -267,8 +267,8 @@ func callbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 
 	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		callback()
-		close(done)
 	}()
 
 	select {
