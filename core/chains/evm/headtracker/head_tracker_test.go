@@ -814,10 +814,17 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	type opts struct {
-		Heads []evmtypes.Head
+		Heads                []evmtypes.Head
+		FinalityTagEnabled   bool
+		FinalizedBlockOffset uint32
+		FinalityDepth        uint32
 	}
 	newHeadTrackerUniverse := func(t *testing.T, opts opts) *headTrackerUniverse {
-		cfg := configtest.NewGeneralConfig(t, nil)
+		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
+			c.EVM[0].FinalityTagEnabled = ptr(opts.FinalityTagEnabled)
+			c.EVM[0].FinalizedBlockOffset = ptr(opts.FinalizedBlockOffset)
+			c.EVM[0].FinalityDepth = ptr(opts.FinalityDepth)
+		})
 
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 		db := pgtest.NewSqlxDB(t)
@@ -833,26 +840,37 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		return ht
 	}
 
-	t.Run("returns error if latestFinalized is not valid", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{})
+	t.Run("returns error if failed to get latestFinalized block", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
+		const expectedError = "failed to fetch latest finalized block"
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New(expectedError)).Once()
 
-		err := htu.headTracker.Backfill(ctx, &h12, nil)
+		err := htu.headTracker.Backfill(ctx, &h12)
+		require.ErrorContains(t, err, expectedError)
+	})
+	t.Run("returns error if latestFinalized is not valid", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, nil).Once()
+
+		err := htu.headTracker.Backfill(ctx, &h12)
 		require.EqualError(t, err, "can not perform backfill without a valid latestFinalized head")
 	})
 	t.Run("Returns error if finalized head is ahead of canonical", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{})
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&h14Orphaned, nil).Once()
 
-		err := htu.headTracker.Backfill(ctx, &h12, &h14Orphaned)
+		err := htu.headTracker.Backfill(ctx, &h12)
 		require.EqualError(t, err, "invariant violation: expected head of canonical chain to be ahead of the latestFinalized")
 	})
 	t.Run("Returns error if finalizedHead is not present in the canonical chain", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads})
+		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&h14Orphaned, nil).Once()
 
-		err := htu.headTracker.Backfill(ctx, &h15, &h14Orphaned)
+		err := htu.headTracker.Backfill(ctx, &h15)
 		require.EqualError(t, err, "expected finalized block to be present in canonical chain")
 	})
 	t.Run("Marks all blocks in chain that are older than finalized", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads})
+		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
 
 		assertFinalized := func(expectedFinalized bool, msg string, heads ...evmtypes.Head) {
 			for _, h := range heads {
@@ -861,18 +879,20 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			}
 		}
 
-		err := htu.headTracker.Backfill(ctx, &h15, &h14)
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&h14, nil).Once()
+		err := htu.headTracker.Backfill(ctx, &h15)
 		require.NoError(t, err)
 		assertFinalized(true, "expected heads to be marked as finalized after backfill", h14, h13, h12, h11)
 		assertFinalized(false, "expected heads to remain unfinalized", h15, head10)
 	})
 
 	t.Run("fetches a missing head", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads})
+		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&h9, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, head10.Hash).
 			Return(&head10, nil)
 
-		err := htu.headTracker.Backfill(ctx, &h12, &h9)
+		err := htu.headTracker.Backfill(ctx, &h12)
 		require.NoError(t, err)
 
 		h := htu.headSaver.Chain(h12.Hash)
@@ -889,16 +909,16 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, int64(10), writtenHead.Number)
 	})
-
 	t.Run("fetches only heads that are missing", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads})
+		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head8, nil).Once()
 
 		htu.ethClient.On("HeadByHash", mock.Anything, head10.Hash).
 			Return(&head10, nil)
 		htu.ethClient.On("HeadByHash", mock.Anything, head8.Hash).
 			Return(&head8, nil)
 
-		err := htu.headTracker.Backfill(ctx, &h15, &head8)
+		err := htu.headTracker.Backfill(ctx, &h15)
 		require.NoError(t, err)
 
 		h := htu.headSaver.Chain(h15.Hash)
@@ -910,7 +930,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 
 	t.Run("abandons backfill and returns error if the eth node returns not found", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads})
+		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head8, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, head10.Hash).
 			Return(&head10, nil).
 			Once()
@@ -918,9 +939,9 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			Return(nil, ethereum.NotFound).
 			Once()
 
-		err := htu.headTracker.Backfill(ctx, &h12, &head8)
+		err := htu.headTracker.Backfill(ctx, &h12)
 		require.Error(t, err)
-		require.EqualError(t, err, "fetchAndSaveHead failed: not found")
+		require.ErrorContains(t, err, "fetchAndSaveHead failed: not found")
 
 		h := htu.headSaver.Chain(h12.Hash)
 
@@ -930,7 +951,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 
 	t.Run("abandons backfill and returns error if the context time budget is exceeded", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads})
+		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head8, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, head10.Hash).
 			Return(&head10, nil)
 		lctx, cancel := context.WithCancel(ctx)
@@ -939,9 +961,9 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			cancel()
 		})
 
-		err := htu.headTracker.Backfill(lctx, &h12, &head8)
+		err := htu.headTracker.Backfill(lctx, &h12)
 		require.Error(t, err)
-		require.EqualError(t, err, "fetchAndSaveHead failed: context canceled")
+		require.ErrorContains(t, err, "fetchAndSaveHead failed: context canceled")
 
 		h := htu.headSaver.Chain(h12.Hash)
 
@@ -949,17 +971,17 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		assert.Equal(t, 4, int(h.ChainLength()))
 		assert.Equal(t, int64(9), h.EarliestInChain().BlockNumber())
 	})
-
 	t.Run("abandons backfill and returns error when fetching a block by hash fails, indicating a reorg", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{})
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&h11, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, h14.Hash).Return(&h14, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, h13.Hash).Return(&h13, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, h12.Hash).Return(nil, errors.New("not found")).Once()
 
-		err := htu.headTracker.Backfill(ctx, &h15, &h11)
+		err := htu.headTracker.Backfill(ctx, &h15)
 
 		require.Error(t, err)
-		require.EqualError(t, err, "fetchAndSaveHead failed: not found")
+		require.ErrorContains(t, err, "fetchAndSaveHead failed: not found")
 
 		h := htu.headSaver.Chain(h14.Hash)
 
@@ -968,9 +990,10 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		assert.Equal(t, int64(13), h.EarliestInChain().BlockNumber())
 	})
 	t.Run("marks head as finalized, if latestHead = finalizedHead (0 finality depth)", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: []evmtypes.Head{h15}})
+		htu := newHeadTrackerUniverse(t, opts{Heads: []evmtypes.Head{h15}, FinalityTagEnabled: true})
 		finalizedH15 := h15 // copy h15 to have different addresses
-		err := htu.headTracker.Backfill(ctx, &h15, &finalizedH15)
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&finalizedH15, nil).Once()
+		err := htu.headTracker.Backfill(ctx, &h15)
 		require.NoError(t, err)
 
 		h := htu.headSaver.LatestChain()
@@ -980,6 +1003,71 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		assert.True(t, h.IsFinalized)
 		assert.Equal(t, h15.BlockNumber(), h.BlockNumber())
 		assert.Equal(t, h15.Hash, h.Hash)
+	})
+	t.Run("marks block as finalized according to FinalizedBlockOffset (finality tag)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{Heads: []evmtypes.Head{h15}, FinalityTagEnabled: true, FinalizedBlockOffset: 2})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&h14, nil).Once()
+		// calculateLatestFinalizedBlock fetches blocks down to the FinalizedBlockOffset
+		htu.ethClient.On("HeadByHash", mock.Anything, h13.Hash).Return(&h13, nil).Once()
+		htu.ethClient.On("HeadByHash", mock.Anything, h12.Hash).Return(&h12, nil).Once()
+		// backfill from 15 to 12
+		htu.ethClient.On("HeadByHash", mock.Anything, h14.Hash).Return(&h14, nil).Once()
+		err := htu.headTracker.Backfill(ctx, &h15)
+		require.NoError(t, err)
+
+		h := htu.headSaver.LatestChain()
+		// h - must contain 15, 14, 13, 12 and only 12 is finalized
+		assert.Equal(t, 4, int(h.ChainLength()))
+		for ; h.Hash != h12.Hash; h = h.Parent {
+			assert.False(t, h.IsFinalized)
+		}
+
+		assert.True(t, h.IsFinalized)
+		assert.Equal(t, h12.BlockNumber(), h.BlockNumber())
+		assert.Equal(t, h12.Hash, h.Hash)
+	})
+	t.Run("marks block as finalized according to FinalizedBlockOffset (finality depth)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{Heads: []evmtypes.Head{h15}, FinalityDepth: 1, FinalizedBlockOffset: 2})
+		htu.ethClient.On("HeadByNumber", mock.Anything, big.NewInt(12)).Return(&h12, nil).Once()
+
+		// backfill from 15 to 12
+		htu.ethClient.On("HeadByHash", mock.Anything, h14.Hash).Return(&h14, nil).Once()
+		htu.ethClient.On("HeadByHash", mock.Anything, h13.Hash).Return(&h13, nil).Once()
+		htu.ethClient.On("HeadByHash", mock.Anything, h12.Hash).Return(&h12, nil).Once()
+		err := htu.headTracker.Backfill(ctx, &h15)
+		require.NoError(t, err)
+
+		h := htu.headSaver.LatestChain()
+		// h - must contain 15, 14, 13, 12 and only 12 is finalized
+		assert.Equal(t, 4, int(h.ChainLength()))
+		for ; h.Hash != h12.Hash; h = h.Parent {
+			assert.False(t, h.IsFinalized)
+		}
+
+		assert.True(t, h.IsFinalized)
+		assert.Equal(t, h12.BlockNumber(), h.BlockNumber())
+		assert.Equal(t, h12.Hash, h.Hash)
+	})
+	t.Run("marks block as finalized according to FinalizedBlockOffset even with instant finality", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{Heads: []evmtypes.Head{h15}, FinalityDepth: 0, FinalizedBlockOffset: 2})
+		htu.ethClient.On("HeadByNumber", mock.Anything, big.NewInt(13)).Return(&h13, nil).Once()
+
+		// backfill from 15 to 13
+		htu.ethClient.On("HeadByHash", mock.Anything, h14.Hash).Return(&h14, nil).Once()
+		htu.ethClient.On("HeadByHash", mock.Anything, h13.Hash).Return(&h13, nil).Once()
+		err := htu.headTracker.Backfill(ctx, &h15)
+		require.NoError(t, err)
+
+		h := htu.headSaver.LatestChain()
+		// h - must contain 15, 14, 13, only 13 is finalized
+		assert.Equal(t, 3, int(h.ChainLength()))
+		for ; h.Hash != h13.Hash; h = h.Parent {
+			assert.False(t, h.IsFinalized)
+		}
+
+		assert.True(t, h.IsFinalized)
+		assert.Equal(t, h13.BlockNumber(), h.BlockNumber())
+		assert.Equal(t, h13.Hash, h.Hash)
 	})
 }
 
@@ -1031,8 +1119,8 @@ type headTrackerUniverse struct {
 	ethClient       *evmclimocks.Client
 }
 
-func (u *headTrackerUniverse) Backfill(ctx context.Context, head, finalizedHead *evmtypes.Head) error {
-	return u.headTracker.Backfill(ctx, head, finalizedHead)
+func (u *headTrackerUniverse) Backfill(ctx context.Context, head *evmtypes.Head) error {
+	return u.headTracker.Backfill(ctx, head)
 }
 
 func (u *headTrackerUniverse) Start(t *testing.T) {

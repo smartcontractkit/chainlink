@@ -40,6 +40,7 @@ type config struct {
 	finalityDepth                     uint32
 	blockEmissionIdleWarningThreshold time.Duration
 	finalityTagEnabled                bool
+	finalizedBlockOffset              uint32
 }
 
 func (c *config) FinalityDepth() uint32 { return c.finalityDepth }
@@ -49,6 +50,10 @@ func (c *config) BlockEmissionIdleWarningThreshold() time.Duration {
 
 func (c *config) FinalityTagEnabled() bool {
 	return c.finalityTagEnabled
+}
+
+func (c *config) FinalizedBlockOffset() uint32 {
+	return c.finalizedBlockOffset
 }
 
 type saverOpts struct {

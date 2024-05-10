@@ -1653,7 +1653,7 @@ func TestNode_State(t *testing.T) {
 			ExpectedState: nodeStateAlive,
 		},
 		{
-			Name:                    "If finality lag does not exceeds offset, returns nodeStateFinalizedBlockOutOfSync (FinalityDepth)",
+			Name:                    "If finality lag exceeds offset, returns nodeStateFinalizedBlockOutOfSync (FinalityDepth)",
 			FinalizedBlockOffsetVal: 15,
 			PoolChainInfo: ChainInfo{
 				BlockNumber: 20,
@@ -1664,7 +1664,7 @@ func TestNode_State(t *testing.T) {
 			ExpectedState: nodeStateFinalizedBlockOutOfSync,
 		},
 		{
-			Name:                    "If finality lag does not exceeds offset, returns nodeStateFinalizedBlockOutOfSync (FinalityTag)",
+			Name:                    "If finality lag exceeds offset, returns nodeStateFinalizedBlockOutOfSync (FinalityTag)",
 			FinalizedBlockOffsetVal: 15,
 			IsFinalityTagEnabled:    true,
 			PoolChainInfo: ChainInfo{

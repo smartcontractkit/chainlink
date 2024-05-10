@@ -20,4 +20,6 @@ type HeadSaver[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
 	Chain(hash BLOCK_HASH) H
 	// MarkFinalized - marks matching block and all it's direct ancestors as finalized
 	MarkFinalized(ctx context.Context, latestFinalized H) error
+	// ChainWithLatestFinalized - returns highest block, whose ancestor is marked as finalized
+	ChainWithLatestFinalized() (H, error)
 }

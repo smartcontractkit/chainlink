@@ -1,6 +1,7 @@
 package headtracker
 
 import (
+	"errors"
 	"sort"
 	"sync"
 
@@ -23,11 +24,15 @@ type Heads interface {
 	// MarkFinalized - finds `finalized` in the LatestHead and marks it and all direct ancestors as finalized.
 	// Trims old blocks whose height is smaller than minBlockToKeep
 	MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool
+	// ChainWithLatestFinalized - returns highest block, whose ancestor is marked as finalized,
+	// or error if such block is not available
+	ChainWithLatestFinalized() (*evmtypes.Head, error)
 }
 
 type heads struct {
-	heads []*evmtypes.Head
-	mu    sync.RWMutex
+	heads                   []*evmtypes.Head
+	headWithLatestFinalized *evmtypes.Head
+	mu                      sync.RWMutex
 }
 
 func NewHeads() Heads {
@@ -42,6 +47,16 @@ func (h *heads) LatestHead() *evmtypes.Head {
 		return nil
 	}
 	return h.heads[0]
+}
+
+func (h *heads) ChainWithLatestFinalized() (*evmtypes.Head, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if h.headWithLatestFinalized == nil {
+		return nil, errors.New("latest finalized block is not available yet")
+	}
+	return h.headWithLatestFinalized, nil
 }
 
 func (h *heads) HeadByHash(hash common.Hash) *evmtypes.Head {
@@ -87,6 +102,10 @@ func (h *heads) MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool 
 		// we should not override the flag in such cases
 		head.IsFinalized = head.IsFinalized || foundFinalized
 		head = head.Parent
+	}
+
+	if foundFinalized {
+		h.headWithLatestFinalized = h.heads[0]
 	}
 
 	return foundFinalized
