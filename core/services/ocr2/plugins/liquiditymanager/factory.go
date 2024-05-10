@@ -69,13 +69,18 @@ func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig
 		closePluginTimeout = time.Duration(p.config.ClosePluginTimeoutSec) * time.Second
 	}
 
+	discoverer, err := p.discovererFactory.NewDiscoverer(p.config.LiquidityManagerNetwork, p.config.LiquidityManagerAddress)
+	if err != nil {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("init discoverer: %w", err)
+	}
+
 	return NewPlugin(
 			config.F,
 			closePluginTimeout,
 			p.config.LiquidityManagerNetwork,
 			p.config.LiquidityManagerAddress,
 			p.lmFactory,
-			p.discovererFactory,
+			discoverer,
 			p.bridgeFactory,
 			liquidityRebalancer,
 			liquiditymanager.NewEvmReportCodec(),

@@ -16,9 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
-var (
-	ErrGetNodeCSAKeys = "failed get CL node CSA keys"
-)
+var ErrGetNodeCSAKeys = "failed get CL node CSA keys"
 
 type ClCluster struct {
 	Nodes []*ClNode `json:"nodes"`

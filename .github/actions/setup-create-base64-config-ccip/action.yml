@@ -35,6 +35,9 @@ inputs:
     description: Grafana dashboard URL
   customEvmNodes:
     description: Custom EVM nodes to use  in key=value format, where key is chain id and value is docker image to use. If they are provided the number of networksSelected must be equal to the number of customEvmNodes
+  evmNodeLogLevel:
+    description: Log level for the custom EVM nodes
+    default: "info"
 
 runs:
   using: composite
@@ -57,6 +60,7 @@ runs:
         GRAFANA_URL: ${{ inputs.grafanaUrl }}
         GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
         CUSTOM_EVM_NODES: ${{ inputs.customEvmNodes }}
+        EVM_NODE_LOG_LEVEL: ${{ inputs.evmNodeLogLevel }}
       run: |
         echo ::add-mask::$CHAINLINK_IMAGE
         function convert_to_toml_array() {
@@ -112,6 +116,7 @@ runs:
         validator_count=4
         chain_id=${chain_id}
         addresses_to_fund=[\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\", \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\"]
+        node_log_level=\"${EVM_NODES_LOG_LEVEL}\"
 
         [CCIP.Env.PrivateEthereumNetworks.${networks_array[i]}.EthereumChainConfig.HardForkEpochs]
         Deneb=500
@@ -136,7 +141,7 @@ runs:
         [CCIP.Env.NewCLCluster.Common.ChainlinkUpgradeImage]
         image="$UPGRADE_IMAGE"
         version="$UPGRADE_VERSION"
-        
+
         $custom_nodes_toml
 
         [CCIP.Env.Logging]
@@ -154,13 +159,13 @@ runs:
         [CCIP.Env.Logging.Grafana]
         base_url="$GRAFANA_URL"
         dashboard_url="$GRAFANA_DASHBOARD_URL"
-        
+
         [CCIP.Groups.load]
         TestRunName = '$EXISTING_NAMESPACE'
-        
+
         [CCIP.Groups.smoke]
         TestRunName = '$EXISTING_NAMESPACE'
-        
+
         EOF
 
         BASE64_CCIP_SECRETS_CONFIG=$(cat config.toml | base64 -w 0)

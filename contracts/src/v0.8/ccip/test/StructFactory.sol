@@ -8,6 +8,8 @@ import {ARM} from "../ARM.sol";
 import {PriceRegistry} from "../PriceRegistry.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
+
+import {EVM2EVMMultiOffRamp} from "../offRamp/EVM2EVMMultiOffRamp.sol";
 import {EVM2EVMOffRamp} from "../offRamp/EVM2EVMOffRamp.sol";
 import {EVM2EVMOnRamp} from "../onRamp/EVM2EVMOnRamp.sol";
 
@@ -132,6 +134,20 @@ contract StructFactory {
     address priceRegistry
   ) internal pure returns (EVM2EVMOffRamp.DynamicConfig memory) {
     return EVM2EVMOffRamp.DynamicConfig({
+      permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
+      router: router,
+      priceRegistry: priceRegistry,
+      maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
+      maxDataBytes: MAX_DATA_SIZE,
+      maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS
+    });
+  }
+
+  function generateDynamicMultiOffRampConfig(
+    address router,
+    address priceRegistry
+  ) internal pure returns (EVM2EVMMultiOffRamp.DynamicConfig memory) {
+    return EVM2EVMMultiOffRamp.DynamicConfig({
       permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
       router: router,
       priceRegistry: priceRegistry,

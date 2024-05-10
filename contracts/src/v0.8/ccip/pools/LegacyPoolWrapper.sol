@@ -7,8 +7,11 @@ import {Pool} from "../libraries/Pool.sol";
 import {TokenPool} from "./TokenPool.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 abstract contract LegacyPoolWrapper is TokenPool {
+  using SafeERC20 for IERC20;
+
   event LegacyPoolChanged(IPoolPriorTo1_5 oldPool, IPoolPriorTo1_5 newPool);
 
   /// @dev The previous pool, if there is any. This is a property to make the older 1.0-1.4 pools
@@ -57,7 +60,7 @@ abstract contract LegacyPoolWrapper is TokenPool {
   }
 
   function _lockOrBurnLegacy(Pool.LockOrBurnInV1 memory lockOrBurnIn) internal {
-    i_token.transfer(address(s_previousPool), lockOrBurnIn.amount);
+    i_token.safeTransfer(address(s_previousPool), lockOrBurnIn.amount);
     s_previousPool.lockOrBurn(
       lockOrBurnIn.originalSender, lockOrBurnIn.receiver, lockOrBurnIn.amount, lockOrBurnIn.remoteChainSelector, ""
     );

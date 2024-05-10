@@ -224,11 +224,11 @@ jobs:
             chainConfig: "1337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }},2337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }}"
           # uncomment when nethermind flake reason is addressed
           # - name: bidirectionallane-nethermind
-          #            test: TestSmokeCCIPForBidirectionalLane
-          #            client: nethermind
-          #            timeout: 30m
-          #            pyroscope_env: ci-ccip-bidirectionallane-nethermind
-          #         chainConfig: "1337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }},2337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }}"
+          #   test: TestSmokeCCIPForBidirectionalLane
+          #   client: nethermind
+          #   timeout: 30m
+          #   pyroscope_env: ci-ccip-bidirectionallane-nethermind
+          #   chainConfig: "1337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }},2337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }}"
           # uncomment when 24.4.0  is released with our data/input fix
           # - name: bidirectionallane-besu
           #   test: TestSmokeCCIPForBidirectionalLane
@@ -291,6 +291,7 @@ jobs:
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           customEvmNodes: ${{ matrix.chainConfig }}
+          evmNodeLogLevel: "trace"
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
@@ -316,7 +317,7 @@ jobs:
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
-          test_directory: ./integration-tests/smoke/
+          test_directory: ./integration-tests/ccip-tests/smoke/
 
   start-slack-thread:
     name: Start Slack Thread

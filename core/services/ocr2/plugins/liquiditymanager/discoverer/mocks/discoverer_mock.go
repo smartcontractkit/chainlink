@@ -45,6 +45,24 @@ func (_m *Discoverer) Discover(ctx context.Context) (graph.Graph, error) {
 	return r0, r1
 }
 
+// DiscoverBalances provides a mock function with given fields: _a0, _a1
+func (_m *Discoverer) DiscoverBalances(_a0 context.Context, _a1 graph.Graph) error {
+	ret := _m.Called(_a0, _a1)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DiscoverBalances")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, graph.Graph) error); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NewDiscoverer creates a new instance of Discoverer. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewDiscoverer(t interface {

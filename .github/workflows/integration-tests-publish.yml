@@ -37,7 +37,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup Other Tags If Not Workflow Dispatch
         id: tags
-        if: github.event_name != 'workflow_dispatch'
         run: |
           echo "other_tags=${ECR_TAG}" >> $GITHUB_OUTPUT
           echo 'release_tag="${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink-ccip-tests:{2}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, github.ref_name) }}"' >> $GITHUB_OUTPUT

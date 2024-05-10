@@ -274,29 +274,51 @@ CommitAndExecuteOnSameDON = true # same as above
 BiDirectionalLane = true # same as above
 NoOfCommitNodes = 5 # same as above
 PhaseTimeout = '50m' # same as above
-TestDuration = '10m'                # load test duration, not used for smoke tests
 LocalCluster = false # same as above
 ExistingDeployment = false # same as above
-
-# uncomment the following if you want your test results to be reflected under CCIP test grafana dashboard with namespace label same as the value of the following variable
-# TestRunName = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta
-
 ReuseContracts = true            # same as above
 NodeFunding = 20.0 # same as above
 NoOfRoutersPerPair = 1  # same as above
 MulticallInOneTx = false # same as above
 NoOfSendsInMulticall = 5    # same as above
-RequestPerUnitTime = [1] # number of ccip requests to be sent per unit time
-TimeUnit = '10s' # unit of time for RequestPerUnitTime
 NoOfNetworks = 2   # same as above
 
+[CCIP.Groups.load.LoadProfile]
+RequestPerUnitTime = [1] # number of ccip requests to be sent per unit time
+TimeUnit = '10s' # unit of time for RequestPerUnitTime
+TestDuration = '10m'                # load test duration, not used for smoke tests
+WaitBetweenChaosDuringLoad = '2m'   # Duration to wait between each chaos injection during load test; only valid for chaos tests
 
-[CCIP.Groups.load.MsgDetails]
+# uncomment the following if you want your test results to be reflected under CCIP test grafana dashboard with namespace label same as the value of the following variable
+# TestRunName = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta
+# Message Frequency Distribution Example
+
+# The 'Frequencies' array configures the relative frequency of different message types.
+# Each value in the array represents the relative frequency of a message type,
+# determining how often each type appears relative to the others.
+#[CCIP.Groups.load.LoadProfile.MsgProfile]
+#Frequencies = [4, 12, 3, 1]
+
+# Example Breakdown:
+# - Frequencies = [4, 12, 3, 1]
+# - Total Sum of Frequencies = 4 + 12 + 3 + 1 = 20
+# - Percentages:
+#   - Message Type 1: (4 / 20) * 100% = 20%
+#   - Message Type 2: (12 / 20) * 100% = 60%
+#   - Message Type 3: (3 / 20) * 100% = 15%
+#   - Message Type 4: (1 / 20) * 100% = 5%
+# These percentages reflect how often each message type should appear in the total set of messages.
+# Please note - if the total set of messages is not equal to the multiple of sum of frequencies, the percentages will not be accurate.
+[CCIP.Groups.load.LoadProfile.MsgProfile]
+Frequencies = [1] # frequency of each message type in the MsgDetails
+
+[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
 MsgType = 'DataWithToken' # type of message to be sent, either 'Token' or 'DataWithToken' Or 'Data'
 DestGasLimit = 100000               # change this to 0 gas limit if you are doing ccip-send to an EOA
 DataLength = 1000                 # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
 NoOfTokens = 2                    # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
 AmountPerToken = 1                 # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
+
 
 [CCIP.Groups.load.TokenConfig]
 TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update to time-out.
@@ -352,7 +374,6 @@ CommitAndExecuteOnSameDON = false
 BiDirectionalLane = true
 NoOfCommitNodes = 5
 PhaseTimeout = '50m'
-TestDuration = '10m'                # load test duration, not used for smoke tests
 LocalCluster = false
 ExistingDeployment = false
 ReuseContracts = true
@@ -360,12 +381,10 @@ NodeFunding = 20.0
 NoOfRoutersPerPair = 1
 MulticallInOneTx = false
 NoOfSendsInMulticall = 5
-RequestPerUnitTime = [1]
-TimeUnit = '1s'
 NoOfNetworks = 2
 # chaos test settings
 ChaosDuration = '10m'               # Duration for whichever chaos will be injected; only valid for chaos tests
-WaitBetweenChaosDuringLoad = '2m'   # Duration to wait between each chaos injection during load test; only valid for chaos tests
+
 
 
 [CCIP.Groups.chaos.MsgDetails]

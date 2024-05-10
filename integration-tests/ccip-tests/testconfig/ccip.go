@@ -9,12 +9,12 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 
-	testutils "github.com/smartcontractkit/ccip/integration-tests/ccip-tests/utils"
-
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 	ctfK8config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 
+	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -126,60 +126,172 @@ func (tc *TokenConfig) Validate() error {
 	return nil
 }
 
-type CCIPTestConfig struct {
-	Type                                       string                                `toml:",omitempty"`
-	KeepEnvAlive                               *bool                                 `toml:",omitempty"`
-	BiDirectionalLane                          *bool                                 `toml:",omitempty"`
-	CommitAndExecuteOnSameDON                  *bool                                 `toml:",omitempty"`
-	NoOfCommitNodes                            int                                   `toml:",omitempty"`
-	MsgDetails                                 *MsgDetails                           `toml:",omitempty"`
-	TokenConfig                                *TokenConfig                          `toml:",omitempty"`
-	MulticallInOneTx                           *bool                                 `toml:",omitempty"`
-	NoOfSendsInMulticall                       int                                   `toml:",omitempty"`
-	PhaseTimeout                               *config.Duration                      `toml:",omitempty"`
-	TestDuration                               *config.Duration                      `toml:",omitempty"`
-	LocalCluster                               *bool                                 `toml:",omitempty"`
-	ExistingDeployment                         *bool                                 `toml:",omitempty"`
-	TestRunName                                string                                `toml:",omitempty"`
-	ReuseContracts                             *bool                                 `toml:",omitempty"`
-	NodeFunding                                float64                               `toml:",omitempty"`
-	RequestPerUnitTime                         []int64                               `toml:",omitempty"`
-	TimeUnit                                   *config.Duration                      `toml:",omitempty"`
-	StepDuration                               []*config.Duration                    `toml:",omitempty"`
-	WaitBetweenChaosDuringLoad                 *config.Duration                      `toml:",omitempty"`
-	NetworkPairs                               []string                              `toml:",omitempty"`
-	NoOfNetworks                               int                                   `toml:",omitempty"`
-	NoOfRoutersPerPair                         int                                   `toml:",omitempty"`
-	MaxNoOfLanes                               int                                   `toml:",omitempty"`
-	ChaosDuration                              *config.Duration                      `toml:",omitempty"`
-	USDCMockDeployment                         *bool                                 `toml:",omitempty"`
-	FailOnFirstErrorInLoad                     *bool                                 `toml:",omitempty"`
-	SendMaxDataInEveryMsgCount                 *int64                                `toml:",omitempty"`
-	CommitOCRParams                            *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
-	ExecOCRParams                              *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
-	OffRampConfig                              *OffRampConfig                        `toml:",omitempty"`
-	CommitInflightExpiry                       *config.Duration                      `toml:",omitempty"`
-	OptimizeSpace                              *bool                                 `toml:",omitempty"`
-	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration                      `toml:",omitempty"`
-	StoreLaneConfig                            *bool                                 `toml:",omitempty"`
+type MsgProfile struct {
+	MsgDetails    *[]*MsgDetails `toml:",omitempty"`
+	Frequencies   []int          `toml:",omitempty"`
+	matrixByFreq  []int
+	mapMsgDetails map[int]*MsgDetails
 }
 
-func (c *CCIPTestConfig) SetTestRunName(name string) {
-	if c.TestRunName == "" && name != "" {
-		c.TestRunName = name
+// msgDetailsIndexMatrixByFrequency creates a matrix of msg details index based on their frequency
+// This matrix is used to select a msg detail based on the iteration number
+// For example, if we have 3 msg details (msg1,msg2,msg3)  with frequencies 2, 3, 5 respectively,
+// the matrixByFreq will be [0,0,1,1,1,2,2,2,2,2]
+// and mapMsgDetails will be {0:msg1, 1:msg2, 2:msg3}
+// So, for iteration 0, msg1 will be selected, for iteration 1, msg1 will be selected, for iteration 2, msg2 will be selected and so on
+// This is useful to select a msg detail based on the iteration number
+func (m *MsgProfile) msgDetailsIndexMatrixByFrequency() {
+	m.mapMsgDetails = make(map[int]*MsgDetails)
+	for i, msg := range *m.MsgDetails {
+		m.mapMsgDetails[i] = msg
+	}
+	m.matrixByFreq = make([]int, 0)
+	for i, freq := range m.Frequencies {
+		for j := 0; j < freq; j++ {
+			m.matrixByFreq = append(m.matrixByFreq, i)
+		}
+	}
+	// we do not need frequencies and msg details after creating the matrix
+	m.Frequencies = nil
+	m.MsgDetails = nil
+}
+
+// MsgDetailsForIteration returns the msg details for the given iteration
+// The iteration is used to select the msg details based on their frequency
+// Refer to msgDetailsIndexMatrixByFrequency for more details
+// If the iteration is greater than the number of matrixByFreq, it will loop back to the first msg detail
+// if the final iteration in a load run is lesser than the number of matrixByFreq, there is a chance that some of the msg details might not be selected
+func (m *MsgProfile) MsgDetailsForIteration(it int64) *MsgDetails {
+	index := (it - 1) % int64(len(m.matrixByFreq))
+	return m.mapMsgDetails[m.matrixByFreq[index]]
+}
+
+// MsgDetailWithMaxToken returns the msg details with the max no of tokens in the msg profile
+func (m *MsgProfile) MsgDetailWithMaxToken() *MsgDetails {
+	allDetails := *m.MsgDetails
+	msgDetails := allDetails[0]
+	for _, msg := range allDetails {
+		if msg.NoOfTokens != nil && pointer.GetInt(msg.NoOfTokens) > pointer.GetInt(msgDetails.NoOfTokens) {
+			msgDetails = msg
+		}
+	}
+	return msgDetails
+}
+
+func (m *MsgProfile) Validate() error {
+	if m == nil {
+		return fmt.Errorf("msg profile should be set")
+	}
+	if m.MsgDetails == nil {
+		return fmt.Errorf("msg details should be set")
+	}
+	allDetails := *m.MsgDetails
+	if len(allDetails) == 0 {
+		return fmt.Errorf("msg details should be set")
+	}
+	if len(m.Frequencies) == 0 {
+		return fmt.Errorf("frequencies should be set")
+	}
+	if len(allDetails) != len(m.Frequencies) {
+		return fmt.Errorf("number of msg details %d and frequencies %d should be same", len(allDetails), len(m.Frequencies))
+	}
+	for _, msg := range allDetails {
+		if err := msg.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type LoadProfile struct {
+	MsgProfile                                 *MsgProfile        `toml:",omitempty"`
+	RequestPerUnitTime                         []int64            `toml:",omitempty"`
+	TimeUnit                                   *config.Duration   `toml:",omitempty"`
+	StepDuration                               []*config.Duration `toml:",omitempty"`
+	TestDuration                               *config.Duration   `toml:",omitempty"`
+	WaitBetweenChaosDuringLoad                 *config.Duration   `toml:",omitempty"`
+	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration   `toml:",omitempty"`
+	OptimizeSpace                              *bool              `toml:",omitempty"`
+	FailOnFirstErrorInLoad                     *bool              `toml:",omitempty"`
+	SendMaxDataInEveryMsgCount                 *int64             `toml:",omitempty"`
+	TestRunName                                string             `toml:",omitempty"`
+}
+
+func (l *LoadProfile) Validate() error {
+	if l == nil {
+		return fmt.Errorf("load profile should be set")
+	}
+	if err := l.MsgProfile.Validate(); err != nil {
+		return err
+	}
+	if len(l.RequestPerUnitTime) == 0 {
+		return fmt.Errorf("request per unit time should be set")
+	}
+	if l.TimeUnit == nil || l.TimeUnit.Duration().Minutes() == 0 {
+		return fmt.Errorf("time unit should be set")
+	}
+	if l.TestDuration == nil || l.TestDuration.Duration().Minutes() == 0 {
+		return fmt.Errorf("test duration should be set")
+	}
+	return nil
+}
+
+func (l *LoadProfile) SetTestRunName(name string) {
+	if l.TestRunName == "" && name != "" {
+		l.TestRunName = name
 	}
 }
 
+type CCIPTestConfig struct {
+	Type                      string                                `toml:",omitempty"`
+	KeepEnvAlive              *bool                                 `toml:",omitempty"`
+	BiDirectionalLane         *bool                                 `toml:",omitempty"`
+	CommitAndExecuteOnSameDON *bool                                 `toml:",omitempty"`
+	NoOfCommitNodes           int                                   `toml:",omitempty"`
+	MsgDetails                *MsgDetails                           `toml:",omitempty"`
+	TokenConfig               *TokenConfig                          `toml:",omitempty"`
+	MulticallInOneTx          *bool                                 `toml:",omitempty"`
+	NoOfSendsInMulticall      int                                   `toml:",omitempty"`
+	PhaseTimeout              *config.Duration                      `toml:",omitempty"`
+	LocalCluster              *bool                                 `toml:",omitempty"`
+	ExistingDeployment        *bool                                 `toml:",omitempty"`
+	ReuseContracts            *bool                                 `toml:",omitempty"`
+	NodeFunding               float64                               `toml:",omitempty"`
+	NetworkPairs              []string                              `toml:",omitempty"`
+	NoOfNetworks              int                                   `toml:",omitempty"`
+	NoOfRoutersPerPair        int                                   `toml:",omitempty"`
+	MaxNoOfLanes              int                                   `toml:",omitempty"`
+	ChaosDuration             *config.Duration                      `toml:",omitempty"`
+	USDCMockDeployment        *bool                                 `toml:",omitempty"`
+	CommitOCRParams           *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
+	ExecOCRParams             *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
+	OffRampConfig             *OffRampConfig                        `toml:",omitempty"`
+	CommitInflightExpiry      *config.Duration                      `toml:",omitempty"`
+	StoreLaneConfig           *bool                                 `toml:",omitempty"`
+	LoadProfile               *LoadProfile                          `toml:",omitempty"`
+}
+
 func (c *CCIPTestConfig) Validate() error {
+	if c.Type == Load {
+		if err := c.LoadProfile.Validate(); err != nil {
+			return err
+		}
+		if c.MsgDetails == nil {
+			c.MsgDetails = c.LoadProfile.MsgProfile.MsgDetailWithMaxToken()
+		}
+		c.LoadProfile.MsgProfile.msgDetailsIndexMatrixByFrequency()
+		if c.ExistingDeployment != nil && *c.ExistingDeployment {
+			if c.LoadProfile.TestRunName == "" && os.Getenv(ctfK8config.EnvVarJobImage) != "" {
+				return fmt.Errorf("test run name should be set if existing deployment is true and test is running in k8s")
+			}
+		}
+	}
 	err := c.MsgDetails.Validate()
 	if err != nil {
 		return err
 	}
 	if c.PhaseTimeout != nil && (c.PhaseTimeout.Duration().Minutes() < 1 || c.PhaseTimeout.Duration().Minutes() > 50) {
 		return fmt.Errorf("phase timeout should be between 1 and 50 minutes")
-	}
-	if c.TestDuration != nil && c.TestDuration.Duration().Minutes() < 1 {
-		return fmt.Errorf("test duration should be greater than 1 minute")
 	}
 
 	if c.NoOfCommitNodes < 4 {
@@ -197,13 +309,6 @@ func (c *CCIPTestConfig) Validate() error {
 	if c.MulticallInOneTx != nil {
 		if c.NoOfSendsInMulticall == 0 {
 			return fmt.Errorf("number of sends in multisend should be greater than 0 if multisend is true")
-		}
-	}
-	if c.ExistingDeployment != nil && *c.ExistingDeployment {
-		if c.Type != Smoke {
-			if c.TestRunName == "" && os.Getenv(ctfK8config.EnvVarJobImage) != "" {
-				return fmt.Errorf("test run name should be set if existing deployment is true and test is running in k8s")
-			}
 		}
 	}
 

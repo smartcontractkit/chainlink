@@ -23,7 +23,10 @@ type Factory interface {
 
 //go:generate mockery --quiet --name Discoverer --output ./mocks --filename discoverer_mock.go --case=underscore
 type Discoverer interface {
+	// Discover fetches the entire graph
 	Discover(ctx context.Context) (graph.Graph, error)
+	// DiscoverBalances fetch only the balances rather building the entire graph
+	DiscoverBalances(context.Context, graph.Graph) error
 }
 
 type evmDep struct {

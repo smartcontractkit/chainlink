@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
@@ -51,6 +53,8 @@ type CCIPE2ELoad struct {
 	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration
 	LastFinalizedTxBlock                       atomic.Uint64
 	LastFinalizedTimestamp                     atomic.Time
+	MsgProfiles                                *testconfig.MsgProfile
+	EOAReceiver                                []byte
 }
 
 func NewCCIPLoad(
@@ -58,6 +62,7 @@ func NewCCIPLoad(
 	lane *actions.CCIPLane,
 	timeout time.Duration,
 	noOfReq int64,
+	m *testconfig.MsgProfile,
 	sendMaxDataIntermittentlyInEveryMsgCount int64,
 	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration,
 ) *CCIPE2ELoad {
@@ -79,28 +84,26 @@ func NewCCIPLoad(
 		NoOfReq:                             noOfReq,
 		SendMaxDataIntermittentlyInMsgCount: sendMaxDataIntermittentlyInEveryMsgCount,
 		SkipRequestIfAnotherRequestTriggeredWithin: SkipRequestIfAnotherRequestTriggeredWithin,
+		MsgProfiles: m,
 	}
 }
 
 // BeforeAllCall funds subscription, approves the token transfer amount.
 // Needs to be called before load sequence is started.
 // Needs to approve and fund for the entire sequence.
-func (c *CCIPE2ELoad) BeforeAllCall(isTokenTranfer bool, gasLimit *big.Int) {
+func (c *CCIPE2ELoad) BeforeAllCall() {
 	sourceCCIP := c.Lane.Source
 	destCCIP := c.Lane.Dest
-	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(gasLimit, false)
-	require.NoError(c.t, err, "Failed encoding the options field")
 
 	receiver, err := utils.ABIEncode(`[{"type":"address"}]`, destCCIP.ReceiverDapp.EthAddress)
 	require.NoError(c.t, err, "Failed encoding the receiver address")
 	c.msg = router.ClientEVM2AnyMessage{
-		Receiver:  receiver,
-		ExtraArgs: extraArgsV1,
-		FeeToken:  common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
-		Data:      []byte("message with Id 1"),
+		Receiver: receiver,
+		FeeToken: common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
+		Data:     []byte("message with Id 1"),
 	}
 	var tokenAndAmounts []router.ClientEVMTokenAmount
-	if isTokenTranfer && len(c.Lane.Source.Common.BridgeTokens) > 0 {
+	if len(c.Lane.Source.Common.BridgeTokens) > 0 {
 		for i := range c.Lane.Source.TransferAmount {
 			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
 			token := sourceCCIP.Common.BridgeTokens[0]
@@ -113,7 +116,21 @@ func (c *CCIPE2ELoad) BeforeAllCall(isTokenTranfer bool, gasLimit *big.Int) {
 		}
 		c.msg.TokenAmounts = tokenAndAmounts
 	}
-
+	// we might need to change the receiver to the default wallet of destination based on the gaslimit of msg
+	// Get the receiver's bytecode to check if it's a contract or EOA
+	bytecode, err := c.Lane.Dest.Common.ChainClient.Backend().CodeAt(context.Background(), c.Lane.Dest.ReceiverDapp.EthAddress, nil)
+	require.NoError(c.t, err, "Failed to get bytecode of the receiver contract")
+	// if the bytecode is empty, it's an EOA,
+	// In that case save the receiver address as EOA to be used in the message
+	// Otherwise save destination's default wallet address as EOA
+	// so that it can be used later for msgs with gaslimit 0
+	if len(bytecode) > 0 {
+		receiver, err := utils.ABIEncode(`[{"type":"address"}]`, common.HexToAddress(c.Lane.Dest.Common.ChainClient.GetDefaultWallet().Address()))
+		require.NoError(c.t, err, "Failed encoding the receiver address")
+		c.EOAReceiver = receiver
+	} else {
+		c.EOAReceiver = c.msg.Receiver
+	}
 	if c.SendMaxDataIntermittentlyInMsgCount > 0 {
 		dCfg, err := sourceCCIP.OnRamp.Instance.GetDynamicConfig(nil)
 		require.NoError(c.t, err, "failed to fetch dynamic config")
@@ -122,7 +139,7 @@ func (c *CCIPE2ELoad) BeforeAllCall(isTokenTranfer bool, gasLimit *big.Int) {
 	// if the msg is sent via multicall, transfer the token transfer amount to multicall contract
 	if sourceCCIP.Common.MulticallEnabled &&
 		sourceCCIP.Common.MulticallContract != (common.Address{}) &&
-		isTokenTranfer {
+		len(c.Lane.Source.Common.BridgeTokens) > 0 {
 		for i, amount := range sourceCCIP.TransferAmount {
 			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
 			token := sourceCCIP.Common.BridgeTokens[0]
@@ -149,12 +166,13 @@ func (c *CCIPE2ELoad) BeforeAllCall(isTokenTranfer bool, gasLimit *big.Int) {
 func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.RequestStat, error) {
 	msgSerialNo := c.CurrentMsgSerialNo.Load()
 	c.CurrentMsgSerialNo.Inc()
-
+	msgDetails := c.MsgProfiles.MsgDetailsForIteration(msgSerialNo)
 	stats := testreporters.NewCCIPRequestStats(msgSerialNo, c.Lane.SourceNetworkName, c.Lane.DestNetworkName)
 	// form the message for transfer
-	msgLength := c.Lane.Source.MsgDataLength
+	msgLength := pointer.GetInt64(msgDetails.DataLength)
+	gasLimit := pointer.GetInt64(msgDetails.DestGasLimit)
 	msg := c.msg
-	if msgLength > 0 {
+	if msgLength > 0 && msgDetails.IsDataTransfer() {
 		if c.SendMaxDataIntermittentlyInMsgCount > 0 {
 			// every SendMaxDataIntermittentlyInMsgCount message will have extra data with almost MaxDataBytes
 			if msgSerialNo%c.SendMaxDataIntermittentlyInMsgCount == 0 {
@@ -169,7 +187,18 @@ func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.Req
 		randomString := base64.URLEncoding.EncodeToString(b)
 		msg.Data = []byte(randomString[:msgLength])
 	}
-
+	if !msgDetails.IsTokenTransfer() {
+		msg.TokenAmounts = []router.ClientEVMTokenAmount{}
+	}
+	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(big.NewInt(gasLimit), false)
+	if err != nil {
+		return router.ClientEVM2AnyMessage{}, stats, err
+	}
+	msg.ExtraArgs = extraArgsV1
+	// if gaslimit is 0, set the receiver to EOA
+	if gasLimit == 0 {
+		msg.Receiver = c.EOAReceiver
+	}
 	return msg, stats, nil
 }
 

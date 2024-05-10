@@ -655,25 +655,30 @@ NetworkPairs = [
   'ARBITRUM_MAINNET,OPTIMISM_MAINNET' # added as batch 1
 ]
 
-MsgType = 'WithToken'
-DestGasLimit = 0
 BiDirectionalLane = true
 PhaseTimeout = '40m'
-TestDuration = '24h'
 ExistingDeployment = true
-RequestPerUnitTime = [1]
-TimeUnit = '3h'
-NoOfTokensInMsg = 1
-AmountPerToken = 1
-TestRunName = 'mainnet-2.7-ccip1.2'
-FailOnFirstErrorInLoad = true
-SkipRequestIfAnotherRequestTriggeredWithin = '40m'
 
 [CCIP.Groups.load.TokenConfig]
 NoOfTokensPerChain = 1
 
+
+[CCIP.Groups.load.LoadProfile]
+RequestPerUnitTime = [1]
+TimeUnit = '3h'
+TestDuration = '24h'
+TestRunName = 'mainnet-2.7-ccip1.2'
+FailOnFirstErrorInLoad = true
+SkipRequestIfAnotherRequestTriggeredWithin = '40m'
+
+[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
+MsgType = 'Data'
+DestGasLimit = 0
+DataLength = 100
+NoOfTokens = 1
+AmountPerToken = 1
+
 [CCIP.Groups.smoke]
-MsgType = 'WithoutToken'
 # these are all the valid network pairs
 NetworkPairs = [
   'ETHEREUM_MAINNET,OPTIMISM_MAINNET',
@@ -687,9 +692,13 @@ PhaseTimeout = '20m'
 LocalCluster = false
 ExistingDeployment = true
 ReuseContracts = true
-NoOfTokensInMsg = 1
-AmountPerToken = 1
-TestRunName = 'mainnet-2.7-ccip1.2'
 
 [CCIP.Groups.smoke.TokenConfig]
 NoOfTokensPerChain = 1
+
+[CCIP.Groups.smoke.MsgDetails]
+MsgType = 'Data'
+DestGasLimit = 0
+DataLength = 100
+NoOfTokens = 1
+AmountPerToken = 1

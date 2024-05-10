@@ -6,12 +6,15 @@ TTL = '15h'
 [CCIP.Groups.load]
 KeepEnvAlive = true
 PhaseTimeout = '50m'
-TestDuration = '30m'
 NodeFunding = 1000.0
-RequestPerUnitTime = [2]
+
+
+[CCIP.Groups.load.LoadProfile]
+RequestPerUnitTime = [1]
 TimeUnit = '1m'
+TestDuration = '30m'
 SendMaxDataInEveryMsgCount = 0
 
 
-[CCIP.Groups.load.MsgDetails]
-MsgType = 'DataWithToken'
+
+

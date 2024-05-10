@@ -108,8 +108,8 @@ func TestLoadCCIPStableRequestTriggeringWithNetworkChaos(t *testing.T) {
 			testEnv.K8Env.Cfg.Namespace, &chaos.Props{
 				FromLabels:  &map[string]*string{"geth": ptr.Ptr(actions.ChaosGroupCCIPGeth)},
 				ToLabels:    &map[string]*string{"app": ptr.Ptr("chainlink-0")},
-				DurationStr: testArgs.TestCfg.TestGroupInput.TestDuration.String(),
-				Delay:       "300ms",
+				DurationStr: testArgs.TestCfg.TestGroupInput.LoadProfile.TestDuration.String(),
+				Delay:       "200ms",
 			}))
 	require.NoError(t, err)
 
@@ -150,12 +150,12 @@ func TestLoadCCIPStableWithMajorityNodeFailure(t *testing.T) {
 	for i := range inputs {
 		inputs[i].ChaosProps.DurationStr = testArgs.TestCfg.TestGroupInput.ChaosDuration.String()
 		allChaosDur += testArgs.TestCfg.TestGroupInput.ChaosDuration.Duration()
-		inputs[i].WaitBetweenChaos = testArgs.TestCfg.TestGroupInput.WaitBetweenChaosDuringLoad.Duration()
+		inputs[i].WaitBetweenChaos = testArgs.TestCfg.TestGroupInput.LoadProfile.WaitBetweenChaosDuringLoad.Duration()
 		allChaosDur += inputs[i].WaitBetweenChaos
 	}
 
 	// the duration of load test should be greater than the duration of chaos
-	if testArgs.TestCfg.TestGroupInput.TestDuration.Duration() < allChaosDur+2*time.Minute {
+	if testArgs.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration() < allChaosDur+2*time.Minute {
 		t.Fatalf("Skipping the test as the test duration is less than the chaos duration")
 	}
 
@@ -204,12 +204,12 @@ func TestLoadCCIPStableWithMinorityNodeFailure(t *testing.T) {
 	for i := range inputs {
 		inputs[i].ChaosProps.DurationStr = testArgs.TestCfg.TestGroupInput.ChaosDuration.String()
 		allChaosDur += testArgs.TestCfg.TestGroupInput.ChaosDuration.Duration()
-		inputs[i].WaitBetweenChaos = testArgs.TestCfg.TestGroupInput.WaitBetweenChaosDuringLoad.Duration()
+		inputs[i].WaitBetweenChaos = testArgs.TestCfg.TestGroupInput.LoadProfile.WaitBetweenChaosDuringLoad.Duration()
 		allChaosDur += inputs[i].WaitBetweenChaos
 	}
 
 	// the duration of load test should be greater than the duration of chaos
-	if testArgs.TestCfg.TestGroupInput.TestDuration.Duration() < allChaosDur+2*time.Minute {
+	if testArgs.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration() < allChaosDur+2*time.Minute {
 		t.Fatalf("Skipping the test as the test duration is less than the chaos duration")
 	}
 
@@ -277,9 +277,9 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 			t.Parallel()
 			lggr := logging.GetTestLogger(t)
 			testArgs := NewLoadArgs(t, lggr, in)
-			testArgs.TestCfg.TestGroupInput.TestDuration = config.MustNewDuration(5 * time.Minute)
-			testArgs.TestCfg.TestGroupInput.TimeUnit = config.MustNewDuration(1 * time.Second)
-			testArgs.TestCfg.TestGroupInput.RequestPerUnitTime = []int64{2}
+			testArgs.TestCfg.TestGroupInput.LoadProfile.TestDuration = config.MustNewDuration(5 * time.Minute)
+			testArgs.TestCfg.TestGroupInput.LoadProfile.TimeUnit = config.MustNewDuration(1 * time.Second)
+			testArgs.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime = []int64{2}
 
 			testArgs.Setup()
 			// if the test runs on remote runner

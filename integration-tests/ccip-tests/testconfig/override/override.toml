@@ -1,6 +1,0 @@
-[CCIP]
-[CCIP.Groups.load]
-PhaseTimeout = '20m'
-TestDuration = '5m'
-TestRunName = 'dynamic token price'
-DynamicPriceUpdateInterval = '15s'

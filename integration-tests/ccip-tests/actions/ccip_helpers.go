@@ -30,6 +30,9 @@ import (
 	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/foundry"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -87,7 +90,8 @@ type CCIPTOMLEnv struct {
 }
 
 var (
-	NetworkName = func(name string) string {
+	NetworkChart = reorg.TXNodesAppLabel
+	NetworkName  = func(name string) string {
 		return strings.ReplaceAll(strings.ToLower(name), " ", "-")
 	}
 	InflightExpiryExec   = 3 * time.Minute
@@ -98,7 +102,13 @@ var (
 
 	RootSnoozeTime = 3 * time.Minute
 	GethLabel      = func(name string) string {
-		return fmt.Sprintf("%s-ethereum-geth", name)
+		switch NetworkChart {
+		case reorg.TXNodesAppLabel:
+			return fmt.Sprintf("%s-ethereum-geth", name)
+		case foundry.ChartName:
+			return fmt.Sprintf("%s-foundry", name)
+		}
+		return ""
 	}
 	// ApprovedAmountToRouter is the default amount which gets approved for router so that it can transfer token and use the fee token for fee payment
 	ApprovedAmountToRouter           = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
@@ -1806,10 +1816,6 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 				return fmt.Errorf("error setting remote pools %w", err)
 			}
 		}
-		err = sourceCCIP.Common.ChainClient.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("waiting for setting remote pools shouldn't fail %w", err)
-		}
 	}
 
 	if destCCIP.CommitStore == nil {
@@ -2845,10 +2851,9 @@ func (lane *CCIPLane) StartEventWatchers() error {
 	go lane.Dest.Common.PollRPCConnection(lane.Context, lane.Logger)
 
 	sendReqEvent := make(chan *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested)
-	sub, err := lane.Source.OnRamp.Instance.WatchCCIPSendRequested(nil, sendReqEvent)
-	if err != nil {
-		return err
-	}
+	sub := event.Resubscribe(3*time.Hour, func(_ context.Context) (event.Subscription, error) {
+		return lane.Source.OnRamp.Instance.WatchCCIPSendRequested(nil, sendReqEvent)
+	})
 	go func(sub event.Subscription) {
 		defer sub.Unsubscribe()
 		resubscribed := false
@@ -2876,6 +2881,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 					if sub != nil {
 						sub.Unsubscribe()
 					}
+					var err error
 					sub, err = lane.Source.OnRamp.Instance.WatchCCIPSendRequested(&bind.WatchOpts{
 						Start: pointer.ToUint64(lane.Source.SrcStartBlock),
 					}, sendReqEvent)
@@ -2893,11 +2899,9 @@ func (lane *CCIPLane) StartEventWatchers() error {
 	}(sub)
 
 	reportAcceptedEvent := make(chan *commit_store.CommitStoreReportAccepted)
-	sub, err = lane.Dest.CommitStore.Instance.WatchReportAccepted(nil, reportAcceptedEvent)
-	if err != nil {
-		return err
-	}
-
+	sub = event.Resubscribe(3*time.Hour, func(_ context.Context) (event.Subscription, error) {
+		return lane.Dest.CommitStore.Instance.WatchReportAccepted(nil, reportAcceptedEvent)
+	})
 	go func(sub event.Subscription) {
 		defer sub.Unsubscribe()
 		resubscribed := false
@@ -2920,6 +2924,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 					if sub != nil {
 						sub.Unsubscribe()
 					}
+					var err error
 					sub, err = lane.Dest.CommitStore.Instance.WatchReportAccepted(&bind.WatchOpts{
 						Start: pointer.ToUint64(lane.Dest.DestStartBlock),
 					}, reportAcceptedEvent)
@@ -2938,11 +2943,9 @@ func (lane *CCIPLane) StartEventWatchers() error {
 
 	if lane.Dest.Common.ARM != nil {
 		reportBlessedEvent := make(chan *arm_contract.ARMContractTaggedRootBlessed)
-		sub, err = lane.Dest.Common.ARM.Instance.WatchTaggedRootBlessed(nil, reportBlessedEvent, nil)
-		if err != nil {
-			return err
-		}
-
+		sub = event.Resubscribe(3*time.Hour, func(_ context.Context) (event.Subscription, error) {
+			return lane.Dest.Common.ARM.Instance.WatchTaggedRootBlessed(nil, reportBlessedEvent, nil)
+		})
 		go func(sub event.Subscription) {
 			defer sub.Unsubscribe()
 			resubscribed := false
@@ -2966,6 +2969,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 						if sub != nil {
 							sub.Unsubscribe()
 						}
+						var err error
 						sub, err = lane.Dest.Common.ARM.Instance.WatchTaggedRootBlessed(&bind.WatchOpts{
 							Start: pointer.ToUint64(lane.Dest.DestStartBlock),
 						}, reportBlessedEvent, nil)
@@ -2984,11 +2988,9 @@ func (lane *CCIPLane) StartEventWatchers() error {
 	}
 
 	execStateChangedEvent := make(chan *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
-	sub, err = lane.Dest.OffRamp.Instance.WatchExecutionStateChanged(nil, execStateChangedEvent, nil, nil)
-	if err != nil {
-		return err
-	}
-
+	sub = event.Resubscribe(3*time.Hour, func(_ context.Context) (event.Subscription, error) {
+		return lane.Dest.OffRamp.Instance.WatchExecutionStateChanged(nil, execStateChangedEvent, nil, nil)
+	})
 	go func(sub event.Subscription) {
 		defer sub.Unsubscribe()
 		resubscribed := false
@@ -3010,6 +3012,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 					if sub != nil {
 						sub.Unsubscribe()
 					}
+					var err error
 					sub, err = lane.Dest.OffRamp.Instance.WatchExecutionStateChanged(&bind.WatchOpts{
 						Start: pointer.ToUint64(lane.Dest.DestStartBlock),
 					}, execStateChangedEvent, nil, nil)
@@ -3260,6 +3263,12 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		return fmt.Errorf("failed to create ocr2 execution jobs: %w", err)
 	}
 
+	if err := lane.Source.Common.ChainClient.WaitForEvents(); err != nil {
+		return fmt.Errorf("failed to wait for events: %w", err)
+	}
+	if err := lane.Dest.Common.ChainClient.WaitForEvents(); err != nil {
+		return fmt.Errorf("failed to wait for events: %w", err)
+	}
 	lane.Dest.Common.ChainClient.ParallelTransactions(false)
 	lane.Source.Common.ChainClient.ParallelTransactions(false)
 

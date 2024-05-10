@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -25,12 +26,10 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
-var (
-	labels = map[string]string{
-		"branch": "vrfv2Plus_healthcheck",
-		"commit": "vrfv2Plus_healthcheck",
-	}
-)
+var labels = map[string]string{
+	"branch": "vrfv2Plus_healthcheck",
+	"commit": "vrfv2Plus_healthcheck",
+}
 
 func TestVRFV2PlusPerformance(t *testing.T) {
 	var (
@@ -81,12 +80,12 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
+				// cancel subs and return funds to sub owner
 				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*testConfig.VRFv2Plus.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -162,7 +161,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		//todo - timeout should be configurable depending on the perf test type
+		// todo - timeout should be configurable depending on the perf test type
 		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wg)
 		require.NoError(t, err)
 		wg.Wait()
@@ -224,12 +223,12 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
+				// cancel subs and return funds to sub owner
 				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*testConfig.VRFv2Plus.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
+			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -250,7 +249,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 	t.Run("vrfv2plus and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
-		//Underfund Subscription
+		// Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
@@ -307,7 +306,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 		var wgBlockNumberTobe sync.WaitGroup
 		wgBlockNumberTobe.Add(1)
-		//Wait at least 256 blocks
+		// Wait at least 256 blocks
 		latestBlockNumber, err := evmClient.LatestBlockNumber(testcontext.Get(t))
 		require.NoError(t, err, "error getting latest block number")
 		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), evmClient, &wgBlockNumberTobe, configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration, t)
@@ -361,10 +360,10 @@ func teardown(
 	testType string,
 	testConfig *tc.TestConfig,
 ) {
-	//send final results to Loki
+	// send final results to Loki
 	metrics := GetLoadTestMetrics(testcontext.Get(t), consumer)
 	SendMetricsToLoki(metrics, lc, updatedLabels)
-	//set report data for Slack notification
+	// set report data for Slack notification
 	testReporter.SetReportData(
 		testType,
 		testreporters.VRFLoadTestMetrics{
