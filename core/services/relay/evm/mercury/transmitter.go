@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
@@ -111,7 +112,8 @@ type mercuryTransmitter struct {
 
 	servers map[string]*server
 
-	codec TransmitterReportDecoder
+	codec             TransmitterReportDecoder
+	triggerCapability *triggers.MercuryTriggerService
 
 	feedID      mercuryutils.FeedID
 	jobID       int32
@@ -275,7 +277,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 	}
 }
 
-func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[string]wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, orm ORM, codec TransmitterReportDecoder) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[string]wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, orm ORM, codec TransmitterReportDecoder, triggerCapability *triggers.MercuryTriggerService) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	servers := make(map[string]*server, len(clients))
 	for serverURL, client := range clients {
@@ -302,6 +304,7 @@ func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[strin
 		cfg,
 		servers,
 		codec,
+		triggerCapability,
 		feedID,
 		jobID,
 		fmt.Sprintf("%x", fromAccount),
@@ -388,6 +391,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		vs[i] = v
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
+	// TODO(KS-194): send report to mt.triggerCapability.ProcessReport()
 
 	payload, err := PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
