@@ -38,6 +38,9 @@ func NewDB(ds sqlutil.DataSource, oracleSpecID int32, lggr logger.Logger) *db {
 		lggr:         logger.Sugared(lggr),
 	}
 }
+func (d *db) WithDataSource(ds sqlutil.DataSource) OCRContractTrackerDB {
+	return NewDB(ds, d.oracleSpecID, d.lggr)
+}
 
 func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrtypes.PersistentState, err error) {
 	stmt := `
@@ -293,12 +296,12 @@ WHERE ocr_oracle_spec_id = $1 AND time < $2
 	return
 }
 
-func (d *db) SaveLatestRoundRequested(ctx context.Context, tx sqlutil.DataSource, rr offchainaggregator.OffchainAggregatorRoundRequested) error {
+func (d *db) SaveLatestRoundRequested(ctx context.Context, rr offchainaggregator.OffchainAggregatorRoundRequested) error {
 	rawLog, err := json.Marshal(rr.Raw)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal log as JSON")
 	}
-	_, err = tx.ExecContext(ctx, `
+	_, err = d.ds.ExecContext(ctx, `
 INSERT INTO ocr_latest_round_requested (ocr_oracle_spec_id, requester, config_digest, epoch, round, raw)
 VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (ocr_oracle_spec_id) DO UPDATE SET
 	requester = EXCLUDED.requester,

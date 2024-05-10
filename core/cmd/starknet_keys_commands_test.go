@@ -79,7 +79,6 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		require.Equal(t, 1, len(r.Renders))
 		keys := *r.Renders[0].(*cmd.StarkNetKeyPresenters)
 		assert.True(t, key.StarkKeyStr() == keys[0].StarkKey)
-
 	})
 
 	t.Run("CreateStarkNetKey", func(tt *testing.T) {

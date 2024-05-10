@@ -462,7 +462,6 @@ func BinarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 // Makes RPC network call eth_getBlockByNumber to blockchain RPC node
 // to fetch header info
 func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks bool) (headers [][]byte, hashes []string, err error) {
-
 	hashes = make([]string, 0)
 
 	offset := big.NewInt(0)
@@ -513,7 +512,6 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 
 			hashes = append(hashes, h.Hash().String())
 		} else if IsPolygonEdgeNetwork(env.ChainID) {
-
 			// Get child block since it's the one that has the parent hash in its header.
 			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
 			var hash string
@@ -523,7 +521,6 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			}
 
 			hashes = append(hashes, hash)
-
 		} else {
 			// Get child block since it's the one that has the parent hash in its header.
 			h, err2 := env.Ec.HeaderByNumber(

@@ -38,23 +38,28 @@ func DeployVRFV2_5Contracts(
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrDeployBatchBlockHashStore, err)
 	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("%s, batchBHS err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
 	coordinator, err := contractDeployer.DeployVRFCoordinatorV2_5(bhs.Address())
 	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrDeployCoordinator, err)
+		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+	}
+	err = chainClient.WaitForEvents()
+	if err != nil {
+		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
+	}
+	batchCoordinator, err := contractDeployer.DeployBatchVRFCoordinatorV2Plus(coordinator.Address())
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrDeployBatchCoordinatorV2Plus, err)
 	}
 	err = chainClient.WaitForEvents()
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return &vrfcommon.VRFContracts{
-		CoordinatorV2Plus: coordinator,
-		BHS:               bhs,
-		BatchBHS:          batchBHS,
-		VRFV2PlusConsumer: nil,
+		CoordinatorV2Plus:      coordinator,
+		BatchCoordinatorV2Plus: batchCoordinator,
+		BHS:                    bhs,
+		BatchBHS:               batchBHS,
+		VRFV2PlusConsumer:      nil,
 	}, nil
 }
 
@@ -376,7 +381,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	isNativeBilling bool,
 	config *vrfv2plus_config.General,
 	l zerolog.Logger,
-) (*contracts.CoordinatorRandomWordsFulfilled, error) {
+) (*contracts.CoordinatorRandomWordsRequested, *contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := RequestRandomness(
 		consumer,
 		coordinator,
@@ -387,7 +392,7 @@ func RequestRandomnessAndWaitForFulfillment(
 		l,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	randomWordsFulfilledEvent, err := WaitRandomWordsFulfilledEvent(
@@ -399,9 +404,9 @@ func RequestRandomnessAndWaitForFulfillment(
 		l,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return randomWordsFulfilledEvent, nil
+	return randomWordsRequestedEvent, randomWordsFulfilledEvent, nil
 
 }
 

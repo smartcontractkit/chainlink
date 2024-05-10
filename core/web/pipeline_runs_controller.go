@@ -40,8 +40,9 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 	var count int
 	var err error
 
+	ctx := c.Request.Context()
 	if id == "" {
-		pipelineRuns, count, err = prc.App.JobORM().PipelineRuns(nil, offset, size)
+		pipelineRuns, count, err = prc.App.JobORM().PipelineRuns(ctx, nil, offset, size)
 	} else {
 		jobSpec := job.Job{}
 		err = jobSpec.SetID(c.Param("ID"))
@@ -50,7 +51,7 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 			return
 		}
 
-		pipelineRuns, count, err = prc.App.JobORM().PipelineRuns(&jobSpec.ID, offset, size)
+		pipelineRuns, count, err = prc.App.JobORM().PipelineRuns(ctx, &jobSpec.ID, offset, size)
 	}
 
 	if err != nil {
@@ -113,13 +114,13 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.Parse(idStr)
 	if err == nil {
-		canRun, err2 := authorizer.CanRun(c.Request.Context(), prc.App.GetConfig().JobPipeline(), jobUUID)
+		canRun, err2 := authorizer.CanRun(ctx, prc.App.GetConfig().JobPipeline(), jobUUID)
 		if err2 != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err2)
 			return
 		}
 		if canRun {
-			jobRunID, err3 := prc.App.RunWebhookJobV2(c.Request.Context(), jobUUID, string(bodyBytes), jsonserializable.JSONSerializable{})
+			jobRunID, err3 := prc.App.RunWebhookJobV2(ctx, jobUUID, string(bodyBytes), jsonserializable.JSONSerializable{})
 			if errors.Is(err3, webhook.ErrJobNotExists) {
 				jsonAPIError(c, http.StatusNotFound, err3)
 				return
@@ -141,7 +142,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 		jobID64, err := strconv.ParseInt(idStr, 10, 32)
 		if err == nil {
 			jobID = int32(jobID64)
-			jobRunID, err := prc.App.RunJobV2(c.Request.Context(), jobID, nil)
+			jobRunID, err := prc.App.RunJobV2(ctx, jobID, nil)
 			if err != nil {
 				jsonAPIError(c, http.StatusInternalServerError, err)
 				return

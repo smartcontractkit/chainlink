@@ -113,18 +113,23 @@ type DataSourceCacheService interface {
 	median.DataSource
 }
 
-func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheCfg config.JuelsPerFeeCoinCache) (DataSourceCacheService, error) {
+func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheCfg *config.JuelsPerFeeCoinCache) (DataSourceCacheService, error) {
 	inMemoryDS, ok := ds.(*inMemoryDataSource)
 	if !ok {
 		return nil, errors.Errorf("unsupported data source type: %T, only inMemoryDataSource supported", ds)
 	}
-
-	updateInterval, stalenessAlertThreshold := cacheCfg.UpdateInterval.Duration(), cacheCfg.StalenessAlertThreshold.Duration()
-	if updateInterval == 0 {
+	var updateInterval, stalenessAlertThreshold time.Duration
+	if cacheCfg == nil {
 		updateInterval = defaultUpdateInterval
-	}
-	if stalenessAlertThreshold == 0 {
 		stalenessAlertThreshold = defaultStalenessAlertThreshold
+	} else {
+		updateInterval, stalenessAlertThreshold = cacheCfg.UpdateInterval.Duration(), cacheCfg.StalenessAlertThreshold.Duration()
+		if updateInterval == 0 {
+			updateInterval = defaultUpdateInterval
+		}
+		if stalenessAlertThreshold == 0 {
+			stalenessAlertThreshold = defaultStalenessAlertThreshold
+		}
 	}
 
 	dsCache := &inMemoryDataSourceCache{
@@ -379,7 +384,6 @@ func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2ty
 		if time.Since(ds.latestTrrs.GetTaskRunResultsFinishedAt()) >= ds.stalenessAlertThreshold {
 			ds.lggr.Errorf("in memory cache is old and hasn't been updated for over %v, latestUpdateErr is: %v", ds.stalenessAlertThreshold, ds.latestUpdateErr)
 		}
-
 	}
 	return ds.parse(latestResult)
 }

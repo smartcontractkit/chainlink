@@ -34,7 +34,8 @@ jobs:
         run: |
           git fetch origin ${{ github.base_ref }}
           # if no match is found then grep exits with code 1, but if there is a match it exits with code 0
-          DEPENDENCY_CHANGED=$(git diff origin/${{ github.base_ref }}...HEAD -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
+          # this will return a match if there are any changes on that corresponding line, for example if spacing was changed
+          DEPENDENCY_CHANGED=$(git diff -U0 origin/${{ github.base_ref }}...HEAD -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
           PR_VERSION=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
 
           # here 0 means a match was found, 1 means no match was found

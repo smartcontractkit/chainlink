@@ -69,10 +69,10 @@ func makeTestEvmTxm(
 
 	return txmgr.NewTxm(
 		db,
-		db,
 		ccfg,
 		fcfg,
 		txConfig,
+		nil,
 		dbConfig,
 		listenerConfig,
 		ethClient,

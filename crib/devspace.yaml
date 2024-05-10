@@ -73,6 +73,8 @@ images:
         MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk IMAGE=$image ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
         docker push $image
 hooks:
+  - command: ./scripts/check_env_vars.sh
+    events: ["before:deploy:app"]
   - wait:
       running: true
       terminatedWithCode: 0
@@ -97,8 +99,8 @@ deployments:
     helm:
       releaseName: "app"
       chart:
-        name: cl-cluster
-        path: ../charts/chainlink-cluster
+        name: ${CHAINLINK_CLUSTER_HELM_CHART_URI}
+        version: 0.6.0
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
@@ -107,6 +109,42 @@ deployments:
           fsGroup: 999
 
         chainlink:
+          global:
+            overridesToml: |-
+              [Feature]
+              LogPoller = true
+              [Log]
+              Level = 'debug'
+              JSONConsole = true
+              [Log.File]
+              MaxSize = '0b'
+              [WebServer]
+              AllowOrigins = '*'
+              HTTPPort = 6688
+              SecureCookies = false
+              HTTPWriteTimeout = '1m'
+              [WebServer.RateLimit]
+              Authenticated = 2000
+              Unauthenticated = 1000
+              [WebServer.TLS]
+              HTTPSPort = 0
+              [Database]
+              MaxIdleConns = 50
+              MaxOpenConns = 50
+              MigrateOnStartup = true
+              [OCR2]
+              Enabled = true
+              DefaultTransactionQueueDepth = 0
+              [OCR]
+              Enabled = false
+              DefaultTransactionQueueDepth = 0
+              [P2P]
+              [P2P.V2]
+              Enabled = true
+              ListenAddresses = ['0.0.0.0:6690']
+              AnnounceAddresses = ['0.0.0.0:6690']
+              DeltaDial = '500ms'
+              DeltaReconcile = '5s'
           securityContext:
             capabilities:
               drop:
@@ -118,7 +156,7 @@ deployments:
           web_port: 6688
           p2p_port: 6690
           # extraEnvVars:
-            # "CL_MEDIAN_CMD": "chainlink-feeds"
+          # "CL_MEDIAN_CMD": "chainlink-feeds"
           nodes:
             - name: node-1
               image: ${runtime.images.app}
@@ -178,8 +216,6 @@ deployments:
             - name: node-4
               image: ${runtime.images.app}
             - name: node-5
-              image: ${runtime.images.app}
-            - name: node-6
               image: ${runtime.images.app}
 
         # each CL node have a dedicated PostgreSQL 11.15
@@ -310,15 +346,6 @@ deployments:
                         name: app-node-5
                         port:
                           number: 6688
-            - host: ${DEVSPACE_NAMESPACE}-node6.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              http:
-                paths:
-                  - path: /
-                    backend:
-                      service:
-                        name: app-node-6
-                        port:
-                          number: 6688
             - host: ${DEVSPACE_NAMESPACE}-geth-1337-http.${DEVSPACE_INGRESS_BASE_DOMAIN}
               http:
                 paths:
@@ -385,3 +412,13 @@ deployments:
         nodeSelector:
         tolerations:
         affinity:
+profiles:
+  - name: local-dev
+    patches:
+      # Remove the global overridesToml field.
+      # This will be configured via a values file.
+      - op: remove
+        path: deployments.app.helm.values.chainlink.global.overridesToml
+      - op: add
+        path: deployments.app.helm.valuesFiles
+        value: ["./values-profiles/values-dev.yaml"]
