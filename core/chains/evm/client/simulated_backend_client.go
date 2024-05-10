@@ -66,10 +66,11 @@ var (
 // SimulatedBackendClient is an Client implementation using a simulated
 // blockchain backend. Note that not all RPC methods are implemented here.
 type SimulatedBackendClient struct {
-	b       *simulated.Backend
-	client  simulated.Client
-	t       testing.TB
-	chainId *big.Int
+	b            *simulated.Backend
+	client       simulated.Client
+	t            testing.TB
+	chainId      *big.Int
+	optimismMode bool
 }
 
 // NewSimulatedBackendClient creates an eth client backed by a simulated backend.
@@ -80,6 +81,17 @@ func NewSimulatedBackendClient(t testing.TB, b *simulated.Backend, chainId *big.
 		t:       t,
 		chainId: chainId,
 	}
+}
+
+// Switch to a new backend client (simulating an rpc failover event)
+// If optimismMode = true, the new backend will exhibit the non-geth behavior of optimism (and some other rpc clients),
+// where success rather than an error code is returned when a call to FilterLogs() fails to find the block hash
+// requested. This combined with a failover event can lead to the "eventual consistency" behavior that Backup LogPoller
+// and other solutions were designed to recover from.
+func (c *SimulatedBackendClient) SetBackend(backend *simulated.Backend, optimismMode bool) {
+	c.optimismMode = optimismMode
+	c.b = backend
+	c.client = backend.Client()
 }
 
 // Dial noop for the sim.
@@ -115,7 +127,14 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 
 // FilterLogs returns all logs that respect the passed filter query.
 func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
-	return c.client.FilterLogs(ctx, q)
+	logs, err = c.client.FilterLogs(ctx, q)
+	if c.optimismMode {
+		if err != nil && err.Error() == "unknown block" {
+			return []types.Log{}, nil // emulate optimism behavior of returning success instead of "unknown block"
+		}
+	}
+
+	return logs, err
 }
 
 // SubscribeFilterLogs registers a subscription for push notifications of logs
@@ -775,7 +794,7 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 		Addresses: addresses,
 		Topics:    topics,
 	}
-	logs, err := c.client.FilterLogs(ctx, query)
+	logs, err := c.FilterLogs(ctx, query)
 	if err != nil {
 		return err
 	}

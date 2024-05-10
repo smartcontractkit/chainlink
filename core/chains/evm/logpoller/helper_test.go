@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"math/big"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -38,7 +37,7 @@ type TestHarness struct {
 	ChainID, ChainID2                *big.Int
 	ORM, ORM2                        logpoller.ORM
 	LogPoller                        logpoller.LogPollerTest
-	Client                           simulated.Client
+	Client                           *client.SimulatedBackendClient
 	Backend                          *simulated.Backend
 	Owner                            *bind.TransactOpts
 	Emitter1, Emitter2               *log_emitter.LogEmitter
@@ -50,8 +49,8 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
-	dataDir, err := os.MkdirTemp("", "simgethdata")
-	require.NoError(t, err)
+	//dataDir, err := os.MkdirTemp("", "simgethdata")
+	//require.NoError(t, err)
 
 	o := logpoller.NewORM(chainID, db, lggr)
 	o2 := logpoller.NewORM(chainID2, db, lggr)
@@ -61,8 +60,8 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, simulated.WithBlockGasLimit(10e6), withDataDir(dataDir))
-	ec := backend.Client()
+	}, simulated.WithBlockGasLimit(10e6))
+
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
 
@@ -72,9 +71,9 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		opts.PollPeriod = 1 * time.Hour
 	}
 	lp := logpoller.NewLogPoller(o, esc, lggr, opts)
-	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
+	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, backend.Client())
 	require.NoError(t, err)
-	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
+	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -85,7 +84,7 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		ORM:             o,
 		ORM2:            o2,
 		LogPoller:       lp,
-		Client:          ec,
+		Client:          esc,
 		Backend:         backend,
 		Owner:           owner,
 		Emitter1:        emitter1,
@@ -116,4 +115,11 @@ func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 		require.NoError(t, err)
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}
+}
+
+// Simulates an RPC failover event to an alternate rpc server. This can also be used to
+// simulate switching back to the primary rpc after it recovers.
+func (th *TestHarness) SetActiveClient(backend *simulated.Backend, optimismMode bool) {
+	th.Backend = backend
+	th.Client.SetBackend(backend, optimismMode)
 }
