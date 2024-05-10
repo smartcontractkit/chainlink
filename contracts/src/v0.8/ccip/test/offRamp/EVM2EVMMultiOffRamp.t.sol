@@ -312,6 +312,8 @@ contract EVM2EVMMultiOffRamp_ccipReceive is EVM2EVMMultiOffRampSetup {
 }
 
 contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
+  event SkippedAlreadyExecutedMessage(uint64 indexed sequenceNumber);
+
   error PausedError();
 
   function setUp() public virtual override {
@@ -464,6 +466,26 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
 
   //   s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
   // }
+
+  function test__execute_SkippedAlreadyExecutedMessage_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      messages[0].sourceChainSelector,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+
+    vm.expectEmit();
+    emit SkippedAlreadyExecutedMessage(messages[0].sequenceNumber);
+
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+  }
 
   // Send a message to a contract that does not implement the CCIPReceiver interface
   // This should execute successfully.
@@ -678,14 +700,6 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
     Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     s_offRamp.execute(_generateReportFromMessages(messages), _getGasLimitsFromMessages(messages));
     vm.clearMockedCalls();
-  }
-
-  function test_AlreadyExecuted_Revert() public {
-    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-    Internal.ExecutionReport memory executionReport = _generateReportFromMessages(messages);
-    s_offRamp.execute(executionReport, new uint256[](0));
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMMultiOffRamp.AlreadyExecuted.selector, messages[0].sequenceNumber));
-    s_offRamp.execute(executionReport, new uint256[](0));
   }
 
   function test_NonExistingSourceChain_Revert() public {

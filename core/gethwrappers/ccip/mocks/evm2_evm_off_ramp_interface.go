@@ -360,6 +360,36 @@ func (_m *EVM2EVMOffRampInterface) FilterOwnershipTransferred(opts *bind.FilterO
 	return r0, r1
 }
 
+// FilterSkippedAlreadyExecutedMessage provides a mock function with given fields: opts, sequenceNumber
+func (_m *EVM2EVMOffRampInterface) FilterSkippedAlreadyExecutedMessage(opts *bind.FilterOpts, sequenceNumber []uint64) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator, error) {
+	ret := _m.Called(opts, sequenceNumber)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterSkippedAlreadyExecutedMessage")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator, error)); ok {
+		return rf(opts, sequenceNumber)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64) *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator); ok {
+		r0 = rf(opts, sequenceNumber)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []uint64) error); ok {
+		r1 = rf(opts, sequenceNumber)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterSkippedIncorrectNonce provides a mock function with given fields: opts, nonce, sender
 func (_m *EVM2EVMOffRampInterface) FilterSkippedIncorrectNonce(opts *bind.FilterOpts, nonce []uint64, sender []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonceIterator, error) {
 	ret := _m.Called(opts, nonce, sender)
@@ -1096,6 +1126,36 @@ func (_m *EVM2EVMOffRampInterface) ParseOwnershipTransferred(log types.Log) (*ev
 	return r0, r1
 }
 
+// ParseSkippedAlreadyExecutedMessage provides a mock function with given fields: log
+func (_m *EVM2EVMOffRampInterface) ParseSkippedAlreadyExecutedMessage(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseSkippedAlreadyExecutedMessage")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseSkippedIncorrectNonce provides a mock function with given fields: log
 func (_m *EVM2EVMOffRampInterface) ParseSkippedIncorrectNonce(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, error) {
 	ret := _m.Called(log)
@@ -1687,6 +1747,36 @@ func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferred(opts *bind.WatchOpt
 
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, []common.Address, []common.Address) error); ok {
 		r1 = rf(opts, sink, from, to)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchSkippedAlreadyExecutedMessage provides a mock function with given fields: opts, sink, sequenceNumber
+func (_m *EVM2EVMOffRampInterface) WatchSkippedAlreadyExecutedMessage(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, sequenceNumber []uint64) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, sequenceNumber)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchSkippedAlreadyExecutedMessage")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, []uint64) (event.Subscription, error)); ok {
+		return rf(opts, sink, sequenceNumber)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, []uint64) event.Subscription); ok {
+		r0 = rf(opts, sink, sequenceNumber)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, []uint64) error); ok {
+		r1 = rf(opts, sink, sequenceNumber)
 	} else {
 		r1 = ret.Error(1)
 	}

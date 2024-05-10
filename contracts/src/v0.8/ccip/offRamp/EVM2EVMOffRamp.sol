@@ -67,6 +67,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   );
   event TokenAggregateRateLimitAdded(address sourceToken, address destToken);
   event TokenAggregateRateLimitRemoved(address sourceToken, address destToken);
+  event SkippedAlreadyExecutedMessage(uint64 indexed sequenceNumber);
 
   /// @notice Static offRamp config
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -261,9 +262,16 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     for (uint256 i = 0; i < numMsgs; ++i) {
       Internal.EVM2EVMMessage memory message = report.messages[i];
       Internal.MessageExecutionState originalState = getExecutionState(message.sequenceNumber);
+      if (originalState == Internal.MessageExecutionState.SUCCESS) {
+        // If the message has already been executed, we skip it.  We want to not revert on race conditions between
+        // executing parties. This will allow us to open up manual exec while also attempting with the DON, without
+        // reverting an entire DON batch when a user manually executes while the tx is inflight.
+        emit SkippedAlreadyExecutedMessage(message.sequenceNumber);
+        continue;
+      }
       // Two valid cases here, we either have never touched this message before, or we tried to execute
-      // and failed. This check protects against reentry and re-execution because the other states are
-      // IN_PROGRESS and SUCCESS, both should not be allowed to execute.
+      // and failed. This check protects against reentry and re-execution because the other state is
+      // IN_PROGRESS which should not be allowed to execute.
       if (
         !(
           originalState == Internal.MessageExecutionState.UNTOUCHED
