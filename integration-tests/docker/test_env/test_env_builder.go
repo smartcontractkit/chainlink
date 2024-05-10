@@ -75,18 +75,31 @@ type CLTestEnvBuilder struct {
 	ETHFunds *big.Float
 }
 
+var DefaultAllowedMessages = []testreporters.AllowedLogMessage{
+	testreporters.NewAllowedLogMessage("Failed to get LINK balance", "Happens only when we deploy LINK token for test purposes. Harmless.", zapcore.ErrorLevel, testreporters.WarnAboutAllowedMsgs_No),
+}
+
+var DefaultChainlinkNodeLogScannerSettings = ChainlinkNodeLogScannerSettings{
+	FailingLogLevel: zapcore.DPanicLevel,
+	Threshold:       1, // we want to fail on the first concerning log
+	AllowedMessages: DefaultAllowedMessages,
+}
+
+func GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(extraAllowedMessages ...testreporters.AllowedLogMessage) ChainlinkNodeLogScannerSettings {
+	allowedMessages := append(DefaultAllowedMessages, extraAllowedMessages...)
+	return ChainlinkNodeLogScannerSettings{
+		FailingLogLevel: zapcore.DPanicLevel,
+		Threshold:       1,
+		AllowedMessages: allowedMessages,
+	}
+}
+
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
-		l:            log.Logger,
-		hasLogStream: true,
-		hasEVMClient: true,
-		chainlinkNodeLogScannerSettings: &ChainlinkNodeLogScannerSettings{
-			FailingLogLevel: zapcore.DPanicLevel,
-			Threshold:       1, // we want to fail on the first concerning log
-			AllowedMessages: []testreporters.AllowedLogMessage{
-				testreporters.NewAllowedLogMessage("Failed to get LINK balance", "Happens only when we deploy LINK token for test purposes. Harmless.", zapcore.ErrorLevel, testreporters.LogAllowed_No),
-			},
-		},
+		l:                               log.Logger,
+		hasLogStream:                    true,
+		hasEVMClient:                    true,
+		chainlinkNodeLogScannerSettings: &DefaultChainlinkNodeLogScannerSettings,
 	}
 }
 

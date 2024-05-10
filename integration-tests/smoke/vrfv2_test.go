@@ -2,6 +2,8 @@ package smoke
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"go.uber.org/zap/zapcore"
 	"math/big"
 	"strconv"
 	"strings"
@@ -75,7 +77,7 @@ func TestVRFv2Basic(t *testing.T) {
 		UseTestCoordinator:     false,
 	}
 
-	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
 	evmClient, err := testEnv.GetEVMClient(chainID)
 	require.NoError(t, err, "Getting EVM client shouldn't fail")
@@ -610,7 +612,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		UseTestCoordinator:     false,
 	}
 
-	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
 
 	evmClient, err := testEnv.GetEVMClient(chainID)
@@ -718,7 +720,7 @@ func TestVRFOwner(t *testing.T) {
 		UseTestCoordinator:     true,
 	}
 
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
 
 	evmClient, err := testEnv.GetEVMClient(chainID)
@@ -866,7 +868,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		UseTestCoordinator:     false,
 	}
 
-	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
 
 	evmClient, err := testEnv.GetEVMClient(chainID)
@@ -1070,7 +1072,13 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		UseTestCoordinator:     false,
 	}
 
-	env, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
+	chainlinkNodeLogScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
+		"This is a problem and either means a very deep re-org occurred",
+		"Test is expecting a reorg to occur",
+		zapcore.DPanicLevel,
+		testreporters.WarnAboutAllowedMsgs_No))
+
+	env, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, chainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "Error setting up VRFv2 universe")
 
 	evmClient, err := env.GetEVMClient(chainID)
@@ -1232,7 +1240,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		UseTestCoordinator:     false,
 	}
 
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "Error setting up VRFv2 universe")
 
 	evmClient, err := env.GetEVMClient(chainID)
