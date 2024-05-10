@@ -470,7 +470,7 @@ Load Config:
 			EncryptedEmail: []byte("test@mail.com"),
 			UpkeepContract: common.HexToAddress(consumerContract.Address()),
 			GasLimit:       *loadConfigs[i].UpkeepGasLimit,
-			AdminAddress:   chainClient.Addresses[0],
+			AdminAddress:   chainClient.MustGetRootKeyAddress(),
 			TriggerType:    uint8(1),
 			CheckData:      encodedCheckDataStruct,
 			TriggerConfig:  encodedLogTriggerConfig,

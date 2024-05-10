@@ -260,7 +260,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 			[]byte("test@mail.com"),
 			config.address,
 			upkeepGasLimit,
-			client.Addresses[0].Hex(), // upkeep Admin
+			client.MustGetRootKeyAddress().Hex(), // upkeep Admin
 			config.data,
 			linkFunds,
 			0,

@@ -1208,7 +1208,7 @@ func SetupLogPollerTestDocker(
 	}
 	require.NoError(t, err, "Error loading/deploying LINK token")
 
-	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[0].Hex())
+	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "Error getting LINK balance")
 
 	l.Info().Str("Balance", big.NewInt(0).Div(linkBalance, big.NewInt(1e18)).String()).Msg("LINK balance")

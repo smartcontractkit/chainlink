@@ -322,7 +322,7 @@ func returnAllFundsIfPossible(log zerolog.Logger, sethClient *seth.Client, fromP
 	})
 
 	var gasLimit int64
-	gasLimitRaw, err := sethClient.EstimateGasLimitForFundTransfer(fromAddress, sethClient.Addresses[0], balance)
+	gasLimitRaw, err := sethClient.EstimateGasLimitForFundTransfer(fromAddress, sethClient.MustGetRootKeyAddress(), balance)
 	if err != nil {
 		gasLimit = sethClient.Cfg.Network.TransferGasFee
 	} else {
@@ -350,7 +350,7 @@ func returnAllFundsIfPossible(log zerolog.Logger, sethClient *seth.Client, fromP
 	}
 
 	payload := FundsToSendPayload{
-		ToAddress:  sethClient.Addresses[0],
+		ToAddress:  sethClient.MustGetRootKeyAddress(),
 		Amount:     toSend,
 		PrivateKey: fromPrivateKey,
 		GasLimit:   &gasLimit,

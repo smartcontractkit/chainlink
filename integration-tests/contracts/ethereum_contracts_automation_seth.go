@@ -169,9 +169,9 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 		ownerAddress, _ := v.registry2_0.Owner(callOpts)
 		return ownerAddress
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1, ethereum.RegistryVersion_1_2, ethereum.RegistryVersion_1_3:
-		return v.client.Addresses[0]
+		return v.client.MustGetRootKeyAddress()
 	default:
-		return v.client.Addresses[0]
+		return v.client.MustGetRootKeyAddress()
 	}
 }
 
@@ -208,7 +208,7 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error {
 	txOpts := v.client.NewTXOpts()
 	callOpts := bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: nil,
 	}
 
@@ -356,7 +356,7 @@ func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 
 	txOpts := v.client.NewTXOpts()
 	callOpts := bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: nil,
 	}
 
@@ -418,7 +418,7 @@ func (v *EthereumKeeperRegistry) AddUpkeepFunds(id *big.Int, amount *big.Int) er
 // GetUpkeepInfo gets upkeep info
 func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int) (*UpkeepInfo, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 
@@ -527,7 +527,7 @@ func (v *EthereumKeeperRegistry) getUpkeepInfo22(opts *bind.CallOpts, id *big.In
 
 func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr string) (*KeeperInfo, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	var info struct {
@@ -663,13 +663,13 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 	}
 
 	txHash := "none"
-	if err == nil {
+	if err == nil && tx != nil {
 		txHash = tx.Hash
 	}
 
 	v.l.Info().
 		Str("Upkeep ID", strconv.FormatInt(id.Int64(), 10)).
-		Str("From", v.client.Addresses[0].Hex()).
+		Str("From", v.client.MustGetRootKeyAddress().Hex()).
 		Str("TX Hash", txHash).
 		Msg("Cancel Upkeep tx")
 
@@ -702,7 +702,7 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 // GetKeeperList get list of all registered keeper addresses
 func (v *EthereumKeeperRegistry) GetKeeperList(ctx context.Context) ([]string, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	var list []common.Address
@@ -1863,7 +1863,7 @@ func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Start() erro
 
 func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	return v.consumer.Counter(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -1911,7 +1911,7 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
 
 func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	return v.consumer.Counter(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -1965,7 +1965,7 @@ func (v *EthereumAutomationLogCounterConsumer) Start() error {
 
 func (v *EthereumAutomationLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	return v.consumer.Counter(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -2012,7 +2012,7 @@ func (v *EthereumUpkeepCounter) Fund(_ *big.Float) error {
 }
 func (v *EthereumUpkeepCounter) Counter(ctx context.Context) (*big.Int, error) {
 	return v.consumer.Counter(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -2069,7 +2069,7 @@ func (v *EthereumUpkeepPerformCounterRestrictive) Fund(_ *big.Float) error {
 }
 func (v *EthereumUpkeepPerformCounterRestrictive) Counter(ctx context.Context) (*big.Int, error) {
 	return v.consumer.GetCountPerforms(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -2114,7 +2114,7 @@ func (v *EthereumKeeperPerformDataCheckerConsumer) Address() string {
 
 func (v *EthereumKeeperPerformDataCheckerConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	return v.performDataChecker.Counter(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -2164,14 +2164,14 @@ func (v *EthereumKeeperConsumerPerformance) Fund(_ *big.Float) error {
 
 func (v *EthereumKeeperConsumerPerformance) CheckEligible(ctx context.Context) (bool, error) {
 	return v.consumer.CheckEligible(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
 
 func (v *EthereumKeeperConsumerPerformance) GetUpkeepCount(ctx context.Context) (*big.Int, error) {
 	return v.consumer.GetCountPerforms(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -2234,7 +2234,7 @@ func (v *EthereumAutomationSimpleLogCounterConsumer) Start() error {
 
 func (v *EthereumAutomationSimpleLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	return v.consumer.Counter(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -2283,14 +2283,14 @@ func (v *EthereumAutomationConsumerBenchmark) Fund(_ *big.Float) error {
 
 func (v *EthereumAutomationConsumerBenchmark) CheckEligible(ctx context.Context, id *big.Int, _range *big.Int, firstEligibleBuffer *big.Int) (bool, error) {
 	return v.consumer.CheckEligible(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}, id, _range, firstEligibleBuffer)
 }
 
 func (v *EthereumAutomationConsumerBenchmark) GetUpkeepCount(ctx context.Context, id *big.Int) (*big.Int, error) {
 	return v.consumer.GetCountPerforms(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}, id)
 }
