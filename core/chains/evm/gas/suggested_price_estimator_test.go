@@ -12,11 +12,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestSuggestedPriceEstimator(t *testing.T) {
@@ -34,7 +35,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
-		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
+		_, _, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "estimator is not started")
 	})
 
@@ -49,7 +50,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(42), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
@@ -67,7 +68,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		})
 
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, assets.NewWeiI(40))
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, assets.NewWeiI(40))
 		require.Error(t, err)
 		assert.EqualError(t, err, "estimated gas price: 42 wei is greater than the maximum gas price configured: 40 wei")
 		assert.Nil(t, gasPrice)
@@ -86,7 +87,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		})
 
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, assets.NewWeiI(110))
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, assets.NewWeiI(110))
 		assert.EqualError(t, err, "estimated gas price: 120 wei is greater than the maximum gas price configured: 110 wei")
 		assert.Nil(t, gasPrice)
 		assert.Equal(t, uint64(0), chainSpecificGasLimit)
@@ -102,7 +103,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 		servicetest.RunHealthy(t, o)
 
-		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
+		_, _, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "failed to estimate gas; gas price not set")
 	})
 
@@ -111,7 +112,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
-		_, err := o.GetDynamicFee(testutils.Context(t), maxGasPrice)
+		_, err := o.GetDynamicFee(tests.Context(t), maxGasPrice)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 
@@ -120,7 +121,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
-		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), gasLimit, maxGasPrice, nil)
+		_, _, err := o.BumpLegacyGas(tests.Context(t), assets.NewWeiI(42), gasLimit, maxGasPrice, nil)
 		assert.EqualError(t, err, "estimator is not started")
 	})
 
@@ -133,7 +134,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			FeeCap: assets.NewWeiI(42),
 			TipCap: assets.NewWeiI(5),
 		}
-		_, err := o.BumpDynamicFee(testutils.Context(t), fee, maxGasPrice, nil)
+		_, err := o.BumpDynamicFee(tests.Context(t), fee, maxGasPrice, nil)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 
@@ -148,7 +149,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
+		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(tests.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(44), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
@@ -166,7 +167,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		testCfg := &gas.MockGasEstimatorConfig{BumpPercentF: 1, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1, LimitMultiplierF: 1}
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, testCfg, l1Oracle)
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
+		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(tests.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(41), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
@@ -183,7 +184,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), feeEstimatorClient, cfg, l1Oracle)
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
+		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(tests.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(10), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
@@ -201,7 +202,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		})
 
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, assets.NewWeiI(40), nil)
+		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(tests.Context(t), assets.NewWeiI(10), gasLimit, assets.NewWeiI(40), nil)
 		require.Error(t, err)
 		assert.EqualError(t, err, "estimated gas price: 42 wei is greater than the maximum gas price configured: 40 wei")
 		assert.Nil(t, gasPrice)
@@ -220,7 +221,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		})
 
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, assets.NewWeiI(40), nil)
+		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(tests.Context(t), assets.NewWeiI(10), gasLimit, assets.NewWeiI(40), nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(40), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
@@ -236,7 +237,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 		servicetest.RunHealthy(t, o)
 
-		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
+		_, _, err := o.BumpLegacyGas(tests.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		assert.EqualError(t, err, "failed to refresh and return gas; gas price not set")
 	})
 
@@ -254,7 +255,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 		servicetest.RunHealthy(t, o)
 
-		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
+		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(tests.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(44), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
