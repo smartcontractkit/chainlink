@@ -1072,11 +1072,18 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		UseTestCoordinator:     false,
 	}
 
-	chainlinkNodeLogScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
-		"This is a problem and either means a very deep re-org occurred",
-		"Test is expecting a reorg to occur",
-		zapcore.DPanicLevel,
-		testreporters.WarnAboutAllowedMsgs_No))
+	chainlinkNodeLogScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(
+		testreporters.NewAllowedLogMessage(
+			"This is a problem and either means a very deep re-org occurred",
+			"Test is expecting a reorg to occur",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_No),
+		testreporters.NewAllowedLogMessage(
+			"Reorg greater than finality depth detected",
+			"Test is expecting a reorg to occur",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_No),
+	)
 
 	env, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, chainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "Error setting up VRFv2 universe")
