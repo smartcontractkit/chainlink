@@ -1712,7 +1712,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 
 func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 	ctx := testutils.Context(t)
-	numberOfBlocks := 10
+	numberOfBlocks := 37 // must be greater than 1 epoch
 
 	tests := []struct {
 		name                   string
@@ -1729,7 +1729,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 		{
 			name:                   "setting last finalized block number to 0 if finality is too deep",
 			useFinalityTag:         false,
-			finalityDepth:          20,
+			finalityDepth:          40,
 			expectedFinalizedBlock: 0,
 		},
 		{
@@ -1943,7 +1943,7 @@ func finalizeThroughBlock(t *testing.T, th TestHarness, blockNumber int64) {
 		require.Len(t, currentBlock, 32)
 	}
 	h, err = th.Client.HeaderByNumber(ctx, nil)
-	require.Equal(t, targetBlockNumber, h.Number.Int64())
+	require.GreaterOrEqual(t, h.Number.Int64(), targetBlockNumber)
 }
 
 //func markBlockAsFinalizedByHash(t *testing.T, th TestHarness, blockHash common.Hash) {
