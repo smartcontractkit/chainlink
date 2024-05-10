@@ -119,6 +119,7 @@ func FundVRFCoordinatorV2_5Subscription(
 }
 
 func CreateFundSubsAndAddConsumers(
+	ctx context.Context,
 	env *test_env.CLClusterTestEnv,
 	chainID int64,
 	subscriptionFundingAmountNative *big.Float,
@@ -129,6 +130,7 @@ func CreateFundSubsAndAddConsumers(
 	numberOfSubToCreate int,
 ) ([]*big.Int, error) {
 	subIDs, err := CreateSubsAndFund(
+		ctx,
 		env,
 		chainID,
 		subscriptionFundingAmountNative,
@@ -156,6 +158,7 @@ func CreateFundSubsAndAddConsumers(
 }
 
 func CreateSubsAndFund(
+	ctx context.Context,
 	env *test_env.CLClusterTestEnv,
 	chainID int64,
 	subscriptionFundingAmountNative *big.Float,
@@ -164,7 +167,7 @@ func CreateSubsAndFund(
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
 ) ([]*big.Int, error) {
-	subs, err := CreateSubs(env, chainID, coordinator, subAmountToCreate)
+	subs, err := CreateSubs(ctx, env, chainID, coordinator, subAmountToCreate)
 	if err != nil {
 		return nil, err
 	}
@@ -182,6 +185,7 @@ func CreateSubsAndFund(
 }
 
 func CreateSubs(
+	ctx context.Context,
 	env *test_env.CLClusterTestEnv,
 	chainID int64,
 	coordinator contracts.VRFCoordinatorV2_5,
@@ -190,7 +194,7 @@ func CreateSubs(
 	var subIDArr []*big.Int
 
 	for i := 0; i < subAmountToCreate; i++ {
-		subID, err := CreateSubAndFindSubID(env, chainID, coordinator)
+		subID, err := CreateSubAndFindSubID(ctx, env, chainID, coordinator)
 		if err != nil {
 			return nil, err
 		}
@@ -214,7 +218,7 @@ func AddConsumersToSubs(
 	return nil
 }
 
-func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
+func CreateSubAndFindSubID(ctx context.Context, env *test_env.CLClusterTestEnv, chainID int64, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
 	tx, err := coordinator.CreateSubscription()
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrCreateVRFSubscription, err)
@@ -223,7 +227,7 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordi
 	if err != nil {
 		return nil, err
 	}
-	receipt, err := sethClient.Client.TransactionReceipt(context.Background(), tx.Hash())
+	receipt, err := sethClient.Client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
@@ -525,6 +529,7 @@ func SetupVRFV2PlusContracts(
 }
 
 func SetupNewConsumersAndSubs(
+	ctx context.Context,
 	env *test_env.CLClusterTestEnv,
 	chainID int64,
 	coordinator contracts.VRFCoordinatorV2_5,
@@ -547,6 +552,7 @@ func SetupNewConsumersAndSubs(
 		Int("Number of Subs to create", numberOfSubToCreate).
 		Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 	subIDs, err := CreateFundSubsAndAddConsumers(
+		ctx,
 		env,
 		chainID,
 		big.NewFloat(*testConfig.VRFv2Plus.General.SubscriptionFundingAmountNative),

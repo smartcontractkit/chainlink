@@ -315,11 +315,11 @@ func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*client.VRFKey, 
 	return vrfKey, pubKeyCompressed, nil
 }
 
-func FundNodesIfNeeded(existingEnvConfig *vrf_common_config.ExistingEnvConfig, client *seth.Client, l zerolog.Logger) error {
+func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config.ExistingEnvConfig, client *seth.Client, l zerolog.Logger) error {
 	if *existingEnvConfig.NodeSendingKeyFundingMin > 0 {
 		for _, sendingKey := range existingEnvConfig.NodeSendingKeys {
 			address := common.HexToAddress(sendingKey)
-			sendingKeyBalance, err := client.Client.BalanceAt(context.Background(), address, nil)
+			sendingKeyBalance, err := client.Client.BalanceAt(ctx, address, nil)
 			if err != nil {
 				return err
 			}

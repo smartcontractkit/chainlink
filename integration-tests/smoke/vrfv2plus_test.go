@@ -63,7 +63,7 @@ func TestVRFv2Plus(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
+			if err := env.Cleanup(testcontext.Get(t), test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -85,6 +85,7 @@ func TestVRFv2Plus(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
 		consumers, subIDsForRequestRandomness, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -142,7 +143,9 @@ func TestVRFv2Plus(t *testing.T) {
 		var isNativeBilling = true
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
+
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
 			configCopy,
@@ -197,6 +200,7 @@ func TestVRFv2Plus(t *testing.T) {
 		var isNativeBilling = true
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -239,6 +243,7 @@ func TestVRFv2Plus(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
 		consumers, subIDsForRequestRandomness, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -392,6 +397,7 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		_, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -499,6 +505,7 @@ func TestVRFv2Plus(t *testing.T) {
 		testConfig.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -647,6 +654,7 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Run("Owner Withdraw", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -755,7 +763,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
+			if err := env.Cleanup(testcontext.Get(t), test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -775,6 +783,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 		var isNativeBilling = true
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -857,7 +866,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
+			if err := env.Cleanup(testcontext.Get(t), test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -882,6 +891,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -1253,7 +1263,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
+			if err := env.Cleanup(testcontext.Get(t), test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1285,6 +1295,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -1358,6 +1369,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -1464,7 +1476,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
+			if err := env.Cleanup(testcontext.Get(t), test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1499,6 +1511,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -1609,7 +1622,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
+			if err := env.Cleanup(testcontext.Get(t), test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1635,6 +1648,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		var isNativeBilling = false
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -1671,6 +1685,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			Int("Number of Subs to create", 1).
 			Msg("Creating and funding subscriptions, adding consumers")
 		fundedSubIDs, err := vrfv2plus.CreateFundSubsAndAddConsumers(
+			testcontext.Get(t),
 			env,
 			chainID,
 			fundingLinkAmt,
@@ -1801,7 +1816,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
+			if err := env.Cleanup(testcontext.Get(t), test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1821,6 +1836,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+		testcontext.Get(t),
 		env,
 		chainID,
 		vrfContracts.CoordinatorV2Plus,
@@ -1889,7 +1905,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
+			if err := env.Cleanup(testcontext.Get(t), test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -1910,6 +1926,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 	require.NoError(t, err, "Getting Seth client shouldn't fail")
 
 	consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+		testcontext.Get(t),
 		env,
 		chainID,
 		vrfContracts.CoordinatorV2Plus,
@@ -2047,7 +2064,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
+			if err := env.Cleanup(testcontext.Get(t), test_env.CleanupOpts{TestName: t.Name()}); err != nil {
 				l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		}
@@ -2115,6 +2132,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		vrfNode.Job = job
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
@@ -2229,6 +2247,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		vrfNode.Job = job
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
 			env,
 			chainID,
 			vrfContracts.CoordinatorV2Plus,
