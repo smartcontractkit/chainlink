@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -638,6 +639,31 @@ func Test_Service_ProposeJob(t *testing.T) {
 		}
 
 		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
+
+		// variables for workflow spec
+		wfID         = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+		wfOwner      = "00000000000000000000000000000000000000aa"
+		wfSpec       = testspecs.GenerateWorkflowSpec(wfID, wfOwner, "spec details").Toml()
+		proposalIDWF = int64(11)
+		remoteUUIDWF = uuid.New()
+		argsWF       = &feeds.ProposeJobArgs{
+			FeedsManagerID: 1,
+			RemoteUUID:     remoteUUIDWF,
+			Spec:           wfSpec,
+			Version:        1,
+		}
+		jpWF = feeds.JobProposal{
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("test-spec"),
+			RemoteUUID:     remoteUUIDWF,
+			Status:         feeds.JobProposalStatusPending,
+		}
+		proposalSpecWF = feeds.JobProposalSpec{
+			Definition:    wfSpec,
+			Status:        feeds.SpecStatusPending,
+			Version:       1,
+			JobProposalID: proposalIDWF,
+		}
 	)
 
 	testCases := []struct {
@@ -647,6 +673,55 @@ func Test_Service_ProposeJob(t *testing.T) {
 		wantID  int64
 		wantErr string
 	}{
+		{
+			name: "Auto approve WF spec",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
+				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(int64(100), nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+				transactCall.Run(func(args mock.Arguments) {
+					fn := args[1].(func(orm feeds.ORM) error)
+					transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+				})
+				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
+				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, proposalIDWF).Return(&proposalSpecWF, nil)
+				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows) // TODO fix the external job id in wf spec generation
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.spawner.
+					On("CreateJob",
+						mock.Anything,
+						mock.Anything,
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.WorkflowSpec.WorkflowOwner == wfOwner
+						}),
+					).
+					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					mock.Anything,
+					proposalSpecWF.JobProposalID,
+					mock.IsType(uuid.UUID{}),
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jpWF.RemoteUUID.String(),
+						Version: int64(proposalSpecWF.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+
+			},
+			args:   argsWF,
+			wantID: proposalIDWF,
+		},
+
 		{
 			name: "Create success (Flux Monitor)",
 			before: func(svc *TestService) {

@@ -798,6 +798,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 						return errors.Wrap(txerr, "FindOCR2JobIDByAddress failed")
 					}
 				}
+			case job.Workflow:
+				// do nothing. assume there is no existing job
+				// TODO FIXME: this is a temporary fix to avoid checking for existing jobs for workflow jobs
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
@@ -1143,7 +1146,7 @@ func findExistingJobForOCRFlux(ctx context.Context, j *job.Job, tx job.ORM) (int
 func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error) {
 	jobType, err := job.ValidateSpec(spec)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse job spec TOML")
+		return nil, fmt.Errorf("failed to parse job spec TOML'%s': %w", spec, err)
 	}
 
 	var js job.Job
@@ -1165,6 +1168,23 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
+	case job.Workflow:
+		// TODO what the right way to validate a workflow spec?
+		var s job.WorkflowSpec
+		err = toml.Unmarshal([]byte(spec), &s)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse workflow spec TOML: %w", err)
+		}
+		if err := s.Validate(); err != nil {
+			return nil, fmt.Errorf("failed to validate workflow spec: %w", err)
+		}
+		js = job.Job{
+			Type:          job.Workflow,
+			SchemaVersion: 1,
+			ExternalJobID: uuid.New(), // is this right?
+			WorkflowSpec:  &s,
+		}
+
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}
