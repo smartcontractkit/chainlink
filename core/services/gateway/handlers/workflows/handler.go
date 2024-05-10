@@ -194,7 +194,12 @@ func (h *workflowSpecHandler) processCreate(peerMsg *api.Message, pendingState *
 	err := json.Unmarshal(peerMsg.Body.Payload, &responsePayload)
 	if err != nil {
 		pendingState.errors = append(pendingState.errors, &FailedRequest{request: peerMsg, error: fmt.Errorf("internal error: failed to unmarshal peer message: %w", err)})
+		h.abort(ctx, peerMsg)
 		return nil, pendingState, err
+	}
+	if !responsePayload.Success {
+		pendingState.errors = append(pendingState.errors, &FailedRequest{request: peerMsg, error: fmt.Errorf("peer reported error: %s", responsePayload.ErrorMessage)})
+		h.abort(ctx, peerMsg)
 	}
 
 	pr.responses[msg.Body.Sender] = msg
