@@ -87,7 +87,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	vrfv2Config := m.testConfig.General
 	//randomly increase/decrease randomness request count per TX
 	randomnessRequestCountPerRequest := deviateValue(*vrfv2Config.RandomnessRequestCountPerRequest, *vrfv2Config.RandomnessRequestCountPerRequestDeviation)
-	_, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
+	_, _, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
 		m.logger,
 		//the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2Consumers[0],

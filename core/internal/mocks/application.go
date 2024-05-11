@@ -23,6 +23,8 @@ import (
 
 	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 
+	logpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+
 	mock "github.com/stretchr/testify/mock"
 
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -34,8 +36,6 @@ import (
 	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	sqlx "github.com/jmoiron/sqlx"
 
 	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
@@ -149,6 +149,24 @@ func (_m *Application) DeleteJob(ctx context.Context, jobID int32) error {
 	return r0
 }
 
+// DeleteLogPollerDataAfter provides a mock function with given fields: ctx, chainID, start
+func (_m *Application) DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error {
+	ret := _m.Called(ctx, chainID, start)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteLogPollerDataAfter")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, int64) error); ok {
+		r0 = rf(ctx, chainID, start)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // EVMORM provides a mock function with given fields:
 func (_m *Application) EVMORM() types.Configs {
 	ret := _m.Called()
@@ -167,6 +185,36 @@ func (_m *Application) EVMORM() types.Configs {
 	}
 
 	return r0
+}
+
+// FindLCA provides a mock function with given fields: ctx, chainID
+func (_m *Application) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error) {
+	ret := _m.Called(ctx, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindLCA")
+	}
+
+	var r0 *logpoller.LogPollerBlock
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (*logpoller.LogPollerBlock, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *logpoller.LogPollerBlock); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*logpoller.LogPollerBlock)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // GetAuditLogger provides a mock function with given fields:
@@ -383,26 +431,6 @@ func (_m *Application) GetRelayers() chainlink.RelayerChainInteroperators {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(chainlink.RelayerChainInteroperators)
-		}
-	}
-
-	return r0
-}
-
-// GetSqlxDB provides a mock function with given fields:
-func (_m *Application) GetSqlxDB() *sqlx.DB {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetSqlxDB")
-	}
-
-	var r0 *sqlx.DB
-	if rf, ok := ret.Get(0).(func() *sqlx.DB); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*sqlx.DB)
 		}
 	}
 

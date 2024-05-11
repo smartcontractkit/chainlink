@@ -53,8 +53,6 @@ func TestBatchSplit(t *testing.T) {
 			}
 			// assert order has not changed when list is reconstructed
 			assert.Equal(t, r.input, temp)
-
 		})
 	}
-
 }

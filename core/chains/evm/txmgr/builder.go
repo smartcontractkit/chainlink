@@ -4,8 +4,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -21,8 +19,7 @@ import (
 
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
 func NewTxm(
-	sqlxDB *sqlx.DB,
-	db sqlutil.DataSource,
+	ds sqlutil.DataSource,
 	chainConfig ChainConfig,
 	fCfg FeeConfig,
 	txConfig config.Transactions,
@@ -40,14 +37,14 @@ func NewTxm(
 	var fwdMgr FwdMgr
 
 	if txConfig.ForwardersEnabled() {
-		fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, chainConfig)
+		fwdMgr = forwarders.NewFwdMgr(ds, client, logPoller, lggr, chainConfig)
 	} else {
 		lggr.Info("EvmForwarderManager: Disabled")
 	}
 	checker := &CheckerFactory{Client: client}
 	// create tx attempt builder
 	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
-	txStore := NewTxStore(sqlxDB, lggr)
+	txStore := NewTxStore(ds, lggr)
 	txmCfg := NewEvmTxmConfig(chainConfig)             // wrap Evm specific config
 	feeCfg := NewEvmTxmFeeConfig(fCfg)                 // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client, clientErrors) // wrap Evm specific client

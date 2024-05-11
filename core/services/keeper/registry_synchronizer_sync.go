@@ -30,7 +30,7 @@ func (rs *RegistrySynchronizer) fullSync(ctx context.Context) {
 }
 
 func (rs *RegistrySynchronizer) syncRegistry(ctx context.Context) (Registry, error) {
-	registry, err := rs.newRegistryFromChain()
+	registry, err := rs.newRegistryFromChain(ctx)
 	if err != nil {
 		return Registry{}, errors.Wrap(err, "failed to get new registry from chain")
 	}
@@ -138,13 +138,13 @@ func (rs *RegistrySynchronizer) syncUpkeep(ctx context.Context, getter upkeepGet
 }
 
 // newRegistryFromChain returns a Registry struct with fields synched from those on chain
-func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
+func (rs *RegistrySynchronizer) newRegistryFromChain(ctx context.Context) (Registry, error) {
 	fromAddress := rs.effectiveKeeperAddress
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 
 	registryConfig, err := rs.registryWrapper.GetConfig(nil)
 	if err != nil {
-		rs.jrm.TryRecordError(rs.job.ID, err.Error())
+		rs.jrm.TryRecordError(ctx, rs.job.ID, err.Error())
 		return Registry{}, errors.Wrap(err, "failed to get contract config")
 	}
 

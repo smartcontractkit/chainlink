@@ -167,5 +167,4 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		_, err = originalKeyRing.LegacyKeys.UnloadUnsupported(nil)
 		require.Error(t, err)
 	})
-
 }

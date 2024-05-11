@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -12,7 +13,7 @@ import (
 // remoteTargetCaller/Receiver are shims translating between capability API calls and network messages
 type remoteTargetCaller struct {
 	capInfo    commoncap.CapabilityInfo
-	donInfo    *types.DON
+	donInfo    *capabilities.DON
 	dispatcher types.Dispatcher
 	lggr       logger.Logger
 }
@@ -22,14 +23,14 @@ var _ types.Receiver = &remoteTargetCaller{}
 
 type remoteTargetReceiver struct {
 	capInfo    commoncap.CapabilityInfo
-	donInfo    *types.DON
+	donInfo    *capabilities.DON
 	dispatcher types.Dispatcher
 	lggr       logger.Logger
 }
 
 var _ types.Receiver = &remoteTargetReceiver{}
 
-func NewRemoteTargetCaller(capInfo commoncap.CapabilityInfo, donInfo *types.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetCaller {
+func NewRemoteTargetCaller(capInfo commoncap.CapabilityInfo, donInfo *capabilities.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetCaller {
 	return &remoteTargetCaller{
 		capInfo:    capInfo,
 		donInfo:    donInfo,
@@ -72,7 +73,7 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 	c.lggr.Debugw("not implemented - received message", "capabilityId", c.capInfo.ID, "payload", msg.Payload)
 }
 
-func NewRemoteTargetReceiver(capInfo commoncap.CapabilityInfo, donInfo *types.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetReceiver {
+func NewRemoteTargetReceiver(capInfo commoncap.CapabilityInfo, donInfo *capabilities.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetReceiver {
 	return &remoteTargetReceiver{
 		capInfo:    capInfo,
 		donInfo:    donInfo,

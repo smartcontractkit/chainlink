@@ -186,7 +186,7 @@ func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
 	uni.pluginORM.On("SetResult", mock.Anything, RequestID, ResultBytes, mock.Anything, mock.Anything).Return(nil)
@@ -230,7 +230,7 @@ func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil, nil, errors.New("error"))
 	uni.pluginORM.On("SetError", mock.Anything, RequestID, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)

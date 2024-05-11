@@ -418,7 +418,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 
 				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridge, nil)
 				f.Mocks.bridgeORM.On("DeleteBridgeType", mock.Anything, &bridge).Return(nil)
-				f.Mocks.jobORM.On("FindJobIDsWithBridge", name.String()).Return([]int32{}, nil)
+				f.Mocks.jobORM.On("FindJobIDsWithBridge", mock.Anything, name.String()).Return([]int32{}, nil)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
 			},
@@ -481,7 +481,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 			},
 			before: func(f *gqlTestFramework) {
 				f.Mocks.bridgeORM.On("FindBridge", mock.Anything, name).Return(bridges.BridgeType{}, nil)
-				f.Mocks.jobORM.On("FindJobIDsWithBridge", name.String()).Return([]int32{1}, nil)
+				f.Mocks.jobORM.On("FindJobIDsWithBridge", mock.Anything, name.String()).Return([]int32{1}, nil)
 				f.App.On("BridgeORM").Return(f.Mocks.bridgeORM)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},

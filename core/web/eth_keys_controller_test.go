@@ -73,11 +73,9 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 		if balance.Address == expectedKeys[0].Address.Hex() {
 			assert.Equal(t, "0.000000000000000256", balance.EthBalance.String())
 			assert.Equal(t, "256", balance.LinkBalance.String())
-
 		} else {
 			assert.Equal(t, "0.000000000000000001", balance.EthBalance.String())
 			assert.Equal(t, "1", balance.LinkBalance.String())
-
 		}
 	}
 }
@@ -425,8 +423,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	db := app.GetSqlxDB()
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
+	txStore := txmgr.NewTxStore(app.GetDB(), logger.TestLogger(t))
 
 	txes, err := txStore.FindTxesByFromAddressAndState(testutils.Context(t), addr, "fatal_error")
 	require.NoError(t, err)

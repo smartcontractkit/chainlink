@@ -343,7 +343,6 @@ func TestPollManager_ShouldPerformInitialPoll(t *testing.T) {
 
 			assert.Equal(t, tc.want, pm.ShouldPerformInitialPoll())
 		})
-
 	}
 }
 

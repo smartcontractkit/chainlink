@@ -77,7 +77,6 @@ ResendAfterThreshold = '1h0m0s'
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-
 				chainConf := evmtoml.EVMConfig{
 					ChainID: &chainID,
 					Enabled: chain.Enabled,
@@ -94,7 +93,6 @@ ResendAfterThreshold = '1h0m0s'
 						Config:  chainConfToml,
 					}},
 				}})
-
 			},
 			query: query,
 			result: fmt.Sprintf(`
@@ -117,7 +115,6 @@ ResendAfterThreshold = '1h0m0s'
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{}})
-
 			},
 			query: query,
 			result: `

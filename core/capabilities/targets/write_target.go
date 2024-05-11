@@ -63,6 +63,7 @@ func NewEvmWrite(chain legacyevm.Chain, lggr logger.Logger) *EvmWrite {
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
 		"v1.0.0",
+		nil,
 	)
 
 	return &EvmWrite{

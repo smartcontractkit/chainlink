@@ -9,13 +9,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/jmoiron/sqlx"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
@@ -53,7 +53,6 @@ func NewChainScopedConfig(t testing.TB, cfg legacyevm.AppConfig) evmconfig.Chain
 	}
 
 	return evmconfig.NewTOMLChainScopedConfig(evmCfg, logger.TestLogger(t))
-
 }
 
 type TestChainOpts struct {
@@ -62,7 +61,7 @@ type TestChainOpts struct {
 	LogPoller      logpoller.LogPoller
 	GeneralConfig  legacyevm.AppConfig
 	HeadTracker    httypes.HeadTracker
-	DB             *sqlx.DB
+	DB             sqlutil.DataSource
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
 	MailMon        *mailbox.Monitor
@@ -88,8 +87,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainR
 			AppConfig:    testopts.GeneralConfig,
 			MailMon:      testopts.MailMon,
 			GasEstimator: testopts.GasEstimator,
-			SqlxDB:       testopts.DB,
-			DB:           testopts.DB,
+			DS:           testopts.DB,
 		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
