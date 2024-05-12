@@ -1316,7 +1316,14 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//Wait at least 256 blocks
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), sethClient, &wg, time.Second*260, t)
+		_, err = actions.WaitForBlockNumberToBe(
+			randRequestBlockNumber+uint64(257),
+			sethClient,
+			&wg,
+			time.Second*260,
+			t,
+			l,
+		)
 		wg.Wait()
 		require.NoError(t, err)
 		err = vrfv2plus.FundSubscriptions(
@@ -1391,7 +1398,14 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(*configCopy.VRFv2Plus.General.BHSJobWaitBlocks+10), sethClient, &wg, time.Minute*1, t)
+		_, err = actions.WaitForBlockNumberToBe(
+			randRequestBlockNumber+uint64(*configCopy.VRFv2Plus.General.BHSJobWaitBlocks+10),
+			sethClient,
+			&wg,
+			time.Minute*1,
+			t,
+			l,
+		)
 		wg.Wait()
 		require.NoError(t, err, "error waiting for blocknumber to be")
 
@@ -1530,7 +1544,14 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//Wait at least 260 blocks
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(260), sethClient, &wg, time.Second*262, t)
+		_, err = actions.WaitForBlockNumberToBe(
+			randRequestBlockNumber+uint64(260),
+			sethClient,
+			&wg,
+			time.Second*262,
+			t,
+			l,
+		)
 		wg.Wait()
 		require.NoError(t, err)
 		l.Info().Float64("SubscriptionFundingAmountNative", *configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative).

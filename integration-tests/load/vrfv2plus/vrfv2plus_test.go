@@ -226,7 +226,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 	}
 
 	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
 		NumberOfTxKeysToCreate: *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
 	}
 
@@ -297,7 +297,14 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 		require.NoError(t, err, "error getting latest block number")
-		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), sethClient, &wgBlockNumberTobe, configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration, t)
+		_, err = actions.WaitForBlockNumberToBe(
+			latestBlockNumber+uint64(256),
+			sethClient,
+			&wgBlockNumberTobe,
+			configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration,
+			t,
+			l,
+		)
 		wgBlockNumberTobe.Wait()
 		require.NoError(t, err, "error waiting for block number to be")
 

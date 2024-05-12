@@ -894,7 +894,14 @@ func TestVRFV2WithBHS(t *testing.T) {
 		//Wait at least 256 blocks
 		sethClient, err := testEnv.GetSethClient(chainID)
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), sethClient, &wg, time.Second*260, t)
+		_, err = actions.WaitForBlockNumberToBe(
+			randRequestBlockNumber+uint64(257),
+			sethClient,
+			&wg,
+			time.Second*260,
+			t,
+			l,
+		)
 		wg.Wait()
 		require.NoError(t, err)
 		err = vrfv2.FundSubscriptions(big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDsForBHS)
@@ -960,7 +967,14 @@ func TestVRFV2WithBHS(t *testing.T) {
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(*configCopy.VRFv2.General.BHSJobWaitBlocks), sethClient, &wg, time.Minute*1, t)
+		_, err = actions.WaitForBlockNumberToBe(
+			randRequestBlockNumber+uint64(*configCopy.VRFv2.General.BHSJobWaitBlocks),
+			sethClient,
+			&wg,
+			time.Minute*1,
+			t,
+			l,
+		)
 		wg.Wait()
 		require.NoError(t, err, "error waiting for blocknumber to be")
 

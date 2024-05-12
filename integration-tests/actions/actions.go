@@ -501,42 +501,50 @@ func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, e
 	return inputsMap, nil
 }
 
-// todo - move to EVMClient
+// todo - move to CTF
 func WaitForBlockNumberToBe(
 	waitForBlockNumberToBe uint64,
 	client *seth.Client,
 	wg *sync.WaitGroup,
 	timeout time.Duration,
 	t testing.TB,
+	l zerolog.Logger,
 ) (uint64, error) {
 	blockNumberChannel := make(chan uint64)
 	errorChannel := make(chan error)
 	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
 	defer testCancel()
-
-	ticker := time.NewTicker(time.Second * 1)
-	var blockNumber uint64
+	ticker := time.NewTicker(time.Second * 5)
+	var latestBlockNumber uint64
 	for {
 		select {
 		case <-testContext.Done():
 			ticker.Stop()
 			wg.Done()
-			return blockNumber,
+			return latestBlockNumber,
 				fmt.Errorf("timeout waiting for Block Number to be: %d. Last recorded block number was: %d",
-					waitForBlockNumberToBe, blockNumber)
+					waitForBlockNumberToBe, latestBlockNumber)
 		case <-ticker.C:
 			go func() {
 				currentBlockNumber, err := client.Client.BlockNumber(testcontext.Get(t))
 				if err != nil {
 					errorChannel <- err
 				}
+				l.Info().
+					Uint64("Latest Block Number", currentBlockNumber).
+					Uint64("Desired Block Number", waitForBlockNumberToBe).
+					Msg("Waiting for Block Number to be")
 				blockNumberChannel <- currentBlockNumber
 			}()
-		case blockNumber = <-blockNumberChannel:
-			if blockNumber == waitForBlockNumberToBe {
+		case latestBlockNumber = <-blockNumberChannel:
+			if latestBlockNumber >= waitForBlockNumberToBe {
 				ticker.Stop()
 				wg.Done()
-				return blockNumber, nil
+				l.Info().
+					Uint64("Latest Block Number", latestBlockNumber).
+					Uint64("Desired Block Number", waitForBlockNumberToBe).
+					Msg("Desired Block Number reached!")
+				return latestBlockNumber, nil
 			}
 		case err := <-errorChannel:
 			ticker.Stop()

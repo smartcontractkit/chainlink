@@ -300,7 +300,14 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 		require.NoError(t, err)
-		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), sethClient, &wgBlockNumberTobe, configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration, t)
+		_, err = actions.WaitForBlockNumberToBe(
+			latestBlockNumber+uint64(256),
+			sethClient,
+			&wgBlockNumberTobe,
+			configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration,
+			t,
+			l,
+		)
 		wgBlockNumberTobe.Wait()
 		require.NoError(t, err, "error waiting for block number to be")
 
