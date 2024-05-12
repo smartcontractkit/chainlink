@@ -909,7 +909,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		ctx,
 		c.configSetTopic,
 		c.beaconAddress,
-		logpoller.Confirmations(c.finalityDepth),
+		evmtypes.Confirmations(c.finalityDepth),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest vrf ConfigSet by sig with confs")
@@ -920,7 +920,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		ctx,
 		c.configSetTopic,
 		c.dkgAddress,
-		logpoller.Confirmations(c.finalityDepth),
+		evmtypes.Confirmations(c.finalityDepth),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest dkg ConfigSet by sig with confs")

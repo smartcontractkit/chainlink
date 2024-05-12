@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -258,7 +259,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 	wrapperConsumerContractsAmount int,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
 	// external EOA has to create a subscription for the wrapper first
-	wrapperSubId, err := CreateSubAndFindSubID(env, chainID, coordinator)
+	wrapperSubId, err := CreateSubAndFindSubID(ctx, env, chainID, coordinator)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -332,19 +333,17 @@ func SetupVRFV2PlusWrapperEnvironment(
 		return nil, nil, err
 	}
 
-	//fund consumer with Eth
-	gasLimit := int64(2 * 21000)
+	//fund consumer with Eth (native token)
 	_, err = actions_seth.SendFunds(l, sethClient, actions_seth.FundsToSendPayload{
 		ToAddress:  common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()),
 		Amount:     conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken)),
 		PrivateKey: sethClient.PrivateKeys[0],
-		GasLimit:   &gasLimit,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	wrapperConsumerBalanceBeforeRequestWei, err := sethClient.Client.BalanceAt(context.Background(), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()), nil)
+	wrapperConsumerBalanceBeforeRequestWei, err := sethClient.Client.BalanceAt(ctx, common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()), nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -462,7 +461,7 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, testConfig tc.TestConfig, chainI
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 	}
 
-	err = vrfcommon.FundNodesIfNeeded(commonExistingEnvConfig, sethClient, l)
+	err = vrfcommon.FundNodesIfNeeded(testcontext.Get(t), commonExistingEnvConfig, sethClient, l)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
 	}
@@ -482,6 +481,7 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, testConfig tc.TestConfig, chainI
 }
 
 func SetupSubsAndConsumersForExistingEnv(
+	ctx context.Context,
 	env *test_env.CLClusterTestEnv,
 	chainID int64,
 	coordinator contracts.VRFCoordinatorV2_5,
@@ -504,6 +504,7 @@ func SetupSubsAndConsumersForExistingEnv(
 		commonExistingEnvConfig := testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig
 		if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
 			consumers, subIDs, err = SetupNewConsumersAndSubs(
+				ctx,
 				env,
 				chainID,
 				coordinator,
@@ -531,6 +532,7 @@ func SetupSubsAndConsumersForExistingEnv(
 		}
 	} else {
 		consumers, subIDs, err = SetupNewConsumersAndSubs(
+			ctx,
 			env,
 			chainID,
 			coordinator,

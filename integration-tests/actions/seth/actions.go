@@ -183,20 +183,27 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		return nil, err
 	}
 
-	gasLimit := uint64(client.Cfg.Network.TransferGasFee)
+	var gasLimit int64
+	gasLimitRaw, err := client.EstimateGasLimitForFundTransfer(fromAddress, payload.ToAddress, payload.Amount)
+	if err != nil {
+		gasLimit = client.Cfg.Network.TransferGasFee
+	} else {
+		gasLimit = int64(gasLimitRaw)
+	}
+
 	gasPrice := big.NewInt(0)
 	gasFeeCap := big.NewInt(0)
 	gasTipCap := big.NewInt(0)
 
 	if payload.GasLimit != nil {
-		gasLimit = uint64(*payload.GasLimit)
+		gasLimit = *payload.GasLimit
 	}
 
 	if client.Cfg.Network.EIP1559DynamicFees {
 		// if any of the dynamic fees are not set, we need to either estimate them or read them from config
 		if payload.GasFeeCap == nil || payload.GasTipCap == nil {
-			// estimatior or config reading happens here
-			txOptions := client.NewTXOpts(seth.WithGasLimit(gasLimit))
+			// estimation or config reading happens here
+			txOptions := client.NewTXOpts(seth.WithGasLimit(uint64(gasLimit)))
 			gasFeeCap = txOptions.GasFeeCap
 			gasTipCap = txOptions.GasTipCap
 		}
@@ -211,7 +218,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		}
 	} else {
 		if payload.GasPrice == nil {
-			txOptions := client.NewTXOpts((seth.WithGasLimit(gasLimit)))
+			txOptions := client.NewTXOpts(seth.WithGasLimit(uint64(gasLimit)))
 			gasPrice = txOptions.GasPrice
 		} else {
 			gasPrice = payload.GasPrice
@@ -225,7 +232,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 			Nonce:     nonce,
 			To:        &payload.ToAddress,
 			Value:     payload.Amount,
-			Gas:       gasLimit,
+			Gas:       uint64(gasLimit),
 			GasFeeCap: gasFeeCap,
 			GasTipCap: gasTipCap,
 		}
@@ -234,7 +241,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 			Nonce:    nonce,
 			To:       &payload.ToAddress,
 			Value:    payload.Amount,
-			Gas:      gasLimit,
+			Gas:      uint64(gasLimit),
 			GasPrice: gasPrice,
 		}
 	}
@@ -255,7 +262,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Str("To", payload.ToAddress.Hex()).
 		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
 		Uint64("Nonce", nonce).
-		Uint64("Gas Limit", gasLimit).
+		Int64("Gas Limit", gasLimit).
 		Str("Gas Price", gasPrice.String()).
 		Str("Gas Fee Cap", gasFeeCap.String()).
 		Str("Gas Tip Cap", gasTipCap.String()).
@@ -275,7 +282,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Str("TxHash", signedTx.Hash().String()).
 		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
 		Uint64("Nonce", nonce).
-		Uint64("Gas Limit", gasLimit).
+		Int64("Gas Limit", gasLimit).
 		Str("Gas Price", gasPrice.String()).
 		Str("Gas Fee Cap", gasFeeCap.String()).
 		Str("Gas Tip Cap", gasTipCap.String()).
@@ -521,7 +528,7 @@ func TeardownSuite(
 	}
 
 	if chainlinkNodes != nil {
-		if err := ReturnFundsFromNodes(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
+		if err := ReturnFundsFromNodes(testcontext.Get(t), l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
 			// This printed line is required for tests that use real funds to propagate the failure
 			// out to the system running the test. Do not remove
 			fmt.Println(environment.FAILED_FUND_RETURN)
@@ -555,7 +562,7 @@ func TeardownRemoteSuite(
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if err = ReturnFundsFromNodes(l, client, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
+	if err = ReturnFundsFromNodes(testcontext.Get(t), l, client, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
 		l.Error().Err(err).Str("Namespace", namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")

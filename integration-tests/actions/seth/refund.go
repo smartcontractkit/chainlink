@@ -232,7 +232,7 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 // ReturnFundsFromNodes returns funds from the given chainlink nodes to the default network wallet. It will use a variety
 // of strategies to attempt to return funds, including retrying with less funds if the transaction fails due to
 // insufficient funds, and retrying with a higher gas limit if the transaction fails due to gas too low.
-func ReturnFundsFromNodes(log zerolog.Logger, client *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeysAndAddress) error {
+func ReturnFundsFromNodes(ctx context.Context, log zerolog.Logger, client *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeysAndAddress) error {
 	if client == nil {
 		return fmt.Errorf("Seth client is nil, unable to return funds from chainlink nodes")
 	}
@@ -262,7 +262,7 @@ func ReturnFundsFromNodes(log zerolog.Logger, client *seth.Client, chainlinkNode
 				return err
 			}
 
-			err = sendAllFundsIfPossible(log, client, decryptedKey.PrivateKey)
+			err = sendAllFundsIfPossible(ctx, log, client, decryptedKey.PrivateKey)
 			if err != nil {
 				publicKey := decryptedKey.PrivateKey.Public()
 				publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
@@ -283,7 +283,7 @@ func ReturnFundsFromNodes(log zerolog.Logger, client *seth.Client, chainlinkNode
 	return nil
 }
 
-func sendAllFundsIfPossible(log zerolog.Logger, sethClient *seth.Client, fromPrivateKey *ecdsa.PrivateKey) error {
+func sendAllFundsIfPossible(ctx context.Context, log zerolog.Logger, sethClient *seth.Client, fromPrivateKey *ecdsa.PrivateKey) error {
 	publicKey := fromPrivateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -291,7 +291,7 @@ func sendAllFundsIfPossible(log zerolog.Logger, sethClient *seth.Client, fromPri
 	}
 
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	balance, err := sethClient.Client.BalanceAt(context.Background(), fromAddress, nil)
+	balance, err := sethClient.Client.BalanceAt(ctx, fromAddress, nil)
 	if err != nil {
 		return err
 	}
@@ -354,7 +354,7 @@ func sendAllFundsIfPossible(log zerolog.Logger, sethClient *seth.Client, fromPri
 	_, err = SendFunds(log, sethClient, payload)
 	if err != nil {
 		handler := OvershotTransferRetrier{maxRetries: 10, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 10, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: sethClient.Cfg.Network.TransferGasFee * 10}}}
-		err = handler.Retry(context.Background(), log, sethClient, err, payload, 0)
+		err = handler.Retry(ctx, log, sethClient, err, payload, 0)
 		if err != nil {
 			log.Error().
 				Err(err).

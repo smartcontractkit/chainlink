@@ -211,7 +211,7 @@ type CleanupOpts struct {
 }
 
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
-func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
+func (te *CLClusterTestEnv) Cleanup(ctx context.Context, opts CleanupOpts) error {
 	te.l.Info().Msg("Cleaning up test environment")
 
 	runIdErr := runid.RemoveLocalRunId(te.TestConfig.GetLoggingConfig().RunId)
@@ -235,7 +235,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		te.l.Info().
 			Msg("Network is a simulated network. Skipping fund return.")
 	} else {
-		if err := te.returnFunds(); err != nil {
+		if err := te.returnFunds(ctx); err != nil {
 			return err
 		}
 	}
@@ -356,7 +356,7 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 	}
 }
 
-func (te *CLClusterTestEnv) returnFunds() error {
+func (te *CLClusterTestEnv) returnFunds(ctx context.Context) error {
 	te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 
 	if len(te.evmClients) == 0 && len(te.sethClients) == 0 {
@@ -394,7 +394,7 @@ func (te *CLClusterTestEnv) returnFunds() error {
 	}
 
 	for _, sethClient := range te.sethClients {
-		if err := actions_seth.ReturnFundsFromNodes(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
+		if err := actions_seth.ReturnFundsFromNodes(ctx, te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
 			te.l.Error().Err(err).Msg("Error returning funds from node")
 		}
 	}

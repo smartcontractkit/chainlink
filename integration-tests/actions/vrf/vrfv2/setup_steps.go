@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
@@ -416,7 +417,7 @@ func SetupVRFV2ForExistingEnv(t *testing.T, testConfig tc.TestConfig, chainID in
 		return nil, nil, nil, err
 	}
 
-	err = vrfcommon.FundNodesIfNeeded(commonExistingEnvConfig, sethClient, l)
+	err = vrfcommon.FundNodesIfNeeded(testcontext.Get(t), commonExistingEnvConfig, sethClient, l)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
 	}
