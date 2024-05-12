@@ -102,3 +102,11 @@ override*.toml
 .venv/
 
 ocr_soak_report.csv
+
+# Keystone CRIB deployments
+core/scripts/keystone/**/*.sh
+!core/scripts/keystone/**/*-sample.sh
+core/scripts/keystone/**/.cache/
+!core/scripts/keystone/**/.cache/.gitkeep
+core/scripts/keystone/**/artefacts/
+crib/devspace-generated.*.yaml

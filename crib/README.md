@@ -1,108 +1,102 @@
-# Crib Devspace Setup
+# Crib DevSpace Setup
 
-CRIB is a devspace configuration to launch chainlink cluster for system level tests
+CRIB is a DevSpace-based method to launch chainlink cluster for system level tests.
 
-Install `kubefwd` (no nixpkg for it yet, planned)
+## Initial Setup
 
-```
-brew install txn2/tap/kubefwd
-```
+### Prerequisites
+- **Kubefwd**: Ensure you have `kubefwd` installed for port forwarding. Although no nixpkg exists yet, you can install it via Homebrew:
+    ```bash
+    brew install txn2/tap/kubefwd
+    ```
+- **Docker**: If you plan to build images, ensure the [Docker](https://docs.docker.com/engine/install/) service is running.
+- **VPN**: Ensure you are connected to the VPN to access the necessary resources.
 
-If you want to build images you need [docker](https://docs.docker.com/engine/install/) service running
-
-Enter the shell (from the root project dir)
-
-```
-nix develop
-```
-
-# Develop
-
-## New cluster
-
-We are using [devspace](https://www.devspace.sh/docs/getting-started/installation?x0=3)
-
-Configure the cluster, see `deployments.app.helm.values` and [values.yaml](../charts/chainlink-cluster/values.yaml) comments for more details
-
-Set up your K8s access
-
-Copy the `.env.example` file to `.env` and fill in the required values
-
-```sh
-cp crib/.env.example crib/.env
-```
-
-```sh
+### Dev Environment Setup
+```bash
+# Enter nix shell, which contains necessary tools
+nix develop 
+ 
+# Copy the environment example file and fill in the necessary values
 cd crib/
+cp .env.example .env
 nix develop
-# Pro tip: use `crib-` as a prefix for your namespace.
-cribbit.sh <your crib namespace>
 ```
 
-Build and deploy the current state of your repository
+## CRIB Initialization
 
+The CRIB initialization script sets up your development environment for deploying a Chainlink cluster. This script automates several tasks, such as configuring AWS profiles, updating Kubernetes configurations, and logging into Docker and Helm registries.
+
+### Script Overview
+The script performs the following actions:
+1. **Environment Setup**: Sources the `.env` file containing necessary environment variables.
+2. **AWS Profile Configuration**: Sets up or updates the AWS profile for ECR registry access.
+3. **AWS Authentication**: Ensures AWS credentials are valid and logs into AWS SSO if needed.
+4. **Kubernetes Configuration**: Updates the kubeconfig for EKS access and sets the Kubernetes context.
+5. **Docker and Helm Registry Login**: Logs into AWS ECR to allow pulling and pushing of Docker images and Helm charts.
+
+### Usage Instructions
+
+Execute the script with the desired namespace as an argument:
+```bash
+./cribbit.sh crib-yournamespace
 ```
-devspace deploy
-```
+**Note**: The namespace must begin with `crib-` unless overridden.
 
-Default `ttl` is `72h`, use `ttl` command to update if you need more time
+### Troubleshooting
 
-Valid values are `1h`, `2m`, `3s`, etc. Go time format is invalid `1h2m3s`
+- **Missing Environment Variables**: If any environment variables are missing, the script will terminate early. Make sure all required variables are defined in your `.env` file.
+- **AWS Credentials Not Detected**: If AWS credentials cannot be verified, the script will attempt to log in through SSO. Follow the prompts to complete this process.
+- **Docker Daemon Not Running**: Ensure that the Docker service is running before executing the script. This is required for Docker and Helm registry logins.
 
-```
-devspace run ttl ${namespace} 120h
-```
+## Cluster Configuration and Deployment
 
-If you want to deploy an image tag that is already available in ECR, use:
+### Configuring New Clusters
+We use [Devspace](https://www.devspace.sh/docs/getting-started/installation?x0=3) for cluster deployment. Review the settings in `deployments.app.helm.values` and [values.yaml](../charts/chainlink-cluster/values.yaml) for detailed configuration options.
 
-```
-devspace deploy --override-image-tag "<image-tag>"
-```
 
-If you want to deploy an image tag from a public ECR repo, use:
+### Usage Examples
+```bash
+# Deploy the current repository state
+devspace deploy 
 
-```
-export DEVSPACE_IMAGE=public.ecr.aws/chainlink/chainlink
-devspace deploy --override-image-tag 2.9.0
-```
+# Deploy a specific image tag already available in ECR
+devspace deploy --override-image-tag "<image-tag>" 
 
-Forward ports to check UI or run tests
+# Deploy a public ECR image tag
+DEVSPACE_IMAGE=public.ecr.aws/chainlink/chainlink devspace deploy --override-image-tag 2.9.0
 
-```
+# Set the time-to-live (TTL) for the namespace, once this time has passed the namespace along with all its associated resources will be deleted
+# Valid values are `1h`, `2m`, `3s`, etc. Go time format is invalid `1h2m3s`
+devspace run ttl ${namespace} 120hA # Default 72h
+
+# Forward ports to check UI or run tests
 devspace run connect ${my-personal-namespace-name-crib}
-```
 
-List ingress hostnames
-
-```
+# List ingress hostnames
 devspace run ingress-hosts
-```
 
-Destroy the cluster
-
-```
+# Destroy the cluster
 devspace purge
 ```
 
-## Running load tests
+## Load Testing
+Deploy the dashboard and run load tests as described in the [testing documentation](../integration-tests/load/ocr/README.md):
 
-Check this [doc](../../integration-tests/load/ocr/README.md)
-
-If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
+**NOTE:** If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
 
 # Helm
 
-If you would like to use `helm` directly, please uncomment data in `values.yaml`
+If you would like to use `helm` directly, uncomment data in `values.yaml`
 
 ## Install from local files
-
-```
+Deploy the cluster with the following command:
+```bash
 helm install -f values.yaml cl-cluster .
 ```
 
-Forward all apps (in another terminal)
-
-```
+In another terminal, forward all apps:
+```bash
 sudo kubefwd svc -n cl-cluster
 ```
 
@@ -110,13 +104,21 @@ Then you can connect and run your tests
 
 # Grafana dashboard
 
-We are using [Grabana](https://github.com/K-Phoen/grabana) lib to create dashboards programmatically
+We use the [Grabana](https://github.com/K-Phoen/grabana) library to create dashboards programmatically.
 
-You can also select dashboard platform in `INFRA_PLATFORM` either `kubernetes` or `docker`
+## Dashboard Platform Configuration
+Dashboard platform selection can be done with `INFRA_PLATFORM` environment variable.
 
-You can select the dashboard panels with `PANELS_INCLUDED` which is a list of panel names separated by comma
-If you don't specify it will include core panels by default
+The available options are: 
+  - `kubernetes` 
+  - `docker`
 
+## Panel Selection 
+Non-default panel selection can be done with `PANELS_INCLUDED` environment variable.
+
+A comma-separated list of panel names can be provided to include only those panels in the dashboard. 
+
+## Dashboard Deployment
 ```
 export LOKI_TENANT_ID=promtail
 export LOKI_URL=...
@@ -131,11 +133,11 @@ export DASHBOARD_NAME=CL-Cluster
 devspace run dashboard_deploy
 ```
 
-Open Grafana folder `DashboardCoreDebug` and find dashboard `ChainlinkClusterDebug`
+Open Grafana folder `DashboardCoreDebug` and find dashboard `ChainlinkClusterDebug`.
 
-# Testing
+## Load Testing
 
-Deploy your dashboard and run soak/load [tests](../../integration-tests/load/), check [README](../../integration-tests/README.md) for further explanations
+To deploy your dashboard and run load [tests](../../integration-tests/load/), see [the integration test README](../../integration-tests/README.md).
 
 ```
 devspace run dashboard_deploy
@@ -143,9 +145,9 @@ devspace run workload
 devspace run dashboard_test
 ```
 
-# Local Testing
+## Local Testing
 
-Go to [dashboard-lib](../dashboard-lib) and link the modules locally
+Go to [dashboard-lib](../dashboard-lib) and link the modules locally.
 
 ```
 cd dashboard
