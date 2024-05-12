@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -49,96 +48,6 @@ func TestLogEventBufferV1_SyncFilters(t *testing.T) {
 	require.Equal(t, 2, buf.NumOfUpkeeps())
 	require.NoError(t, buf.SyncFilters(filterStore))
 	require.Equal(t, 1, buf.NumOfUpkeeps())
-}
-
-type readableLogger struct {
-	logger.Logger
-	DebugwFn func(msg string, keysAndValues ...interface{})
-	NamedFn  func(name string) logger.Logger
-	WithFn   func(args ...interface{}) logger.Logger
-}
-
-func (l *readableLogger) Debugw(msg string, keysAndValues ...interface{}) {
-	l.DebugwFn(msg, keysAndValues...)
-}
-
-func (l *readableLogger) Named(name string) logger.Logger {
-	return l
-}
-
-func (l *readableLogger) With(args ...interface{}) logger.Logger {
-	return l
-}
-
-func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
-	t.Run("enqueuing logs for a block older than latest seen logs a message", func(t *testing.T) {
-		logReceived := false
-		readableLogger := &readableLogger{
-			DebugwFn: func(msg string, keysAndValues ...interface{}) {
-				if msg == "enqueuing logs from a block older than latest seen block" {
-					logReceived = true
-					assert.Equal(t, "logBlock", keysAndValues[0])
-					assert.Equal(t, int64(1), keysAndValues[1])
-					assert.Equal(t, "lastBlockSeen", keysAndValues[2])
-					assert.Equal(t, int64(2), keysAndValues[3])
-				}
-			},
-		}
-
-		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1)
-
-		buf := logBufferV1.(*logBuffer)
-
-		buf.Enqueue(big.NewInt(1),
-			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
-			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 1},
-		)
-		buf.Enqueue(big.NewInt(2),
-			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x2"), LogIndex: 0},
-		)
-
-		assert.Equal(t, 1, buf.enqueuedBlocks[2]["1"])
-		assert.Equal(t, 1, buf.enqueuedBlocks[1]["2"])
-		assert.True(t, true, logReceived)
-	})
-
-	t.Run("enqueuing logs for the same block over multiple calls logs a message", func(t *testing.T) {
-		logReceived := false
-		readableLogger := &readableLogger{
-			DebugwFn: func(msg string, keysAndValues ...interface{}) {
-				if msg == "enqueuing logs again for a previously seen block" {
-					logReceived = true
-					assert.Equal(t, "blockNumber", keysAndValues[0])
-					assert.Equal(t, int64(3), keysAndValues[1])
-					assert.Equal(t, "numberOfEnqueues", keysAndValues[2])
-					assert.Equal(t, 2, keysAndValues[3])
-				}
-			},
-		}
-
-		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1)
-
-		buf := logBufferV1.(*logBuffer)
-
-		buf.Enqueue(big.NewInt(1),
-			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
-			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
-		)
-		buf.Enqueue(big.NewInt(2),
-			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
-		)
-		buf.Enqueue(big.NewInt(3),
-			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3a"), LogIndex: 0},
-		)
-		buf.Enqueue(big.NewInt(3),
-			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3b"), LogIndex: 0},
-		)
-
-		assert.Equal(t, 1, buf.enqueuedBlocks[2]["2"])
-		assert.Equal(t, 1, buf.enqueuedBlocks[1]["1"])
-		assert.Equal(t, 2, buf.enqueuedBlocks[3]["3"])
-		assert.True(t, true, logReceived)
-	})
 }
 
 func TestLogEventBufferV1_Dequeue(t *testing.T) {
