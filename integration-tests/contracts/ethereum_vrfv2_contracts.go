@@ -131,7 +131,7 @@ func LoadVRFCoordinatorV2(seth *seth.Client, address string) (*EthereumVRFCoordi
 	seth.ContractStore.AddABI("VRFCoordinatorV2", *abi)
 	seth.ContractStore.AddBIN("VRFCoordinatorV2", common.FromHex(vrf_coordinator_v2.VRFCoordinatorV2MetaData.Bin))
 
-	contract, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(address), seth.Client)
+	contract, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(address), wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return &EthereumVRFCoordinatorV2{}, fmt.Errorf("failed to instantiate VRFCoordinatorV2 instance: %w", err)
 	}
@@ -297,7 +297,7 @@ func LoadVRFv2LoadTestConsumer(seth *seth.Client, addr common.Address) (VRFv2Loa
 	seth.ContractStore.AddABI("VRFV2LoadTestWithMetrics", *abi)
 	seth.ContractStore.AddBIN("VRFV2LoadTestWithMetrics", common.FromHex(vrf_load_test_with_metrics.VRFV2LoadTestWithMetricsMetaData.Bin))
 
-	contract, err := vrf_load_test_with_metrics.NewVRFV2LoadTestWithMetrics(addr, seth.Client)
+	contract, err := vrf_load_test_with_metrics.NewVRFV2LoadTestWithMetrics(addr, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return &EthereumVRFv2LoadTestConsumer{}, fmt.Errorf("failed to instantiate VRFV2LoadTestWithMetrics instance: %w", err)
 	}
@@ -817,7 +817,7 @@ func (v *EthereumVRFConsumerV2) LoadExistingConsumer(seth *seth.Client, address 
 	seth.ContractStore.AddABI("VRFConsumerV2", *abi)
 	seth.ContractStore.AddBIN("VRFConsumerV2", common.FromHex(vrf_consumer_v2.VRFConsumerV2MetaData.Bin))
 
-	contract, err := vrf_consumer_v2.NewVRFConsumerV2(address, seth.Client)
+	contract, err := vrf_consumer_v2.NewVRFConsumerV2(address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return fmt.Errorf("failed to instantiate VRFConsumerV2 instance: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/seth"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 
@@ -371,7 +372,7 @@ func LoadVRFCoordinatorV2_5(seth *seth.Client, addr string) (VRFCoordinatorV2_5,
 	seth.ContractStore.AddABI("VRFCoordinatorV2_5", *abi)
 	seth.ContractStore.AddBIN("VRFCoordinatorV2_5", common.FromHex(vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.Bin))
 
-	contract, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(address, seth.Client)
+	contract, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("failed to instantiate VRFCoordinatorV2_5 instance: %w", err)
 	}
@@ -392,7 +393,7 @@ func LoadVRFv2PlusLoadTestConsumer(seth *seth.Client, addr string) (VRFv2PlusLoa
 	seth.ContractStore.AddABI("VRFV2PlusLoadTestWithMetrics", *abi)
 	seth.ContractStore.AddBIN("VRFV2PlusLoadTestWithMetrics", common.FromHex(vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetricsMetaData.Bin))
 
-	contract, err := vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(address, seth.Client)
+	contract, err := vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return &EthereumVRFv2PlusLoadTestConsumer{}, fmt.Errorf("failed to instantiate VRFV2PlusLoadTestWithMetrics instance: %w", err)
 	}
