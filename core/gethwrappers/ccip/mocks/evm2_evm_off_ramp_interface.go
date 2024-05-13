@@ -180,6 +180,36 @@ func (_m *EVM2EVMOffRampInterface) FilterAdminSet(opts *bind.FilterOpts) (*evm_2
 	return r0, r1
 }
 
+// FilterConfigChanged provides a mock function with given fields: opts
+func (_m *EVM2EVMOffRampInterface) FilterConfigChanged(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampConfigChangedIterator, error) {
+	ret := _m.Called(opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterConfigChanged")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampConfigChangedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampConfigChangedIterator, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp.EVM2EVMOffRampConfigChangedIterator); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampConfigChangedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterConfigSet provides a mock function with given fields: opts
 func (_m *EVM2EVMOffRampInterface) FilterConfigSet(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSetIterator, error) {
 	ret := _m.Called(opts)
@@ -330,6 +360,36 @@ func (_m *EVM2EVMOffRampInterface) FilterOwnershipTransferred(opts *bind.FilterO
 	return r0, r1
 }
 
+// FilterSkippedAlreadyExecutedMessage provides a mock function with given fields: opts, sequenceNumber
+func (_m *EVM2EVMOffRampInterface) FilterSkippedAlreadyExecutedMessage(opts *bind.FilterOpts, sequenceNumber []uint64) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator, error) {
+	ret := _m.Called(opts, sequenceNumber)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterSkippedAlreadyExecutedMessage")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator, error)); ok {
+		return rf(opts, sequenceNumber)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64) *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator); ok {
+		r0 = rf(opts, sequenceNumber)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessageIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []uint64) error); ok {
+		r1 = rf(opts, sequenceNumber)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterSkippedIncorrectNonce provides a mock function with given fields: opts, nonce, sender
 func (_m *EVM2EVMOffRampInterface) FilterSkippedIncorrectNonce(opts *bind.FilterOpts, nonce []uint64, sender []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonceIterator, error) {
 	ret := _m.Called(opts, nonce, sender)
@@ -438,6 +498,36 @@ func (_m *EVM2EVMOffRampInterface) FilterTokenAggregateRateLimitRemoved(opts *bi
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampTokenAggregateRateLimitRemovedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FilterTokensConsumed provides a mock function with given fields: opts
+func (_m *EVM2EVMOffRampInterface) FilterTokensConsumed(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampTokensConsumedIterator, error) {
+	ret := _m.Called(opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterTokensConsumed")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampTokensConsumedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampTokensConsumedIterator, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp.EVM2EVMOffRampTokensConsumedIterator); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampTokensConsumedIterator)
 		}
 	}
 
@@ -826,6 +916,36 @@ func (_m *EVM2EVMOffRampInterface) ParseAdminSet(log types.Log) (*evm_2_evm_offr
 	return r0, r1
 }
 
+// ParseConfigChanged provides a mock function with given fields: log
+func (_m *EVM2EVMOffRampInterface) ParseConfigChanged(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampConfigChanged, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseConfigChanged")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampConfigChanged
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampConfigChanged, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampConfigChanged); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampConfigChanged)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseConfigSet provides a mock function with given fields: log
 func (_m *EVM2EVMOffRampInterface) ParseConfigSet(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet, error) {
 	ret := _m.Called(log)
@@ -1006,6 +1126,36 @@ func (_m *EVM2EVMOffRampInterface) ParseOwnershipTransferred(log types.Log) (*ev
 	return r0, r1
 }
 
+// ParseSkippedAlreadyExecutedMessage provides a mock function with given fields: log
+func (_m *EVM2EVMOffRampInterface) ParseSkippedAlreadyExecutedMessage(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseSkippedAlreadyExecutedMessage")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseSkippedIncorrectNonce provides a mock function with given fields: log
 func (_m *EVM2EVMOffRampInterface) ParseSkippedIncorrectNonce(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, error) {
 	ret := _m.Called(log)
@@ -1114,6 +1264,36 @@ func (_m *EVM2EVMOffRampInterface) ParseTokenAggregateRateLimitRemoved(log types
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampTokenAggregateRateLimitRemoved)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ParseTokensConsumed provides a mock function with given fields: log
+func (_m *EVM2EVMOffRampInterface) ParseTokensConsumed(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampTokensConsumed, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseTokensConsumed")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampTokensConsumed
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampTokensConsumed, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampTokensConsumed); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampTokensConsumed)
 		}
 	}
 
@@ -1394,6 +1574,36 @@ func (_m *EVM2EVMOffRampInterface) WatchAdminSet(opts *bind.WatchOpts, sink chan
 	return r0, r1
 }
 
+// WatchConfigChanged provides a mock function with given fields: opts, sink
+func (_m *EVM2EVMOffRampInterface) WatchConfigChanged(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigChanged) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchConfigChanged")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigChanged) (event.Subscription, error)); ok {
+		return rf(opts, sink)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigChanged) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigChanged) error); ok {
+		r1 = rf(opts, sink)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // WatchConfigSet provides a mock function with given fields: opts, sink
 func (_m *EVM2EVMOffRampInterface) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -1544,6 +1754,36 @@ func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferred(opts *bind.WatchOpt
 	return r0, r1
 }
 
+// WatchSkippedAlreadyExecutedMessage provides a mock function with given fields: opts, sink, sequenceNumber
+func (_m *EVM2EVMOffRampInterface) WatchSkippedAlreadyExecutedMessage(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, sequenceNumber []uint64) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, sequenceNumber)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchSkippedAlreadyExecutedMessage")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, []uint64) (event.Subscription, error)); ok {
+		return rf(opts, sink, sequenceNumber)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, []uint64) event.Subscription); ok {
+		r0 = rf(opts, sink, sequenceNumber)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedAlreadyExecutedMessage, []uint64) error); ok {
+		r1 = rf(opts, sink, sequenceNumber)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // WatchSkippedIncorrectNonce provides a mock function with given fields: opts, sink, nonce, sender
 func (_m *EVM2EVMOffRampInterface) WatchSkippedIncorrectNonce(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, nonce []uint64, sender []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, nonce, sender)
@@ -1656,6 +1896,36 @@ func (_m *EVM2EVMOffRampInterface) WatchTokenAggregateRateLimitRemoved(opts *bin
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampTokenAggregateRateLimitRemoved) error); ok {
+		r1 = rf(opts, sink)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchTokensConsumed provides a mock function with given fields: opts, sink
+func (_m *EVM2EVMOffRampInterface) WatchTokensConsumed(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampTokensConsumed) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchTokensConsumed")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampTokensConsumed) (event.Subscription, error)); ok {
+		return rf(opts, sink)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampTokensConsumed) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampTokensConsumed) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)

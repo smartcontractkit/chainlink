@@ -23,7 +23,7 @@ sort_imports = true
 single_line_statement_blocks = "preserve"
 
 [profile.ccip]
-solc_version = '0.8.19'
+solc_version = '0.8.24'
 src = 'src/v0.8/ccip'
 test = 'src/v0.8/ccip/test'
 optimizer_runs = 4_300
@@ -69,7 +69,8 @@ solc_version = '0.8.19'
 optimizer_runs = 1000000
 src = 'src/v0.8/liquiditymanager'
 test = 'src/v0.8/liquiditymanager/test'
-solc_version = '0.8.19'
+solc_version = '0.8.24'
+evm_version = 'paris'
 
 [profile.keystone]
 solc_version = '0.8.19'

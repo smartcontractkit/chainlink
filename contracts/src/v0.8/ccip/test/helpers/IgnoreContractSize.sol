@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 contract IgnoreContractSize {
   // test contracts are excluded from forge build --sizes by default

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {ARMProxy} from "../../ARMProxy.sol";
 import {Test} from "forge-std/Test.sol";
