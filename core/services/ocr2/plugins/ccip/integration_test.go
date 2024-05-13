@@ -29,16 +29,19 @@ func TestIntegration_CCIP(t *testing.T) {
 	// Run the batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {
-		name         string
-		withPipeline bool
+		name                     string
+		withPipeline             bool
+		allowOutOfOrderExecution bool
 	}{
 		{
-			name:         "with pipeline",
-			withPipeline: true,
+			name:                     "with pipeline allowOutOfOrderExecution true",
+			withPipeline:             true,
+			allowOutOfOrderExecution: true,
 		},
 		{
-			name:         "with dynamic price getter",
-			withPipeline: false,
+			name:                     "with dynamic price getter allowOutOfOrderExecution false",
+			withPipeline:             false,
+			allowOutOfOrderExecution: false,
 		},
 	}
 
@@ -107,13 +110,18 @@ func TestIntegration_CCIP(t *testing.T) {
 
 			jobParams := ccipTH.SetUpNodesAndJobs(t, tokenPricesUSDPipeline, priceGetterConfigJson, "")
 
+			// track sequence number and nonce separately since nonce doesn't bump for messages with allowOutOfOrderExecution == true,
+			// but sequence number always bumps.
+			// for this test, when test.outOfOrder == false, sequence number and nonce are equal.
+			// when test.outOfOrder == true, nonce is not bumped at all, so sequence number and nonce are NOT equal.
 			currentSeqNum := 1
+			currentNonce := uint64(1)
 
 			t.Run("single", func(t *testing.T) {
 				tokenAmount := big.NewInt(500000003) // prime number
 				gasLimit := big.NewInt(200_003)      // prime number
 
-				extraArgs, err2 := testhelpers.GetEVMExtraArgsV1(gasLimit, false)
+				extraArgs, err2 := testhelpers.GetEVMExtraArgsV2(gasLimit, test.allowOutOfOrderExecution)
 				require.NoError(t, err2)
 
 				sourceBalances, err2 := testhelpers.GetBalances(t, []testhelpers.BalanceReq{
@@ -164,7 +172,22 @@ func TestIntegration_CCIP(t *testing.T) {
 				require.NoError(t, err2)
 				ccipTH.Source.Chain.Commit()
 
+				beforeNonce, err := ccipTH.Source.OnRamp.GetSenderNonce(nil, ccipTH.Source.User.From)
+				require.NoError(t, err)
 				ccipTH.SendRequest(t, msg)
+				// TODO: can this be moved into SendRequest?
+				if test.allowOutOfOrderExecution {
+					// the nonce for that sender must not be bumped for allowOutOfOrderExecution == true messages.
+					nonce, err2 := ccipTH.Source.OnRamp.GetSenderNonce(nil, ccipTH.Source.User.From)
+					require.NoError(t, err2)
+					require.Equal(t, beforeNonce, nonce, "nonce must not be bumped for allowOutOfOrderExecution == true requests")
+				} else {
+					// the nonce for that sender must be bumped for allowOutOfOrderExecution == false messages.
+					nonce, err2 := ccipTH.Source.OnRamp.GetSenderNonce(nil, ccipTH.Source.User.From)
+					require.NoError(t, err2)
+					require.Equal(t, beforeNonce+1, nonce, "nonce must be bumped for allowOutOfOrderExecution == false requests")
+				}
+
 				// Should eventually see this executed.
 				ccipTH.AllNodesHaveReqSeqNum(t, currentSeqNum)
 				ccipTH.EventuallyReportCommitted(t, currentSeqNum)
@@ -223,6 +246,9 @@ func TestIntegration_CCIP(t *testing.T) {
 					},
 				})
 				currentSeqNum++
+				if !test.allowOutOfOrderExecution {
+					currentNonce = uint64(currentSeqNum)
+				}
 			})
 
 			t.Run("multiple batches", func(t *testing.T) {
@@ -237,7 +263,13 @@ func TestIntegration_CCIP(t *testing.T) {
 				n := 15
 				for i := 0; i < n; i++ {
 					txGasLimit := new(big.Int).Mul(gasLimit, big.NewInt(int64(i+1)))
-					extraArgs, err2 := testhelpers.GetEVMExtraArgsV1(txGasLimit, false)
+
+					// interleave ordered and non-ordered messages.
+					allowOutOfOrderExecution := false
+					if i%2 == 0 {
+						allowOutOfOrderExecution = true
+					}
+					extraArgs, err2 := testhelpers.GetEVMExtraArgsV2(txGasLimit, allowOutOfOrderExecution)
 					require.NoError(t, err2)
 					msg := router.ClientEVM2AnyMessage{
 						Receiver: testhelpers.MustEncodeAddress(t, ccipTH.Dest.Receivers[0].Receiver.Address()),
@@ -261,6 +293,9 @@ func TestIntegration_CCIP(t *testing.T) {
 					tx, err2 := ccipTH.Source.Router.CcipSend(ccipTH.Source.User, ccipTH.Dest.ChainSelector, msg)
 					require.NoError(t, err2)
 					txs = append(txs, tx)
+					if !allowOutOfOrderExecution {
+						currentNonce++
+					}
 				}
 
 				// Send a batch of requests in a single block
@@ -309,10 +344,10 @@ func TestIntegration_CCIP(t *testing.T) {
 
 				nonceAtOnRampV1, err := onRampV1.GetSenderNonce(nil, ccipTH.Source.User.From)
 				require.NoError(t, err, "getting nonce from onRamp")
-				require.Equal(t, currentSeqNum, int(nonceAtOnRampV1))
+				require.Equal(t, currentNonce, nonceAtOnRampV1, "nonce should be synced from v1 onRamp")
 				nonceAtOffRampV1, err := offRampV1.GetSenderNonce(nil, ccipTH.Source.User.From)
 				require.NoError(t, err, "getting nonce from offRamp")
-				require.Equal(t, currentSeqNum, int(nonceAtOffRampV1))
+				require.Equal(t, currentNonce, nonceAtOffRampV1, "nonce should be synced from v1 offRamp")
 
 				// enable the newly deployed contracts
 				newConfigBlock := ccipTH.Dest.Chain.Blockchain().CurrentBlock().Number.Int64()
@@ -376,6 +411,9 @@ func TestIntegration_CCIP(t *testing.T) {
 				require.Equal(t, nonceAtOnRampV1+uint64(noOfRequests)+1, nonceAtOnRampV2, "nonce should be synced from v1 onRamps")
 				require.Equal(t, nonceAtOffRampV1+uint64(noOfRequests)+1, nonceAtOffRampV2, "nonce should be synced from v1 offRamps")
 				currentSeqNum = endSeqNum + 1
+				if !test.allowOutOfOrderExecution {
+					currentNonce = uint64(currentSeqNum)
+				}
 			})
 
 			t.Run("pay nops", func(t *testing.T) {
@@ -433,7 +471,7 @@ func TestIntegration_CCIP(t *testing.T) {
 				ccipTH.SetNopsOnRamp(t, nopsAndWeights)
 
 				// send a message
-				extraArgs, err := testhelpers.GetEVMExtraArgsV1(big.NewInt(200_000), true)
+				extraArgs, err := testhelpers.GetEVMExtraArgsV2(big.NewInt(200_000), test.allowOutOfOrderExecution)
 				require.NoError(t, err)
 
 				// FeeToken is empty, indicating it should use native token
@@ -458,6 +496,9 @@ func TestIntegration_CCIP(t *testing.T) {
 				assert.Len(t, executionLogs, 1)
 				ccipTH.AssertExecState(t, executionLogs[0], testhelpers.ExecutionStateSuccess)
 				currentSeqNum++
+				if test.allowOutOfOrderExecution {
+					currentNonce = uint64(currentSeqNum)
+				}
 
 				// get the nop fee
 				nopFee, err := ccipTH.Source.OnRamp.GetNopFeesJuels(nil)
@@ -595,6 +636,9 @@ func TestIntegration_CCIP(t *testing.T) {
 					node.EventuallyNodeUsesUpdatedPriceRegistry(t, ccipTH)
 				}
 				currentSeqNum = endSeq
+				if test.allowOutOfOrderExecution {
+					currentNonce = uint64(currentSeqNum)
+				}
 			})
 
 		})
