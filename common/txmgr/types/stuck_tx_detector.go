@@ -15,7 +15,7 @@ type StuckTxDetector[
 	SEQ types.Sequence, // SEQ - chain sequence type (nonce, utxo, etc)
 	FEE feetypes.Fee, // FEE - chain fee type
 ] interface {
-	// Uses either a chain specific API or heuristic to determine if any unconfirmed transactions are terminally stuck. Returns only one transaction per enabled address. 
+	// Uses either a chain specific API or heuristic to determine if any unconfirmed transactions are terminally stuck. Returns only one transaction per enabled address.
 	DetectStuckTransactions(ctx context.Context, enabledAddresses []ADDR, blockNum int64) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
 	// Loads the internal map that tracks the last block num a transaction was purged at using the DB state
 	LoadPurgeBlockNumMap(ctx context.Context, addresses []ADDR) error
