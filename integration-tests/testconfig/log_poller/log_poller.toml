@@ -68,6 +68,9 @@ BackupLogPollerBlockDelay = 0
 FinalityTagEnabled = true
 """
 
+[Seth]
+ephemeral_addresses_number = 50
+
 # product defaults
 [LogPoller]
 [LogPoller.General]

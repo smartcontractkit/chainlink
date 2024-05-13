@@ -313,16 +313,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 			if b.hasSeth {
-				readSethCfg := b.testConfig.GetSethConfig()
-				sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
-				if err != nil {
-					return nil, err
-				}
-				err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-				if err != nil {
-					return nil, err
-				}
-				seth, err := seth.NewClientWithConfig(&sethCfg)
+				seth, err := actions_seth.GetChainClientWithConfigFunction(b.testConfig, networkConfig, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
 				if err != nil {
 					return nil, err
 				}
@@ -442,7 +433,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			if err != nil {
 				return nil, err
 			}
-			sethClient, err := seth.NewClientWithConfig(&sethCfg)
+			sethClient, err := actions_seth.GetChainClientWithConfigFunction(b.testConfig, networkConfig, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
 			if err != nil {
 				return nil, err
 			}

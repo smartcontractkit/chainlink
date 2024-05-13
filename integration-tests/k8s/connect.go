@@ -73,6 +73,7 @@ func ConnectRemote() (*blockchain.EVMNetwork, *client2.MockserverClient, *client
 		LocalURL:   cfg.MockServerURL,
 		ClusterURL: cfg.MockServerURL,
 	})
+
 	if len(clClients) < 2 {
 		return &blockchain.EVMNetwork{}, nil, nil, nil, fmt.Errorf("not enough chainlink nodes, need at least 2, got %d", len(clClients))
 	}

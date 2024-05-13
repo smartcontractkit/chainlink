@@ -111,6 +111,9 @@ chainlink_node_log_level="info"
 use_prometheus=false
 
 # load test specific overrides
+[Load.Seth]
+ephemeral_addresses_number = 100
+
 [Load.Common]
 chainlink_node_funding = 100
 
