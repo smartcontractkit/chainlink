@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
 
@@ -35,7 +34,6 @@ import (
 	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
 	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
 
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
