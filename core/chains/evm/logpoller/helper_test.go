@@ -49,8 +49,6 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
-	//dataDir, err := os.MkdirTemp("", "simgethdata")
-	//require.NoError(t, err)
 
 	o := logpoller.NewORM(chainID, db, lggr)
 	o2 := logpoller.NewORM(chainID2, db, lggr)

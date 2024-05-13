@@ -344,7 +344,7 @@ func Test_BackupLogPoller(t *testing.T) {
 			require.ErrorIs(t, err, ethereum.NotFound)
 
 			currentBlockNumber := th.PollAndSaveLogs(ctx, 1)
-			assert.Equal(t, int64(35), currentBlockNumber)
+			assert.Equal(t, int64(1), currentBlockNumber)
 
 			// flush out cached block 34 by reading logs from first 32 blocks
 			//query := ethereum.FilterQuery{
@@ -380,7 +380,7 @@ func Test_BackupLogPoller(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, 0, len(logs))
 			th.Backend.Commit()
-			//markBlockAsFinalized(t, th, 35)
+			finalizeThroughBlock(t, th, 35)
 
 			// Run ordinary poller + backup poller at least once more
 			th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber+1)
@@ -1760,7 +1760,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 			}
 
 			if tt.useFinalityTag {
-				finalizeThroughBlock(t, th, int64(tt.expectedFinalizedBlock))
+				finalizeThroughBlock(t, th, tt.expectedFinalizedBlock)
 			}
 
 			th.PollAndSaveLogs(ctx, 1)
@@ -1944,6 +1944,7 @@ func finalizeThroughBlock(t *testing.T, th TestHarness, blockNumber int64) {
 		require.Len(t, currentBlock, 32)
 	}
 	h, err = th.Client.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
 	require.GreaterOrEqual(t, h.Number.Int64(), targetBlockNumber)
 }
 
