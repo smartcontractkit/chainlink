@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {BaseTest} from "../BaseTest.t.sol";
+import {Test} from "forge-std/Test.sol";
 
-contract OCR2Setup is BaseTest {
+contract OCR2Setup is Test {
   // Signer private keys used for these test
   uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
   uint256 internal constant PRIVATE1 = 0xab56160806b05ef1796789248e1d7f34a6465c5280899159d645218cd216cee6;
@@ -17,9 +17,7 @@ contract OCR2Setup is BaseTest {
   uint8 internal constant s_f = 1;
   bytes internal constant REPORT = abi.encode("testReport");
 
-  function setUp() public virtual override {
-    BaseTest.setUp();
-
+  function setUp() public virtual {
     s_valid_transmitters = new address[](4);
     for (uint160 i = 0; i < 4; ++i) {
       s_valid_transmitters[i] = address(4 + i);

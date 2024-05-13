@@ -17,16 +17,13 @@ import {RouterSetup} from "../router/RouterSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-/// @notice #constructor
 contract Router_constructor is EVM2EVMOnRampSetup {
   function test_Constructor_Success() public view {
     assertEq("Router 1.2.0", s_sourceRouter.typeAndVersion());
-    // owner
     assertEq(OWNER, s_sourceRouter.owner());
   }
 }
 
-/// @notice #recoverTokens
 contract Router_recoverTokens is EVM2EVMOnRampSetup {
   function test_RecoverTokens_Success() public {
     // Assert we can recover sourceToken
@@ -75,7 +72,6 @@ contract Router_recoverTokens is EVM2EVMOnRampSetup {
   }
 }
 
-/// @notice #ccipSend
 contract Router_ccipSend is EVM2EVMOnRampSetup {
   event Burned(address indexed sender, uint256 amount);
 
@@ -269,8 +265,8 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     s_priceRegistry.applyFeeTokensUpdates(feeTokens, new address[](0));
 
     // Update the price of the newly set feeToken
-    Internal.PriceUpdates memory priceUpdates =
-      getSingleTokenAndGasPriceUpdateStruct(feeTokenWithZeroFeeAndGas, 2_000 ether, DEST_CHAIN_SELECTOR, 0);
+    Internal.PriceUpdates memory priceUpdates = getSingleTokenPriceUpdateStruct(feeTokenWithZeroFeeAndGas, 2_000 ether);
+    priceUpdates.gasPriceUpdates = getSingleGasPriceUpdateStruct(DEST_CHAIN_SELECTOR, 0).gasPriceUpdates;
     s_priceRegistry.updatePrices(priceUpdates);
 
     // Set the feeToken args on the onRamp
@@ -386,14 +382,12 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
   }
 }
 
-// @notice getArmProxy
 contract Router_getArmProxy is RouterSetup {
   function test_getArmProxy() public view {
     assertEq(s_sourceRouter.getArmProxy(), address(s_mockRMN));
   }
 }
 
-// @notice applyRampUpdates
 contract Router_applyRampUpdates is RouterSetup {
   event OffRampRemoved(uint64 indexed sourceChainSelector, address offRamp);
   event OffRampAdded(uint64 indexed sourceChainSelector, address offRamp);
@@ -542,7 +536,7 @@ contract Router_applyRampUpdates is RouterSetup {
 
     vm.startPrank(OWNER);
 
-    // 3rd test scenario: remove all offramps.
+    // 3rd test scenario: remove all offRamps.
     // Check all offramps have been removed, no offramp is able to route messages.
     for (uint256 i = 0; i < numberOfPartialUpdates; ++i) {
       vm.expectEmit();
@@ -576,7 +570,7 @@ contract Router_applyRampUpdates is RouterSetup {
 
     vm.startPrank(OWNER);
 
-    // 4th test scenario: add initial onramps back.
+    // 4th test scenario: add initial onRamps back.
     // Check the offramps are added correctly, and can route messages.
     // Check offramps that were not added back remain unset, and cannot route messages.
     for (uint256 i = 0; i < offRampUpdates.length; ++i) {
@@ -674,7 +668,6 @@ contract Router_applyRampUpdates is RouterSetup {
   }
 }
 
-/// @notice #setWrappedNative
 contract Router_setWrappedNative is EVM2EVMOnRampSetup {
   function test_Fuzz_SetWrappedNative_Success(address wrappedNative) public {
     s_sourceRouter.setWrappedNative(wrappedNative);
@@ -689,7 +682,6 @@ contract Router_setWrappedNative is EVM2EVMOnRampSetup {
   }
 }
 
-/// @notice #getSupportedTokens
 contract Router_getSupportedTokens is EVM2EVMOnRampSetup {
   function test_GetSupportedTokens_Revert() public {
     vm.expectRevert(EVM2EVMOnRamp.GetSupportedTokensFunctionalityRemovedCheckAdminRegistry.selector);
@@ -697,13 +689,16 @@ contract Router_getSupportedTokens is EVM2EVMOnRampSetup {
   }
 }
 
-/// @notice #routeMessage
 contract Router_routeMessage is EVM2EVMOffRampSetup {
   event MessageExecuted(bytes32 messageId, uint64 sourceChainSelector, address offRamp, bytes32 calldataHash);
 
   function setUp() public virtual override {
     EVM2EVMOffRampSetup.setUp();
     vm.startPrank(address(s_offRamp));
+  }
+
+  function generateManualGasLimit(uint256 callDataLength) internal view returns (uint256) {
+    return ((gasleft() - 2 * (16 * callDataLength + GAS_FOR_CALL_EXACT_CHECK)) * 62) / 64;
   }
 
   function test_ManualExec_Success() public {
@@ -883,7 +878,6 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
   }
 }
 
-/// @notice #getFee
 contract Router_getFee is EVM2EVMOnRampSetup {
   function test_GetFeeSupportedChain_Success() public view {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();

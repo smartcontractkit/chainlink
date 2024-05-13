@@ -85,6 +85,20 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     s_offRamp.updateRateLimitTokens(new EVM2EVMOffRamp.RateLimitToken[](0), tokensToAdd);
   }
 
+  function generateDynamicOffRampConfig(
+    address router,
+    address priceRegistry
+  ) internal pure returns (EVM2EVMOffRamp.DynamicConfig memory) {
+    return EVM2EVMOffRamp.DynamicConfig({
+      permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
+      router: router,
+      priceRegistry: priceRegistry,
+      maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
+      maxDataBytes: MAX_DATA_SIZE,
+      maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS
+    });
+  }
+
   function _convertToGeneralMessage(Internal.EVM2EVMMessage memory original)
     internal
     view

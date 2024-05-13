@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import "../BaseTest.t.sol";
-
 import {MerkleMultiProof} from "../../libraries/MerkleMultiProof.sol";
 import {MerkleHelper} from "../helpers/MerkleHelper.sol";
+import {Test} from "forge-std/Test.sol";
 
-contract MerkleMultiProofTest is BaseTest {
+contract MerkleMultiProofTest is Test {
   // This must match the spec
   function test_SpecSync_gas() public pure {
     bytes32 expectedRoot = 0xd4f0f3c40a4d583d98c17d89e550b1143fe4d3d759f25ccc63131c90b183928e;

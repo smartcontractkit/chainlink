@@ -135,6 +135,37 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
     IERC20(s_sourceTokens[1]).approve(address(s_sourceRouter), 2 ** 128);
   }
 
+  function getNopsAndWeights() internal pure returns (EVM2EVMOnRamp.NopAndWeight[] memory) {
+    EVM2EVMOnRamp.NopAndWeight[] memory nopsAndWeights = new EVM2EVMOnRamp.NopAndWeight[](3);
+    nopsAndWeights[0] = EVM2EVMOnRamp.NopAndWeight({nop: USER_1, weight: 19284});
+    nopsAndWeights[1] = EVM2EVMOnRamp.NopAndWeight({nop: USER_2, weight: 52935});
+    nopsAndWeights[2] = EVM2EVMOnRamp.NopAndWeight({nop: USER_3, weight: 8});
+    return nopsAndWeights;
+  }
+
+  function generateDynamicOnRampConfig(
+    address router,
+    address priceRegistry,
+    address tokenAdminRegistry
+  ) internal pure returns (EVM2EVMOnRamp.DynamicConfig memory) {
+    return EVM2EVMOnRamp.DynamicConfig({
+      router: router,
+      maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
+      destGasOverhead: DEST_GAS_OVERHEAD,
+      destGasPerPayloadByte: DEST_GAS_PER_PAYLOAD_BYTE,
+      destDataAvailabilityOverheadGas: DEST_DATA_AVAILABILITY_OVERHEAD_GAS,
+      destGasPerDataAvailabilityByte: DEST_GAS_PER_DATA_AVAILABILITY_BYTE,
+      destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
+      priceRegistry: priceRegistry,
+      maxDataBytes: MAX_DATA_SIZE,
+      maxPerMsgGasLimit: MAX_GAS_LIMIT,
+      tokenAdminRegistry: tokenAdminRegistry,
+      defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
+      defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
+      defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD
+    });
+  }
+
   function _generateTokenMessage() public view returns (Client.EVM2AnyMessage memory) {
     Client.EVMTokenAmount[] memory tokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
     tokenAmounts[0].amount = i_tokenAmount0;
