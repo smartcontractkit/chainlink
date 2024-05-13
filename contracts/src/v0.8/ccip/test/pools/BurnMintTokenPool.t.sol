@@ -6,7 +6,6 @@ import {IPool} from "../../interfaces/IPool.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
-import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {BaseTest} from "../BaseTest.t.sol";

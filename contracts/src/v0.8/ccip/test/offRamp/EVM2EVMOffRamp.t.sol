@@ -212,6 +212,39 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
     assertGt(s_offRamp.getSenderNonce(messages[0].sender), nonceBefore);
   }
 
+  function test_SingleMessageNoTokensUnordered_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages();
+    messages[0].nonce = 0;
+    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
+
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      messages[0].sequenceNumber, messages[0].messageId, Internal.MessageExecutionState.SUCCESS, ""
+    );
+
+    // Nonce never increments on unordered messages.
+    uint64 nonceBefore = s_offRamp.getSenderNonce(messages[0].sender);
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+    assertEq(
+      s_offRamp.getSenderNonce(messages[0].sender), nonceBefore, "nonce must remain unchanged on unordered messages"
+    );
+
+    messages[0].sequenceNumber++;
+    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
+
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      messages[0].sequenceNumber, messages[0].messageId, Internal.MessageExecutionState.SUCCESS, ""
+    );
+
+    // Nonce never increments on unordered messages.
+    nonceBefore = s_offRamp.getSenderNonce(messages[0].sender);
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+    assertEq(
+      s_offRamp.getSenderNonce(messages[0].sender), nonceBefore, "nonce must remain unchanged on unordered messages"
+    );
+  }
+
   function test_ReceiverError_Success() public {
     Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages();
 
@@ -301,6 +334,24 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
     s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
   }
 
+  function test__execute_SkippedAlreadyExecutedMessageUnordered_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages();
+    messages[0].nonce = 0;
+    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
+
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      messages[0].sequenceNumber, messages[0].messageId, Internal.MessageExecutionState.SUCCESS, ""
+    );
+
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+
+    vm.expectEmit();
+    emit SkippedAlreadyExecutedMessage(messages[0].sequenceNumber);
+
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+  }
+
   // Send a message to a contract that does not implement the CCIPReceiver interface
   // This should execute successfully.
   function test_SingleMessageToNonCCIPReceiver_Success() public {
@@ -374,6 +425,41 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
     assertEq(uint64(0), s_offRamp.getSenderNonce(OWNER));
     s_offRamp.execute(_generateReportFromMessages(messages), _getGasLimitsFromMessages(messages));
     assertEq(uint64(2), s_offRamp.getSenderNonce(OWNER));
+  }
+
+  function test_Fuzz_InterleavingOrderedAndUnorderedMessages_Success(bool[7] memory orderings) public {
+    Internal.EVM2EVMMessage[] memory messages = new Internal.EVM2EVMMessage[](orderings.length);
+    // number of tokens needs to be capped otherwise we hit UnsupportedNumberOfTokens.
+    Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](3);
+    for (uint256 i = 0; i < 3; ++i) {
+      tokenAmounts[i].token = s_sourceTokens[i % s_sourceTokens.length];
+      tokenAmounts[i].amount = 1e18;
+    }
+    uint64 expectedNonce = 0;
+    for (uint256 i = 0; i < orderings.length; ++i) {
+      messages[i] = _generateAny2EVMMessage(uint64(i + 1), tokenAmounts, !orderings[i]);
+      if (orderings[i]) {
+        messages[i].nonce = ++expectedNonce;
+      }
+      messages[i].messageId = Internal._hash(messages[i], s_offRamp.metadataHash());
+
+      vm.expectEmit();
+      emit ExecutionStateChanged(
+        messages[i].sequenceNumber, messages[i].messageId, Internal.MessageExecutionState.SUCCESS, ""
+      );
+    }
+
+    uint64 nonceBefore = s_offRamp.getSenderNonce(OWNER);
+    assertEq(uint64(0), nonceBefore, "nonce before exec should be 0");
+    s_offRamp.execute(_generateReportFromMessages(messages), _getGasLimitsFromMessages(messages));
+    // all executions should succeed.
+    for (uint256 i = 0; i < orderings.length; ++i) {
+      assertEq(
+        uint256(s_offRamp.getExecutionState(messages[i].sequenceNumber)),
+        uint256(Internal.MessageExecutionState.SUCCESS)
+      );
+    }
+    assertEq(nonceBefore + expectedNonce, s_offRamp.getSenderNonce(OWNER));
   }
 
   function test_InvalidSourcePoolAddress_Success() public {
