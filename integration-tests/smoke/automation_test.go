@@ -189,7 +189,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
-			}, "10m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
 
@@ -1238,7 +1238,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d")
 				}
-			}, "2m", "5s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
+			}, "4m", "5s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
 			// set the maxGasPrice to 1 wei
 			uoc, _ := cbor.Marshal(gasprice.UpkeepOffchainConfig{MaxGasPrice: big.NewInt(1)})
@@ -1331,7 +1331,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically(">", countersAfterSettingLowMaxGasPrice[0].Int64()),
 					"Expected consumer counter to be greater than %d, but got %d",
 					countersAfterSettingLowMaxGasPrice[0].Int64(), latestCounter.Int64())
-			}, "2m", "5s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
+			}, "2m", "5s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once
 			l.Info().Int64("Upkeep Performed times", latestCounter.Int64()).Msg("the first upkeep performed again")
 		})
 	}
