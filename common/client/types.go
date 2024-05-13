@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
@@ -16,7 +15,7 @@ import (
 //go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
 type RPCClient[
 	CHAIN_ID types.ID,
-	HEAD *evmtypes.Head,
+	HEAD Head,
 ] interface {
 	// ChainID - fetches ChainID from the RPC to verify that it matches config
 	ChainID(ctx context.Context) (CHAIN_ID, error)

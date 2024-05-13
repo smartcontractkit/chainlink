@@ -120,10 +120,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) State() nodeState {
 	return n.state
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, int64, *big.Int) {
+func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, ChainInfo) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
-	return n.state, n.stateLatestBlockNumber, n.stateLatestTotalDifficulty
+	return n.state, ChainInfo{
+		BlockNumber:          n.stateLatestBlockNumber,
+		BlockDifficulty:      n.stateLatestTotalDifficulty,
+		LatestFinalizedBlock: n.stateLatestFinalizedBlockNumber}
 }
 
 // setState is only used by internal state management methods.
@@ -209,7 +212,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 	}
 	switch n.state {
 	case nodeStateAlive:
-		n.disconnectAll()
+		n.UnsubscribeAll()
 		n.state = nodeStateOutOfSync
 	default:
 		panic(transitionFail(n.state, nodeStateOutOfSync))
@@ -234,7 +237,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 	}
 	switch n.state {
 	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
-		n.disconnectAll()
+		n.UnsubscribeAll()
 		n.state = nodeStateUnreachable
 	default:
 		panic(transitionFail(n.state, nodeStateUnreachable))
@@ -277,7 +280,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 	}
 	switch n.state {
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing:
-		n.disconnectAll()
+		n.UnsubscribeAll()
 		n.state = nodeStateInvalidChainID
 	default:
 		panic(transitionFail(n.state, nodeStateInvalidChainID))
@@ -302,7 +305,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 	}
 	switch n.state {
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID:
-		n.disconnectAll()
+		n.UnsubscribeAll()
 		n.state = nodeStateSyncing
 	default:
 		panic(transitionFail(n.state, nodeStateSyncing))
