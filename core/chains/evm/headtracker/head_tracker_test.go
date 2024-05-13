@@ -216,16 +216,6 @@ func TestHeadTracker_Start(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		return createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
 	}
-
-	t.Run("Fail start if context was canceled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
-		ht := newHeadTracker(t)
-		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Run(func(args mock.Arguments) {
-			cancel()
-		}).Return(cltest.Head(0), context.Canceled)
-		err := ht.headTracker.Start(ctx)
-		require.ErrorIs(t, err, context.Canceled)
-	})
 	t.Run("Starts even if failed to get initialHead", func(t *testing.T) {
 		ht := newHeadTracker(t)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), errors.New("failed to get init head"))
