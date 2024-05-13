@@ -134,9 +134,9 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 	// for this test only one LM is "deployed"
 	// so the discovery will return a single LM which is the master LM
 	g := graph.NewGraph()
-	g.AddNetwork(models.NetworkSelector(ch.Selector), graph.Data{
-		Liquidity:         big.NewInt(1234), // liquidity doesn't matter for this test
-		RebalancerAddress: models.Address(uni.wrapper.Address()),
+	g.(graph.GraphTest).AddNetwork(models.NetworkSelector(ch.Selector), graph.Data{
+		Liquidity:               big.NewInt(1234), // liquidity doesn't matter for this test
+		LiquidityManagerAddress: models.Address(uni.wrapper.Address()),
 	})
 	mockDiscoverer := discoverermocks.NewDiscoverer(t)
 	mockDiscoverer.On("Discover", mock.Anything).Return(g, nil)
@@ -239,13 +239,13 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 
 	// this test doesn't care about the connections, just the vertices themselves
 	g := graph.NewGraph()
-	g.AddNetwork(models.NetworkSelector(chain1.Selector), graph.Data{
-		Liquidity:         big.NewInt(1234), // liquidity doesn't matter for this test
-		RebalancerAddress: models.Address(uni1.wrapper.Address()),
+	g.(graph.GraphTest).AddNetwork(models.NetworkSelector(chain1.Selector), graph.Data{
+		Liquidity:               big.NewInt(1234), // liquidity doesn't matter for this test
+		LiquidityManagerAddress: models.Address(uni1.wrapper.Address()),
 	})
-	g.AddNetwork(models.NetworkSelector(chain2.Selector), graph.Data{
-		Liquidity:         big.NewInt(1234), // liquidity doesn't matter for this test
-		RebalancerAddress: models.Address(uni2.wrapper.Address()),
+	g.(graph.GraphTest).AddNetwork(models.NetworkSelector(chain2.Selector), graph.Data{
+		Liquidity:               big.NewInt(1234), // liquidity doesn't matter for this test
+		LiquidityManagerAddress: models.Address(uni2.wrapper.Address()),
 	})
 	mockDiscoverer := discoverermocks.NewDiscoverer(t)
 	mockDiscoverer.On("Discover", mock.Anything).Return(g, nil)

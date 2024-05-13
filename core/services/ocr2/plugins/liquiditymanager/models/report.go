@@ -45,6 +45,14 @@ func (c ConfigDigest) ToOCRConfigDigest() ocrtypes.ConfigDigest {
 	return c.ConfigDigest
 }
 
+func (c ConfigDigest) Clone() ConfigDigest {
+	cfgDigest := ocrtypes.ConfigDigest{}
+	copy(cfgDigest[:], c.ConfigDigest[:])
+	return ConfigDigest{
+		ConfigDigest: cfgDigest,
+	}
+}
+
 type Report struct {
 	Transfers               []Transfer
 	LiquidityManagerAddress Address

@@ -236,7 +236,7 @@ func (r *MinLiquidityRebalancer) twoHopTransfers(
 			continue
 		}
 
-		neibs, ok := graphLater.GetNeighbors(net)
+		neibs, ok := graphLater.GetNeighbors(net, false)
 		if !ok {
 			return nil, fmt.Errorf("get neighbors of %d failed", net)
 		}
@@ -247,7 +247,7 @@ func (r *MinLiquidityRebalancer) twoHopTransfers(
 		}
 
 		for _, neib := range neibs {
-			intermNeibs, ok := graphLater.GetNeighbors(neib)
+			intermNeibs, ok := graphLater.GetNeighbors(neib, false)
 			if !ok {
 				return nil, fmt.Errorf("get intermediate neighbors of %d failed", net)
 			}
@@ -374,10 +374,7 @@ func (r *MinLiquidityRebalancer) getExpectedGraph(
 		if err != nil {
 			return nil, err
 		}
-
-		expG.AddNetwork(edge.Source, sourceData)
-		expG.AddNetwork(edge.Dest, destData)
-		if err := expG.AddConnection(edge.Source, edge.Dest); err != nil {
+		if err := expG.Add(sourceData, destData); err != nil {
 			return nil, err
 		}
 	}

@@ -263,13 +263,14 @@ func runPingPongInfinitySimulation(t *testing.T, rounds, maxNets, maxLanes int) 
 func genGraph(t testing.TB, balances map[models.NetworkSelector]int64, lanes [][2]models.NetworkSelector) graph.Graph {
 	g := graph.NewGraph()
 	for netSel, balance := range balances {
-		g.AddNetwork(netSel, graph.Data{
-			Liquidity: big.NewInt(balance),
+		g.(graph.GraphTest).AddNetwork(netSel, graph.Data{
+			Liquidity:       big.NewInt(balance),
+			NetworkSelector: netSel,
 		})
 	}
 
 	for _, lane := range lanes {
-		assert.NoError(t, g.AddConnection(lane[0], lane[1]))
+		assert.NoError(t, g.(graph.GraphTest).AddConnection(lane[0], lane[1]))
 	}
 
 	return g
