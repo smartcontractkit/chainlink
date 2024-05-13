@@ -12,4 +12,5 @@ contract Constants {
   address internal NODE_OPERATOR_TWO_SIGNER_ADDRESS = address(4444);
 
   bytes32 internal P2P_ID = hex"e42415859707d90ed4dc534ad730f187a17b0c368e1beec2e9b995587c4b0a05";
+  bytes32 internal P2P_ID_TWO = hex"f53415859707d90ed4dc534ad730f187a17b0c368e1beec2e9b995587c4b0a05";
 }
