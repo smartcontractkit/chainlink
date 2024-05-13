@@ -21,7 +21,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-duration-seconds: "1800" # this is optional and defaults to 900
       - name: GitHub CODEOWNERS Validator
-        uses: patrickhuie19/codeowners-validator@v0.1.7
+        uses: patrickhuie19/codeowners-validator@v0.1.8
         # input parameters
         with:
           # ==== GitHub Auth ====
