@@ -116,16 +116,15 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 		// anyway when we connect (but we should not rely on this because it is
 		// not specced). If it happens this is fine, and the head will be
 		// ignored as a duplicate.
-		err := ht.handleInitialHead(ctx)
-		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
+		onSubscribe := func() {
+			err := ht.handleInitialHead(ctx)
+			if err != nil {
+				ht.log.Errorw("Error handling initial head", "err", err)
 			}
-			ht.log.Errorw("Error handling initial head", "err", err)
 		}
 
 		ht.wgDone.Add(3)
-		go ht.headListener.ListenForNewHeads(ht.handleNewHead, ht.wgDone.Done)
+		go ht.headListener.ListenForNewHeads(onSubscribe, ht.handleNewHead, ht.wgDone.Done)
 		go ht.backfillLoop()
 		go ht.broadcastLoop()
 
