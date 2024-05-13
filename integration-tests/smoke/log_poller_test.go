@@ -27,6 +27,13 @@ import (
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
+	"SLOW SQL QUERY",
+	"It is expected, because we are pausing the Postgres container",
+	zapcore.DPanicLevel,
+	testreporters.WarnAboutAllowedMsgs_No,
+))
+
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
 func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
@@ -49,34 +56,22 @@ func TestLogPollerManyFiltersFinalityTag(t *testing.T) {
 	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
-// consistency test that introduces random distruptions by pausing either Chainlink or Postgres containers for random interval of 5-20 seconds
+// consistency test that introduces random disruptions by pausing either Chainlink or Postgres containers for random interval of 5-20 seconds
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerWithChaosFixedDepth(t *testing.T) {
-	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
+	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
 func TestLogPollerWithChaosFinalityTag(t *testing.T) {
-	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
+	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
 func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
-	logScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
-		"SLOW SQL QUERY",
-		"It is expected, because we are pausing the Postgres container",
-		zapcore.DPanicLevel,
-		testreporters.WarnAboutAllowedMsgs_No,
-	))
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
 func TestLogPollerWithChaosPostgresFinalityTag(t *testing.T) {
-	logScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
-		"SLOW SQL QUERY",
-		"It is expected, because we are pausing the Postgres container",
-		zapcore.DPanicLevel,
-		testreporters.WarnAboutAllowedMsgs_No,
-	))
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
