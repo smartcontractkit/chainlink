@@ -86,3 +86,12 @@ block_range = 3600
 block_interval = 20
 forces_single_tx_key = false
 delete_jobs_on_end = true
+
+# If present will wrap keeper benchmakr consumers in retrying contract backend
+# that retries read-only operations on failure related to network issues or node unavailability
+# To disable simply remove this section or set any of the values to 0
+[Keeper.Resiliency]
+# number of retries before giving up
+contract_call_limit = 500
+# static interval between retries
+contract_call_interval = "5s"

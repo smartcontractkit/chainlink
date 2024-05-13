@@ -30,7 +30,6 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 type CleanUpType string
@@ -66,7 +65,7 @@ type CLTestEnvBuilder struct {
 	cleanUpType                     CleanUpType
 	cleanUpCustomFn                 func()
 	chainOptionsFn                  []ChainOption
-	evmClientNetworkOption          []EVMClientNetworkOption
+	evmNetworkOption                []EVMNetworkOption
 	privateEthereumNetworks         []*ctf_config.EthereumNetworkConfig
 	testConfig                      ctf_config.GlobalTestConfig
 	chainlinkNodeLogScannerSettings *ChainlinkNodeLogScannerSettings
@@ -244,11 +243,11 @@ func (b *CLTestEnvBuilder) WithChainOptions(opts ...ChainOption) *CLTestEnvBuild
 	return b
 }
 
-type EVMClientNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
+type EVMNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
 
-func (b *CLTestEnvBuilder) EVMClientNetworkOptions(opts ...EVMClientNetworkOption) *CLTestEnvBuilder {
-	b.evmClientNetworkOption = make([]EVMClientNetworkOption, 0)
-	b.evmClientNetworkOption = append(b.evmClientNetworkOption, opts...)
+func (b *CLTestEnvBuilder) EVMNetworkOptions(opts ...EVMNetworkOption) *CLTestEnvBuilder {
+	b.evmNetworkOption = make([]EVMNetworkOption, 0)
+	b.evmNetworkOption = append(b.evmNetworkOption, opts...)
 
 	return b
 }
@@ -421,16 +420,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 			if b.hasSeth {
-				readSethCfg := b.testConfig.GetSethConfig()
-				sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
-				if err != nil {
-					return nil, err
-				}
-				err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-				if err != nil {
-					return nil, err
-				}
-				seth, err := seth.NewClientWithConfig(&sethCfg)
+				seth, err := actions_seth.GetChainClientWithConfigFunction(b.testConfig, networkConfig, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
 				if err != nil {
 					return nil, err
 				}
@@ -494,8 +484,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if !b.isNonEVM {
-		if b.evmClientNetworkOption != nil && len(b.evmClientNetworkOption) > 0 {
-			for _, fn := range b.evmClientNetworkOption {
+		if b.evmNetworkOption != nil && len(b.evmNetworkOption) > 0 {
+			for _, fn := range b.evmNetworkOption {
 				fn(&networkConfig)
 			}
 		}
@@ -523,16 +513,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 		if b.hasSeth {
 			b.te.sethClients = make(map[int64]*seth.Client)
-			readSethCfg := b.testConfig.GetSethConfig()
-			sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
-			if err != nil {
-				return nil, err
-			}
-			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-			if err != nil {
-				return nil, err
-			}
-			seth, err := seth.NewClientWithConfig(&sethCfg)
+			seth, err := actions_seth.GetChainClientWithConfigFunction(b.testConfig, networkConfig, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
 			if err != nil {
 				return nil, err
 			}
