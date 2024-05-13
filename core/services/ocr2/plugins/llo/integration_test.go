@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -161,6 +163,16 @@ func TestIntegration_LLO(t *testing.T) {
 
 	addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, "job-1")
 	addOCRJobs(t, streams, serverPubKey, serverURL, verifierAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, chainID, fromBlock)
+
+	go func() {
+		// TODO: DH fix me
+		time.Sleep(10 * time.Second)
+		for _, node := range append(nodes, bootstrapNode) {
+			chain, _ := node.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+			err = chain.LogPoller().Replay(tests.Context(t), 1)
+			require.NoError(t, err)
+		}
+	}()
 
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 		// Expect at least one report per channel from each oracle (keyed by transmitter ID)
