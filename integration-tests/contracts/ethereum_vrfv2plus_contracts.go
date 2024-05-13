@@ -548,7 +548,20 @@ func (v *EthereumVRFCoordinatorV2_5) WaitForMigrationCompletedEvent(timeout time
 func (v *EthereumVRFv2PlusLoadTestConsumer) Address() string {
 	return v.address.Hex()
 }
+
 func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(
+	coordinator Coordinator,
+	keyHash [32]byte, subID *big.Int,
+	requestConfirmations uint16,
+	callbackGasLimit uint32,
+	nativePayment bool,
+	numWords uint32,
+	requestCount uint16,
+) (*CoordinatorRandomWordsRequested, error) {
+	return v.RequestRandomnessFromKey(coordinator, keyHash, subID, requestConfirmations, callbackGasLimit, nativePayment, numWords, requestCount, 0)
+}
+
+func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomnessFromKey(
 	coordinator Coordinator,
 	keyHash [32]byte, subID *big.Int,
 	requestConfirmations uint16,

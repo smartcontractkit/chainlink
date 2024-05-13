@@ -466,7 +466,7 @@ func RequestRandomness(
 		vrfKeyData.KeyHash,
 		keyNum,
 	)
-	randomWordsRequestedEvent, err := consumer.RequestRandomness(
+	randomWordsRequestedEvent, err := consumer.RequestRandomnessFromKey(
 		coordinator,
 		vrfKeyData.KeyHash,
 		subID,

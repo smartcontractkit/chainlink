@@ -236,6 +236,15 @@ type VRFv2LoadTestConsumer interface {
 		callbackGasLimit uint32,
 		numWords uint32,
 		requestCount uint16,
+	) (*CoordinatorRandomWordsRequested, error)
+	RequestRandomnessFromKey(
+		coordinator Coordinator,
+		keyHash [32]byte,
+		subID uint64,
+		requestConfirmations uint16,
+		callbackGasLimit uint32,
+		numWords uint32,
+		requestCount uint16,
 		keyNum int,
 	) (*CoordinatorRandomWordsRequested, error)
 	RequestRandomWordsWithForceFulfill(
@@ -267,6 +276,15 @@ type VRFv2WrapperLoadTestConsumer interface {
 type VRFv2PlusLoadTestConsumer interface {
 	Address() string
 	RequestRandomness(
+		coordinator Coordinator,
+		keyHash [32]byte, subID *big.Int,
+		requestConfirmations uint16,
+		callbackGasLimit uint32,
+		nativePayment bool,
+		numWords uint32,
+		requestCount uint16,
+	) (*CoordinatorRandomWordsRequested, error)
+	RequestRandomnessFromKey(
 		coordinator Coordinator,
 		keyHash [32]byte, subID *big.Int,
 		requestConfirmations uint16,

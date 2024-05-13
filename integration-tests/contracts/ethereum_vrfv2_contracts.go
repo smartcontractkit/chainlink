@@ -921,6 +921,18 @@ func (v *EthereumVRFv2LoadTestConsumer) RequestRandomness(
 	callbackGasLimit uint32,
 	numWords uint32,
 	requestCount uint16,
+) (*CoordinatorRandomWordsRequested, error) {
+	return v.RequestRandomnessFromKey(coordinator, keyHash, subID, requestConfirmations, callbackGasLimit, numWords, requestCount, 0)
+}
+
+func (v *EthereumVRFv2LoadTestConsumer) RequestRandomnessFromKey(
+	coordinator Coordinator,
+	keyHash [32]byte,
+	subID uint64,
+	requestConfirmations uint16,
+	callbackGasLimit uint32,
+	numWords uint32,
+	requestCount uint16,
 	keyNum int,
 ) (*CoordinatorRandomWordsRequested, error) {
 	tx, err := v.client.Decode(v.consumer.RequestRandomWords(v.client.NewTXKeyOpts(keyNum), subID, requestConfirmations, keyHash, callbackGasLimit, numWords, requestCount))

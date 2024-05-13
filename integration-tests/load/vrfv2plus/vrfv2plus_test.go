@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
@@ -55,8 +56,10 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		l.Error().Err(err).Msg(ErrLokiClient)
 		return
 	}
-	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
-	sethClient, err := testEnv.GetSethClient(chainID)
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	chainID := network.ChainID
+	sethClient, err := actions_seth.GetChainClientWithConfigFunction(testConfig, network, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	require.NoError(t, err, "Error creating seth client")
 	updatedLabels := UpdateLabels(labels, t)
 
 	l.Info().
@@ -204,8 +207,10 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		Bool("UseExistingEnv", *vrfv2PlusConfig.General.UseExistingEnv).
 		Msg("Performance Test Configuration")
 
-	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
-	sethClient, err := testEnv.GetSethClient(chainID)
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	chainID := network.ChainID
+	sethClient, err := actions_seth.GetChainClientWithConfigFunction(testConfig, network, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	require.NoError(t, err, "Error creating seth client")
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, testType, &testConfig)
