@@ -211,7 +211,7 @@ type CleanupOpts struct {
 }
 
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
-func (te *CLClusterTestEnv) Cleanup(ctx context.Context, opts CleanupOpts) error {
+func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	te.l.Info().Msg("Cleaning up test environment")
 
 	runIdErr := runid.RemoveLocalRunId(te.TestConfig.GetLoggingConfig().RunId)

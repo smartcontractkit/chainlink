@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -259,7 +258,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	case CleanUpTypeStandard:
 		b.t.Cleanup(func() {
 			// Cleanup test environment
-			if err := b.te.Cleanup(testcontext.Get(b.t), CleanupOpts{TestName: b.t.Name()}); err != nil {
+			if err := b.te.Cleanup(CleanupOpts{TestName: b.t.Name()}); err != nil {
 				b.l.Error().Err(err).Msg("Error cleaning up test environment")
 			}
 		})
