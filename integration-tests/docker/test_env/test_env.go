@@ -394,7 +394,7 @@ func (te *CLClusterTestEnv) returnFunds(ctx context.Context) error {
 	}
 
 	for _, sethClient := range te.sethClients {
-		if err := actions_seth.ReturnFundsFromNodes(ctx, te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
+		if err := actions_seth.ReturnFundsFromNodes(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
 			te.l.Error().Err(err).Msg("Error returning funds from node")
 		}
 	}
@@ -404,6 +404,10 @@ func (te *CLClusterTestEnv) returnFunds(ctx context.Context) error {
 }
 
 func (te *CLClusterTestEnv) GetEVMClient(chainId int64) (blockchain.EVMClient, error) {
+	if len(te.sethClients) > 0 {
+		return nil, fmt.Errorf("Environment is using Seth clients, not EVM clients")
+	}
+
 	if evmClient, ok := te.evmClients[chainId]; ok {
 		return evmClient, nil
 	}
@@ -412,6 +416,9 @@ func (te *CLClusterTestEnv) GetEVMClient(chainId int64) (blockchain.EVMClient, e
 }
 
 func (te *CLClusterTestEnv) GetSethClient(chainId int64) (*seth.Client, error) {
+	if len(te.evmClients) > 0 {
+		return nil, fmt.Errorf("Environment is using EVMClients, not Seth clients")
+	}
 	if sethClient, ok := te.sethClients[chainId]; ok {
 		return sethClient, nil
 	}

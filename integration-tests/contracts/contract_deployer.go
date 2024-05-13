@@ -725,7 +725,7 @@ func (e *EthereumContractDeployer) DeployMockGasFeed(answer *big.Int) (MockGasFe
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumMockGASFeed{
+	return &LegacyEthereumMockGASFeed{
 		client:  e.client,
 		feed:    instance.(*mock_gas_aggregator_wrapper.MockGASAggregator),
 		address: address,
@@ -743,7 +743,7 @@ func (e *EthereumContractDeployer) LoadGasFeed(address common.Address) (MockGasF
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumMockGASFeed{
+	return &LegacyEthereumMockGASFeed{
 		address: &address,
 		client:  e.client,
 		feed:    instance.(*mock_gas_aggregator_wrapper.MockGASAggregator),
@@ -762,7 +762,7 @@ func (e *EthereumContractDeployer) DeployUpkeepTranscoder() (UpkeepTranscoder, e
 		return nil, err
 	}
 
-	return &EthereumUpkeepTranscoder{
+	return &LegacyEthereumUpkeepTranscoder{
 		client:     e.client,
 		transcoder: instance.(*upkeep_transcoder.UpkeepTranscoder),
 		address:    address,
@@ -781,7 +781,7 @@ func (e *EthereumContractDeployer) LoadUpkeepTranscoder(address common.Address) 
 		return nil, err
 	}
 
-	return &EthereumUpkeepTranscoder{
+	return &LegacyEthereumUpkeepTranscoder{
 		client:     e.client,
 		transcoder: instance.(*upkeep_transcoder.UpkeepTranscoder),
 		address:    &address,
@@ -805,7 +805,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 			return nil, err
 		}
 
-		return &EthereumKeeperRegistrar{
+		return &LegacyEthereumKeeperRegistrar{
 			client:      e.client,
 			registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
 			address:     address,
@@ -837,7 +837,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 			return nil, err
 		}
 
-		return &EthereumKeeperRegistrar{
+		return &LegacyEthereumKeeperRegistrar{
 			client:      e.client,
 			registrar21: instance.(*registrar21.AutomationRegistrar),
 			address:     address,
@@ -856,7 +856,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 		return nil, err
 	}
 
-	return &EthereumKeeperRegistrar{
+	return &LegacyEthereumKeeperRegistrar{
 		client:    e.client,
 		registrar: instance.(*keeper_registrar_wrapper1_2.KeeperRegistrar),
 		address:   address,
@@ -876,7 +876,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistrar(address common.Address, r
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistrar{
+		return &LegacyEthereumKeeperRegistrar{
 			address:   &address,
 			client:    e.client,
 			registrar: instance.(*keeper_registrar_wrapper1_2.KeeperRegistrar),
@@ -891,7 +891,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistrar(address common.Address, r
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistrar{
+		return &LegacyEthereumKeeperRegistrar{
 			address:     &address,
 			client:      e.client,
 			registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
@@ -906,7 +906,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistrar(address common.Address, r
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumKeeperRegistrar{
+	return &LegacyEthereumKeeperRegistrar{
 		address:     &address,
 		client:      e.client,
 		registrar21: instance.(*registrar21.AutomationRegistrar),
@@ -956,7 +956,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			client:      e.client,
 			version:     eth_contracts.RegistryVersion_1_1,
 			registry1_1: instance.(*keeper_registry_wrapper1_1.KeeperRegistry),
@@ -994,7 +994,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			client:      e.client,
 			version:     eth_contracts.RegistryVersion_1_2,
 			registry1_1: nil,
@@ -1052,7 +1052,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			client:      e.client,
 			version:     eth_contracts.RegistryVersion_1_3,
 			registry1_1: nil,
@@ -1096,7 +1096,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			client:      e.client,
 			version:     eth_contracts.RegistryVersion_2_0,
 			registry2_0: instance.(*keeper_registry_wrapper2_0.KeeperRegistry),
@@ -1174,7 +1174,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			client:      e.client,
 			version:     eth_contracts.RegistryVersion_2_1,
 			registry2_1: registryMaster,
@@ -1306,7 +1306,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return nil, err
 		}
 
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			client:      e.client,
 			version:     eth_contracts.RegistryVersion_2_2,
 			registry2_2: registryMaster,
@@ -1349,7 +1349,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
 			registry1_1: instance.(*keeper_registry_wrapper1_1.KeeperRegistry),
@@ -1365,7 +1365,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
 			registry1_2: instance.(*keeper_registry_wrapper1_2.KeeperRegistry),
@@ -1381,7 +1381,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
 			registry1_3: instance.(*keeper_registry_wrapper1_3.KeeperRegistry),
@@ -1397,7 +1397,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
 			registry2_0: instance.(*keeper_registry_wrapper2_0.KeeperRegistry),
@@ -1413,7 +1413,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
 			registry2_1: instance.(*iregistry21.IKeeperRegistryMaster),
@@ -1429,7 +1429,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		if err != nil {
 			return nil, err
 		}
-		return &EthereumKeeperRegistry{
+		return &LegacyEthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
 			registry2_2: instance.(*iregistry22.IAutomationRegistryMaster),
@@ -1469,7 +1469,7 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterv
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAutomationLogCounterConsumer{
+	return &LegacyEthereumAutomationLogCounterConsumer{
 		client:   e.client,
 		consumer: instance.(*log_upkeep_counter_wrapper.LogUpkeepCounter),
 		address:  address,
@@ -1488,7 +1488,7 @@ func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer(isSt
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAutomationSimpleLogCounterConsumer{
+	return &LegacyEthereumAutomationSimpleLogCounterConsumer{
 		client:   e.client,
 		consumer: instance.(*simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounter),
 		address:  address,
@@ -1507,7 +1507,7 @@ func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(t
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAutomationStreamsLookupUpkeepConsumer{
+	return &LegacyEthereumAutomationStreamsLookupUpkeepConsumer{
 		client:   e.client,
 		consumer: instance.(*streams_lookup_upkeep_wrapper.StreamsLookupUpkeep),
 		address:  address,
@@ -1526,7 +1526,7 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpke
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer{
+	return &LegacyEthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer{
 		client:   e.client,
 		consumer: instance.(*log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookup),
 		address:  address,
@@ -1543,7 +1543,7 @@ func (e *EthereumContractDeployer) DeployUpkeepCounter(testRange *big.Int, inter
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumUpkeepCounter{
+	return &LegacyEthereumUpkeepCounter{
 		client:   e.client,
 		consumer: instance.(*upkeep_counter_wrapper.UpkeepCounter),
 		address:  address,
@@ -1560,7 +1560,7 @@ func (e *EthereumContractDeployer) DeployUpkeepPerformCounterRestrictive(testRan
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumUpkeepPerformCounterRestrictive{
+	return &LegacyEthereumUpkeepPerformCounterRestrictive{
 		client:   e.client,
 		consumer: instance.(*upkeep_perform_counter_restrictive_wrapper.UpkeepPerformCounterRestrictive),
 		address:  address,
@@ -1589,7 +1589,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumKeeperConsumerPerformance{
+	return &LegacyEthereumKeeperConsumerPerformance{
 		client:   e.client,
 		consumer: instance.(*keeper_consumer_performance_wrapper.KeeperConsumerPerformance),
 		address:  address,
@@ -1609,7 +1609,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerBenchmark() (AutomationCo
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAutomationConsumerBenchmark{
+	return &LegacyEthereumAutomationConsumerBenchmark{
 		client:   e.client,
 		consumer: instance.(*automation_consumer_benchmark.AutomationConsumerBenchmark),
 		address:  address,
@@ -1627,7 +1627,7 @@ func (e *EthereumContractDeployer) LoadKeeperConsumerBenchmark(address common.Ad
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAutomationConsumerBenchmark{
+	return &LegacyEthereumAutomationConsumerBenchmark{
 		address:  &address,
 		client:   e.client,
 		consumer: instance.(*automation_consumer_benchmark.AutomationConsumerBenchmark),
@@ -1648,7 +1648,7 @@ func (e *EthereumContractDeployer) DeployKeeperPerformDataChecker(expectedData [
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumKeeperPerformDataCheckerConsumer{
+	return &LegacyEthereumKeeperPerformDataCheckerConsumer{
 		client:             e.client,
 		performDataChecker: instance.(*perform_data_checker_wrapper.PerformDataChecker),
 		address:            address,

@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
@@ -65,7 +66,7 @@ func LoadOffchainAggregator(l zerolog.Logger, seth *seth.Client, contractAddress
 }
 
 func DeployOffchainAggregator(l zerolog.Logger, seth *seth.Client, linkTokenAddress common.Address, offchainOptions OffchainOptions) (EthereumOffchainAggregator, error) {
-	oAbi, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
+	abi, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
 	if err != nil {
 		return EthereumOffchainAggregator{}, fmt.Errorf("failed to get OffChain Aggregator ABI: %w", err)
 	}
@@ -73,7 +74,7 @@ func DeployOffchainAggregator(l zerolog.Logger, seth *seth.Client, linkTokenAddr
 	ocrDeploymentData, err := seth.DeployContract(
 		seth.NewTXOpts(),
 		"OffChainAggregator",
-		*oAbi,
+		*abi,
 		common.FromHex(offchainaggregator.OffchainAggregatorMetaData.Bin),
 		offchainOptions.MaximumGasPrice,
 		offchainOptions.ReasonableGasPrice,
@@ -282,11 +283,11 @@ type EthereumOperatorFactory struct {
 }
 
 func DeployEthereumOperatorFactory(seth *seth.Client, linkTokenAddress common.Address) (EthereumOperatorFactory, error) {
-	operatorAbi, err := operator_factory.OperatorFactoryMetaData.GetAbi()
+	abi, err := operator_factory.OperatorFactoryMetaData.GetAbi()
 	if err != nil {
 		return EthereumOperatorFactory{}, fmt.Errorf("failed to get OperatorFactory ABI: %w", err)
 	}
-	operatorData, err := seth.DeployContract(seth.NewTXOpts(), "OperatorFactory", *operatorAbi, common.FromHex(operator_factory.OperatorFactoryMetaData.Bin), linkTokenAddress)
+	operatorData, err := seth.DeployContract(seth.NewTXOpts(), "OperatorFactory", *abi, common.FromHex(operator_factory.OperatorFactoryMetaData.Bin), linkTokenAddress)
 	if err != nil {
 		return EthereumOperatorFactory{}, fmt.Errorf("OperatorFactory instance deployment have failed: %w", err)
 	}
@@ -827,81 +828,6 @@ func (f *EthereumFluxAggregator) LatestRoundData(ctx context.Context) (flux_aggr
 	})
 }
 
-// EthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
-type EthereumMockETHLINKFeed struct {
-	client  *seth.Client
-	feed    *mock_ethlink_aggregator_wrapper.MockETHLINKAggregator
-	address *common.Address
-}
-
-func (v *EthereumMockETHLINKFeed) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
-	data, err := v.feed.LatestRoundData(&bind.CallOpts{
-		From:    v.client.Addresses[0],
-		Context: context.Background(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return data.Ans, nil
-}
-
-func (v *EthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
-	data, err := v.feed.LatestRoundData(&bind.CallOpts{
-		From:    v.client.Addresses[0],
-		Context: context.Background(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return data.UpdatedAt, nil
-}
-
-func DeployMockETHLINKFeed(client *seth.Client, answer *big.Int) (MockETHLINKFeed, error) {
-	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
-	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
-	}
-	data, err := client.DeployContract(client.NewTXOpts(), "MockETHLINKFeed", *abi, common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin), answer)
-	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("MockETHLINKFeed instance deployment have failed: %w", err)
-	}
-
-	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
-	}
-
-	return &EthereumMockETHLINKFeed{
-		address: &data.Address,
-		client:  client,
-		feed:    instance,
-	}, nil
-}
-
-func LoadMockETHLINKFeed(client *seth.Client, address common.Address) (MockETHLINKFeed, error) {
-	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
-	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
-	}
-	client.ContractStore.AddABI("MockETHLINKFeed", *abi)
-	client.ContractStore.AddBIN("MockETHLINKFeed", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
-
-	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
-	}
-
-	return &EthereumMockETHLINKFeed{
-		address: &address,
-		client:  client,
-		feed:    instance,
-	}, nil
-}
-
 // GetContractData retrieves basic data for the flux aggregator contract
 func (f *EthereumFluxAggregator) GetContractData(ctx context.Context) (*FluxAggregatorData, error) {
 	opts := &bind.CallOpts{
@@ -1072,6 +998,148 @@ func (e *EthereumAPIConsumer) CreateRequestTo(
 ) error {
 	_, err := e.client.Decode(e.consumer.CreateRequestTo(e.client.NewTXOpts(), common.HexToAddress(oracleAddr), jobID, payment, url, path, times))
 	return err
+}
+
+// EthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
+type EthereumMockETHLINKFeed struct {
+	client  *seth.Client
+	feed    *mock_ethlink_aggregator_wrapper.MockETHLINKAggregator
+	address *common.Address
+}
+
+func (v *EthereumMockETHLINKFeed) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.Ans, nil
+}
+
+func (v *EthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.UpdatedAt, nil
+}
+
+func DeployMockETHLINKFeed(client *seth.Client, answer *big.Int) (MockETHLINKFeed, error) {
+	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "MockETHLINKFeed", *abi, common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin), answer)
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("MockETHLINKFeed instance deployment have failed: %w", err)
+	}
+
+	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+	}
+
+	return &EthereumMockETHLINKFeed{
+		address: &data.Address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func LoadMockETHLINKFeed(client *seth.Client, address common.Address) (MockETHLINKFeed, error) {
+	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+	}
+	client.ContractStore.AddABI("MockETHLINKFeed", *abi)
+	client.ContractStore.AddBIN("MockETHLINKFeed", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
+
+	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+	}
+
+	return &EthereumMockETHLINKFeed{
+		address: &address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+// EthereumMockGASFeed represents mocked Gas feed contract
+type EthereumMockGASFeed struct {
+	client  *seth.Client
+	feed    *mock_gas_aggregator_wrapper.MockGASAggregator
+	address *common.Address
+}
+
+func (v *EthereumMockGASFeed) Address() string {
+	return v.address.Hex()
+}
+
+func DeployMockGASFeed(client *seth.Client, answer *big.Int) (MockGasFeed, error) {
+	abi, err := mock_gas_aggregator_wrapper.MockGASAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("failed to get MockGasFeed ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "MockGasFeed", *abi, common.FromHex(mock_gas_aggregator_wrapper.MockGASAggregatorMetaData.Bin), answer)
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("MockGasFeed instance deployment have failed: %w", err)
+	}
+
+	instance, err := mock_gas_aggregator_wrapper.NewMockGASAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("failed to instantiate MockGasFeed instance: %w", err)
+	}
+
+	return &EthereumMockGASFeed{
+		address: &data.Address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func LoadMockGASFeed(client *seth.Client, address common.Address) (MockGasFeed, error) {
+	abi, err := mock_gas_aggregator_wrapper.MockGASAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("failed to get MockGasFeed ABI: %w", err)
+	}
+	client.ContractStore.AddABI("MockGasFeed", *abi)
+	client.ContractStore.AddBIN("MockGasFeed", common.FromHex(mock_gas_aggregator_wrapper.MockGASAggregatorMetaData.Bin))
+
+	instance, err := mock_gas_aggregator_wrapper.NewMockGASAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("failed to instantiate MockGasFeed instance: %w", err)
+	}
+
+	return &EthereumMockGASFeed{
+		address: &address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func DeployMultiCallContract(client *seth.Client) (common.Address, error) {
+	abi, err := abi.JSON(strings.NewReader(MultiCallABI))
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	data, err := client.DeployContract(client.NewTXOpts(), "MultiCall", abi, common.FromHex(MultiCallBIN))
+	if err != nil {
+		return common.Address{}, fmt.Errorf("MultiCall instance deployment have failed: %w", err)
+	}
+
+	return data.Address, nil
 }
 
 func LoadFunctionsCoordinator(seth *seth.Client, addr string) (FunctionsCoordinator, error) {
