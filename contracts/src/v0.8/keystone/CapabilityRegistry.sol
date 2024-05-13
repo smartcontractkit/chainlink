@@ -490,7 +490,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice This functions returns a capability id that has been hashed to fit into a bytes32 for cheaper access
   /// @return bytes32 A unique identifier for the capability
   function getHashedCapabilityId(bytes32 labelledName, bytes32 version) public pure returns (bytes32) {
-    return keccak256(abi.encodePacked(labelledName, version));
+    return keccak256(abi.encode(labelledName, version));
   }
 
   /// @notice Returns whether a capability is deprecated
