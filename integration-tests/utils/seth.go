@@ -67,13 +67,25 @@ func MustReplaceSimulatedNetworkUrlWithK8(l zerolog.Logger, network blockchain.E
 		return network
 	}
 
-	if _, ok := testEnvironment.URLs["Simulated Geth"]; !ok {
+	networkKeys := []string{"Simulated Geth", "Simulated-Geth"}
+	var keyToUse string
+
+	for _, key := range networkKeys {
+		_, ok := testEnvironment.URLs[key]
+		if ok {
+			keyToUse = key
+			break
+		}
+	}
+
+	if keyToUse == "" {
 		for k := range testEnvironment.URLs {
 			l.Info().Str("Network", k).Msg("Available networks")
 		}
 		panic("no network settings for Simulated Geth")
 	}
-	network.URLs = testEnvironment.URLs["Simulated Geth"]
+
+	network.URLs = testEnvironment.URLs[keyToUse]
 
 	return network
 }
