@@ -13,12 +13,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -63,7 +62,7 @@ func TestChainReaderGetLatestValue(t *testing.T) {
 		anyString := "foo"
 		tx, err := it.evmTest.TriggerEventWithDynamicTopic(it.auth, anyString)
 		require.NoError(t, err)
-		it.sim.Commit()
+		it.backend.Commit()
 		it.incNonce()
 		it.awaitTx(t, tx)
 
@@ -113,7 +112,7 @@ func triggerFourTopics(t *testing.T, it *chainReaderInterfaceTester, i1, i2, i3 
 	tx, err := it.evmTest.ChainReaderTesterTransactor.TriggerWithFourTopics(it.auth, i1, i2, i3)
 	require.NoError(t, err)
 	require.NoError(t, err)
-	it.sim.Commit()
+	it.backend.Commit()
 	it.incNonce()
 	it.awaitTx(t, tx)
 }
@@ -124,7 +123,7 @@ type chainReaderInterfaceTester struct {
 	address2    string
 	chainConfig types.ChainReaderConfig
 	auth        *bind.TransactOpts
-	sim         *backends.SimulatedBackend
+	backend     *simulated.Backend
 	pk          *ecdsa.PrivateKey
 	evmTest     *chain_reader_tester.ChainReaderTester
 	cr          evm.ChainReaderService
@@ -238,7 +237,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 			},
 		},
 	}
-	it.client = client.NewSimulatedBackendClient(t, it.sim, big.NewInt(1337))
+	it.client = client.NewSimulatedBackendClient(t, it.backend, big.NewInt(1337))
 	it.deployNewContracts(t)
 }
 
@@ -308,7 +307,7 @@ func (it *chainReaderInterfaceTester) sendTxWithTestStruct(t *testing.T, testStr
 		midToInternalType(testStruct.NestedStruct),
 	)
 	require.NoError(t, err)
-	it.sim.Commit()
+	it.backend.Commit()
 	it.incNonce()
 	it.awaitTx(t, tx)
 }
@@ -337,8 +336,8 @@ func (it *chainReaderInterfaceTester) setupChainNoClient(t require.TestingT) {
 	it.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
 	require.NoError(t, err)
 
-	it.sim = backends.NewSimulatedBackend(core.GenesisAlloc{it.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
-	it.sim.Commit()
+	it.backend = simulated.NewBackend(ethtypes.GenesisAlloc{it.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
+	it.backend.Commit()
 }
 
 func (it *chainReaderInterfaceTester) deployNewContracts(t *testing.T) {
@@ -348,7 +347,7 @@ func (it *chainReaderInterfaceTester) deployNewContracts(t *testing.T) {
 
 func (it *chainReaderInterfaceTester) deployNewContract(t *testing.T) string {
 	ctx := testutils.Context(t)
-	gasPrice, err := it.sim.SuggestGasPrice(ctx)
+	gasPrice, err := it.client.SuggestGasPrice(ctx)
 	require.NoError(t, err)
 	it.auth.GasPrice = gasPrice
 
@@ -356,10 +355,10 @@ func (it *chainReaderInterfaceTester) deployNewContract(t *testing.T) string {
 	// Not sure if there's a better way to get it.
 	it.auth.GasLimit = 10552800
 
-	address, tx, ts, err := chain_reader_tester.DeployChainReaderTester(it.auth, it.sim)
+	address, tx, ts, err := chain_reader_tester.DeployChainReaderTester(it.auth, it.client)
 
 	require.NoError(t, err)
-	it.sim.Commit()
+	it.backend.Commit()
 	if it.evmTest == nil {
 		it.evmTest = ts
 	}
@@ -370,7 +369,7 @@ func (it *chainReaderInterfaceTester) deployNewContract(t *testing.T) string {
 
 func (it *chainReaderInterfaceTester) awaitTx(t *testing.T, tx *evmtypes.Transaction) {
 	ctx := testutils.Context(t)
-	receipt, err := it.sim.TransactionReceipt(ctx, tx.Hash())
+	receipt, err := it.client.TransactionReceipt(ctx, tx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, evmtypes.ReceiptStatusSuccessful, receipt.Status)
 }
