@@ -236,6 +236,7 @@ type VRFv2LoadTestConsumer interface {
 		callbackGasLimit uint32,
 		numWords uint32,
 		requestCount uint16,
+		keyNum int,
 	) (*CoordinatorRandomWordsRequested, error)
 	RequestRandomWordsWithForceFulfill(
 		coordinator Coordinator,
@@ -273,6 +274,7 @@ type VRFv2PlusLoadTestConsumer interface {
 		nativePayment bool,
 		numWords uint32,
 		requestCount uint16,
+		keyNum int,
 	) (*CoordinatorRandomWordsRequested, error)
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2plus_load_test_with_metrics.GetRequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)

@@ -921,8 +921,9 @@ func (v *EthereumVRFv2LoadTestConsumer) RequestRandomness(
 	callbackGasLimit uint32,
 	numWords uint32,
 	requestCount uint16,
+	keyNum int,
 ) (*CoordinatorRandomWordsRequested, error) {
-	tx, err := v.client.Decode(v.consumer.RequestRandomWords(v.client.NewTXOpts(), subID, requestConfirmations, keyHash, callbackGasLimit, numWords, requestCount))
+	tx, err := v.client.Decode(v.consumer.RequestRandomWords(v.client.NewTXKeyOpts(keyNum), subID, requestConfirmations, keyHash, callbackGasLimit, numWords, requestCount))
 	if err != nil {
 		return nil, fmt.Errorf("RequestRandomWords failed, err: %w", err)
 	}

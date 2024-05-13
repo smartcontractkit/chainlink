@@ -113,6 +113,7 @@ func TestVRFv2Plus(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -172,6 +173,7 @@ func TestVRFv2Plus(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 		require.False(t, randomWordsFulfilledEvent.OnlyPremium)
@@ -227,6 +229,7 @@ func TestVRFv2Plus(t *testing.T) {
 			isNativeBilling,
 			testConfig,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -272,6 +275,7 @@ func TestVRFv2Plus(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -539,6 +543,7 @@ func TestVRFv2Plus(t *testing.T) {
 			false,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 
 		require.Error(t, err, "error should occur for waiting for fulfilment due to low sub balance")
@@ -551,6 +556,7 @@ func TestVRFv2Plus(t *testing.T) {
 			true,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 
 		require.Error(t, err, "error should occur for waiting for fulfilment due to low sub balance")
@@ -679,6 +685,7 @@ func TestVRFv2Plus(t *testing.T) {
 			false,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err)
 
@@ -690,6 +697,7 @@ func TestVRFv2Plus(t *testing.T) {
 			true,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err)
 		amountToWithdrawLink := fulfilledEventLink.Payment
@@ -815,6 +823,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 				isNativeBilling,
 				configCopy.VRFv2Plus.General,
 				l,
+				0,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 			sethClient, err := env.GetSethClient(chainID)
@@ -1037,6 +1046,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			false,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -1049,6 +1059,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			true,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 	})
@@ -1320,6 +1331,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness")
 
@@ -1353,7 +1365,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			},
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
-		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling)
+		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling, 0)
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
@@ -1402,6 +1414,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness")
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
@@ -1550,6 +1563,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness")
 
@@ -1586,7 +1600,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			},
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
-		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling)
+		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling, 0)
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
@@ -1695,6 +1709,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for requested event")
 
@@ -1725,6 +1740,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 		require.True(t, randomWordsFulfilledEvent.Success, "RandomWordsFulfilled Event's `Success` field should be true")
@@ -1887,6 +1903,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 		isNativeBilling,
 		config.VRFv2Plus.General,
 		l,
+		0,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -1977,6 +1994,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err)
 
@@ -2004,6 +2022,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
 	})
@@ -2022,6 +2041,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err)
 
@@ -2181,6 +2201,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -2296,6 +2317,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 			isNativeBilling,
 			configCopy.VRFv2Plus.General,
 			l,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 

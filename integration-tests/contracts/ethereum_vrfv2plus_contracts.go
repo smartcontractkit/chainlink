@@ -556,8 +556,9 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(
 	nativePayment bool,
 	numWords uint32,
 	requestCount uint16,
+	keyNum int,
 ) (*CoordinatorRandomWordsRequested, error) {
-	tx, err := v.client.Decode(v.consumer.RequestRandomWords(v.client.NewTXOpts(), subID, requestConfirmations, keyHash, callbackGasLimit, nativePayment, numWords, requestCount))
+	tx, err := v.client.Decode(v.consumer.RequestRandomWords(v.client.NewTXKeyOpts(keyNum), subID, requestConfirmations, keyHash, callbackGasLimit, nativePayment, numWords, requestCount))
 	if err != nil {
 		return nil, err
 	}

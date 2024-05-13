@@ -409,6 +409,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
 	randomWordsFulfilledEventTimeout time.Duration,
+	keyNum int,
 ) (*contracts.CoordinatorRandomWordsRequested, *contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := RequestRandomness(
 		l,
@@ -421,6 +422,7 @@ func RequestRandomnessAndWaitForFulfillment(
 		numberOfWords,
 		randomnessRequestCountPerRequest,
 		randomnessRequestCountPerRequestDeviation,
+		keyNum,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -448,6 +450,7 @@ func RequestRandomness(
 	numberOfWords uint32,
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
+	keyNum int,
 ) (*contracts.CoordinatorRandomWordsRequested, error) {
 	logRandRequest(
 		l,
@@ -469,6 +472,7 @@ func RequestRandomness(
 		callbackGasLimit,
 		numberOfWords,
 		randomnessRequestCountPerRequest,
+		keyNum,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRequestRandomness, err)
@@ -563,7 +567,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 			return nil, nil, nil, err
 		case configSetEvent = <-configSetEventChannel:
 		case randomWordsFulfilledEvent = <-randWordsFulfilledEventChannel:
-			vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, false)
+			vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, false, 0)
 		case randomWordsForcedEvent = <-randWordsForcedEventChannel:
 			vrfcommon.LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
 		case <-time.After(randomWordsFulfilledEventTimeout):
@@ -588,7 +592,7 @@ func WaitRandomWordsFulfilledEvent(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitRandomWordsFulfilledEvent, err)
 	}
-	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, false)
+	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, false, 0)
 	return randomWordsFulfilledEvent, err
 }
 

@@ -56,6 +56,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		return
 	}
 	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
+	sethClient, err := testEnv.GetSethClient(chainID)
 	updatedLabels := UpdateLabels(labels, t)
 
 	l.Info().
@@ -70,7 +71,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, testType, &testConfig)
-		sethClient, err := testEnv.GetSethClient(chainID)
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
@@ -139,6 +139,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 				subIDs,
 				vrfv2PlusConfig,
 				l,
+				sethClient,
 			),
 			Labels:      labels,
 			LokiConfig:  wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
@@ -204,10 +205,10 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		Msg("Performance Test Configuration")
 
 	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
+	sethClient, err := testEnv.GetSethClient(chainID)
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, testType, &testConfig)
-		sethClient, err := testEnv.GetSethClient(chainID)
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
@@ -277,6 +278,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 				underfundedSubIDs,
 				configCopy.VRFv2Plus,
 				l,
+				sethClient,
 			),
 			Labels:      labels,
 			LokiConfig:  lokiConfig,

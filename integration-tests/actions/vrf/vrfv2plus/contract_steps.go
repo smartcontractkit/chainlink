@@ -297,6 +297,7 @@ func RequestRandomness(
 	isNativeBilling bool,
 	config *vrfv2plus_config.General,
 	l zerolog.Logger,
+	keyNum int,
 ) (*contracts.CoordinatorRandomWordsRequested, error) {
 	LogRandRequest(
 		l,
@@ -316,6 +317,7 @@ func RequestRandomness(
 		isNativeBilling,
 		*config.NumberOfWords,
 		*config.RandomnessRequestCountPerRequest,
+		keyNum,
 	)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrRequestRandomness, err)
@@ -333,6 +335,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	isNativeBilling bool,
 	config *vrfv2plus_config.General,
 	l zerolog.Logger,
+	keyNum int,
 ) (*contracts.CoordinatorRandomWordsRequested, *contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := RequestRandomness(
 		consumer,
@@ -342,6 +345,7 @@ func RequestRandomnessAndWaitForFulfillment(
 		isNativeBilling,
 		config,
 		l,
+		keyNum,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -354,6 +358,7 @@ func RequestRandomnessAndWaitForFulfillment(
 		isNativeBilling,
 		config.RandomWordsFulfilledEventTimeout.Duration,
 		l,
+		keyNum,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -445,6 +450,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 		isNativeBilling,
 		config.RandomWordsFulfilledEventTimeout.Duration,
 		l,
+		0,
 	)
 }
 
@@ -455,6 +461,7 @@ func WaitRandomWordsFulfilledEvent(
 	isNativeBilling bool,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
+	keyNum int,
 ) (*contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
 		contracts.RandomWordsFulfilledEventFilter{
@@ -467,7 +474,7 @@ func WaitRandomWordsFulfilledEvent(
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitRandomWordsFulfilledEvent, err)
 	}
 
-	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, isNativeBilling)
+	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, isNativeBilling, keyNum)
 	return randomWordsFulfilledEvent, err
 }
 

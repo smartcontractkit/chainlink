@@ -113,6 +113,7 @@ func TestVRFv2Basic(t *testing.T) {
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -168,6 +169,7 @@ func TestVRFv2Basic(t *testing.T) {
 			*testConfig.RandomnessRequestCountPerRequest,
 			*testConfig.RandomnessRequestCountPerRequestDeviation,
 			testConfig.RandomWordsFulfilledEventTimeout.Duration,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -216,6 +218,7 @@ func TestVRFv2Basic(t *testing.T) {
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -334,6 +337,7 @@ func TestVRFv2Basic(t *testing.T) {
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			0,
 		)
 		require.NoError(t, err)
 
@@ -485,6 +489,7 @@ func TestVRFv2Basic(t *testing.T) {
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			randomWordsFulfilledEventTimeout,
+			0,
 		)
 		require.Error(t, err, "Error should occur while waiting for fulfilment due to low sub balance")
 
@@ -646,6 +651,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 				*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 				*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 				configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+				0,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 			sethClient, err := testEnv.GetSethClient(chainID)
@@ -884,6 +890,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness")
 
@@ -913,7 +920,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			},
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
-		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2, randomWordsFulfilledEvent, false)
+		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2, randomWordsFulfilledEvent, false, 0)
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
@@ -954,6 +961,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness")
 
@@ -1099,6 +1107,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			0,
 		)
 		require.NoError(t, err)
 
@@ -1146,6 +1155,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
+			0,
 		)
 		require.NoError(t, err)
 
@@ -1307,6 +1317,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -1426,6 +1437,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			0,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 

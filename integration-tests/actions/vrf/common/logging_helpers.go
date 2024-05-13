@@ -58,8 +58,10 @@ func LogRandomWordsFulfilledEvent(
 	coordinator contracts.Coordinator,
 	randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled,
 	isNativeBilling bool,
+	keyNum int,
 ) {
 	l.Info().
+		Int("KeyNum", keyNum).
 		Bool("Native Billing", isNativeBilling).
 		Str("Coordinator", coordinator.Address()).
 		Str("Total Payment", randomWordsFulfilledEvent.Payment.String()).
