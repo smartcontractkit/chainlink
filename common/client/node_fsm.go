@@ -148,36 +148,27 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 		return false
 	}
 
-	observedByCaller := n.poolInfoProvider.HighestChainInfo()
+	highestObservedByCaller := n.poolInfoProvider.HighestChainInfo()
+	latest, _ := n.rpc.GetInterceptedChainInfo()
 	if n.chainCfg.FinalityTagEnabled() {
-		return n.latestChainInfo.FinalizedBlockNumber < observedByCaller.FinalizedBlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
+		return latest.FinalizedBlockNumber < highestObservedByCaller.FinalizedBlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
 	}
 
-	return n.latestChainInfo.BlockNumber < observedByCaller.BlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
+	return latest.BlockNumber < highestObservedByCaller.BlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
 }
 
 // StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
 func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, ChainInfo) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
-	return n.recalculateState(), n.latestChainInfo
-}
-
-func (n *node[CHAIN_ID, HEAD, RPC]) getLatestChainInfo() ChainInfo {
-	n.stateMu.RLock()
-	defer n.stateMu.RUnlock()
-	return n.latestChainInfo
-}
-
-func (n *node[CHAIN_ID, HEAD, RPC]) setLatestChainInfo(ci ChainInfo) {
-	n.stateMu.Lock()
-	n.latestChainInfo = ci
-	n.stateMu.Unlock()
+	latest, _ := n.rpc.GetInterceptedChainInfo()
+	return n.recalculateState(), latest
 }
 
 // HighestChainInfo - returns highest ChainInfo ever observed by the Node
 func (n *node[CHAIN_ID, HEAD, RPC]) HighestChainInfo() ChainInfo {
-	return n.rpc.GetInterceptedChainInfo()
+	_, highest := n.rpc.GetInterceptedChainInfo()
+	return highest
 }
 func (n *node[CHAIN_ID, HEAD, RPC]) SetPoolChainInfoProvider(poolInfoProvider PoolChainInfoProvider) {
 	n.poolInfoProvider = poolInfoProvider

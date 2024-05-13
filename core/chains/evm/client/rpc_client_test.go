@@ -24,6 +24,14 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
+func makeNewHeadWSMessage(head *evmtypes.Head) string {
+	asJSON, err := json.Marshal(head)
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal head: %w", err))
+	}
+	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, string(asJSON))
+}
+
 func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(tests.Context(t), tests.WaitTimeout(t))
@@ -32,71 +40,79 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	chainId := big.NewInt(123456)
 	lggr := logger.Test(t)
 
-	type rpcServer struct {
-		Head *evmtypes.Head
-		URL  *url.URL
-	}
-	createRPCServer := func() *rpcServer {
-		server := &rpcServer{}
-		server.URL = testutils.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
-			if method == "eth_unsubscribe" {
-				resp.Result = "true"
-				return
-			}
-			assert.Equal(t, "eth_subscribe", method)
-			if assert.True(t, params.IsArray()) && assert.Equal(t, "newHeads", params.Array()[0].String()) {
-				resp.Result = `"0x00"`
-				head := server.Head
-				jsonHead, err := json.Marshal(head)
-				if err != nil {
-					panic(fmt.Errorf("failed to marshal head: %w", err))
-				}
-				resp.Notify = string(jsonHead)
-			}
+	serverCallBack := func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		if method == "eth_unsubscribe" {
+			resp.Result = "true"
 			return
-		}).WSURL()
-
-		return server
+		}
+		assert.Equal(t, "eth_subscribe", method)
+		if assert.True(t, params.IsArray()) && assert.Equal(t, "newHeads", params.Array()[0].String()) {
+			resp.Result = `"0x00"`
+		}
+		return
 	}
-	receiveNewHead := func(rpc client.RPCClient) *evmtypes.Head {
+	t.Run("Updates chain info on new blocks", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+		// set to default values
+		latest, highest := rpc.GetInterceptedChainInfo()
+		assert.Equal(t, int64(0), latest.BlockNumber)
+		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
+		assert.Nil(t, latest.TotalDifficulty)
+		assert.Equal(t, int64(0), highest.BlockNumber)
+		assert.Equal(t, int64(0), highest.FinalizedBlockNumber)
+		assert.Nil(t, highest.TotalDifficulty)
+
 		ch := make(chan *evmtypes.Head)
 		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
 		require.NoError(t, err)
-		result := <-ch
-		sub.Unsubscribe()
-		return result
-	}
-	t.Run("Updates latest block info in InterceptedChainInfo", func(t *testing.T) {
-		server := createRPCServer()
-		rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
-		defer rpc.Close()
-		require.NoError(t, rpc.Dial(ctx))
-		chainInfo := rpc.GetInterceptedChainInfo()
-		require.Equal(t, int64(0), chainInfo.BlockNumber)
-		require.Equal(t, int64(0), chainInfo.FinalizedBlockNumber)
-		server.Head = &evmtypes.Head{
-			Number:          256,
-			TotalDifficulty: big.NewInt(1000),
+		defer sub.Unsubscribe()
+		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 256, TotalDifficulty: big.NewInt(1000)}))
+		// received 256 head
+		<-ch
+		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 128, TotalDifficulty: big.NewInt(500)}))
+		// received 128 head
+		<-ch
+
+		latest, highest = rpc.GetInterceptedChainInfo()
+		assert.Equal(t, int64(128), latest.BlockNumber)
+		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
+		assert.Equal(t, big.NewInt(500), latest.TotalDifficulty)
+
+		assertHighest := func(highest commonclient.ChainInfo) {
+			assert.Equal(t, int64(256), highest.BlockNumber)
+			assert.Equal(t, int64(0), highest.FinalizedBlockNumber)
+			assert.Equal(t, big.NewInt(1000), highest.TotalDifficulty)
 		}
-		_ = receiveNewHead(rpc)
-		server.Head = &evmtypes.Head{
-			Number:          128,
-			TotalDifficulty: big.NewInt(1000),
-		}
-		_ = receiveNewHead(rpc)
-		chainInfo = rpc.GetInterceptedChainInfo()
-		assert.Equal(t, int64(256), chainInfo.BlockNumber)
-		assert.Equal(t, int64(0), chainInfo.FinalizedBlockNumber)
+
+		assertHighest(highest)
+
+		// DisconnectAll resets latest
+		rpc.DisconnectAll()
+
+		latest, highest = rpc.GetInterceptedChainInfo()
+		assert.Equal(t, int64(0), latest.BlockNumber)
+		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
+		assert.Nil(t, latest.TotalDifficulty)
+
+		assertHighest(highest)
 	})
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
-		server := createRPCServer()
-		rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
-		server.Head = &evmtypes.Head{
-			Number: 256,
-		}
-		head := receiveNewHead(rpc)
+		ch := make(chan *evmtypes.Head)
+		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
+		require.NoError(t, err)
+		defer sub.Unsubscribe()
+		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 256}))
+		head := <-ch
 		require.Equal(t, chainId, head.ChainID())
 	})
 	t.Run("Failed SubscribeNewHead returns proper error", func(t *testing.T) {
@@ -111,21 +127,14 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		require.ErrorContains(t, err, "RPCClient returned error (rpc)")
 	})
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
-		server := testutils.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
-			assert.Equal(t, "eth_subscribe", method)
-			if assert.True(t, params.IsArray()) && assert.Equal(t, "newHeads", params.Array()[0].String()) {
-				resp.Result = `"0x00"`
-				resp.Notify = "{}"
-			}
-			return resp
-		})
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		sub, err := rpc.SubscribeNewHead(ctx, make(chan *evmtypes.Head))
 		require.NoError(t, err)
-		server.MustWriteBinaryMessageSync(t, "invalid msg")
+		go server.MustWriteBinaryMessageSync(t, "invalid msg")
 		select {
 		case err = <-sub.Err():
 			require.ErrorContains(t, err, "RPCClient returned error (rpc): invalid character")
@@ -168,7 +177,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 		require.NoError(t, rpc.Dial(ctx))
 		sub, err := rpc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
 		require.NoError(t, err)
-		server.MustWriteBinaryMessageSync(t, "invalid msg")
+		go server.MustWriteBinaryMessageSync(t, "invalid msg")
 		errorCtx, cancel := context.WithTimeout(ctx, tests.DefaultWaitTimeout)
 		defer cancel()
 		select {
@@ -204,6 +213,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 				}
 				resp.Result = string(jsonHead)
 			}
+
 			return
 		}).WSURL()
 
@@ -218,15 +228,32 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	// updates chain info
 	_, err := rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	chainInfo := rpc.GetInterceptedChainInfo()
-	assert.Equal(t, int64(0), chainInfo.BlockNumber)
-	assert.Equal(t, int64(128), chainInfo.FinalizedBlockNumber)
+	latest, highest := rpc.GetInterceptedChainInfo()
+
+	assert.Equal(t, int64(0), highest.BlockNumber)
+	assert.Equal(t, int64(128), highest.FinalizedBlockNumber)
+
+	assert.Equal(t, int64(0), latest.BlockNumber)
+	assert.Equal(t, int64(128), latest.FinalizedBlockNumber)
 
 	// lower block number does not update Highest
 	server.Head = &evmtypes.Head{Number: 127}
 	_, err = rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	chainInfo = rpc.GetInterceptedChainInfo()
-	assert.Equal(t, int64(0), chainInfo.BlockNumber)
-	assert.Equal(t, int64(128), chainInfo.FinalizedBlockNumber)
+	latest, highest = rpc.GetInterceptedChainInfo()
+
+	assert.Equal(t, int64(0), highest.BlockNumber)
+	assert.Equal(t, int64(128), highest.FinalizedBlockNumber)
+
+	assert.Equal(t, int64(0), latest.BlockNumber)
+	assert.Equal(t, int64(127), latest.FinalizedBlockNumber)
+
+	// DisconnectAll resets latest ChainInfo
+	rpc.DisconnectAll()
+	latest, highest = rpc.GetInterceptedChainInfo()
+	assert.Equal(t, int64(0), highest.BlockNumber)
+	assert.Equal(t, int64(128), highest.FinalizedBlockNumber)
+
+	assert.Equal(t, int64(0), latest.BlockNumber)
+	assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 }

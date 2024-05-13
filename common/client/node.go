@@ -105,8 +105,6 @@ type node[
 
 	stateMu sync.RWMutex // protects state* fields
 	state   nodeState
-	// Each node is tracking the last received head number and total difficulty
-	latestChainInfo ChainInfo
 
 	poolInfoProvider PoolChainInfoProvider
 
@@ -156,7 +154,6 @@ func NewNode[
 		"nodeOrder", n.order,
 	)
 	n.lfcLog = logger.Named(lggr, "Lifecycle")
-	n.latestChainInfo.BlockNumber = -1
 	n.rpc = rpc
 	n.chainFamily = chainFamily
 	return n

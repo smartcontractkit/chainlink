@@ -137,15 +137,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		pollFinalizedHeadCh = pollT.C
 	}
 
-	localHighestChainInfo := n.getLatestChainInfo()
-	defer func() {
-		// reset latest chain info to avoid following race condition:
-		// 1. Node observes block 100 and becomes unreachable.
-		// 2. While the node is down, its state is rolled back to block 90.
-		// 4. Node becomes reachable again.
-		// 5. Before new head is processed, we report that node is healthy and on block 100.
-		n.setLatestChainInfo(ChainInfo{})
-	}()
+	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	var pollFailures uint32
 
 	for {
@@ -211,7 +203,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			if outOfSyncT != nil {
 				outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
 			}
-			n.onNewHead(bh)
 			if !n.chainCfg.FinalityTagEnabled() {
 				latestFinalizedBN := max(bh.BlockNumber()-int64(n.chainCfg.FinalityDepth()), 0)
 				if latestFinalizedBN > localHighestChainInfo.FinalizedBlockNumber {
@@ -252,7 +243,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				continue
 			}
 
-			n.onNewFinalizedHead(latestFinalized)
 			latestFinalizedBN := latestFinalized.BlockNumber()
 			if latestFinalizedBN > localHighestChainInfo.FinalizedBlockNumber {
 				promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
@@ -346,7 +336,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 				n.declareUnreachable()
 				return
 			}
-			n.onNewHead(head)
 			if !isOutOfSync(head.BlockNumber(), head.BlockDifficulty()) {
 				// back in-sync! flip back into alive loop
 				lggr.Infow(fmt.Sprintf("%s: %s. Node was out-of-sync for %s", msgInSync, n.String(), time.Since(outOfSyncAt)), "blockNumber", head.BlockNumber(), "blockDifficulty", head.BlockDifficulty(), "nodeState", n.getCachedState())
@@ -524,20 +513,4 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 			return
 		}
 	}
-}
-
-func (n *node[CHAIN_ID, HEAD, RPC]) onNewHead(head HEAD) {
-	n.stateMu.Lock()
-	defer n.stateMu.Unlock()
-	n.latestChainInfo.BlockNumber = head.BlockNumber()
-	n.latestChainInfo.TotalDifficulty = head.BlockDifficulty()
-	if !n.chainCfg.FinalityTagEnabled() {
-		n.latestChainInfo.FinalizedBlockNumber = max(head.BlockNumber()-int64(n.chainCfg.FinalityDepth()), 0)
-	}
-}
-
-func (n *node[CHAIN_ID, HEAD, RPC]) onNewFinalizedHead(head HEAD) {
-	n.stateMu.Lock()
-	defer n.stateMu.Unlock()
-	n.latestChainInfo.FinalizedBlockNumber = head.BlockNumber()
 }

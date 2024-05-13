@@ -56,7 +56,7 @@ type RPCClient interface {
 	SuggestGasPrice(ctx context.Context) (p *big.Int, err error)
 	SuggestGasTipCap(ctx context.Context) (t *big.Int, err error)
 	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error)
-	GetInterceptedChainInfo() commonclient.ChainInfo
+	GetInterceptedChainInfo() (latest, highest commonclient.ChainInfo)
 }
 
 type rpcClient struct {
@@ -84,7 +84,9 @@ type rpcClient struct {
 	chStopInFlight chan struct{}
 
 	// intercepted values seen by callers of the rpcClient. Need to ensure MultiNode provides repeatable read guarantee
-	chainInfo commonclient.ChainInfo
+	highestChainInfo commonclient.ChainInfo
+	// most recent chain info observed during current lifecycle (reseted on DisconnectAll)
+	latestChainInfo commonclient.ChainInfo
 }
 
 // NewRPCCLient returns a new *rpcClient as commonclient.RPC
@@ -248,15 +250,16 @@ func (r *rpcClient) registerSub(sub ethereum.Subscription) {
 	r.subs = append(r.subs, sub)
 }
 
-// disconnectAll disconnects all clients connected to the rpcClient
-// WARNING: NOT THREAD-SAFE
-// This must be called from within the r.stateMu lock
+// DisconnectAll disconnects all clients connected to the rpcClient
 func (r *rpcClient) DisconnectAll() {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
 	if r.ws.rpc != nil {
 		r.ws.rpc.Close()
 	}
 	r.cancelInflightRequests()
 	r.unsubscribeAll()
+	r.latestChainInfo = commonclient.ChainInfo{}
 }
 
 // unsubscribeAll unsubscribes all subscriptions
@@ -349,9 +352,10 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
+	subscriptionCtxCh := r.getChStopInflight()
 	subForwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
 		head.EVMChainID = ubig.New(r.chainID)
-		r.oneNewHead(head)
+		r.oneNewHead(subscriptionCtxCh, head)
 		return head
 	}, func(err error) error {
 		return fmt.Errorf("%s: %w", r.rpcClientErrorPrefix(), err)
@@ -472,13 +476,14 @@ func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	return
 }
 
-func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	requestCtxCh := r.getChStopInflight()
 	block, err := r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
 	if err != nil {
 		return nil, err
 	}
 
-	r.oneNewFinalizedHead(block)
+	r.oneNewFinalizedHead(requestCtxCh, block)
 	return block, nil
 }
 
@@ -1077,28 +1082,41 @@ func Name(r *rpcClient) string {
 	return r.name
 }
 
-func (r *rpcClient) oneNewHead(head *evmtypes.Head) {
+func (r *rpcClient) oneNewHead(requestCh <-chan struct{}, head *evmtypes.Head) {
 	if head == nil {
 		return
 	}
 
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
-	r.chainInfo.BlockNumber = max(r.chainInfo.BlockNumber, head.Number)
-	r.chainInfo.SetTotalDifficultyIfGt(head.TotalDifficulty)
+	r.highestChainInfo.BlockNumber = max(r.highestChainInfo.BlockNumber, head.Number)
+	r.highestChainInfo.SetTotalDifficultyIfGt(head.TotalDifficulty)
+	select {
+	case <-requestCh: // no need to update latestChainInfo, as rpcClient already started new life cycle
+		return
+	default:
+		r.latestChainInfo.BlockNumber = head.Number
+		r.latestChainInfo.TotalDifficulty = head.TotalDifficulty
+	}
 }
 
-func (r *rpcClient) oneNewFinalizedHead(head *evmtypes.Head) {
+func (r *rpcClient) oneNewFinalizedHead(requestCh <-chan struct{}, head *evmtypes.Head) {
 	if head == nil {
 		return
 	}
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
-	r.chainInfo.FinalizedBlockNumber = max(r.chainInfo.FinalizedBlockNumber, head.Number)
+	r.highestChainInfo.FinalizedBlockNumber = max(r.highestChainInfo.FinalizedBlockNumber, head.Number)
+	select {
+	case <-requestCh: // no need to update latestChainInfo, as rpcClient already started new life cycle
+		return
+	default:
+		r.latestChainInfo.FinalizedBlockNumber = head.Number
+	}
 }
 
-func (r *rpcClient) GetInterceptedChainInfo() commonclient.ChainInfo {
+func (r *rpcClient) GetInterceptedChainInfo() (latest, highest commonclient.ChainInfo) {
 	r.stateMu.RLock()
 	defer r.stateMu.RUnlock()
-	return r.chainInfo
+	return r.latestChainInfo, r.highestChainInfo
 }

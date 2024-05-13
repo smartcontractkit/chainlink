@@ -367,7 +367,7 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 }
 
 // GetInterceptedChainInfo provides a mock function with given fields:
-func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) GetInterceptedChainInfo() ChainInfo {
+func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) GetInterceptedChainInfo() (ChainInfo, ChainInfo) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
@@ -375,13 +375,23 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 	}
 
 	var r0 ChainInfo
+	var r1 ChainInfo
+	if rf, ok := ret.Get(0).(func() (ChainInfo, ChainInfo)); ok {
+		return rf()
+	}
 	if rf, ok := ret.Get(0).(func() ChainInfo); ok {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(ChainInfo)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func() ChainInfo); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(ChainInfo)
+	}
+
+	return r0, r1
 }
 
 // IsSyncing provides a mock function with given fields: ctx

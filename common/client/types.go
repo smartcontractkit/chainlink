@@ -66,6 +66,7 @@ type NodeClient[
 	connection[CHAIN_ID, HEAD]
 
 	DialHTTP() error
+	// DisconnectAll - cancels all inflight requests, terminates all subscriptions and resets latest ChainInfo.
 	DisconnectAll()
 	Close()
 	ClientVersion(context.Context) (string, error)
@@ -74,7 +75,17 @@ type NodeClient[
 	UnsubscribeAllExceptAliveLoop()
 	IsSyncing(ctx context.Context) (bool, error)
 	LatestFinalizedBlock(ctx context.Context) (HEAD, error)
-	GetInterceptedChainInfo() ChainInfo
+	// GetInterceptedChainInfo - returns latest and highest ChainInfo.
+	// Latest ChainInfo is the most recent value received within a NodeClient's current lifecycle between Dial and DisconnectAll.
+	// Highest ChainInfo is the highest ChainInfo observed by the NodeClient since the instance was created.
+	// Its values must not be reset.
+	// The results of corresponding calls, to get the most recent head and the latest finalized head, must be
+	// intercepted and reflected in ChainInfo before being returned to a caller. Otherwise, MultiNode is not able to
+	// provide repeatable read guarantee.
+	// DisconnectAll must reset latest ChainInfo to default value.
+	// Ensure implementation does not have a race condition when values are reset before request completion and as
+	// a result latest ChainInfo contains information from the previous cycle.
+	GetInterceptedChainInfo() (latest, highest ChainInfo)
 }
 
 // clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.

@@ -445,7 +445,7 @@ func (_m *RPCClient) FilterEvents(ctx context.Context, query ethereum.FilterQuer
 }
 
 // GetInterceptedChainInfo provides a mock function with given fields:
-func (_m *RPCClient) GetInterceptedChainInfo() commonclient.ChainInfo {
+func (_m *RPCClient) GetInterceptedChainInfo() (commonclient.ChainInfo, commonclient.ChainInfo) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
@@ -453,13 +453,23 @@ func (_m *RPCClient) GetInterceptedChainInfo() commonclient.ChainInfo {
 	}
 
 	var r0 commonclient.ChainInfo
+	var r1 commonclient.ChainInfo
+	if rf, ok := ret.Get(0).(func() (commonclient.ChainInfo, commonclient.ChainInfo)); ok {
+		return rf()
+	}
 	if rf, ok := ret.Get(0).(func() commonclient.ChainInfo); ok {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(commonclient.ChainInfo)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func() commonclient.ChainInfo); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(commonclient.ChainInfo)
+	}
+
+	return r0, r1
 }
 
 // HeaderByHash provides a mock function with given fields: ctx, h
