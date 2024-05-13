@@ -49,7 +49,7 @@ func TestStuckTxDetector_Disabled(t *testing.T) {
 	autoPurgeCfg := testAutoPurgeConfig{
 		enabled: false,
 	}
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", autoPurgeCfg, feeEstimator, txStore, ethClient)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 
 	t.Run("returns empty list if auto-purge feature is disabled", func(t *testing.T) {
 		txs, err := stuckTxDetector.DetectStuckTransactions(testutils.Context(t), []common.Address{fromAddress}, 100)
@@ -80,7 +80,7 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 		threshold:   autoPurgeThreshold,
 		minAttempts: autoPurgeMinAttempts,
 	}
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", autoPurgeCfg, feeEstimator, txStore, ethClient)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 
 	t.Run("purge num map loaded on startup rate limits new purges on startup", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -114,7 +114,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	lggr := logger.Test(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 
 	t.Run("returns empty list if no unconfimed transactions found", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -179,7 +179,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 		minAttempts: autoPurgeMinAttempts,
 	}
 	blockNum := int64(100)
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", autoPurgeCfg, feeEstimator, txStore, ethClient)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 
 	t.Run("not stuck, Threshold amount of blocks have not passed since broadcast", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -270,7 +270,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 		enabled: true,
 	}
 	blockNum := int64(100)
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, commonconfig.ChainZkEvm, autoPurgeCfg, feeEstimator, txStore, ethClient)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, commonconfig.ChainZkEvm, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 	t.Run("returns empty list if no stuck transactions identified", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, 1, blockNum, tenGwei)
@@ -353,7 +353,7 @@ func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 			enabled:         true,
 			detectionApiUrl: testUrl,
 		}
-		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, commonconfig.ChainScroll, autoPurgeCfg, feeEstimator, txStore, ethClient)
+		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, commonconfig.ChainScroll, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 
 		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, []common.Address{fromAddress1, fromAddress2}, blockNum)
 		require.NoError(t, err)

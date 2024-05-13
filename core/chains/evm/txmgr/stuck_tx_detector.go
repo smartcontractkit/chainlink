@@ -45,6 +45,7 @@ type stuckTxDetector struct {
 	lggr      logger.Logger
 	chainID   *big.Int
 	chainType config.ChainType
+	maxPrice  *assets.Wei
 	cfg       stuckTxDetectorConfig
 
 	gasEstimator stuckTxDetectorGasEstimator
@@ -56,7 +57,7 @@ type stuckTxDetector struct {
 	purgeBlockNumMap  map[common.Address]int64 // Tracks the last block num a tx was purged for each from address if the PurgeOverflowTxs feature is enabled
 }
 
-func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.ChainType, cfg stuckTxDetectorConfig, gasEstimator stuckTxDetectorGasEstimator, txStore stuckTxDetectorTxStore, chainClient stuckTxDetectorClient) *stuckTxDetector {
+func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.ChainType, maxPrice *assets.Wei, cfg stuckTxDetectorConfig, gasEstimator stuckTxDetectorGasEstimator, txStore stuckTxDetectorTxStore, chainClient stuckTxDetectorClient) *stuckTxDetector {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DisableCompression = true
 	httpClient := &http.Client{Transport: t}
@@ -64,6 +65,7 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.C
 		lggr:             lggr,
 		chainID:          chainID,
 		chainType:        chainType,
+		maxPrice:         maxPrice,
 		cfg:              cfg,
 		gasEstimator:     gasEstimator,
 		txStore:          txStore,
@@ -172,8 +174,8 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 	d.purgeBlockNumLock.RLock()
 	defer d.purgeBlockNumLock.RUnlock()
 	// Get gas price from internal gas estimator
-	// Send with arbitrarily high max gas price to prevent the results from being capped. Need the market gas price here.
-	marketGasPrice, _, err := d.gasEstimator.GetFee(ctx, []byte{}, 0, assets.Ether(100))
+	// Send with max gas price time 2 to prevent the results from being capped. Need the market gas price here.
+	marketGasPrice, _, err := d.gasEstimator.GetFee(ctx, []byte{}, 0, d.maxPrice.Mul(big.NewInt(2)))
 	if err != nil {
 		return txs, fmt.Errorf("failed to get market gas price for overflow detection: %w", err)
 	}

@@ -129,7 +129,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	ge := config.EVM().GasEstimator()
 	feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), gconfig.Database(), ethKeyStore, txBuilder, lggr, stuckTxDetector)
 	ctx := testutils.Context(t)
 
@@ -1646,7 +1646,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
-		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", ccfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
+		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), ccfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 		// Create confirmer with necessary state
 		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr, stuckTxDetector)
 		servicetest.Run(t, ec)
@@ -1695,7 +1695,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
-		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", ccfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
+		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), ccfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr, stuckTxDetector)
 		servicetest.Run(t, ec)
 		currentHead := int64(30)
@@ -3153,7 +3153,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ge := evmcfg.EVM().GasEstimator()
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", evmcfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), evmcfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database(), ethKeyStore, txBuilder, lggr, stuckTxDetector)
 	servicetest.Run(t, ec)
 
@@ -3232,7 +3232,7 @@ func newEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Cl
 		return gas.NewFixedPriceEstimator(ge, nil, ge.BlockHistory(), lggr, nil)
 	}, ge.EIP1559DynamicFees(), ge)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", config.EVM().Transactions().AutoPurge(), estimator, txStore, ethClient)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), estimator, txStore, ethClient)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), gconfig.Database(), ks, txBuilder, lggr, stuckTxDetector)
 	ec.SetResumeCallback(fn)
 	servicetest.Run(t, ec)

@@ -448,6 +448,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 	return nil
 }
 
+// Determines if any of the unconfirmed transactions are terminally stuck for each enabled address
+// If any transaction is found to be terminally stuck, this method sends an empty attempt with bumped gas in an attempt to purge the stuck transaction
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessStuckTransactions(ctx context.Context, blockNum int64) error {
 	// Use the detector to find a stuck tx for each enabled address
 	stuckTxs, err := ec.stuckTxDetector.DetectStuckTransactions(ctx, ec.enabledAddresses, blockNum)
