@@ -1,6 +1,6 @@
 golang 1.21.7
 mockery 2.42.2
-nodejs 20.12.6
+nodejs 20.13.1
 pnpm 8.15.8
 postgres 14.11
 helm 3.10.3
