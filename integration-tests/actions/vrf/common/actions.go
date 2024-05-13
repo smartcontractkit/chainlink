@@ -332,6 +332,7 @@ func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config
 			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
 				log.
 					Str("Funding Amount in wei", fundingToSendWei.String()).
+					Str("Funding Amount in ETH", conversions.WeiToEther(fundingToSendWei).String()).
 					Msg("Funding Node's Sending Key")
 				_, err := actions_seth.SendFunds(l, client, actions_seth.FundsToSendPayload{
 					ToAddress:  common.HexToAddress(sendingKey),
