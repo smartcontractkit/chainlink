@@ -905,7 +905,7 @@ var noOpSethConfigFn = func(cfg *seth.Config) error { return nil }
 type SethConfigFunction = func(*seth.Config) error
 
 // OneEphemeralKeysLiveTestnetCheckFn checks whether there's at least one ephemeral key on a simulated network or at least one static key on a live network,
-// and that there are no epehemeral keys on a live network. Root key is excluded from the check.
+// and that there are no ephemeral keys on a live network. Root key is excluded from the check.
 var OneEphemeralKeysLiveTestnetCheckFn = func(sethCfg *seth.Config) error {
 	concurrency := sethCfg.GetMaxConcurrency()
 

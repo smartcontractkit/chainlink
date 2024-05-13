@@ -101,7 +101,7 @@ eip_1559_dynamic_fees = true
 # gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
 # gas_limit = 8_000_000
 # transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
-# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
+# we use hardcoded value in order to estimate how much funds are available for sending or returning after tx costs have been paid
 transfer_gas_fee = 21_000
 
 # manual settings, used when gas_price_estimation_enabled is false or when it fails
