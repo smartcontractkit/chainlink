@@ -235,7 +235,7 @@ func (te *CLClusterTestEnv) Cleanup(ctx context.Context, opts CleanupOpts) error
 		te.l.Info().
 			Msg("Network is a simulated network. Skipping fund return.")
 	} else {
-		if err := te.returnFunds(ctx); err != nil {
+		if err := te.returnFunds(); err != nil {
 			return err
 		}
 	}
@@ -356,7 +356,7 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 	}
 }
 
-func (te *CLClusterTestEnv) returnFunds(ctx context.Context) error {
+func (te *CLClusterTestEnv) returnFunds() error {
 	te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 
 	if len(te.evmClients) == 0 && len(te.sethClients) == 0 {
