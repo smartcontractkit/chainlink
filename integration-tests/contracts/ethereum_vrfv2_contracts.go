@@ -373,7 +373,7 @@ func (v *EthereumVRFCoordinatorV2) Address() string {
 
 func (v *EthereumVRFCoordinatorV2) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	hash, err := v.coordinator.HashOfKey(opts, pubKey)
@@ -385,7 +385,7 @@ func (v *EthereumVRFCoordinatorV2) HashOfKey(ctx context.Context, pubKey [2]*big
 
 func (v *EthereumVRFCoordinatorV2) GetSubscription(ctx context.Context, subID uint64) (Subscription, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	subscription, err := v.coordinator.GetSubscription(opts, subID)
@@ -403,7 +403,7 @@ func (v *EthereumVRFCoordinatorV2) GetSubscription(ctx context.Context, subID ui
 
 func (v *EthereumVRFCoordinatorV2) GetOwner(ctx context.Context) (common.Address, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	coordinatorOwnerAddress, err := v.coordinator.Owner(opts)
@@ -415,7 +415,7 @@ func (v *EthereumVRFCoordinatorV2) GetOwner(ctx context.Context) (common.Address
 
 func (v *EthereumVRFCoordinatorV2) GetRequestConfig(ctx context.Context) (GetRequestConfig, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	minConfirmations, maxGas, keyHashes, err := v.coordinator.GetRequestConfig(opts)
@@ -433,7 +433,7 @@ func (v *EthereumVRFCoordinatorV2) GetRequestConfig(ctx context.Context) (GetReq
 
 func (v *EthereumVRFCoordinatorV2) GetConfig(ctx context.Context) (vrf_coordinator_v2.GetConfig, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	config, err := v.coordinator.GetConfig(opts)
@@ -445,7 +445,7 @@ func (v *EthereumVRFCoordinatorV2) GetConfig(ctx context.Context) (vrf_coordinat
 
 func (v *EthereumVRFCoordinatorV2) GetFallbackWeiPerUnitLink(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	fallbackWeiPerUnitLink, err := v.coordinator.GetFallbackWeiPerUnitLink(opts)
@@ -457,7 +457,7 @@ func (v *EthereumVRFCoordinatorV2) GetFallbackWeiPerUnitLink(ctx context.Context
 
 func (v *EthereumVRFCoordinatorV2) GetFeeConfig(ctx context.Context) (vrf_coordinator_v2.GetFeeConfig, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	config, err := v.coordinator.GetFeeConfig(opts)
@@ -510,7 +510,7 @@ func (v *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress str
 
 func (v *EthereumVRFCoordinatorV2) PendingRequestsExist(ctx context.Context, subID uint64) (bool, error) {
 	opts := &bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	pendingRequestExists, err := v.coordinator.PendingRequestExists(opts, subID)
@@ -593,7 +593,7 @@ func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Ad
 }
 
 func (v *EthereumVRFCoordinatorV2) FindSubscriptionID(subID uint64) (uint64, error) {
-	owner := v.client.Addresses[0]
+	owner := v.client.MustGetRootKeyAddress()
 	subscriptionIterator, err := v.coordinator.FilterSubscriptionCreated(
 		nil,
 		[]uint64{subID},
@@ -797,7 +797,7 @@ func (v *EthereumVRFConsumerV2) GetAllRandomWords(ctx context.Context, num int) 
 	words := make([]*big.Int, 0)
 	for i := 0; i < num; i++ {
 		word, err := v.consumer.SRandomWords(&bind.CallOpts{
-			From:    v.client.Addresses[0],
+			From:    v.client.MustGetRootKeyAddress(),
 			Context: ctx,
 		}, big.NewInt(int64(i)))
 		if err != nil {
@@ -852,7 +852,7 @@ func (v *EthereumVRFv2Consumer) Address() string {
 // CurrentSubscription get current VRFv2 subscription
 func (v *EthereumVRFConsumerV2) CurrentSubscription() (uint64, error) {
 	return v.consumer.SSubId(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: context.Background(),
 	})
 }
@@ -860,7 +860,7 @@ func (v *EthereumVRFConsumerV2) CurrentSubscription() (uint64, error) {
 // GasAvailable get available gas after randomness fulfilled
 func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
 	return v.consumer.SGasAvailable(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: context.Background(),
 	})
 }
@@ -904,7 +904,7 @@ func (v *EthereumVRFv2Consumer) RequestRandomness(hash [32]byte, subID uint64, c
 // RandomnessOutput get VRFv2 randomness output (word)
 func (v *EthereumVRFConsumerV2) RandomnessOutput(ctx context.Context, arg0 *big.Int) (*big.Int, error) {
 	return v.consumer.SRandomWords(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}, arg0)
 }
@@ -965,28 +965,28 @@ func (v *EthereumVRFv2LoadTestConsumer) RequestRandomWordsWithForceFulfill(
 
 func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2_consumer_wrapper.GetRequestStatus, error) {
 	return v.consumer.GetRequestStatus(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}, requestID)
 }
 
 func (v *EthereumVRFv2Consumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
 	return v.consumer.LastRequestId(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
 
 func (v *EthereumVRFv2LoadTestConsumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_load_test_with_metrics.GetRequestStatus, error) {
 	return v.consumer.GetRequestStatus(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}, requestID)
 }
 
 func (v *EthereumVRFv2LoadTestConsumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
 	return v.consumer.SLastRequestId(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -998,14 +998,14 @@ func (v *EthereumVRFv2LoadTestConsumer) ResetMetrics() error {
 
 func (v *EthereumVRFv2LoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error) {
 	requestCount, err := v.consumer.SRequestCount(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 	if err != nil {
 		return &VRFLoadTestMetrics{}, err
 	}
 	fulfilmentCount, err := v.consumer.SResponseCount(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 
@@ -1013,14 +1013,14 @@ func (v *EthereumVRFv2LoadTestConsumer) GetLoadTestMetrics(ctx context.Context) 
 		return &VRFLoadTestMetrics{}, err
 	}
 	averageFulfillmentInMillions, err := v.consumer.SAverageFulfillmentInMillions(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 	if err != nil {
 		return &VRFLoadTestMetrics{}, err
 	}
 	slowestFulfillment, err := v.consumer.SSlowestFulfillment(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 
@@ -1028,7 +1028,7 @@ func (v *EthereumVRFv2LoadTestConsumer) GetLoadTestMetrics(ctx context.Context) 
 		return &VRFLoadTestMetrics{}, err
 	}
 	fastestFulfillment, err := v.consumer.SFastestFulfillment(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 	if err != nil {
@@ -1067,7 +1067,7 @@ func (v *EthereumVRFV2Wrapper) SetConfig(wrapperGasOverhead uint32, coordinatorG
 
 func (v *EthereumVRFV2Wrapper) GetSubID(ctx context.Context) (uint64, error) {
 	return v.wrapper.SUBSCRIPTIONID(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -1095,35 +1095,35 @@ func (v *EthereumVRFV2WrapperLoadTestConsumer) RequestRandomness(coordinator Coo
 
 func (v *EthereumVRFV2WrapperLoadTestConsumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrfv2_wrapper_load_test_consumer.GetRequestStatus, error) {
 	return v.consumer.GetRequestStatus(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}, requestID)
 }
 
 func (v *EthereumVRFV2WrapperLoadTestConsumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
 	return v.consumer.SLastRequestId(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
 
 func (v *EthereumVRFV2WrapperLoadTestConsumer) GetWrapper(ctx context.Context) (common.Address, error) {
 	return v.consumer.IVrfV2Wrapper(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
 
 func (v *EthereumVRFV2WrapperLoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error) {
 	requestCount, err := v.consumer.SRequestCount(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 	if err != nil {
 		return nil, err
 	}
 	fulfilmentCount, err := v.consumer.SResponseCount(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 
@@ -1131,14 +1131,14 @@ func (v *EthereumVRFV2WrapperLoadTestConsumer) GetLoadTestMetrics(ctx context.Co
 		return nil, err
 	}
 	averageFulfillmentInMillions, err := v.consumer.SAverageFulfillmentInMillions(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 	if err != nil {
 		return nil, err
 	}
 	slowestFulfillment, err := v.consumer.SSlowestFulfillment(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 
@@ -1146,7 +1146,7 @@ func (v *EthereumVRFV2WrapperLoadTestConsumer) GetLoadTestMetrics(ctx context.Co
 		return nil, err
 	}
 	fastestFulfillment, err := v.consumer.SFastestFulfillment(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 	if err != nil {
@@ -1218,7 +1218,7 @@ func (v *EthereumVRFMockETHLINKFeed) Address() string {
 
 func (v *EthereumVRFMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 	data, err := v.feed.LatestRoundData(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: context.Background(),
 	})
 	if err != nil {
@@ -1229,7 +1229,7 @@ func (v *EthereumVRFMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 
 func (v *EthereumVRFMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
 	data, err := v.feed.LatestRoundData(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: context.Background(),
 	})
 	if err != nil {

@@ -377,7 +377,7 @@ func SetupVRFV2ForNewEnv(
 		linkToken,
 		mockETHLinkFeed,
 		//register proving key against EOA address in order to return funds to this address
-		sethClient.Addresses[0].Hex(),
+		sethClient.MustGetRootKeyAddress().Hex(),
 		newEnvConfig.NumberOfTxKeysToCreate,
 		l,
 	)

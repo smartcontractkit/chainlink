@@ -59,7 +59,7 @@ func TestVRFv2Plus(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -559,10 +559,10 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, pendingRequestsExist, "Pending requests should exist after unfulfilled rand requests due to low sub balance")
 
-		walletBalanceNativeBeforeSubCancelling, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(sethClient.Addresses[0].Hex()), nil)
+		walletBalanceNativeBeforeSubCancelling, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(sethClient.MustGetRootKeyAddress().Hex()), nil)
 		require.NoError(t, err)
 
-		walletBalanceLinkBeforeSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.Addresses[0].Hex())
+		walletBalanceLinkBeforeSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.MustGetRootKeyAddress().Hex())
 		require.NoError(t, err)
 
 		subscriptionForCancelling, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
@@ -574,7 +574,7 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("Subscription Amount Native", subBalanceNative.String()).
 			Str("Subscription Amount Link", subBalanceLink.String()).
 			Str("Returning funds from SubID", subID.String()).
-			Str("Returning funds to", sethClient.Addresses[0].Hex()).
+			Str("Returning funds to", sethClient.MustGetRootKeyAddress().Hex()).
 			Msg("Canceling subscription and returning funds to subscription owner")
 		tx, err := vrfContracts.CoordinatorV2Plus.OwnerCancelSubscription(subID)
 		require.NoError(t, err, "Error canceling subscription")
@@ -607,10 +607,10 @@ func TestVRFv2Plus(t *testing.T) {
 		require.Equal(t, subBalanceNative, subscriptionCanceledEvent.AmountNative, "SubscriptionCanceled event native amount is not equal to sub amount while canceling subscription")
 		require.Equal(t, subBalanceLink, subscriptionCanceledEvent.AmountLink, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
 
-		walletBalanceNativeAfterSubCancelling, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(sethClient.Addresses[0].Hex()), nil)
+		walletBalanceNativeAfterSubCancelling, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(sethClient.MustGetRootKeyAddress().Hex()), nil)
 		require.NoError(t, err)
 
-		walletBalanceLinkAfterSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.Addresses[0].Hex())
+		walletBalanceLinkAfterSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.MustGetRootKeyAddress().Hex())
 		require.NoError(t, err)
 
 		//Verify that sub was deleted from Coordinator
@@ -694,37 +694,37 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 		amountToWithdrawLink := fulfilledEventLink.Payment
 
-		defaultWalletBalanceNativeBeforeWithdraw, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(sethClient.Addresses[0].Hex()), nil)
+		defaultWalletBalanceNativeBeforeWithdraw, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(sethClient.MustGetRootKeyAddress().Hex()), nil)
 		require.NoError(t, err)
 
-		defaultWalletBalanceLinkBeforeWithdraw, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.Addresses[0].Hex())
+		defaultWalletBalanceLinkBeforeWithdraw, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.MustGetRootKeyAddress().Hex())
 		require.NoError(t, err)
 
 		l.Info().
-			Str("Returning to", sethClient.Addresses[0].Hex()).
+			Str("Returning to", sethClient.MustGetRootKeyAddress().Hex()).
 			Str("Amount", amountToWithdrawLink.String()).
 			Msg("Invoking Oracle Withdraw for LINK")
 
 		err = vrfContracts.CoordinatorV2Plus.Withdraw(
-			common.HexToAddress(sethClient.Addresses[0].Hex()),
+			common.HexToAddress(sethClient.MustGetRootKeyAddress().Hex()),
 		)
 		require.NoError(t, err, "error withdrawing LINK from coordinator to default wallet")
 		amountToWithdrawNative := fulfilledEventNative.Payment
 
 		l.Info().
-			Str("Returning to", sethClient.Addresses[0].Hex()).
+			Str("Returning to", sethClient.MustGetRootKeyAddress().Hex()).
 			Str("Amount", amountToWithdrawNative.String()).
 			Msg("Invoking Oracle Withdraw for Native")
 
 		err = vrfContracts.CoordinatorV2Plus.WithdrawNative(
-			common.HexToAddress(sethClient.Addresses[0].Hex()),
+			common.HexToAddress(sethClient.MustGetRootKeyAddress().Hex()),
 		)
 		require.NoError(t, err, "error withdrawing Native tokens from coordinator to default wallet")
 
-		defaultWalletBalanceNativeAfterWithdraw, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(sethClient.Addresses[0].Hex()), nil)
+		defaultWalletBalanceNativeAfterWithdraw, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(sethClient.MustGetRootKeyAddress().Hex()), nil)
 		require.NoError(t, err)
 
-		defaultWalletBalanceLinkAfterWithdraw, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.Addresses[0].Hex())
+		defaultWalletBalanceLinkAfterWithdraw, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.MustGetRootKeyAddress().Hex())
 		require.NoError(t, err)
 
 		//not possible to verify exact amount of Native/LINK returned as defaultWallet is used in other tests in parallel which might affect the balance
@@ -759,7 +759,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -862,7 +862,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -1259,7 +1259,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -1486,7 +1486,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -1639,7 +1639,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -1833,7 +1833,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {

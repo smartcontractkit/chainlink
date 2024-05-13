@@ -79,7 +79,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		} else {
 			if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*testConfig.VRFv2Plus.General.UseExistingEnv {
@@ -216,7 +216,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		} else {
 			if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.Addresses[0].Hex(), subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*testConfig.VRFv2Plus.General.UseExistingEnv {

@@ -269,7 +269,7 @@ func (v *EthereumBlockhashStore) Address() string {
 
 func (v *EthereumBlockhashStore) GetBlockHash(ctx context.Context, blockNumber *big.Int) ([32]byte, error) {
 	blockHash, err := v.blockHashStore.GetBlockhash(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}, blockNumber)
 	if err != nil {
@@ -285,7 +285,7 @@ func (v *EthereumVRFCoordinator) Address() string {
 // HashOfKey get a hash of proving key to use it as a request ID part for VRF
 func (v *EthereumVRFCoordinator) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
 	hash, err := v.coordinator.HashOfKey(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}, pubKey)
 	if err != nil {
@@ -322,7 +322,7 @@ func (v *EthereumVRFConsumer) RequestRandomness(hash [32]byte, fee *big.Int) err
 // CurrentRoundID helper roundID counter in consumer to check when all randomness requests are finished
 func (v *EthereumVRFConsumer) CurrentRoundID(ctx context.Context) (*big.Int, error) {
 	return v.consumer.CurrentRoundID(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -330,7 +330,7 @@ func (v *EthereumVRFConsumer) CurrentRoundID(ctx context.Context) (*big.Int, err
 // RandomnessOutput get VRF randomness output
 func (v *EthereumVRFConsumer) RandomnessOutput(ctx context.Context) (*big.Int, error) {
 	return v.consumer.RandomnessOutput(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }
@@ -343,7 +343,7 @@ func (v *EthereumVRF) Fund(_ *big.Float) error {
 // ProofLength returns the PROOFLENGTH call from the VRF contract
 func (v *EthereumVRF) ProofLength(ctx context.Context) (*big.Int, error) {
 	return v.vrf.PROOFLENGTH(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
 }

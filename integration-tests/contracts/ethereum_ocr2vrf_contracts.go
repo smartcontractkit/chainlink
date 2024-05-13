@@ -307,7 +307,7 @@ func (coordinator *EthereumVRFCoordinatorV3) CreateSubscription() error {
 
 func (coordinator *EthereumVRFCoordinatorV3) FindSubscriptionID() (*big.Int, error) {
 	fopts := &bind.FilterOpts{}
-	owner := coordinator.client.Addresses[0]
+	owner := coordinator.client.MustGetRootKeyAddress()
 
 	subscriptionIterator, err := coordinator.vrfCoordinatorV3.FilterSubscriptionCreated(
 		fopts,
@@ -421,7 +421,7 @@ func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent(timeout time.Durati
 func (beacon *EthereumVRFBeacon) LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
 	error) {
 	opts := &bind.CallOpts{
-		From:    beacon.client.Addresses[0],
+		From:    beacon.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	return beacon.vrfBeacon.LatestConfigDigestAndEpoch(opts)
@@ -500,7 +500,7 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 
 func (consumer *EthereumVRFBeaconConsumer) IBeaconPeriodBlocks(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    consumer.client.Addresses[0],
+		From:    consumer.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	return consumer.vrfBeaconConsumer.IBeaconPeriodBlocks(opts)
@@ -508,7 +508,7 @@ func (consumer *EthereumVRFBeaconConsumer) IBeaconPeriodBlocks(ctx context.Conte
 
 func (consumer *EthereumVRFBeaconConsumer) GetRequestIdsBy(ctx context.Context, nextBeaconOutputHeight *big.Int, confDelay *big.Int) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    consumer.client.Addresses[0],
+		From:    consumer.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	return consumer.vrfBeaconConsumer.SRequestsIDs(opts, nextBeaconOutputHeight, confDelay)
@@ -516,7 +516,7 @@ func (consumer *EthereumVRFBeaconConsumer) GetRequestIdsBy(ctx context.Context, 
 
 func (consumer *EthereumVRFBeaconConsumer) GetRandomnessByRequestId(ctx context.Context, requestID *big.Int, numWordIndex *big.Int) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    consumer.client.Addresses[0],
+		From:    consumer.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	return consumer.vrfBeaconConsumer.SReceivedRandomnessByRequestID(opts, requestID, numWordIndex)
