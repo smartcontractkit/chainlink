@@ -22,7 +22,7 @@ pipelines:
 
         args=""
         for i in {0..5}; do
-          args+="--set=helm.values.chainlink.nodes[$i].image=$image "
+          args+="--set=helm.values.crib-chainlink-cluster.chainlink.nodes[$i].image=$image "
         done
 
         create_deployments app $args
@@ -100,7 +100,7 @@ deployments:
       releaseName: "app"
       chart:
         name: ${CCIP_HELM_CHART_URI}
-        version: "0.1.0"
+        version: "0.1.1"
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
