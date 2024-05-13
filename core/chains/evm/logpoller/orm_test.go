@@ -629,7 +629,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, logpoller.EvmWord(1).Bytes(), lgs[0].GetTopics()[1].Bytes())
 
-	lgs, err = o1.FilteredLogs(ctx, standardFilter(1, []uint64{1}), limiter)
+	lgs, err = o1.FilteredLogs(ctx, standardFilter(1, []uint64{1}), limiter, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, logpoller.EvmWord(1).Bytes(), lgs[0].GetTopics()[1].Bytes())
@@ -638,7 +638,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, standardFilter(1, []uint64{1, 2}), limiter)
+	lgs, err = o1.FilteredLogs(ctx, standardFilter(1, []uint64{1, 2}), limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
 
@@ -658,7 +658,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 1, 1, []uint64{1}), limiter)
+	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 1, 1, []uint64{1}), limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
@@ -666,7 +666,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 1, []uint64{2}), limiter)
+	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 1, []uint64{2}), limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
@@ -674,7 +674,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 1, []uint64{1}), limiter)
+	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 1, []uint64{1}), limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
@@ -682,7 +682,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index for topic: 0")
 
-	_, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 0, []uint64{1}), limiter)
+	_, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 0, []uint64{1}), limiter, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index for topic: 0")
 
@@ -690,7 +690,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index for topic: 4")
 
-	_, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 4, []uint64{1}), limiter)
+	_, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 4, []uint64{1}), limiter, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index for topic: 4")
 
@@ -709,7 +709,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 		},
 	}
 
-	lgs, err = o1.FilteredLogs(ctx, filter, limiter)
+	lgs, err = o1.FilteredLogs(ctx, filter, limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
 
@@ -734,7 +734,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	assert.Equal(t, 1, len(lgs))
 	assert.Equal(t, logpoller.EvmWord(3).Bytes(), lgs[0].GetTopics()[1].Bytes())
 
-	lgs, err = o1.FilteredLogs(ctx, rangeFilter(1, 3, 3), limiter)
+	lgs, err = o1.FilteredLogs(ctx, rangeFilter(1, 3, 3), limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 	assert.Equal(t, logpoller.EvmWord(3).Bytes(), lgs[0].GetTopics()[1].Bytes())
@@ -743,7 +743,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, rangeFilter(1, 1, 3), limiter)
+	lgs, err = o1.FilteredLogs(ctx, rangeFilter(1, 1, 3), limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 3, len(lgs))
 
@@ -833,7 +833,7 @@ func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 		},
 	}
 
-	retrievedLogs, err = o1.FilteredLogs(ctx, filter, limiter)
+	retrievedLogs, err = o1.FilteredLogs(ctx, filter, limiter, "")
 	require.NoError(t, err)
 
 	require.Equal(t, 2, len(retrievedLogs))
@@ -897,7 +897,7 @@ func TestORM_DataWords(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, wordFilter(0, 2, 2), limiter)
+	lgs, err = o1.FilteredLogs(ctx, wordFilter(0, 2, 2), limiter, "")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(lgs))
 
@@ -906,7 +906,7 @@ func TestORM_DataWords(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, wordFilter(0, 1, 2), limiter)
+	lgs, err = o1.FilteredLogs(ctx, wordFilter(0, 1, 2), limiter, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 
@@ -915,7 +915,7 @@ func TestORM_DataWords(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, wordFilter(0, 1, 1), limiter)
+	lgs, err = o1.FilteredLogs(ctx, wordFilter(0, 1, 1), limiter, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 
@@ -924,7 +924,7 @@ func TestORM_DataWords(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, wordFilter(1, 3, 3), limiter)
+	lgs, err = o1.FilteredLogs(ctx, wordFilter(1, 3, 3), limiter, "")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(lgs))
 
@@ -935,7 +935,7 @@ func TestORM_DataWords(t *testing.T) {
 	require.Equal(t, 1, len(lgs))
 	require.Equal(t, lgs[0].Data, append(logpoller.EvmWord(2).Bytes(), logpoller.EvmWord(3).Bytes()...))
 
-	lgs, err = o1.FilteredLogs(ctx, wordFilter(1, 3, 3), limiter)
+	lgs, err = o1.FilteredLogs(ctx, wordFilter(1, 3, 3), limiter, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	require.Equal(t, lgs[0].Data, append(logpoller.EvmWord(2).Bytes(), logpoller.EvmWord(3).Bytes()...))
@@ -956,7 +956,7 @@ func TestORM_DataWords(t *testing.T) {
 		},
 	}
 
-	lgs, err = o1.FilteredLogs(ctx, filter, limiter)
+	lgs, err = o1.FilteredLogs(ctx, filter, limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
 }
@@ -1098,7 +1098,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 
 	assertion(t, logs, err, startBlock, endBlock)
 
-	logs, err = th.ORM.FilteredLogs(ctx, filter([]common.Hash{topic, topic2}, startBlock, endBlock), limiter)
+	logs, err = th.ORM.FilteredLogs(ctx, filter([]common.Hash{topic, topic2}, startBlock, endBlock), limiter, "")
 
 	assertion(t, logs, err, startBlock, endBlock)
 }
@@ -1183,7 +1183,7 @@ func TestLogPoller_Logs(t *testing.T) {
 
 	lgs, err = th.ORM.FilteredLogs(ctx, logFilter(1, 3, address1), query.LimitAndSort{
 		SortBy: []query.SortBy{query.NewSortBySequence(query.Asc)},
-	})
+	}, "")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000003", lgs[0].BlockHash.String())
@@ -1203,7 +1203,7 @@ func TestLogPoller_Logs(t *testing.T) {
 
 	lgs, err = th.ORM.FilteredLogs(ctx, logFilter(2, 2, address2), query.LimitAndSort{
 		SortBy: []query.SortBy{query.NewSortBySequence(query.Asc)},
-	})
+	}, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000004", lgs[0].BlockHash.String())
@@ -1733,7 +1733,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 
 			assertion(t, logs, err, tt.expectedLogs)
 
-			logs, err = th.ORM.FilteredLogs(ctx, filter(tt.after, tt.confs, 0, nil), limiter)
+			logs, err = th.ORM.FilteredLogs(ctx, filter(tt.after, tt.confs, 0, nil), limiter, "")
 
 			assertion(t, logs, err, tt.expectedLogs)
 		})
@@ -1746,7 +1746,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 
 				assertion(t, logs, err, tt.expectedLogs)
 
-				logs, err = th.ORM.FilteredLogs(ctx, filter(tt.after, tt.confs, 1, []common.Hash{event}), limiter)
+				logs, err = th.ORM.FilteredLogs(ctx, filter(tt.after, tt.confs, 1, []common.Hash{event}), limiter, "")
 
 				assertion(t, logs, err, tt.expectedLogs)
 			})
@@ -2002,7 +2002,7 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 
 			assertion(t, logs, err, tt.expectedLogs)
 
-			logs, err = th.ORM.FilteredLogs(ctx, wordFilter(tt.wordValue), limiter)
+			logs, err = th.ORM.FilteredLogs(ctx, wordFilter(tt.wordValue), limiter, "")
 
 			assertion(t, logs, err, tt.expectedLogs)
 		})
