@@ -127,21 +127,38 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 	}
 	if slices.Contains(triggerDONPeers, myId) {
 		s.lggr.Info("member of a capability DON - starting remote publishers")
+
+		{
+			// ---- This is for local tests only, until a full-blown Syncer is implemented
+			// ---- Normally this is set up asynchronously (by the Relayer + job specs in Mercury's case)
+			localTrigger := triggers.NewMercuryTriggerService(1000, s.lggr)
+			mockMercuryDataProducer := NewMockMercuryDataProducer(localTrigger, s.lggr)
+			err = s.registry.Add(ctx, localTrigger)
+			if err != nil {
+				s.lggr.Errorw("failed to add local trigger capability to registry", "error", err)
+				return err
+			}
+			s.subServices = append(s.subServices, localTrigger)
+			s.subServices = append(s.subServices, mockMercuryDataProducer)
+			// ----
+		}
+
+		underlying, err2 := s.registry.GetTrigger(ctx, capId)
+		if err2 != nil {
+			// NOTE: it's possible that the jobs are not launched yet at this moment.
+			// If not found yet, Syncer won't add to Registry but retry on the next tick.
+			return err2
+		}
 		workflowDONs := map[string]capabilities.DON{
 			workflowDonInfo.ID: workflowDonInfo,
 		}
-		underlying := triggers.NewMercuryTriggerService(1000, s.lggr)
 		triggerCap := remote.NewTriggerPublisher(config, underlying, triggerInfo, triggerCapabilityDonInfo, workflowDONs, s.dispatcher, s.lggr)
 		err = s.dispatcher.SetReceiver(capId, triggerCapabilityDonInfo.ID, triggerCap)
 		if err != nil {
 			s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", triggerCapabilityDonInfo.ID, "error", err)
 			return err
 		}
-		s.subServices = append(s.subServices, underlying)
 		s.subServices = append(s.subServices, triggerCap)
-		// NOTE: temporary mock Mercury data producer
-		mockMercuryDataProducer := NewMockMercuryDataProducer(underlying, s.lggr)
-		s.subServices = append(s.subServices, mockMercuryDataProducer)
 	}
 	// NOTE: temporary service start - should be managed by capability creation
 	for _, srv := range s.subServices {

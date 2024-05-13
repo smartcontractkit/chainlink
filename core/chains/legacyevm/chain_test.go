@@ -28,7 +28,6 @@ func TestLegacyChains(t *testing.T) {
 	got, err := l.Get(c.ID().String())
 	assert.NoError(t, err)
 	assert.Equal(t, c, got)
-
 }
 
 func TestChainOpts_Validate(t *testing.T) {

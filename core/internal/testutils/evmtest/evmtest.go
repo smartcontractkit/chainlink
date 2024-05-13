@@ -53,7 +53,6 @@ func NewChainScopedConfig(t testing.TB, cfg legacyevm.AppConfig) evmconfig.Chain
 	}
 
 	return evmconfig.NewTOMLChainScopedConfig(evmCfg, logger.TestLogger(t))
-
 }
 
 type TestChainOpts struct {

@@ -168,15 +168,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	)
 
 	network = utils.MustReplaceSimulatedNetworkUrlWithK8(o.log, network, *o.testEnvironment)
-	readSethCfg := ocrTestConfig.GetSethConfig()
-	require.NotNil(o.t, readSethCfg, "Seth config shouldn't be nil")
-
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
-	require.NoError(o.t, err, "Error merging seth and evm network configs")
-	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-	require.NoError(o.t, err, "Error validating seth network config")
-
-	seth, err := seth.NewClientWithConfig(&sethCfg)
+	seth, err := actions_seth.GetChainClient(o.Config, network)
 	require.NoError(o.t, err, "Error creating seth client")
 
 	o.seth = seth

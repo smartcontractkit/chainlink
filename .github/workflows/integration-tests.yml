@@ -71,7 +71,7 @@ jobs:
           echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
       - name: Enforce CTF Version
         if: steps.condition-check.outputs.should-enforce == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@e29366cdecfe6befff9ab8c3cfe4825218505d58 # v2.3.16
         with:
           go-project-path: ./integration-tests
           module-name: github.com/smartcontractkit/chainlink-testing-framework
@@ -468,7 +468,7 @@ jobs:
         with:
           name: cl-node-coverage-data-${{ matrix.product.name }}
           path: .covdata
-          retention-days: 1          
+          retention-days: 1
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -529,12 +529,12 @@ jobs:
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             id: vrfv2
-            nodes: 5
+            nodes: 6
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             id: vrfv2plus
-            nodes: 8
+            nodes: 9
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
@@ -796,7 +796,7 @@ jobs:
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
   eth-smoke-go-mod-cache:
-    
+
     environment: integration
     needs: [eth-smoke-tests]
     runs-on: ubuntu-latest
@@ -917,7 +917,7 @@ jobs:
         with:
           name: cl-node-coverage-data-migration-tests
           path: .covdata
-          retention-days: 1          
+          retention-days: 1
       - name: Notify Slack
         if: failure() && github.event_name != 'workflow_dispatch'
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -1031,11 +1031,6 @@ jobs:
         solana-test-image-exists,
         get_solana_sha,
       ]
-    container:
-      image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
-      env:
-        RUSTUP_HOME: "/root/.rustup"
-        FORCE_COLOR: 1
     steps:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
@@ -1049,17 +1044,17 @@ jobs:
           this-job-name: Solana Build Artifacts
         continue-on-error: true
       - name: Checkout the solana repo
-        # Use v3.6.0 because the custom runner (container configured above)
-        # doesn't have node20 installed which is required for versions >=4
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
         if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@21675b3a7dcdff8e790391708d4763020cace21e # stable action on December 18 2023
+        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
+          image: projectserum/build
+          image-version: ${{ needs.get_projectserum_version.outputs.projectserum_version }}
 
   solana-build-test-image:
     environment: integration
@@ -1215,12 +1210,12 @@ jobs:
           QA_KUBECONFIG: ""
           run_setup: false
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/.covdata          
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: cl-node-coverage-data-solana-tests
           path: .covdata
-          retention-days: 1          
+          retention-days: 1
 

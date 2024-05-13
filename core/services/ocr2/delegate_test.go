@@ -169,7 +169,6 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			if !jb.ForwardingAllowed {
 				require.Equal(t, jb.OCR2OracleSpec.TransmitterID.String, effectiveTransmitterID)
 			}
-
 		})
 	}
 

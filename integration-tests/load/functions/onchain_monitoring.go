@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
 
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 )
 
 /* Monitors on-chain stats of LoadConsumer and pushes them to Loki every second */
@@ -25,7 +25,7 @@ type LoadStats struct {
 	Empty     uint32
 }
 
-func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string, config tc.GlobalTestConfig) {
+func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string, config ctf_config.GlobalTestConfig) {
 	go func() {
 		updatedLabels := make(map[string]string)
 		for k, v := range labels {

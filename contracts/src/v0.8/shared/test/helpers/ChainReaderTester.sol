@@ -22,7 +22,7 @@ struct InnerTestStruct {
   string S;
 }
 
-contract LatestValueHolder {
+contract ChainReaderTester {
   event Triggered(
     int32 indexed field,
     string differentField,
