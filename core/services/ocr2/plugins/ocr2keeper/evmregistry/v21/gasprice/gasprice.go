@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -18,6 +20,8 @@ const (
 	// the estimator. it's set to a very high value because the gas price will be compared with user-defined gas price
 	// later.
 	maxFeePrice = 1_000_000_000_000_000
+	// emptyOffchainConfig is the default upkeep offchain config
+	emptyOffchainConfig = "0x0000000000000000000000000000000000000000000000000000000000000000"
 )
 
 type UpkeepOffchainConfig struct {
@@ -27,8 +31,8 @@ type UpkeepOffchainConfig struct {
 // CheckGasPrice retrieves the current gas price and compare against the max gas price configured in upkeep's offchain config
 // any errors in offchain config decoding will result in max gas price check disabled
 func CheckGasPrice(ctx context.Context, upkeepId *big.Int, offchainConfigBytes []byte, ge gas.EvmFeeEstimator, lggr logger.Logger) encoding.UpkeepFailureReason {
-	// check for emptyh offchain config and 0x
-	if len(offchainConfigBytes) == 0 || len(offchainConfigBytes) == 2 && offchainConfigBytes[0] == 48 && offchainConfigBytes[1] == 120 {
+	// check for empty offchain config and 0x0000000000000000000000000000000000000000000000000000000000000000
+	if len(offchainConfigBytes) == 0 || hexutil.Encode(offchainConfigBytes) == emptyOffchainConfig {
 		return encoding.UpkeepFailureReasonNone
 	}
 
