@@ -8,17 +8,16 @@ import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {AggregateRateLimiterHelper} from "../helpers/AggregateRateLimiterHelper.sol";
 import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 
-import {BaseTest, stdError} from "../BaseTest.t.sol";
+import {stdError} from "forge-std/Test.sol";
 
-contract MultiAggregateRateLimiterSetup is BaseTest, PriceRegistrySetup {
+contract MultiAggregateRateLimiterSetup is PriceRegistrySetup {
   AggregateRateLimiterHelper internal s_rateLimiter;
   RateLimiter.Config internal s_config;
 
   address internal immutable TOKEN = 0x21118E64E1fB0c487F25Dd6d3601FF6af8D32E4e;
   uint224 internal constant TOKEN_PRICE = 4e18;
 
-  function setUp() public virtual override(BaseTest, PriceRegistrySetup) {
-    BaseTest.setUp();
+  function setUp() public virtual override {
     PriceRegistrySetup.setUp();
 
     Internal.PriceUpdates memory priceUpdates = getSingleTokenPriceUpdateStruct(TOKEN, TOKEN_PRICE);

@@ -19,7 +19,7 @@
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "npm dist-tag add @chainlink/contracts-ccip@1.2.1 latest",
-    "lint:ccip": "solhint --config ./src/v0.8/ccip/.solhint.json --ignore-path .ccip-solhint-ignore --max-warnings 0 \"./src/v0.8/ccip/**/*.sol\"",
+    "solhint:ccip": "solhint --max-warnings 0 \"./src/v0.8/ccip/**/*.sol\"",
     "solhint": "solhint --max-warnings 95 \"./src/v0.8/**/*.sol\""
   },
   "files": [

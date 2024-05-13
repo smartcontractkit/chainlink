@@ -8,9 +8,11 @@ import {ITokenMessenger} from "../../pools/USDC/ITokenMessenger.sol";
 // contracts involved with the Cross Chain Token Protocol.
 contract MockUSDCTokenMessenger is ITokenMessenger {
   uint32 private immutable i_messageBodyVersion;
-  bytes32 public constant i_destinationTokenMessenger = keccak256("i_destinationTokenMessenger");
+  address private immutable i_transmitter;
+
+  bytes32 public constant DESTINATION_TOKEN_MESSENGER = keccak256("i_destinationTokenMessenger");
+
   uint64 public s_nonce;
-  address private i_transmitter;
 
   constructor(uint32 version, address transmitter) {
     i_messageBodyVersion = version;
@@ -34,7 +36,7 @@ contract MockUSDCTokenMessenger is ITokenMessenger {
       msg.sender,
       mintRecipient,
       destinationDomain,
-      i_destinationTokenMessenger,
+      DESTINATION_TOKEN_MESSENGER,
       destinationCaller
     );
     return s_nonce++;

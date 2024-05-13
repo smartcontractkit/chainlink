@@ -23,9 +23,11 @@ import {IMessageTransmitterWithRelay} from "./interfaces/IMessageTransmitterWith
 // contracts involved with the Cross Chain Token Protocol.
 contract MockE2EUSDCTokenMessenger is ITokenMessenger {
   uint32 private immutable i_messageBodyVersion;
-  bytes32 public constant i_destinationTokenMessenger = keccak256("i_destinationTokenMessenger");
+  address private immutable i_transmitter;
+
+  bytes32 public constant DESTINATION_TOKEN_MESSENGER = keccak256("i_destinationTokenMessenger");
+
   uint64 public s_nonce;
-  address private i_transmitter;
 
   // Local Message Transmitter responsible for sending and receiving messages to/from remote domains
   IMessageTransmitterWithRelay public immutable localMessageTransmitterWithRelay;
@@ -51,7 +53,7 @@ contract MockE2EUSDCTokenMessenger is ITokenMessenger {
     bytes memory _burnMessage =
       abi.encodePacked(i_messageBodyVersion, burnToken, mintRecipient, amount, bytes32(uint256(uint160((msg.sender)))));
     s_nonce =
-      _sendDepositForBurnMessage(destinationDomain, i_destinationTokenMessenger, destinationCaller, _burnMessage);
+      _sendDepositForBurnMessage(destinationDomain, DESTINATION_TOKEN_MESSENGER, destinationCaller, _burnMessage);
     emit DepositForBurn(
       s_nonce,
       burnToken,
@@ -59,7 +61,7 @@ contract MockE2EUSDCTokenMessenger is ITokenMessenger {
       msg.sender,
       mintRecipient,
       destinationDomain,
-      i_destinationTokenMessenger,
+      DESTINATION_TOKEN_MESSENGER,
       destinationCaller
     );
     return s_nonce;
