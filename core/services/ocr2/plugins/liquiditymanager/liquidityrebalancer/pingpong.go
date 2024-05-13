@@ -69,16 +69,13 @@ func (p *PingPong) ComputeTransfersToBalance(g graph.Graph, unexecuted []Unexecu
 // 1. Can transfer back (bidirectional graph connection).
 // 2. There is no unexecuted transfer in either direction.
 func (p *PingPong) eligibleNeighbors(g graph.Graph, netSel models.NetworkSelector, unexecuted []UnexecutedTransfer) []models.NetworkSelector {
-	allNeighbors, exists := g.GetNeighbors(netSel)
+	allNeighbors, exists := g.GetNeighbors(netSel, true)
 	if !exists {
 		panic(fmt.Errorf("critical internal graph issue: neighbors of %d not found", netSel))
 	}
 
 	targetNeighbors := make([]models.NetworkSelector, 0, len(allNeighbors))
 	for _, neighborNetSel := range allNeighbors {
-		if !g.HasConnection(neighborNetSel, netSel) {
-			continue
-		}
 		if p.isUnexecutedBidirectionally(netSel, neighborNetSel, unexecuted) {
 			continue
 		}

@@ -85,22 +85,22 @@ func TestPlugin_Observation(t *testing.T) {
 			seqNr: 1,
 			observedGraph: func(t *testing.T) (graph.Graph, error) {
 				g := graph.NewGraph()
-				g.AddNetwork(networkA, graph.Data{
-					Liquidity:         big.NewInt(1000),
-					TokenAddress:      tokenX,
-					RebalancerAddress: rebalancerA,
-					NetworkSelector:   networkA,
-					ConfigDigest:      cfgDigest1,
-				})
-				g.AddNetwork(networkB, graph.Data{
-					Liquidity:         big.NewInt(2000),
-					TokenAddress:      tokenY,
-					RebalancerAddress: rebalancerB,
-					NetworkSelector:   networkB,
-					ConfigDigest:      cfgDigest2,
-				})
-				assert.NoError(t, g.AddConnection(networkA, networkB))
-				assert.NoError(t, g.AddConnection(networkB, networkA))
+				a := graph.Data{
+					Liquidity:               big.NewInt(1000),
+					TokenAddress:            tokenX,
+					LiquidityManagerAddress: rebalancerA,
+					NetworkSelector:         networkA,
+					ConfigDigest:            cfgDigest1,
+				}
+				b := graph.Data{
+					Liquidity:               big.NewInt(2000),
+					TokenAddress:            tokenY,
+					LiquidityManagerAddress: rebalancerB,
+					NetworkSelector:         networkB,
+					ConfigDigest:            cfgDigest2,
+				}
+				assert.NoError(t, g.Add(a, b))
+				assert.NoError(t, g.Add(b, a))
 				return g, nil
 			},
 			previousOutcome: models.Outcome{
@@ -196,22 +196,22 @@ func TestPlugin_Observation(t *testing.T) {
 			seqNr: 10,
 			observedGraph: func(t *testing.T) (graph.Graph, error) {
 				g := graph.NewGraph()
-				g.AddNetwork(networkA, graph.Data{
-					Liquidity:         big.NewInt(1000),
-					TokenAddress:      tokenX,
-					RebalancerAddress: rebalancerA,
-					NetworkSelector:   networkA,
-					ConfigDigest:      cfgDigest1,
-				})
-				g.AddNetwork(networkB, graph.Data{
-					Liquidity:         big.NewInt(2000),
-					TokenAddress:      tokenY,
-					RebalancerAddress: rebalancerB,
-					NetworkSelector:   networkB,
-					ConfigDigest:      cfgDigest2,
-				})
-				assert.NoError(t, g.AddConnection(networkA, networkB))
-				assert.NoError(t, g.AddConnection(networkB, networkA))
+				a := graph.Data{
+					Liquidity:               big.NewInt(1000),
+					TokenAddress:            tokenX,
+					LiquidityManagerAddress: rebalancerA,
+					NetworkSelector:         networkA,
+					ConfigDigest:            cfgDigest1,
+				}
+				b := graph.Data{
+					Liquidity:               big.NewInt(2000),
+					TokenAddress:            tokenY,
+					LiquidityManagerAddress: rebalancerB,
+					NetworkSelector:         networkB,
+					ConfigDigest:            cfgDigest2,
+				}
+				assert.NoError(t, g.Add(a, b))
+				assert.NoError(t, g.Add(b, a))
 				return g, nil
 			},
 			previousOutcome: models.Outcome{},
@@ -780,7 +780,7 @@ func TestPlugin_Reports(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := newPluginWithMocksAndDefaults(t)
 			for net, addr := range tc.rebalancerAddress {
-				p.plugin.liquidityGraph.AddNetwork(net, graph.Data{RebalancerAddress: addr, NetworkSelector: net})
+				p.plugin.liquidityGraph.(graph.GraphTest).AddNetwork(net, graph.Data{LiquidityManagerAddress: addr, NetworkSelector: net})
 			}
 
 			reports, err := p.plugin.Reports(tc.seqNr, tc.outcome.Encode())
@@ -1060,9 +1060,9 @@ func TestPlugin_Close(t *testing.T) {
 	p := newPluginWithMocksAndDefaults(t)
 
 	g := graph.NewGraph()
-	g.AddNetwork(networkA, graph.Data{RebalancerAddress: rebalancerA})
-	g.AddNetwork(networkB, graph.Data{RebalancerAddress: rebalancerB})
-	g.AddNetwork(networkC, graph.Data{RebalancerAddress: rebalancerC})
+	g.(graph.GraphTest).AddNetwork(networkA, graph.Data{LiquidityManagerAddress: rebalancerA})
+	g.(graph.GraphTest).AddNetwork(networkB, graph.Data{LiquidityManagerAddress: rebalancerB})
+	g.(graph.GraphTest).AddNetwork(networkC, graph.Data{LiquidityManagerAddress: rebalancerC})
 	p.plugin.liquidityGraph = g
 
 	rbA := liquiditymanagermocks.NewLiquidityManager(t)
@@ -1190,24 +1190,24 @@ func TestPlugin_E2EWithMocks(t *testing.T) {
 
 func twoNodesFourRounds(t *testing.T) testCase {
 	g := graph.NewGraph()
-	g.AddNetwork(networkA, graph.Data{
-		Liquidity:         big.NewInt(1000),
-		TokenAddress:      tokenX,
-		RebalancerAddress: rebalancerA,
-		XChainRebalancers: nil,
-		NetworkSelector:   networkA,
-		ConfigDigest:      cfgDigest1,
-	})
-	g.AddNetwork(networkB, graph.Data{
-		Liquidity:         big.NewInt(2000),
-		TokenAddress:      tokenY,
-		RebalancerAddress: rebalancerB,
-		XChainRebalancers: nil,
-		NetworkSelector:   networkB,
-		ConfigDigest:      cfgDigest2,
-	})
-	require.NoError(t, g.AddConnection(networkA, networkB))
-	require.NoError(t, g.AddConnection(networkB, networkA))
+	a := graph.Data{
+		Liquidity:               big.NewInt(1000),
+		TokenAddress:            tokenX,
+		LiquidityManagerAddress: rebalancerA,
+		XChainLiquidityManagers: nil,
+		NetworkSelector:         networkA,
+		ConfigDigest:            cfgDigest1,
+	}
+	b := graph.Data{
+		Liquidity:               big.NewInt(2000),
+		TokenAddress:            tokenY,
+		LiquidityManagerAddress: rebalancerB,
+		XChainLiquidityManagers: nil,
+		NetworkSelector:         networkB,
+		ConfigDigest:            cfgDigest2,
+	}
+	require.NoError(t, g.Add(a, b))
+	require.NoError(t, g.Add(b, a))
 
 	return testCase{
 		name:     "four nodes four rounds",

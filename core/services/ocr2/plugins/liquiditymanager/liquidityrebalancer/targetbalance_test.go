@@ -253,16 +253,16 @@ func TestTargetBalanceRebalancer_ComputeTransfersToBalance_arb_eth_opt(t *testin
 		t.Run(tc.name, func(t *testing.T) {
 			g := graph.NewGraph()
 			for net, b := range tc.balances {
-				g.AddNetwork(net, graph.Data{
+				g.(graph.GraphTest).AddNetwork(net, graph.Data{
 					Liquidity:        big.NewInt(b),
 					NetworkSelector:  net,
 					MinimumLiquidity: big.NewInt(tc.targets[net]),
 				})
 			}
-			assert.NoError(t, g.AddConnection(eth, arb))
-			assert.NoError(t, g.AddConnection(arb, eth))
-			assert.NoError(t, g.AddConnection(eth, opt))
-			assert.NoError(t, g.AddConnection(opt, eth))
+			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, arb))
+			assert.NoError(t, g.(graph.GraphTest).AddConnection(arb, eth))
+			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, opt))
+			assert.NoError(t, g.(graph.GraphTest).AddConnection(opt, eth))
 
 			r := NewMinLiquidityRebalancer(lggr)
 

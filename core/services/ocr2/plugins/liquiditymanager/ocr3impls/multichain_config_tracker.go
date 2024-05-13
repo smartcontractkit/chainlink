@@ -142,7 +142,7 @@ func NewMultichainConfigTracker(
 			return nil, fmt.Errorf("chain %d not found", nid)
 		}
 
-		address, err2 := grph.GetRebalancerAddress(models.NetworkSelector(ch.Selector))
+		address, err2 := grph.GetLiquidityManagerAddress(models.NetworkSelector(ch.Selector))
 		if err2 != nil {
 			return nil, fmt.Errorf("no rebalancer found for network selector %d", ch.Selector)
 		}
