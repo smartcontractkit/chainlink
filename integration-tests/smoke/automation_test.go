@@ -1367,8 +1367,6 @@ func setupAutomationTestDocker(
 			WithMockAdapter().
 			WithoutEvmClients().
 			WithoutCleanup().
-			WithSeth().
-			WithSeth().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 
@@ -1391,6 +1389,7 @@ func setupAutomationTestDocker(
 			WithCLNodes(clNodesCount).
 			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
+			WithSeth().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 

@@ -277,7 +277,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			})
 		}
 
-		// this is not the cleanest way to do this, but when we originally build ethereum networks, we don't have the logstream reference
+		// this is not the cleanest way to do this, but when we originally build ethereum networks, we don't have the logstream reference,
 		// so we need to rebuild them here and pass logstream to them
 		for i := range b.privateEthereumNetworks {
 			builder := test_env.NewEthereumNetworkBuilder()
