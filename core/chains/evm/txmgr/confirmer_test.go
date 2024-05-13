@@ -170,14 +170,14 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	require.Error(t, err)
 
 	// Can't closeInternal unstarted instance
-	require.Error(t, ec.XXXTestCloseInternal())
+	require.Error(t, ec.CloseInternal())
 
 	// Can successfully startInternal a previously closed instance
-	require.NoError(t, ec.XXXTestStartInternal())
+	require.NoError(t, ec.StartInternal(ctx))
 	// Can't startInternal already started instance
-	require.Error(t, ec.XXXTestStartInternal())
+	require.Error(t, ec.StartInternal(ctx))
 	// Can successfully closeInternal again
-	require.NoError(t, ec.XXXTestCloseInternal())
+	require.NoError(t, ec.CloseInternal())
 }
 
 func TestEthConfirmer_CheckForReceipts(t *testing.T) {

@@ -141,7 +141,7 @@ type coordinatorV2Universe struct {
 func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master, ec *evmclimocks.Client) txmgrcommon.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee] {
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
-	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
+	txm := txmgr.NewTxmgr[*big.Int, *evmtypes.Head](ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
 		nil, txStore, nil, nil, nil, nil)
 
 	return txm
