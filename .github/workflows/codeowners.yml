@@ -34,8 +34,7 @@ jobs:
           # ==== GitHub Auth ====
 
           # "The list of checks that will be executed. By default, all checks are executed. Possible values: files,owners,duppatterns,syntax,patterns"
-          # Disabling owners momentarily while waiting for GATI setup
-          checks: "files,duppatterns,syntax,patterns"
+          checks: "files,owners,duppatterns,syntax,patterns"
 
           # "The comma-separated list of experimental checks that should be executed. By default, all experimental checks are turned off. Possible values: notowned,avoid-shadowing"
           experimental_checks: "notowned,avoid-shadowing"
