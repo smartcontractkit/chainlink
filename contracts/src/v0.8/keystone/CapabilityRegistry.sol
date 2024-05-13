@@ -7,9 +7,9 @@ import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfac
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.sol";
 
-// CapabilityRegistry is used to manage Nodes (including their links to Node
-// Operators), Capabilities, and DONs (Decentralized Oracle Networks) which are
-// sets of nodes that support those Capabilities.
+/// @notice CapabilityRegistry is used to manage Nodes (including their links to Node
+/// Operators), Capabilities, and DONs (Decentralized Oracle Networks) which are
+/// sets of nodes that support those Capabilities.
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
