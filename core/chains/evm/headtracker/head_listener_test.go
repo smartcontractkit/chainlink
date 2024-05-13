@@ -14,6 +14,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -73,7 +74,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	done := func() {
 		doneAwaiter.ItHappened()
 	}
-	go hl.ListenForNewHeads(handler, done)
+	go hl.ListenForNewHeads(func() {}, handler, done)
 
 	subscribeAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
 	require.Eventually(t, hl.Connected, testutils.WaitTimeout(t), testutils.TestInterval)
@@ -133,7 +134,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	done := func() {
 		doneAwaiter.ItHappened()
 	}
-	go hl.ListenForNewHeads(handler, done)
+	go hl.ListenForNewHeads(func() {}, handler, done)
 
 	subscribeAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
 
@@ -195,7 +196,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 				subscribeAwaiter.ItHappened()
 			})
 			go func() {
-				hl.ListenForNewHeads(hnh, done)
+				hl.ListenForNewHeads(func() {}, hnh, done)
 			}()
 
 			// Put a head on the channel to ensure we test all code paths

@@ -71,9 +71,10 @@ func TestHeadTracker_New(t *testing.T) {
 	ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
 	ht.Start(t)
 
-	latest := ht.headSaver.LatestChain()
-	require.NotNil(t, latest)
-	assert.Equal(t, last.Number, latest.Number)
+	tests.AssertEventually(t, func() bool {
+		latest := ht.headSaver.LatestChain()
+		return latest != nil && last.Number == latest.Number
+	})
 }
 
 func TestHeadTracker_MarkFinalized_MarksAndTrimsTable(t *testing.T) {
