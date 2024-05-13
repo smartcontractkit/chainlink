@@ -60,6 +60,12 @@ func TestHeadTracker_New(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 	// finalized
 	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).Return(cltest.Head(0), nil)
+	mockEth := &evmtest.MockEth{
+		EthClient: ethClient,
+	}
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Maybe().
+		Return(mockEth.NewSub(t), nil)
 
 	orm := headtracker.NewORM(cltest.FixtureChainID, db)
 	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(1)))
@@ -148,9 +154,9 @@ func TestHeadTracker_Get(t *testing.T) {
 					},
 					func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 				)
-			ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
+			ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil).Maybe()
 
-			fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
+			fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe()
 			fnCall.RunFn = func(args mock.Arguments) {
 				num := args.Get(1).(*big.Int)
 				fnCall.ReturnArguments = mock.Arguments{cltest.Head(num.Int64()), nil}
@@ -168,7 +174,10 @@ func TestHeadTracker_Get(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, test.want, ht.headSaver.LatestChain().ToInt())
+			testutils.AssertEventually(t, func() bool {
+				latest := ht.headSaver.LatestChain().ToInt()
+				return latest != nil && test.want.Cmp(latest) == 0
+			})
 		})
 	}
 }
@@ -214,6 +223,9 @@ func TestHeadTracker_Start(t *testing.T) {
 		config := evmtest.NewChainScopedConfig(t, gCfg)
 		orm := headtracker.NewORM(cltest.FixtureChainID, db)
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		mockEth := &evmtest.MockEth{EthClient: ethClient}
+		sub := mockEth.NewSub(t)
+		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
 		return createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
 	}
 	t.Run("Starts even if failed to get initialHead", func(t *testing.T) {
