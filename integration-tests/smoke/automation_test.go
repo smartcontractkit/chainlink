@@ -1368,6 +1368,7 @@ func setupAutomationTestDocker(
 			WithoutEvmClients().
 			WithoutCleanup().
 			WithSeth().
+			WithSeth().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 
