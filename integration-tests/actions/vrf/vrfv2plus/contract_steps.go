@@ -307,6 +307,7 @@ func RequestRandomness(
 		isNativeBilling,
 		vrfKeyData.KeyHash,
 		config,
+		keyNum,
 	)
 	randomWordsRequestedEvent, err := consumer.RequestRandomness(
 		coordinator,
@@ -322,7 +323,7 @@ func RequestRandomness(
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrRequestRandomness, err)
 	}
-	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling, keyNum)
 
 	return randomWordsRequestedEvent, err
 }
@@ -395,6 +396,7 @@ func WrapperRequestRandomness(consumer contracts.VRFv2PlusWrapperLoadTestConsume
 		isNativeBilling,
 		vrfKeyData.KeyHash,
 		config,
+		0,
 	)
 	var randomWordsRequestedEvent *contracts.CoordinatorRandomWordsRequested
 	var err error
@@ -421,7 +423,7 @@ func WrapperRequestRandomness(consumer contracts.VRFv2PlusWrapperLoadTestConsume
 			return nil, "", fmt.Errorf(vrfcommon.ErrGenericFormat, ErrRequestRandomnessDirectFundingLinkPayment, err)
 		}
 	}
-	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling, 0)
 	wrapperAddress, err := consumer.GetWrapper(context.Background())
 	if err != nil {
 		return nil, "", fmt.Errorf("error getting wrapper address, err: %w", err)

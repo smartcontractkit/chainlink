@@ -377,6 +377,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 		randomnessRequestCountPerRequest,
 		randomnessRequestCountPerRequestDeviation,
 		vrfv2KeyData.KeyHash,
+		0,
 	)
 	randomWordsRequestedEvent, err := consumer.RequestRandomness(
 		coordinator,
@@ -463,6 +464,7 @@ func RequestRandomness(
 		randomnessRequestCountPerRequest,
 		randomnessRequestCountPerRequestDeviation,
 		vrfKeyData.KeyHash,
+		keyNum,
 	)
 	randomWordsRequestedEvent, err := consumer.RequestRandomness(
 		coordinator,
@@ -477,7 +479,7 @@ func RequestRandomness(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRequestRandomness, err)
 	}
-	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, false)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, false, keyNum)
 
 	return randomWordsRequestedEvent, err
 }
@@ -497,7 +499,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 	linkAddress common.Address,
 	randomWordsFulfilledEventTimeout time.Duration,
 ) (*contracts.CoordinatorConfigSet, *contracts.CoordinatorRandomWordsFulfilled, *vrf_owner.VRFOwnerRandomWordsForced, error) {
-	logRandRequest(l, consumer.Address(), coordinator.Address(), 0, minimumConfirmations, callbackGasLimit, numberOfWords, randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation, vrfv2KeyData.KeyHash)
+	logRandRequest(l, consumer.Address(), coordinator.Address(), 0, minimumConfirmations, callbackGasLimit, numberOfWords, randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation, vrfv2KeyData.KeyHash, 0)
 	randomWordsRequestedEvent, err := consumer.RequestRandomWordsWithForceFulfill(
 		coordinator,
 		vrfv2KeyData.KeyHash,
@@ -512,7 +514,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRequestRandomness, err)
 	}
 
-	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, false)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, false, 0)
 
 	errorChannel := make(chan error)
 	configSetEventChannel := make(chan *contracts.CoordinatorConfigSet)

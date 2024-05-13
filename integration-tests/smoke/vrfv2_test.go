@@ -894,7 +894,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness")
 
-		vrfcommon.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2, randomWordsRequestedEvent, false)
+		vrfcommon.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2, randomWordsRequestedEvent, false, 0)
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
 		wg.Add(1)

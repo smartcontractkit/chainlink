@@ -36,8 +36,10 @@ func LogRandomnessRequestedEvent(
 	coordinator contracts.Coordinator,
 	randomWordsRequestedEvent *contracts.CoordinatorRandomWordsRequested,
 	isNativeBilling bool,
+	keyNum int,
 ) {
 	l.Info().
+		Int("KeyNum", keyNum).
 		Str("Coordinator", coordinator.Address()).
 		Bool("Native Billing", isNativeBilling).
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
