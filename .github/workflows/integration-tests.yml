@@ -789,7 +789,6 @@ jobs:
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
