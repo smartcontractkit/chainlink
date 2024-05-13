@@ -348,6 +348,7 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+EnforceRepeatableRead = true
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'

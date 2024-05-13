@@ -775,6 +775,7 @@ type NodePool struct {
 	NodeIsSyncingEnabled       *bool
 	FinalizedBlockPollInterval *commonconfig.Duration
 	Errors                     ClientErrors `toml:",omitempty"`
+	EnforceRepeatableRead      *bool
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -798,6 +799,10 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
+	}
+
+	if v := f.EnforceRepeatableRead; v != nil {
+		p.EnforceRepeatableRead = v
 	}
 	p.Errors.setFrom(&f.Errors)
 }

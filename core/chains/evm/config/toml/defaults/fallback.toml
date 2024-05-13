@@ -64,6 +64,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4

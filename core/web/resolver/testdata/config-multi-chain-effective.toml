@@ -319,6 +319,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -411,6 +412,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -497,6 +499,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [EVM.OCR]
 ContractConfirmations = 4

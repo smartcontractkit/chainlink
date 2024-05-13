@@ -23,6 +23,8 @@ func TestNewEvmClient(t *testing.T) {
 	syncThreshold := ptr(uint32(5))
 	nodeIsSyncingEnabled := ptr(false)
 	chainTypeStr := ""
+	finalizedBlockOffset := ptr[uint32](16)
+	enforceRepeatableRead := ptr(true)
 	nodeConfigs := []client.NodeConfig{
 		{
 			Name:    ptr("foo"),
@@ -33,7 +35,8 @@ func TestNewEvmClient(t *testing.T) {
 	finalityDepth := ptr(uint32(10))
 	finalityTagEnabled := ptr(true)
 	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
-		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth, finalityTagEnabled)
+		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
+		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead)
 	require.NoError(t, err)
 
 	client := client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), testutils.FixtureChainID, nodes)

@@ -586,6 +586,7 @@ func TestConfig_Marshal(t *testing.T) {
 					LeaseDuration:              &zeroSeconds,
 					NodeIsSyncingEnabled:       ptr(true),
 					FinalizedBlockPollInterval: &second,
+					EnforceRepeatableRead:      ptr(true),
 					Errors: evmcfg.ClientErrors{
 						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
 						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
@@ -1048,6 +1049,7 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+EnforceRepeatableRead = true
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'

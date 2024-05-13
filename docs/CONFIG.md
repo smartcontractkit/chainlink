@@ -1799,6 +1799,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1885,6 +1886,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1971,6 +1973,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2057,6 +2060,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2144,6 +2148,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -2230,6 +2235,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2316,6 +2322,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2403,6 +2410,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2489,6 +2497,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2574,6 +2583,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2659,6 +2669,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2745,6 +2756,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2832,6 +2844,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2918,6 +2931,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3004,6 +3018,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3090,6 +3105,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3176,6 +3192,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3262,6 +3279,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3348,6 +3366,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3434,6 +3453,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3520,6 +3540,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3606,6 +3627,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3693,6 +3715,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3779,6 +3802,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3864,6 +3888,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3950,6 +3975,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4035,6 +4061,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4121,6 +4148,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4207,6 +4235,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4292,6 +4321,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4377,6 +4407,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4463,6 +4494,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4548,6 +4580,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4634,6 +4667,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4719,6 +4753,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4805,6 +4840,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4891,6 +4927,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4978,6 +5015,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5064,6 +5102,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5150,6 +5189,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5236,6 +5276,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5322,6 +5363,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5407,6 +5449,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5492,6 +5535,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5577,6 +5621,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5663,6 +5708,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5749,6 +5795,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5834,6 +5881,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5920,6 +5968,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -6006,6 +6055,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -6093,6 +6143,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -6180,6 +6231,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -6266,6 +6318,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -6352,6 +6405,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -6438,6 +6492,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -6524,6 +6579,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -6610,6 +6666,7 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 1
@@ -6696,6 +6753,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -6782,6 +6840,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [OCR]
 ContractConfirmations = 4
@@ -7435,6 +7494,7 @@ SyncThreshold = 5 # Default
 LeaseDuration = '0s' # Default
 NodeIsSyncingEnabled = false # Default
 FinalizedBlockPollInterval = '5s' # Default
+EnforceRepeatableRead = false # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -7507,6 +7567,16 @@ If `FinalityTagEnabled = false`, poll is not performed and `pool_rpc_node_highes
 reported based on latest block and finality depth.
 
 Set to 0 to disable.
+
+### EnforceRepeatableRead
+```toml
+EnforceRepeatableRead = false # Default
+```
+EnforceRepeatableRead defines if Core should only use RPCs whose most recently finalized block is greater or equal to
+`highest finalized block - FinalizedBlockOffset`. In other words, exclude RPCs lagging on latest finalized
+block.
+
+Set false to disable
 
 ## EVM.NodePool.Errors
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._

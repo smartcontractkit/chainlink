@@ -356,6 +356,12 @@ NodeIsSyncingEnabled = false # Default
 #
 # Set to 0 to disable.
 FinalizedBlockPollInterval = '5s' # Default
+# EnforceRepeatableRead defines if Core should only use RPCs whose most recently finalized block is greater or equal to
+# `highest finalized block - FinalizedBlockOffset`. In other words, exclude RPCs lagging on latest finalized
+# block.
+#
+# Set false to disable
+EnforceRepeatableRead = false # Default
 
 # **ADVANCED**
 # Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
