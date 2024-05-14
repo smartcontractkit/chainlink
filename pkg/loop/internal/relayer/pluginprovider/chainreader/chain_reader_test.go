@@ -289,7 +289,7 @@ func (f *fakeChainReader) QueryKey(_ context.Context, _ string, filter query.Key
 		f.lock.Lock()
 		defer f.lock.Unlock()
 		if len(f.triggers) == 0 {
-			return nil, types.ErrNotFound
+			return []types.Sequence{}, nil
 		}
 
 		var sequences []types.Sequence

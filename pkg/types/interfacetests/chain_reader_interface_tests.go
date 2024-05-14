@@ -216,11 +216,13 @@ func RunQueryKeyInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) 
 			test: func(t *testing.T) {
 				ctx := tests.Context(t)
 				cr := tester.GetChainReader(t)
+
 				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
 
-				sequenceDataType := &TestStruct{}
-				_, err := cr.QueryKey(ctx, AnyContractName, query.KeyFilter{Key: EventName}, query.LimitAndSort{}, &sequenceDataType)
-				assert.True(t, errors.Is(err, types.ErrNotFound))
+				logs, err := cr.QueryKey(ctx, AnyContractName, query.KeyFilter{Key: EventName}, query.LimitAndSort{}, &TestStruct{})
+
+				require.NoError(t, err)
+				assert.Len(t, logs, 0)
 			},
 		},
 		{
