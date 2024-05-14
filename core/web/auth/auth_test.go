@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -38,11 +39,11 @@ type userFindFailer struct {
 	err error
 }
 
-func (u userFindFailer) FindUser(email string) (sessions.User, error) {
+func (u userFindFailer) FindUser(ctx context.Context, email string) (sessions.User, error) {
 	return sessions.User{}, u.err
 }
 
-func (u userFindFailer) FindUserByAPIToken(token string) (sessions.User, error) {
+func (u userFindFailer) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
 	return sessions.User{}, u.err
 }
 
@@ -51,11 +52,11 @@ type userFindSuccesser struct {
 	user sessions.User
 }
 
-func (u userFindSuccesser) FindUser(email string) (sessions.User, error) {
+func (u userFindSuccesser) FindUser(ctx context.Context, email string) (sessions.User, error) {
 	return u.user, nil
 }
 
-func (u userFindSuccesser) FindUserByAPIToken(token string) (sessions.User, error) {
+func (u userFindSuccesser) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
 	return u.user, nil
 }
 

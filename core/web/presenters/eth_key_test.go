@@ -7,6 +7,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
@@ -22,7 +23,7 @@ func TestETHKeyResource(t *testing.T) {
 		addressStr = "0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD"
 		address    = common.HexToAddress(addressStr)
 	)
-	eip55address, err := ethkey.NewEIP55Address(addressStr)
+	eip55address, err := types.NewEIP55Address(addressStr)
 	require.NoError(t, err)
 	key := ethkey.KeyV2{
 		Address:      address,

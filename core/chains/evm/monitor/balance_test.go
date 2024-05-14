@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
@@ -35,11 +34,9 @@ func newEthClientMock(t *testing.T) *evmclimocks.Client {
 func TestBalanceMonitor_Start(t *testing.T) {
 	t.Parallel()
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		ethClient := newEthClientMock(t)
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -66,7 +63,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("handles nil head", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		ethClient := newEthClientMock(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -85,7 +82,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("cancelled context", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		ethClient := newEthClientMock(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -114,7 +111,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("recovers on error", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		ethClient := newEthClientMock(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -123,7 +120,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
 			Once().
-			Return(nil, errors.New("a little easter egg for the 4chan link marines error"))
+			Return(nil, pkgerrors.New("a little easter egg for the 4chan link marines error"))
 
 		servicetest.RunHealthy(t, bm)
 
@@ -136,11 +133,9 @@ func TestBalanceMonitor_Start(t *testing.T) {
 func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 	t.Parallel()
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		ethClient := newEthClientMock(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -190,8 +185,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	cltest.MustInsertRandomKey(t, ethKeyStore)
 

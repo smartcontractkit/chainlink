@@ -3,7 +3,7 @@ package logger
 import (
 	"os"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -76,7 +76,7 @@ func (l *zapLogger) Sync() error {
 		return nil
 	}
 	var msg string
-	if uw := errors.Unwrap(err); uw != nil {
+	if uw := pkgerrors.Unwrap(err); uw != nil {
 		msg = uw.Error()
 	} else {
 		msg = err.Error()

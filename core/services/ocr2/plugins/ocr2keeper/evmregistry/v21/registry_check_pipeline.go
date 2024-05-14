@@ -16,12 +16,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/gasprice"
 )
 
 const (
 	// checkBlockTooOldRange is the number of blocks that can be behind the latest block before
 	// we return a CheckBlockTooOld error
 	checkBlockTooOldRange = 128
+	zeroAddress           = "0x0000000000000000000000000000000000000000"
 )
 
 type checkResult struct {
@@ -45,7 +47,7 @@ func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.Upke
 
 	chResult := make(chan checkResult, 1)
 
-	r.threadCtrl.Go(func(ctx context.Context) {
+	r.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
 		r.doCheck(ctx, keys, chResult)
 	})
 
@@ -233,6 +235,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
+					"from": zeroAddress,
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},
@@ -303,7 +306,19 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		block, _, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
 
-		opts := r.buildCallOpts(ctx, block)
+		oc, err := r.fetchUpkeepOffchainConfig(upkeepId)
+		if err != nil {
+			// this is mostly caused by RPC flakiness
+			r.lggr.Errorw("failed get offchain config, gas price check will be disabled", "err", err, "upkeepId", upkeepId, "block", block)
+		}
+		fr := gasprice.CheckGasPrice(ctx, upkeepId, oc, r.ge, r.lggr)
+		if uint8(fr) == uint8(encoding.UpkeepFailureReasonGasPriceTooHigh) {
+			r.lggr.Infof("upkeep %s upkeep failure reason is %d", upkeepId, fr)
+			checkResults[i].Eligible = false
+			checkResults[i].Retryable = false
+			checkResults[i].IneligibilityReason = uint8(fr)
+			continue
+		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
@@ -315,11 +330,13 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			continue
 		}
 
+		opts := r.buildCallOpts(ctx, block)
 		var result string
 		performReqs = append(performReqs, rpc.BatchElem{
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
+					"from": zeroAddress,
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},

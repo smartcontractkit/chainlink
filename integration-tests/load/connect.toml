@@ -1,0 +1,13 @@
+# this is a static configuration to connect with CRIB k8s environment (Default Geth)
+namespace = "cl-cluster"
+network_name = "geth"
+network_chain_id = 1337
+network_private_key = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+network_ws_url = "ws://geth-1337:8546"
+network_http_url = "http://geth:8544"
+cl_nodes_num = 6
+cl_node_url_template = "http://app-node-%d:6688"
+cl_node_internal_dns_record_template = "app-node-%d"
+cl_node_user = "notreal@fakeemail.ch"
+cl_node_password = "fj293fbBnlQ!f9vNs"
+mockserver_url = "http://mockserver:1080"

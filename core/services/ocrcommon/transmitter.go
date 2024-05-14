@@ -12,7 +12,7 @@ import (
 )
 
 type roundRobinKeystore interface {
-	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
+	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
 }
 
 type txManager interface {
@@ -27,7 +27,7 @@ type Transmitter interface {
 type transmitter struct {
 	txm                         txManager
 	fromAddresses               []common.Address
-	gasLimit                    uint32
+	gasLimit                    uint64
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
@@ -39,14 +39,13 @@ type transmitter struct {
 func NewTransmitter(
 	txm txManager,
 	fromAddresses []common.Address,
-	gasLimit uint32,
+	gasLimit uint64,
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
 	keystore roundRobinKeystore,
 ) (Transmitter, error) {
-
 	// Ensure that a keystore is provided.
 	if keystore == nil {
 		return nil, errors.New("nil keystore provided to transmitter")
@@ -65,8 +64,7 @@ func NewTransmitter(
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
+	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.fromAddresses...)
 	if err != nil {
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}

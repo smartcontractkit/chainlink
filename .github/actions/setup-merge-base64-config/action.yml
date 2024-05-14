@@ -8,6 +8,14 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Install dasel
+      shell: bash
+      run: |
+        if ! which dasel > /dev/null; then
+          curl -L -o dasel "https://github.com/TomWright/dasel/releases/download/v2.6.0/dasel_linux_amd64" && chmod +x dasel && sudo mv dasel /usr/local/bin/
+        else
+          echo "Dasel is already installed."
+        fi
     - name: Add masks and export base64 config
       shell: bash
       run: |
@@ -16,9 +24,9 @@ runs:
         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
         decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
-        CHAINLINK_IMAGE=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*image[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
+        CHAINLINK_IMAGE=$(echo "$decoded_toml" | dasel -r toml 'ChainlinkImage.image')
         echo ::add-mask::$CHAINLINK_IMAGE
-        CHAINLINK_VERSION=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*version[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
+        CHAINLINK_VERSION=$(echo "$decoded_toml" | dasel -r toml 'ChainlinkImage.version')
         NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
 
         if [ -n "$CHAINLINK_IMAGE" ]; then
@@ -42,9 +50,14 @@ runs:
         [Logging.Loki]
         tenant_id="$LOKI_TENANT_ID"
         endpoint="$LOKI_URL"
-        basic_auth="$LOKI_BASIC_AUTH"
+        basic_auth_secret="$LOKI_BASIC_AUTH"
         # legacy, you only need this to access the cloud version
-        # bearer_token="bearer_token"
+        # bearer_token_secret="bearer_token"
+        
+        [Logging.Grafana]
+        base_url="$GRAFANA_URL"
+        dashboard_url="$GRAFANA_DASHBOARD_URL"
+        bearer_token_secret="$GRAFANA_BEARER_TOKEN"
         EOF
 
         echo "$decoded_toml" >> final_config.toml

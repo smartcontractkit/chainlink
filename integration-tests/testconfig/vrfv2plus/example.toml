@@ -21,9 +21,9 @@ tenant_id="tenant_id"
 # full URL of Loki ingest endpoint
 endpoint="https://loki.url/api/v3/push"
 # currently only needed when using public instance
-basic_auth="loki-basic-auth"
+basic_auth_secret="loki-basic-auth"
 # only needed for cloud grafana
-bearer_token="bearer_token"
+bearer_token_secret="bearer_token"
 
 # LogStream will try to shorten Grafana URLs by default (if all 3 variables are set)
 [Logging.Grafana]
@@ -31,7 +31,7 @@ bearer_token="bearer_token"
 base_url="http://grafana.url"
 # url of your grafana dashboard (prefix and suffix "/" are stirpped), example: /d/ad61652-2712-1722/my-dashboard
 dashboard_url="/d/your-dashboard"
-bearer_token="my-awesome-token"
+bearer_token_secret="my-awesome-token"
 
 # if you want to use polygon_mumbial
 [Network]
@@ -75,10 +75,8 @@ chainlink_node_funding = 0.5
 
 # Product part
 [VRFv2Plus]
-[VRFv2Plus.Common]
-cancel_subs_after_test_run = true
-
 [VRFv2Plus.General]
+cancel_subs_after_test_run = true
 max_gas_price_gwei = 1000
 link_native_feed_response = 1000000000000000000
 minimum_confirmations = 3
@@ -87,7 +85,7 @@ subscription_funding_amount_link = 5.0
 number_of_words = 3
 callback_gas_limit = 1000000
 max_gas_limit_coordinator_config = 2500000
-fallback_wei_per_unit_link = 60000000000000000
+fallback_wei_per_unit_link = "60000000000000000"
 staleness_seconds = 86400
 gas_after_payment_calculation = 33825
 fulfilment_flat_fee_link_ppm_tier_1 = 500
@@ -104,13 +102,14 @@ randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
 wrapped_gas_overhead = 50000
-coordinator_gas_overhead = 52000
+coordinator_gas_overhead_native = 52000
+coordinator_gas_overhead_link = 74000
+coordinator_gas_overhead_per_word = 440
 wrapper_premium_percentage = 25
 wrapper_max_number_of_words = 10
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 10
 subscription_funding_amount_native=1
-fulfillment_flat_fee_link_ppm=500
 fulfillment_flat_fee_native_ppm=500
 fulfillment_flat_fee_link_discount_ppm=100
 native_premium_percentage=1

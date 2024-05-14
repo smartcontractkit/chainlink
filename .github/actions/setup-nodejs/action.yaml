@@ -7,13 +7,13 @@ description: Setup pnpm for contracts
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@c3b53f6a16e57305370b4ae5a540c2077a1d50dd # v2.2.4
+    - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
       with:
         version: ^7.0.0
 
-    - uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.0.0
+    - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
       with:
-        node-version: "16"
+        node-version: "20"
         cache: "pnpm"
         cache-dependency-path: "contracts/pnpm-lock.yaml"
 

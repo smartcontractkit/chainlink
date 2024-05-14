@@ -33,33 +33,36 @@ func TestInMemoryORM(t *testing.T) {
 	orm := s4.NewInMemoryORM()
 
 	t.Run("row not found", func(t *testing.T) {
-		_, err := orm.Get(big.New(address.Big()), slotId)
+		ctx := testutils.Context(t)
+		_, err := orm.Get(ctx, big.New(address.Big()), slotId)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 
 	t.Run("insert and get", func(t *testing.T) {
-		err := orm.Update(row)
+		ctx := testutils.Context(t)
+		err := orm.Update(ctx, row)
 		assert.NoError(t, err)
 
-		e, err := orm.Get(big.New(address.Big()), slotId)
+		e, err := orm.Get(ctx, big.New(address.Big()), slotId)
 		assert.NoError(t, err)
 		assert.Equal(t, row, e)
 	})
 
 	t.Run("update and get", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		row.Version = 5
-		err := orm.Update(row)
+		err := orm.Update(ctx, row)
 		assert.NoError(t, err)
 
 		// unconfirmed row requires greater version
-		err = orm.Update(row)
+		err = orm.Update(ctx, row)
 		assert.ErrorIs(t, err, s4.ErrVersionTooLow)
 
 		row.Confirmed = true
-		err = orm.Update(row)
+		err = orm.Update(ctx, row)
 		assert.NoError(t, err)
 
-		e, err := orm.Get(big.New(address.Big()), slotId)
+		e, err := orm.Get(ctx, big.New(address.Big()), slotId)
 		assert.NoError(t, err)
 		assert.Equal(t, row, e)
 	})
@@ -67,6 +70,7 @@ func TestInMemoryORM(t *testing.T) {
 
 func TestInMemoryORM_DeleteExpired(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := s4.NewInMemoryORM()
 	baseTime := time.Now().Add(time.Minute).UTC()
@@ -84,22 +88,23 @@ func TestInMemoryORM_DeleteExpired(t *testing.T) {
 			Confirmed:  false,
 			Signature:  []byte{},
 		}
-		err := orm.Update(row)
+		err := orm.Update(ctx, row)
 		assert.NoError(t, err)
 	}
 
 	deadline := baseTime.Add(100 * time.Second)
-	count, err := orm.DeleteExpired(200, deadline)
+	count, err := orm.DeleteExpired(ctx, 200, deadline)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(100), count)
 
-	rows, err := orm.GetUnconfirmedRows(200)
+	rows, err := orm.GetUnconfirmedRows(ctx, 200)
 	assert.NoError(t, err)
 	assert.Len(t, rows, 156)
 }
 
 func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := s4.NewInMemoryORM()
 	expiration := time.Now().Add(100 * time.Second).UnixMilli()
@@ -117,18 +122,19 @@ func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 			Confirmed:  i >= 100,
 			Signature:  []byte{},
 		}
-		err := orm.Update(row)
+		err := orm.Update(ctx, row)
 		assert.NoError(t, err)
 		time.Sleep(time.Millisecond)
 	}
 
-	rows, err := orm.GetUnconfirmedRows(100)
+	rows, err := orm.GetUnconfirmedRows(ctx, 100)
 	assert.NoError(t, err)
 	assert.Len(t, rows, 100)
 }
 
 func TestInMemoryORM_GetSnapshot(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := s4.NewInMemoryORM()
 	expiration := time.Now().Add(100 * time.Second).UnixMilli()
@@ -147,11 +153,11 @@ func TestInMemoryORM_GetSnapshot(t *testing.T) {
 			Confirmed:  i >= 100,
 			Signature:  []byte{},
 		}
-		err := orm.Update(row)
+		err := orm.Update(ctx, row)
 		assert.NoError(t, err)
 	}
 
-	rows, err := orm.GetSnapshot(s4.NewFullAddressRange())
+	rows, err := orm.GetSnapshot(ctx, s4.NewFullAddressRange())
 	assert.NoError(t, err)
 	assert.Len(t, rows, n)
 

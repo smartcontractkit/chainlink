@@ -6,17 +6,15 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 const (
-	DefaultConfigFilePath        = "../../../charts/chainlink-cluster/connect.toml"
+	DefaultConfigFilePath        = "../connect.toml"
 	ErrReadConnectionConfig      = "failed to read TOML environment connection config"
 	ErrUnmarshalConnectionConfig = "failed to unmarshal TOML environment connection config"
 )
@@ -37,10 +35,10 @@ type ConnectionVars struct {
 }
 
 // ConnectRemote connects to a local environment, see charts/chainlink-cluster
-func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverClient, contracts.ContractDeployer, *client.ChainlinkK8sClient, []*client.ChainlinkK8sClient, error) {
+func ConnectRemote() (*blockchain.EVMNetwork, *client2.MockserverClient, *client.ChainlinkK8sClient, []*client.ChainlinkK8sClient, error) {
 	cfg, err := ReadConfig()
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return &blockchain.EVMNetwork{}, nil, nil, nil, err
 	}
 	net := &blockchain.EVMNetwork{
 		Name:                 cfg.NetworkName,
@@ -58,14 +56,6 @@ func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverC
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
-	cc, err := blockchain.NewEVMClientFromNetwork(*net, l)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	cd, err := contracts.NewContractDeployer(cc, l)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
 	clClients := make([]*client.ChainlinkK8sClient, 0)
 	for i := 1; i <= cfg.CLNodesNum; i++ {
 		c, err := client.NewChainlinkK8sClient(&client.ChainlinkConfig{
@@ -75,7 +65,7 @@ func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverC
 			Password:   cfg.CLNodePassword,
 		}, fmt.Sprintf(cfg.CLNodeInternalDNSRecordTemplate, i), cfg.Namespace)
 		if err != nil {
-			return nil, nil, nil, nil, nil, err
+			return &blockchain.EVMNetwork{}, nil, nil, nil, err
 		}
 		clClients = append(clClients, c)
 	}
@@ -83,7 +73,13 @@ func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverC
 		LocalURL:   cfg.MockServerURL,
 		ClusterURL: cfg.MockServerURL,
 	})
-	return cc, msClient, cd, clClients[0], clClients[1:], nil
+
+	if len(clClients) < 2 {
+		return &blockchain.EVMNetwork{}, nil, nil, nil, fmt.Errorf("not enough chainlink nodes, need at least 2, got %d", len(clClients))
+	}
+
+	//nolint:gosec // G602 - how is this potentially causing slice out of bounds is beyond me
+	return net, msClient, clClients[0], clClients[1:], nil
 }
 
 func ReadConfig() (*ConnectionVars, error) {

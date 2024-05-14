@@ -16,7 +16,7 @@ import (
 )
 
 func Test_DiscovererDatabase(t *testing.T) {
-	db := pgtest.NewSqlDB(t)
+	db := pgtest.NewSqlxDB(t)
 
 	localPeerID1 := mustRandomP2PPeerID(t)
 	localPeerID2 := mustRandomP2PPeerID(t)
@@ -80,7 +80,6 @@ func Test_DiscovererDatabase(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, announcements, 1)
 		assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
-
 	})
 }
 

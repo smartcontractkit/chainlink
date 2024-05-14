@@ -5,11 +5,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
@@ -22,10 +21,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -60,13 +61,11 @@ func TestOCRChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 	config, err := tc.GetConfig("Chaos", tc.OCR)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Error getting config")
 
 	var overrideFn = func(_ interface{}, target interface{}) {
-		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
-		ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+		ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
+		ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 	}
 
 	chainlinkCfg := chainlink.NewWithOverride(0, getDefaultOcrSettings(&config), config.ChainlinkImage, overrideFn)
@@ -164,39 +163,34 @@ func TestOCRChaos(t *testing.T) {
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 2, 5, ChaosGroupMajorityPlus)
 			require.NoError(t, err)
 
-			chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment, l)
-			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-			cd, err := contracts.NewContractDeployer(chainClient, l)
-			require.NoError(t, err, "Deploying contracts shouldn't fail")
+			cfg := config.MustCopy().(tc.TestConfig)
+
+			network := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())[0]
+			network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
+
+			seth, err := actions_seth.GetChainClient(&cfg, network)
+			require.NoError(t, err, "Error creating seth client")
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
 			bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
 			t.Cleanup(func() {
-				if chainClient != nil {
-					chainClient.GasStats().PrintStats()
-				}
-				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
+				err := actions_seth.TeardownRemoteSuite(t, seth, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &cfg)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
 			ms, err := ctfClient.ConnectMockServer(testEnvironment)
 			require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
-			chainClient.ParallelTransactions(true)
+			linkContract, err := contracts.DeployLinkTokenContract(l, seth)
+			require.NoError(t, err, "Error deploying link token contract")
+
+			err = actions_seth.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), big.NewFloat(10))
 			require.NoError(t, err)
 
-			lt, err := cd.DeployLinkTokenContract()
-			require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
+			ocrInstances, err := actions_seth.DeployOCRv1Contracts(l, seth, 1, common.HexToAddress(linkContract.Address()), contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 			require.NoError(t, err)
-
-			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, workerNodes, chainClient)
-			require.NoError(t, err)
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err)
-			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, chainClient.GetChainID().String())
+			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, fmt.Sprint(seth.ChainID))
 			require.NoError(t, err)
 
 			chaosApplied := false

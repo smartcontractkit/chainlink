@@ -1,6 +1,8 @@
 package vrf
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,8 +12,7 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
@@ -33,7 +33,7 @@ import (
 )
 
 type Delegate struct {
-	q            pg.Q
+	ds           sqlutil.DataSource
 	pr           pipeline.Runner
 	porm         pipeline.ORM
 	ks           keystore.Master
@@ -43,16 +43,15 @@ type Delegate struct {
 }
 
 func NewDelegate(
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
-	cfg pg.QConfig,
 	mailMon *mailbox.Monitor) *Delegate {
 	return &Delegate{
-		q:            pg.NewQ(db, lggr, cfg),
+		ds:           ds,
 		ks:           ks,
 		pr:           pr,
 		porm:         porm,
@@ -66,16 +65,29 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
-func (d *Delegate) BeforeJobCreated(job.Job)              {}
-func (d *Delegate) AfterJobCreated(job.Job)               {}
-func (d *Delegate) BeforeJobDeleted(job.Job)              {}
-func (d *Delegate) OnDeleteJob(job.Job, pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(job.Job)                   {}
+func (d *Delegate) AfterJobCreated(job.Job)                    {}
+func (d *Delegate) BeforeJobDeleted(job.Job)                   {}
+func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
+	marshalledVRFSpec, err := json.MarshalIndent(jb.VRFSpec, "", " ")
+	if err != nil {
+		return nil, err
+	}
+	marshalledPipelineSpec, err := json.MarshalIndent(jb.PipelineSpec, "", " ")
+	if err != nil {
+		return nil, err
+	}
+	d.lggr.Debugw("Creating services for job spec",
+		"vrfSpec", string(marshalledVRFSpec),
+		"pipelineSpec", string(marshalledPipelineSpec),
+		"keyHash", jb.VRFSpec.PublicKey.MustHash(),
+	)
 	pl, err := jb.PipelineSpec.ParsePipeline()
 	if err != nil {
 		return nil, err
@@ -128,7 +140,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
-			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+			if err2 := CheckFromAddressesExist(ctx, jb, d.ks.Eth()); err != nil {
 				return nil, err2
 			}
 
@@ -170,7 +182,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 					lV2Plus,
 					chain,
 					chain.ID(),
-					d.q,
+					d.ds,
 					v2.NewCoordinatorV2_5(coordinatorV2Plus),
 					batchCoordinatorV2,
 					vrfOwner,
@@ -187,7 +199,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+			if err2 := CheckFromAddressesExist(ctx, jb, d.ks.Eth()); err != nil {
 				return nil, err2
 			}
 
@@ -224,7 +236,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				lV2,
 				chain,
 				chain.ID(),
-				d.q,
+				d.ds,
 				v2.NewCoordinatorV2(coordinatorV2),
 				batchCoordinatorV2,
 				vrfOwner,
@@ -245,7 +257,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				Cfg:            chain.Config().EVM(),
 				FeeCfg:         chain.Config().EVM().GasEstimator(),
 				L:              logger.Sugared(lV1),
-				Q:              d.q,
 				Coordinator:    coordinator,
 				PipelineRunner: d.pr,
 				GethKs:         d.ks.Eth(),
@@ -269,9 +280,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 // CheckFromAddressesExist returns an error if and only if one of the addresses
 // in the VRF spec's fromAddresses field does not exist in the keystore.
-func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
+func CheckFromAddressesExist(ctx context.Context, jb job.Job, gethks keystore.Eth) (err error) {
 	for _, a := range jb.VRFSpec.FromAddresses {
-		_, err2 := gethks.Get(a.Hex())
+		_, err2 := gethks.Get(ctx, a.Hex())
 		err = multierr.Append(err, err2)
 	}
 	return

@@ -6,13 +6,15 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
-	m  map[string]capabilities.BaseCapability
-	mu sync.RWMutex
+	m    map[string]capabilities.BaseCapability
+	mu   sync.RWMutex
+	lggr logger.Logger
 }
 
 // Get gets a capability from the registry.
@@ -20,6 +22,7 @@ func (r *Registry) Get(_ context.Context, id string) (capabilities.BaseCapabilit
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	r.lggr.Debugw("get capability", "id", id)
 	c, ok := r.m[id]
 	if !ok {
 		return nil, fmt.Errorf("capability not found with id %s", id)
@@ -142,13 +145,14 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 	}
 
 	r.m[id] = c
+	r.lggr.Infow("capability added", "id", id, "type", info.CapabilityType, "description", info.Description, "version", info.Version)
 	return nil
-
 }
 
 // NewRegistry returns a new Registry.
-func NewRegistry() *Registry {
+func NewRegistry(lggr logger.Logger) *Registry {
 	return &Registry{
-		m: map[string]capabilities.BaseCapability{},
+		m:    map[string]capabilities.BaseCapability{},
+		lggr: lggr.Named("CapabilityRegistry"),
 	}
 }

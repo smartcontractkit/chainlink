@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/smartcontractkit/chainlink/v2/core/services/workflows/workflow-spec-yaml",
+  "$ref": "#/$defs/workflowSpecYaml",
+  "$defs": {
+    "mapping": {
+      "type": "object"
+    },
+    "stepDefinitionID": {
+      "oneOf": [
+        {
+          "$id": "string",
+          "pattern": "^[a-z0-9_\\-:]+@(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+        },
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "$id": "https://github.com/smartcontractkit/chainlink/v2/core/services/workflows/step-definition-table-id",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+            },
+            "labels": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "name",
+            "version",
+            "labels"
+          ]
+        }
+      ],
+      "title": "id"
+    },
+    "stepDefinitionYaml": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stepDefinitionID"
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "inputs": {
+          "$ref": "#/$defs/mapping"
+        },
+        "config": {
+          "$ref": "#/$defs/mapping"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "id",
+        "config"
+      ]
+    },
+    "workflowSpecYaml": {
+      "properties": {
+        "triggers": {
+          "items": {
+            "$ref": "#/$defs/stepDefinitionYaml"
+          },
+          "type": "array"
+        },
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/stepDefinitionYaml"
+          },
+          "type": "array"
+        },
+        "consensus": {
+          "items": {
+            "$ref": "#/$defs/stepDefinitionYaml"
+          },
+          "type": "array"
+        },
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/stepDefinitionYaml"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "triggers",
+        "consensus",
+        "targets"
+      ]
+    }
+  }
+}

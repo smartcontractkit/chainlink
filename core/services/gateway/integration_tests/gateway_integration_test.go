@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/onsi/gomega"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const gatewayConfigTemplate = `
@@ -143,7 +143,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	// Launch Gateway
 	lggr := logger.TestLogger(t)
 	gatewayConfig := fmt.Sprintf(gatewayConfigTemplate, nodeKeys.Address)
-	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, lggr), lggr)
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()
@@ -152,7 +152,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 
 	// Launch Connector
 	client := &client{privateKey: nodeKeys.PrivateKey}
-	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, client, utils.NewRealClock(), lggr)
+	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, client, clockwork.NewRealClock(), lggr)
 	require.NoError(t, err)
 	client.connector = connector
 	servicetest.Run(t, connector)

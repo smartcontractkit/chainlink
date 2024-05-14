@@ -16,43 +16,48 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
+
+type roundRobinKeystore interface {
+	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
+}
+
+type txManager interface {
+	CreateTransaction(ctx context.Context, txRequest txmgr.TxRequest) (tx txmgr.Tx, err error)
+}
 
 type FunctionsContractTransmitter interface {
 	services.ServiceCtx
 	ocrtypes.ContractTransmitter
 }
 
-type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
-	FromAddress() common.Address
-}
-
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
 
-func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
-	return nil, nil
-}
-
 type contractTransmitter struct {
-	contractAddress     atomic.Pointer[common.Address]
-	contractABI         abi.ABI
-	transmitter         Transmitter
-	transmittedEventSig common.Hash
-	contractReader      contractReader
-	lp                  logpoller.LogPoller
-	lggr                logger.Logger
-	reportToEvmTxMeta   ReportToEthMetadata
-	contractVersion     uint32
-	reportCodec         encoding.ReportCodec
+	contractAddress             atomic.Pointer[common.Address]
+	contractABI                 abi.ABI
+	transmittedEventSig         common.Hash
+	contractReader              contractReader
+	lp                          logpoller.LogPoller
+	lggr                        logger.Logger
+	contractVersion             uint32
+	reportCodec                 encoding.ReportCodec
+	txm                         txManager
+	fromAddresses               []common.Address
+	gasLimit                    uint64
+	effectiveTransmitterAddress common.Address
+	strategy                    types.TxStrategy
+	checker                     txmgr.TransmitCheckerSpec
+	chainID                     *big.Int
+	keystore                    roundRobinKeystore
 }
 
 var _ FunctionsContractTransmitter = &contractTransmitter{}
@@ -65,12 +70,23 @@ func transmitterFilterName(addr common.Address) string {
 func NewFunctionsContractTransmitter(
 	caller contractReader,
 	contractABI abi.ABI,
-	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
-	reportToEvmTxMeta ReportToEthMetadata,
 	contractVersion uint32,
+	txm txManager,
+	fromAddresses []common.Address,
+	gasLimit uint64,
+	effectiveTransmitterAddress common.Address,
+	strategy types.TxStrategy,
+	checker txmgr.TransmitCheckerSpec,
+	chainID *big.Int,
+	keystore roundRobinKeystore,
 ) (*contractTransmitter, error) {
+	// Ensure that a keystore is provided.
+	if keystore == nil {
+		return nil, errors.New("nil keystore provided to transmitter")
+	}
+
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
@@ -80,24 +96,55 @@ func NewFunctionsContractTransmitter(
 		return nil, fmt.Errorf("unsupported contract version: %d", contractVersion)
 	}
 
-	if reportToEvmTxMeta == nil {
-		reportToEvmTxMeta = reportToEvmTxMetaNoop
-	}
 	codec, err := encoding.NewReportCodec(contractVersion)
 	if err != nil {
 		return nil, err
 	}
 	return &contractTransmitter{
-		contractABI:         contractABI,
-		transmitter:         transmitter,
-		transmittedEventSig: transmitted.ID,
-		lp:                  lp,
-		contractReader:      caller,
-		lggr:                lggr.Named("OCRContractTransmitter"),
-		reportToEvmTxMeta:   reportToEvmTxMeta,
-		contractVersion:     contractVersion,
-		reportCodec:         codec,
+		contractABI:                 contractABI,
+		transmittedEventSig:         transmitted.ID,
+		lp:                          lp,
+		contractReader:              caller,
+		lggr:                        lggr.Named("OCRFunctionsContractTransmitter"),
+		contractVersion:             contractVersion,
+		reportCodec:                 codec,
+		txm:                         txm,
+		fromAddresses:               fromAddresses,
+		gasLimit:                    gasLimit,
+		effectiveTransmitterAddress: effectiveTransmitterAddress,
+		strategy:                    strategy,
+		checker:                     checker,
+		chainID:                     chainID,
+		keystore:                    keystore,
 	}, nil
+}
+
+func (oc *contractTransmitter) createEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
+	roundRobinFromAddress, err := oc.keystore.GetRoundRobinAddress(ctx, oc.chainID, oc.fromAddresses...)
+	if err != nil {
+		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
+	}
+
+	_, err = oc.txm.CreateTransaction(ctx, txmgr.TxRequest{
+		FromAddress:      roundRobinFromAddress,
+		ToAddress:        toAddress,
+		EncodedPayload:   payload,
+		FeeLimit:         oc.gasLimit,
+		ForwarderAddress: oc.forwarderAddress(),
+		Strategy:         oc.strategy,
+		Checker:          oc.checker,
+		Meta:             nil,
+	})
+	return errors.Wrap(err, "skipped OCR transmission")
+}
+
+func (oc *contractTransmitter) forwarderAddress() common.Address {
+	for _, a := range oc.fromAddresses {
+		if a == oc.effectiveTransmitterAddress {
+			return common.Address{}
+		}
+	}
+	return oc.effectiveTransmitterAddress
 }
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
@@ -118,11 +165,6 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		vs[i] = v
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
-
-	txMeta, err := oc.reportToEvmTxMeta(report)
-	if err != nil {
-		oc.lggr.Warnw("failed to generate tx metadata for report", "err", err)
-	}
 
 	var destinationContract common.Address
 	switch oc.contractVersion {
@@ -161,8 +203,8 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	oc.lggr.Debugw("FunctionsContractTransmitter: transmitting report", "contractAddress", destinationContract, "txMeta", txMeta, "payloadSize", len(payload))
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, destinationContract, payload, txMeta), "failed to send Eth transaction")
+	oc.lggr.Debugw("FunctionsContractTransmitter: transmitting report", "contractAddress", destinationContract, "txMeta", nil, "payloadSize", len(payload))
+	return errors.Wrap(oc.createEthTransaction(ctx, destinationContract, payload), "failed to send Eth transaction")
 }
 
 type contractReader interface {
@@ -228,8 +270,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
-	latest, err := oc.lp.LatestLogByEventSigWithConfs(
-		oc.transmittedEventSig, *contractAddr, 1, pg.WithParentCtx(ctx))
+	latest, err := oc.lp.LatestLogByEventSigWithConfs(ctx, oc.transmittedEventSig, *contractAddr, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet
@@ -242,7 +283,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 
 // FromAccount returns the account from which the transmitter invokes the contract
 func (oc *contractTransmitter) FromAccount() (ocrtypes.Account, error) {
-	return ocrtypes.Account(oc.transmitter.FromAddress().String()), nil
+	return ocrtypes.Account(oc.effectiveTransmitterAddress.String()), nil
 }
 
 func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }
@@ -255,14 +296,14 @@ func (oc *contractTransmitter) HealthReport() map[string]error {
 }
 func (oc *contractTransmitter) Name() string { return oc.lggr.Name() }
 
-func (oc *contractTransmitter) UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error {
+func (oc *contractTransmitter) UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error {
 	// transmitter only cares about the active coordinator
 	previousContract := oc.contractAddress.Swap(&activeCoordinator)
 	if previousContract != nil && *previousContract == activeCoordinator {
 		return nil
 	}
 	oc.lggr.Debugw("FunctionsContractTransmitter: updating routes", "previousContract", previousContract, "activeCoordinator", activeCoordinator)
-	err := oc.lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(activeCoordinator), EventSigs: []common.Hash{oc.transmittedEventSig}, Addresses: []common.Address{activeCoordinator}})
+	err := oc.lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(activeCoordinator), EventSigs: []common.Hash{oc.transmittedEventSig}, Addresses: []common.Address{activeCoordinator}})
 	if err != nil {
 		return err
 	}

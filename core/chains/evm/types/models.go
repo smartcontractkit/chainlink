@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -13,17 +14,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 // Head represents a BlockNumber, BlockHash.
@@ -31,7 +32,7 @@ type Head struct {
 	ID               uint64
 	Hash             common.Hash
 	Number           int64
-	L1BlockNumber    null.Int64
+	L1BlockNumber    sql.NullInt64
 	ParentHash       common.Hash
 	Parent           *Head
 	EVMChainID       *ubig.Big
@@ -43,6 +44,7 @@ type Head struct {
 	StateRoot        common.Hash
 	Difficulty       *big.Int
 	TotalDifficulty  *big.Int
+	IsFinalized      bool
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
@@ -165,6 +167,14 @@ func (h *Head) ChainHashes() []common.Hash {
 	return hashes
 }
 
+func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
+	for h != nil && !h.IsFinalized {
+		h = h.Parent
+	}
+
+	return h
+}
+
 func (h *Head) ChainID() *big.Int {
 	return h.EVMChainID.ToInt()
 }
@@ -275,7 +285,7 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0).UTC()
 	h.BaseFeePerGas = assets.NewWei((*big.Int)(jsonHead.BaseFeePerGas))
 	if jsonHead.L1BlockNumber != nil {
-		h.L1BlockNumber = null.Int64From((*big.Int)(jsonHead.L1BlockNumber).Int64())
+		h.L1BlockNumber = sql.NullInt64{Int64: (*big.Int)(jsonHead.L1BlockNumber).Int64(), Valid: true}
 	}
 	h.ReceiptsRoot = jsonHead.ReceiptsRoot
 	h.TransactionsRoot = jsonHead.TransactionsRoot
@@ -355,11 +365,10 @@ func (b Block) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-var ErrMissingBlock = errors.New("missing block")
+var ErrMissingBlock = pkgerrors.New("missing block")
 
 // UnmarshalJSON unmarshals to a Block
 func (b *Block) UnmarshalJSON(data []byte) error {
-
 	var h codec.Handle = new(codec.JsonHandle)
 	bi := blocks.BlockInternal{}
 
@@ -370,12 +379,12 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if bi.Empty() {
-		return errors.WithStack(ErrMissingBlock)
+		return pkgerrors.WithStack(ErrMissingBlock)
 	}
 
 	n, err := hexutil.DecodeBig(bi.Number)
 	if err != nil {
-		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got:  '%s' in '%s'", bi.Number, data)
+		return pkgerrors.Wrapf(err, "failed to decode block number while unmarshalling block, got:  '%s' in '%s'", bi.Number, data)
 	}
 	*b = Block{
 		Number:        n.Int64(),
@@ -409,7 +418,6 @@ const LegacyTxType = blocks.TxType(0x0)
 
 // UnmarshalJSON unmarshals a Transaction
 func (t *Transaction) UnmarshalJSON(data []byte) error {
-
 	var h codec.Handle = new(codec.JsonHandle)
 	ti := blocks.TransactionInternal{}
 
@@ -421,7 +429,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	}
 
 	if ti.Gas == nil {
-		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
+		return pkgerrors.Errorf("expected 'gas' to not be null, got: '%s'", data)
 	}
 	if ti.Type == nil {
 		tpe := LegacyTxType
@@ -433,7 +441,6 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 }
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
-
 	ti := toInternalTxn(*t)
 
 	buf := bytes.NewBuffer(make([]byte, 0, 256))
@@ -451,7 +458,7 @@ var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 
 // ChainlinkFulfilledTopic is the signature for the event emitted after calling
 // ChainlinkClient.validateChainlinkCallback(requestId). See
-// ../../contracts/src/v0.6/ChainlinkClient.sol
+// ../../contracts/src/v0.8/ChainlinkClient.sol
 var ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
 
 // ReceiptIndicatesRunLogFulfillment returns true if this tx receipt is the result of a
@@ -502,7 +509,7 @@ func unmarshalFromString(s string, f *FunctionSelector) error {
 		}
 		bytes := common.FromHex(s)
 		if len(bytes) != FunctionSelectorLength {
-			return errors.New("function ID must be 4 bytes in length")
+			return pkgerrors.New("function ID must be 4 bytes in length")
 		}
 		f.SetBytes(bytes)
 	} else {
@@ -559,7 +566,7 @@ type UntrustedBytes []byte
 func (ary UntrustedBytes) SafeByteSlice(start int, end int) ([]byte, error) {
 	if end > len(ary) || start > end || start < 0 || end < 0 {
 		var empty []byte
-		return empty, errors.New("out of bounds slice access")
+		return empty, pkgerrors.New("out of bounds slice access")
 	}
 	return ary[start:end], nil
 }

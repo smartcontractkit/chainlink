@@ -6,10 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -57,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -112,8 +110,9 @@ func setupNode(
 	nodeKey ethkey.KeyV2,
 	backend *backends.SimulatedBackend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
-	mercury MercuryEndpoint,
+	mercury mercury.MercuryEndpointMock,
 ) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
+	ctx := testutils.Context(t)
 	p2pKey := keystest.NewP2PKeyV2(t)
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -145,10 +144,10 @@ func setupNode(
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, backend, nodeKey, p2pKey)
-	kb, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
+	kb, err := app.GetKeyStore().OCR2().Create(ctx, chaintype.EVM)
 	require.NoError(t, err)
 
-	err = app.Start(testutils.Context(t))
+	err = app.Start(ctx)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -166,7 +165,7 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	jb, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
+	jb, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
@@ -236,7 +235,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, mercury.NewSimulatedMercuryServer())
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
@@ -250,7 +249,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, NewSimulatedMercuryServer())
+		}, mercury.NewSimulatedMercuryServer())
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -428,7 +427,6 @@ func setupForwarderForNode(
 	backend *backends.SimulatedBackend,
 	recipient common.Address,
 	linkAddr common.Address) common.Address {
-
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend, linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
 
@@ -438,9 +436,9 @@ func setupForwarderForNode(
 	backend.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), app.GetConfig().Database())
+	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID := ubig.Big(*backend.Blockchain().Config().ChainID)
-	_, err = forwarderORM.CreateForwarder(faddr, chainID)
+	_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
 	require.NoError(t, err)
 
 	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(&chainID).String())
@@ -488,7 +486,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	effectiveTransmitters := make([]common.Address, 0)
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, NewSimulatedMercuryServer())
+	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, mercury.NewSimulatedMercuryServer())
 
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
@@ -503,7 +501,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, NewSimulatedMercuryServer())
+		}, mercury.NewSimulatedMercuryServer())
 		nodeForwarder := setupForwarderForNode(t, app, sergey, backend, transmitter, linkAddr)
 		effectiveTransmitters = append(effectiveTransmitters, nodeForwarder)
 
@@ -710,73 +708,4 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 	}
 	_, err = ocr2keeper.FilterNamesFromSpec20(spec)
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
-}
-
-// ------- below this line could be added to a test helpers package
-type MercuryEndpoint interface {
-	URL() string
-	Username() string
-	Password() string
-	CallCount() int
-	RegisterHandler(http.HandlerFunc)
-}
-
-type SimulatedMercuryServer struct {
-	server  *httptest.Server
-	handler http.HandlerFunc
-
-	mu        sync.RWMutex
-	callCount int
-}
-
-func NewSimulatedMercuryServer() *SimulatedMercuryServer {
-	srv := &SimulatedMercuryServer{
-		handler: func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-		},
-	}
-
-	srv.server = httptest.NewUnstartedServer(srv)
-
-	return srv
-}
-
-func (ms *SimulatedMercuryServer) URL() string {
-	return ms.server.URL
-}
-
-func (ms *SimulatedMercuryServer) Username() string {
-	return "username1"
-}
-
-func (ms *SimulatedMercuryServer) Password() string {
-	return "password1"
-}
-
-func (ms *SimulatedMercuryServer) CallCount() int {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-
-	return ms.callCount
-}
-
-func (ms *SimulatedMercuryServer) RegisterHandler(h http.HandlerFunc) {
-	ms.handler = h
-}
-
-func (ms *SimulatedMercuryServer) Start() {
-	ms.server.Start()
-}
-
-func (ms *SimulatedMercuryServer) Stop() {
-	ms.server.Close()
-}
-
-func (ms *SimulatedMercuryServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-
-	ms.callCount++
-
-	ms.handler.ServeHTTP(w, r)
 }

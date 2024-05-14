@@ -19,7 +19,6 @@ contract ScrollSequencerUptimeFeed is
   TypeAndVersionInterface,
   SimpleReadAccessController
 {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ScrollSequencerUptimeFeed 1.0.0";
 
   /// @dev Round info (for uptime history)

@@ -1,0 +1,17 @@
+
+# Should fail since version is more specific than major
+triggers:
+  - id: trigger_test@1.0.0
+    config: {}
+
+consensus:
+   - id: offchain_reporting@1
+     ref: offchain_reporting_1
+     config: {}
+
+targets:
+   - id: write_polygon_mainnet@1
+     ref: write_polygon_mainnet_1 
+     config: {}
+
+# yaml-language-server: $schema=../workflow_schema.json

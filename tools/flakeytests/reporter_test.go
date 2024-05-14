@@ -19,7 +19,7 @@ func TestMakeRequest_SingleTest(t *testing.T) {
 			},
 		},
 	}
-	lr := &LokiReporter{auth: "bla", host: "bla", command: "go_core_tests", now: func() time.Time { return now }}
+	lr := &LokiReporter{auth: "bla", host: "bla", orgId: "bla", command: "go_core_tests", now: func() time.Time { return now }}
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)
@@ -41,7 +41,7 @@ func TestMakeRequest_MultipleTests(t *testing.T) {
 			},
 		},
 	}
-	lr := &LokiReporter{auth: "bla", host: "bla", command: "go_core_tests", now: func() time.Time { return now }}
+	lr := &LokiReporter{auth: "bla", host: "bla", orgId: "bla", command: "go_core_tests", now: func() time.Time { return now }}
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)
@@ -58,7 +58,7 @@ func TestMakeRequest_NoTests(t *testing.T) {
 	now := time.Now()
 	ts := fmt.Sprintf("%d", now.UnixNano())
 	r := NewReport()
-	lr := &LokiReporter{auth: "bla", host: "bla", command: "go_core_tests", now: func() time.Time { return now }}
+	lr := &LokiReporter{auth: "bla", host: "bla", orgId: "bla", command: "go_core_tests", now: func() time.Time { return now }}
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)
@@ -72,7 +72,7 @@ func TestMakeRequest_WithContext(t *testing.T) {
 	now := time.Now()
 	ts := fmt.Sprintf("%d", now.UnixNano())
 	r := NewReport()
-	lr := &LokiReporter{auth: "bla", host: "bla", command: "go_core_tests", now: func() time.Time { return now }, ctx: Context{CommitSHA: "42"}}
+	lr := &LokiReporter{auth: "bla", host: "bla", orgId: "bla", command: "go_core_tests", now: func() time.Time { return now }, ctx: Context{CommitSHA: "42"}}
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)
@@ -95,7 +95,7 @@ func TestMakeRequest_Panics(t *testing.T) {
 			"core/assets": 1,
 		},
 	}
-	lr := &LokiReporter{auth: "bla", host: "bla", command: "go_core_tests", now: func() time.Time { return now }}
+	lr := &LokiReporter{auth: "bla", host: "bla", orgId: "bla", command: "go_core_tests", now: func() time.Time { return now }}
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)

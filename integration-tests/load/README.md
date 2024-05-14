@@ -68,3 +68,20 @@ To implement a standard e2e performance suite for a new product please look at `
 Gun should be working with one instance of your product.
 
 VU(Virtual user) creates a new instance of your product and works with it in `Call()`
+
+### Cluster mode (k8s)
+Add configuration to `overrides.toml`
+```
+[WaspAutoBuild]
+namespace = "wasp"
+update_image = true
+repo_image_version_uri = "${staging_ecr_registry}/wasp-tests:wb-core"
+test_binary_name = "ocr.test"
+test_name = "TestOCRLoad"
+test_timeout = "24h"
+wasp_log_level = "debug"
+wasp_jobs = "1"
+keep_jobs = true
+```
+
+And run your tests using `go test -v -run TestClusterEntrypoint`

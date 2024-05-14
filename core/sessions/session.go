@@ -4,7 +4,7 @@ import (
 	"crypto/subtle"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -55,7 +55,7 @@ func (u *User) SetAuthToken(token *auth.Token) error {
 	salt := utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := auth.HashedSecret(token, salt)
 	if err != nil {
-		return errors.Wrap(err, "user")
+		return pkgerrors.Wrap(err, "user")
 	}
 	u.TokenSalt = null.StringFrom(salt)
 	u.TokenKey = null.StringFrom(token.AccessKey)

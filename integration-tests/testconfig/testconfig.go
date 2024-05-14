@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"fmt"
+	"math/big"
 	"os"
 	"slices"
 	"strings"
@@ -16,11 +17,12 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/smartcontractkit/seth"
+
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
@@ -32,14 +34,6 @@ import (
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 )
-
-type GlobalTestConfig interface {
-	GetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig
-	GetLoggingConfig() *ctf_config.LoggingConfig
-	GetNetworkConfig() *ctf_config.NetworkConfig
-	GetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
-	GetPyroscopeConfig() *ctf_config.PyroscopeConfig
-}
 
 type UpgradeableChainlinkTestConfig interface {
 	GetChainlinkUpgradeImageConfig() *ctf_config.ChainlinkImageConfig
@@ -65,6 +59,10 @@ type KeeperTestConfig interface {
 	GetKeeperConfig() *keeper_config.Config
 }
 
+type AutomationTestConfig interface {
+	GetAutomationConfig() *a_config.Config
+}
+
 type OcrTestConfig interface {
 	GetOCRConfig() *ocr_config.Config
 }
@@ -73,17 +71,8 @@ type Ocr2TestConfig interface {
 	GetOCR2Config() *ocr2_config.Config
 }
 
-type NamedConfiguration interface {
-	GetConfigurationName() string
-}
-
 type TestConfig struct {
-	ChainlinkImage         *ctf_config.ChainlinkImageConfig `toml:"ChainlinkImage"`
-	ChainlinkUpgradeImage  *ctf_config.ChainlinkImageConfig `toml:"ChainlinkUpgradeImage"`
-	Logging                *ctf_config.LoggingConfig        `toml:"Logging"`
-	Network                *ctf_config.NetworkConfig        `toml:"Network"`
-	Pyroscope              *ctf_config.PyroscopeConfig      `toml:"Pyroscope"`
-	PrivateEthereumNetwork *ctf_test_env.EthereumNetwork    `toml:"PrivateEthereumNetwork"`
+	ctf_config.TestConfig
 
 	Common     *Common                  `toml:"Common"`
 	Automation *a_config.Config         `toml:"Automation"`
@@ -168,7 +157,7 @@ func (c TestConfig) GetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig {
 	return c.ChainlinkImage
 }
 
-func (c TestConfig) GetPrivateEthereumNetworkConfig() *ctf_test_env.EthereumNetwork {
+func (c TestConfig) GetPrivateEthereumNetworkConfig() *ctf_config.EthereumNetworkConfig {
 	return c.PrivateEthereumNetwork
 }
 
@@ -200,12 +189,20 @@ func (c TestConfig) GetKeeperConfig() *keeper_config.Config {
 	return c.Keeper
 }
 
+func (c TestConfig) GetAutomationConfig() *a_config.Config {
+	return c.Automation
+}
+
 func (c TestConfig) GetOCRConfig() *ocr_config.Config {
 	return c.OCR
 }
 
 func (c TestConfig) GetConfigurationName() string {
 	return c.ConfigurationName
+}
+
+func (c TestConfig) GetSethConfig() *seth.Config {
+	return c.Seth
 }
 
 func (c *TestConfig) AsBase64() (string, error) {
@@ -290,12 +287,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		case Automation:
 			return handleAutomationConfigOverride(logger, filename, configurationName, target, content)
 		default:
-			err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &testConfig, content)
-			if err != nil {
-				return errors.Wrapf(err, "error reading file %s", filename)
-			}
-
-			return nil
+			return handleDefaultConfigOverride(logger, filename, configurationName, target, content)
 		}
 	}
 
@@ -370,11 +362,61 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	logger.Debug().Msg("Validating test config")
 	err = testConfig.Validate()
 	if err != nil {
+		logger.Error().
+			Msg("Error validating test config. You might want refer to integration-tests/testconfig/README.md for more information.")
 		return TestConfig{}, errors.Wrapf(err, "error validating test config")
 	}
 
 	if testConfig.Common == nil {
 		testConfig.Common = &Common{}
+	}
+
+	isAnySimulated := false
+	for _, network := range testConfig.Network.SelectedNetworks {
+		if strings.Contains(strings.ToUpper(network), "SIMULATED") {
+			isAnySimulated = true
+			break
+		}
+	}
+
+	if testConfig.Seth != nil && !isAnySimulated && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
+		testConfig.Seth.EphemeralAddrs = new(int64)
+		logger.Warn().
+			Msg("Ephemeral addresses were enabled, but test was setup to run on a live network. Ephemeral addresses will be disabled.")
+	}
+
+	if testConfig.Seth != nil && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
+		rootBuffer := testConfig.Seth.RootKeyFundsBuffer
+		if rootBuffer == nil {
+			rootBuffer = big.NewInt(0)
+		}
+		clNodeFunding := testConfig.Common.ChainlinkNodeFunding
+		if clNodeFunding == nil {
+			zero := 0.0
+			clNodeFunding = &zero
+		}
+		minRequiredFunds := big.NewFloat(0).Mul(big.NewFloat(*clNodeFunding), big.NewFloat(6.0))
+
+		//add buffer to the minimum required funds, this isn't even a rough estimate, because we don't know how many contracts will be deployed from root key, but it's here to let you know that you should have some buffer
+		minRequiredFundsBuffered := big.NewFloat(0).Mul(minRequiredFunds, big.NewFloat(1.2))
+		minRequiredFundsBufferedInt, _ := minRequiredFundsBuffered.Int(nil)
+
+		rootBuffer64, _ := rootBuffer.Float64()
+
+		if big.NewFloat(rootBuffer64).Cmp(minRequiredFundsBuffered) <= 0 {
+			msg := `
+The funds allocated to the root key buffer are below the minimum requirement, which could lead to insufficient funds for performing contract deployments. Please review and adjust your TOML configuration file to ensure that the root key buffer has adequate funds. Increase the fund settings as necessary to meet this requirement.
+
+Example:
+[Seth]
+root_key_funds_buffer = 1_000
+`
+
+			logger.Warn().
+				Str("Root key buffer (wei/ether)", fmt.Sprintf("%s/%s", rootBuffer.String(), conversions.WeiToEther(rootBuffer).Text('f', -1))).
+				Str("Minimum required funds (wei/ether)", fmt.Sprintf("%s/%s", minRequiredFundsBuffered.String(), conversions.WeiToEther(minRequiredFundsBufferedInt).Text('f', -1))).
+				Msg(msg)
+		}
 	}
 
 	logger.Debug().Msg("Correct test config constructed successfully")
@@ -383,11 +425,12 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 func (c *TestConfig) readNetworkConfiguration() error {
 	// currently we need to read that kind of secrets only for network configuration
-	if c == nil {
+	if c.Network == nil {
 		c.Network = &ctf_config.NetworkConfig{}
 	}
 
 	c.Network.UpperCaseNetworkNames()
+	c.Network.OverrideURLsAndKeysFromEVMNetwork()
 	err := c.Network.Default()
 	if err != nil {
 		return errors.Wrapf(err, "error reading default network config")
@@ -404,22 +447,25 @@ func (c *TestConfig) readNetworkConfiguration() error {
 func (c *TestConfig) Validate() error {
 	defer func() {
 		if r := recover(); r != nil {
-			panic(fmt.Errorf("Panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
+			panic(fmt.Errorf("panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
 		}
 	}()
+
 	if c.ChainlinkImage == nil {
-		return fmt.Errorf("chainlink image config must be set")
+		return MissingImageInfoAsError("chainlink image config must be set")
 	}
-	if err := c.ChainlinkImage.Validate(); err != nil {
-		return errors.Wrapf(err, "chainlink image config validation failed")
+	if c.ChainlinkImage != nil {
+		if err := c.ChainlinkImage.Validate(); err != nil {
+			return MissingImageInfoAsError(fmt.Sprintf("chainlink image config validation failed: %s", err.Error()))
+		}
 	}
 	if c.ChainlinkUpgradeImage != nil {
 		if err := c.ChainlinkUpgradeImage.Validate(); err != nil {
-			return errors.Wrapf(err, "chainlink upgrade image config validation failed")
+			return MissingImageInfoAsError(fmt.Sprintf("chainlink upgrade image config validation failed: %s", err.Error()))
 		}
 	}
 	if err := c.Network.Validate(); err != nil {
-		return errors.Wrapf(err, "network config validation failed")
+		return NoSelectedNetworkInfoAsError(fmt.Sprintf("network config validation failed: %s", err.Error()))
 	}
 
 	if c.Logging == nil {
@@ -430,14 +476,7 @@ func (c *TestConfig) Validate() error {
 		return errors.Wrapf(err, "logging config validation failed")
 	}
 
-	// require Loki config only if these tests run locally
-	_, willUseRemoteRunner := os.LookupEnv(k8s_config.EnvVarJobImage)
-	_, isInsideK8s := os.LookupEnv(k8s_config.EnvVarInsideK8s)
-	if (!willUseRemoteRunner && !isInsideK8s) && slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
-		if c.Logging.Loki == nil {
-			return fmt.Errorf("for local execution you must set Loki config in logging config")
-		}
-
+	if c.Logging.Loki != nil {
 		if err := c.Logging.Loki.Validate(); err != nil {
 			return errors.Wrapf(err, "loki config validation failed")
 		}
@@ -519,6 +558,11 @@ func (c *TestConfig) Validate() error {
 		}
 	}
 
+	if c.WaspConfig != nil {
+		if err := c.WaspConfig.Validate(); err != nil {
+			return errors.Wrapf(err, "WaspAutoBuildConfig validation failed")
+		}
+	}
 	return nil
 }
 
@@ -549,6 +593,56 @@ func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurati
 	// override instead of merging
 	if (newConfig.Automation != nil && len(newConfig.Automation.Load) > 0) && (oldConfig != nil && oldConfig.Automation != nil && len(oldConfig.Automation.Load) > 0) {
 		target.Automation.Load = newConfig.Automation.Load
+	}
+
+	return nil
+}
+
+func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
+	logger.Debug().Msgf("Handling default config override for %s", filename)
+	oldConfig := MustCopy(target)
+	newConfig := TestConfig{}
+
+	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	err = ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &newConfig, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	// temporary fix for Duration not being correctly copied
+	if oldConfig != nil && oldConfig.Seth != nil && oldConfig.Seth.Networks != nil {
+		for i, old_network := range oldConfig.Seth.Networks {
+			for _, target_network := range target.Seth.Networks {
+				if old_network.ChainID == target_network.ChainID {
+					oldConfig.Seth.Networks[i].TxnTimeout = target_network.TxnTimeout
+				}
+			}
+		}
+	}
+
+	// override instead of merging
+	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig != nil && oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
+		networksToUse := map[string]*seth.Network{}
+		for i, old_network := range oldConfig.Seth.Networks {
+			for _, new_network := range newConfig.Seth.Networks {
+				if old_network.ChainID == new_network.ChainID {
+					oldConfig.Seth.Networks[i] = new_network
+					break
+				}
+				if _, ok := networksToUse[new_network.ChainID]; !ok {
+					networksToUse[new_network.ChainID] = new_network
+				}
+			}
+			networksToUse[old_network.ChainID] = oldConfig.Seth.Networks[i]
+		}
+		target.Seth.Networks = []*seth.Network{}
+		for _, network := range networksToUse {
+			target.Seth.Networks = append(target.Seth.Networks, network)
+		}
 	}
 
 	return nil

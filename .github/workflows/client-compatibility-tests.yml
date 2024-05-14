@@ -25,15 +25,16 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: client-compatablility-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Build Chainlink Image
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
@@ -42,8 +43,6 @@ jobs:
           tag_suffix: ""
           dockerfile: core/chainlink.Dockerfile
           git_commit_sha: ${{ github.sha }}
-          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -57,19 +56,20 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: client-compatablility-build-tests
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Build Tests Binary
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -111,12 +111,13 @@ jobs:
             client: nethermind
             timeout: 30m
             pyroscope_env: ci-smoke-ocr-nethermind-simulated
-          - name: ocr-besu
-            test: TestOCRBasic
-            file: ocr
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-besu-simulated
+          # Will fail until https://github.com/hyperledger/besu/pull/6702 is merged and released
+          # - name: ocr-besu
+          #   test: TestOCRBasic
+          #   file: ocr
+          #   client: besu
+          #   timeout: 30m
+          #   pyroscope_env: ci-smoke-ocr-besu-simulated
           - name: ocr-erigon
             test: TestOCRBasic
             file: ocr
@@ -135,12 +136,13 @@ jobs:
             client: nethermind
             timeout: 30m
             pyroscope_env: ci-smoke-nethermind-evm-simulated
-          - name: ocr2-besu
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr2-besu-simulated
+          # Will fail until https://github.com/hyperledger/besu/pull/6702 is merged and released
+          # - name: ocr2-besu
+          #   test: "^TestOCRv2Basic/plugins$"
+          #   file: ocr2
+          #   client: besu
+          #   timeout: 30m
+            # pyroscope_env: ci-smoke-ocr2-besu-simulated
           - name: ocr2-erigon
             test: "^TestOCRv2Basic/plugins$"
             file: ocr2
@@ -151,7 +153,7 @@ jobs:
     name: Client Compatibility Test ${{ matrix.name }}
     steps:
       - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
         with:
           name: tests
       - name: Prepare Base64 TOML config
@@ -162,6 +164,9 @@ jobs:
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           ETH2_EL_CLIENT: ${{matrix.client}}
           CHAINLINK_VERSION: ${{ github.sha }}
+          GRAFANA_URL: "http://localhost:8080/primary"
+          GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
         run: |
           convert_to_toml_array() {
               local IFS=','
@@ -202,10 +207,15 @@ jobs:
           enabled=$pyroscope_enabled
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+          key_secret="$PYROSCOPE_KEY"
+          
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dashboard_url="$GRAFANA_DASHBOARD_URL"
+          bearer_token_secret="$GRAFANA_BEARER_TOKEN"          
 
           [PrivateEthereumNetwork]
-          consensus_type="pos"
+          ethereum_version="eth2"
           consensus_layer="prysm"
           execution_layer="$execution_layer"
           wait_for_finalization=false
@@ -224,7 +234,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           touch .root_dir
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout ${{ matrix.timeout }} -test.run ${{ matrix.test }}
           binary_name: tests
@@ -240,6 +250,9 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
 
   start-slack-thread:
     name: Start Slack Thread
@@ -258,7 +271,7 @@ jobs:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
       - name: Main Slack Notification
-        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         id: slack
         with:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
@@ -317,7 +330,7 @@ jobs:
         product: [ocr, ocr2]
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Post Test Results to Slack

@@ -3,7 +3,7 @@ pragma solidity ^0.8.6;
 
 import {VRFV2WrapperConsumerBase} from "../VRFV2WrapperConsumerBase.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil_v0_8_6.sol";
 import {VRFV2WrapperInterface} from "../interfaces/VRFV2WrapperInterface.sol";
 
 contract VRFV2WrapperLoadTestConsumer is VRFV2WrapperConsumerBase, ConfirmedOwner {
@@ -65,7 +65,7 @@ contract VRFV2WrapperLoadTestConsumer is VRFV2WrapperConsumerBase, ConfirmedOwne
   }
 
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     uint256 fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
@@ -105,7 +105,7 @@ contract VRFV2WrapperLoadTestConsumer is VRFV2WrapperConsumerBase, ConfirmedOwne
       uint256 fulfilmentBlockNumber
     )
   {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     RequestStatus memory request = s_requests[_requestId];
     return (

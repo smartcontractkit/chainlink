@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -381,7 +381,7 @@ func (n *node) unreachableLoop() {
 
 			err = n.verify(n.nodeCtx)
 
-			if errors.Is(err, errInvalidChainID) {
+			if pkgerrors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to redial RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				n.declareInvalidChainID()
 				return
@@ -426,7 +426,7 @@ func (n *node) invalidChainIDLoop() {
 			return
 		case <-time.After(chainIDRecheckBackoff.Duration()):
 			err := n.verify(n.nodeCtx)
-			if errors.Is(err, errInvalidChainID) {
+			if pkgerrors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				continue
 			} else if err != nil {

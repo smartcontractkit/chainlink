@@ -8,6 +8,7 @@ import {KeeperRegistryLogicB2_1} from "./KeeperRegistryLogicB2_1.sol";
 import {Chainable} from "../Chainable.sol";
 import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
+import {IAutomationV21PlusCommon} from "../interfaces/IAutomationV21PlusCommon.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -236,7 +237,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
       signers,
       transmitters,
       f,
-      abi.decode(onchainConfigBytes, (OnchainConfig)),
+      abi.decode(onchainConfigBytes, (IAutomationV21PlusCommon.OnchainConfigLegacy)),
       offchainConfigVersion,
       offchainConfig
     );
@@ -246,7 +247,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
-    OnchainConfig memory onchainConfig,
+    IAutomationV21PlusCommon.OnchainConfigLegacy memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) public onlyOwner {

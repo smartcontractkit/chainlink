@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"sync"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 // alias for easier refactoring
-type StreamID = commontypes.StreamID
+type StreamID = llotypes.StreamID
 
 type Registry interface {
 	Getter

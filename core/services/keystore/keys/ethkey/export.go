@@ -5,12 +5,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type EncryptedEthKeyExport struct {
 	KeyType string              `json:"keyType"`
-	Address EIP55Address        `json:"address"`
+	Address types.EIP55Address  `json:"address"`
 	Crypto  keystore.CryptoJSON `json:"crypto"`
 }
 

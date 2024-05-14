@@ -20,17 +20,15 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func BuildAutoOCR2ConfigVars(
@@ -39,8 +37,10 @@ func BuildAutoOCR2ConfigVars(
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
+	chainModuleAddress common.Address,
+	reorgProtectionEnabled bool,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{})
+	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{}, chainModuleAddress, reorgProtectionEnabled)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndex(
@@ -51,6 +51,8 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	deltaStage time.Duration,
 	keyIndex int,
 	registryOwnerAddress common.Address,
+	chainModuleAddress common.Address,
+	reorgProtectionEnabled bool,
 ) (contracts.OCRv2Config, error) {
 	l := logging.GetTestLogger(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndex(chainlinkNodes, keyIndex)
@@ -65,7 +67,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	var offchainConfigVersion uint64
 	var offchainConfig []byte
 
-	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 {
+	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 || registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
 		offC, err = json.Marshal(ocr2keepers30config.OffchainConfig{
 			TargetProbability:    "0.999",
 			TargetInRounds:       1,
@@ -151,20 +153,24 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress)
-	if err != nil {
-		return contracts.OCRv2Config{}, err
-	}
-
-	l.Info().Msg("Done building OCR config")
-	return contracts.OCRv2Config{
+	ocrConfig := contracts.OCRv2Config{
 		Signers:               signers,
 		Transmitters:          transmitters,
 		F:                     f,
-		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
-	}, nil
+	}
+
+	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_0 {
+		ocrConfig.OnchainConfig = registryConfig.Encode20OnchainConfig(registrar)
+	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 {
+		ocrConfig.TypedOnchainConfig21 = registryConfig.Create21OnchainConfig(registrar, registryOwnerAddress)
+	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
+		ocrConfig.TypedOnchainConfig22 = registryConfig.Create22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
+	}
+
+	l.Info().Msg("Done building OCR config")
+	return ocrConfig, nil
 }
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
@@ -183,12 +189,14 @@ func CreateOCRKeeperJobs(
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	var contractVersion string
-	if registryVersion == ethereum.RegistryVersion_2_1 {
+	if registryVersion == ethereum.RegistryVersion_2_2 {
+		contractVersion = "v2.1+"
+	} else if registryVersion == ethereum.RegistryVersion_2_1 {
 		contractVersion = "v2.1"
 	} else if registryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
 	} else {
-		require.FailNow(t, "v2.0 and v2.1 are the only supported versions")
+		require.FailNow(t, fmt.Sprintf("v2.0, v2.1, and v2.2 are the only supported versions, but got something else: %v (iota)", registryVersion))
 	}
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{

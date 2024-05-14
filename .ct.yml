@@ -1,5 +1,0 @@
-# See: https://github.com/helm/chart-testing
-target-branch: develop
-chart-dirs: 'charts'
-check-version-increment: false
-validate-maintainers: false

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -275,7 +275,6 @@ func TestEVMTranscodeBool(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
 			out, err := EVMTranscodeBool(test.input)
 			assert.NoError(t, err)
 			assert.Equal(t, test.output, hexutil.Encode(out))
@@ -361,7 +360,6 @@ func TestEVMTranscodeUint256(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
 			out, err := EVMTranscodeUint256(test.input)
 			if test.wantError {
 				assert.Error(t, err)
@@ -451,7 +449,6 @@ func TestEVMTranscodeInt256(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
 			out, err := EVMTranscodeInt256(test.input)
 			if test.wantError {
 				assert.Error(t, err)
@@ -636,7 +633,7 @@ func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
 		vInt, _ := v.Int(nil)
 		word, err := EVMWordSignedBigInt(vInt)
 		if err != nil {
-			return nil, errors.Wrap(err, "while converting float to int256")
+			return nil, pkgerrors.Wrap(err, "while converting float to int256")
 		}
 		return EVMEncodeBytes(word), nil
 	default:

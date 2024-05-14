@@ -8,20 +8,20 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
-type KeeperIndexMap map[ethkey.EIP55Address]int32
+type KeeperIndexMap map[types.EIP55Address]int32
 
 type Registry struct {
 	ID                int64
 	BlockCountPerTurn int32
 	CheckGas          uint32
-	ContractAddress   ethkey.EIP55Address
-	FromAddress       ethkey.EIP55Address
+	ContractAddress   types.EIP55Address
+	FromAddress       types.EIP55Address
 	JobID             int32
 	KeeperIndex       int32
 	NumKeepers        int32

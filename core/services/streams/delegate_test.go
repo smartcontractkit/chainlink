@@ -3,6 +3,7 @@ package streams
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -35,12 +36,12 @@ func Test_Delegate(t *testing.T) {
 	t.Run("ServicesForSpec", func(t *testing.T) {
 		jb := job.Job{PipelineSpec: &pipeline.Spec{ID: 1}}
 		t.Run("errors if job is missing streamID", func(t *testing.T) {
-			_, err := d.ServicesForSpec(jb)
+			_, err := d.ServicesForSpec(testutils.Context(t), jb)
 			assert.EqualError(t, err, "streamID is required to be present for stream specs")
 		})
 		jb.StreamID = ptr(uint32(42))
 		t.Run("returns services", func(t *testing.T) {
-			srvs, err := d.ServicesForSpec(jb)
+			srvs, err := d.ServicesForSpec(testutils.Context(t), jb)
 			require.NoError(t, err)
 
 			assert.Len(t, srvs, 2)

@@ -1,6 +1,7 @@
 package vrfcommon
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,7 +11,7 @@ import (
 )
 
 type GethKeyStore interface {
-	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
+	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
 
 //go:generate mockery --quiet --name Config --output ../mocks/ --case=underscore
@@ -21,7 +22,7 @@ type Config interface {
 
 //go:generate mockery --quiet --name FeeConfig --output ../mocks/ --case=underscore
 type FeeConfig interface {
-	LimitDefault() uint32
+	LimitDefault() uint64
 	LimitJobType() config.LimitJobType
 	PriceMaxKey(addr common.Address) *assets.Wei
 }

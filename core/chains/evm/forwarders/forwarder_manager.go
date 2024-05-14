@@ -8,12 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
-
-	"github.com/jmoiron/sqlx"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -23,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI).Methods["forward"]
@@ -56,13 +54,13 @@ type FwdMgr struct {
 	wg      sync.WaitGroup
 }
 
-func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config, dbConfig pg.QConfig) *FwdMgr {
+func NewFwdMgr(ds sqlutil.DataSource, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config) *FwdMgr {
 	lggr := logger.Sugared(logger.Named(l, "EVMForwarderManager"))
 	fwdMgr := FwdMgr{
 		logger:       lggr,
 		cfg:          cfg,
 		evmClient:    client,
-		ORM:          NewORM(db, lggr, dbConfig),
+		ORM:          NewORM(ds),
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
 	}
@@ -80,9 +78,9 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 		f.logger.Debug("Initializing EVM forwarder manager")
 		chainId := f.evmClient.ConfiguredChainID()
 
-		fwdrs, err := f.ORM.FindForwardersByChain(big.Big(*chainId))
+		fwdrs, err := f.ORM.FindForwardersByChain(ctx, big.Big(*chainId))
 		if err != nil {
-			return errors.Wrapf(err, "Failed to retrieve forwarders for chain %d", chainId)
+			return pkgerrors.Wrapf(err, "Failed to retrieve forwarders for chain %d", chainId)
 		}
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(ctx, fwdrs)
@@ -93,12 +91,12 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 
 		f.authRcvr, err = authorized_receiver.NewAuthorizedReceiver(common.Address{}, f.evmClient)
 		if err != nil {
-			return errors.Wrap(err, "Failed to init AuthorizedReceiver")
+			return pkgerrors.Wrap(err, "Failed to init AuthorizedReceiver")
 		}
 
 		f.offchainAgg, err = offchain_aggregator_wrapper.NewOffchainAggregator(common.Address{}, f.evmClient)
 		if err != nil {
-			return errors.Wrap(err, "Failed to init OffchainAggregator")
+			return pkgerrors.Wrap(err, "Failed to init OffchainAggregator")
 		}
 
 		f.wg.Add(1)
@@ -113,7 +111,7 @@ func FilterName(addr common.Address) string {
 
 func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
-	fwdrs, err := f.ORM.FindForwardersByChain(big.Big(*f.evmClient.ConfiguredChainID()))
+	fwdrs, err := f.ORM.FindForwardersByChain(f.ctx, big.Big(*f.evmClient.ConfiguredChainID()))
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -130,7 +128,7 @@ func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, er
 			}
 		}
 	}
-	return common.Address{}, errors.Errorf("Cannot find forwarder for given EOA")
+	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
 }
 
 func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {
@@ -148,7 +146,7 @@ func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte
 func (f *FwdMgr) getForwardedPayload(dest common.Address, origPayload []byte) ([]byte, error) {
 	callArgs, err := forwardABI.Inputs.Pack(dest, origPayload)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to pack forwarder payload")
+		return nil, pkgerrors.Wrap(err, "Failed to pack forwarder payload")
 	}
 
 	dataBytes := append(forwardABI.ID, callArgs...)
@@ -161,7 +159,7 @@ func (f *FwdMgr) getContractSenders(addr common.Address) ([]common.Address, erro
 	}
 	senders, err := f.getAuthorizedSenders(f.ctx, addr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to call getAuthorizedSenders on %s", addr)
+		return nil, pkgerrors.Wrapf(err, "Failed to call getAuthorizedSenders on %s", addr)
 	}
 	f.setCachedSenders(addr, senders)
 	if err = f.subscribeSendersChangedLogs(addr); err != nil {
@@ -173,7 +171,7 @@ func (f *FwdMgr) getContractSenders(addr common.Address) ([]common.Address, erro
 func (f *FwdMgr) getAuthorizedSenders(ctx context.Context, addr common.Address) ([]common.Address, error) {
 	c, err := authorized_receiver.NewAuthorizedReceiverCaller(addr, f.evmClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to init forwarder caller")
+		return nil, pkgerrors.Wrap(err, "Failed to init forwarder caller")
 	}
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	senders, err := c.GetAuthorizedSenders(&opts)
@@ -191,7 +189,6 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 			continue
 		}
 		f.setCachedSenders(fwdr.Address, senders)
-
 	}
 }
 
@@ -211,6 +208,7 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 	}
 
 	err := f.logpoller.RegisterFilter(
+		f.ctx,
 		evmlogpoller.Filter{
 			Name:      FilterName(addr),
 			EventSigs: []common.Hash{authChangedTopic},
@@ -251,11 +249,11 @@ func (f *FwdMgr) runLoop() {
 			}
 
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(
+				f.ctx,
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
-				evmlogpoller.Confirmations(f.cfg.FinalityDepth()),
-				pg.WithParentCtx(f.ctx),
+				evmtypes.Confirmations(f.cfg.FinalityDepth()),
 			)
 			if err != nil {
 				f.logger.Errorw("Failed to retrieve latest log round", "err", err)
@@ -296,7 +294,7 @@ func (f *FwdMgr) handleAuthChange(log evmlogpoller.Log) error {
 	if ethLog.Topics[0] == authChangedTopic {
 		event, err := f.authRcvr.ParseAuthorizedSendersChanged(ethLog)
 		if err != nil {
-			return errors.New("Failed to parse senders change log")
+			return pkgerrors.New("Failed to parse senders change log")
 		}
 		f.setCachedSenders(event.Raw.Address, event.Senders)
 	}

@@ -10,14 +10,17 @@ import {FunctionsBillingConfig} from "../../../dev/v1_X/interfaces/IFunctionsBil
 /// @notice Contract to expose internal functions for testing purposes
 contract FunctionsCoordinatorHarness is FunctionsCoordinator {
   address s_linkToNativeFeed_HARNESS;
+  address s_linkToUsdFeed_HARNESS;
   address s_router_HARNESS;
 
   constructor(
     address router,
     FunctionsBillingConfig memory config,
-    address linkToNativeFeed
-  ) FunctionsCoordinator(router, config, linkToNativeFeed) {
+    address linkToNativeFeed,
+    address linkToUsdFeed
+  ) FunctionsCoordinator(router, config, linkToNativeFeed, linkToUsdFeed) {
     s_linkToNativeFeed_HARNESS = linkToNativeFeed;
+    s_linkToUsdFeed_HARNESS = linkToUsdFeed;
     s_router_HARNESS = router;
   }
 
@@ -34,14 +37,8 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     return super._getTransmitters();
   }
 
-  function report_HARNESS(
-    uint256 initialGas,
-    address transmitter,
-    uint8 signerCount,
-    address[MAX_NUM_ORACLES] memory signers,
-    bytes calldata report
-  ) external {
-    return super._report(initialGas, transmitter, signerCount, signers, report);
+  function report_HARNESS(DecodedReport memory decodedReport) external {
+    return super._report(decodedReport);
   }
 
   function onlyOwner_HARNESS() external view {
@@ -56,6 +53,10 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     return s_linkToNativeFeed_HARNESS;
   }
 
+  function getLinkToUsdFeed_HARNESS() external view returns (address) {
+    return s_linkToUsdFeed_HARNESS;
+  }
+
   function getRouter_HARNESS() external view returns (address) {
     return s_router_HARNESS;
   }
@@ -64,14 +65,15 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     uint32 callbackGasLimit,
     uint256 gasPriceWei,
     uint72 donFee,
-    uint72 adminFee
+    uint72 adminFee,
+    uint72 operationFee
   ) external view returns (uint96) {
-    return super._calculateCostEstimate(callbackGasLimit, gasPriceWei, donFee, adminFee);
+    return super._calculateCostEstimate(callbackGasLimit, gasPriceWei, donFee, adminFee, operationFee);
   }
 
   function startBilling_HARNESS(
     FunctionsResponse.RequestMeta memory request
-  ) external returns (FunctionsResponse.Commitment memory commitment) {
+  ) external returns (FunctionsResponse.Commitment memory commitment, uint72 operationFee) {
     return super._startBilling(request);
   }
 
@@ -88,6 +90,10 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
 
   function disperseFeePool_HARNESS() external {
     return super._disperseFeePool();
+  }
+
+  function owner_HARNESS() external view returns (address owner) {
+    return super._owner();
   }
 
   // ================================================================

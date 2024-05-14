@@ -20,16 +20,29 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL         string
-	Email       string
-	Password    string
-	InternalIP  string
-	HTTPTimeout *time.Duration
+	URL         string         `toml:",omitempty"`
+	Email       string         `toml:",omitempty"`
+	Password    string         `toml:",omitempty"`
+	InternalIP  string         `toml:",omitempty"`
+	HTTPTimeout *time.Duration `toml:"-"`
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
 type ResponseSlice struct {
 	Data []map[string]interface{}
+}
+
+// HealthResponse is the generic model for services health statuses
+type HealthResponse struct {
+	Data []struct {
+		Type       string `json:"type"`
+		ID         string `json:"id"`
+		Attributes struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+			Output string `json:"output"`
+		} `json:"attributes"`
+	} `json:"data"`
 }
 
 // Response is the generic model that can be used for all Chainlink API responses
@@ -627,11 +640,23 @@ func (d *PipelineSpec) String() (string, error) {
 	return MarshallTemplate(d, "API call pipeline template", sourceString)
 }
 
+func getOptionalSimBlock(simBlock *string) (string, error) {
+	optionalSimBlock := ""
+	if simBlock != nil {
+		if *simBlock != "latest" && *simBlock != "pending" {
+			return "", fmt.Errorf("invalid simulation block value: %s", *simBlock)
+		}
+		optionalSimBlock = fmt.Sprintf("block=\"%s\"", *simBlock)
+	}
+	return optionalSimBlock, nil
+}
+
 // VRFV2TxPipelineSpec VRFv2 request with tx callback
 type VRFV2PlusTxPipelineSpec struct {
 	Address               string
 	EstimateGasMultiplier float64
 	FromAddress           string
+	SimulationBlock       *string // can be nil, "latest" or "pending".
 }
 
 // Type returns the type of the pipeline
@@ -641,7 +666,11 @@ func (d *VRFV2PlusTxPipelineSpec) Type() string {
 
 // String representation of the pipeline
 func (d *VRFV2PlusTxPipelineSpec) String() (string, error) {
-	sourceString := `
+	optionalSimBlock, err := getOptionalSimBlock(d.SimulationBlock)
+	if err != nil {
+		return "", err
+	}
+	sourceTemplate := `
 decode_log   [type=ethabidecodelog
              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint256 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bytes extraArgs,address indexed sender)"
              data="$(jobRun.logData)"
@@ -654,16 +683,20 @@ generate_proof [type=vrfv2plus
 estimate_gas [type=estimategaslimit
              to="{{ .Address }}"
              multiplier="{{ .EstimateGasMultiplier }}"
-             data="$(generate_proof.output)"]
+             data="$(generate_proof.output)"
+			 %s]
 simulate_fulfillment [type=ethcall
-					  from="{{ .FromAddress }}"	
+					  from="{{ .FromAddress }}"
                       to="{{ .Address }}"
                       gas="$(estimate_gas)"
                       gasPrice="$(jobSpec.maxGasPrice)"
                       extractRevertReason=true
                       contract="{{ .Address }}"
-                      data="$(generate_proof.output)"]
+                      data="$(generate_proof.output)"
+					  %s]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment`
+
+	sourceString := fmt.Sprintf(sourceTemplate, optionalSimBlock, optionalSimBlock)
 	return MarshallTemplate(d, "VRFV2 Plus pipeline template", sourceString)
 }
 
@@ -672,6 +705,7 @@ type VRFV2TxPipelineSpec struct {
 	Address               string
 	EstimateGasMultiplier float64
 	FromAddress           string
+	SimulationBlock       *string // can be nil, "latest" or "pending".
 }
 
 // Type returns the type of the pipeline
@@ -681,7 +715,11 @@ func (d *VRFV2TxPipelineSpec) Type() string {
 
 // String representation of the pipeline
 func (d *VRFV2TxPipelineSpec) String() (string, error) {
-	sourceString := `
+	optionalSimBlock, err := getOptionalSimBlock(d.SimulationBlock)
+	if err != nil {
+		return "", err
+	}
+	sourceTemplate := `
 decode_log   [type=ethabidecodelog
              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
              data="$(jobRun.logData)"
@@ -694,7 +732,8 @@ vrf          [type=vrfv2
 estimate_gas [type=estimategaslimit
              to="{{ .Address }}"
              multiplier="{{ .EstimateGasMultiplier }}"
-             data="$(vrf.output)"]
+             data="$(vrf.output)"
+			 %s]
 simulate [type=ethcall
           from="{{ .FromAddress }}"
           to="{{ .Address }}"
@@ -702,8 +741,11 @@ simulate [type=ethcall
           gasPrice="$(jobSpec.maxGasPrice)"
           extractRevertReason=true
           contract="{{ .Address }}"
-          data="$(vrf.output)"]
+          data="$(vrf.output)"
+		  %s]
 decode_log->vrf->estimate_gas->simulate`
+
+	sourceString := fmt.Sprintf(sourceTemplate, optionalSimBlock, optionalSimBlock)
 	return MarshallTemplate(d, "VRFV2 pipeline template", sourceString)
 }
 
@@ -1092,17 +1134,17 @@ relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
 contractID                             = "{{.ContractID}}"
 {{- if .FeedID}}
-feedID                                 = "{{.FeedID}}" 
+feedID                                 = "{{.FeedID}}"
 {{end}}
 {{- if eq .JobType "offchainreporting2" }}
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
 {{- if eq .JobType "offchainreporting2" }}
 transmitterID                          = "{{.TransmitterID}}" {{end}}
 {{- if .BlockchainTimeout}}
-blockchainTimeout                      = "{{.BlockchainTimeout}}" 
+blockchainTimeout                      = "{{.BlockchainTimeout}}"
 {{end}}
 {{- if .ContractConfirmations}}
-contractConfigConfirmations            = {{.ContractConfirmations}} 
+contractConfigConfirmations            = {{.ContractConfirmations}}
 {{end}}
 {{- if .TrackerPollInterval}}
 contractConfigTrackerPollInterval      = "{{.TrackerPollInterval}}"
@@ -1131,7 +1173,8 @@ observationSource                      = """
 type VRFV2PlusJobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
+	PublicKey                     string        `toml:"publicKey"` // Public key of the proving key
 	ExternalJobID                 string        `toml:"externalJobID"`
 	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
@@ -1156,6 +1199,7 @@ type                     = "vrf"
 schemaVersion            = 1
 name                     = "{{.Name}}"
 coordinatorAddress       = "{{.CoordinatorAddress}}"
+{{ if .BatchFulfillmentEnabled }}batchCoordinatorAddress                = "{{.BatchCoordinatorAddress}}"{{ else }}{{ end }}
 fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
@@ -1178,7 +1222,8 @@ observationSource = """
 type VRFV2JobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
+	PublicKey                     string        `toml:"publicKey"` // Public key of the proving key
 	ExternalJobID                 string        `toml:"externalJobID"`
 	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
@@ -1207,6 +1252,7 @@ schemaVersion            = 1
 name                     = "{{.Name}}"
 forwardingAllowed        = {{.ForwardingAllowed}}
 coordinatorAddress       = "{{.CoordinatorAddress}}"
+{{ if .BatchFulfillmentEnabled }}batchCoordinatorAddress                = "{{.BatchCoordinatorAddress}}"{{ else }}{{ end }}
 fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
@@ -1297,6 +1343,48 @@ pollPeriod              = "{{.PollPeriod}}"
 runTimeout          = "{{.RunTimeout}}"
 `
 	return MarshallTemplate(b, "BlockhashStore Job", vrfTemplateString)
+}
+
+// BlockHeaderFeederJobSpec represents a blockheaderfeeder job
+type BlockHeaderFeederJobSpec struct {
+	Name                       string        `toml:"name"`
+	CoordinatorV2Address       string        `toml:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress   string        `toml:"coordinatorV2PlusAddress"`
+	BlockhashStoreAddress      string        `toml:"blockhashStoreAddress"`
+	BatchBlockhashStoreAddress string        `toml:"batchBlockhashStoreAddress"`
+	ExternalJobID              string        `toml:"externalJobID"`
+	FromAddresses              []string      `toml:"fromAddresses"`
+	EVMChainID                 string        `toml:"evmChainID"`
+	ForwardingAllowed          bool          `toml:"forwardingAllowed"`
+	PollPeriod                 time.Duration `toml:"pollPeriod"`
+	RunTimeout                 time.Duration `toml:"runTimeout"`
+	WaitBlocks                 int           `toml:"waitBlocks"`
+	LookbackBlocks             int           `toml:"lookbackBlocks"`
+}
+
+// Type returns the type of the job
+func (b *BlockHeaderFeederJobSpec) Type() string { return "blockheaderfeeder" }
+
+// String representation of the job
+func (b *BlockHeaderFeederJobSpec) String() (string, error) {
+	vrfTemplateString := `
+type                          = "blockheaderfeeder"
+schemaVersion                 = 1
+name                          = "{{.Name}}"
+forwardingAllowed             = {{.ForwardingAllowed}}
+coordinatorV2Address          = "{{.CoordinatorV2Address}}"
+coordinatorV2PlusAddress      = "{{.CoordinatorV2PlusAddress}}"
+blockhashStoreAddress	      = "{{.BlockhashStoreAddress}}"
+batchBlockhashStoreAddress	  = "{{.BatchBlockhashStoreAddress}}"
+fromAddresses                 = [{{range .FromAddresses}}"{{.}}",{{end}}]
+evmChainID                    = "{{.EVMChainID}}"
+externalJobID                 = "{{.ExternalJobID}}"
+waitBlocks                    = {{.WaitBlocks}}
+lookbackBlocks                = {{.LookbackBlocks}}
+pollPeriod                    = "{{.PollPeriod}}"
+runTimeout                    = "{{.RunTimeout}}"
+`
+	return MarshallTemplate(b, "BlockHeaderFeeder Job", vrfTemplateString)
 }
 
 // WebhookJobSpec reprsents a webhook job

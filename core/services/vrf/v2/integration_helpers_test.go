@@ -17,11 +17,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
@@ -60,17 +62,18 @@ func testSingleConsumerHappyPath(
 		rwfe v22.RandomWordsFulfilled,
 		subID *big.Int),
 ) {
+	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key1.EIP55Address),
+			Key:          ptr[types.EIP55Address](key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		}, toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key2.EIP55Address),
+			Key:          ptr[types.EIP55Address](key2.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -85,7 +88,7 @@ func testSingleConsumerHappyPath(
 	// Fund gas lanes.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	sendEth(t, ownerKey, uni.backend, key2.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
 	jbs := createVRFJobs(
@@ -109,7 +112,7 @@ func testSingleConsumerHappyPath(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -131,7 +134,7 @@ func testSingleConsumerHappyPath(
 	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend, nativePayment)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 2
@@ -151,11 +154,11 @@ func testSingleConsumerHappyPath(
 	assertNumRandomWords(t, consumerContract, numWords)
 
 	// Assert that both send addresses were used to fulfill the requests
-	n, err := uni.backend.PendingNonceAt(testutils.Context(t), key1.Address)
+	n, err := uni.backend.PendingNonceAt(ctx, key1.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
-	n, err = uni.backend.PendingNonceAt(testutils.Context(t), key2.Address)
+	n, err = uni.backend.PendingNonceAt(ctx, key2.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
@@ -180,6 +183,7 @@ func testMultipleConsumersNeedBHS(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
+	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
@@ -214,7 +218,7 @@ func testMultipleConsumersNeedBHS(
 	})
 	keys = append(keys, ownerKey, vrfKey)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	vrfJobs := createVRFJobs(
@@ -248,7 +252,7 @@ func testMultipleConsumersNeedBHS(
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(ctx, 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -282,7 +286,7 @@ func testMultipleConsumersNeedBHS(
 		// Wait for fulfillment to be queued.
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
 			uni.backend.Commit()
-			runs, err := app.PipelineORM().GetAllRuns()
+			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(t, err)
 			t.Log("runs", len(runs))
 			return len(runs) == 1
@@ -318,6 +322,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
+	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
@@ -355,14 +360,14 @@ func testMultipleConsumersNeedTrustedBHS(
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(5_000_000))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(5_000_000))
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	keys = append(keys, ownerKey, vrfKey)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	vrfJobs := createVRFJobs(
@@ -401,7 +406,7 @@ func testMultipleConsumersNeedTrustedBHS(
 	// Ensure log poller is ready and has all logs.
 	chain := app.GetRelayers().LegacyEVMChains().Slice()[0]
 	require.NoError(t, chain.LogPoller().Ready())
-	require.NoError(t, chain.LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -443,7 +448,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		// Wait for fulfillment to be queued.
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
 			uni.backend.Commit()
-			runs, err := app.PipelineORM().GetAllRuns()
+			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(t, err)
 			t.Log("runs", len(runs))
 			return len(runs) == 1
@@ -532,6 +537,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		rwfe v22.RandomWordsFulfilled,
 		subID *big.Int),
 ) {
+	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -540,7 +546,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
@@ -553,7 +559,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
 	jbs := createVRFJobs(
@@ -588,7 +594,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		if bigGasCallback {
@@ -638,6 +644,7 @@ func testSingleConsumerNeedsTopUp(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(1000)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -657,7 +664,7 @@ func testSingleConsumerNeedsTopUp(
 
 	// Fund expensive gas lane.
 	sendEth(t, ownerKey, uni.backend, key.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	jbs := createVRFJobs(
@@ -680,7 +687,7 @@ func testSingleConsumerNeedsTopUp(
 	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 0
@@ -693,7 +700,7 @@ func testSingleConsumerNeedsTopUp(
 	// Wait for fulfillment to go through.
 	gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 2", "runs", len(runs))
 		return len(runs) == 1
@@ -735,6 +742,7 @@ func testBlockHeaderFeeder(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
+	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
 
 	vrfKey := cltest.MustGenerateRandomKey(t)
@@ -758,7 +766,7 @@ func testBlockHeaderFeeder(
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, vrfKey, bhfKey)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	vrfJobs := createVRFJobs(
@@ -790,7 +798,7 @@ func testBlockHeaderFeeder(
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(ctx, 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -819,7 +827,7 @@ func testBlockHeaderFeeder(
 		// Wait for fulfillment to be queued.
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
 			uni.backend.Commit()
-			runs, err := app.PipelineORM().GetAllRuns()
+			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(t, err)
 			t.Log("runs", len(runs))
 			return len(runs) == 1
@@ -898,6 +906,7 @@ func testSingleConsumerForcedFulfillment(
 	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 ) {
+	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -949,7 +958,7 @@ func testSingleConsumerForcedFulfillment(
 	// Fund gas lanes.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	sendEth(t, ownerKey, uni.backend, key2.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
 	jbs := createVRFJobs(
@@ -1063,6 +1072,7 @@ func testSingleConsumerEIP150(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	callBackGasLimit := int64(2_500_000) // base callback gas.
 
 	key1 := cltest.MustGenerateRandomKey(t)
@@ -1073,7 +1083,7 @@ func testSingleConsumerEIP150(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(3.5e6))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(3.5e6))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1088,7 +1098,7 @@ func testSingleConsumerEIP150(
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	jbs := createVRFJobs(
@@ -1112,7 +1122,7 @@ func testSingleConsumerEIP150(
 	// Wait for simulation to pass.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1130,6 +1140,7 @@ func testSingleConsumerEIP150Revert(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	callBackGasLimit := int64(2_500_000)            // base callback gas.
 	eip150Fee := int64(0)                           // no premium given for callWithExactGas
 	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
@@ -1143,7 +1154,7 @@ func testSingleConsumerEIP150Revert(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1158,7 +1169,7 @@ func testSingleConsumerEIP150Revert(
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	jbs := createVRFJobs(
@@ -1182,7 +1193,7 @@ func testSingleConsumerEIP150Revert(
 	// Simulation should not pass.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 0
@@ -1196,10 +1207,10 @@ func testSingleConsumerBigGasCallbackSandwich(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(100)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1208,7 +1219,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1222,7 +1233,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	jbs := createVRFJobs(
@@ -1251,7 +1262,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 
 	// Assert that we've completed 0 runs before adding 3 new requests.
 	{
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, 0, len(runs))
 		assert.Equal(t, 3, len(reqIDs))
@@ -1260,7 +1271,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	// Wait for the 50_000 gas randomness request to be enqueued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1269,7 +1280,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	// After the first successful request, no more will be enqueued.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 1
@@ -1283,7 +1294,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 
 	// Assert that we've still only completed 1 run before adding new requests.
 	{
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, 1, len(runs))
 	}
@@ -1298,7 +1309,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK for any of the requests.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 1
@@ -1312,10 +1323,10 @@ func testSingleConsumerMultipleGasLanes(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	cheapKey := cltest.MustGenerateRandomKey(t)
 	expensiveKey := cltest.MustGenerateRandomKey(t)
 	cheapGasLane := assets.GWei(10)
@@ -1331,7 +1342,7 @@ func testSingleConsumerMultipleGasLanes(
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: expensiveGasLane},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
@@ -1347,7 +1358,7 @@ func testSingleConsumerMultipleGasLanes(
 	// Fund gas lanes.
 	sendEth(t, ownerKey, uni.backend, cheapKey.Address, 10)
 	sendEth(t, ownerKey, uni.backend, expensiveKey.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF jobs.
 	jbs := createVRFJobs(
@@ -1372,7 +1383,7 @@ func testSingleConsumerMultipleGasLanes(
 	// Wait for fulfillment to be queued for cheap key hash.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 1
@@ -1392,7 +1403,7 @@ func testSingleConsumerMultipleGasLanes(
 	// We should not have any new fulfillments until a top up.
 	gomega.NewWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 2", "runs", len(runs))
 		return len(runs) == 1
@@ -1404,7 +1415,7 @@ func testSingleConsumerMultipleGasLanes(
 	// Wait for fulfillment to be queued for expensive key hash.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 2
@@ -1440,6 +1451,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1462,7 +1474,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	jbs := createVRFJobs(
@@ -1486,7 +1498,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1509,6 +1521,7 @@ func testConsumerProxyHappyPath(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -1538,7 +1551,7 @@ func testConsumerProxyHappyPath(
 	// Create gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	sendEth(t, ownerKey, uni.backend, key2.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
 	jbs := createVRFJobs(
@@ -1563,7 +1576,7 @@ func testConsumerProxyHappyPath(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1589,7 +1602,7 @@ func testConsumerProxyHappyPath(
 		t, consumerContract, consumerOwner, keyHash, subID, numWords, 750_000, uni.rootContract, uni.backend, nativePayment)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 2
@@ -1601,11 +1614,11 @@ func testConsumerProxyHappyPath(
 	assertNumRandomWords(t, consumerContract, numWords)
 
 	// Assert that both send addresses were used to fulfill the requests
-	n, err := uni.backend.PendingNonceAt(testutils.Context(t), key1.Address)
+	n, err := uni.backend.PendingNonceAt(ctx, key1.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
-	n, err = uni.backend.PendingNonceAt(testutils.Context(t), key2.Address)
+	n, err = uni.backend.PendingNonceAt(ctx, key2.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
@@ -1642,8 +1655,9 @@ func testMaliciousConsumer(
 	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 ) {
+	ctx := testutils.Context(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](2_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](2_000_000)
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
 		c.EVM[0].GasEstimator.PriceDefault = assets.GWei(1)
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.GWei(1)
@@ -1654,11 +1668,11 @@ func testMaliciousConsumer(
 	carol := uni.vrfConsumers[0]
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
-	err := app.GetKeyStore().Unlock(cltest.Password)
+	err := app.GetKeyStore().Unlock(ctx, cltest.Password)
 	require.NoError(t, err)
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 
 	jid := uuid.New()
@@ -1678,7 +1692,7 @@ func testMaliciousConsumer(
 	}).Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(s)
 	require.NoError(t, err)
-	err = app.JobSpawner().CreateJob(&jb)
+	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
 
@@ -1700,7 +1714,7 @@ func testMaliciousConsumer(
 	// by the node.
 	var attempts []txmgr.TxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
-		attempts, _, err = app.TxmStorageService().TxAttempts(0, 1000)
+		attempts, _, err = app.TxmStorageService().TxAttempts(ctx, 0, 1000)
 		require.NoError(t, err)
 		// It possible that we send the test request
 		// before the job spawner has started the vrf services, which is fine
@@ -1714,7 +1728,7 @@ func testMaliciousConsumer(
 	// The fulfillment tx should succeed
 	ch, err := app.GetRelayers().LegacyEVMChains().Get(evmtest.MustGetDefaultChainID(t, config.EVMConfigs()).String())
 	require.NoError(t, err)
-	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash)
+	r, err := ch.Client().TransactionReceipt(ctx, attempts[0].Hash)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), r.Status)
 
@@ -1757,6 +1771,7 @@ func testReplayOldRequestsOnStartUp(
 		rwfe v22.RandomWordsFulfilled,
 		subID *big.Int),
 ) {
+	ctx := testutils.Context(t)
 	sendingKey := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1776,10 +1791,10 @@ func testReplayOldRequestsOnStartUp(
 
 	// Fund gas lanes.
 	sendEth(t, ownerKey, uni.backend, sendingKey.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF Key, register it to coordinator and export
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni, coordinator, vrfkey, &defaultMaxGasPrice)
 	keyHash := vrfkey.PublicKey.MustHash()
@@ -1814,9 +1829,9 @@ func testReplayOldRequestsOnStartUp(
 	// Start a new app and create VRF job using the same VRF key created above
 	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, sendingKey)
 
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
-	vrfKey, err := app.GetKeyStore().VRF().Import(encodedVrfKey, testutils.Password)
+	vrfKey, err := app.GetKeyStore().VRF().Import(ctx, encodedVrfKey, testutils.Password)
 	require.NoError(t, err)
 
 	incomingConfs := 2
@@ -1844,7 +1859,7 @@ func testReplayOldRequestsOnStartUp(
 	jb, err := vrfcommon.ValidatedVRFSpec(spec)
 	require.NoError(t, err)
 	t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfKey.PublicKey.MustHash())
-	err = app.JobSpawner().CreateJob(&jb)
+	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 
 	// Wait until all jobs are active and listening for logs
@@ -1861,7 +1876,7 @@ func testReplayOldRequestsOnStartUp(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1

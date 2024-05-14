@@ -8,7 +8,7 @@
 
 [![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/smartcontractkit/chainlink?style=flat-square)](https://hub.docker.com/r/smartcontract/chainlink/tags)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
-[![GitHub workflow changelog](https://img.shields.io/github/workflow/status/smartcontractkit/chainlink/Changelog?style=flat-square&label=github-actions)](https://github.com/smartcontractkit/chainlink/actions?query=workflow%3AChangelog)
+[![GitHub workflow changeset](https://img.shields.io/github/actions/workflow/status/smartcontractkit/chainlink/changeset.yml)](https://github.com/smartcontractkit/chainlink/actions/workflows/changeset.yml?query=workflow%3AChangeset)
 [![GitHub contributors](https://img.shields.io/github/contributors-anon/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/graphs/contributors)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/y/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/commits/master)
 [![Official documentation](https://img.shields.io/static/v1?label=docs&message=latest&color=blue)](https://docs.chain.link/)
@@ -32,12 +32,13 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.21.1](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.21](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
-2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
+2. Install [NodeJS v20](https://nodejs.org/en/download/package-manager/) & [pnpm v8 via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
-3. Install [Postgres (>= 11.x and <= 15.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
-   - You should [configure Postgres](https://www.postgresql.org/docs/12/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
+3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
+   - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
+   - You should [configure Postgres](https://www.postgresql.org/docs/current/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
 4. Ensure you have Python 3 installed (this is required by [solc-select](https://github.com/crytic/solc-select) which is needed to compile solidity contracts)
 5. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 6. Build and install Chainlink: `make install`
@@ -166,19 +167,27 @@ go generate ./...
 
 5. Prepare your development environment:
 
-```bash
-export CL_DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
-```
+The tests require a postgres database. In turn, the environment variable
+`CL_DATABASE_URL` must be set to value that can connect to `_test` database, and the user must be able to create and drop
+the given `_test` database.
 
 Note: Other environment variables should not be set for all tests to pass
 
-6.  Drop/Create test database and run migrations:
+There helper script for initial setup to create an appropriate test user. It requires postgres to be running on localhost at port 5432. You will be prompted for
+the `postgres` user password 
 
+```bash
+make setup-testdb
 ```
+
+This script will save the `CL_DATABASE_URL` in `.dbenv`
+
+Changes to database require migrations to be run. Similarly, `pull`'ing the repo may require migrations to run.
+After the one-time setup above:
+```
+source .dbenv
 make testdb
 ```
-
-If you do end up modifying the migrations for the database, you will need to rerun
 
 7. Run tests:
 
@@ -290,6 +299,22 @@ createuser --superuser --password chainlink -h localhost
 4. When re-entering project, you can restart postgres: `cd $PGDATA; pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start`
    Now you can run tests or compile code as usual.
 5. When you're done, stop it: `cd $PGDATA; pg_ctl -o "--unix_socket_directories='$PWD'" stop`
+
+### Changesets
+
+We use [changesets](https://github.com/changesets/changesets) to manage versioning for libs and the services.
+
+Every PR that modifies any configuration or code, should most likely accompanied by a changeset file.
+
+To install `changesets`:
+  1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
+  2. Run `pnpm install`.
+
+Either after or before you create a commit, run the `pnpm changeset` command to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Tips
 

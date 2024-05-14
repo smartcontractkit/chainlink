@@ -6,7 +6,9 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -16,27 +18,22 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-
-	"github.com/jmoiron/sqlx"
+	"golang.org/x/exp/maps"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-)
-
-var (
-	maxTransmitQueueSize = 10_000
-	maxDeleteQueueSize   = 10_000
-	transmitTimeout      = 5 * time.Second
 )
 
 const (
@@ -49,43 +46,43 @@ var (
 		Name: "mercury_transmit_success_count",
 		Help: "Number of successful transmissions (duplicates are counted as success)",
 	},
-		[]string{"feedID"},
+		[]string{"feedID", "serverURL"},
 	)
 	transmitDuplicateCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_transmit_duplicate_count",
 		Help: "Number of transmissions where the server told us it was a duplicate",
 	},
-		[]string{"feedID"},
+		[]string{"feedID", "serverURL"},
 	)
 	transmitConnectionErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_transmit_connection_error_count",
 		Help: "Number of errored transmissions that failed due to problem with the connection",
 	},
-		[]string{"feedID"},
+		[]string{"feedID", "serverURL"},
 	)
 	transmitQueueDeleteErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_transmit_queue_delete_error_count",
 		Help: "Running count of DB errors when trying to delete an item from the queue DB",
 	},
-		[]string{"feedID"},
+		[]string{"feedID", "serverURL"},
 	)
 	transmitQueueInsertErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_transmit_queue_insert_error_count",
 		Help: "Running count of DB errors when trying to insert an item into the queue DB",
 	},
-		[]string{"feedID"},
+		[]string{"feedID", "serverURL"},
 	)
 	transmitQueuePushErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_transmit_queue_push_error_count",
 		Help: "Running count of DB errors when trying to push an item onto the queue",
 	},
-		[]string{"feedID"},
+		[]string{"feedID", "serverURL"},
 	)
 	transmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_transmit_server_error_count",
 		Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
 	},
-		[]string{"feedID", "code"},
+		[]string{"feedID", "serverURL", "code"},
 	)
 )
 
@@ -100,33 +97,33 @@ type ConfigTracker interface {
 
 type TransmitterReportDecoder interface {
 	BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error)
+	ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error)
 }
 
 var _ Transmitter = (*mercuryTransmitter)(nil)
 
+type TransmitterConfig interface {
+	TransmitQueueMaxSize() uint32
+	TransmitTimeout() commonconfig.Duration
+}
+
 type mercuryTransmitter struct {
 	services.StateMachine
-	lggr               logger.Logger
-	rpcClient          wsrpc.Client
-	persistenceManager *PersistenceManager
-	codec              TransmitterReportDecoder
+	lggr logger.Logger
+	cfg  TransmitterConfig
+
+	orm     ORM
+	servers map[string]*server
+
+	codec             TransmitterReportDecoder
+	triggerCapability *triggers.MercuryTriggerService
 
 	feedID      mercuryutils.FeedID
 	jobID       int32
 	fromAccount string
 
 	stopCh services.StopChan
-	queue  *TransmitQueue
-	wg     sync.WaitGroup
-
-	deleteQueue chan *pb.TransmitRequest
-
-	transmitSuccessCount          prometheus.Counter
-	transmitDuplicateCount        prometheus.Counter
-	transmitConnectionErrorCount  prometheus.Counter
-	transmitQueueDeleteErrorCount prometheus.Counter
-	transmitQueueInsertErrorCount prometheus.Counter
-	transmitQueuePushErrorCount   prometheus.Counter
+	wg     *sync.WaitGroup
 }
 
 var PayloadTypes = getPayloadTypes()
@@ -148,83 +145,35 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig, codec TransmitterReportDecoder) *mercuryTransmitter {
-	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
-	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg), jobID, maxTransmitQueueSize, flushDeletesFrequency, pruneFrequency)
-	return &mercuryTransmitter{
-		services.StateMachine{},
-		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
-		rpcClient,
-		persistenceManager,
-		codec,
-		feedID,
-		jobID,
-		fmt.Sprintf("%x", fromAccount),
-		make(services.StopChan),
-		nil,
-		sync.WaitGroup{},
-		make(chan *pb.TransmitRequest, maxDeleteQueueSize),
-		transmitSuccessCount.WithLabelValues(feedIDHex),
-		transmitDuplicateCount.WithLabelValues(feedIDHex),
-		transmitConnectionErrorCount.WithLabelValues(feedIDHex),
-		transmitQueueDeleteErrorCount.WithLabelValues(feedIDHex),
-		transmitQueueInsertErrorCount.WithLabelValues(feedIDHex),
-		transmitQueuePushErrorCount.WithLabelValues(feedIDHex),
-	}
+type server struct {
+	lggr logger.Logger
+
+	transmitTimeout time.Duration
+
+	c  wsrpc.Client
+	pm *PersistenceManager
+	q  *TransmitQueue
+
+	deleteQueue chan *pb.TransmitRequest
+
+	transmitSuccessCount          prometheus.Counter
+	transmitDuplicateCount        prometheus.Counter
+	transmitConnectionErrorCount  prometheus.Counter
+	transmitQueueDeleteErrorCount prometheus.Counter
+	transmitQueueInsertErrorCount prometheus.Counter
+	transmitQueuePushErrorCount   prometheus.Counter
 }
 
-func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
-	return mt.StartOnce("MercuryTransmitter", func() error {
-		mt.lggr.Debugw("Loading transmit requests from database")
-		if err := mt.persistenceManager.Start(ctx); err != nil {
-			return err
-		}
-		transmissions, err := mt.persistenceManager.Load(ctx)
-		if err != nil {
-			return err
-		}
-		mt.queue = NewTransmitQueue(mt.lggr, mt.feedID.String(), maxTransmitQueueSize, transmissions, mt.persistenceManager)
-
-		if err := mt.rpcClient.Start(ctx); err != nil {
-			return err
-		}
-		if err := mt.queue.Start(ctx); err != nil {
-			return err
-		}
-		mt.wg.Add(1)
-		go mt.runDeleteQueueLoop()
-		mt.wg.Add(1)
-		go mt.runQueueLoop()
-		return nil
-	})
-}
-
-func (mt *mercuryTransmitter) Close() error {
-	return mt.StopOnce("MercuryTransmitter", func() error {
-		if err := mt.queue.Close(); err != nil {
-			return err
-		}
-		if err := mt.persistenceManager.Close(); err != nil {
-			return err
-		}
-		close(mt.stopCh)
-		mt.wg.Wait()
-		return mt.rpcClient.Close()
-	})
-}
-
-func (mt *mercuryTransmitter) Name() string { return mt.lggr.Name() }
-
-func (mt *mercuryTransmitter) HealthReport() map[string]error {
-	report := map[string]error{mt.Name(): mt.Healthy()}
-	services.CopyHealth(report, mt.rpcClient.HealthReport())
-	services.CopyHealth(report, mt.queue.HealthReport())
+func (s *server) HealthReport() map[string]error {
+	report := map[string]error{}
+	services.CopyHealth(report, s.c.HealthReport())
+	services.CopyHealth(report, s.q.HealthReport())
 	return report
 }
 
-func (mt *mercuryTransmitter) runDeleteQueueLoop() {
-	defer mt.wg.Done()
-	runloopCtx, cancel := mt.stopCh.Ctx(context.Background())
+func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup) {
+	defer wg.Done()
+	runloopCtx, cancel := stopCh.Ctx(context.Background())
 	defer cancel()
 
 	// Exponential backoff for very rarely occurring errors (DB disconnect etc)
@@ -237,16 +186,16 @@ func (mt *mercuryTransmitter) runDeleteQueueLoop() {
 
 	for {
 		select {
-		case req := <-mt.deleteQueue:
+		case req := <-s.deleteQueue:
 			for {
-				if err := mt.persistenceManager.Delete(runloopCtx, req); err != nil {
-					mt.lggr.Errorw("Failed to delete transmit request record", "err", err, "req.Payload", req.Payload)
-					mt.transmitQueueDeleteErrorCount.Inc()
+				if err := s.pm.Delete(runloopCtx, req); err != nil {
+					s.lggr.Errorw("Failed to delete transmit request record", "err", err, "req.Payload", req.Payload)
+					s.transmitQueueDeleteErrorCount.Inc()
 					select {
 					case <-time.After(b.Duration()):
 						// Wait a backoff duration before trying to delete again
 						continue
-					case <-mt.stopCh:
+					case <-stopCh:
 						// abort and return immediately on stop even if items remain in queue
 						return
 					}
@@ -255,15 +204,15 @@ func (mt *mercuryTransmitter) runDeleteQueueLoop() {
 			}
 			// success
 			b.Reset()
-		case <-mt.stopCh:
+		case <-stopCh:
 			// abort and return immediately on stop even if items remain in queue
 			return
 		}
 	}
 }
 
-func (mt *mercuryTransmitter) runQueueLoop() {
-	defer mt.wg.Done()
+func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feedIDHex string) {
+	defer wg.Done()
 	// Exponential backoff with very short retry interval (since latency is a priority)
 	// 5ms, 10ms, 20ms, 40ms etc
 	b := backoff.Backoff{
@@ -272,26 +221,26 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 		Factor: 2,
 		Jitter: true,
 	}
-	runloopCtx, cancel := mt.stopCh.Ctx(context.Background())
+	runloopCtx, cancel := stopCh.Ctx(context.Background())
 	defer cancel()
 	for {
-		t := mt.queue.BlockingPop()
+		t := s.q.BlockingPop()
 		if t == nil {
 			// queue was closed
 			return
 		}
-		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(transmitTimeout))
-		res, err := mt.rpcClient.Transmit(ctx, t.Req)
+		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(s.transmitTimeout))
+		res, err := s.c.Transmit(ctx, t.Req)
 		cancel()
 		if runloopCtx.Err() != nil {
 			// runloop context is only canceled on transmitter close so we can
 			// exit the runloop here
 			return
 		} else if err != nil {
-			mt.transmitConnectionErrorCount.Inc()
-			mt.lggr.Errorw("Transmit report failed", "err", err, "reportCtx", t.ReportCtx)
-			if ok := mt.queue.Push(t.Req, t.ReportCtx); !ok {
-				mt.lggr.Error("Failed to push report to transmit queue; queue is closed")
+			s.transmitConnectionErrorCount.Inc()
+			s.lggr.Errorw("Transmit report failed", "err", err, "reportCtx", t.ReportCtx)
+			if ok := s.q.Push(t.Req, t.ReportCtx); !ok {
+				s.lggr.Error("Failed to push report to transmit queue; queue is closed")
 				return
 			}
 			// Wait a backoff duration before pulling the most recent transmission
@@ -299,36 +248,136 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 			select {
 			case <-time.After(b.Duration()):
 				continue
-			case <-mt.stopCh:
+			case <-stopCh:
 				return
 			}
 		}
 
 		b.Reset()
 		if res.Error == "" {
-			mt.transmitSuccessCount.Inc()
-			mt.lggr.Debugw("Transmit report success", "payload", hexutil.Encode(t.Req.Payload), "response", res, "reportCtx", t.ReportCtx)
+			s.transmitSuccessCount.Inc()
+			s.lggr.Debugw("Transmit report success", "payload", hexutil.Encode(t.Req.Payload), "response", res, "repts", t.ReportCtx.ReportTimestamp)
 		} else {
 			// We don't need to retry here because the mercury server
 			// has confirmed it received the report. We only need to retry
 			// on networking/unknown errors
 			switch res.Code {
 			case DuplicateReport:
-				mt.transmitSuccessCount.Inc()
-				mt.transmitDuplicateCount.Inc()
-				mt.lggr.Debugw("Transmit report success; duplicate report", "payload", hexutil.Encode(t.Req.Payload), "response", res, "reportCtx", t.ReportCtx)
+				s.transmitSuccessCount.Inc()
+				s.transmitDuplicateCount.Inc()
+				s.lggr.Debugw("Transmit report success; duplicate report", "payload", hexutil.Encode(t.Req.Payload), "response", res, "repts", t.ReportCtx.ReportTimestamp)
 			default:
-				transmitServerErrorCount.WithLabelValues(mt.feedID.String(), fmt.Sprintf("%d", res.Code)).Inc()
-				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+				transmitServerErrorCount.WithLabelValues(feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
+				s.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
 
 		select {
-		case mt.deleteQueue <- t.Req:
+		case s.deleteQueue <- t.Req:
 		default:
-			mt.lggr.Criticalw("Delete queue is full", "reportCtx", t.ReportCtx)
+			s.lggr.Criticalw("Delete queue is full", "reportCtx", t.ReportCtx)
 		}
 	}
+}
+
+func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[string]wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, orm ORM, codec TransmitterReportDecoder, triggerCapability *triggers.MercuryTriggerService) *mercuryTransmitter {
+	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
+	servers := make(map[string]*server, len(clients))
+	for serverURL, client := range clients {
+		cLggr := lggr.Named(serverURL).With("serverURL", serverURL)
+		pm := NewPersistenceManager(cLggr, serverURL, orm, jobID, int(cfg.TransmitQueueMaxSize()), flushDeletesFrequency, pruneFrequency)
+		servers[serverURL] = &server{
+			cLggr,
+			cfg.TransmitTimeout().Duration(),
+			client,
+			pm,
+			NewTransmitQueue(cLggr, serverURL, feedIDHex, int(cfg.TransmitQueueMaxSize()), pm),
+			make(chan *pb.TransmitRequest, int(cfg.TransmitQueueMaxSize())),
+			transmitSuccessCount.WithLabelValues(feedIDHex, serverURL),
+			transmitDuplicateCount.WithLabelValues(feedIDHex, serverURL),
+			transmitConnectionErrorCount.WithLabelValues(feedIDHex, serverURL),
+			transmitQueueDeleteErrorCount.WithLabelValues(feedIDHex, serverURL),
+			transmitQueueInsertErrorCount.WithLabelValues(feedIDHex, serverURL),
+			transmitQueuePushErrorCount.WithLabelValues(feedIDHex, serverURL),
+		}
+	}
+	return &mercuryTransmitter{
+		services.StateMachine{},
+		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
+		cfg,
+		orm,
+		servers,
+		codec,
+		triggerCapability,
+		feedID,
+		jobID,
+		fmt.Sprintf("%x", fromAccount),
+		make(services.StopChan),
+		&sync.WaitGroup{},
+	}
+}
+
+func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
+	return mt.StartOnce("MercuryTransmitter", func() error {
+		mt.lggr.Debugw("Loading transmit requests from database")
+
+		{
+			var startClosers []services.StartClose
+			for _, s := range mt.servers {
+				transmissions, err := s.pm.Load(ctx)
+				if err != nil {
+					return err
+				}
+				s.q.Init(transmissions)
+				// starting pm after loading from it is fine because it simply spawns some garbage collection/prune goroutines
+				startClosers = append(startClosers, s.c, s.q, s.pm)
+
+				mt.wg.Add(2)
+				go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
+				go s.runQueueLoop(mt.stopCh, mt.wg, mt.feedID.Hex())
+			}
+			if err := (&services.MultiStart{}).Start(ctx, startClosers...); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+func (mt *mercuryTransmitter) Close() error {
+	return mt.StopOnce("MercuryTransmitter", func() error {
+		// Drain all the queues first
+		var qs []io.Closer
+		for _, s := range mt.servers {
+			qs = append(qs, s.q)
+		}
+		if err := services.CloseAll(qs...); err != nil {
+			return err
+		}
+
+		close(mt.stopCh)
+		mt.wg.Wait()
+
+		// Close all the persistence managers
+		// Close all the clients
+		var closers []io.Closer
+		for _, s := range mt.servers {
+			closers = append(closers, s.pm)
+			closers = append(closers, s.c)
+		}
+		return services.CloseAll(closers...)
+	})
+}
+
+func (mt *mercuryTransmitter) Name() string { return mt.lggr.Name() }
+
+func (mt *mercuryTransmitter) HealthReport() map[string]error {
+	report := map[string]error{mt.Name(): mt.Healthy()}
+	for _, s := range mt.servers {
+		services.CopyHealth(report, s.HealthReport())
+	}
+	return report
 }
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
@@ -346,6 +395,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		vs[i] = v
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
+	// TODO(KS-194): send report to mt.triggerCapability.ProcessReport()
 
 	payload, err := PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
@@ -356,17 +406,29 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		Payload: payload,
 	}
 
-	mt.lggr.Tracew("Transmit enqueue", "req.Payload", req.Payload, "report", report, "reportCtx", reportCtx, "signatures", signatures)
+	ts, err := mt.codec.ObservationTimestampFromReport(report)
+	if err != nil {
+		mt.lggr.Warnw("Failed to get observation timestamp from report", "err", err)
+	}
+	mt.lggr.Debugw("Transmit enqueue", "req.Payload", hexutil.Encode(req.Payload), "report", report, "repts", reportCtx.ReportTimestamp, "signatures", signatures, "observationsTimestamp", ts)
 
-	if err := mt.persistenceManager.Insert(ctx, req, reportCtx); err != nil {
-		mt.transmitQueueInsertErrorCount.Inc()
+	if err := mt.orm.InsertTransmitRequest(ctx, maps.Keys(mt.servers), req, mt.jobID, reportCtx); err != nil {
 		return err
 	}
-	if ok := mt.queue.Push(req, reportCtx); !ok {
-		mt.transmitQueuePushErrorCount.Inc()
-		return errors.New("transmit queue is closed")
+
+	g := new(errgroup.Group)
+	for _, s := range mt.servers {
+		s := s // https://golang.org/doc/faq#closures_and_goroutines
+		g.Go(func() error {
+			if ok := s.q.Push(req, reportCtx); !ok {
+				s.transmitQueuePushErrorCount.Inc()
+				return errors.New("transmit queue is closed")
+			}
+			return nil
+		})
 	}
-	return nil
+
+	return g.Wait()
 }
 
 // FromAccount returns the stringified (hex) CSA public key
@@ -444,29 +506,67 @@ func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte)
 	req := &pb.LatestReportRequest{
 		FeedId: feedID[:],
 	}
-	resp, err := mt.rpcClient.LatestReport(ctx, req)
-	if err != nil {
-		mt.lggr.Warnw("latestReport failed", "err", err)
-		return nil, pkgerrors.Wrap(err, "latestReport failed")
+
+	var reports []*pb.Report
+	mu := sync.Mutex{}
+	var g errgroup.Group
+	for _, s := range mt.servers {
+		s := s
+		g.Go(func() error {
+			resp, err := s.c.LatestReport(ctx, req)
+			if err != nil {
+				s.lggr.Warnw("latestReport failed", "err", err)
+				return err
+			}
+			if resp == nil {
+				err = errors.New("latestReport expected non-nil response from server")
+				s.lggr.Warn(err.Error())
+				return err
+			}
+			if resp.Error != "" {
+				err = errors.New(resp.Error)
+				s.lggr.Warnw("latestReport failed; mercury server returned error", "err", err)
+				return fmt.Errorf("latestReport failed; mercury server returned error: %s", resp.Error)
+			}
+			if resp.Report == nil {
+				s.lggr.Tracew("latestReport success: returned nil")
+			} else if !bytes.Equal(resp.Report.FeedId, feedID[:]) {
+				err = fmt.Errorf("latestReport failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID[:], resp.Report.FeedId[:])
+				s.lggr.Errorw("latestReport failed", "err", err)
+				return err
+			} else {
+				s.lggr.Tracew("latestReport success", "observationsTimestamp", resp.Report.ObservationsTimestamp, "currentBlockNum", resp.Report.CurrentBlockNumber)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			reports = append(reports, resp.Report)
+			return nil
+		})
 	}
-	if resp == nil {
-		return nil, errors.New("latestReport expected non-nil response")
-	}
-	if resp.Error != "" {
-		err = errors.New(resp.Error)
-		mt.lggr.Warnw("latestReport failed; mercury server returned error", "err", err)
-		return nil, err
-	}
-	if resp.Report == nil {
-		mt.lggr.Tracew("latestReport success: returned nil")
-		return nil, nil
-	} else if !bytes.Equal(resp.Report.FeedId, feedID[:]) {
-		err = fmt.Errorf("latestReport failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID[:], resp.Report.FeedId[:])
-		mt.lggr.Errorw("latestReport failed", "err", err)
-		return nil, err
+	err := g.Wait()
+
+	if len(reports) == 0 {
+		return nil, fmt.Errorf("latestReport failed; all servers returned an error: %w", err)
 	}
 
-	mt.lggr.Tracew("latestReport success", "currentBlockNum", resp.Report.CurrentBlockNumber)
+	sortReportsLatestFirst(reports)
 
-	return resp.Report, nil
+	return reports[0], nil
+}
+
+func sortReportsLatestFirst(reports []*pb.Report) {
+	sort.Slice(reports, func(i, j int) bool {
+		// nils are "earliest" so they go to the end
+		if reports[i] == nil {
+			return false
+		} else if reports[j] == nil {
+			return true
+		}
+		// Handle block number case
+		if reports[i].ObservationsTimestamp == reports[j].ObservationsTimestamp {
+			return reports[i].CurrentBlockNumber > reports[j].CurrentBlockNumber
+		}
+		// Timestamp case
+		return reports[i].ObservationsTimestamp > reports[j].ObservationsTimestamp
+	})
 }

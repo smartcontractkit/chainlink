@@ -84,12 +84,26 @@ func initRestyClient(url string, email string, password string, timeout *time.Du
 		return nil, fmt.Errorf("error connecting to chainlink node after %d attempts: %w", retryCount, err)
 	}
 	rc.SetCookies(resp.Cookies())
+	log.Debug().Str("URL", url).Msg("Connected to Chainlink node")
 	return rc, nil
 }
 
 // URL Chainlink instance http url
 func (c *ChainlinkClient) URL() string {
 	return c.Config.URL
+}
+
+// Health returns all statuses health info
+func (c *ChainlinkClient) Health() (*HealthResponse, *http.Response, error) {
+	respBody := &HealthResponse{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Requesting health data")
+	resp, err := c.APIClient.R().
+		SetResult(&respBody).
+		Get("/health")
+	if err != nil {
+		return nil, nil, err
+	}
+	return respBody, resp.RawResponse, err
 }
 
 // CreateJobRaw creates a Chainlink job based on the provided spec string
@@ -117,6 +131,10 @@ func (c *ChainlinkClient) MustCreateJob(spec JobSpec) (*Job, error) {
 		return nil, err
 	}
 	return job, VerifyStatusCodeWithResponse(resp, http.StatusOK)
+}
+
+func (c *ChainlinkClient) GetConfig() ChainlinkConfig {
+	return *c.Config
 }
 
 // CreateJob creates a Chainlink job based on the provided spec struct

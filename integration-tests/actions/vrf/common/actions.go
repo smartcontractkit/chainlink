@@ -1,18 +1,23 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"math/big"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
+	vrf_common_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
 )
 
 func CreateFundAndGetSendingKeys(
@@ -65,7 +70,7 @@ func CreateAndFundSendingKeys(
 
 func SetupBHSNode(
 	env *test_env.CLClusterTestEnv,
-	config *testconfig.General,
+	config *vrf_common_config.General,
 	numberOfTxKeysToCreate int,
 	chainID *big.Int,
 	coordinatorAddress string,
@@ -74,8 +79,13 @@ func SetupBHSNode(
 	l zerolog.Logger,
 	bhsNode *VRFNode,
 ) error {
+	evmClient, err := env.GetEVMClient(chainID.Int64())
+	if err != nil {
+		return err
+	}
+
 	bhsTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
-		env.EVMClient,
+		evmClient,
 		bhsNode,
 		txKeyFunding,
 		numberOfTxKeysToCreate,
@@ -134,4 +144,196 @@ func CreateBHSJob(
 		return nil, fmt.Errorf("%s, err %w", ErrCreatingBHSJob, err)
 	}
 	return job, nil
+}
+
+func SetupBHFNode(
+	env *test_env.CLClusterTestEnv,
+	config *vrf_common_config.General,
+	numberOfTxKeysToCreate int,
+	chainID *big.Int,
+	coordinatorAddress string,
+	BHSAddress string,
+	batchBHSAddress string,
+	txKeyFunding float64,
+	l zerolog.Logger,
+	bhfNode *VRFNode,
+) error {
+	evmClient, err := env.GetEVMClient(chainID.Int64())
+	if err != nil {
+		return err
+	}
+	bhfTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
+		evmClient,
+		bhfNode,
+		txKeyFunding,
+		numberOfTxKeysToCreate,
+		chainID,
+	)
+	if err != nil {
+		return err
+	}
+	bhfNode.TXKeyAddressStrings = bhfTXKeyAddressStrings
+	bhfSpec := client.BlockHeaderFeederJobSpec{
+		ForwardingAllowed:          false,
+		CoordinatorV2Address:       coordinatorAddress,
+		CoordinatorV2PlusAddress:   coordinatorAddress,
+		BlockhashStoreAddress:      BHSAddress,
+		BatchBlockhashStoreAddress: batchBHSAddress,
+		FromAddresses:              bhfTXKeyAddressStrings,
+		EVMChainID:                 chainID.String(),
+		WaitBlocks:                 *config.BHFJobWaitBlocks,
+		LookbackBlocks:             *config.BHFJobLookBackBlocks,
+		PollPeriod:                 config.BHFJobPollPeriod.Duration,
+		RunTimeout:                 config.BHFJobRunTimeout.Duration,
+	}
+	l.Info().Msg("Creating BHF Job")
+	bhfJob, err := CreateBHFJob(
+		bhfNode.CLNode.API,
+		bhfSpec,
+	)
+	if err != nil {
+		return fmt.Errorf("%s, err %w", "", err)
+	}
+	bhfNode.Job = bhfJob
+	return nil
+}
+
+func CreateBHFJob(
+	chainlinkNode *client.ChainlinkClient,
+	bhfJobSpecConfig client.BlockHeaderFeederJobSpec,
+) (*client.Job, error) {
+	jobUUID := uuid.New()
+	spec := &client.BlockHeaderFeederJobSpec{
+		Name:                       fmt.Sprintf("bhf-%s", jobUUID),
+		ForwardingAllowed:          bhfJobSpecConfig.ForwardingAllowed,
+		CoordinatorV2Address:       bhfJobSpecConfig.CoordinatorV2Address,
+		CoordinatorV2PlusAddress:   bhfJobSpecConfig.CoordinatorV2PlusAddress,
+		BlockhashStoreAddress:      bhfJobSpecConfig.BlockhashStoreAddress,
+		BatchBlockhashStoreAddress: bhfJobSpecConfig.BatchBlockhashStoreAddress,
+		FromAddresses:              bhfJobSpecConfig.FromAddresses,
+		EVMChainID:                 bhfJobSpecConfig.EVMChainID,
+		ExternalJobID:              jobUUID.String(),
+		WaitBlocks:                 bhfJobSpecConfig.WaitBlocks,
+		LookbackBlocks:             bhfJobSpecConfig.LookbackBlocks,
+		PollPeriod:                 bhfJobSpecConfig.PollPeriod,
+		RunTimeout:                 bhfJobSpecConfig.RunTimeout,
+	}
+
+	job, err := chainlinkNode.MustCreateJob(spec)
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrCreatingBHSJob, err)
+	}
+	return job, nil
+}
+
+func WaitForRequestCountEqualToFulfilmentCount(
+	ctx context.Context,
+	consumer VRFLoadTestConsumer,
+	timeout time.Duration,
+	wg *sync.WaitGroup,
+) (*big.Int, *big.Int, error) {
+	metricsChannel := make(chan *contracts.VRFLoadTestMetrics)
+	metricsErrorChannel := make(chan error)
+
+	testContext, testCancel := context.WithTimeout(ctx, timeout)
+	defer testCancel()
+
+	ticker := time.NewTicker(time.Second * 1)
+	var metrics *contracts.VRFLoadTestMetrics
+	for {
+		select {
+		case <-testContext.Done():
+			ticker.Stop()
+			wg.Done()
+			return metrics.RequestCount, metrics.FulfilmentCount,
+				fmt.Errorf("timeout waiting for rand request and fulfilments to be equal AFTER performance test was executed. Request Count: %d, Fulfilment Count: %d",
+					metrics.RequestCount.Uint64(), metrics.FulfilmentCount.Uint64())
+		case <-ticker.C:
+			go retrieveLoadTestMetrics(ctx, consumer, metricsChannel, metricsErrorChannel)
+		case metrics = <-metricsChannel:
+			if metrics.RequestCount.Cmp(metrics.FulfilmentCount) == 0 {
+				ticker.Stop()
+				wg.Done()
+				return metrics.RequestCount, metrics.FulfilmentCount, nil
+			}
+		case err := <-metricsErrorChannel:
+			ticker.Stop()
+			wg.Done()
+			return nil, nil, err
+		}
+	}
+}
+
+func retrieveLoadTestMetrics(
+	ctx context.Context,
+	consumer VRFLoadTestConsumer,
+	metricsChannel chan *contracts.VRFLoadTestMetrics,
+	metricsErrorChannel chan error,
+) {
+	metrics, err := consumer.GetLoadTestMetrics(ctx)
+	if err != nil {
+		metricsErrorChannel <- err
+	}
+	metricsChannel <- metrics
+}
+
+func CreateNodeTypeToNodeMap(cluster *test_env.ClCluster, nodesToCreate []VRFNodeType) (map[VRFNodeType]*VRFNode, error) {
+	var nodesMap = make(map[VRFNodeType]*VRFNode)
+	if len(cluster.Nodes) < len(nodesToCreate) {
+		return nil, fmt.Errorf("not enough nodes in the cluster (cluster size is %d nodes) to create %d nodes", len(cluster.Nodes), len(nodesToCreate))
+	}
+	for i, nodeType := range nodesToCreate {
+		nodesMap[nodeType] = &VRFNode{
+			CLNode: cluster.Nodes[i],
+		}
+	}
+	return nodesMap, nil
+}
+
+func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*client.VRFKey, string, error) {
+	l.Info().Str("Node URL", vrfNode.CLNode.API.URL()).Msg("Creating VRF Key on the Node")
+	vrfKey, err := vrfNode.CLNode.API.MustCreateVRFKey()
+	if err != nil {
+		return nil, "", fmt.Errorf("%s, err %w", ErrCreatingVRFKey, err)
+	}
+	pubKeyCompressed := vrfKey.Data.ID
+	l.Info().
+		Str("Node URL", vrfNode.CLNode.API.URL()).
+		Str("Keyhash", vrfKey.Data.Attributes.Hash).
+		Str("VRF Compressed Key", vrfKey.Data.Attributes.Compressed).
+		Str("VRF Uncompressed Key", vrfKey.Data.Attributes.Uncompressed).
+		Msg("VRF Key created on the Node")
+	return vrfKey, pubKeyCompressed, nil
+}
+
+func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config.ExistingEnvConfig, client blockchain.EVMClient, l zerolog.Logger) error {
+	if *existingEnvConfig.NodeSendingKeyFundingMin > 0 {
+		for _, sendingKey := range existingEnvConfig.NodeSendingKeys {
+			address := common.HexToAddress(sendingKey)
+			sendingKeyBalance, err := client.BalanceAt(ctx, address)
+			if err != nil {
+				return err
+			}
+			fundingAtLeast := conversions.EtherToWei(big.NewFloat(*existingEnvConfig.NodeSendingKeyFundingMin))
+			fundingToSendWei := new(big.Int).Sub(fundingAtLeast, sendingKeyBalance)
+			fundingToSendEth := conversions.WeiToEther(fundingToSendWei)
+			log := l.Info().
+				Str("Sending Key", sendingKey).
+				Str("Sending Key Current Balance", sendingKeyBalance.String()).
+				Str("Should have at least", fundingAtLeast.String())
+			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
+				log.
+					Str("Funding Amount in ETH", fundingToSendEth.String()).
+					Msg("Funding Node's Sending Key")
+				err := actions.FundAddress(client, sendingKey, fundingToSendEth)
+				if err != nil {
+					return err
+				}
+			} else {
+				log.
+					Msg("Skipping Node's Sending Key funding as it has enough funds")
+			}
+		}
+	}
+	return nil
 }

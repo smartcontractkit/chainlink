@@ -60,6 +60,9 @@ type PluginConfig struct {
 	ContractVersion string `json:"contractVersion"`
 	// CaptureAutomationCustomTelemetry is a bool flag to toggle Custom Telemetry Service
 	CaptureAutomationCustomTelemetry *bool `json:"captureAutomationCustomTelemetry,omitempty"`
+	// UseBufferV1 is a bool flag to toggle the new log buffer implementation
+	// TODO: (AUTO-9355) remove once we have a single version
+	UseBufferV1 *bool `json:"useBufferV1,omitempty"`
 }
 
 func ValidatePluginConfig(cfg PluginConfig) error {

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
@@ -44,14 +44,13 @@ func dbPath() (path string, err error) {
 func versionsDBLineReader() (*bufio.Scanner, error) {
 	versionsDBPath, err := dbPath()
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not construct versions DB path")
+		return nil, pkgerrors.Wrapf(err, "could not construct versions DB path")
 	}
 	versionsDBFile, err := os.Open(versionsDBPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not open versions database")
+		return nil, pkgerrors.Wrapf(err, "could not open versions database")
 	}
 	return bufio.NewScanner(versionsDBFile), nil
-
 }
 
 // ReadVersionsDB populates an IntegratedVersion with all the info in the
@@ -66,28 +65,28 @@ func ReadVersionsDB() (*IntegratedVersion, error) {
 	for db.Scan() {
 		line := strings.Fields(db.Text())
 		if !strings.HasSuffix(line[0], ":") {
-			return nil, errors.Errorf(
+			return nil, pkgerrors.Errorf(
 				`each line in versions.txt should start with "$TOPIC:"`)
 		}
 		topic := stripTrailingColon(line[0], "")
 		if topic == "GETH_VERSION" {
 			if len(line) != 2 {
-				return nil, errors.Errorf("GETH_VERSION line should contain geth "+
+				return nil, pkgerrors.Errorf("GETH_VERSION line should contain geth "+
 					"version, and only that: %s", line)
 			}
 			if rv.GethVersion != "" {
-				return nil, errors.Errorf("more than one geth version")
+				return nil, pkgerrors.Errorf("more than one geth version")
 			}
 			rv.GethVersion = line[1]
 		} else { // It's a wrapper from a compiler artifact
 			if len(line) != 4 {
-				return nil, errors.Errorf(`"%s" should have four elements `+
+				return nil, pkgerrors.Errorf(`"%s" should have four elements `+
 					`"<pkgname>: <abi-path> <bin-path> <hash>"`,
 					db.Text())
 			}
 			_, alreadyExists := rv.ContractVersions[topic]
 			if alreadyExists {
-				return nil, errors.Errorf(`topic "%s" already mentioned`, topic)
+				return nil, pkgerrors.Errorf(`topic "%s" already mentioned`, topic)
 			}
 			rv.ContractVersions[topic] = ContractVersion{
 				AbiPath: line[1], BinaryPath: line[2], Hash: line[3],
@@ -102,11 +101,11 @@ var stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
 func WriteVersionsDB(db *IntegratedVersion) (err error) {
 	versionsDBPath, err := dbPath()
 	if err != nil {
-		return errors.Wrap(err, "could not construct path to versions DB")
+		return pkgerrors.Wrap(err, "could not construct path to versions DB")
 	}
 	f, err := os.Create(versionsDBPath)
 	if err != nil {
-		return errors.Wrapf(err, "while opening %s", versionsDBPath)
+		return pkgerrors.Wrapf(err, "while opening %s", versionsDBPath)
 	}
 	defer func() {
 		if cerr := f.Close(); cerr != nil {
@@ -116,10 +115,10 @@ func WriteVersionsDB(db *IntegratedVersion) (err error) {
 	gethLine := "GETH_VERSION: " + db.GethVersion + "\n"
 	n, err := f.WriteString(gethLine)
 	if err != nil {
-		return errors.Wrapf(err, "while recording geth version line")
+		return pkgerrors.Wrapf(err, "while recording geth version line")
 	}
 	if n != len(gethLine) {
-		return errors.Errorf("failed to write entire geth version line, %s", gethLine)
+		return pkgerrors.Errorf("failed to write entire geth version line, %s", gethLine)
 	}
 	var pkgNames []string
 	for name := range db.ContractVersions {
@@ -132,10 +131,10 @@ func WriteVersionsDB(db *IntegratedVersion) (err error) {
 			vinfo.AbiPath, vinfo.BinaryPath, vinfo.Hash)
 		n, err = f.WriteString(versionLine)
 		if err != nil {
-			return errors.Wrapf(err, "while recording %s version line", name)
+			return pkgerrors.Wrapf(err, "while recording %s version line", name)
 		}
 		if n != len(versionLine) {
-			return errors.Errorf("failed to write entire version line %s", versionLine)
+			return pkgerrors.Errorf("failed to write entire version line %s", versionLine)
 		}
 	}
 	return nil

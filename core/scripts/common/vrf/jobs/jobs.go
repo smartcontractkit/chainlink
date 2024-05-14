@@ -27,7 +27,8 @@ vrf          [type=vrfv2
 estimate_gas [type=estimategaslimit
               to="%s"
               multiplier="%f"
-              data="$(vrf.output)"]
+              data="$(vrf.output)"
+              block="%s"]
 simulate     [type=ethcall
               from="%s"
               to="%s"
@@ -35,7 +36,8 @@ simulate     [type=ethcall
               gasPrice="$(jobSpec.maxGasPrice)"
               extractRevertReason=true
               contract="%s"
-              data="$(vrf.output)"]
+              data="$(vrf.output)"
+              block="%s"]
 decode_log->vrf->estimate_gas->simulate
 """`
 
@@ -66,7 +68,8 @@ generate_proof          [type=vrfv2plus
 estimate_gas            [type=estimategaslimit
 						 to="%s"
 						 multiplier="%f"
-						 data="$(generate_proof.output)"]
+						 data="$(generate_proof.output)"
+						 block="%s"]
 simulate_fulfillment    [type=ethcall
 						 from="%s"
                          to="%s"
@@ -74,7 +77,8 @@ simulate_fulfillment    [type=ethcall
 		                 gasPrice="$(jobSpec.maxGasPrice)"
 		                 extractRevertReason=true
 		                 contract="%s"
-		                 data="$(generate_proof.output)"]
+		                 data="$(generate_proof.output)"
+						 block="%s"]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 """
 `
@@ -87,8 +91,8 @@ coordinatorV2Address = "%s"
 waitBlocks = %d
 lookbackBlocks = %d
 blockhashStoreAddress = "%s"
-pollPeriod = "30s"
-runTimeout = "1m0s"
+pollPeriod = "%s"
+runTimeout = "%s"
 evmChainID = "%d"
 fromAddresses = ["%s"]
 `
@@ -96,12 +100,13 @@ fromAddresses = ["%s"]
 schemaVersion = 1
 name = "blockhashstore"
 forwardingAllowed = false
+coordinatorV2Address = "%s"
 coordinatorV2PlusAddress = "%s"
 waitBlocks = %d
 lookbackBlocks = %d
 blockhashStoreAddress = "%s"
-pollPeriod = "30s"
-runTimeout = "1m0s"
+pollPeriod = "%s"
+runTimeout = "%s"
 evmChainID = "%d"
 fromAddresses = ["%s"]
 `

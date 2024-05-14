@@ -3,19 +3,28 @@ package types
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"log/slog"
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgtype"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
+
+func init() {
+	// This is a hack to undo geth's disruption of the std default logger.
+	// To be removed after upgrading geth to v1.13.10.
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+}
 
 type Configs interface {
 	Chains(ids ...string) ([]types.ChainStatus, int, error)
@@ -143,7 +152,7 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 	}
 	var dec Receipt
 	if err := json.Unmarshal(input, &dec); err != nil {
-		return errors.Wrap(err, "could not unmarshal receipt")
+		return pkgerrors.Wrap(err, "could not unmarshal receipt")
 	}
 	if dec.PostState != nil {
 		r.PostState = *dec.PostState
@@ -182,7 +191,7 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 func (r *Receipt) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
-		return errors.New("type assertion to []byte failed")
+		return pkgerrors.New("type assertion to []byte failed")
 	}
 
 	return json.Unmarshal(b, r)
@@ -215,6 +224,13 @@ func (r *Receipt) GetTransactionIndex() uint {
 func (r *Receipt) GetBlockHash() common.Hash {
 	return r.BlockHash
 }
+
+type Confirmations int
+
+const (
+	Finalized   = Confirmations(-1)
+	Unconfirmed = Confirmations(0)
+)
 
 // Log represents a contract log event.
 //
@@ -294,7 +310,7 @@ func (l *Log) UnmarshalJSON(input []byte) error {
 	}
 	var dec Log
 	if err := json.Unmarshal(input, &dec); err != nil {
-		return errors.Wrap(err, "could not unmarshal log")
+		return pkgerrors.Wrap(err, "could not unmarshal log")
 	}
 	if dec.Address != nil {
 		l.Address = *dec.Address
@@ -330,16 +346,20 @@ func (a *AddressArray) Scan(src interface{}) error {
 	baArray := pgtype.ByteaArray{}
 	err := baArray.Scan(src)
 	if err != nil {
-		return errors.Wrap(err, "Expected BYTEA[] column for AddressArray")
+		return pkgerrors.Wrap(err, "Expected BYTEA[] column for AddressArray")
 	}
-	if baArray.Status != pgtype.Present || len(baArray.Dimensions) > 1 {
-		return errors.Errorf("Expected AddressArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	if baArray.Status != pgtype.Present {
+		*a = nil
+		return nil
+	}
+	if len(baArray.Dimensions) > 1 {
+		return pkgerrors.Errorf("Expected AddressArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
 	}
 
 	for i, ba := range baArray.Elements {
 		addr := common.Address{}
 		if ba.Status != pgtype.Present {
-			return errors.Errorf("Expected all addresses in AddressArray to be non-NULL.  Got AddressArray[%d] = NULL", i)
+			return pkgerrors.Errorf("Expected all addresses in AddressArray to be non-NULL.  Got AddressArray[%d] = NULL", i)
 		}
 		err = addr.Scan(ba.Bytes)
 		if err != nil {
@@ -357,16 +377,20 @@ func (h *HashArray) Scan(src interface{}) error {
 	baArray := pgtype.ByteaArray{}
 	err := baArray.Scan(src)
 	if err != nil {
-		return errors.Wrap(err, "Expected BYTEA[] column for HashArray")
+		return pkgerrors.Wrap(err, "Expected BYTEA[] column for HashArray")
 	}
-	if baArray.Status != pgtype.Present || len(baArray.Dimensions) > 1 {
-		return errors.Errorf("Expected HashArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	if baArray.Status != pgtype.Present {
+		*h = nil
+		return nil
+	}
+	if len(baArray.Dimensions) > 1 {
+		return pkgerrors.Errorf("Expected HashArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
 	}
 
 	for i, ba := range baArray.Elements {
 		hash := common.Hash{}
 		if ba.Status != pgtype.Present {
-			return errors.Errorf("Expected all addresses in HashArray to be non-NULL.  Got HashArray[%d] = NULL", i)
+			return pkgerrors.Errorf("Expected all hashes in HashArray to be non-NULL.  Got HashArray[%d] = NULL", i)
 		}
 		err = hash.Scan(ba.Bytes)
 		if err != nil {

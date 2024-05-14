@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-publish-untrusted:
-    if: ${{ ! startsWith(github.ref_name, 'release/') }}
+    if: ${{ ! startsWith(github.ref_name, 'release/') || (! startsWith(github.head_ref, 'release/') && ! startsWith(github.ref_name, 'chore/'))}}
     runs-on: ubuntu-20.04
     environment: sdlc
     permissions:
@@ -21,7 +21,7 @@ jobs:
       ECR_IMAGE_NAME: crib-chainlink-untrusted
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Git Short SHA
         shell: bash
@@ -32,7 +32,7 @@ jobs:
 
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           repository: ${{ env.ECR_IMAGE_NAME}}
           tag: sha-${{ env.GIT_SHORT_SHA }}
@@ -53,56 +53,12 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
 
-      - name: Get PR labels
-        id: pr-labels
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.number }}
-        run: |
-          RESPONSE=$(gh pr view ${PR_NUMBER} --json labels)
-          # Check if the labels command was successful
-          if [[ $? -ne 0 ]]; then
-            echo "Error fetching labels"
-            exit 1
-          fi
-          echo "RESPONSE=${RESPONSE}"
-          LABELS=$(echo "$RESPONSE" | jq -r '.labels | map(.name) | join(", ")')
-          # Check if any labels were found
-          if [[ -z "${LABELS:-}" ]]; then
-            echo "No labels found"
-          else
-            echo "labels=${LABELS}" | tee -a "${GITHUB_OUTPUT}"
-          fi
-
-      - name: Setup GAP
-        if: contains(steps.pr-labels.outputs.labels, 'crib')
-        uses: smartcontractkit/.github/actions/setup-gap@main
-        with:
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_ARGO_SAND }}
-          use-argocd: "true"
-          argocd-user: ${{ secrets.ARGOCD_USER_SAND }}
-          argocd-pass: ${{ secrets.ARGOCD_PASS_SAND }}
-
-      # Run an Argo CD sync after the image is built.
-      - name: Argo CD App Sync
-        if: contains(steps.pr-labels.outputs.labels, 'crib')
-        shell: bash
-        env:
-          PR_NUMBER: ${{ github.event.number }}
-        run: |
-          argocd app sync \
-            --plaintext \
-            --grpc-web \
-            --async \
-            "crib-chainlink-${PR_NUMBER}"
-
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: build-chainlink-pr
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}

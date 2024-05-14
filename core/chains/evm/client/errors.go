@@ -8,11 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 )
 
@@ -29,16 +30,11 @@ func (s *SendError) Error() string {
 // Fatal indicates whether the error should be considered fatal or not
 // Fatal errors mean that no matter how many times the send is retried, no node
 // will ever accept it
-func (s *SendError) Fatal() bool {
-	return s != nil && s.fatal
-}
-
-// CauseStr returns the string of the original error
-func (s *SendError) CauseStr() string {
-	if s.err != nil {
-		return errors.Cause(s.err).Error()
+func (s *SendError) Fatal(configErrors *ClientErrors) bool {
+	if configErrors != nil && configErrors.ErrIs(s.err, Fatal) {
+		return true
 	}
-	return ""
+	return s != nil && s.fatal
 }
 
 const (
@@ -62,9 +58,30 @@ const (
 	L2Full
 	TransactionAlreadyMined
 	Fatal
+	ServiceUnavailable
+	OutOfCounters
 )
 
-type ClientErrors = map[int]*regexp.Regexp
+type ClientErrors map[int]*regexp.Regexp
+
+// ErrIs returns true if err matches any provided error types
+func (e *ClientErrors) ErrIs(err error, errorTypes ...int) bool {
+	if err == nil {
+		return false
+	}
+	for _, errorType := range errorTypes {
+		if _, ok := (*e)[errorType]; !ok {
+			return false
+		}
+		if (*e)[errorType].String() == "" {
+			return false
+		}
+		if (*e)[errorType].MatchString(pkgerrors.Cause(err).Error()) {
+			return true
+		}
+	}
+	return false
+}
 
 // Parity
 // See: https://github.com/openethereum/openethereum/blob/master/rpc/src/v1/helpers/errors.rs#L420
@@ -139,6 +156,7 @@ var arbitrum = ClientErrors{
 	Fatal:                 arbitrumFatal,
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
+	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 }
 
 var celo = ClientErrors{
@@ -196,8 +214,9 @@ var nethermind = ClientErrors{
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(AlreadyKnown|OwnNonceAlreadyUsed)$`),
 
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
-	InsufficientEth: regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+)?$`),
-	Fatal:           nethermindFatal,
+	InsufficientEth:    regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+|, Balance is \d+ less than sending value \+ gas \d+)?$`),
+	ServiceUnavailable: regexp.MustCompile(`(: |^)503 Service Unavailable: [\s\S]*$`),
+	Fatal:              nethermindFatal,
 }
 
 // Harmony
@@ -211,7 +230,7 @@ var harmony = ClientErrors{
 var zkSync = ClientErrors{
 	NonceTooLow:           regexp.MustCompile(`(?:: |^)nonce too low\..+actual: \d*$`),
 	NonceTooHigh:          regexp.MustCompile(`(?:: |^)nonce too high\..+actual: \d*$`),
-	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)max fee per gas less than block base fee$`),
+	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)(max fee per gas less than block base fee|virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price)$`),
 	InsufficientEth:       regexp.MustCompile(`(?:: |^)(?:insufficient balance for transfer$|insufficient funds for gas + value)`),
 	TxFeeExceedsCap:       regexp.MustCompile(`(?:: |^)max priority fee per gas higher than max fee per gas$`),
 	// intrinsic gas too low 						- gas limit less than 14700
@@ -221,21 +240,48 @@ var zkSync = ClientErrors{
 	// can't start a transaction from a non-account - trying to send from an invalid address, e.g. estimating a contract -> contract tx
 	// max fee per gas higher than 2^64-1 			- uint64 overflow
 	// oversized data 								- data too large
-	Fatal: regexp.MustCompile(`(?:: |^)(?:exceeds block gas limit|intrinsic gas too low|Not enough gas for transaction validation|Failed to pay the fee to the operator|Error function_selector = 0x, data = 0x|invalid sender. can't start a transaction from a non-account|max(?: priority)? fee per (?:gas|pubdata byte) higher than 2\^64-1|oversized data. max: \d+; actual: \d+)$`),
+	Fatal:                       regexp.MustCompile(`(?:: |^)(?:exceeds block gas limit|intrinsic gas too low|Not enough gas for transaction validation|Failed to pay the fee to the operator|Error function_selector = 0x, data = 0x|invalid sender. can't start a transaction from a non-account|max(?: priority)? fee per (?:gas|pubdata byte) higher than 2\^64-1|oversized data. max: \d+; actual: \d+)$`),
+	TransactionAlreadyInMempool: regexp.MustCompile(`known transaction. transaction with hash .* is already in the system`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync}
+var zkEvm = ClientErrors{
+	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
+}
 
-func (s *SendError) is(errorType int) bool {
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
+
+// ClientErrorRegexes returns a map of compiled regexes for each error type
+func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
+	if errsRegex == nil {
+		return &ClientErrors{}
+	}
+	return &ClientErrors{
+		NonceTooLow:                       regexp.MustCompile(errsRegex.NonceTooLow()),
+		NonceTooHigh:                      regexp.MustCompile(errsRegex.NonceTooHigh()),
+		ReplacementTransactionUnderpriced: regexp.MustCompile(errsRegex.ReplacementTransactionUnderpriced()),
+		LimitReached:                      regexp.MustCompile(errsRegex.LimitReached()),
+		TransactionAlreadyInMempool:       regexp.MustCompile(errsRegex.TransactionAlreadyInMempool()),
+		TerminallyUnderpriced:             regexp.MustCompile(errsRegex.TerminallyUnderpriced()),
+		InsufficientEth:                   regexp.MustCompile(errsRegex.InsufficientEth()),
+		TxFeeExceedsCap:                   regexp.MustCompile(errsRegex.TxFeeExceedsCap()),
+		L2FeeTooLow:                       regexp.MustCompile(errsRegex.L2FeeTooLow()),
+		L2FeeTooHigh:                      regexp.MustCompile(errsRegex.L2FeeTooHigh()),
+		L2Full:                            regexp.MustCompile(errsRegex.L2Full()),
+		TransactionAlreadyMined:           regexp.MustCompile(errsRegex.TransactionAlreadyMined()),
+		Fatal:                             regexp.MustCompile(errsRegex.Fatal()),
+		ServiceUnavailable:                regexp.MustCompile(errsRegex.ServiceUnavailable()),
+	}
+}
+
+func (s *SendError) is(errorType int, configErrors *ClientErrors) bool {
 	if s == nil || s.err == nil {
 		return false
 	}
-	str := s.CauseStr()
+	if configErrors != nil && configErrors.ErrIs(s.err, errorType) {
+		return true
+	}
 	for _, client := range clients {
-		if _, ok := client[errorType]; !ok {
-			continue
-		}
-		if client[errorType].MatchString(str) {
+		if client.ErrIs(s.err, errorType) {
 			return true
 		}
 	}
@@ -243,62 +289,72 @@ func (s *SendError) is(errorType int) bool {
 }
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
-func (s *SendError) IsReplacementUnderpriced() bool {
-	return s.is(ReplacementTransactionUnderpriced)
+func (s *SendError) IsReplacementUnderpriced(configErrors *ClientErrors) bool {
+	return s.is(ReplacementTransactionUnderpriced, configErrors)
 }
 
-func (s *SendError) IsNonceTooLowError() bool {
-	return s.is(NonceTooLow)
+func (s *SendError) IsNonceTooLowError(configErrors *ClientErrors) bool {
+	return s.is(NonceTooLow, configErrors)
 }
 
-func (s *SendError) IsNonceTooHighError() bool {
-	return s.is(NonceTooHigh)
+func (s *SendError) IsNonceTooHighError(configErrors *ClientErrors) bool {
+	return s.is(NonceTooHigh, configErrors)
 }
 
 // IsTransactionAlreadyMined - Harmony returns this error if the transaction has already been mined
-func (s *SendError) IsTransactionAlreadyMined() bool {
-	return s.is(TransactionAlreadyMined)
+func (s *SendError) IsTransactionAlreadyMined(configErrors *ClientErrors) bool {
+	return s.is(TransactionAlreadyMined, configErrors)
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
-func (s *SendError) IsTransactionAlreadyInMempool() bool {
-	return s.is(TransactionAlreadyInMempool)
+func (s *SendError) IsTransactionAlreadyInMempool(configErrors *ClientErrors) bool {
+	return s.is(TransactionAlreadyInMempool, configErrors)
 }
 
 // IsTerminallyUnderpriced indicates that this transaction is so far underpriced the node won't even accept it in the first place
-func (s *SendError) IsTerminallyUnderpriced() bool {
-	return s.is(TerminallyUnderpriced)
+func (s *SendError) IsTerminallyUnderpriced(configErrors *ClientErrors) bool {
+	return s.is(TerminallyUnderpriced, configErrors)
 }
 
-func (s *SendError) IsTemporarilyUnderpriced() bool {
-	return s.is(LimitReached)
+func (s *SendError) IsTemporarilyUnderpriced(configErrors *ClientErrors) bool {
+	return s.is(LimitReached, configErrors)
 }
 
-func (s *SendError) IsInsufficientEth() bool {
-	return s.is(InsufficientEth)
+func (s *SendError) IsInsufficientEth(configErrors *ClientErrors) bool {
+	return s.is(InsufficientEth, configErrors)
 }
 
 // IsTxFeeExceedsCap returns true if the transaction and gas price are combined in
 // some way that makes the total transaction too expensive for the eth node to
 // accept at all. No amount of retrying at this or higher gas prices can ever
 // succeed.
-func (s *SendError) IsTxFeeExceedsCap() bool {
-	return s.is(TxFeeExceedsCap)
+func (s *SendError) IsTxFeeExceedsCap(configErrors *ClientErrors) bool {
+	return s.is(TxFeeExceedsCap, configErrors)
 }
 
 // L2FeeTooLow is an l2-specific error returned when total fee is too low
-func (s *SendError) L2FeeTooLow() bool {
-	return s.is(L2FeeTooLow)
+func (s *SendError) L2FeeTooLow(configErrors *ClientErrors) bool {
+	return s.is(L2FeeTooLow, configErrors)
 }
 
 // IsL2FeeTooHigh is an l2-specific error returned when total fee is too high
-func (s *SendError) IsL2FeeTooHigh() bool {
-	return s.is(L2FeeTooHigh)
+func (s *SendError) IsL2FeeTooHigh(configErrors *ClientErrors) bool {
+	return s.is(L2FeeTooHigh, configErrors)
 }
 
 // IsL2Full is an l2-specific error returned when the queue or mempool is full.
-func (s *SendError) IsL2Full() bool {
-	return s.is(L2Full)
+func (s *SendError) IsL2Full(configErrors *ClientErrors) bool {
+	return s.is(L2Full, configErrors)
+}
+
+// IsServiceUnavailable indicates if the error was caused by a service being unavailable
+func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
+	return s.is(ServiceUnavailable, configErrors)
+}
+
+// IsOutOfCounters is a zk chain specific error returned if the transaction is too complex to prove on zk circuits
+func (s *SendError) IsOutOfCounters(configErrors *ClientErrors) bool {
+	return s.is(OutOfCounters, configErrors)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -309,7 +365,7 @@ func (s *SendError) IsTimeout() bool {
 	if s.err == nil {
 		return false
 	}
-	return errors.Is(s.err, context.DeadlineExceeded)
+	return pkgerrors.Is(s.err, context.DeadlineExceeded)
 }
 
 // IsCanceled indicates if the error was caused by an context cancellation
@@ -320,18 +376,18 @@ func (s *SendError) IsCanceled() bool {
 	if s.err == nil {
 		return false
 	}
-	return errors.Is(s.err, context.Canceled)
+	return pkgerrors.Is(s.err, context.Canceled)
 }
 
 func NewFatalSendError(e error) *SendError {
 	if e == nil {
 		return nil
 	}
-	return &SendError{err: errors.WithStack(e), fatal: true}
+	return &SendError{err: pkgerrors.WithStack(e), fatal: true}
 }
 
 func NewSendErrorS(s string) *SendError {
-	return NewSendError(errors.New(s))
+	return NewSendError(pkgerrors.New(s))
 }
 
 func NewSendError(e error) *SendError {
@@ -339,7 +395,7 @@ func NewSendError(e error) *SendError {
 		return nil
 	}
 	fatal := isFatalSendError(e)
-	return &SendError{err: errors.WithStack(e), fatal: fatal}
+	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:
@@ -349,7 +405,8 @@ func isFatalSendError(err error) bool {
 	if err == nil {
 		return false
 	}
-	str := errors.Cause(err).Error()
+	str := pkgerrors.Cause(err).Error()
+
 	for _, client := range clients {
 		if _, ok := client[Fatal]; !ok {
 			continue
@@ -407,41 +464,44 @@ func ExtractRPCErrorOrNil(err error) *JsonError {
 // { "error":  { "code": 3, "data": "0xABC123...", "message": "execution reverted: hello world" } } // revert reason automatically parsed if a simple require and included in message.
 func ExtractRPCError(baseErr error) (*JsonError, error) {
 	if baseErr == nil {
-		return nil, errors.New("no error present")
+		return nil, pkgerrors.New("no error present")
 	}
-	cause := errors.Cause(baseErr)
+	cause := pkgerrors.Cause(baseErr)
 	jsonBytes, err := json.Marshal(cause)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to marshal err to json")
+		return nil, pkgerrors.Wrap(err, "unable to marshal err to json")
 	}
 	jErr := JsonError{}
 	err = json.Unmarshal(jsonBytes, &jErr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to unmarshal json into jsonError struct (got: %v)", baseErr)
+		return nil, pkgerrors.Wrapf(err, "unable to unmarshal json into jsonError struct (got: %v)", baseErr)
 	}
 	if jErr.Code == 0 {
-		return nil, errors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
+		return nil, pkgerrors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
 	}
 	return &jErr, nil
 }
 
-func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
+func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
 	sendError := NewSendError(err)
 	if sendError == nil {
 		return commonclient.Successful
 	}
-	if sendError.Fatal() {
+
+	configErrors := ClientErrorRegexes(clientErrors)
+
+	if sendError.Fatal(configErrors) {
 		lggr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return commonclient.Fatal
 	}
-	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
-		lggr.Debugw("Transaction already confirmed for this nonce: %d", tx.Nonce(), "err", sendError, "etx", tx)
+	if sendError.IsNonceTooLowError(configErrors) || sendError.IsTransactionAlreadyMined(configErrors) {
+		lggr.Debugw(fmt.Sprintf("Transaction already confirmed for this nonce: %d", tx.Nonce()), "err", sendError, "etx", tx)
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.
 		return commonclient.TransactionAlreadyKnown
 	}
-	if sendError.IsReplacementUnderpriced() {
+	if sendError.IsReplacementUnderpriced(configErrors) {
 		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %x. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
 			tx.Hash()), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap, "err", sendError, "etx", tx)
@@ -449,19 +509,19 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		// Assume success and hand off to the next cycle.
 		return commonclient.Successful
 	}
-	if sendError.IsTransactionAlreadyInMempool() {
+	if sendError.IsTransactionAlreadyInMempool(configErrors) {
 		lggr.Debugw("Transaction already in mempool", "etx", tx, "err", sendError)
 		return commonclient.Successful
 	}
-	if sendError.IsTemporarilyUnderpriced() {
+	if sendError.IsTemporarilyUnderpriced(configErrors) {
 		lggr.Infow("Transaction temporarily underpriced", "err", sendError)
 		return commonclient.Successful
 	}
-	if sendError.IsTerminallyUnderpriced() {
+	if sendError.IsTerminallyUnderpriced(configErrors) {
 		lggr.Errorw("Transaction terminally underpriced", "etx", tx, "err", sendError)
 		return commonclient.Underpriced
 	}
-	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
+	if sendError.L2FeeTooLow(configErrors) || sendError.IsL2FeeTooHigh(configErrors) || sendError.IsL2Full(configErrors) {
 		if isL2 {
 			lggr.Errorw("Transaction fee out of range", "err", sendError, "etx", tx)
 			return commonclient.FeeOutOfValidRange
@@ -469,29 +529,33 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		lggr.Errorw("this error type only handled for L2s", "err", sendError, "etx", tx)
 		return commonclient.Unsupported
 	}
-	if sendError.IsNonceTooHighError() {
+	if sendError.IsNonceTooHighError(configErrors) {
 		// This error occurs when the tx nonce is greater than current_nonce + tx_count_in_mempool,
 		// instead of keeping the tx in mempool. This can happen if previous transactions haven't
 		// reached the client yet. The correct thing to do is to mark it as retryable.
 		lggr.Warnw("Transaction has a nonce gap.", "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
-	if sendError.IsInsufficientEth() {
+	if sendError.IsInsufficientEth(configErrors) {
 		lggr.Criticalw(fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
 		), "err", sendError, "etx", tx)
 		return commonclient.InsufficientFunds
 	}
+	if sendError.IsServiceUnavailable(configErrors) {
+		lggr.Errorw(fmt.Sprintf("service unavailable while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
 	if sendError.IsTimeout() {
-		lggr.Errorw("timeout while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		lggr.Errorw(fmt.Sprintf("timeout while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsCanceled() {
-		lggr.Errorw("context was canceled while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		lggr.Errorw(fmt.Sprintf("context was canceled while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
-	if sendError.IsTxFeeExceedsCap() {
+	if sendError.IsTxFeeExceedsCap(configErrors) {
 		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"etx", tx,
 			"err", sendError,
@@ -499,6 +563,6 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		)
 		return commonclient.ExceedsMaxFee
 	}
-	lggr.Errorw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
+	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
 }

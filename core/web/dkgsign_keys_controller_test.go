@@ -93,15 +93,15 @@ func TestDKGSignKeysController_Delete_HappyPath(t *testing.T) {
 	afterKeys, err := keyStore.DKGSign().GetAll()
 	assert.NoError(t, err)
 	assert.Equal(t, initialLength-1, len(afterKeys))
-
 }
 
 func setupDKGSignKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	require.NoError(t, app.KeyStore.DKGSign().Add(cltest.DefaultDKGSignKey))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.Start(ctx))
+	require.NoError(t, app.KeyStore.DKGSign().Add(ctx, cltest.DefaultDKGSignKey))
 
 	client := app.NewHTTPClient(nil)
 

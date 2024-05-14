@@ -22,8 +22,8 @@ import (
 func bootstrapPersistenceManager(t *testing.T, jobID int32, db *sqlx.DB) (*PersistenceManager, *observer.ObservedLogs) {
 	t.Helper()
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
-	return NewPersistenceManager(lggr, orm, jobID, 2, 5*time.Millisecond, 5*time.Millisecond), observedLogs
+	orm := NewORM(db)
+	return NewPersistenceManager(lggr, "mercuryserver.example", orm, jobID, 2, 5*time.Millisecond, 5*time.Millisecond), observedLogs
 }
 
 func TestPersistenceManager(t *testing.T) {

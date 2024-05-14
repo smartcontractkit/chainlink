@@ -97,7 +97,6 @@ func (m *Manager) HealthReport() map[string]error {
 
 // GenMonitoringEndpoint creates a new monitoring endpoints based on the existing available endpoints defined in the core config TOML, if no endpoint for the network and chainID exists, a NOOP agent will be used and the telemetry will not be sent
 func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contractID string, telemType synchronization.TelemetryType) commontypes.MonitoringEndpoint {
-
 	e, found := m.getEndpoint(network, chainID)
 
 	if !found {
@@ -110,7 +109,6 @@ func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contract
 	}
 
 	return NewIngressAgent(e.client, network, chainID, contractID, telemType)
-
 }
 
 func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {

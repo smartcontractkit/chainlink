@@ -29,9 +29,9 @@ var _ services.Service = (*TransmitQueue)(nil)
 
 var transmitQueueLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "mercury_transmit_queue_load",
-	Help: "Percent of transmit queue capacity used",
+	Help: "Current count of items in the transmit queue",
 },
-	[]string{"feedID", "capacity"},
+	[]string{"feedID", "serverURL", "capacity"},
 )
 
 // Prometheus' default interval is 15s, set this to under 7.5s to avoid
@@ -64,9 +64,7 @@ type Transmission struct {
 
 // maxlen controls how many items will be stored in the queue
 // 0 means unlimited - be careful, this can cause memory leaks
-func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int, transmissions []*Transmission, asyncDeleter asyncDeleter) *TransmitQueue {
-	pq := priorityQueue(transmissions)
-	heap.Init(&pq) // ensure the heap is ordered
+func NewTransmitQueue(lggr logger.Logger, serverURL, feedID string, maxlen int, asyncDeleter asyncDeleter) *TransmitQueue {
 	mu := new(sync.RWMutex)
 	return &TransmitQueue{
 		services.StateMachine{},
@@ -74,12 +72,18 @@ func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int, transmissio
 		lggr.Named("TransmitQueue"),
 		asyncDeleter,
 		mu,
-		&pq,
+		nil, // pq needs to be initialized by calling tq.Init before use
 		maxlen,
 		false,
 		nil,
-		transmitQueueLoad.WithLabelValues(feedID, fmt.Sprintf("%d", maxlen)),
+		transmitQueueLoad.WithLabelValues(feedID, serverURL, fmt.Sprintf("%d", maxlen)),
 	}
+}
+
+func (tq *TransmitQueue) Init(transmissions []*Transmission) {
+	pq := priorityQueue(transmissions)
+	heap.Init(&pq) // ensure the heap is ordered
+	tq.pq = &pq
 }
 
 func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {

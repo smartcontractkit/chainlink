@@ -85,13 +85,13 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	ethKeyStore := ekc.app.GetKeyStore().Eth()
 	var keys []ethkey.KeyV2
 	var err error
-	keys, err = ethKeyStore.GetAll()
+	keys, err = ethKeyStore.GetAll(c.Request.Context())
 	if err != nil {
 		err = errors.Errorf("error getting unlocked keys: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	states, err := ethKeyStore.GetStatesForKeys(keys)
+	states, err := ethKeyStore.GetStatesForKeys(c.Request.Context(), keys)
 	if err != nil {
 		err = errors.Errorf("error getting key states: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -99,7 +99,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	}
 	var resources []presenters.ETHKeyResource
 	for _, state := range states {
-		key, err := ethKeyStore.Get(state.Address.Hex())
+		key, err := ethKeyStore.Get(c.Request.Context(), state.Address.Hex())
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -115,7 +115,6 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	})
 
 	jsonAPIResponseWithStatus(c, resources, "keys", http.StatusOK)
-
 }
 
 // Create adds a new account
@@ -136,13 +135,13 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	key, err := ethKeyStore.Create(chain.ID())
+	key, err := ethKeyStore.Create(c.Request.Context(), chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	state, err := ethKeyStore.GetState(key.ID(), chain.ID())
+	state, err := ethKeyStore.GetState(c.Request.Context(), key.ID(), chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -169,7 +168,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	key, err := ethKeyStore.Get(keyID)
+	key, err := ethKeyStore.Get(c.Request.Context(), keyID)
 	if err != nil {
 		if errors.Is(err, keystore.ErrKeyNotFound) {
 			jsonAPIError(c, http.StatusNotFound, err)
@@ -179,13 +178,13 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	state, err := ethKeyStore.GetStateForKey(key)
+	state, err := ethKeyStore.GetStateForKey(c.Request.Context(), key)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	_, err = ethKeyStore.Delete(keyID)
+	_, err = ethKeyStore.Delete(c.Request.Context(), keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -217,13 +216,13 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	key, err := ethKeyStore.Import(bytes, oldPassword, chain.ID())
+	key, err := ethKeyStore.Import(c.Request.Context(), bytes, oldPassword, chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	state, err := ethKeyStore.GetState(key.ID(), chain.ID())
+	state, err := ethKeyStore.GetState(c.Request.Context(), key.ID(), chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -245,7 +244,7 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 	id := c.Param("address")
 	newPassword := c.Query("newpassword")
 
-	bytes, err := ekc.app.GetKeyStore().Eth().Export(id, newPassword)
+	bytes, err := ekc.app.GetKeyStore().Eth().Export(c.Request.Context(), id, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -312,9 +311,9 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		}
 
 		if enabled {
-			err = kst.Enable(address, chain.ID())
+			err = kst.Enable(c.Request.Context(), address, chain.ID())
 		} else {
-			err = kst.Disable(address, chain.ID())
+			err = kst.Disable(c.Request.Context(), address, chain.ID())
 		}
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -322,13 +321,13 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		}
 	}
 
-	key, err := kst.Get(keyID)
+	key, err := kst.Get(c.Request.Context(), keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	state, err := kst.GetState(key.ID(), chain.ID())
+	state, err := kst.GetState(c.Request.Context(), key.ID(), chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -362,7 +361,6 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 	}
 
 	return bal
-
 }
 
 func (ekc *ETHKeysController) setLinkBalance(bal *commonassets.Link) presenters.NewETHKeyOption {

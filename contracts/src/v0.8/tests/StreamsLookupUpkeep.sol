@@ -88,6 +88,14 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     return (callbackReturnBool, performData);
   }
 
+  function checkErrorHandler(
+    uint256 errCode,
+    bytes memory extraData
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // dummy function with default values
+    return (false, new bytes(0));
+  }
+
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
     if (!eligible()) {
       return (false, data);

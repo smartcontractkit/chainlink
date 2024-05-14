@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
@@ -69,11 +69,11 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
 
   uint32 private constant MIN_GAS_FOR_PERFORM = 200_000;
 
-  string constant c_feedParamKey = "feedIdHex"; // for Mercury v0.2 - format by which feeds are identified
-  string constant c_timeParamKey = "blockNumber"; // for Mercury v0.2 - format by which feeds are filtered to be sufficiently recent
+  string private constant FEED_PARAM_KEY = "feedIdHex"; // for Mercury v0.2 - format by which feeds are identified
+  string private constant TIME_PARAM_KEY = "blockNumber"; // for Mercury v0.2 - format by which feeds are filtered to be sufficiently recent
   IVerifierProxy public s_verifier; // for Mercury v0.2 - verifies off-chain reports
 
-  int192 constant scale = 1_000_000; // a scalar used for measuring deviation with precision
+  int192 private constant SCALE = 1_000_000; // a scalar used for measuring deviation with precision
 
   string[] public s_feeds; // list of feed Ids
   mapping(string => Feed) public s_feedMapping; // mapping of feed Ids to stored feed data
@@ -110,7 +110,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   // Extracted from `checkUpkeep` for batching purposes.
   function revertForFeedLookup(string[] memory feeds) public view returns (bool, bytes memory) {
     uint256 blockNumber = ChainSpecificUtil._getBlockNumber();
-    revert StreamsLookup(c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
+    revert StreamsLookup(FEED_PARAM_KEY, feeds, TIME_PARAM_KEY, blockNumber, "");
   }
 
   // Filter for feeds that have deviated sufficiently from their respective on-chain values, or where
@@ -122,8 +122,8 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     bytes[] memory filteredValues = new bytes[](values.length);
     uint256 count = 0;
     for (uint256 i = 0; i < values.length; i++) {
-      Report memory report = getReport(values[i]);
-      string memory feedId = bytes32ToHexString(abi.encodePacked(report.feedId));
+      Report memory report = _getReport(values[i]);
+      string memory feedId = _bytes32ToHexString(abi.encodePacked(report.feedId));
       Feed memory feed = s_feedMapping[feedId];
       if (
         (report.observationsTimestamp - feed.observationsTimestamp > feed.stalenessSeconds) ||
@@ -144,13 +144,21 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     return (filteredValues.length > 0, performData);
   }
 
+  function checkErrorHandler(
+    uint256 /* errCode */,
+    bytes memory /* extraData */
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // dummy function with default values
+    return (false, new bytes(0));
+  }
+
   // Use deviated off-chain values to update on-chain state.
   function performUpkeep(bytes calldata performData) external override {
     (bytes[] memory values /* bytes memory lookupData */, ) = abi.decode(performData, (bytes[], bytes));
     for (uint256 i = 0; i < values.length; i++) {
       // Verify and decode the Mercury report.
       Report memory report = abi.decode(s_verifier.verify(values[i]), (Report));
-      string memory feedId = bytes32ToHexString(abi.encodePacked(report.feedId));
+      string memory feedId = _bytes32ToHexString(abi.encodePacked(report.feedId));
 
       // Feeds that have been removed between checkUpkeep and performUpkeep should not be updated.
       if (!s_feedMapping[feedId].active) {
@@ -179,7 +187,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   }
 
   // Decodes a mercury respone into an on-chain object. Thanks @mikestone!!
-  function getReport(bytes memory signedReport) internal pure returns (Report memory) {
+  function _getReport(bytes memory signedReport) internal pure returns (Report memory) {
     /*
      * bytes32[3] memory reportContext,
      * bytes memory reportData,
@@ -201,20 +209,20 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     int192 deviationPercentagePPM
   ) public pure returns (bool) {
     // Compute absolute difference between the on-chain and off-chain values.
-    int192 scaledDifference = (onChain - offChain) * scale;
+    int192 scaledDifference = (onChain - offChain) * SCALE;
     if (scaledDifference < 0) {
       scaledDifference = -scaledDifference;
     }
 
     // Compare to the allowed deviation from the on-chain value.
-    int192 deviationMax = ((onChain * scale) * deviationPercentagePPM) / scale;
+    int192 deviationMax = ((onChain * SCALE) * deviationPercentagePPM) / SCALE;
     return scaledDifference > deviationMax;
   }
 
   // Helper function to reconcile a difference in formatting:
   // - Automation passes feedId into their off-chain lookup function as a string.
   // - Mercury stores feedId in their reports as a bytes32.
-  function bytes32ToHexString(bytes memory buffer) internal pure returns (string memory) {
+  function _bytes32ToHexString(bytes memory buffer) internal pure returns (string memory) {
     bytes memory converted = new bytes(buffer.length * 2);
     bytes memory _base = "0123456789abcdef";
     for (uint256 i = 0; i < buffer.length; i++) {
@@ -235,7 +243,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
       if (s_feedMapping[feedId].active) {
         revert DuplicateFeed(feedId);
       }
-      updateFeed(feedId, feedNames[i], deviationPercentagePPMs[i], stalenessSeconds[i]);
+      _updateFeed(feedId, feedNames[i], deviationPercentagePPMs[i], stalenessSeconds[i]);
       s_feedMapping[feedId].active = true;
 
       s_feeds.push(feedId);
@@ -259,13 +267,13 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
       if (s_feedMapping[feedId].active) {
         revert DuplicateFeed(feedId);
       }
-      updateFeed(feedId, feedNames[i], deviationPercentagePPMs[i], stalenessSeconds[i]);
+      _updateFeed(feedId, feedNames[i], deviationPercentagePPMs[i], stalenessSeconds[i]);
       s_feedMapping[feedId].active = true;
     }
     s_feeds = feedIds;
   }
 
-  function updateFeed(
+  function _updateFeed(
     string memory feedId,
     string memory feedName,
     int192 deviationPercentagePPM,

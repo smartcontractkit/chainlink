@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 //go:generate mockery --quiet --name BalanceMonitor --output ../mocks/ --case=underscore
@@ -103,7 +103,6 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *evmtypes.He
 	if !ok {
 		bm.logger.Debugw("BalanceMonitor: ignoring OnNewLongestChain call, balance monitor is not started", "state", bm.State())
 	}
-
 }
 
 func (bm *balanceMonitor) checkBalance(head *evmtypes.Head) {
@@ -174,7 +173,7 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	enabledAddresses, err := w.bm.ethKeyStore.EnabledAddressesForChain(w.bm.chainID)
+	enabledAddresses, err := w.bm.ethKeyStore.EnabledAddressesForChain(ctx, w.bm.chainID)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}
@@ -231,7 +230,7 @@ func ApproximateFloat64(e *assets.Eth) (float64, error) {
 	bf := new(big.Float).Quo(ef, weif)
 	f64, _ := bf.Float64()
 	if f64 == math.Inf(1) || f64 == math.Inf(-1) {
-		return math.Inf(1), errors.New("assets.Eth.Float64: Could not approximate Eth value into float")
+		return math.Inf(1), pkgerrors.New("assets.Eth.Float64: Could not approximate Eth value into float")
 	}
 	return f64, nil
 }

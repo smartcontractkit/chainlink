@@ -9,8 +9,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"gopkg.in/guregu/null.v4"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"gopkg.in/guregu/null.v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -55,6 +56,12 @@ type chainReaderDefinitionFields struct {
 
 	// EventInputFields allows you to choose which indexed fields are expected from the input
 	EventInputFields []string `json:"eventInputFields,omitempty"`
+	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
+	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
+	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
+	// key is a predefined generic name for evm log event data word
+	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
+	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
@@ -112,11 +119,15 @@ type RelayConfig struct {
 	ChainReader            *ChainReaderConfig `json:"chainReader"`
 	Codec                  *CodecConfig       `json:"codec"`
 
+	DefaultTransactionQueueDepth uint32 `json:"defaultTransactionQueueDepth"`
+	SimulateTransactions         bool   `json:"simulateTransactions"`
+
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`
 
 	// Mercury-specific
-	FeedID *common.Hash `json:"feedID"`
+	FeedID                  *common.Hash `json:"feedID"`
+	EnableTriggerCapability bool         `json:"enableTriggerCapability"`
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")
@@ -183,7 +194,7 @@ type OracleResponse struct {
 }
 
 type RouteUpdateSubscriber interface {
-	UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error
+	UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error
 }
 
 // A LogPoller wrapper that understands router proxy contracts
@@ -191,8 +202,8 @@ type RouteUpdateSubscriber interface {
 //go:generate mockery --quiet --name LogPollerWrapper --output ./mocks/ --case=underscore
 type LogPollerWrapper interface {
 	services.Service
-	LatestEvents() ([]OracleRequest, []OracleResponse, error)
+	LatestEvents(ctx context.Context) ([]OracleRequest, []OracleResponse, error)
 
 	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer
-	SubscribeToUpdates(name string, subscriber RouteUpdateSubscriber)
+	SubscribeToUpdates(ctx context.Context, name string, subscriber RouteUpdateSubscriber)
 }

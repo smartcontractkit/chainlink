@@ -20,7 +20,7 @@ interface IChannelConfigStore is IERC165 {
 
   struct ChannelDefinition {
     // e.g. evm, solana, CosmWasm, kalechain, etc...
-    bytes8 reportFormat;
+    uint32 reportFormat;
     // Specifies the chain on which this channel can be verified. Currently uses
     // CCIP chain selectors, but lots of other schemes are possible as well.
     uint64 chainSelector;

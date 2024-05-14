@@ -11,14 +11,14 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 type batchBHSConfig interface {
-	LimitDefault() uint32
+	LimitDefault() uint64
 }
 
 type BatchBlockhashStore struct {
@@ -31,7 +31,7 @@ type BatchBlockhashStore struct {
 
 func NewBatchBHS(
 	config batchBHSConfig,
-	fromAddresses []ethkey.EIP55Address,
+	fromAddresses []types.EIP55Address,
 	txm txmgr.TxManager,
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface,
 	chainID *big.Int,

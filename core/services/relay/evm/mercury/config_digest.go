@@ -61,7 +61,7 @@ func configDigest(
 		panic("copy too little data")
 	}
 	binary.BigEndian.PutUint16(configDigest[:2], uint16(types.ConfigDigestPrefixMercuryV02))
-	if !(configDigest[0] == 0 || configDigest[1] == 6) {
+	if !(configDigest[0] == 0 && configDigest[1] == 6) {
 		// assertion
 		panic("unexpected mismatch")
 	}

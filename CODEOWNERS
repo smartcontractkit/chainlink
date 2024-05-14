@@ -6,8 +6,8 @@
 /core @smartcontractkit/foundations
 
 # Chains
-/common @smartcontractkit/integrations
-/core/chains/ @smartcontractkit/integrations
+/common @smartcontractkit/bix-framework
+/core/chains/ @smartcontractkit/bix-framework
 
 # Services
 /core/services/directrequest @smartcontractkit/keepers
@@ -20,10 +20,10 @@
 /core/services/ocr* @smartcontractkit/foundations
 /core/services/periodicbackup @smartcontractkit/foundations
 /core/services/pg @smartcontractkit/foundations @samsondav
-/core/services/pipeline @smartcontractkit/foundations @smartcontractkit/integrations
+/core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework
 /core/services/telemetry @smartcontractkit/realtime
 /core/services/relay/evm/mercury @smartcontractkit/mercury-team
-/core/services/webhook @smartcontractkit/foundations @smartcontractkit/integrations
+/core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework
 /core/services/llo @smartcontractkit/mercury-team
 
 # VRF-related services
@@ -65,7 +65,9 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/**/*functions* @smartcontractkit/functions
 /contracts/**/*llo-feeds* @smartcontrackit/mercury-team
 /contracts/**/*vrf* @smartcontractkit/vrf-team
-/contracts/**/*l2ep* @smartcontractkit/integrations
+/contracts/**/*l2ep* @smartcontractkit/bix-ship
+# TODO: replace with a team tag when ready
+/contracts/**/*keystone* @archseer @bolekk @patrick-dowell
 
 /contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
@@ -73,7 +75,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/l2ep @chris-de-leon-cll
 /contracts/src/v0.8/llo-feeds @smartcontractkit/mercury-team
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
-/contracts/src/v0.8/operatorforwarder @smartcontractkit/foundations
+/contracts/src/v0.8/operatorforwarder @austinborn
 /contracts/src/v0.8/shared @RensR
 # TODO: tests folder, folder should be removed and files moved to the correct folders
 # TODO: transmission folder, owner should be found
@@ -83,6 +85,8 @@ core/scripts/gateway @smartcontractkit/functions
 
 # At the end, match any files missed by the patterns above
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/functions
+# Remove changeset files from the codeowners
+/contracts/.changeset
 
 
 # Tests

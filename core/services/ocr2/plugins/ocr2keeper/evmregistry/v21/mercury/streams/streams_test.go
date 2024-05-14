@@ -3,6 +3,7 @@ package streams
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -11,27 +12,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/pkg/errors"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
 	v03 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v03"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/mock"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+
+	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type MockMercuryConfigProvider struct {
@@ -85,7 +86,7 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 
 type mockRegistry struct {
 	GetUpkeepPrivilegeConfigFn func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
-	CheckCallbackFn            func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error)
+	CheckCallbackFn            func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error)
 }
 
 func (r *mockRegistry) Address() common.Address {
@@ -96,7 +97,7 @@ func (r *mockRegistry) GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *b
 	return r.GetUpkeepPrivilegeConfigFn(opts, upkeepId)
 }
 
-func (r *mockRegistry) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
+func (r *mockRegistry) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
 	return r.CheckCallbackFn(opts, id, values, extraData)
 }
 
@@ -116,6 +117,152 @@ func setupStreams(t *testing.T) *streams {
 		lggr,
 	)
 	return streams
+}
+
+func TestStreams_CheckErrorHandler(t *testing.T) {
+	upkeepId := big.NewInt(123456789)
+	blockNumber := uint64(999)
+	tests := []struct {
+		name         string
+		lookup       *mercury.StreamsLookup
+		checkResults []ocr2keepers.CheckResult
+		errCode      encoding.ErrCode
+
+		callbackResp []byte
+		callbackErr  error
+
+		upkeepNeeded bool
+		performData  []byte
+		wantErr      assert.ErrorAssertionFunc
+
+		state     encoding.PipelineExecutionState
+		retryable bool
+	}{
+		{
+			name: "success - empty extra data",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"ETD-USD", "BTC-ETH"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(100),
+					ExtraData:    []byte{48, 120, 48, 48},
+				},
+				UpkeepId: upkeepId,
+				Block:    blockNumber,
+			},
+			checkResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			errCode:      encoding.ErrCodeNil,
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			upkeepNeeded: true,
+			performData:  []byte{48, 120, 48, 48},
+			wantErr:      assert.NoError,
+		},
+		{
+			name: "success - with extra data",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(18952430),
+					// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
+					ExtraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				UpkeepId: upkeepId,
+				Block:    blockNumber,
+			},
+			checkResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			errCode:      encoding.ErrCodeNil,
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			upkeepNeeded: true,
+			performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+			wantErr:      assert.NoError,
+		},
+		{
+			name: "failure - checkCallback eth_call failure",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"ETD-USD", "BTC-ETH"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(100),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				},
+				UpkeepId: upkeepId,
+				Block:    blockNumber,
+			},
+			checkResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			errCode:      encoding.ErrCodeNil,
+			callbackResp: []byte{},
+			callbackErr:  errors.New("bad response"),
+			wantErr:      assert.Error,
+			state:        encoding.RpcFlakyFailure,
+			retryable:    true,
+			upkeepNeeded: false,
+		},
+		{
+			name: "failure - unpack error because of invalid response bytes from checkCallback eth_call",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"ETD-USD", "BTC-ETH"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(100),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				},
+				UpkeepId: upkeepId,
+				Block:    blockNumber,
+			},
+			checkResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			errCode:      encoding.ErrCodeNil,
+			callbackResp: []byte{0x01, 0xAB, 0x45, 0xFF, 0x32}, // invalid response bytes
+			wantErr:      assert.Error,
+			state:        encoding.PackUnpackDecodeFailed,
+			retryable:    false,
+			upkeepNeeded: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := new(evmClientMocks.Client)
+			s := setupStreams(t)
+			defer s.Close()
+
+			userPayload, err := s.packer.PackUserCheckErrorHandler(tt.errCode, tt.lookup.ExtraData)
+			require.Nil(t, err)
+			payload, err := s.abi.Pack("executeCallback", tt.lookup.UpkeepId, userPayload)
+			require.Nil(t, err)
+
+			args := map[string]interface{}{
+				"from": zeroAddress,
+				"to":   s.registry.Address().Hex(),
+				"data": hexutil.Bytes(payload),
+			}
+			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(tt.lookup.Block)).Return(tt.callbackErr).
+				Run(func(args mock.Arguments) {
+					by := args.Get(1).(*hexutil.Bytes)
+					*by = tt.callbackResp
+				}).Once()
+			s.client = client
+
+			err = s.CheckErrorHandler(testutils.Context(t), tt.errCode, tt.lookup, tt.checkResults, 0)
+			tt.wantErr(t, err, fmt.Sprintf("Error assertion failed: %v", tt.name))
+			assert.Equal(t, uint8(tt.state), tt.checkResults[0].PipelineExecutionState)
+			assert.Equal(t, tt.retryable, tt.checkResults[0].Retryable)
+			assert.Equal(t, tt.upkeepNeeded, tt.checkResults[0].Eligible)
+			assert.Equal(t, tt.performData, tt.checkResults[0].PerformData)
+		})
+	}
 }
 
 func TestStreams_CheckCallback(t *testing.T) {
@@ -167,8 +314,8 @@ func TestStreams_CheckCallback(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{"mercuryEnabled":true}`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{
 						UpkeepNeeded: true,
 						PerformData:  []byte{48, 120, 48, 48},
 					}, nil
@@ -202,8 +349,8 @@ func TestStreams_CheckCallback(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{"mercuryEnabled":true}`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{
 						UpkeepNeeded: true,
 						PerformData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 					}, nil
@@ -237,8 +384,8 @@ func TestStreams_CheckCallback(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{"mercuryEnabled":true}`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{}, errors.New("bad response")
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{}, errors.New("bad response")
 				},
 			},
 		},
@@ -246,15 +393,13 @@ func TestStreams_CheckCallback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := setupStreams(t)
-			defer r.Close()
-			r.registry = tt.registry
-
 			client := new(evmClientMocks.Client)
 			s := setupStreams(t)
+			defer s.Close()
 			payload, err := s.abi.Pack("checkCallback", tt.lookup.UpkeepId, values, tt.lookup.ExtraData)
 			require.Nil(t, err)
 			args := map[string]interface{}{
+				"from": zeroAddress,
 				"to":   s.registry.Address().Hex(),
 				"data": hexutil.Bytes(payload),
 			}
@@ -269,6 +414,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 			tt.wantErr(t, err, fmt.Sprintf("Error assertion failed: %v", tt.name))
 			assert.Equal(t, uint8(tt.state), tt.input[0].PipelineExecutionState)
 			assert.Equal(t, tt.retryable, tt.input[0].Retryable)
+			assert.Equal(t, tt.upkeepNeeded, tt.input[0].Eligible)
 		})
 	}
 }
@@ -296,8 +442,8 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return nil, nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{}, nil
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{}, nil
 				},
 			},
 		},
@@ -308,8 +454,8 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{"mercuryEnabled":true}`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{}, nil
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{}, nil
 				},
 			},
 		},
@@ -321,8 +467,8 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return nil, nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{}, nil
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{}, nil
 				},
 			},
 		},
@@ -333,22 +479,22 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{"mercuryEnabled":false}`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{}, nil
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{}, nil
 				},
 			},
 		},
 		{
 			name:   "failure - cannot unmarshal privilege config",
 			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
-			state:  encoding.MercuryUnmarshalError,
+			state:  encoding.PrivilegeConfigUnmarshalError,
 			config: []byte{0, 1},
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{}, nil
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{}, nil
 				},
 			},
 		},
@@ -362,8 +508,8 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return nil, errors.New("flaky RPC")
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{}, nil
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{}, nil
 				},
 			},
 		},
@@ -376,8 +522,8 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(``), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{}, nil
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{}, nil
 				},
 			},
 		},
@@ -514,8 +660,8 @@ func TestStreams_StreamsLookup(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{"mercuryEnabled":true}`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{
 						UpkeepNeeded: true,
 						PerformData:  hexutil.MustDecode("0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000034000000000000000000000000000000000000000000000000000000000000002e000066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000004555638000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064f0d4a0000000000000000000000000000000000000000000000000000000269ecbb83b000000000000000000000000000000000000000000000000000000269e4a4e14000000000000000000000000000000000000000000000000000000269f4d0edb000000000000000000000000000000000000000000000000000000000243716664b42d20423a47fb13ad3098b49b37f667548e6745fff958b663afe25a845f6100000000000000000000000000000000000000000000000000000000024371660000000000000000000000000000000000000000000000000000000064f0d4a00000000000000000000000000000000000000000000000000000000000000002381e91cffa9502c20de1ddcee350db3f715a5ab449448e3184a5b03c682356c6e2115f20663b3731e373cf33465a96da26f2876debb548f281e62e48f64c374200000000000000000000000000000000000000000000000000000000000000027db99e34135098d4e0bb9ae143ec9cd72fd63150c6d0cc5b38f4aa1aa42408377e8fe8e5ac489c9b7f62ff5aa7b05d2e892e7dee4cac631097247969b3b03fa300000000000000000000000000000000000000000000000000000000000002e00006da4a86c4933dd4a87b21dd2871aea29f706bcde43c70039355ac5b664fb5000000000000000000000000000000000000000000000000000000000454d118000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204254432d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064f0d4a0000000000000000000000000000000000000000000000000000002645f00877a000000000000000000000000000000000000000000000000000002645e1e1010000000000000000000000000000000000000000000000000000002645fe2fee4000000000000000000000000000000000000000000000000000000000243716664b42d20423a47fb13ad3098b49b37f667548e6745fff958b663afe25a845f6100000000000000000000000000000000000000000000000000000000024371660000000000000000000000000000000000000000000000000000000064f0d4a00000000000000000000000000000000000000000000000000000000000000002a0373c0bce7393673f819eb9681cac2773c2d718ce933eb858252195b17a9c832d7b0bee173c02c3c25fb65912b8b13b9302ede8423bab3544cb7a8928d5eb3600000000000000000000000000000000000000000000000000000000000000027d7b79d7646383a5dbf51edf14d53bd3ad0a9f3ca8affab3165e89d3ddce9cb17b58e892fafe4ecb24d2fde07c6a756029e752a5114c33c173df4e7d309adb4d00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000064000000000000000000000000"),
 					}, nil
@@ -577,8 +723,8 @@ func TestStreams_StreamsLookup(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{"mercuryEnabled":true}`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{
 						UpkeepNeeded: true,
 						PerformData:  hexutil.MustDecode("0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000034000000000000000000000000000000000000000000000000000000000000002e000066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000004555638000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064f0d4a0000000000000000000000000000000000000000000000000000000269ecbb83b000000000000000000000000000000000000000000000000000000269e4a4e14000000000000000000000000000000000000000000000000000000269f4d0edb000000000000000000000000000000000000000000000000000000000243716664b42d20423a47fb13ad3098b49b37f667548e6745fff958b663afe25a845f6100000000000000000000000000000000000000000000000000000000024371660000000000000000000000000000000000000000000000000000000064f0d4a00000000000000000000000000000000000000000000000000000000000000002381e91cffa9502c20de1ddcee350db3f715a5ab449448e3184a5b03c682356c6e2115f20663b3731e373cf33465a96da26f2876debb548f281e62e48f64c374200000000000000000000000000000000000000000000000000000000000000027db99e34135098d4e0bb9ae143ec9cd72fd63150c6d0cc5b38f4aa1aa42408377e8fe8e5ac489c9b7f62ff5aa7b05d2e892e7dee4cac631097247969b3b03fa300000000000000000000000000000000000000000000000000000000000002e00006da4a86c4933dd4a87b21dd2871aea29f706bcde43c70039355ac5b664fb5000000000000000000000000000000000000000000000000000000000454d118000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204254432d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064f0d4a0000000000000000000000000000000000000000000000000000002645f00877a000000000000000000000000000000000000000000000000000002645e1e1010000000000000000000000000000000000000000000000000000002645fe2fee4000000000000000000000000000000000000000000000000000000000243716664b42d20423a47fb13ad3098b49b37f667548e6745fff958b663afe25a845f6100000000000000000000000000000000000000000000000000000000024371660000000000000000000000000000000000000000000000000000000064f0d4a00000000000000000000000000000000000000000000000000000000000000002a0373c0bce7393673f819eb9681cac2773c2d718ce933eb858252195b17a9c832d7b0bee173c02c3c25fb65912b8b13b9302ede8423bab3544cb7a8928d5eb3600000000000000000000000000000000000000000000000000000000000000027d7b79d7646383a5dbf51edf14d53bd3ad0a9f3ca8affab3165e89d3ddce9cb17b58e892fafe4ecb24d2fde07c6a756029e752a5114c33c173df4e7d309adb4d00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000064000000000000000000000000"),
 					}, nil
@@ -623,8 +769,8 @@ func TestStreams_StreamsLookup(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{"mercuryEnabled":true}`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{
 						UpkeepNeeded: true,
 						PerformData:  hexutil.MustDecode("0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000034000000000000000000000000000000000000000000000000000000000000002e000066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000004555638000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064f0d4a0000000000000000000000000000000000000000000000000000000269ecbb83b000000000000000000000000000000000000000000000000000000269e4a4e14000000000000000000000000000000000000000000000000000000269f4d0edb000000000000000000000000000000000000000000000000000000000243716664b42d20423a47fb13ad3098b49b37f667548e6745fff958b663afe25a845f6100000000000000000000000000000000000000000000000000000000024371660000000000000000000000000000000000000000000000000000000064f0d4a00000000000000000000000000000000000000000000000000000000000000002381e91cffa9502c20de1ddcee350db3f715a5ab449448e3184a5b03c682356c6e2115f20663b3731e373cf33465a96da26f2876debb548f281e62e48f64c374200000000000000000000000000000000000000000000000000000000000000027db99e34135098d4e0bb9ae143ec9cd72fd63150c6d0cc5b38f4aa1aa42408377e8fe8e5ac489c9b7f62ff5aa7b05d2e892e7dee4cac631097247969b3b03fa300000000000000000000000000000000000000000000000000000000000002e00006da4a86c4933dd4a87b21dd2871aea29f706bcde43c70039355ac5b664fb5000000000000000000000000000000000000000000000000000000000454d118000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204254432d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064f0d4a0000000000000000000000000000000000000000000000000000002645f00877a000000000000000000000000000000000000000000000000000002645e1e1010000000000000000000000000000000000000000000000000000002645fe2fee4000000000000000000000000000000000000000000000000000000000243716664b42d20423a47fb13ad3098b49b37f667548e6745fff958b663afe25a845f6100000000000000000000000000000000000000000000000000000000024371660000000000000000000000000000000000000000000000000000000064f0d4a00000000000000000000000000000000000000000000000000000000000000002a0373c0bce7393673f819eb9681cac2773c2d718ce933eb858252195b17a9c832d7b0bee173c02c3c25fb65912b8b13b9302ede8423bab3544cb7a8928d5eb3600000000000000000000000000000000000000000000000000000000000000027d7b79d7646383a5dbf51edf14d53bd3ad0a9f3ca8affab3165e89d3ddce9cb17b58e892fafe4ecb24d2fde07c6a756029e752a5114c33c173df4e7d309adb4d00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000064000000000000000000000000"),
 					}, nil
@@ -659,8 +805,8 @@ func TestStreams_StreamsLookup(t *testing.T) {
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return []byte(`{"mercuryEnabled":true}`), nil
 				},
-				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error) {
-					return iregistry21.CheckCallback{
+				CheckCallbackFn: func(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error) {
+					return autov2common.CheckCallback{
 						UpkeepNeeded: true,
 						PerformData:  []byte{},
 					}, nil
@@ -805,6 +951,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 				payload, err := s.abi.Pack("checkCallback", upkeepId, tt.values, tt.extraData)
 				require.Nil(t, err)
 				args := map[string]interface{}{
+					"from": zeroAddress,
 					"to":   s.registry.Address().Hex(),
 					"data": hexutil.Bytes(payload),
 				}

@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -24,8 +24,8 @@ func (r *registry) PerformGasOverhead() uint32 { return r.pgo }
 func (r *registry) MaxPerformDataSize() uint32 { return r.mpds }
 
 func TestBuildJobSpec(t *testing.T) {
-	from := ethkey.EIP55Address(testutils.NewAddress().Hex())
-	contract := ethkey.EIP55Address(testutils.NewAddress().Hex())
+	from := types.EIP55Address(testutils.NewAddress().Hex())
+	contract := types.EIP55Address(testutils.NewAddress().Hex())
 	chainID := "250"
 	jb := job.Job{
 		ID: 10,

@@ -1,3 +1,14 @@
+[PrivateEthereumNetwork]
+ethereum_version="eth2"
+consensus_layer="prysm"
+
+[PrivateEthereumNetwork.EthereumChainConfig]
+seconds_per_slot=4
+slots_per_epoch=2
+
+[Seth]
+ephemeral_addresses_number = 50
+
 # product defaults
 [LogPoller]
 [LogPoller.General]
@@ -5,6 +16,9 @@ generator = "looped"
 contracts = 2
 events_per_tx = 4
 use_finality_tag = true
+log_poll_interval = "500ms"
+# 0 disables backup poller
+backup_log_poller_block_delay = 0
 
 [LogPoller.Looped]
 execution_count = 100

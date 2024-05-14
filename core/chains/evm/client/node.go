@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -117,6 +117,7 @@ type Node interface {
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
 	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
@@ -244,7 +245,7 @@ func (n *node) start(startCtx context.Context) {
 
 	verifyCtx, verifyCancel := n.makeQueryCtx(startCtx)
 	defer verifyCancel()
-	if err := n.verify(verifyCtx); errors.Is(err, errInvalidChainID) {
+	if err := n.verify(verifyCtx); pkgerrors.Is(err, errInvalidChainID) {
 		n.lfcLog.Errorw("Verify failed: EVM Node has the wrong chain ID", "err", err)
 		n.declareInvalidChainID()
 		return
@@ -273,7 +274,7 @@ func (n *node) dial(callerCtx context.Context) error {
 	wsrpc, err := rpc.DialWebsocket(ctx, n.ws.uri.String(), "")
 	if err != nil {
 		promEVMPoolRPCNodeDialsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
-		return errors.Wrapf(err, "error while dialing websocket: %v", n.ws.uri.Redacted())
+		return pkgerrors.Wrapf(err, "error while dialing websocket: %v", n.ws.uri.Redacted())
 	}
 
 	var httprpc *rpc.Client
@@ -281,7 +282,7 @@ func (n *node) dial(callerCtx context.Context) error {
 		httprpc, err = rpc.DialHTTP(n.http.uri.String())
 		if err != nil {
 			promEVMPoolRPCNodeDialsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
-			return errors.Wrapf(err, "error while dialing HTTP: %v", n.http.uri.Redacted())
+			return pkgerrors.Wrapf(err, "error while dialing HTTP: %v", n.http.uri.Redacted())
 		}
 	}
 
@@ -298,7 +299,7 @@ func (n *node) dial(callerCtx context.Context) error {
 	return nil
 }
 
-var errInvalidChainID = errors.New("invalid chain id")
+var errInvalidChainID = pkgerrors.New("invalid chain id")
 
 // verify checks that all connections to eth nodes match the given chain ID
 // Not thread-safe
@@ -322,10 +323,10 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 	var chainID *big.Int
 	if chainID, err = n.ws.geth.ChainID(ctx); err != nil {
 		promFailed()
-		return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+		return pkgerrors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
 	} else if chainID.Cmp(n.chainID) != 0 {
 		promFailed()
-		return errors.Wrapf(
+		return pkgerrors.Wrapf(
 			errInvalidChainID,
 			"websocket rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
 			chainID.String(),
@@ -336,10 +337,10 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 	if n.http != nil {
 		if chainID, err = n.http.geth.ChainID(ctx); err != nil {
 			promFailed()
-			return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+			return pkgerrors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
 		} else if chainID.Cmp(n.chainID) != 0 {
 			promFailed()
-			return errors.Wrapf(
+			return pkgerrors.Wrapf(
 				errInvalidChainID,
 				"http rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
 				chainID.String(),
@@ -827,7 +828,32 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 	)
 
 	return
+}
 
+func (n *node) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) (val []byte, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr().With("callMsg", msg)
+
+	lggr.Debug("RPC call: evmclient.Client#PendingCallContract")
+	start := time.Now()
+	if http != nil {
+		val, err = http.geth.PendingCallContract(ctx, msg)
+		err = n.wrapHTTP(err)
+	} else {
+		val, err = ws.geth.PendingCallContract(ctx, msg)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "PendingCallContract",
+		"val", val,
+	)
+
+	return
 }
 
 func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
@@ -1066,10 +1092,10 @@ func wrap(err error, tp string) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Cause(err).Error() == "context deadline exceeded" {
-		err = errors.Wrap(err, "remote eth node timed out")
+	if pkgerrors.Cause(err).Error() == "context deadline exceeded" {
+		err = pkgerrors.Wrap(err, "remote eth node timed out")
 	}
-	return errors.Wrapf(err, "%s call failed", tp)
+	return pkgerrors.Wrapf(err, "%s call failed", tp)
 }
 
 // makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx but returns error if node is not NodeStateAlive.
@@ -1078,7 +1104,7 @@ func (n *node) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context) (ctx
 	// context
 	n.stateMu.RLock()
 	if n.state != NodeStateAlive {
-		err = errors.Errorf("cannot execute RPC call on node with state: %s", n.state)
+		err = pkgerrors.Errorf("cannot execute RPC call on node with state: %s", n.state)
 		n.stateMu.RUnlock()
 		return
 	}

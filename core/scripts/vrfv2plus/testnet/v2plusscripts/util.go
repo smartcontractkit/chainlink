@@ -53,10 +53,12 @@ func DeployCoordinator(
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	linkTx, err := coordinator.SetLINKAndLINKNativeFeed(e.Owner,
-		common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
+	if linkAddress != "" && linkEthAddress != "" {
+		linkTx, err := coordinator.SetLINKAndLINKNativeFeed(e.Owner,
+			common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
+	}
 	return coordinatorAddress
 }
 
@@ -196,39 +198,71 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 	)
 }
 
+func RegisterMigratableCoordinator(
+	e helpers.Environment,
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinatorMigrateToAddress common.Address,
+) {
+	tx, err := coordinator.RegisterMigratableCoordinator(e.Owner, coordinatorMigrateToAddress)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(
+		context.Background(),
+		e.Ec,
+		tx,
+		e.ChainID,
+		fmt.Sprintf("Coordinator %s registered migratable coordinator %s", coordinator.Address().String(), coordinatorMigrateToAddress.String()),
+	)
+}
+
+func MigrateSub(
+	e helpers.Environment,
+	coordinatorMigrateSubFrom vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinatorMigrateSubTo common.Address,
+	subID *big.Int,
+) {
+	tx, err := coordinatorMigrateSubFrom.Migrate(e.Owner, subID, coordinatorMigrateSubTo)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(
+		context.Background(),
+		e.Ec,
+		tx,
+		e.ChainID,
+		fmt.Sprintf("Sub Migrated from Coordinator: %s,", coordinatorMigrateSubFrom.Address().String()),
+		fmt.Sprintf("Sub Migrated TO Coordinator: %s,", coordinatorMigrateSubTo.String()),
+		fmt.Sprintf("Sub ID which was migrated: %s,", subID.String()),
+	)
+}
+
 func WrapperDeploy(
 	e helpers.Environment,
-	link, linkEthFeed, coordinator common.Address,
-) (common.Address, *big.Int) {
+	link, linkEthFeed, coordinator common.Address, subID *big.Int,
+) common.Address {
 	address, tx, _, err := vrfv2plus_wrapper.DeployVRFV2PlusWrapper(e.Owner, e.Ec,
 		link,
 		linkEthFeed,
-		coordinator)
+		coordinator,
+		subID)
 	helpers.PanicErr(err)
 
 	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	fmt.Println("VRFV2Wrapper address:", address)
 
-	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(address, e.Ec)
-	helpers.PanicErr(err)
-
-	subID, err := wrapper.SUBSCRIPTIONID(nil)
-	helpers.PanicErr(err)
-	fmt.Println("VRFV2Wrapper subscription id:", subID)
-
-	return address, subID
+	return address
 }
 
 func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
-	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
+	wrapperGasOverhead uint,
+	coordinatorGasOverheadNative, coordinatorGasOverheadLink uint,
+	coordinatorGasOverheadPerWord uint,
+	nativePremiumPercentage, linkPremiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
 	fallbackWeiPerUnitLink *big.Int,
 	stalenessSeconds uint32,
-	fulfillmentFlatFeeLinkPPM uint32,
 	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
 ) {
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
@@ -236,18 +270,28 @@ func WrapperConfigure(
 	tx, err := wrapper.SetConfig(
 		e.Owner,
 		uint32(wrapperGasOverhead),
-		uint32(coordinatorGasOverhead),
-		uint8(premiumPercentage),
+		uint32(coordinatorGasOverheadNative),
+		uint32(coordinatorGasOverheadLink),
+		uint16(coordinatorGasOverheadPerWord),
+		uint8(nativePremiumPercentage),
+		uint8(linkPremiumPercentage),
 		common.HexToHash(keyHash),
 		uint8(maxNumWords),
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
-		fulfillmentFlatFeeLinkPPM,
 		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
 	)
 
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func PrintWrapperConfig(wrapper *vrfv2plus_wrapper.VRFV2PlusWrapper) {
+	cfg, err := wrapper.GetConfig(nil)
+	helpers.PanicErr(err)
+	fmt.Printf("Wrapper config: %+v\n", cfg)
+	fmt.Printf("Wrapper Keyhash: %s\n", fmt.Sprintf("0x%x", cfg.KeyHash))
 }
 
 func WrapperConsumerDeploy(
@@ -255,7 +299,6 @@ func WrapperConsumerDeploy(
 	link, wrapper common.Address,
 ) common.Address {
 	address, tx, _, err := vrfv2plus_wrapper_consumer_example.DeployVRFV2PlusWrapperConsumerExample(e.Owner, e.Ec,
-		link,
 		wrapper)
 	helpers.PanicErr(err)
 

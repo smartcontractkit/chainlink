@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -74,7 +74,7 @@ func batchSendTransactions(
 		logger.Debugw(fmt.Sprintf("Batch sending transactions %v thru %v", i, j))
 
 		if err := ethClient.BatchCallContextAll(ctx, reqs[i:j]); err != nil {
-			return reqs, now, successfulBroadcast, errors.Wrap(err, "failed to batch send transactions")
+			return reqs, now, successfulBroadcast, pkgerrors.Wrap(err, "failed to batch send transactions")
 		}
 		successfulBroadcast = append(successfulBroadcast, ethTxIDs[i:j]...)
 	}

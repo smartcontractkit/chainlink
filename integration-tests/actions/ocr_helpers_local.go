@@ -118,10 +118,11 @@ func DeployOCRContractsLocal(
 	if err != nil {
 		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
 	}
+
 	for _, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
-		err = ocrInstance.SetConfigLocal(
-			workerNodes,
+		err = ocrInstance.SetConfig(
+			contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			transmitterAddresses,
 		)
@@ -182,7 +183,7 @@ func CreateOCRJobsLocal(
 			}
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
-			nodeContractPairID, err := BuildNodeContractPairIDLocal(node, ocrInstance)
+			nodeContractPairID, err := BuildNodeContractPairID(node, ocrInstance)
 			if err != nil {
 				return err
 			}
@@ -218,29 +219,13 @@ func CreateOCRJobsLocal(
 	return nil
 }
 
-func BuildNodeContractPairIDLocal(node *client.ChainlinkClient, ocrInstance contracts.OffchainAggregator) (string, error) {
-	if node == nil {
-		return "", fmt.Errorf("chainlink node is nil")
-	}
-	if ocrInstance == nil {
-		return "", fmt.Errorf("OCR Instance is nil")
-	}
-	nodeAddress, err := node.PrimaryEthAddress()
-	if err != nil {
-		return "", fmt.Errorf("getting chainlink node's primary ETH address failed: %w", err)
-	}
-	shortNodeAddr := nodeAddress[2:12]
-	shortOCRAddr := ocrInstance.Address()[2:12]
-	return strings.ToLower(fmt.Sprintf("node_%s_contract_%s", shortNodeAddr, shortOCRAddr)), nil
-}
-
 func SetAdapterResponseLocal(
 	response int,
 	ocrInstance contracts.OffchainAggregator,
 	chainlinkNode *client.ChainlinkClient,
 	mockAdapter *test_env.Killgrave,
 ) error {
-	nodeContractPairID, err := BuildNodeContractPairIDLocal(chainlinkNode, ocrInstance)
+	nodeContractPairID, err := BuildNodeContractPairID(chainlinkNode, ocrInstance)
 	if err != nil {
 		return err
 	}
@@ -342,8 +327,8 @@ func DeployOCRContractsForwarderFlowLocal(
 	// Set Config
 	for _, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
-		err := ocrInstance.SetConfigLocal(
-			workerNodes,
+		err := ocrInstance.SetConfig(
+			contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			forwarderAddresses,
 		)
@@ -399,7 +384,7 @@ func CreateOCRJobsWithForwarderLocal(
 			}
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
-			nodeContractPairID, err := BuildNodeContractPairIDLocal(node, ocrInstance)
+			nodeContractPairID, err := BuildNodeContractPairID(node, ocrInstance)
 			if err != nil {
 				return err
 			}

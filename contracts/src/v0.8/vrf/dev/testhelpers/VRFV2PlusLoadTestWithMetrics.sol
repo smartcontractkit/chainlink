@@ -12,12 +12,16 @@ import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
   uint256 public s_responseCount;
   uint256 public s_requestCount;
-  uint256 public s_averageFulfillmentInMillions = 0; // in millions for better precision
-  uint256 public s_slowestFulfillment = 0;
-  uint256 public s_fastestFulfillment = 999;
+  uint256 public s_averageResponseTimeInBlocksMillions = 0; // in millions for better precision
+  uint256 public s_slowestResponseTimeInBlocks = 0;
+  uint256 public s_fastestResponseTimeInBlocks = 999;
+  uint256 public s_slowestResponseTimeInSeconds = 0;
+  uint256 public s_fastestResponseTimeInSeconds = 999;
+  uint256 public s_averageResponseTimeInSecondsMillions = 0;
+
   uint256 public s_lastRequestId;
-  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
-  mapping(uint256 => uint256) internal requestHeights; // requestIds to block number when rand request was made
+
+  uint32[] public s_requestBlockTimes;
 
   struct RequestStatus {
     bool fulfilled;
@@ -33,25 +37,43 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
   constructor(address _vrfCoordinator) VRFConsumerBaseV2Plus(_vrfCoordinator) {}
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-    uint256 fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
-    uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
-    uint256 requestDelayInMillions = requestDelay * 1_000_000;
-
-    if (requestDelay > s_slowestFulfillment) {
-      s_slowestFulfillment = requestDelay;
-    }
-    s_fastestFulfillment = requestDelay < s_fastestFulfillment ? requestDelay : s_fastestFulfillment;
-    s_averageFulfillmentInMillions = s_responseCount > 0
-      ? (s_averageFulfillmentInMillions * s_responseCount + requestDelayInMillions) / (s_responseCount + 1)
-      : requestDelayInMillions;
-
+  function fulfillRandomWords(uint256 _requestId, uint256[] calldata _randomWords) internal override {
     s_requests[_requestId].fulfilled = true;
     s_requests[_requestId].randomWords = _randomWords;
     s_requests[_requestId].fulfilmentTimestamp = block.timestamp;
-    s_requests[_requestId].fulfilmentBlockNumber = fulfilmentBlockNumber;
+    s_requests[_requestId].fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
+
+    uint256 responseTimeInBlocks = s_requests[_requestId].fulfilmentBlockNumber -
+      s_requests[_requestId].requestBlockNumber;
+    uint256 responseTimeInSeconds = s_requests[_requestId].fulfilmentTimestamp -
+      s_requests[_requestId].requestTimestamp;
+
+    (
+      s_slowestResponseTimeInBlocks,
+      s_fastestResponseTimeInBlocks,
+      s_averageResponseTimeInBlocksMillions
+    ) = _calculateMetrics(
+      responseTimeInBlocks,
+      s_fastestResponseTimeInBlocks,
+      s_slowestResponseTimeInBlocks,
+      s_averageResponseTimeInBlocksMillions,
+      s_responseCount
+    );
+    (
+      s_slowestResponseTimeInSeconds,
+      s_fastestResponseTimeInSeconds,
+      s_averageResponseTimeInSecondsMillions
+    ) = _calculateMetrics(
+      responseTimeInSeconds,
+      s_fastestResponseTimeInSeconds,
+      s_slowestResponseTimeInSeconds,
+      s_averageResponseTimeInSecondsMillions,
+      s_responseCount
+    );
 
     s_responseCount++;
+
+    s_requestBlockTimes.push(uint32(responseTimeInBlocks));
   }
 
   function requestRandomWords(
@@ -86,16 +108,19 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
         fulfilmentBlockNumber: 0
       });
       s_requestCount++;
-      requestHeights[requestId] = requestBlockNumber;
     }
   }
 
   function reset() external {
-    s_averageFulfillmentInMillions = 0; // in millions for better precision
-    s_slowestFulfillment = 0;
-    s_fastestFulfillment = 999;
+    s_averageResponseTimeInBlocksMillions = 0; // in millions for better precision
+    s_slowestResponseTimeInBlocks = 0;
+    s_fastestResponseTimeInBlocks = 999;
+    s_averageResponseTimeInSecondsMillions = 0; // in millions for better precision
+    s_slowestResponseTimeInSeconds = 0;
+    s_fastestResponseTimeInSeconds = 999;
     s_requestCount = 0;
     s_responseCount = 0;
+    delete s_requestBlockTimes;
   }
 
   function getRequestStatus(
@@ -121,5 +146,38 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
       request.requestBlockNumber,
       request.fulfilmentBlockNumber
     );
+  }
+
+  function _calculateMetrics(
+    uint256 _responseTime,
+    uint256 _fastestResponseTime,
+    uint256 _slowestResponseTime,
+    uint256 _averageInMillions,
+    uint256 _responseCount
+  ) internal pure returns (uint256 slowest, uint256 fastest, uint256 average) {
+    uint256 _requestDelayInMillions = _responseTime * 1_000_000;
+    if (_responseTime > _slowestResponseTime) {
+      _slowestResponseTime = _responseTime;
+    }
+    _fastestResponseTime = _responseTime < _fastestResponseTime ? _responseTime : _fastestResponseTime;
+    uint256 averageInMillions = _responseCount > 0
+      ? (_averageInMillions * _responseCount + _requestDelayInMillions) / (_responseCount + 1)
+      : _requestDelayInMillions;
+
+    return (_slowestResponseTime, _fastestResponseTime, averageInMillions);
+  }
+
+  function getRequestBlockTimes(uint256 offset, uint256 quantity) external view returns (uint32[] memory) {
+    uint256 end = offset + quantity;
+    if (end > s_requestBlockTimes.length) {
+      end = s_requestBlockTimes.length;
+    }
+
+    uint32[] memory blockTimes = new uint32[](end - offset);
+    for (uint256 i = offset; i < end; i++) {
+      blockTimes[i - offset] = s_requestBlockTimes[i];
+    }
+
+    return blockTimes;
   }
 }

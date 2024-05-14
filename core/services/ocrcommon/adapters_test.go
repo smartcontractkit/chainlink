@@ -20,8 +20,9 @@ var (
 	account      ocrtypes.Account = "Test-Account"
 	configDigest                  = ocrtypes.ConfigDigest([]byte("kKfYauxXBMjuP5EuuyacN6BwCfKJnP6d"))
 	seqNr        uint64           = 11
-	rwi                           = ocr3types.ReportWithInfo[any]{
+	rwi                           = ocr3types.ReportWithInfo[[]byte]{
 		Report: []byte("report"),
+		Info:   []byte("info"),
 	}
 	signatures = []types.AttributedOnchainSignature{{
 		Signature: []byte("signature1"),
@@ -110,7 +111,6 @@ type fakeContractTransmitter struct {
 }
 
 func (f fakeContractTransmitter) Transmit(ctx context.Context, rc ocrtypes.ReportContext, report ocrtypes.Report, s []ocrtypes.AttributedOnchainSignature) error {
-
 	if !reflect.DeepEqual(report, rwi.Report) {
 		return fmt.Errorf("expected Report %v but got %v", rwi.Report, report)
 	}

@@ -1,0 +1,198 @@
+# Funding address: 0xC1107e57082945E28d3202A81B1520DEA3AE6AEC
+name: Generic Live Smoke Tests
+on:
+  workflow_dispatch:
+    inputs:
+      networks:
+        description: "Comma-separated list of networks to run on"
+        required: true
+        default: "SEPOLIA,OPTIMISM_SEPOLIA,ARBITRUM_SEPOLIA"
+      test_list:
+        description: "Comma-separated list of tests to run"
+        required: true
+        default: "TestVRFBasic,TestVRFv2Basic,TestVRFv2Plus"
+
+env:
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+  MOD_CACHE_VERSION: 2
+  CHAINLINK_NODE_FUNDING: .5
+  PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+  LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+  LOKI_URL: ${{ secrets.LOKI_URL }}
+  LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+  LOGSTREAM_LOG_TARGETS: loki
+  GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+  RUN_ID: ${{ github.run_id }}
+
+  CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+  CHAINLINK_ENV_USER: ${{ github.actor }}
+  TEST_LOG_LEVEL: debug
+
+jobs:
+
+    # Build Test Dependencies
+
+  build-chainlink:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: live-vrf-build-chainlink
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Chainlink Image
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          tag_suffix: ""
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ github.sha }}
+          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+  build-tests:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Tests Binary
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: live-vrf-build-test-image
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Tests Binary
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Network Matrix
+        id: build-matrix
+        run: |
+          NETWORKS="[\"${{ github.event.inputs.networks }}\"]"
+          NETWORKS="${NETWORKS//,/\",\"}"
+          echo "matrix=${NETWORKS}" >> "$GITHUB_OUTPUT"
+      - name: Build Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        with:
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          go_tags: embed
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          binary_name: tests
+
+
+  # End Build Test Dependencies
+
+  live-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    strategy:
+      fail-fast: false
+      matrix: 
+        network: ${{fromJson(needs.build-tests.outputs.matrix)}}
+    name: Smoke Tests on ${{ matrix.network }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Secrets Names
+        id: build-secrets-names
+        run: |
+          echo "HTTP_URLS_SECRET_NAME=QA_${{ matrix.network }}_HTTP_URLS" >> $GITHUB_ENV
+          echo "URLS_SECRET_NAME=QA_${{ matrix.network }}_URLS" >> $GITHUB_ENV
+      - name: Split Test Names
+        id: split_list
+        run: |
+          IFS=',' read -ra ADDR <<< "${{ inputs.test_list }}"
+          echo "test_list=${ADDR[*]}" >> $GITHUB_ENV
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
+          # metrics inputs
+          metrics-job-name: "grafana"
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: "http://localhost:8080/primary"
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          network: ${{ matrix.network }}
+          httpEndpoints: ${{ secrets[env.HTTP_URLS_SECRET_NAME] }}
+          wsEndpoints: ${{ secrets[env.URLS_SECRET_NAME] }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
+      - name: Download Tests Binary
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        with:
+          test_command_to_run: ./tests -test.v -test.timeout 4h -test.count=1 -test.parallel=1 -test.run ${{ env.test_list }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        with:
+          test_directory: "./"

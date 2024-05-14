@@ -183,8 +183,8 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 	}
 
 	var overrideFn = func(_ interface{}, target interface{}) {
-		ctf_config.MustConfigOverrideChainlinkVersion(ocr2vrfSmokeConfig.ChainlinkImage, target)
-		ctf_config.MightConfigOverridePyroscopeKey(ocr2vrfSmokeConfig.Pyroscope, target)
+		ctf_config.MustConfigOverrideChainlinkVersion(ocr2vrfSmokeConfig.GetChainlinkImageConfig(), target)
+		ctf_config.MightConfigOverridePyroscopeKey(ocr2vrfSmokeConfig.GetPyroscopeConfig(), target)
 	}
 
 	cd := chainlink.NewWithOverride(0, map[string]interface{}{

@@ -42,7 +42,7 @@ contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
    * @notice validate, transfer ownership, and emit relevant events
    */
   function _transferL1Ownership(address to) internal {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(to != msg.sender, "Cannot transfer to self");
 
     s_l1PendingOwner = to;
@@ -65,7 +65,7 @@ contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
    * @notice Reverts if called by anyone other than the L1 owner.
    */
   modifier onlyL1Owner() virtual {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == s_l1Owner, "Only callable by L1 owner");
     _;
   }
@@ -74,7 +74,7 @@ contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
    * @notice Reverts if called by anyone other than the L1 owner.
    */
   modifier onlyProposedL1Owner() virtual {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == s_l1PendingOwner, "Only callable by proposed L1 owner");
     _;
   }

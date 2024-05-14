@@ -1,0 +1,15 @@
+triggers:
+- id: trigger_test@1
+  config: {}
+
+consensus:
+  - id: offchain_reporting@1
+    ref: offchain_reporting=1
+    config: {}
+
+targets:
+  - id: write_polygon_mainnet@1
+    ref: write_polygon_mainnet_1 
+    config: {}
+
+# yaml-language-server: $schema=../workflow_schema.json

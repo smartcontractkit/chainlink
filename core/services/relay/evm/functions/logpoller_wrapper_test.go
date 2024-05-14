@@ -1,11 +1,14 @@
 package functions
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +30,7 @@ type subscriber struct {
 	expectedCalls int
 }
 
-func (s *subscriber) UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error {
+func (s *subscriber) UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error {
 	if s.expectedCalls == 0 {
 		panic("unexpected call to UpdateRoutes")
 	}
@@ -85,19 +88,21 @@ func getMockedRequestLog(t *testing.T) logpoller.Log {
 
 func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
-	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
-	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{}, nil)
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{}, nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "01"), nil)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+	lp.On("GetFilters").Return(map[string]logpoller.Filter{}, nil)
 
 	subscriber := newSubscriber(1)
-	lpWrapper.SubscribeToUpdates("mock_subscriber", subscriber)
+	lpWrapper.SubscribeToUpdates(ctx, "mock_subscriber", subscriber)
 
 	servicetest.Run(t, lpWrapper)
 	subscriber.updates.Wait()
-	reqs, resps, err := lpWrapper.LatestEvents()
+	reqs, resps, err := lpWrapper.LatestEvents(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(reqs))
 	require.Equal(t, 0, len(resps))
@@ -105,45 +110,49 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 
 func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
-	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "00"), nil)
 
 	servicetest.Run(t, lpWrapper)
-	_, _, err := lpWrapper.LatestEvents()
+	_, _, err := lpWrapper.LatestEvents(ctx)
 	require.Error(t, err)
 }
 
 func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	lp, lpWrapper, client := setUp(t, 100_000)
-	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "01"), nil)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+	lp.On("GetFilters").Return(map[string]logpoller.Filter{}, nil)
+
 	subscriber := newSubscriber(1)
-	lpWrapper.SubscribeToUpdates("mock_subscriber", subscriber)
+	lpWrapper.SubscribeToUpdates(ctx, "mock_subscriber", subscriber)
 	mockedLog := getMockedRequestLog(t)
 	// All logPoller queries for responses return none
-	lp.On("Logs", mock.Anything, mock.Anything, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), mock.Anything).Return([]logpoller.Log{}, nil)
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), mock.Anything).Return([]logpoller.Log{}, nil)
 	// On the first logPoller query for requests, the request log appears
-	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
 	// On the 2nd query, the request log disappears
-	lp.On("Logs", mock.Anything, mock.Anything, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), mock.Anything).Return([]logpoller.Log{}, nil).Once()
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), mock.Anything).Return([]logpoller.Log{}, nil).Once()
 	// On the 3rd query, the original request log appears again
-	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
 
 	servicetest.Run(t, lpWrapper)
 	subscriber.updates.Wait()
 
-	oracleRequests, _, err := lpWrapper.LatestEvents()
+	oracleRequests, _, err := lpWrapper.LatestEvents(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(oracleRequests))
-	oracleRequests, _, err = lpWrapper.LatestEvents()
+	oracleRequests, _, err = lpWrapper.LatestEvents(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(oracleRequests))
 	require.NoError(t, err)
-	oracleRequests, _, err = lpWrapper.LatestEvents()
+	oracleRequests, _, err = lpWrapper.LatestEvents(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(oracleRequests))
 }
@@ -206,4 +215,35 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetect
 	// Ensure that expired events are removed from the cache
 	assert.Equal(t, 0, len(mockedDetectedEvents.detectedEventsOrdered))
 	assert.Equal(t, 0, len(mockedDetectedEvents.isPreviouslyDetected))
+}
+
+func TestLogPollerWrapper_UnregisterOldFiltersOnRouteUpgrade(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	lp, lpWrapper, _ := setUp(t, 100_000) // check only once
+	wrapper := lpWrapper.(*logPollerWrapper)
+
+	activeCoord := common.HexToAddress("0x1")
+	proposedCoord := common.HexToAddress("0x2")
+	newActiveCoord := proposedCoord
+	newProposedCoord := common.HexToAddress("0x3")
+
+	wrapper.activeCoordinator = activeCoord
+	wrapper.proposedCoordinator = proposedCoord
+	activeCoordFilterName := wrapper.filterName(activeCoord)
+	proposedCoordFilterName := wrapper.filterName(proposedCoord)
+	newProposedCoordFilterName := wrapper.filterName(newProposedCoord)
+
+	lp.On("RegisterFilter", ctx, mock.Anything).Return(nil)
+	existingFilters := map[string]logpoller.Filter{
+		activeCoordFilterName:      {Name: activeCoordFilterName},
+		proposedCoordFilterName:    {Name: proposedCoordFilterName},
+		newProposedCoordFilterName: {Name: newProposedCoordFilterName},
+	}
+	lp.On("GetFilters").Return(existingFilters, nil)
+	lp.On("UnregisterFilter", ctx, activeCoordFilterName).Return(nil)
+
+	wrapper.handleRouteUpdate(ctx, newActiveCoord, newProposedCoord)
+
+	lp.AssertCalled(t, "UnregisterFilter", ctx, activeCoordFilterName)
 }

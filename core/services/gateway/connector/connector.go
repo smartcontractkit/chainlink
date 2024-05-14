@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
@@ -51,7 +52,7 @@ type gatewayConnector struct {
 
 	config      *ConnectorConfig
 	codec       api.Codec
-	clock       utils.Clock
+	clock       clockwork.Clock
 	nodeAddress []byte
 	signer      Signer
 	handler     GatewayConnectorHandler
@@ -79,7 +80,7 @@ type gatewayState struct {
 	wsClient network.WebSocketClient
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock utils.Clock, lggr logger.Logger) (GatewayConnector, error) {
+func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock clockwork.Clock, lggr logger.Logger) (GatewayConnector, error) {
 	if config == nil || signer == nil || handler == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}

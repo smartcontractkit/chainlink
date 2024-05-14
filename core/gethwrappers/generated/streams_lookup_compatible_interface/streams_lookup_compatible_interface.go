@@ -29,7 +29,7 @@ var (
 )
 
 var StreamsLookupCompatibleInterfaceMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"string\",\"name\":\"feedParamKey\",\"type\":\"string\"},{\"internalType\":\"string[]\",\"name\":\"feeds\",\"type\":\"string[]\"},{\"internalType\":\"string\",\"name\":\"timeParamKey\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"time\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"StreamsLookup\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"values\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"checkCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"string\",\"name\":\"feedParamKey\",\"type\":\"string\"},{\"internalType\":\"string[]\",\"name\":\"feeds\",\"type\":\"string[]\"},{\"internalType\":\"string\",\"name\":\"timeParamKey\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"time\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"StreamsLookup\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"values\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"checkCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"errCode\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"checkErrorHandler\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 var StreamsLookupCompatibleInterfaceABI = StreamsLookupCompatibleInterfaceMetaData.ABI
@@ -180,7 +180,41 @@ func (_StreamsLookupCompatibleInterface *StreamsLookupCompatibleInterfaceCallerS
 	return _StreamsLookupCompatibleInterface.Contract.CheckCallback(&_StreamsLookupCompatibleInterface.CallOpts, values, extraData)
 }
 
+func (_StreamsLookupCompatibleInterface *StreamsLookupCompatibleInterfaceCaller) CheckErrorHandler(opts *bind.CallOpts, errCode *big.Int, extraData []byte) (CheckErrorHandler,
+
+	error) {
+	var out []interface{}
+	err := _StreamsLookupCompatibleInterface.contract.Call(opts, &out, "checkErrorHandler", errCode, extraData)
+
+	outstruct := new(CheckErrorHandler)
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.UpkeepNeeded = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.PerformData = *abi.ConvertType(out[1], new([]byte)).(*[]byte)
+
+	return *outstruct, err
+
+}
+
+func (_StreamsLookupCompatibleInterface *StreamsLookupCompatibleInterfaceSession) CheckErrorHandler(errCode *big.Int, extraData []byte) (CheckErrorHandler,
+
+	error) {
+	return _StreamsLookupCompatibleInterface.Contract.CheckErrorHandler(&_StreamsLookupCompatibleInterface.CallOpts, errCode, extraData)
+}
+
+func (_StreamsLookupCompatibleInterface *StreamsLookupCompatibleInterfaceCallerSession) CheckErrorHandler(errCode *big.Int, extraData []byte) (CheckErrorHandler,
+
+	error) {
+	return _StreamsLookupCompatibleInterface.Contract.CheckErrorHandler(&_StreamsLookupCompatibleInterface.CallOpts, errCode, extraData)
+}
+
 type CheckCallback struct {
+	UpkeepNeeded bool
+	PerformData  []byte
+}
+type CheckErrorHandler struct {
 	UpkeepNeeded bool
 	PerformData  []byte
 }
@@ -191,6 +225,10 @@ func (_StreamsLookupCompatibleInterface *StreamsLookupCompatibleInterface) Addre
 
 type StreamsLookupCompatibleInterfaceInterface interface {
 	CheckCallback(opts *bind.CallOpts, values [][]byte, extraData []byte) (CheckCallback,
+
+		error)
+
+	CheckErrorHandler(opts *bind.CallOpts, errCode *big.Int, extraData []byte) (CheckErrorHandler,
 
 		error)
 

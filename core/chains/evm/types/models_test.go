@@ -2,6 +2,7 @@ package types_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -12,20 +13,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 func TestHead_NewHead(t *testing.T) {
@@ -55,11 +56,11 @@ func TestHead_GreaterThan(t *testing.T) {
 		greater bool
 	}{
 		{"nil nil", nil, nil, false},
-		{"present nil", cltest.Head(1), nil, true},
-		{"nil present", nil, cltest.Head(1), false},
-		{"less", cltest.Head(1), cltest.Head(2), false},
-		{"equal", cltest.Head(2), cltest.Head(2), false},
-		{"greater", cltest.Head(2), cltest.Head(1), true},
+		{"present nil", testutils.Head(1), nil, true},
+		{"nil present", nil, testutils.Head(1), false},
+		{"less", testutils.Head(1), testutils.Head(2), false},
+		{"equal", testutils.Head(2), testutils.Head(2), false},
+		{"greater", testutils.Head(2), testutils.Head(1), true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -76,7 +77,7 @@ func TestHead_NextInt(t *testing.T) {
 		want *big.Int
 	}{
 		{"nil", nil, nil},
-		{"one", cltest.Head(1), big.NewInt(2)},
+		{"one", testutils.Head(1), big.NewInt(2)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -92,14 +93,13 @@ func TestEthTx_GetID(t *testing.T) {
 
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	chainID := big.NewInt(3)
 
-	signedTx, err := ethKeyStore.SignTx(fromAddress, tx, chainID)
+	signedTx, err := ethKeyStore.SignTx(tests.Context(t), fromAddress, tx, chainID)
 	require.NoError(t, err)
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
@@ -329,7 +329,20 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 				Number:           0x15156,
 				ParentHash:       common.HexToHash("0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34"),
 				Timestamp:        time.Unix(0x60d0952d, 0).UTC(),
-				L1BlockNumber:    null.Int64From(0x8652f9),
+				L1BlockNumber:    sql.NullInt64{Int64: 0x8652f9, Valid: true},
+				ReceiptsRoot:     common.HexToHash("0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504"),
+				TransactionsRoot: common.HexToHash("0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3"),
+				StateRoot:        common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			},
+		},
+		{"arbitrum_empty_l1BlockNumber",
+			`{"number":"0x15156","hash":"0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871","parentHash":"0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","receiptsRoot":"0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504","miner":"0x0000000000000000000000000000000000000000","difficulty":"0x0","totalDifficulty":"0x0","extraData":"0x","size":"0x0","gasLimit":"0x11278208","gasUsed":"0x3d1fe9","timestamp":"0x60d0952d","transactions":["0xa1ea93556b93ed3b45cb24f21c8deb584e6a9049c35209242651bf3533c23b98","0xfc6593c45ba92351d17173aa1381e84734d252ab0169887783039212c4a41024","0x85ee9d04fd0ebb5f62191eeb53cb45d9c0945d43eba444c3548de2ac8421682f","0x50d120936473e5b75f6e04829ad4eeca7a1df7d3c5026ebb5d34af936a39b29c"],"uncles":[]}`,
+			evmtypes.Head{
+				Hash:             common.HexToHash("0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871"),
+				Number:           0x15156,
+				ParentHash:       common.HexToHash("0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34"),
+				Timestamp:        time.Unix(0x60d0952d, 0).UTC(),
+				L1BlockNumber:    sql.NullInt64{Int64: 0, Valid: false},
 				ReceiptsRoot:     common.HexToHash("0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504"),
 				TransactionsRoot: common.HexToHash("0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3"),
 				StateRoot:        common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
@@ -647,6 +660,265 @@ const paritySampleBlock = `
 
 `
 
+const eip4844Block = ` {
+	"baseFeePerGas": "0x16740b3cb5",
+	"blobGasUsed": "0xc0000",
+	"difficulty": "0x0",
+	"excessBlobGas": "0x4b80000",
+	"extraData": "0xd883010d0c846765746888676f312e32302e31856c696e7578",
+	"gasLimit": "0x1c9c380",
+	"gasUsed": "0x18db0e0",
+	"hash": "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590",
+	"logsBloom": "0xc820da8f9c4ac1db241964223d4015549765668065d0c0418691262e44eda11970c271ead2b03ecffbb2ad52348c00cb0e11c083c3e26323855296236025e1d4198c892bb5cf0135cacc4f1bc138c88d8d44790497c6c201901a894b48966b2068f144bb16614271e6c05a854421290500081cea818eaae7950a8217a0d8d43a8b80018d800a43bd542d77230e5030861051152088a0d514d65177c2fa4198642eefd29e4dae806bfd4250ec63147fee38e368d00c01da1d67c1a5a24ed87331289bba074e1c2434147502a90df300a311b67056524e78a5b792930272b4607fb676060ea623d64ac1174a22b382a0648f5a35994b669131e3ea074ea128de45",
+	"miner": "0x6a7aa9b882d50bb7bc5da1a244719c99f12f06a3",
+	"mixHash": "0x27337177ae9744acb30c9d13e187c582367d75f702cc3ef2e77f9c6b10394ebf",
+	"nonce": "0x0000000000000000",
+	"number": "0x50e1d6",
+	"parentBeaconBlockRoot": "0xcdfe5d7bfd13221a86881bee926ec7e7e6c1eed2e460bd7772caa64bed1582ec",
+	"parentHash": "0x077c1d68b52f8203cb90a71759a09b11c2a6577f97ea1fd4a8686a387fbedac8",
+	"receiptsRoot": "0xff81f4fddbcfcc550c4358136953b56a66a95c24089501e2085d8c4588ffdb1f",
+	"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+	"size": "0x2b41f",
+	"stateRoot": "0xc9541af90707127dde506b208de22cfda50ad2ef6e8b4f67212e6402d7099708",
+	"timestamp": "0x65cf57dc",
+	"totalDifficulty": "0x3c656d23029ab0",
+	"transactions": [
+		{
+			"blockHash": "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590",
+			"blockNumber": "0x50e1d6",
+			"from": "0x3c352ea32dfbb757ccdf4b457e52daf6ecc21917",
+			"gas": "0x14820",
+			"gasPrice": "0x5d426cae68",
+			"hash": "0x8857a9064210e138a996c82a9d58b001d198b2362e8ad2ede7056a9c942011aa",
+			"input": "0x",
+			"nonce": "0xa07aa",
+			"to": "0xd3234d7985fdaefc68cbfa04e91ecca334b6545c",
+			"transactionIndex": "0x0",
+			"value": "0x6f05b59d3b20000",
+			"type": "0x0",
+			"chainId": "0xaa36a7",
+			"v": "0x1546d72",
+			"r": "0x2acc4f73342578b09d5152f60305f7cfe4f5d377da504e99ed3795b65b9bd5c",
+			"s": "0x33470e89e7508816c8c71d2135fc16a49b34ffbd86d8f6506658819afb578944"
+		},
+		{
+			"blockHash": "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590",
+			"blockNumber": "0x50e1d6",
+			"from": "0x87c9b02a10ec2cb4dcb3b2e573e26169cf3cd9bf",
+			"gas": "0x14820",
+			"gasPrice": "0x5d426cae68",
+			"hash": "0x83170edd8c637791fc8bdf07ad687ab11456409546fea23d8db90933d18eb566",
+			"input": "0x",
+			"nonce": "0xa2e22",
+			"to": "0x2853502c56fb2160fcdc044d4477408b9670058e",
+			"transactionIndex": "0x1",
+			"value": "0x6f05b59d3b20000",
+			"type": "0x0",
+			"chainId": "0xaa36a7",
+			"v": "0x1546d72",
+			"r": "0xf5f12880149214ef1109c83bd9e80a6851a581aba2cf10c1c3d0e8ad473db9f5",
+			"s": "0x150c309b585f0b76fdb6ee4e26048fae88464e6ef2ff41a9341e84ddbbf4f7a7"
+		},
+		{
+			"blockHash": "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590",
+			"blockNumber": "0x50e1d6",
+			"from": "0x0bf8d3a5bc2f3ce4ce93d0ef13c2d519d2efe7ab",
+			"gas": "0x32aa5",
+			"gasPrice": "0x17e3776320",
+			"hash": "0xe9a8dc19ca3ace8b06fdb120fbb1333f75a14e06229536adbdae1ca018f39d2f",
+			"input": "0x79df76820000000000000000000000000bf8d3a5bc2f3ce4ce93d0ef13c2d519d2efe7ab000000000000000000000000000000000000000000000000000000000002c3380000000000000000000000000000000000000000000000000000018db1eefe820000000000000000000000000000000000000000000000000000000191ea03c00000000000000000000000000000000000000000000000000000000000000015000000000000000000000000000000000000000000000000000000000000001cbeaa1a18797feaaae677a2c47f551623362b25a4cbed88a14cf06318974302be1e3a13405cc803063bb4549a79efa547f2024d470b53d21631f42e3ce993bdd7",
+			"nonce": "0x3",
+			"to": "0x321ce961084fcf3a56de4be2f2006707a0421aa4",
+			"transactionIndex": "0x4a",
+			"value": "0x0",
+			"type": "0x0",
+			"chainId": "0xaa36a7",
+			"v": "0x1546d72",
+			"r": "0x53fa23875340ac5bd7af3e5b4791981cad94f9a86da431bdafdaf0d4fccbfab9",
+			"s": "0x1f3826a1d0358425f2bddacd9d87efeee07065492b7ccc499357d69437856859"
+		},
+		{
+			"blockHash": "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590",
+			"blockNumber": "0x50e1d6",
+			"from": "0x1803c760451dc8da8935c7b7e47e1c60910e6986",
+			"gas": "0x5208",
+			"gasPrice": "0x17d9abf8b5",
+			"maxFeePerGas": "0x8bb2c97000",
+			"maxPriorityFeePerGas": "0x165a0bc00",
+			"maxFeePerBlobGas": "0xdf8475800",
+			"hash": "0x48a6a2294bd57cd0defc54968bf00179ef3c2d0c647d386e1840ee347d2dd0b8",
+			"input": "0x",
+			"nonce": "0x2861",
+			"to": "0x4f56ffc63c28b72f79b02e91f11a4707bac4043c",
+			"transactionIndex": "0x4b",
+			"value": "0x0",
+			"type": "0x3",
+			"accessList": [],
+			"chainId": "0xaa36a7",
+			"blobVersionedHashes": [
+				"0x01b3722197a3bb82f25a26ab702b63e7c5ce7296ec18f7a53d5e2c28081084a3",
+				"0x0125c472df6afa04cbab756630f5bcf560fc929ee12c7dd4738cfd67fa7926d8",
+				"0x016316f61a259aa607096440fc3eeb90356e079be01975d2fb18347bd50df33c"
+			],
+			"v": "0x0",
+			"r": "0xf9cfd7e18a156807a42fc05d2255a9741168363a7184b4fa40a9dc9f83dcc3d4",
+			"s": "0x9b12570519ef421bd31461bed09b3599db43354d3c88ff4bed17ddd964fadf6",
+			"yParity": "0x0"
+		},
+		{
+			"blockHash": "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590",
+			"blockNumber": "0x50e1d6",
+			"from": "0x56272f6932e6ae0116d270a2e919d20d3052f206",
+			"gas": "0x5208",
+			"gasPrice": "0x17d9abf8b5",
+			"maxFeePerGas": "0x8bb2c97000",
+			"maxPriorityFeePerGas": "0x165a0bc00",
+			"maxFeePerBlobGas": "0xdf8475800",
+			"hash": "0xa97e14a2e87d322fcb97edc4b25cd976d18963cfad19bfd4b9c8066a6a2d97cf",
+			"input": "0x",
+			"nonce": "0x2836",
+			"to": "0x1803c760451dc8da8935c7b7e47e1c60910e6986",
+			"transactionIndex": "0x4c",
+			"value": "0x0",
+			"type": "0x3",
+			"accessList": [],
+			"chainId": "0xaa36a7",
+			"blobVersionedHashes": [
+				"0x01adde6e37a3ba9e2a40052556b51960c2a4cc69c257992ae954c6d4f8d479c2",
+				"0x0142116f5d1b4b60672ac5b69edb7431ffddb700227d9b4dc9adafe599b38943",
+				"0x010ba493f0c9891f7109bd29e4914c4e79c7a35530981e746d02df66e5d57056"
+			],
+			"v": "0x1",
+			"r": "0x82045878948921a0330ea7eb23b74f103f9f353704eaeab358e777bea238bfd",
+			"s": "0x378128f0fa8059df16cdc95f215f1e669dc81cee7c39b804e6371e486aa1e753",
+			"yParity": "0x1"
+		},
+		{
+			"blockHash": "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590",
+			"blockNumber": "0x50e1d6",
+			"from": "0x779fa3507ad952f447c32f7d7e1f86ceddf2cc9d",
+			"gas": "0x1118b",
+			"gasPrice": "0x2e90edd000",
+			"maxFeePerGas": "0x2e90edd000",
+			"maxPriorityFeePerGas": "0x2e90edd000",
+			"hash": "0x6e94385ca341d5763ebb21601a86cddbc77acb879735ce1d013b22dc03fb07a2",
+			"input": "0x095ea7b3000000000000000000000000d3ec28ad6d777f5aa92377294b9b6522c719307900000000000000000000000000000000000000000000003635c9adc5dea00000",
+			"nonce": "0x57",
+			"to": "0xf7f928b2bf5cc7e0bd0f258165249fa3c2ef85ac",
+			"transactionIndex": "0x10",
+			"value": "0x0",
+			"type": "0x2",
+			"accessList": [],
+			"chainId": "0xaa36a7",
+			"v": "0x0",
+			"r": "0x4b4f0ccda6366f4897cb8eb3dee4a72bba76758159ff7030a134022c0a11def2",
+			"s": "0x27621a604938c68b98c52b57e2b27cb104e3838fd2864d18b6429d42ac2b2f0a",
+			"yParity": "0x0"
+		}
+	],
+	"transactionsRoot": "0xb9773c32f06f914e3e6da66a114e3ddf84e38dff62e26621b0ffecee38d5fe6e",
+	"uncles": [],
+	"withdrawals": [
+		{
+			"index": "0x233d1c2",
+			"validatorIndex": "0x384",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xec0"
+		},
+		{
+			"index": "0x233d1c3",
+			"validatorIndex": "0x392",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xec0"
+		},
+		{
+			"index": "0x233d1c4",
+			"validatorIndex": "0x393",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xec0"
+		},
+		{
+			"index": "0x233d1c5",
+			"validatorIndex": "0x395",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xec0"
+		},
+		{
+			"index": "0x233d1c6",
+			"validatorIndex": "0x396",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xec0"
+		},
+		{
+			"index": "0x233d1c7",
+			"validatorIndex": "0x398",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xec0"
+		},
+		{
+			"index": "0x233d1c8",
+			"validatorIndex": "0x39a",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xec0"
+		},
+		{
+			"index": "0x233d1c9",
+			"validatorIndex": "0x39c",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xec0"
+		},
+		{
+			"index": "0x233d1ca",
+			"validatorIndex": "0x39d",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xec0"
+		},
+		{
+			"index": "0x233d1cb",
+			"validatorIndex": "0x39e",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xb10"
+		},
+		{
+			"index": "0x233d1cc",
+			"validatorIndex": "0x39f",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xb10"
+		},
+		{
+			"index": "0x233d1cd",
+			"validatorIndex": "0x3a3",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xb10"
+		},
+		{
+			"index": "0x233d1ce",
+			"validatorIndex": "0x3a4",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xb10"
+		},
+		{
+			"index": "0x233d1cf",
+			"validatorIndex": "0x3a5",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xb10"
+		},
+		{
+			"index": "0x233d1d0",
+			"validatorIndex": "0x3ad",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xb10"
+		},
+		{
+			"index": "0x233d1d1",
+			"validatorIndex": "0x3ae",
+			"address": "0xe276bc378a527a8792b353cdca5b5e53263dfb9e",
+			"amount": "0xb10"
+		}
+	],
+	"withdrawalsRoot": "0x26a577aa6ab5e73684b15665f8510c7da8f29a66ed17bf73c1c11f4c3af9c955"
+}`
+
 func TestBlock_UnmarshalJSON(t *testing.T) {
 	t.Run("unmarshals parity block", func(t *testing.T) {
 		b := new(evmtypes.Block)
@@ -676,8 +948,19 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		b := new(evmtypes.Block)
 		err := b.UnmarshalJSON([]byte("null"))
 		assert.Error(t, err)
-		assert.Equal(t, errors.Cause(err), evmtypes.ErrMissingBlock)
-		assert.True(t, errors.Is(err, evmtypes.ErrMissingBlock))
+		assert.Equal(t, pkgerrors.Cause(err), evmtypes.ErrMissingBlock)
+		assert.True(t, pkgerrors.Is(err, evmtypes.ErrMissingBlock))
+	})
+	t.Run("unmarshals EIP-4844 block", func(t *testing.T) {
+		b := new(evmtypes.Block)
+		err := b.UnmarshalJSON([]byte(eip4844Block))
+		assert.NoError(t, err)
+		assert.Equal(t, int64(5300694), b.Number)
+		assert.Equal(t, "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590", b.Hash.Hex())
+		assert.Equal(t, "0x077c1d68b52f8203cb90a71759a09b11c2a6577f97ea1fd4a8686a387fbedac8", b.ParentHash.Hex())
+		assert.Equal(t, assets.NewWeiI(96436174005), b.BaseFeePerGas)
+		assert.Equal(t, int64(1708087260), b.Timestamp.Unix())
+		assert.Len(t, b.Transactions, 6)
 	})
 }
 
@@ -729,6 +1012,50 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 			},
 		},
 		{
+			name: "sample EIP4844 txn",
+			args: args{
+				[]byte(
+					`
+					{
+					"blockHash": "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590",
+					"blockNumber": "0x50e1d6",
+					"from": "0x56272f6932e6ae0116d270a2e919d20d3052f206",
+					"gas": "0x5208",
+					"gasPrice": "0x17d9abf8b5",
+					"maxFeePerGas": "0x8bb2c97000",
+					"maxPriorityFeePerGas": "0x165a0bc00",
+					"maxFeePerBlobGas": "0xdf8475800",
+					"hash": "0xa97e14a2e87d322fcb97edc4b25cd976d18963cfad19bfd4b9c8066a6a2d97cf",
+					"input": "0x",
+					"nonce": "0x2836",
+					"to": "0x1803c760451dc8da8935c7b7e47e1c60910e6986",
+					"transactionIndex": "0x4c",
+					"value": "0x0",
+					"type": "0x3",
+					"accessList": [],
+					"chainId": "0xaa36a7",
+					"blobVersionedHashes": [
+						"0x01adde6e37a3ba9e2a40052556b51960c2a4cc69c257992ae954c6d4f8d479c2",
+						"0x0142116f5d1b4b60672ac5b69edb7431ffddb700227d9b4dc9adafe599b38943",
+						"0x010ba493f0c9891f7109bd29e4914c4e79c7a35530981e746d02df66e5d57056"
+					],
+					"v": "0x1",
+					"r": "0x82045878948921a0330ea7eb23b74f103f9f353704eaeab358e777bea238bfd",
+					"s": "0x378128f0fa8059df16cdc95f215f1e669dc81cee7c39b804e6371e486aa1e753",
+					"yParity": "0x1"
+					}`,
+				),
+			},
+			want: &evmtypes.Transaction{
+				GasPrice:             assets.NewWei(mustHexToBig(t, "17d9abf8b5")),
+				GasLimit:             mustHextoUint32(t, "0x5208"),
+				MaxFeePerGas:         assets.NewWei(mustHexToBig(t, "8bb2c97000")),
+				MaxPriorityFeePerGas: assets.NewWei(mustHexToBig(t, "165a0bc00")),
+				Type:                 0x3,
+				Hash:                 common.HexToHash("0xa97e14a2e87d322fcb97edc4b25cd976d18963cfad19bfd4b9c8066a6a2d97cf"),
+			},
+		},
+		{
 			name: "sample parity txn",
 			args: args{[]byte(
 				`   {
@@ -770,7 +1097,6 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 			err := got.UnmarshalJSON(tt.args.data)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
-
 		})
 	}
 }
@@ -823,7 +1149,6 @@ func assertTxnsEqual(t *testing.T, txns1, txns2 []evmtypes.Transaction) {
 	}
 }
 func TestTxType_JSONRoundtrip(t *testing.T) {
-
 	t.Run("non zero", func(t *testing.T) {
 		t.Parallel()
 		want := evmtypes.TxType(2)

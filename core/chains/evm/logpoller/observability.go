@@ -1,17 +1,18 @@
 package logpoller
 
 import (
+	"context"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 type queryType string
@@ -77,9 +78,9 @@ type ObservedORM struct {
 
 // NewObservedORM creates an observed version of log poller's ORM created by NewORM
 // Please see ObservedLogPoller for more details on how latencies are measured
-func NewObservedORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ObservedORM {
+func NewObservedORM(chainID *big.Int, ds sqlutil.DataSource, lggr logger.Logger) *ObservedORM {
 	return &ObservedORM{
-		ORM:            NewORM(chainID, db, lggr, cfg),
+		ORM:            NewORM(chainID, ds, lggr),
 		queryDuration:  lpQueryDuration,
 		datasetSize:    lpQueryDataSets,
 		logsInserted:   lpLogsInserted,
@@ -88,169 +89,175 @@ func NewObservedORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QC
 	}
 }
 
-func (o *ObservedORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
+func (o *ObservedORM) InsertLogs(ctx context.Context, logs []Log) error {
 	err := withObservedExec(o, "InsertLogs", create, func() error {
-		return o.ORM.InsertLogs(logs, qopts...)
+		return o.ORM.InsertLogs(ctx, logs)
 	})
 	trackInsertedLogsAndBlock(o, logs, nil, err)
 	return err
 }
 
-func (o *ObservedORM) InsertLogsWithBlock(logs []Log, block LogPollerBlock, qopts ...pg.QOpt) error {
+func (o *ObservedORM) InsertLogsWithBlock(ctx context.Context, logs []Log, block LogPollerBlock) error {
 	err := withObservedExec(o, "InsertLogsWithBlock", create, func() error {
-		return o.ORM.InsertLogsWithBlock(logs, block, qopts...)
+		return o.ORM.InsertLogsWithBlock(ctx, logs, block)
 	})
 	trackInsertedLogsAndBlock(o, logs, &block, err)
 	return err
 }
 
-func (o *ObservedORM) InsertFilter(filter Filter, qopts ...pg.QOpt) error {
+func (o *ObservedORM) InsertFilter(ctx context.Context, filter Filter) error {
 	return withObservedExec(o, "InsertFilter", create, func() error {
-		return o.ORM.InsertFilter(filter, qopts...)
+		return o.ORM.InsertFilter(ctx, filter)
 	})
 }
 
-func (o *ObservedORM) LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error) {
+func (o *ObservedORM) LoadFilters(ctx context.Context) (map[string]Filter, error) {
 	return withObservedQuery(o, "LoadFilters", func() (map[string]Filter, error) {
-		return o.ORM.LoadFilters(qopts...)
+		return o.ORM.LoadFilters(ctx)
 	})
 }
 
-func (o *ObservedORM) DeleteFilter(name string, qopts ...pg.QOpt) error {
+func (o *ObservedORM) DeleteFilter(ctx context.Context, name string) error {
 	return withObservedExec(o, "DeleteFilter", del, func() error {
-		return o.ORM.DeleteFilter(name, qopts...)
+		return o.ORM.DeleteFilter(ctx, name)
 	})
 }
 
-func (o *ObservedORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteBlocksBefore", del, func() error {
-		return o.ORM.DeleteBlocksBefore(end, qopts...)
+func (o *ObservedORM) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error) {
+	return withObservedExecAndRowsAffected(o, "DeleteBlocksBefore", del, func() (int64, error) {
+		return o.ORM.DeleteBlocksBefore(ctx, end, limit)
 	})
 }
 
-func (o *ObservedORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
+func (o *ObservedORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
 	return withObservedExec(o, "DeleteLogsAndBlocksAfter", del, func() error {
-		return o.ORM.DeleteLogsAndBlocksAfter(start, qopts...)
+		return o.ORM.DeleteLogsAndBlocksAfter(ctx, start)
 	})
 }
 
-func (o *ObservedORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
-	return withObservedExec(o, "DeleteExpiredLogs", del, func() error {
-		return o.ORM.DeleteExpiredLogs(qopts...)
+func (o *ObservedORM) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error) {
+	return withObservedExecAndRowsAffected(o, "DeleteExpiredLogs", del, func() (int64, error) {
+		return o.ORM.DeleteExpiredLogs(ctx, limit)
 	})
 }
 
-func (o *ObservedORM) SelectBlockByNumber(n int64, qopts ...pg.QOpt) (*LogPollerBlock, error) {
+func (o *ObservedORM) SelectBlockByNumber(ctx context.Context, n int64) (*LogPollerBlock, error) {
 	return withObservedQuery(o, "SelectBlockByNumber", func() (*LogPollerBlock, error) {
-		return o.ORM.SelectBlockByNumber(n, qopts...)
+		return o.ORM.SelectBlockByNumber(ctx, n)
 	})
 }
 
-func (o *ObservedORM) SelectLatestBlock(qopts ...pg.QOpt) (*LogPollerBlock, error) {
+func (o *ObservedORM) SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error) {
 	return withObservedQuery(o, "SelectLatestBlock", func() (*LogPollerBlock, error) {
-		return o.ORM.SelectLatestBlock(qopts...)
+		return o.ORM.SelectLatestBlock(ctx)
 	})
 }
 
-func (o *ObservedORM) SelectLatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs Confirmations, qopts ...pg.QOpt) (*Log, error) {
+func (o *ObservedORM) SelectOldestBlock(ctx context.Context, minAllowedBlockNumber int64) (*LogPollerBlock, error) {
+	return withObservedQuery(o, "SelectOldestBlock", func() (*LogPollerBlock, error) {
+		return o.ORM.SelectOldestBlock(ctx, minAllowedBlockNumber)
+	})
+}
+
+func (o *ObservedORM) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig common.Hash, address common.Address, confs evmtypes.Confirmations) (*Log, error) {
 	return withObservedQuery(o, "SelectLatestLogByEventSigWithConfs", func() (*Log, error) {
-		return o.ORM.SelectLatestLogByEventSigWithConfs(eventSig, address, confs, qopts...)
+		return o.ORM.SelectLatestLogByEventSigWithConfs(ctx, eventSig, address, confs)
 	})
 }
 
-func (o *ObservedORM) SelectLogsWithSigs(start, end int64, address common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectLogsWithSigs(ctx context.Context, start, end int64, address common.Address, eventSigs []common.Hash) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLogsWithSigs", func() ([]Log, error) {
-		return o.ORM.SelectLogsWithSigs(start, end, address, eventSigs, qopts...)
+		return o.ORM.SelectLogsWithSigs(ctx, start, end, address, eventSigs)
 	})
 }
 
-func (o *ObservedORM) SelectLogsCreatedAfter(address common.Address, eventSig common.Hash, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectLogsCreatedAfter(ctx context.Context, address common.Address, eventSig common.Hash, after time.Time, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLogsCreatedAfter", func() ([]Log, error) {
-		return o.ORM.SelectLogsCreatedAfter(address, eventSig, after, confs, qopts...)
+		return o.ORM.SelectLogsCreatedAfter(ctx, address, eventSig, after, confs)
 	})
 }
 
-func (o *ObservedORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectIndexedLogs(ctx context.Context, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectIndexedLogs", func() ([]Log, error) {
-		return o.ORM.SelectIndexedLogs(address, eventSig, topicIndex, topicValues, confs, qopts...)
+		return o.ORM.SelectIndexedLogs(ctx, address, eventSig, topicIndex, topicValues, confs)
 	})
 }
 
-func (o *ObservedORM) SelectIndexedLogsByBlockRange(start, end int64, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectIndexedLogsByBlockRange(ctx context.Context, start, end int64, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectIndexedLogsByBlockRange", func() ([]Log, error) {
-		return o.ORM.SelectIndexedLogsByBlockRange(start, end, address, eventSig, topicIndex, topicValues, qopts...)
+		return o.ORM.SelectIndexedLogsByBlockRange(ctx, start, end, address, eventSig, topicIndex, topicValues)
 	})
 }
 
-func (o *ObservedORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectIndexedLogsCreatedAfter(ctx context.Context, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, after time.Time, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectIndexedLogsCreatedAfter", func() ([]Log, error) {
-		return o.ORM.SelectIndexedLogsCreatedAfter(address, eventSig, topicIndex, topicValues, after, confs, qopts...)
+		return o.ORM.SelectIndexedLogsCreatedAfter(ctx, address, eventSig, topicIndex, topicValues, after, confs)
 	})
 }
 
-func (o *ObservedORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectIndexedLogsWithSigsExcluding(ctx context.Context, sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectIndexedLogsWithSigsExcluding", func() ([]Log, error) {
-		return o.ORM.SelectIndexedLogsWithSigsExcluding(sigA, sigB, topicIndex, address, startBlock, endBlock, confs, qopts...)
+		return o.ORM.SelectIndexedLogsWithSigsExcluding(ctx, sigA, sigB, topicIndex, address, startBlock, endBlock, confs)
 	})
 }
 
-func (o *ObservedORM) SelectLogs(start, end int64, address common.Address, eventSig common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectLogs(ctx context.Context, start, end int64, address common.Address, eventSig common.Hash) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLogs", func() ([]Log, error) {
-		return o.ORM.SelectLogs(start, end, address, eventSig, qopts...)
+		return o.ORM.SelectLogs(ctx, start, end, address, eventSig)
 	})
 }
 
-func (o *ObservedORM) SelectIndexedLogsByTxHash(address common.Address, eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectIndexedLogsByTxHash(ctx context.Context, address common.Address, eventSig common.Hash, txHash common.Hash) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectIndexedLogsByTxHash", func() ([]Log, error) {
-		return o.ORM.SelectIndexedLogsByTxHash(address, eventSig, txHash, qopts...)
+		return o.ORM.SelectIndexedLogsByTxHash(ctx, address, eventSig, txHash)
 	})
 }
 
-func (o *ObservedORM) GetBlocksRange(start int64, end int64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+func (o *ObservedORM) GetBlocksRange(ctx context.Context, start int64, end int64) ([]LogPollerBlock, error) {
 	return withObservedQueryAndResults(o, "GetBlocksRange", func() ([]LogPollerBlock, error) {
-		return o.ORM.GetBlocksRange(start, end, qopts...)
+		return o.ORM.GetBlocksRange(ctx, start, end)
 	})
 }
 
-func (o *ObservedORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectLatestLogEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, addresses []common.Address, eventSigs []common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLatestLogEventSigsAddrsWithConfs", func() ([]Log, error) {
-		return o.ORM.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
+		return o.ORM.SelectLatestLogEventSigsAddrsWithConfs(ctx, fromBlock, addresses, eventSigs, confs)
 	})
 }
 
-func (o *ObservedORM) SelectLatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations, qopts ...pg.QOpt) (int64, error) {
+func (o *ObservedORM) SelectLatestBlockByEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs evmtypes.Confirmations) (int64, error) {
 	return withObservedQuery(o, "SelectLatestBlockByEventSigsAddrsWithConfs", func() (int64, error) {
-		return o.ORM.SelectLatestBlockByEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
+		return o.ORM.SelectLatestBlockByEventSigsAddrsWithConfs(ctx, fromBlock, eventSigs, addresses, confs)
 	})
 }
 
-func (o *ObservedORM) SelectLogsDataWordRange(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectLogsDataWordRange(ctx context.Context, address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLogsDataWordRange", func() ([]Log, error) {
-		return o.ORM.SelectLogsDataWordRange(address, eventSig, wordIndex, wordValueMin, wordValueMax, confs, qopts...)
+		return o.ORM.SelectLogsDataWordRange(ctx, address, eventSig, wordIndex, wordValueMin, wordValueMax, confs)
 	})
 }
 
-func (o *ObservedORM) SelectLogsDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectLogsDataWordGreaterThan(ctx context.Context, address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLogsDataWordGreaterThan", func() ([]Log, error) {
-		return o.ORM.SelectLogsDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, confs, qopts...)
+		return o.ORM.SelectLogsDataWordGreaterThan(ctx, address, eventSig, wordIndex, wordValueMin, confs)
 	})
 }
 
-func (o *ObservedORM) SelectLogsDataWordBetween(address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectLogsDataWordBetween(ctx context.Context, address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLogsDataWordBetween", func() ([]Log, error) {
-		return o.ORM.SelectLogsDataWordBetween(address, eventSig, wordIndexMin, wordIndexMax, wordValue, confs, qopts...)
+		return o.ORM.SelectLogsDataWordBetween(ctx, address, eventSig, wordIndexMin, wordIndexMax, wordValue, confs)
 	})
 }
 
-func (o *ObservedORM) SelectIndexedLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectIndexedLogsTopicGreaterThan(ctx context.Context, address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectIndexedLogsTopicGreaterThan", func() ([]Log, error) {
-		return o.ORM.SelectIndexedLogsTopicGreaterThan(address, eventSig, topicIndex, topicValueMin, confs, qopts...)
+		return o.ORM.SelectIndexedLogsTopicGreaterThan(ctx, address, eventSig, topicIndex, topicValueMin, confs)
 	})
 }
 
-func (o *ObservedORM) SelectIndexedLogsTopicRange(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin, topicValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectIndexedLogsTopicRange(ctx context.Context, address common.Address, eventSig common.Hash, topicIndex int, topicValueMin, topicValueMax common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectIndexedLogsTopicRange", func() ([]Log, error) {
-		return o.ORM.SelectIndexedLogsTopicRange(address, eventSig, topicIndex, topicValueMin, topicValueMax, confs, qopts...)
+		return o.ORM.SelectIndexedLogsTopicRange(ctx, address, eventSig, topicIndex, topicValueMin, topicValueMax, confs)
 	})
 }
 
@@ -262,6 +269,22 @@ func withObservedQueryAndResults[T any](o *ObservedORM, queryName string, query 
 			Set(float64(len(results)))
 	}
 	return results, err
+}
+
+func withObservedExecAndRowsAffected(o *ObservedORM, queryName string, queryType queryType, exec func() (int64, error)) (int64, error) {
+	queryStarted := time.Now()
+	rowsAffected, err := exec()
+	o.queryDuration.
+		WithLabelValues(o.chainId, queryName, string(queryType)).
+		Observe(float64(time.Since(queryStarted)))
+
+	if err != nil {
+		o.datasetSize.
+			WithLabelValues(o.chainId, queryName, string(queryType)).
+			Set(float64(rowsAffected))
+	}
+
+	return rowsAffected, err
 }
 
 func withObservedQuery[T any](o *ObservedORM, queryName string, query func() (T, error)) (T, error) {

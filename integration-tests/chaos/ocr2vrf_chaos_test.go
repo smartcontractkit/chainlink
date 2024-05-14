@@ -57,8 +57,8 @@ func TestOCR2VRFChaos(t *testing.T) {
 	}
 
 	var overrideFn = func(_ interface{}, target interface{}) {
-		ctf_config.MustConfigOverrideChainlinkVersion(testconfig.ChainlinkImage, target)
-		ctf_config.MightConfigOverridePyroscopeKey(testconfig.Pyroscope, target)
+		ctf_config.MustConfigOverrideChainlinkVersion(testconfig.GetChainlinkImageConfig(), target)
+		ctf_config.MightConfigOverridePyroscopeKey(testconfig.GetPyroscopeConfig(), target)
 	}
 
 	chainlinkCfg := chainlink.NewWithOverride(0, defaultOCR2VRFSettings, testconfig.ChainlinkImage, overrideFn)

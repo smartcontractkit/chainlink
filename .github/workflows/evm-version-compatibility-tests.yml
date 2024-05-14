@@ -1,0 +1,356 @@
+name: EVM Node Version Compatibility Tests
+on:
+  merge_group:
+  pull_request:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      base64_test_list:
+        description: Base64 encoded test list (same format as ./integration-tests/evm_node_compatibility_test_list.json)
+        required: false
+        type: string
+
+env:
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+  MOD_CACHE_VERSION: 2
+
+jobs:
+
+  # Check if go.mod has changed
+  check-dependency-bump:
+      runs-on: ubuntu-latest
+      outputs:
+        dependency_changed: ${{ steps.changes.outputs.dependency_changed }}
+      steps:
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+      - name: Check for go.mod changes
+        id: changes
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          # if no match is found then grep exits with code 1, but if there is a match it exits with code 0
+          # this will return a match if there are any changes on that corresponding line, for example if spacing was changed
+          DEPENDENCY_CHANGED=$(git diff -U0 origin/${{ github.base_ref }}...HEAD -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
+          PR_VERSION=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
+
+          # here 0 means a match was found, 1 means no match was found
+          if [ "$DEPENDENCY_CHANGED" -eq 0 ]; then
+            # Dependency was changed in the PR, now compare with the base branch
+            git fetch origin ${{ github.base_ref }}
+            BASE_VERSION=$(git show origin/${{ github.base_ref }}:go.mod | grep 'github.com/ethereum/go-ethereum' | awk '{print $2}')
+
+            echo "Base branch version: $BASE_VERSION"
+            echo "PR branch version: $PR_VERSION"
+
+            echo "Dependency version changed in the PR compared to the base branch."
+            echo "dependency_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes to ethereum/go-ethereum dependency in the PR."
+            echo "PR branch version: $PR_VERSION"
+            echo "dependency_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Build Test Dependencies
+
+  build-chainlink:
+    if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [check-dependency-bump]
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: evm-build-chainlink
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Chainlink Image
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          tag_suffix: ""
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ github.sha }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+  build-tests:
+    if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [check-dependency-bump]
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Tests Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: evm-build-tests
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Tests Binary
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        with:
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          go_tags: embed
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          binary_name: tests
+
+  build-test-matrix:
+    if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [check-dependency-bump]
+    runs-on: ubuntu-latest
+    name: Build Test Matrix
+    outputs:
+      matrix: ${{ env.JOB_MATRIX_JSON }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup environment variables
+        run: |
+          echo "BASE64_TEST_LIST=${{ github.event.inputs.base64_test_list }}" >> $GITHUB_ENV
+      - name: Decode Base64 Test List Input if Set
+        id: decode-base64-test-list
+        if: env.BASE64_TEST_LIST != ''
+        run: |
+          echo "Decoding base64 test list..."
+          DECODED_BASE64_TEST_LIST=$(echo $BASE64_TEST_LIST | base64 -d)
+          echo $DECODED_BASE64_TEST_LIST
+          cd ./integration-tests
+          echo $DECODED_BASE64_TEST_LIST >> ./evm_node_compatibility_test_list.json
+      - name: Override Test List If Present
+        if: env.BASE64_TEST_LIST == ''
+        id: build-test-matrix-list
+        run: |
+          cd ./integration-tests
+          cp ./smoke/evm_node_compatibility_test_list.json .
+      - name: Create Test Matrix
+        id: create-test-matrix-list
+        run: |
+          cd ./integration-tests
+          JOB_MATRIX_JSON=$(./scripts/buildEvmClientTestMatrixList.sh ./evm_node_compatibility_test_list.json ubuntu-latest)
+          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
+          echo $JOB_MATRIX_JSON | jq .
+
+  # End Build Test Dependencies
+
+  evm-node-compatiblity-matrix:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs:
+      [check-dependency-bump, build-chainlink, build-tests, build-test-matrix]
+    env:
+      SELECTED_NETWORKS: SIMULATED
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+    strategy:
+      fail-fast: false
+      matrix:
+        evm_node: ${{fromJson(needs.build-test-matrix.outputs.matrix)}}
+    runs-on: ${{ matrix.evm_node.os }}
+    name: EVM node compatibility of ${{ matrix.evm_node.product }} with ${{ matrix.evm_node.docker_image }}
+    steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: evm-e2e-compatability-tests-${{ matrix.evm_node.name }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          this-job-name: EVM node compatibility ${{ matrix.evm_node.name }} ${{ matrix.evm_node.docker_image }}
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Go Test Command
+        id: build-go-test-command
+        run: |
+          # if the matrix.evm_node.run is set, use it for a different command
+          if [ "${{ matrix.evm_node.run }}" != "" ]; then
+            echo "run_command=${{ matrix.evm_node.run }} ./smoke/${{ matrix.evm_node.product }}_test.go" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_command=./smoke/${{ matrix.evm_node.product }}_test.go" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
+          # metrics inputs
+          metrics-job-name: "grafana"
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: "http://localhost:8080/primary"
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          ethExecutionClient: ${{ matrix.evm_node.eth_client }}
+          customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
+
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        with:
+          test_command_to_run: cd ./integration-tests && go test -timeout 45m -count=1 -json -test.parallel=2 ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_location: ./integration-tests/smoke/logs/
+          publish_check_name: ${{ matrix.evm_node.product }}-compatibility-${{ matrix.evm_node.eth_client }}-${{ matrix.evm_node.docker_image }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ""
+          should_tidy: "false"
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+
+  start-slack-thread:
+    name: Start Slack Thread
+    if: ${{ always() && needs.check-dependency-bump.outputs.dependency_changed == 'true' && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    environment: integration
+    outputs:
+      thread_ts: ${{ steps.slack.outputs.thread_ts }}
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [ evm-node-compatiblity-matrix]
+    steps:
+      - name: Debug Result
+        run: echo ${{ join(needs.*.result, ',') }}
+      - name: Main Slack Notification
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        id: slack
+        with:
+          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || '#2E7D32' }}",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "EVM Node Compatability Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "emoji": true
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U060CGGPY8H>' || 'All Good!' }}"
+                      }
+                    },
+                    {
+                      "type": "divider"
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
+  post-test-results-to-slack:
+    name: Post Test Results for ${{matrix.evm_node.eth_client}} to Slack
+    if: ${{ always() && needs.check-dependency-bump.outputs.dependency_changed == 'true' && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [start-slack-thread, build-test-matrix]
+    strategy:
+      fail-fast: false
+      matrix:
+        # this basically works as group by in SQL; we should update it when we update the test list JSON file
+        product: [automation,ocr,ocr2,vrf,vrfv2,vrfv2plus]
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Post Test Results to Slack
+        uses: ./.github/actions/notify-slack-jobs-result
+        with:
+          github_token: ${{ github.token }}
+          github_repository: ${{ github.repository }}
+          workflow_run_id: ${{ github.run_id }}
+          github_job_name_regex: ^EVM node compatibility of ${{ matrix.product }} with (?<cap>.*?)$
+          message_title: ${{ matrix.product }}
+          slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
+          slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
+          slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}

@@ -4,9 +4,10 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	pkgerrors "github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -14,7 +15,7 @@ var (
 	// ErrorAuthFailed is a generic authentication failed - but not because of
 	// some system failure on our behalf (i.e. HTTP 5xx), more detail is not
 	// given
-	ErrorAuthFailed = errors.New("Authentication failed")
+	ErrorAuthFailed = pkgerrors.New("Authentication failed")
 )
 
 // Token is used for API authentication.
@@ -57,7 +58,7 @@ func HashedSecret(ta *Token, salt string) (string, error) {
 	hasher := sha3.New256()
 	_, err := hasher.Write(hashInput(ta, salt))
 	if err != nil {
-		return "", errors.Wrap(err, "error writing external initiator authentication to hasher")
+		return "", pkgerrors.Wrap(err, "error writing external initiator authentication to hasher")
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

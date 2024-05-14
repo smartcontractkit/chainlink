@@ -26,6 +26,7 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
     bytes verified
   );
   event LimitOrderExecuted(uint256 indexed orderId, uint256 indexed amount, address indexed exchange); // keccak(LimitOrderExecuted(uint256,uint256,address)) => 0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd
+  event IgnoringErrorHandlerData();
 
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
   IVerifierProxy internal constant VERIFIER = IVerifierProxy(0x09DFf56A4fF44e0f4436260A04F5CFa65636A481);
@@ -42,10 +43,12 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
   string public feedParamKey = "feedIdHex";
   string public timeParamKey = "blockNumber";
   uint256 public counter;
+  bool public checkErrReturnBool;
 
-  constructor(bool _useArbitrumBlockNum, bool _verify) {
+  constructor(bool _useArbitrumBlockNum, bool _verify, bool _checkErrReturnBool) {
     useArbitrumBlockNum = _useArbitrumBlockNum;
     verify = _verify;
+    checkErrReturnBool = _checkErrReturnBool;
     counter = 0;
   }
 
@@ -94,6 +97,10 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
   }
 
   function performUpkeep(bytes calldata performData) external override {
+    if (performData.length == 0) {
+      emit IgnoringErrorHandlerData();
+      return;
+    }
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     (uint256 orderId, uint256 amount, address exchange, bytes32 logTopic0) = abi.decode(
       extraData,
@@ -128,6 +135,14 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
+  }
+
+  function checkErrorHandler(
+    uint256 errCode,
+    bytes memory extraData
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // dummy function with default values
+    return (checkErrReturnBool, new bytes(0));
   }
 
   function getBlockNumber() internal view returns (uint256) {

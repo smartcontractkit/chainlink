@@ -2,6 +2,8 @@ package ocrcommon
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -11,9 +13,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	serializablebig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -98,7 +103,61 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 	}
 }
 
+const defaultUpdateInterval = time.Minute * 5
+const defaultStalenessAlertThreshold = time.Hour * 24
+const dataSourceCacheKey = "dscache"
+
+type DataSourceCacheService interface {
+	Start(context.Context) error
+	Close() error
+	median.DataSource
+}
+
+func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheCfg *config.JuelsPerFeeCoinCache) (DataSourceCacheService, error) {
+	inMemoryDS, ok := ds.(*inMemoryDataSource)
+	if !ok {
+		return nil, errors.Errorf("unsupported data source type: %T, only inMemoryDataSource supported", ds)
+	}
+	var updateInterval, stalenessAlertThreshold time.Duration
+	if cacheCfg == nil {
+		updateInterval = defaultUpdateInterval
+		stalenessAlertThreshold = defaultStalenessAlertThreshold
+	} else {
+		updateInterval, stalenessAlertThreshold = cacheCfg.UpdateInterval.Duration(), cacheCfg.StalenessAlertThreshold.Duration()
+		if updateInterval == 0 {
+			updateInterval = defaultUpdateInterval
+		}
+		if stalenessAlertThreshold == 0 {
+			stalenessAlertThreshold = defaultStalenessAlertThreshold
+		}
+	}
+
+	dsCache := &inMemoryDataSourceCache{
+		inMemoryDataSource:      inMemoryDS,
+		kvStore:                 kvStore,
+		updateInterval:          updateInterval,
+		stalenessAlertThreshold: stalenessAlertThreshold,
+		chStop:                  make(chan struct{}),
+		chDone:                  make(chan struct{}),
+	}
+	return dsCache, nil
+}
+
 var _ ocr1types.DataSource = (*dataSource)(nil)
+
+func setEATelemetry(ds *inMemoryDataSource, finalResult pipeline.FinalResult, trrs pipeline.TaskRunResults, timestamp ObservationTimestamp) {
+	promSetFinalResultMetrics(ds, &finalResult)
+	promSetBridgeParseMetrics(ds, &trrs)
+	if ShouldCollectEnhancedTelemetry(&ds.jb) {
+		EnqueueEnhancedTelem(ds.chEnhancedTelemetry, EnhancedTelemetryData{
+			TaskRunResults: trrs,
+			FinalResults:   finalResult,
+			RepTimestamp:   timestamp,
+		})
+	} else {
+		ds.lggr.Infow("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
+	}
+}
 
 func (ds *inMemoryDataSource) updateAnswer(a *big.Int) {
 	ds.mu.Lock()
@@ -117,10 +176,10 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp ObservationTimestamp) (*pipeline.Run, pipeline.FinalResult, error) {
+func (ds *inMemoryDataSource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
-		ds.lggr.Warnw("unable to attach metadata for run", "err", err)
+		ds.lggr.Warnf("unable to attach metadata for run, err: %v", err)
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -136,23 +195,10 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp Observat
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return nil, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
-	}
-	finalResult := trrs.FinalResult(ds.lggr)
-	promSetBridgeParseMetrics(ds, &trrs)
-	promSetFinalResultMetrics(ds, &finalResult)
-
-	if ShouldCollectEnhancedTelemetry(&ds.jb) {
-		EnqueueEnhancedTelem(ds.chEnhancedTelemetry, EnhancedTelemetryData{
-			TaskRunResults: trrs,
-			FinalResults:   finalResult,
-			RepTimestamp:   timestamp,
-		})
-	} else {
-		ds.lggr.Infow("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
+		return nil, pipeline.TaskRunResults{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 
-	return run, finalResult, err
+	return run, trrs, err
 }
 
 // parse uses the FinalResult into a big.Int and stores it in the bridge metadata
@@ -176,19 +222,174 @@ func (ds *inMemoryDataSource) parse(finalResult pipeline.FinalResult) (*big.Int,
 
 // Observe without saving to DB
 func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
-	_, finalResult, err := ds.executeRun(ctx, ObservationTimestamp{
+	_, trrs, err := ds.executeRun(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	finalResult := trrs.FinalResult(ds.lggr)
+	setEATelemetry(ds, finalResult, trrs, ObservationTimestamp{
 		Round:        timestamp.Round,
 		Epoch:        timestamp.Epoch,
 		ConfigDigest: timestamp.ConfigDigest.Hex(),
 	})
-	if err != nil {
-		return nil, err
-	}
+
 	return ds.parse(finalResult)
 }
 
+// inMemoryDataSourceCache is a time based cache wrapper for inMemoryDataSource.
+// If cache update is overdue Observe defaults to standard inMemoryDataSource behaviour.
+type inMemoryDataSourceCache struct {
+	*inMemoryDataSource
+	// updateInterval indicates duration between cache updates.
+	// Even if update fail, previous values are returned.
+	updateInterval time.Duration
+	// stalenessAlertThreshold indicates duration before logs raise severity level because of stale cache.
+	stalenessAlertThreshold time.Duration
+	mu                      sync.RWMutex
+	chStop                  services.StopChan
+	chDone                  chan struct{}
+	latestUpdateErr         error
+	latestTrrs              pipeline.TaskRunResults
+	latestResult            pipeline.FinalResult
+	kvStore                 job.KVStore
+}
+
+func (ds *inMemoryDataSourceCache) Start(context.Context) error {
+	go func() { ds.updater() }()
+	return nil
+}
+
+func (ds *inMemoryDataSourceCache) Close() error {
+	close(ds.chStop)
+	<-ds.chDone
+	return nil
+}
+
+// updater periodically updates data source cache.
+func (ds *inMemoryDataSourceCache) updater() {
+	ticker := time.NewTicker(ds.updateInterval)
+	updateCache := func() {
+		ctx, cancel := ds.chStop.CtxCancel(context.WithTimeout(context.Background(), time.Second*10))
+		defer cancel()
+		if err := ds.updateCache(ctx); err != nil {
+			ds.lggr.Warnf("failed to update cache, err: %v", err)
+		}
+	}
+
+	updateCache()
+	for {
+		select {
+		case <-ticker.C:
+			updateCache()
+		case <-ds.chStop:
+			close(ds.chDone)
+			return
+		}
+	}
+}
+
+type ResultTimePair struct {
+	Result serializablebig.Big `json:"result"`
+	Time   time.Time           `json:"time"`
+}
+
+func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	_, latestTrrs, err := ds.executeRun(ctx)
+	if err != nil {
+		previousUpdateErr := ds.latestUpdateErr
+		ds.latestUpdateErr = err
+		// warn log if previous cache update also errored
+		if previousUpdateErr != nil {
+			ds.lggr.Warnf("consecutive cache updates errored: previous err: %v new err: %v", previousUpdateErr, ds.latestUpdateErr)
+		}
+
+		return errors.Wrapf(ds.latestUpdateErr, "error updating in memory data source cache for spec ID %v", ds.spec.ID)
+	}
+
+	value, err := ds.inMemoryDataSource.parse(latestTrrs.FinalResult(ds.lggr))
+	if err != nil {
+		ds.latestUpdateErr = errors.Wrapf(err, "invalid result")
+		return ds.latestUpdateErr
+	}
+
+	// update cache values
+	ds.latestTrrs = latestTrrs
+	ds.latestResult = ds.latestTrrs.FinalResult(ds.lggr)
+	ds.latestUpdateErr = nil
+
+	// backup in case data source fails continuously and node gets rebooted
+	timePairBytes, err := json.Marshal(&ResultTimePair{Result: *serializablebig.New(value), Time: time.Now()})
+	if err != nil {
+		return fmt.Errorf("failed to marshal result time pair, err: %w", err)
+	}
+
+	if err = ds.kvStore.Store(ctx, dataSourceCacheKey, timePairBytes); err != nil {
+		ds.lggr.Errorf("failed to persist latest task run value, err: %v", err)
+	}
+
+	return nil
+}
+
+func (ds *inMemoryDataSourceCache) get(ctx context.Context) (pipeline.FinalResult, pipeline.TaskRunResults) {
+	ds.mu.RLock()
+	// updater didn't error, so we know that the latestResult is fresh
+	if ds.latestUpdateErr == nil {
+		defer ds.mu.RUnlock()
+		return ds.latestResult, ds.latestTrrs
+	}
+	ds.mu.RUnlock()
+
+	if err := ds.updateCache(ctx); err != nil {
+		ds.lggr.Warnf("failed to update cache, returning stale result now, err: %v", err)
+	}
+
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	return ds.latestResult, ds.latestTrrs
+}
+
+func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
+	var resTime ResultTimePair
+	latestResult, latestTrrs := ds.get(ctx)
+	if latestTrrs == nil {
+		ds.lggr.Warnf("cache is empty, returning persisted value now")
+
+		timePairBytes, err := ds.kvStore.Get(ctx, dataSourceCacheKey)
+		if err != nil {
+			return nil, fmt.Errorf("in memory data source cache is empty and failed to get backup persisted value, err: %w", err)
+		}
+
+		if err = json.Unmarshal(timePairBytes, &resTime); err != nil {
+			return nil, fmt.Errorf("in memory data source cache is empty and failed to unmarshal backup persisted value, err: %w", err)
+		}
+
+		if time.Since(resTime.Time) >= ds.stalenessAlertThreshold {
+			ds.lggr.Errorf("in memory data source cache is empty and the persisted value hasn't been updated for over %v, latestUpdateErr is: %v", ds.stalenessAlertThreshold, ds.latestUpdateErr)
+		}
+		return resTime.Result.ToInt(), nil
+	}
+
+	setEATelemetry(ds.inMemoryDataSource, latestResult, latestTrrs, ObservationTimestamp{
+		Round:        timestamp.Round,
+		Epoch:        timestamp.Epoch,
+		ConfigDigest: timestamp.ConfigDigest.Hex(),
+	})
+
+	// if last update was unsuccessful, check how much time passed since a successful update
+	if ds.latestUpdateErr != nil {
+		if time.Since(ds.latestTrrs.GetTaskRunResultsFinishedAt()) >= ds.stalenessAlertThreshold {
+			ds.lggr.Errorf("in memory cache is old and hasn't been updated for over %v, latestUpdateErr is: %v", ds.stalenessAlertThreshold, ds.latestUpdateErr)
+		}
+	}
+	return ds.parse(latestResult)
+}
+
 func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTimestamp) (*big.Int, error) {
-	run, finalResult, err := ds.inMemoryDataSource.executeRun(ctx, timestamp)
+	run, trrs, err := ds.inMemoryDataSource.executeRun(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +401,9 @@ func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTime
 	// immediately return any result we have and do not want to have
 	// a db write block that.
 	ds.saver.Save(run)
+
+	finalResult := trrs.FinalResult(ds.lggr)
+	setEATelemetry(&ds.inMemoryDataSource, finalResult, trrs, timestamp)
 
 	return ds.inMemoryDataSource.parse(finalResult)
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -27,24 +28,25 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
+	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), &audit.AuditLoggerService{})
 
 	return db, orm
 }
 
 func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	db, orm := setupORM(t)
 	user1 := cltest.MustRandomUser(t)
 	user2 := cltest.MustRandomUser(t)
 
-	require.NoError(t, orm.CreateUser(&user1))
-	require.NoError(t, orm.CreateUser(&user2))
+	require.NoError(t, orm.CreateUser(ctx, &user1))
+	require.NoError(t, orm.CreateUser(ctx, &user2))
 	_, err := db.Exec("UPDATE users SET created_at = now() - interval '1 day' WHERE email = $1", user2.Email)
 	require.NoError(t, err)
 
-	actual, err := orm.FindUser(user1.Email)
+	actual, err := orm.FindUser(ctx, user1.Email)
 	require.NoError(t, err)
 	assert.Equal(t, user1.Email, actual.Email)
 	assert.Equal(t, user1.HashedPassword, actual.HashedPassword)
@@ -67,11 +69,12 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			db := pgtest.NewSqlxDB(t)
-			orm := localauth.NewORM(db, test.sessionDuration, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
+			orm := localauth.NewORM(db, test.sessionDuration, logger.TestLogger(t), &audit.AuditLoggerService{})
 
 			user := cltest.MustRandomUser(t)
-			require.NoError(t, orm.CreateUser(&user))
+			require.NoError(t, orm.CreateUser(ctx, &user))
 
 			prevSession := cltest.NewSession("correctID")
 			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "2m"))
@@ -79,7 +82,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			require.NoError(t, err)
 
 			expectedTime := utils.ISO8601UTC(time.Now())
-			actual, err := orm.AuthorizedUserWithSession(test.sessionID)
+			actual, err := orm.AuthorizedUserWithSession(ctx, test.sessionID)
 			if test.wantError != "" {
 				require.EqualError(t, err, test.wantError)
 			} else {
@@ -96,58 +99,61 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 func TestORM_DeleteUser(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 
 	u := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&u))
+	require.NoError(t, orm.CreateUser(ctx, &u))
 
-	err := orm.DeleteUser(u.Email)
+	err := orm.DeleteUser(ctx, u.Email)
 	require.NoError(t, err)
 
-	_, err = orm.FindUser(u.Email)
+	_, err = orm.FindUser(ctx, u.Email)
 	require.Error(t, err)
 }
 
 func TestORM_DeleteUserSession(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	db, orm := setupORM(t)
 
 	u := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&u))
+	require.NoError(t, orm.CreateUser(ctx, &u))
 
 	session := sessions.NewSession()
 	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, u.Email)
 	require.NoError(t, err)
 
-	err = orm.DeleteUserSession(session.ID)
+	err = orm.DeleteUserSession(ctx, session.ID)
 	require.NoError(t, err)
 
-	_, err = orm.FindUser(u.Email)
+	_, err = orm.FindUser(ctx, u.Email)
 	require.NoError(t, err)
 
-	sessions, err := orm.Sessions(0, 10)
+	sessions, err := orm.Sessions(ctx, 0, 10)
 	assert.NoError(t, err)
 	require.Empty(t, sessions)
 }
 
 func TestORM_DeleteUserCascade(t *testing.T) {
+	ctx := testutils.Context(t)
 	db, orm := setupORM(t)
 
 	u := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&u))
+	require.NoError(t, orm.CreateUser(ctx, &u))
 
 	session := sessions.NewSession()
 	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, u.Email)
 	require.NoError(t, err)
 
-	err = orm.DeleteUser(u.Email)
+	err = orm.DeleteUser(ctx, u.Email)
 	require.NoError(t, err)
 
-	_, err = orm.FindUser(u.Email)
+	_, err = orm.FindUser(ctx, u.Email)
 	require.Error(t, err)
 
-	sessions, err := orm.Sessions(0, 10)
+	sessions, err := orm.Sessions(ctx, 0, 10)
 	assert.NoError(t, err)
 	require.Empty(t, sessions)
 }
@@ -158,7 +164,7 @@ func TestORM_CreateSession(t *testing.T) {
 	_, orm := setupORM(t)
 
 	initial := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&initial))
+	require.NoError(t, orm.CreateUser(testutils.Context(t), &initial))
 
 	tests := []struct {
 		name        string
@@ -179,7 +185,7 @@ func TestORM_CreateSession(t *testing.T) {
 				Password: test.password,
 			}
 
-			sessionID, err := orm.CreateSession(sessionRequest)
+			sessionID, err := orm.CreateSession(testutils.Context(t), sessionRequest)
 			if test.wantSession {
 				require.NoError(t, err)
 				assert.NotEmpty(t, sessionID)
@@ -193,13 +199,14 @@ func TestORM_CreateSession(t *testing.T) {
 
 func TestORM_WebAuthn(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)
 
 	initial := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&initial))
+	require.NoError(t, orm.CreateUser(ctx, &initial))
 
-	was, err := orm.GetUserWebAuthn(initial.Email)
+	was, err := orm.GetUserWebAuthn(ctx, initial.Email)
 	require.NoError(t, err)
 	assert.Len(t, was, 0)
 
@@ -208,13 +215,13 @@ func TestORM_WebAuthn(t *testing.T) {
 		PublicKey:       []byte("test-key"),
 		AttestationType: "test-attestation",
 	}
-	require.NoError(t, sessions.AddCredentialToUser(orm, initial.Email, &cred))
+	require.NoError(t, sessions.AddCredentialToUser(ctx, orm, initial.Email, &cred))
 
-	was, err = orm.GetUserWebAuthn(initial.Email)
+	was, err = orm.GetUserWebAuthn(ctx, initial.Email)
 	require.NoError(t, err)
 	require.NotEmpty(t, was)
 
-	_, err = orm.CreateSession(sessions.SessionRequest{
+	_, err = orm.CreateSession(ctx, sessions.SessionRequest{
 		Email:    initial.Email,
 		Password: cltest.Password,
 	})
@@ -222,7 +229,7 @@ func TestORM_WebAuthn(t *testing.T) {
 	require.ErrorContains(t, err, "MFA Error")
 
 	ss := sessions.NewWebAuthnSessionStore()
-	_, err = orm.CreateSession(sessions.SessionRequest{
+	_, err = orm.CreateSession(ctx, sessions.SessionRequest{
 		Email:    initial.Email,
 		Password: cltest.Password,
 		WebAuthnConfig: sessions.WebAuthnConfiguration{
@@ -236,7 +243,7 @@ func TestORM_WebAuthn(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(err.Error()), &ca))
 	require.Equal(t, "test-rpid", ca.Response.RelyingPartyID)
 
-	_, err = orm.CreateSession(sessions.SessionRequest{
+	_, err = orm.CreateSession(ctx, sessions.SessionRequest{
 		Email:    initial.Email,
 		Password: cltest.Password,
 		WebAuthnConfig: sessions.WebAuthnConfiguration{
@@ -258,7 +265,7 @@ func TestORM_WebAuthn(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	_, err = orm.CreateSession(sessions.SessionRequest{
+	_, err = orm.CreateSession(ctx, sessions.SessionRequest{
 		Email:    initial.Email,
 		Password: cltest.Password,
 		WebAuthnConfig: sessions.WebAuthnConfiguration{
@@ -273,16 +280,17 @@ func TestORM_WebAuthn(t *testing.T) {
 
 func TestOrm_GenerateAuthToken(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)
 
 	initial := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&initial))
+	require.NoError(t, orm.CreateUser(ctx, &initial))
 
-	token, err := orm.CreateAndSetAuthToken(&initial)
+	token, err := orm.CreateAndSetAuthToken(ctx, &initial)
 	require.NoError(t, err)
 
-	dbUser, err := orm.FindUser(initial.Email)
+	dbUser, err := orm.FindUser(ctx, initial.Email)
 	require.NoError(t, err)
 
 	hashedSecret, err := auth.HashedSecret(token, dbUser.TokenSalt.String)
@@ -294,8 +302,8 @@ func TestOrm_GenerateAuthToken(t *testing.T) {
 	assert.Equal(t, dbUser.TokenKey.String, token.AccessKey)
 	assert.Equal(t, dbUser.TokenHashedSecret.String, hashedSecret)
 
-	require.NoError(t, orm.DeleteAuthToken(&initial))
-	dbUser, err = orm.FindUser(initial.Email)
+	require.NoError(t, orm.DeleteAuthToken(ctx, &initial))
+	dbUser, err = orm.FindUser(ctx, initial.Email)
 	require.NoError(t, err)
 	assert.Empty(t, dbUser.TokenKey.ValueOrZero())
 	assert.Empty(t, dbUser.TokenSalt.ValueOrZero())

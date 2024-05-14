@@ -21,6 +21,12 @@ OIFS=$IFS
 IFS=' '
 for x in $tosplit
 do
-    go test -c -tags embed ./"${x}"
+    if [ "$x" = "load" ]; then
+      echo "Changing directory and executing go test -c ./... for 'load' package"
+      pushd "./load" && go test -c -tags embed -o .. ./...
+      popd
+    else
+      go test -c -tags embed ./"${x}"
+    fi
 done
 IFS=$OIFS

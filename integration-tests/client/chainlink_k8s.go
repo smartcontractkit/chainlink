@@ -144,3 +144,7 @@ func ConnectChainlinkNodeURL(url string) (*ChainlinkK8sClient, error) {
 		"connectedNodeByURL", // an intentionally bad decision
 	)
 }
+
+func (c *ChainlinkK8sClient) GetConfig() ChainlinkConfig {
+	return *c.Config
+}

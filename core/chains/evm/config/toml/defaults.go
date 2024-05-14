@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	cconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -136,6 +137,12 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.LogKeepBlocksDepth; v != nil {
 		c.LogKeepBlocksDepth = v
 	}
+	if v := f.LogPrunePageSize; v != nil {
+		c.LogPrunePageSize = v
+	}
+	if v := f.BackupLogPollerBlockDelay; v != nil {
+		c.BackupLogPollerBlockDelay = v
+	}
 	if v := f.MinIncomingConfirmations; v != nil {
 		c.MinIncomingConfirmations = v
 	}
@@ -177,4 +184,5 @@ func (c *Chain) SetFrom(f *Chain) {
 	c.NodePool.setFrom(&f.NodePool)
 	c.OCR.setFrom(&f.OCR)
 	c.OCR2.setFrom(&f.OCR2)
+	c.ChainWriter.setFrom(&f.ChainWriter)
 }

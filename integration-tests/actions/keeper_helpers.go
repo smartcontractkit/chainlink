@@ -418,7 +418,7 @@ func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDepl
 			keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggerConsumer(big.NewInt(1000)) // 1000 block test range
 		} else {
 			// v2.0 and v2.1: Conditional based contract without Mercury
-			keeperConsumerInstance, err = contractDeployer.DeployKeeperConsumer(big.NewInt(5))
+			keeperConsumerInstance, err = contractDeployer.DeployUpkeepCounter(big.NewInt(999999), big.NewInt(5))
 		}
 
 		require.NoError(t, err, "Deploying Consumer instance %d shouldn't fail", contractCount+1)

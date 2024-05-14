@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 
@@ -82,6 +83,8 @@ func NewContractLoader(bcClient blockchain.EVMClient, logger zerolog.Logger) (Co
 		return &FantomContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.BSCClient:
 		return &BSCContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
+	case *blockchain.GnosisClient:
+		return &GnosisContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -155,6 +158,11 @@ type BSCContractLoader struct {
 	*EthereumContractLoader
 }
 
+// GnosisContractLoader wraps for Gnosis
+type GnosisContractLoader struct {
+	*EthereumContractLoader
+}
+
 // NewEthereumContractLoader returns an instantiated instance of the ETH contract Loader
 func NewEthereumContractLoader(ethClient blockchain.EVMClient, logger zerolog.Logger) *EthereumContractLoader {
 	return &EthereumContractLoader{
@@ -174,7 +182,7 @@ func (e *EthereumContractLoader) LoadLINKToken(addr string) (LinkToken, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumLinkToken{
+	return &LegacyEthereumLinkToken{
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
 		address:  common.HexToAddress(addr),
@@ -193,7 +201,7 @@ func (e *EthereumContractLoader) LoadFunctionsCoordinator(addr string) (Function
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsCoordinator{
+	return &LegacyEthereumFunctionsCoordinator{
 		client:   e.client,
 		instance: instance.(*functions_coordinator.FunctionsCoordinator),
 		address:  common.HexToAddress(addr),
@@ -211,7 +219,7 @@ func (e *EthereumContractLoader) LoadFunctionsRouter(addr string) (FunctionsRout
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsRouter{
+	return &LegacyEthereumFunctionsRouter{
 		client:   e.client,
 		instance: instance.(*functions_router.FunctionsRouter),
 		address:  common.HexToAddress(addr),
@@ -230,7 +238,7 @@ func (e *EthereumContractLoader) LoadFunctionsLoadTestClient(addr string) (Funct
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsLoadTestClient{
+	return &LegacyEthereumFunctionsLoadTestClient{
 		client:   e.client,
 		instance: instance.(*functions_load_test_client.FunctionsLoadTestClient),
 		address:  common.HexToAddress(addr),
@@ -248,7 +256,7 @@ func (e *EthereumContractLoader) LoadOperatorContract(address common.Address) (O
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOperator{
+	return &LegacyEthereumOperator{
 		address:  address,
 		client:   e.client,
 		operator: instance.(*operator_wrapper.Operator),
@@ -267,7 +275,7 @@ func (e *EthereumContractLoader) LoadAuthorizedForwarder(address common.Address)
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAuthorizedForwarder{
+	return &LegacyEthereumAuthorizedForwarder{
 		address:             address,
 		client:              e.client,
 		authorizedForwarder: instance.(*authorized_forwarder.AuthorizedForwarder),
@@ -420,7 +428,7 @@ func (e *EthereumContractLoader) LoadVRFCoordinatorV2(addr string) (VRFCoordinat
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return vrf_coordinator_v2.NewVRFCoordinatorV2(address, backend)
+		return vrf_coordinator_v2.NewVRFCoordinatorV2(address, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
 	if err != nil {
 		return nil, err

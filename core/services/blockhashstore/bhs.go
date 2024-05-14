@@ -16,16 +16,16 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 var _ BHS = &BulletproofBHS{}
 
 type bpBHSConfig interface {
-	LimitDefault() uint32
+	LimitDefault() uint64
 }
 
 type bpBHSDatabaseConfig interface {
@@ -38,7 +38,7 @@ type BulletproofBHS struct {
 	config        bpBHSConfig
 	dbConfig      bpBHSDatabaseConfig
 	jobID         uuid.UUID
-	fromAddresses []ethkey.EIP55Address
+	fromAddresses []types.EIP55Address
 	txm           txmgr.TxManager
 	abi           *abi.ABI
 	trustedAbi    *abi.ABI
@@ -52,7 +52,7 @@ type BulletproofBHS struct {
 func NewBulletproofBHS(
 	config bpBHSConfig,
 	dbConfig bpBHSDatabaseConfig,
-	fromAddresses []ethkey.EIP55Address,
+	fromAddresses []types.EIP55Address,
 	txm txmgr.TxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
 	trustedBHS *trusted_blockhash_store.TrustedBlockhashStore,
@@ -91,7 +91,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "packing args")
 	}
 
-	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, SendingKeys(c.fromAddresses)...)
+	fromAddress, err := c.gethks.GetRoundRobinAddress(ctx, c.chainID, SendingKeys(c.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}
@@ -104,7 +104,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 
 		// Set a queue size of 256. At most we store the blockhash of every block, and only the
 		// latest 256 can possibly be stored.
-		Strategy: txmgrcommon.NewQueueingTxStrategy(c.jobID, 256, c.dbConfig.DefaultQueryTimeout()),
+		Strategy: txmgrcommon.NewQueueingTxStrategy(c.jobID, 256),
 	})
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")
@@ -132,7 +132,7 @@ func (c *BulletproofBHS) StoreTrusted(
 	}
 
 	// Create a transaction from the given batch and send it to the TXM.
-	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, SendingKeys(c.fromAddresses)...)
+	fromAddress, err := c.gethks.GetRoundRobinAddress(ctx, c.chainID, SendingKeys(c.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}
@@ -186,7 +186,7 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "packing args")
 	}
 
-	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, c.sendingKeys()...)
+	fromAddress, err := c.gethks.GetRoundRobinAddress(ctx, c.chainID, c.sendingKeys()...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}

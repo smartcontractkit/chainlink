@@ -1,0 +1,88 @@
+ triggers:
+   - id: mercury-trigger@1
+     ref: report_data
+     config:
+       boolean_coercion:
+         bools: 
+          - y
+          - n
+          - yes
+          - no
+          - Y
+          - N
+          - YES
+          - NO
+          - No
+          - Yes 
+          - TRUE
+          - FALSE
+          - True
+          - False
+          - true
+          - false
+         strings: 
+          - TruE
+          - FalsE
+          - "true"
+          - "false"
+          - "TRUE"
+          - "FALSE"
+          - t
+          - f
+          - "T"
+          - "F"
+          - "t"
+          - "f"
+          - "1"
+          - "0"
+          - "yes"
+          - "no"
+          - "y"
+          - "n"
+          - "YES"
+          - "NO"
+          - "Y"
+          - "N"
+         numbers:
+          - 1
+          - 0
+       feed_ids:
+         - 123 # ETHUSD
+         - 456 # LINKUSD
+         - 789 # USDBTC
+
+ # no actions
+
+ consensus:
+   - id: offchain_reporting@1
+     inputs:
+       observations:
+         - triggers.report_data.outputs
+     config:
+       aggregation_method: data_feeds_2_0
+       aggregation_config:
+         123: # ETHUSD
+           deviation: "0.005"
+           heartbeat: 24h
+           test:  
+         456: # LINKUSD
+           deviation: "0.001"
+           heartbeat: 24h
+         789: # USDBTC
+           deviation: "0.002"
+           heartbeat: 6h
+       encoder: EVM
+       encoder_config:
+           abi: "mercury_reports bytes[]"
+
+ targets:
+   - id: write_polygon_mainnet@1
+     inputs:
+       report:
+         - consensus.evm_median.outputs.report
+     config:
+       address: "0xaabbcc"
+       method: "updateFeedValues(report bytes, role uint8)"
+       params: [$(inputs.report), 1]
+
+# yaml-language-server: $schema=../workflow_schema.json

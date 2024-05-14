@@ -22,12 +22,12 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   // to extract config from logs.
 
   // Storing these fields used on the hot path in a ConfigInfo variable reduces the
-  // retrieval of all of them to a single SLOAD. If any further fields are
-  // added, make sure that storage of the struct still takes at most 32 bytes.
+  // retrieval of all of them into two SLOADs. If any further fields are
+  // added, make sure that storage of the struct still takes at most 64 bytes.
   struct ConfigInfo {
     bytes32 latestConfigDigest;
-    uint8 f; // TODO: could be optimized by squeezing into one slot
-    uint8 n;
+    uint8 f; // ───╮
+    uint8 n; // ───╯
   }
   ConfigInfo internal s_configInfo;
 
@@ -58,6 +58,14 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   // s_transmitters contains the transmission address of each oracle,
   // i.e. the address the oracle actually sends transactions to the contract from
   address[] internal s_transmitters;
+
+  struct DecodedReport {
+    bytes32[] requestIds;
+    bytes[] results;
+    bytes[] errors;
+    bytes[] onchainMetadata;
+    bytes[] offchainMetadata;
+  }
 
   /*
    * Config logic
@@ -207,7 +215,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     );
     uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
     uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
-    return bytes32((prefix & prefixMask) | (h & ~prefixMask));
+    return bytes32(prefix | (h & ~prefixMask));
   }
 
   /**
@@ -238,18 +246,9 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   /**
    * @dev hook called after the report has been fully validated
    * for the extending contract to handle additional logic, such as oracle payment
-   * @param initialGas the amount of gas before validation
-   * @param transmitter the address of the account that submitted the report
-   * @param signers the addresses of all signing accounts
-   * @param report serialized report
+   * @param decodedReport decodedReport
    */
-  function _report(
-    uint256 initialGas,
-    address transmitter,
-    uint8 signerCount,
-    address[MAX_NUM_ORACLES] memory signers,
-    bytes calldata report
-  ) internal virtual;
+  function _report(DecodedReport memory decodedReport) internal virtual;
 
   // The constant-length components of the msg.data sent to transmit.
   // See the "If we wanted to call sam" example on for example reasoning
@@ -283,6 +282,10 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     if (msg.data.length != expected) revert ReportInvalid("calldata length mismatch");
   }
 
+  function _beforeTransmit(
+    bytes calldata report
+  ) internal virtual returns (bool shouldStop, DecodedReport memory decodedReport);
+
   /**
    * @notice transmit is called to post a new report to the contract
    * @param report serialized report, which the signatures are signing.
@@ -299,7 +302,11 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
   ) external override {
-    uint256 initialGas = gasleft(); // This line must come first
+    (bool shouldStop, DecodedReport memory decodedReport) = _beforeTransmit(report);
+
+    if (shouldStop) {
+      return;
+    }
 
     {
       // reportContext consists of:
@@ -328,7 +335,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     }
 
     address[MAX_NUM_ORACLES] memory signed;
-    uint8 signerCount = 0;
 
     {
       // Verify signatures attached to report
@@ -342,10 +348,9 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
         if (o.role != Role.Signer) revert ReportInvalid("address not authorized to sign");
         if (signed[o.index] != address(0)) revert ReportInvalid("non-unique signature");
         signed[o.index] = signer;
-        signerCount += 1;
       }
     }
 
-    _report(initialGas, msg.sender, signerCount, signed, report);
+    _report(decodedReport);
   }
 }

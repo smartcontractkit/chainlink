@@ -138,6 +138,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, lggr logger.Logger, vars Vars, in
 		return Result{Error: err}, retryableRunInfo()
 	}
 	// onlyPremium is false because this task assumes that chainlink node fulfills the VRF request
+	// gas cost should be billed to the requesting subscription
 	b, err := vrfCoordinatorV2PlusABI.Pack("fulfillRandomWords", onChainProof, rc, false /* onlyPremium */)
 	if err != nil {
 		return Result{Error: err}, runInfo

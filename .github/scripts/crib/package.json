@@ -1,0 +1,16 @@
+{
+  "name": "crib",
+  "version": "1.0.0",
+  "description": "",
+  "main": "pr-comment-crib-env.js",
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.10.1",
+    "@actions/github": "^6.0.0",
+    "@aws-sdk/client-route-53": "^3.525.0",
+    "@octokit/rest": "^20.0.2"
+  }
+}

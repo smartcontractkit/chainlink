@@ -4,8 +4,8 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"testing"
-	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -15,7 +15,6 @@ import (
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const defaultConfig = `
@@ -44,7 +43,7 @@ func TestConnectionManager_NewConnectionManager_ValidConfig(t *testing.T) {
 
 	tomlConfig := parseTOMLConfig(t, defaultConfig)
 
-	_, err := gateway.NewConnectionManager(tomlConfig, utils.NewFixedClock(time.Now()), logger.TestLogger(t))
+	_, err := gateway.NewConnectionManager(tomlConfig, clockwork.NewFakeClock(), logger.TestLogger(t))
 	require.NoError(t, err)
 }
 
@@ -86,7 +85,7 @@ Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 			fullConfig := `
 [nodeServerConfig]
 Path = "/node"` + config
-			_, err := gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), utils.NewFixedClock(time.Now()), logger.TestLogger(t))
+			_, err := gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), clockwork.NewFakeClock(), logger.TestLogger(t))
 			require.Error(t, err)
 		})
 	}
@@ -128,7 +127,7 @@ func TestConnectionManager_StartHandshake(t *testing.T) {
 
 	config, nodes := newTestConfig(t, 4)
 	unrelatedNode := gc.NewTestNodes(t, 1)[0]
-	clock := utils.NewFixedClock(time.Now())
+	clock := clockwork.NewFakeClock()
 	mgr, err := gateway.NewConnectionManager(config, clock, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -181,7 +180,7 @@ func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 	t.Parallel()
 
 	config, nodes := newTestConfig(t, 4)
-	clock := utils.NewFixedClock(time.Now())
+	clock := clockwork.NewFakeClock()
 	mgr, err := gateway.NewConnectionManager(config, clock, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -215,7 +214,7 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 	t.Parallel()
 
 	config, nodes := newTestConfig(t, 2)
-	clock := utils.NewFixedClock(time.Now())
+	clock := clockwork.NewFakeClock()
 	mgr, err := gateway.NewConnectionManager(config, clock, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -233,7 +232,7 @@ func TestConnectionManager_CleanStartClose(t *testing.T) {
 
 	config, _ := newTestConfig(t, 2)
 	config.ConnectionManagerConfig.HeartbeatIntervalSec = 1
-	clock := utils.NewFixedClock(time.Now())
+	clock := clockwork.NewFakeClock()
 	mgr, err := gateway.NewConnectionManager(config, clock, logger.TestLogger(t))
 	require.NoError(t, err)
 

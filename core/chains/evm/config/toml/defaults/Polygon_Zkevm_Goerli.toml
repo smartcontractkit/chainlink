@@ -1,5 +1,5 @@
 ChainID = '1442'
-FinalityDepth = 1
+FinalityDepth = 500
 NoNewHeadsThreshold = '12m'
 MinIncomingConfirmations = 1
 LogPollInterval = '30s'
@@ -20,4 +20,4 @@ BumpMin = '20 mwei'
 BlockHistorySize = 12
 
 [HeadTracker]
-HistoryDepth = 50
+HistoryDepth = 2000

@@ -47,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
@@ -226,6 +225,7 @@ func setupNodeOCR2(
 	useForwarders bool,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
+	ctx := testutils.Context(t)
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
@@ -245,7 +245,7 @@ func setupNodeOCR2(
 		c.OCR2.Enabled = ptr(true)
 
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(500 * time.Millisecond)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarders
 		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(10 * time.Second)
 	})
@@ -255,7 +255,7 @@ func setupNodeOCR2(
 	var sendingKeys []ethkey.KeyV2
 	{
 		var err error
-		sendingKeys, err = app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+		sendingKeys, err = app.KeyStore.Eth().EnabledKeysForChain(ctx, testutils.SimulatedChainID)
 		require.NoError(t, err)
 		require.Len(t, sendingKeys, 1)
 	}
@@ -266,10 +266,10 @@ func setupNodeOCR2(
 		sendingKeysAddresses := []common.Address{sendingKeys[0].Address}
 
 		// Add new sending key.
-		k, err := app.KeyStore.Eth().Create()
+		k, err := app.KeyStore.Eth().Create(ctx)
 		require.NoError(t, err)
-		require.NoError(t, app.KeyStore.Eth().Add(k.Address, testutils.SimulatedChainID))
-		require.NoError(t, app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID))
+		require.NoError(t, app.KeyStore.Eth().Add(ctx, k.Address, testutils.SimulatedChainID))
+		require.NoError(t, app.KeyStore.Eth().Enable(ctx, k.Address, testutils.SimulatedChainID))
 		sendingKeys = append(sendingKeys, k)
 		sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
 
@@ -285,9 +285,9 @@ func setupNodeOCR2(
 		b.Commit()
 
 		// Add the forwarder to the node's forwarder manager.
-		forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
+		forwarderORM := forwarders.NewORM(app.GetDB())
 		chainID := ubig.Big(*b.Blockchain().Config().ChainID)
-		_, err = forwarderORM.CreateForwarder(faddr, chainID)
+		_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
 		require.NoError(t, err)
 		effectiveTransmitter = faddr
 	}
@@ -296,7 +296,7 @@ func setupNodeOCR2(
 	var sendingKeyStrings []string
 	for _, k := range sendingKeys {
 		sendingKeyStrings = append(sendingKeyStrings, k.Address.String())
-		n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
+		n, err := b.NonceAt(ctx, owner.From, nil)
 		require.NoError(t, err)
 
 		tx := cltest.NewLegacyTransaction(
@@ -307,12 +307,12 @@ func setupNodeOCR2(
 			nil)
 		signedTx, err := owner.Signer(owner.From, tx)
 		require.NoError(t, err)
-		err = b.SendTransaction(testutils.Context(t), signedTx)
+		err = b.SendTransaction(ctx, signedTx)
 		require.NoError(t, err)
 		b.Commit()
 	}
 
-	kb, err := app.GetKeyStore().OCR2().Create("evm")
+	kb, err := app.GetKeyStore().OCR2().Create(ctx, "evm")
 	require.NoError(t, err)
 
 	return &ocr2Node{
@@ -371,10 +371,10 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		node := setupNodeOCR2(t, uni.owner, ports[i], fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
 		sendingKeys = append(sendingKeys, node.sendingKeys)
 
-		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create()
+		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create(ctx)
 		require.NoError(t, err)
 
-		dkgEncryptKey, err := node.app.GetKeyStore().DKGEncrypt().Create()
+		dkgEncryptKey, err := node.app.GetKeyStore().DKGEncrypt().Create(ctx)
 		require.NoError(t, err)
 
 		kbs = append(kbs, node.keybundle)
@@ -429,7 +429,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	)
 
 	t.Log("Adding bootstrap node job")
-	err = bootstrapNode.app.Start(testutils.Context(t))
+	err = bootstrapNode.app.Start(ctx)
 	require.NoError(t, err)
 
 	evmChains := bootstrapNode.app.GetRelayers().LegacyEVMChains()
@@ -457,7 +457,7 @@ fromBlock           = %d
 		for x := 1; x < len(sendingKeys[i]); x++ {
 			sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, sendingKeys[i][x])
 		}
-		err = apps[i].Start(testutils.Context(t))
+		err = apps[i].Start(ctx)
 		require.NoError(t, err)
 
 		jobSpec := fmt.Sprintf(`
@@ -498,7 +498,7 @@ linkEthFeedAddress     	= "%s"
 			uni.feedAddress.String(),
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
-		ocrJob2, err2 := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec)
+		ocrJob2, err2 := validate.ValidatedOracleSpecToml(testutils.Context(t), apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec, nil)
 		require.NoError(t, err2)
 		err2 = apps[i].AddJobV2(ctx, &ocrJob2)
 		require.NoError(t, err2)
@@ -511,7 +511,7 @@ linkEthFeedAddress     	= "%s"
 	emptyHash := crypto.Keccak256Hash(emptyKH[:])
 	gomega.NewWithT(t).Eventually(func() bool {
 		kh, err2 := uni.beacon.SProvingKeyHash(&bind.CallOpts{
-			Context: testutils.Context(t),
+			Context: ctx,
 		})
 		require.NoError(t, err2)
 		t.Log("proving keyhash:", hexutil.Encode(kh[:]))
@@ -661,7 +661,7 @@ linkEthFeedAddress     	= "%s"
 	totalNopPayout := new(big.Int)
 	for idx, payeeTransactor := range payeeTransactors {
 		// Fund the payee with some ETH.
-		n, err2 := uni.backend.NonceAt(testutils.Context(t), uni.owner.From, nil)
+		n, err2 := uni.backend.NonceAt(ctx, uni.owner.From, nil)
 		require.NoError(t, err2)
 		tx := cltest.NewLegacyTransaction(
 			n, payeeTransactor.From,
@@ -671,7 +671,7 @@ linkEthFeedAddress     	= "%s"
 			nil)
 		signedTx, err2 := uni.owner.Signer(uni.owner.From, tx)
 		require.NoError(t, err2)
-		err2 = uni.backend.SendTransaction(testutils.Context(t), signedTx)
+		err2 = uni.backend.SendTransaction(ctx, signedTx)
 		require.NoError(t, err2)
 
 		_, err2 = uni.beacon.WithdrawPayment(payeeTransactor, transmitters[idx])
@@ -713,7 +713,6 @@ linkEthFeedAddress     	= "%s"
 	// First arg is the request ID, which starts at zero, second is the index into
 	// the random words.
 	gomega.NewWithT(t).Eventually(func() bool {
-
 		var errs []error
 		rw1, err2 := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(0))
 		t.Logf("TestRedeemRandomness 1st word err: %+v", err2)
