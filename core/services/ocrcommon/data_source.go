@@ -425,3 +425,9 @@ func (ds *dataSourceV2) Observe(ctx context.Context, timestamp ocr2types.ReportT
 		ConfigDigest: timestamp.ConfigDigest.Hex(),
 	})
 }
+
+type ZeroDataSource struct{}
+
+func (ds *ZeroDataSource) Observe(context.Context, ocr2types.ReportTimestamp) (*big.Int, error) {
+	return new(big.Int), nil
+}

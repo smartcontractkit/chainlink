@@ -4,6 +4,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,7 +15,8 @@ import (
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
 type PluginConfig struct {
-	JuelsPerFeeCoinPipeline string `json:"juelsPerFeeCoinSource"`
+	GasPriceSubunitsPipeline string `json:"gasPriceSubunitsSource"`
+	JuelsPerFeeCoinPipeline  string `json:"juelsPerFeeCoinSource"`
 	// JuelsPerFeeCoinCache is disabled when nil
 	JuelsPerFeeCoinCache *JuelsPerFeeCoinCache `json:"juelsPerFeeCoinCache"`
 }
@@ -26,7 +28,7 @@ type JuelsPerFeeCoinCache struct {
 }
 
 // ValidatePluginConfig validates the arguments for the Median plugin.
-func ValidatePluginConfig(config PluginConfig) error {
+func (config *PluginConfig) ValidatePluginConfig() error {
 	if _, err := pipeline.Parse(config.JuelsPerFeeCoinPipeline); err != nil {
 		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
 	}
@@ -41,5 +43,16 @@ func ValidatePluginConfig(config PluginConfig) error {
 		}
 	}
 
+	// Gas price pipeline is optional
+	if !config.GasPriceSubunitsPipelineExists() {
+		return nil
+	} else if _, err := pipeline.Parse(config.GasPriceSubunitsPipeline); err != nil {
+		return errors.Wrap(err, "invalid gasPriceSubunitsSource pipeline")
+	}
+
 	return nil
+}
+
+func (config *PluginConfig) GasPriceSubunitsPipelineExists() bool {
+	return !(strings.TrimSpace(config.GasPriceSubunitsPipeline) == "")
 }
