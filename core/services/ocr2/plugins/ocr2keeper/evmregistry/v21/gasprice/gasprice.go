@@ -36,7 +36,7 @@ func CheckGasPrice(ctx context.Context, upkeepId *big.Int, offchainConfigBytes [
 
 	var offchainConfig UpkeepOffchainConfig
 	if err := cbor.ParseDietCBORToStruct(offchainConfigBytes, &offchainConfig); err != nil {
-		lggr.Debugw("failed to parse upkeep offchain config, gas price check is disabled", "offchainconfig", hexutil.Encode(offchainConfigBytes), "upkeepId", upkeepId.String(), "err", err)
+		lggr.Warnw("failed to parse upkeep offchain config, gas price check is disabled", "offchainconfig", hexutil.Encode(offchainConfigBytes), "upkeepId", upkeepId.String(), "err", err)
 		return encoding.UpkeepFailureReasonNone
 	}
 	if offchainConfig.MaxGasPrice == nil || offchainConfig.MaxGasPrice.Int64() <= 0 {
