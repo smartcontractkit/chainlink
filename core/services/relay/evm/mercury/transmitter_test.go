@@ -216,6 +216,10 @@ func (m *mockCodec) BenchmarkPriceFromReport(_ ocrtypes.Report) (*big.Int, error
 	return m.val, m.err
 }
 
+func (m *mockCodec) ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error) {
+	return 0, nil
+}
+
 func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
