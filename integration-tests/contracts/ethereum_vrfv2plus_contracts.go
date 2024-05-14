@@ -291,24 +291,32 @@ func (v *EthereumVRFCoordinatorV2_5) GetNativeTokenTotalBalance(ctx context.Cont
 // OwnerCancelSubscription cancels subscription by Coordinator owner
 // return funds to sub owner,
 // does not check if pending requests for a sub exist
-func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error) {
-	// Do not wrap in Decode() to avoid waiting until the transaction is mined
-	return v.coordinator.OwnerCancelSubscription(
+func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*seth.DecodedTransaction, *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error) {
+	tx, err := v.client.Decode(v.coordinator.OwnerCancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
-	)
+	))
+	if err != nil {
+		return nil, nil, err
+	}
+	cancelEvent, err := extractVRFCoordinatorV25SubscriptionCanceledEvent(tx.Events)
+	return tx, cancelEvent, err
 }
 
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
-func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error) {
-	// Do not wrap in Decode() to avoid waiting until the transaction is mined
-	return v.coordinator.CancelSubscription(
+func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to common.Address) (*seth.DecodedTransaction, *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error) {
+	tx, err := v.client.Decode(v.coordinator.CancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
 		to,
-	)
+	))
+	if err != nil {
+		return nil, nil, err
+	}
+	cancelEvent, err := extractVRFCoordinatorV25SubscriptionCanceledEvent(tx.Events)
+	return tx, cancelEvent, err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) Withdraw(recipient common.Address) error {
@@ -377,10 +385,13 @@ func (v *EthereumVRFCoordinatorV2_5) CreateSubscription() (*types.Transaction, e
 	return tx.Transaction, nil
 }
 
-func (v *EthereumVRFCoordinatorV2_5) Migrate(subId *big.Int, coordinatorAddress string) error {
-	// Do not wrap in Decode() to avoid waiting until the transaction is mined.
-	_, err := v.coordinator.Migrate(v.client.NewTXOpts(), subId, common.HexToAddress(coordinatorAddress))
-	return err
+func (v *EthereumVRFCoordinatorV2_5) Migrate(subId *big.Int, coordinatorAddress string) (*seth.DecodedTransaction, *vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, error) {
+	tx, err := v.client.Decode(v.coordinator.Migrate(v.client.NewTXOpts(), subId, common.HexToAddress(coordinatorAddress)))
+	if err != nil {
+		return nil, nil, err
+	}
+	event, err := extractVRFCoordinatorV25MigrationCompletedEvent(tx.Events)
+	return tx, event, err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) RegisterMigratableCoordinator(migratableCoordinatorAddress string) error {
@@ -425,26 +436,6 @@ func (v *EthereumVRFCoordinatorV2_5) FindSubscriptionID(subID *big.Int) (*big.In
 	}
 
 	return subscriptionIterator.Event.SubId, nil
-}
-
-func (v *EthereumVRFCoordinatorV2_5) WaitForSubscriptionCreatedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated)
-	subscription, err := v.coordinator.WatchSubscriptionCreated(nil, eventsChannel, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for SubscriptionCreated event")
-		case sub := <-eventsChannel:
-			return sub, nil
-		}
-	}
 }
 
 func (v *EthereumVRFCoordinatorV2_5) WaitForSubscriptionCanceledEvent(subID *big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error) {
@@ -521,26 +512,6 @@ func (v *EthereumVRFCoordinatorV2_5) WaitForConfigSetEvent(timeout time.Duration
 				NativePremiumPercentage:           event.NativePremiumPercentage,
 				LinkPremiumPercentage:             event.LinkPremiumPercentage,
 			}, nil
-		}
-	}
-}
-
-func (v *EthereumVRFCoordinatorV2_5) WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted)
-	subscription, err := v.coordinator.WatchMigrationCompleted(nil, eventsChannel)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for MigrationCompleted event")
-		case migrationCompletedEvent := <-eventsChannel:
-			return migrationCompletedEvent, nil
 		}
 	}
 }
@@ -926,26 +897,6 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) WaitForRandomWordsFulfille
 	}
 }
 
-func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted, error) {
-	eventsChannel := make(chan *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted)
-	subscription, err := v.coordinator.WatchMigrationCompleted(nil, eventsChannel)
-	if err != nil {
-		return nil, fmt.Errorf("parse RandomWordsRequested log failed, err: %w", err)
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for MigrationCompleted event")
-		case migrationCompletedEvent := <-eventsChannel:
-			return migrationCompletedEvent, nil
-		}
-	}
-}
-
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error) {
 	randomWordsRequested, err := v.coordinator.ParseRandomWordsRequested(log)
 	if err != nil {
@@ -1211,4 +1162,65 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetLoadTestMetrics(ctx contex
 		SlowestResponseTimeInSeconds:         nil,
 		FastestResponseTimeInSeconds:         nil,
 	}, nil
+}
+
+func extractVRFCoordinatorV25SubscriptionCanceledEvent(events []seth.DecodedTransactionLog) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error) {
+	var cancelEvent vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled
+	for i, event := range events {
+		if len(event.Topics) == 0 {
+			return nil, fmt.Errorf("no topics in event %d", i)
+		}
+		switch event.Topics[0] {
+		case vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled{}.Topic().String():
+			if to, ok := event.EventData["to"].(common.Address); ok {
+				cancelEvent.To = to
+			} else {
+				return nil, fmt.Errorf("'to' not found in the event")
+			}
+			if amountNative, ok := event.EventData["amountNative"].(*big.Int); ok {
+				cancelEvent.AmountNative = amountNative
+			} else {
+				return nil, fmt.Errorf("'amountNative' not found in the event")
+			}
+			if amountLink, ok := event.EventData["amountLink"].(*big.Int); ok {
+				cancelEvent.AmountLink = amountLink
+			} else {
+				return nil, fmt.Errorf("'amountLink' not found in the event")
+			}
+			if subId, ok := event.EventData["subId"].(*big.Int); ok {
+				cancelEvent.SubId = subId
+			} else {
+				return nil, fmt.Errorf("'subId' not found in the event")
+			}
+		}
+	}
+	return &cancelEvent, nil
+}
+
+func extractVRFCoordinatorV25MigrationCompletedEvent(events []seth.DecodedTransactionLog) (*vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, error) {
+	var event vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted
+	for i, e := range events {
+		if len(e.Topics) == 0 {
+			return nil, fmt.Errorf("no topics in event %d", i)
+		}
+		switch e.Topics[0] {
+		case vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted{}.Topic().String():
+			if newCoordinator, ok := e.EventData["newCoordinator"].(common.Address); ok {
+				event.NewCoordinator = newCoordinator
+			} else {
+				return nil, fmt.Errorf("'newCoordinator' not found in the event")
+			}
+			if raw, ok := e.EventData["raw"].(types.Log); ok {
+				event.Raw = raw
+			} else {
+				return nil, fmt.Errorf("'amountNative' not found in the event")
+			}
+			if subId, ok := e.EventData["subId"].(*big.Int); ok {
+				event.SubId = subId
+			} else {
+				return nil, fmt.Errorf("'subId' not found in the event")
+			}
+		}
+	}
+	return &event, nil
 }

@@ -400,35 +400,29 @@ func TestVRFv2Basic(t *testing.T) {
 			Str("Returning funds to", testWalletAddress.String()).
 			Msg("Canceling subscription and returning funds to subscription owner")
 
-		tx, err := vrfContracts.CoordinatorV2.CancelSubscription(subIDForCancelling, testWalletAddress)
+		cancellationTx, cancellationEvent, err := vrfContracts.CoordinatorV2.CancelSubscription(subIDForCancelling, testWalletAddress)
 		require.NoError(t, err, "Error canceling subscription")
 
-		subscriptionCanceledEvent, err := vrfContracts.CoordinatorV2.WaitForSubscriptionCanceledEvent([]uint64{subIDForCancelling}, time.Second*30)
-		require.NoError(t, err, "error waiting for subscription canceled event")
-
-		cancellationTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), tx.Hash())
-		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
-
-		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		txGasUsed := new(big.Int).SetUint64(cancellationTx.Receipt.GasUsed)
 		// we don't have that information for older Geth versions
-		if cancellationTxReceipt.EffectiveGasPrice == nil {
-			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		if cancellationTx.Receipt.EffectiveGasPrice == nil {
+			cancellationTx.Receipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
 		}
-		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
+		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTx.Receipt.EffectiveGasPrice)
 
 		l.Info().
 			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
-			Str("Effective Gas Price", cancellationTxReceipt.EffectiveGasPrice.String()).
-			Uint64("Gas Used", cancellationTxReceipt.GasUsed).
+			Str("Effective Gas Price", cancellationTx.Receipt.EffectiveGasPrice.String()).
+			Uint64("Gas Used", cancellationTx.Receipt.GasUsed).
 			Msg("Cancellation TX Receipt")
 
 		l.Info().
-			Str("Returned Subscription Amount Link", subscriptionCanceledEvent.Amount.String()).
-			Uint64("SubID", subscriptionCanceledEvent.SubId).
-			Str("Returned to", subscriptionCanceledEvent.To.String()).
+			Str("Returned Subscription Amount Link", cancellationEvent.Amount.String()).
+			Uint64("SubID", cancellationEvent.SubId).
+			Str("Returned to", cancellationEvent.To.String()).
 			Msg("Subscription Canceled Event")
 
-		require.Equal(t, subBalanceLink, subscriptionCanceledEvent.Amount, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
+		require.Equal(t, subBalanceLink, cancellationEvent.Amount, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
 
 		testWalletBalanceLinkAfterSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), testWalletAddress.String())
 		require.NoError(t, err)
@@ -511,34 +505,29 @@ func TestVRFv2Basic(t *testing.T) {
 			Msg("Canceling subscription and returning funds to subscription owner")
 
 		// Call OwnerCancelSubscription
-		tx, err := vrfContracts.CoordinatorV2.OwnerCancelSubscription(subIDForOwnerCancelling)
+		cancellationTx, cancellationEvent, err := vrfContracts.CoordinatorV2.OwnerCancelSubscription(subIDForOwnerCancelling)
 		require.NoError(t, err, "Error canceling subscription")
 
-		subscriptionCanceledEvent, err := vrfContracts.CoordinatorV2.WaitForSubscriptionCanceledEvent([]uint64{subIDForOwnerCancelling}, time.Second*30)
-		require.NoError(t, err, "error waiting for subscription canceled event")
-
-		cancellationTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), tx.Hash())
-		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
-		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		txGasUsed := new(big.Int).SetUint64(cancellationTx.Receipt.GasUsed)
 		// we don't have that information for older Geth versions
-		if cancellationTxReceipt.EffectiveGasPrice == nil {
-			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		if cancellationTx.Receipt.EffectiveGasPrice == nil {
+			cancellationTx.Receipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
 		}
-		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
+		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTx.Receipt.EffectiveGasPrice)
 
 		l.Info().
 			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
-			Str("Effective Gas Price", cancellationTxReceipt.EffectiveGasPrice.String()).
-			Uint64("Gas Used", cancellationTxReceipt.GasUsed).
+			Str("Effective Gas Price", cancellationTx.Receipt.EffectiveGasPrice.String()).
+			Uint64("Gas Used", cancellationTx.Receipt.GasUsed).
 			Msg("Cancellation TX Receipt")
 
 		l.Info().
-			Str("Returned Subscription Amount Link", subscriptionCanceledEvent.Amount.String()).
-			Uint64("SubID", subscriptionCanceledEvent.SubId).
-			Str("Returned to", subscriptionCanceledEvent.To.String()).
+			Str("Returned Subscription Amount Link", cancellationEvent.Amount.String()).
+			Uint64("SubID", cancellationEvent.SubId).
+			Str("Returned to", cancellationEvent.To.String()).
 			Msg("Subscription Canceled Event")
 
-		require.Equal(t, subBalanceLink, subscriptionCanceledEvent.Amount, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
+		require.Equal(t, subBalanceLink, cancellationEvent.Amount, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
 
 		walletBalanceLinkAfterSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.MustGetRootKeyAddress().Hex())
 		require.NoError(t, err)

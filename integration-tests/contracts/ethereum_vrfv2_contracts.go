@@ -529,12 +529,16 @@ func (v *EthereumVRFCoordinatorV2) OracleWithdraw(recipient common.Address, amou
 // return funds to the subscription owner,
 // down not check if pending requests for a sub exist,
 // outstanding requests may fail onchain
-func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types.Transaction, error) {
-	// Do not wrap in Decode() to avoid waiting until the transaction is mined
-	return v.coordinator.OwnerCancelSubscription(
+func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*seth.DecodedTransaction, *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
+	tx, err := v.client.Decode(v.coordinator.OwnerCancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
-	)
+	))
+	if err != nil {
+		return nil, nil, err
+	}
+	event, err := extractVRFCoordinatorV2SubscriptionCanceledEvent(tx.Events)
+	return tx, event, err
 }
 
 func (v *EthereumVRFCoordinatorV2) ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
@@ -583,13 +587,17 @@ func (v *EthereumVRFCoordinatorV2) ParseLog(log types.Log) (generated.AbigenLog,
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
-func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error) {
-	// Do not wrap in Decode() to avoid waiting until the transaction is mined.
-	return v.coordinator.CancelSubscription(
+func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Address) (*seth.DecodedTransaction, *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
+	tx, err := v.client.Decode(v.coordinator.CancelSubscription(
 		v.client.NewTXOpts(),
 		subID,
 		to,
-	)
+	))
+	if err != nil {
+		return nil, nil, err
+	}
+	event, err := extractVRFCoordinatorV2SubscriptionCanceledEvent(tx.Events)
+	return tx, event, err
 }
 
 func (v *EthereumVRFCoordinatorV2) FindSubscriptionID(subID uint64) (uint64, error) {
@@ -631,126 +639,6 @@ func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsFulfilledEvent(filter Rando
 				Success:    randomWordsFulfilledEvent.Success,
 				Raw:        randomWordsFulfilledEvent.Raw,
 			}, nil
-		}
-	}
-}
-
-func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
-	subscription, err := v.coordinator.WatchRandomWordsRequested(nil, eventsChannel, keyHash, subID, sender)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for RandomWordsRequested event")
-		case event := <-eventsChannel:
-			return event, nil
-		}
-	}
-}
-
-func (v *EthereumVRFCoordinatorV2) WaitForSubscriptionFunded(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionFunded, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionFunded)
-	subscription, err := v.coordinator.WatchSubscriptionFunded(nil, eventsChannel, subID)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for SubscriptionFunded event")
-		case event := <-eventsChannel:
-			return event, nil
-		}
-	}
-}
-
-func (v *EthereumVRFCoordinatorV2) WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled)
-	subscription, err := v.coordinator.WatchSubscriptionCanceled(nil, eventsChannel, subID)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for SubscriptionCanceled event")
-		case sub := <-eventsChannel:
-			return sub, nil
-		}
-	}
-}
-
-func (v *EthereumVRFCoordinatorV2) WaitForSubscriptionCreatedEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated)
-	subscription, err := v.coordinator.WatchSubscriptionCreated(nil, eventsChannel, subID)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for SubscriptionCreated event")
-		case event := <-eventsChannel:
-			return event, nil
-		}
-	}
-}
-
-func (v *EthereumVRFCoordinatorV2) WaitForSubscriptionConsumerAdded(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionConsumerAdded, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionConsumerAdded)
-	subscription, err := v.coordinator.WatchSubscriptionConsumerAdded(nil, eventsChannel, subID)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for SubscriptionConsumerAdded event")
-		case event := <-eventsChannel:
-			return event, nil
-		}
-	}
-}
-
-func (v *EthereumVRFCoordinatorV2) WaitForSubscriptionConsumerRemoved(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionConsumerRemoved, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionConsumerRemoved)
-	subscription, err := v.coordinator.WatchSubscriptionConsumerRemoved(nil, eventsChannel, subID)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for SubscriptionConsumerRemoved event")
-		case event := <-eventsChannel:
-			return event, nil
 		}
 	}
 }
@@ -1254,4 +1142,32 @@ func (v *EthereumVRFMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error
 func (v *EthereumVRFMockETHLINKFeed) SetBlockTimestampDeduction(blockTimestampDeduction *big.Int) error {
 	_, err := v.client.Decode(v.feed.SetBlockTimestampDeduction(v.client.NewTXOpts(), blockTimestampDeduction))
 	return err
+}
+
+func extractVRFCoordinatorV2SubscriptionCanceledEvent(events []seth.DecodedTransactionLog) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
+	var event vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled
+	for i, e := range events {
+		if len(e.Topics) == 0 {
+			return nil, fmt.Errorf("no topics in event %d", i)
+		}
+		switch e.Topics[0] {
+		case vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled{}.Topic().String():
+			if to, ok := e.EventData["to"].(common.Address); ok {
+				event.To = to
+			} else {
+				return nil, fmt.Errorf("'to' not found in the event")
+			}
+			if amount, ok := e.EventData["amount"].(*big.Int); ok {
+				event.Amount = amount
+			} else {
+				return nil, fmt.Errorf("'amount' not found in the event")
+			}
+			if subId, ok := e.EventData["subId"].(uint64); ok {
+				event.SubId = subId
+			} else {
+				return nil, fmt.Errorf("'subId' not found in the event")
+			}
+		}
+	}
+	return &event, nil
 }

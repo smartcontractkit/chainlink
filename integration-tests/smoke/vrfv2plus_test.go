@@ -438,36 +438,32 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("Returning funds from SubID", subID.String()).
 			Str("Returning funds to", testWalletAddress.String()).
 			Msg("Canceling subscription and returning funds to subscription owner")
-		tx, err := vrfContracts.CoordinatorV2Plus.CancelSubscription(subID, testWalletAddress)
+
+		cancellationTx, cancellationEvent, err := vrfContracts.CoordinatorV2Plus.CancelSubscription(subID, testWalletAddress)
 		require.NoError(t, err, "Error canceling subscription")
 
-		subscriptionCanceledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForSubscriptionCanceledEvent(subID, time.Second*30)
-		require.NoError(t, err, "error waiting for subscription canceled event")
-
-		cancellationTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), tx.Hash())
-		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
-		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		txGasUsed := new(big.Int).SetUint64(cancellationTx.Receipt.GasUsed)
 		// we don't have that information for older Geth versions
-		if cancellationTxReceipt.EffectiveGasPrice == nil {
-			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		if cancellationTx.Receipt.EffectiveGasPrice == nil {
+			cancellationTx.Receipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
 		}
-		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
+		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTx.Receipt.EffectiveGasPrice)
 
 		l.Info().
 			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
-			Str("Effective Gas Price", cancellationTxReceipt.EffectiveGasPrice.String()).
-			Uint64("Gas Used", cancellationTxReceipt.GasUsed).
+			Str("Effective Gas Price", cancellationTx.Receipt.EffectiveGasPrice.String()).
+			Uint64("Gas Used", cancellationTx.Receipt.GasUsed).
 			Msg("Cancellation TX Receipt")
 
 		l.Info().
-			Str("Returned Subscription Amount Native", subscriptionCanceledEvent.AmountNative.String()).
-			Str("Returned Subscription Amount Link", subscriptionCanceledEvent.AmountLink.String()).
-			Str("SubID", subscriptionCanceledEvent.SubId.String()).
-			Str("Returned to", subscriptionCanceledEvent.To.String()).
+			Str("Returned Subscription Amount Native", cancellationEvent.AmountLink.String()).
+			Str("Returned Subscription Amount Link", cancellationEvent.AmountLink.String()).
+			Str("SubID", cancellationEvent.SubId.String()).
+			Str("Returned to", cancellationEvent.To.String()).
 			Msg("Subscription Canceled Event")
 
-		require.Equal(t, subBalanceNative, subscriptionCanceledEvent.AmountNative, "SubscriptionCanceled event native amount is not equal to sub amount while canceling subscription")
-		require.Equal(t, subBalanceLink, subscriptionCanceledEvent.AmountLink, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
+		require.Equal(t, subBalanceNative, cancellationEvent.AmountNative, "SubscriptionCanceled event native amount is not equal to sub amount while canceling subscription")
+		require.Equal(t, subBalanceLink, cancellationEvent.AmountLink, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
 
 		testWalletBalanceNativeAfterSubCancelling, err := sethClient.Client.BalanceAt(testcontext.Get(t), testWalletAddress, nil)
 		require.NoError(t, err)
@@ -582,36 +578,32 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("Returning funds from SubID", subID.String()).
 			Str("Returning funds to", sethClient.MustGetRootKeyAddress().Hex()).
 			Msg("Canceling subscription and returning funds to subscription owner")
-		tx, err := vrfContracts.CoordinatorV2Plus.OwnerCancelSubscription(subID)
+
+		cancellationTx, cancellationEvent, err := vrfContracts.CoordinatorV2Plus.OwnerCancelSubscription(subID)
 		require.NoError(t, err, "Error canceling subscription")
 
-		subscriptionCanceledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForSubscriptionCanceledEvent(subID, time.Second*30)
-		require.NoError(t, err, "error waiting for subscription canceled event")
-
-		cancellationTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), tx.Hash())
-		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
-		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		txGasUsed := new(big.Int).SetUint64(cancellationTx.Receipt.GasUsed)
 		// we don't have that information for older Geth versions
-		if cancellationTxReceipt.EffectiveGasPrice == nil {
-			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		if cancellationTx.Receipt.EffectiveGasPrice == nil {
+			cancellationTx.Receipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
 		}
-		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
+		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTx.Receipt.EffectiveGasPrice)
 
 		l.Info().
 			Str("Cancellation Tx Fee Wei", cancellationTxFeeWei.String()).
-			Str("Effective Gas Price", cancellationTxReceipt.EffectiveGasPrice.String()).
-			Uint64("Gas Used", cancellationTxReceipt.GasUsed).
+			Str("Effective Gas Price", cancellationTx.Receipt.EffectiveGasPrice.String()).
+			Uint64("Gas Used", cancellationTx.Receipt.GasUsed).
 			Msg("Cancellation TX Receipt")
 
 		l.Info().
-			Str("Returned Subscription Amount Native", subscriptionCanceledEvent.AmountNative.String()).
-			Str("Returned Subscription Amount Link", subscriptionCanceledEvent.AmountLink.String()).
-			Str("SubID", subscriptionCanceledEvent.SubId.String()).
-			Str("Returned to", subscriptionCanceledEvent.To.String()).
+			Str("Returned Subscription Amount Native", cancellationEvent.AmountNative.String()).
+			Str("Returned Subscription Amount Link", cancellationEvent.AmountLink.String()).
+			Str("SubID", cancellationEvent.SubId.String()).
+			Str("Returned to", cancellationEvent.To.String()).
 			Msg("Subscription Canceled Event")
 
-		require.Equal(t, subBalanceNative, subscriptionCanceledEvent.AmountNative, "SubscriptionCanceled event native amount is not equal to sub amount while canceling subscription")
-		require.Equal(t, subBalanceLink, subscriptionCanceledEvent.AmountLink, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
+		require.Equal(t, subBalanceNative, cancellationEvent.AmountNative, "SubscriptionCanceled event native amount is not equal to sub amount while canceling subscription")
+		require.Equal(t, subBalanceLink, cancellationEvent.AmountLink, "SubscriptionCanceled event LINK amount is not equal to sub amount while canceling subscription")
 
 		walletBalanceNativeAfterSubCancelling, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(sethClient.MustGetRootKeyAddress().Hex()), nil)
 		require.NoError(t, err)
@@ -977,11 +969,8 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		migratedCoordinatorLinkTotalBalanceBeforeMigration, migratedCoordinatorEthTotalBalanceBeforeMigration, err := vrfv2plus.GetUpgradedCoordinatorTotalBalance(newCoordinator)
 		require.NoError(t, err)
 
-		err = vrfContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
-
+		_, migrationCompletedEvent, err := vrfContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
 		require.NoError(t, err, "error migrating sub id ", subID.String(), " from ", vrfContracts.CoordinatorV2Plus.Address(), " to new Coordinator address ", newCoordinator.Address())
-		migrationCompletedEvent, err := vrfContracts.CoordinatorV2Plus.WaitForMigrationCompletedEvent(time.Minute * 1)
-		require.NoError(t, err, "error waiting for MigrationCompleted event")
 
 		vrfv2plus.LogMigrationCompletedEvent(l, migrationCompletedEvent, vrfContracts.CoordinatorV2Plus)
 
@@ -1152,11 +1141,8 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Migrate wrapper's sub using coordinator's migrate method
-		err = vrfContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
-
+		_, migrationCompletedEvent, err := vrfContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
 		require.NoError(t, err, "error migrating sub id ", subID.String(), " from ", vrfContracts.CoordinatorV2Plus.Address(), " to new Coordinator address ", newCoordinator.Address())
-		migrationCompletedEvent, err := vrfContracts.CoordinatorV2Plus.WaitForMigrationCompletedEvent(time.Minute * 1)
-		require.NoError(t, err, "error waiting for MigrationCompleted event")
 
 		vrfv2plus.LogMigrationCompletedEvent(l, migrationCompletedEvent, vrfContracts.CoordinatorV2Plus)
 

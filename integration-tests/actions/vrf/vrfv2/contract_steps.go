@@ -664,7 +664,7 @@ func CancelSubsAndReturnFunds(ctx context.Context, vrfContracts *vrfcommon.VRFCo
 			l.Error().Err(err).Msg("Error checking if pending requests exist")
 		}
 		if !pendingRequestsExist {
-			_, err := vrfContracts.CoordinatorV2.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
+			_, _, err := vrfContracts.CoordinatorV2.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
 			if err != nil {
 				l.Error().Err(err).Msg("Error canceling subscription")
 			}
