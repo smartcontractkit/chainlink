@@ -1356,7 +1356,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//Wait at least 256 blocks
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), evmClient, &wg, time.Second*260, t)
+		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), evmClient, &wg, configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration, t)
 		wg.Wait()
 		require.NoError(t, err)
 		err = vrfv2plus.FundSubscriptions(
@@ -1578,8 +1578,8 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
 		wg.Add(1)
-		//Wait at least 260 blocks
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(260), evmClient, &wg, time.Second*262, t)
+		//Wait at least 256 blocks
+		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), evmClient, &wg, configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration, t)
 		wg.Wait()
 		require.NoError(t, err)
 		l.Info().Float64("SubscriptionFundingAmountNative", *configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative).
