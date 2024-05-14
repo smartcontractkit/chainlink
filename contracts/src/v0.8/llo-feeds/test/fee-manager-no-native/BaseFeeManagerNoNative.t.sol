@@ -11,7 +11,7 @@ import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 import {FeeManagerProxy} from "../mocks/FeeManagerProxy.sol";
 
 /**
- * @title BaseFeeManagerTest
+ * @title BaseFeeManagerNoNativeTest
  * @author Michael Fletcher
  * @notice Base class for all feeManager tests
  * @dev This contract is intended to be inherited from and not used directly. It contains functionality to setup the feeManager

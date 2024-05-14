@@ -13,7 +13,7 @@ import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/token/
 import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
 
 /**
- * @title FeeManager
+ * @title FeeManagerNoNative
  * @author Michael Fletcher
  * @author Austin Born
  * @notice This contract is used for the handling of fees required for users verifying reports.
@@ -164,7 +164,7 @@ contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterf
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "FeeManager 2.0.0";
+    return "FeeManagerNoNative 2.0.0";
   }
 
   /// @inheritdoc IERC165
@@ -199,7 +199,7 @@ contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterf
     bytes[] calldata payloads,
     bytes calldata parameterPayload,
     address subscriber
-  ) external payable override onlyProxy {
+  ) external payable override onlyProxy blockNativeBilling {
     FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
 
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
