@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +21,7 @@ import (
 )
 
 type ORM interface {
-	InsertTransmitRequest(ctx context.Context, serverURL string, req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext) error
+	InsertTransmitRequest(ctx context.Context, serverURLs []string, req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext) error
 	DeleteTransmitRequests(ctx context.Context, serverURL string, reqs []*pb.TransmitRequest) error
 	GetTransmitRequests(ctx context.Context, serverURL string, jobID int32) ([]*Transmission, error)
 	PruneTransmitRequests(ctx context.Context, serverURL string, jobID int32, maxSize int) error
@@ -42,10 +44,13 @@ func NewORM(ds sqlutil.DataSource) ORM {
 }
 
 // InsertTransmitRequest inserts one transmit request if the payload does not exist already.
-func (o *orm) InsertTransmitRequest(ctx context.Context, serverURL string, req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext) error {
+func (o *orm) InsertTransmitRequest(ctx context.Context, serverURLs []string, req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext) error {
 	feedID, err := FeedIDFromReport(req.Payload)
 	if err != nil {
 		return err
+	}
+	if len(serverURLs) == 0 {
+		return errors.New("no server URLs provided")
 	}
 
 	var wg sync.WaitGroup
@@ -54,11 +59,30 @@ func (o *orm) InsertTransmitRequest(ctx context.Context, serverURL string, req *
 
 	go func() {
 		defer wg.Done()
-		_, err1 = o.ds.ExecContext(ctx, `
-		INSERT INTO mercury_transmit_requests (server_url, payload, payload_hash, config_digest, epoch, round, extra_hash, job_id, feed_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+
+		values := make([]string, len(serverURLs))
+		args := []interface{}{
+			req.Payload,
+			hashPayload(req.Payload),
+			reportCtx.ConfigDigest[:],
+			reportCtx.Epoch,
+			reportCtx.Round,
+			reportCtx.ExtraHash[:],
+			jobID,
+			feedID[:],
+		}
+		for i, serverURL := range serverURLs {
+			// server url is the only thing that changes, might as well re-use
+			// the same parameters for each insert
+			values[i] = fmt.Sprintf("($1, $2, $3, $4, $5, $6, $7, $8, $%d)", i+9)
+			args = append(args, serverURL)
+		}
+
+		_, err1 = o.ds.ExecContext(ctx, fmt.Sprintf(`
+		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash, job_id, feed_id, server_url)
+		VALUES %s
 		ON CONFLICT (server_url, payload_hash) DO NOTHING
-	`, serverURL, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:], jobID, feedID[:])
+	`, strings.Join(values, ",")), args...)
 	}()
 
 	go func() {

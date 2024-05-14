@@ -53,6 +53,11 @@ runs:
         basic_auth_secret="$LOKI_BASIC_AUTH"
         # legacy, you only need this to access the cloud version
         # bearer_token_secret="bearer_token"
+        
+        [Logging.Grafana]
+        base_url="$GRAFANA_URL"
+        dashboard_url="$GRAFANA_DASHBOARD_URL"
+        bearer_token_secret="$GRAFANA_BEARER_TOKEN"
         EOF
 
         echo "$decoded_toml" >> final_config.toml
