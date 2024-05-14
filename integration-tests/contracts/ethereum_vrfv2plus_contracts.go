@@ -1210,11 +1210,6 @@ func extractVRFCoordinatorV25MigrationCompletedEvent(events []seth.DecodedTransa
 			} else {
 				return nil, fmt.Errorf("'newCoordinator' not found in the event")
 			}
-			if raw, ok := e.EventData["raw"].(types.Log); ok {
-				event.Raw = raw
-			} else {
-				return nil, fmt.Errorf("'amountNative' not found in the event")
-			}
 			if subId, ok := e.EventData["subId"].(*big.Int); ok {
 				event.SubId = subId
 			} else {
