@@ -296,11 +296,130 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
+  function test_ForwardFromRouterExtraArgsV2_Success() public {
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
+    message.extraArgs = abi.encodeWithSelector(
+      Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
+    );
+    uint256 feeAmount = 1234567890;
+    IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
+
+    vm.expectEmit();
+    emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+
+    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
+  }
+
+  function test_ForwardFromRouterExtraArgsV2AllowOutOfOrderTrue_Success() public {
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
+    message.extraArgs = abi.encodeWithSelector(
+      Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
+    );
+    uint256 feeAmount = 1234567890;
+    IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
+
+    vm.expectEmit();
+    emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+
+    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
+  }
+
+  function test_EnforceOutOfOrder_Success() public {
+    // Update dynamic config to enforce allowOutOfOrderExecution = true.
+    vm.stopPrank();
+    vm.startPrank(OWNER);
+    EVM2EVMOnRamp.DynamicConfig memory dynamicConfig = s_onRamp.getDynamicConfig();
+    s_onRamp.setDynamicConfig(
+      EVM2EVMOnRamp.DynamicConfig({
+        router: dynamicConfig.router,
+        maxNumberOfTokensPerMsg: dynamicConfig.maxNumberOfTokensPerMsg,
+        destGasOverhead: dynamicConfig.destGasOverhead,
+        destGasPerPayloadByte: dynamicConfig.destGasPerPayloadByte,
+        destDataAvailabilityOverheadGas: dynamicConfig.destDataAvailabilityOverheadGas,
+        destGasPerDataAvailabilityByte: dynamicConfig.destGasPerDataAvailabilityByte,
+        destDataAvailabilityMultiplierBps: dynamicConfig.destDataAvailabilityMultiplierBps,
+        priceRegistry: dynamicConfig.priceRegistry,
+        maxDataBytes: dynamicConfig.maxDataBytes,
+        maxPerMsgGasLimit: dynamicConfig.maxPerMsgGasLimit,
+        tokenAdminRegistry: dynamicConfig.tokenAdminRegistry,
+        defaultTokenFeeUSDCents: dynamicConfig.defaultTokenFeeUSDCents,
+        defaultTokenDestGasOverhead: dynamicConfig.defaultTokenDestGasOverhead,
+        defaultTokenDestBytesOverhead: dynamicConfig.defaultTokenDestBytesOverhead,
+        enforceOutOfOrder: true
+      })
+    );
+    vm.stopPrank();
+
+    vm.startPrank(address(s_sourceRouter));
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
+    // Empty extraArgs to should revert since it enforceOutOfOrder is true.
+    message.extraArgs = "";
+    uint256 feeAmount = 1234567890;
+    IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
+
+    vm.expectRevert(EVM2EVMOnRamp.ExtraArgOutOfOrderExecutionMustBeTrue.selector);
+    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
+  }
+
+  function test_Fuzz_EnforceOutOfOrder(bool enforce, bool allowOutOfOrderExecution) public {
+    // Update dynamic config to enforce allowOutOfOrderExecution = defaultVal.
+    vm.stopPrank();
+    vm.startPrank(OWNER);
+    EVM2EVMOnRamp.DynamicConfig memory dynamicConfig = s_onRamp.getDynamicConfig();
+    s_onRamp.setDynamicConfig(
+      EVM2EVMOnRamp.DynamicConfig({
+        router: dynamicConfig.router,
+        maxNumberOfTokensPerMsg: dynamicConfig.maxNumberOfTokensPerMsg,
+        destGasOverhead: dynamicConfig.destGasOverhead,
+        destGasPerPayloadByte: dynamicConfig.destGasPerPayloadByte,
+        destDataAvailabilityOverheadGas: dynamicConfig.destDataAvailabilityOverheadGas,
+        destGasPerDataAvailabilityByte: dynamicConfig.destGasPerDataAvailabilityByte,
+        destDataAvailabilityMultiplierBps: dynamicConfig.destDataAvailabilityMultiplierBps,
+        priceRegistry: dynamicConfig.priceRegistry,
+        maxDataBytes: dynamicConfig.maxDataBytes,
+        maxPerMsgGasLimit: dynamicConfig.maxPerMsgGasLimit,
+        tokenAdminRegistry: dynamicConfig.tokenAdminRegistry,
+        defaultTokenFeeUSDCents: dynamicConfig.defaultTokenFeeUSDCents,
+        defaultTokenDestGasOverhead: dynamicConfig.defaultTokenDestGasOverhead,
+        defaultTokenDestBytesOverhead: dynamicConfig.defaultTokenDestBytesOverhead,
+        enforceOutOfOrder: enforce
+      })
+    );
+    vm.stopPrank();
+
+    vm.startPrank(address(s_sourceRouter));
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
+    message.extraArgs = abi.encodeWithSelector(
+      Client.EVM_EXTRA_ARGS_V2_TAG,
+      Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: allowOutOfOrderExecution})
+    );
+    uint256 feeAmount = 1234567890;
+    IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
+
+    if (enforce) {
+      // If enforcement is on, only true should be allowed.
+      if (allowOutOfOrderExecution) {
+        vm.expectEmit();
+        emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+        s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
+      } else {
+        vm.expectRevert(EVM2EVMOnRamp.ExtraArgOutOfOrderExecutionMustBeTrue.selector);
+        s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
+      }
+    } else {
+      // no enforcement should allow any value.
+      vm.expectEmit();
+      emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+      s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
+    }
+  }
+
   function test_ShouldIncrementSeqNumAndNonce_Success() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     for (uint64 i = 1; i < 4; ++i) {
       uint64 nonceBefore = s_onRamp.getSenderNonce(OWNER);
+      uint64 sequenceNumberBefore = s_onRamp.getSequenceNumber();
 
       vm.expectEmit();
       emit CCIPSendRequested(_messageToEvent(message, i, i, 0, OWNER));
@@ -308,7 +427,31 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
       s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
 
       uint64 nonceAfter = s_onRamp.getSenderNonce(OWNER);
+      uint64 sequenceNumberAfter = s_onRamp.getSequenceNumber();
       assertEq(nonceAfter, nonceBefore + 1);
+      assertEq(sequenceNumberAfter, sequenceNumberBefore + 1);
+    }
+  }
+
+  function test_ShouldIncrementNonceOnlyOnOrdered_Success() public {
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
+    message.extraArgs = abi.encodeWithSelector(
+      Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
+    );
+
+    for (uint64 i = 1; i < 4; ++i) {
+      uint64 nonceBefore = s_onRamp.getSenderNonce(OWNER);
+      uint64 sequenceNumberBefore = s_onRamp.getSequenceNumber();
+
+      vm.expectEmit();
+      emit CCIPSendRequested(_messageToEvent(message, i, i, 0, OWNER));
+
+      s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
+
+      uint64 nonceAfter = s_onRamp.getSenderNonce(OWNER);
+      uint64 sequenceNumberAfter = s_onRamp.getSequenceNumber();
+      assertEq(nonceAfter, nonceBefore);
+      assertEq(sequenceNumberAfter, sequenceNumberBefore + 1);
     }
   }
 
@@ -1774,7 +1917,8 @@ contract EVM2EVMOnRamp_setDynamicConfig is EVM2EVMOnRampSetup {
       tokenAdminRegistry: address(s_tokenAdminRegistry),
       defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
       defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
-      defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD
+      defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD,
+      enforceOutOfOrder: false
     });
 
     vm.expectEmit();
@@ -1809,7 +1953,8 @@ contract EVM2EVMOnRamp_setDynamicConfig is EVM2EVMOnRampSetup {
       tokenAdminRegistry: address(s_tokenAdminRegistry),
       defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
       defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
-      defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD
+      defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD,
+      enforceOutOfOrder: false
     });
 
     // Invalid price reg reverts.

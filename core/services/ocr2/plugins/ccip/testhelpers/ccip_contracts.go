@@ -1246,6 +1246,18 @@ func GetEVMExtraArgsV1(gasLimit *big.Int, strict bool) ([]byte, error) {
 	return append(EVMV1Tag, encodedArgs...), nil
 }
 
+func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) {
+	// see Client.sol.
+	EVMV2Tag := hexutil.MustDecode("0x181dcf10")
+
+	encodedArgs, err := utils.ABIEncode(`[{"type":"uint256"},{"type":"bool"}]`, gasLimit, allowOutOfOrder)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(EVMV2Tag, encodedArgs...), nil
+}
+
 type ManualExecArgs struct {
 	SourceChainID, DestChainID uint64
 	DestUser                   *bind.TransactOpts
