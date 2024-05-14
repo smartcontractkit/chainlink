@@ -50,6 +50,7 @@ compileContract ccip/applications/SelfFundedPingPong.sol
 compileContract ccip/applications/EtherSenderReceiver.sol
 compileContractLowOpts ccip/onRamp/EVM2EVMOnRamp.sol
 compileContract ccip/CommitStore.sol
+compileContract ccip/MultiCommitStore.sol
 compileContract ccip/Router.sol
 compileContract ccip/PriceRegistry.sol
 compileContract ccip/pools/LockReleaseTokenPool.sol
