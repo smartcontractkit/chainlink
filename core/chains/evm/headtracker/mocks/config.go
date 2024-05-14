@@ -67,24 +67,6 @@ func (_m *Config) FinalityTagEnabled() bool {
 	return r0
 }
 
-// FinalizedBlockOffset provides a mock function with given fields:
-func (_m *Config) FinalizedBlockOffset() uint32 {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for FinalizedBlockOffset")
-	}
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
 // NewConfig creates a new instance of Config. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewConfig(t interface {

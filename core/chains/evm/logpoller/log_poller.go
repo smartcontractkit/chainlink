@@ -89,8 +89,7 @@ type Client interface {
 }
 
 type HeadTracker interface {
-	// ChainWithLatestFinalized - returns highest block, whose ancestor is marked as finalized
-	ChainWithLatestFinalized() (*evmtypes.Head, error)
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
 }
 
 var (
@@ -1013,14 +1012,13 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 
 // Returns information about latestBlock, latestFinalizedBlockNumber provided by HeadTracker
 func (lp *logPoller) latestBlocks() (*evmtypes.Head, int64, error) {
-	chain, err := lp.headTracker.ChainWithLatestFinalized()
+	latest, finalized, err := lp.headTracker.LatestAndFinalizedBlock(lp.ctx)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get chain with latest finalized block from HeadTracker: %w", err)
+		return nil, 0, fmt.Errorf("failed to get latest and latest finalized block from HeadTracker: %w", err)
 	}
 
-	finalized := chain.LatestFinalizedHead()
-	lp.lggr.Debugw("Latest blocks read from chain", "latest", chain.Number, "finalized", finalized.BlockNumber())
-	return chain, finalized.BlockNumber(), nil
+	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalized.BlockNumber())
+	return latest, finalized.BlockNumber(), nil
 }
 
 // Find the first place where our chain and their chain have the same block,

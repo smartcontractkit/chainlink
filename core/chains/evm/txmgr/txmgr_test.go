@@ -18,8 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -60,7 +58,7 @@ func makeTestEvmTxm(
 		KeepFinalizedBlocksDepth: 1000,
 	}
 
-	ht := headtracker.NewSimulatedHeadTracker(tests.Context(t), ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), ethClient, lggr, ht, lpOpts)
 
 	// logic for building components (from evm/evm_txm.go) -------

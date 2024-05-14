@@ -51,5 +51,7 @@ func (*nullTracker) SetLogLevel(zapcore.Level)      {}
 func (*nullTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head) (err error) {
 	return nil
 }
-func (*nullTracker) LatestChain() *evmtypes.Head                       { return nil }
-func (*nullTracker) ChainWithLatestFinalized() (*evmtypes.Head, error) { return nil, nil }
+func (*nullTracker) LatestChain() *evmtypes.Head { return nil }
+func (*nullTracker) LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error) {
+	return nil, nil, nil
+}

@@ -42,8 +42,8 @@ type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface 
 	// Backfill given a head will fill in any missing heads up to latestFinalized
 	Backfill(ctx context.Context, headWithChain H) (err error)
 	LatestChain() H
-	// ChainWithLatestFinalized - returns highest block, whose ancestor is marked as finalized
-	ChainWithLatestFinalized() (H, error)
+	// LatestAndFinalizedBlock - returns latest and finalized blocks
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized H, err error)
 }
 
 type headTracker[
@@ -341,9 +341,18 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx conte
 		return
 	}
 
+	if !latest.IsValid() {
+		err = fmt.Errorf("expected latest block to be valid")
+		return
+	}
+
 	finalized, err = ht.calculateLatestFinalized(ctx, latest)
 	if err != nil {
-		err = fmt.Errorf("failded to calculate latest finalized block: %w", err)
+		err = fmt.Errorf("failed to calculate latest finalized block")
+		return
+	}
+	if !finalized.IsValid() {
+		err = fmt.Errorf("expected finalized block to be valid")
 		return
 	}
 
@@ -458,9 +467,4 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) fetchAndSaveHead(ctx context.Cont
 		return ht.getNilHead(), err
 	}
 	return head, nil
-}
-
-// ChainWithLatestFinalized - returns highest block, whose ancestor is marked as finalized
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) ChainWithLatestFinalized() (HTH, error) {
-	return ht.headSaver.ChainWithLatestFinalized()
 }

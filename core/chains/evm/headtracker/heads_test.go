@@ -129,8 +129,6 @@ func TestHeads_MarkFinalized(t *testing.T) {
 
 	allHeads := []*evmtypes.Head{h0, h1, h1Uncle, h2, h2Uncle, h3, h4, h5}
 	heads.AddHeads(allHeads...)
-	_, err := heads.ChainWithLatestFinalized()
-	require.NotNil(t, err, "expected error, if there is no finalized block")
 	// mark h3 and all ancestors as finalized
 	require.True(t, heads.MarkFinalized(h3.Hash, h1.BlockNumber()), "expected MarkFinalized succeed")
 
@@ -160,28 +158,4 @@ func TestHeads_MarkFinalized(t *testing.T) {
 	t.Run("blocks were correctly marked as finalized", ensureProperFinalization)
 	heads.AddHeads(h0, h1, h2, h2Uncle, h3, h4, h5)
 	t.Run("blocks remain finalized after re adding them to the Heads", ensureProperFinalization)
-	// ChainWithLatestFinalized
-	containsFinalized := func(head *evmtypes.Head) bool {
-		for ; head != nil; head = head.Parent {
-			if head.IsFinalized {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	chainWithFinalized, err := heads.ChainWithLatestFinalized()
-	require.NoError(t, err)
-	assert.True(t, containsFinalized(chainWithFinalized), "Expected finalized head to be present in the chain")
-	// add new head with gap
-	h6 := newHead(6, h5.Hash)
-	h7 := newHead(7, h6.Hash)
-	heads.AddHeads(h7)
-	assert.Equal(t, int64(7), heads.LatestHead().BlockNumber())
-	assert.False(t, containsFinalized(heads.LatestHead()), "Expected latest head not to be connect to the finalized")
-	chainWithFinalized, err = heads.ChainWithLatestFinalized()
-	require.NoError(t, err)
-	assert.Equal(t, int64(5), chainWithFinalized.Number)
-	assert.True(t, containsFinalized(chainWithFinalized), "Expected finalized head to be still available in the chain")
 }

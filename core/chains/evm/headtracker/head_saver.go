@@ -86,10 +86,6 @@ func (hs *headSaver) MarkFinalized(ctx context.Context, finalized *evmtypes.Head
 	return hs.orm.TrimOldHeads(ctx, minBlockToKeep)
 }
 
-func (hs *headSaver) ChainWithLatestFinalized() (*evmtypes.Head, error) {
-	return hs.heads.ChainWithLatestFinalized()
-}
-
 var NullSaver httypes.HeadSaver = &nullSaver{}
 
 type nullSaver struct{}
@@ -104,4 +100,3 @@ func (*nullSaver) Chain(hash common.Hash) *evmtypes.Head                        
 func (*nullSaver) MarkFinalized(ctx context.Context, latestFinalized *evmtypes.Head) error {
 	return nil
 }
-func (*nullSaver) ChainWithLatestFinalized() (*evmtypes.Head, error) { return nil, nil }

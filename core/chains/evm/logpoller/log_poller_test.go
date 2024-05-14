@@ -25,8 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
@@ -722,7 +720,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 			KeepFinalizedBlocksDepth: 1000,
 		}
 		simulatedClient := client.NewSimulatedBackendClient(t, ec, chainID)
-		ht := headtracker.NewSimulatedHeadTracker(tests.Context(t), simulatedClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		ht := headtracker.NewSimulatedHeadTracker(simulatedClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 		lp := logpoller.NewLogPoller(orm, simulatedClient, lggr, ht, lpOpts)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
@@ -1564,15 +1562,10 @@ func TestTooManyLogResults(t *testing.T) {
 		Message: "query returned more than 10000 results. Try with this block range [0x100E698, 0x100E6D4].",
 	}
 
-	newHeadWithFinalized := func(blockNumber int64) *evmtypes.Head {
-		head := &evmtypes.Head{Number: blockNumber}
-		finalized := &evmtypes.Head{Number: blockNumber - lpOpts.FinalityDepth, IsFinalized: true}
-		head.Parent = finalized
-		return head
-	}
-
 	// Simulate currentBlock = 300
-	headTracker.On("ChainWithLatestFinalized").Return(newHeadWithFinalized(300), nil).Once()
+	head := &evmtypes.Head{Number: 300}
+	finalized := &evmtypes.Head{Number: head.Number - lpOpts.FinalityDepth}
+	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
 	call1 := ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
 		if blockNumber == nil {
 			panic("unexpected call to get current head")
@@ -1617,7 +1610,9 @@ func TestTooManyLogResults(t *testing.T) {
 
 	// Now jump to block 500, but return error no matter how small the block range gets.
 	//  Should exit the loop with a critical error instead of hanging.
-	headTracker.On("ChainWithLatestFinalized").Return(newHeadWithFinalized(500), nil).Once()
+	head = &evmtypes.Head{Number: 500}
+	finalized = &evmtypes.Head{Number: head.Number - lpOpts.FinalityDepth}
+	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
 	call1.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
 		if blockNumber == nil {
 			panic("unexpected call to get current head")

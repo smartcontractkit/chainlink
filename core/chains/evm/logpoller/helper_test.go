@@ -10,8 +10,6 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -71,7 +69,7 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	head := esc.Backend().Blockchain().CurrentHeader()
 	esc.Backend().Blockchain().SetFinalized(head)
 
-	headTracker := headtracker.NewSimulatedHeadTracker(tests.Context(t), esc, opts.UseFinalityTag, opts.FinalityDepth)
+	headTracker := headtracker.NewSimulatedHeadTracker(esc, opts.UseFinalityTag, opts.FinalityDepth)
 	if opts.PollPeriod == 0 {
 		opts.PollPeriod = 1 * time.Hour
 	}

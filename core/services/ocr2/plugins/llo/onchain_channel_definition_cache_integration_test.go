@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -87,7 +85,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		}
-		ht := headtracker.NewSimulatedHeadTracker(tests.Context(t), ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 		lp := logpoller.NewLogPoller(
 			logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts)
 		servicetest.Run(t, lp)
@@ -160,7 +158,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		}
-		ht := headtracker.NewSimulatedHeadTracker(tests.Context(t), ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 		lp := &mockLogPoller{
 			LogPoller: logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts),
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -203,7 +201,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		}
-		ht := headtracker.NewSimulatedHeadTracker(tests.Context(t), ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts)
 		servicetest.Run(t, lp)
 		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, channel2Block.Number().Int64()+1)

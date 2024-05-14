@@ -210,7 +210,8 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	latestBlock := int64(4)
 	const finalityDepth = 2
 
-	head := evmtypes.Head{Number: latestBlock, Parent: &evmtypes.Head{Number: latestBlock - finalityDepth, IsFinalized: true}}
+	head := &evmtypes.Head{Number: latestBlock}
+	finalizedHead := &evmtypes.Head{Number: latestBlock - finalityDepth}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
 	log1 := types.Log{
 		Index:       0,
@@ -227,7 +228,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	ec.On("ConfiguredChainID").Return(chainID, nil)
 
 	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-	headTracker.On("ChainWithLatestFinalized").Return(&head, nil)
+	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalizedHead, nil)
 
 	ctx := testutils.Context(t)
 	lpOpts := Opts{
@@ -315,11 +316,10 @@ func TestLogPoller_Replay(t *testing.T) {
 	}
 	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 
-	headTracker.On("ChainWithLatestFinalized").Return(func() (*evmtypes.Head, error) {
+	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(func(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
 		headCopy := head
-		finalized := &evmtypes.Head{Number: headCopy.Number - lpOpts.FinalityDepth, IsFinalized: true}
-		headCopy.Parent = finalized
-		return &headCopy, nil
+		finalized := &evmtypes.Head{Number: headCopy.Number - lpOpts.FinalityDepth}
+		return &headCopy, finalized, nil
 	})
 	lp := NewLogPoller(orm, ec, lggr, headTracker, lpOpts)
 
@@ -540,7 +540,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	t.Run("headTracker returns an error", func(t *testing.T) {
 		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		const expectedError = "finalized block is not available yet"
-		headTracker.On("ChainWithLatestFinalized").Return(&evmtypes.Head{}, fmt.Errorf(expectedError))
+		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, fmt.Errorf(expectedError))
 
 		lp := NewLogPoller(nil, nil, lggr, headTracker, lpOpts)
 		_, _, err := lp.latestBlocks()
@@ -549,8 +549,8 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	t.Run("headTracker returns valid chain", func(t *testing.T) {
 		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		finalizedBlock := &evmtypes.Head{Number: 2, IsFinalized: true}
-		head := &evmtypes.Head{Number: 10, Parent: &evmtypes.Head{Number: 9, Parent: finalizedBlock}}
-		headTracker.On("ChainWithLatestFinalized").Return(head, nil)
+		head := &evmtypes.Head{Number: 10}
+		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalizedBlock, nil)
 
 		lp := NewLogPoller(nil, nil, lggr, headTracker, lpOpts)
 		latestBlock, finalizedBlockNumber, err := lp.latestBlocks()

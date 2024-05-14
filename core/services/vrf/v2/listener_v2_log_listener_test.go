@@ -20,8 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -106,7 +104,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		RpcBatchSize:             rpcBatchSize,
 		KeepFinalizedBlocksDepth: keepFinalizedBlocksDepth,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(tests.Context(t), esc, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headtracker.NewSimulatedHeadTracker(esc, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(o, esc, lggr, ht, lpOpts)
 
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)

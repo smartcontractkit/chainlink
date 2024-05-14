@@ -14,36 +14,40 @@ type simulatedHeadTracker struct {
 	ec             evmclient.Client
 	useFinalityTag bool
 	finalityDepth  int64
-	ctx            context.Context
 }
 
-func NewSimulatedHeadTracker(ctx context.Context, ec evmclient.Client, useFinalityTag bool, finalityDepth int64) *simulatedHeadTracker {
+func NewSimulatedHeadTracker(ec evmclient.Client, useFinalityTag bool, finalityDepth int64) *simulatedHeadTracker {
 	return &simulatedHeadTracker{
 		ec:             ec,
 		useFinalityTag: useFinalityTag,
 		finalityDepth:  finalityDepth,
-		ctx:            ctx,
 	}
 }
 
-func (ht *simulatedHeadTracker) ChainWithLatestFinalized() (*evmtypes.Head, error) {
-	latestHead, err := ht.ec.HeadByNumber(ht.ctx, nil)
+func (ht *simulatedHeadTracker) LatestAndFinalizedBlock(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
+	latest, err := ht.ec.HeadByNumber(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	if latest == nil {
+		return nil, nil, fmt.Errorf("expected latest block to be valid")
 	}
 
 	var finalizedBlock *evmtypes.Head
 	if ht.useFinalityTag {
-		finalizedBlock, err = ht.ec.LatestFinalizedBlock(ht.ctx)
+		finalizedBlock, err = ht.ec.LatestFinalizedBlock(ctx)
 	} else {
-		finalizedBlock, err = ht.ec.HeadByNumber(ht.ctx, big.NewInt(max(latestHead.Number-ht.finalityDepth, 0)))
+		finalizedBlock, err = ht.ec.HeadByNumber(ctx, big.NewInt(max(latest.Number-ht.finalityDepth, 0)))
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("simulatedHeadTracker failed to get finalized block")
+		return nil, nil, fmt.Errorf("simulatedHeadTracker failed to get finalized block")
 	}
 
-	finalizedBlock.IsFinalized = true
-	latestHead.Parent = finalizedBlock
-	return latestHead, nil
+	if finalizedBlock == nil {
+		return nil, nil, fmt.Errorf("expected finalized block to be valid")
+	}
+
+	return latest, finalizedBlock, nil
 }
