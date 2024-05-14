@@ -23,8 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -271,7 +269,7 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 		RpcBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(tests.Context(t), it.client, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headtracker.NewSimulatedHeadTracker(it.client, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), it.client, lggr, ht, lpOpts)
 	require.NoError(t, lp.Start(ctx))
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, it.chainConfig)
