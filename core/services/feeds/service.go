@@ -801,6 +801,14 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			case job.Workflow:
 				// do nothing. assume there is no existing job
 				// TODO FIXME: this is a temporary fix to avoid checking for existing jobs for workflow jobs
+				existingJobID, txerr = findExistingWorkflowJob(ctx, j, tx.jobORM)
+				if txerr != nil {
+					// Return an error if the repository errors. If there is a not found
+					// error we want to continue with approving the job.
+					if !errors.Is(txerr, sql.ErrNoRows) {
+						return fmt.Errorf("failed while checking for existing workflow job: %w", txerr)
+					}
+				}
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
@@ -1096,6 +1104,13 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// TODO implement this
+func findExistingWorkflowJob(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
+	// might need an ORM method FindJobIDByWorkflowID.
+	//
+	return 0, nil
 }
 
 // findExistingJobForOCR2 looks for existing job for OCR2

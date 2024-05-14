@@ -721,6 +721,43 @@ func Test_Service_ProposeJob(t *testing.T) {
 			args:   argsWF,
 			wantID: proposalIDWF,
 		},
+		{
+			name: "Auto approve WF spec: error creating job",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
+				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(int64(100), nil)
+				//			svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+				transactCall.Run(func(args mock.Arguments) {
+					fn := args[1].(func(orm feeds.ORM) error)
+					transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+				})
+				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
+				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, proposalIDWF).Return(&proposalSpecWF, nil)
+				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows) // TODO fix the external job id in wf spec generation
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.spawner.
+					On("CreateJob",
+						mock.Anything,
+						mock.Anything,
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.WorkflowSpec.WorkflowOwner == wfOwner
+						}),
+					).
+					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Return(fmt.Errorf("error creating job"))
+
+			},
+			args:    argsWF,
+			wantID:  0,
+			wantErr: "error creating job",
+		},
 
 		{
 			name: "Create success (Flux Monitor)",
