@@ -2,7 +2,7 @@ package forwarders
 
 import (
 	"context"
-	"database/sql"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -47,36 +47,49 @@ func (o *DSORM) CreateForwarder(ctx context.Context, addr common.Address, evmCha
 	return fwd, err
 }
 
+//// DeleteForwarder removes a forwarder address.
+//// If cleanup is non-nil, it can be used to perform any chain- or contract-specific cleanup that need to happen atomically
+//// on forwarder deletion.  If cleanup returns an error, forwarder deletion will be aborted.
+//func (o *DSORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sqlutil.DataSource, evmChainID int64, addr common.Address) error) (err error) {
+//	return o.Transact(ctx, func(orm *DSORM) error {
+//		var dest struct {
+//			EvmChainId int64
+//			Address    common.Address
+//		}
+//		err := orm.ds.GetContext(ctx, &dest, `SELECT evm_chain_id, address FROM evm.forwarders WHERE id = $1`, id)
+//		if err != nil {
+//			return err
+//		}
+//		if cleanup != nil {
+//			if err = cleanup(orm.ds, dest.EvmChainId, dest.Address); err != nil {
+//				return err
+//			}
+//		}
+//
+//		result, err := orm.ds.ExecContext(ctx, `DELETE FROM evm.forwarders WHERE id = $1`, id)
+//		// If the forwarder wasn't found, we still want to delete the filter.
+//		// In that case, the transaction must return nil, even though DeleteForwarder
+//		// will return sql.ErrNoRows
+//		if err != nil && !pkgerrors.Is(err, sql.ErrNoRows) {
+//			return err
+//		}
+//		rowsAffected, err := result.RowsAffected()
+//		if err == nil && rowsAffected == 0 {
+//			err = sql.ErrNoRows
+//		}
+//		return err
+//	})
+//}
+
 // DeleteForwarder removes a forwarder address.
 // If cleanup is non-nil, it can be used to perform any chain- or contract-specific cleanup that need to happen atomically
 // on forwarder deletion.  If cleanup returns an error, forwarder deletion will be aborted.
-func (o *DSORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sqlutil.DataSource, evmChainID int64, addr common.Address) error) (err error) {
+func (o *DSORM) DeleteForwarder(ctx context.Context, id int64, _ func(tx sqlutil.DataSource, evmChainID int64, addr common.Address) error) (err error) {
 	return o.Transact(ctx, func(orm *DSORM) error {
-		var dest struct {
-			EvmChainId int64
-			Address    common.Address
-		}
-		err := orm.ds.GetContext(ctx, &dest, `SELECT evm_chain_id, address FROM evm.forwarders WHERE id = $1`, id)
-		if err != nil {
-			return err
-		}
-		if cleanup != nil {
-			if err = cleanup(orm.ds, dest.EvmChainId, dest.Address); err != nil {
-				return err
-			}
-		}
+		fmt.Println("0")
 
-		result, err := orm.ds.ExecContext(ctx, `DELETE FROM evm.forwarders WHERE id = $1`, id)
-		// If the forwarder wasn't found, we still want to delete the filter.
-		// In that case, the transaction must return nil, even though DeleteForwarder
-		// will return sql.ErrNoRows
-		if err != nil && !pkgerrors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		rowsAffected, err := result.RowsAffected()
-		if err == nil && rowsAffected == 0 {
-			err = sql.ErrNoRows
-		}
+		_, err := orm.ds.ExecContext(sqlutil.WithoutDefaultTimeout(ctx), `DELETE FROM evm.forwarders WHERE id = $1`, id)
+		fmt.Println("1 ", err)
 		return err
 	})
 }

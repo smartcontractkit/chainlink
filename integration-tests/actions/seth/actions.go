@@ -334,6 +334,24 @@ func DeployForwarderContracts(
 	return operators, authorizedForwarders, operatorFactoryInstance
 }
 
+// DeleteForwarder creates forwarder track for a given Chainlink node
+func DeleteForwarder(
+	t *testing.T,
+	seth *seth.Client,
+	authorizedForwarder common.Address,
+	node contracts.ChainlinkNodeWithForwarder,
+) {
+	l := logging.GetTestLogger(t)
+	chainID := big.NewInt(seth.ChainID)
+	fmt.Println(fmt.Sprintf("node: %s is deleting :%s ", node.GetConfig().URL, authorizedForwarder.Hex()))
+	_, _, err := node.DeleteForwarder(chainID, authorizedForwarder)
+	require.NoError(t, err, "Forwarder deleted should be")
+	l.Info().Str("NodeURL", node.GetConfig().URL).
+		Str("ForwarderAddress", authorizedForwarder.Hex()).
+		Str("ChaindID", chainID.String()).
+		Msg("Forwarder deleted")
+}
+
 // WatchNewOCRRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
 // round from the contract, as this can cause some odd behavior in some cases. It announces success if latest round
 // is >= roundNumber.

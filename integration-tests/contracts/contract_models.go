@@ -147,6 +147,7 @@ type ChainlinkNodeWithKeysAndAddress interface {
 type ChainlinkNodeWithForwarder interface {
 	TrackForwarder(chainID *big.Int, address common.Address) (*client.Forwarder, *http.Response, error)
 	GetConfig() client.ChainlinkConfig
+	DeleteForwarder(chainID *big.Int, address common.Address) (*client.Forwarder, *http.Response, error)
 }
 
 type OffChainAggregatorWithRounds interface {

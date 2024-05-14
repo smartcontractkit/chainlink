@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"math/big"
 	"net/http"
 
@@ -74,35 +75,47 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 
 // Delete removes an EVM Forwarder.
 func (cc *EVMForwardersController) Delete(c *gin.Context) {
+	cc.App.GetLogger().Critical("1Hello?")
+
 	id, err := stringutils.ToInt64(c.Param("fwdID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
+	cc.App.GetLogger().Critical("2Hello?")
 
 	filterCleanup := func(tx sqlutil.DataSource, evmChainID int64, addr common.Address) error {
 		chain, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(big.NewInt(evmChainID).String())
 		if err2 != nil {
+			cc.App.GetLogger().Critical(fmt.Sprintf("DeleteForwarder chain err2 %s ", err2.Error()))
+
 			// If the chain id doesn't even exist, or logpoller is disabled, then there isn't any filter to clean up.  Returning an error
 			// here could be dangerous as it would make it impossible to delete a forwarder with an invalid chain id
 			return nil
 		}
-
+		cc.App.GetLogger().Critical("3Hello?")
 		if chain.LogPoller() == logpoller.LogPollerDisabled {
+			cc.App.GetLogger().Critical(fmt.Sprintf("Lp disabled "))
 			// handle same as non-existent chain id
 			return nil
 		}
-		return chain.LogPoller().UnregisterFilter(c.Request.Context(), forwarders.FilterName(addr))
+		unregErr := chain.LogPoller().UnregisterFilter(c.Request.Context(), forwarders.FilterName(addr))
+		cc.App.GetLogger().Critical(fmt.Sprintf("LogPoller().UnregisterFilter  unregErr %s ", unregErr))
+		return unregErr
 	}
 
 	orm := forwarders.NewORM(cc.App.GetDB())
 	err = orm.DeleteForwarder(c.Request.Context(), id, filterCleanup)
 
+	cc.App.GetLogger().Critical(fmt.Sprintf("DeleteForwarder result? %s", err))
+
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	cc.App.GetLogger().Critical("6Hello?")
 
+	cc.App.GetLogger().Warn("DeleteForwarder successs")
 	cc.App.GetAuditLogger().Audit(audit.ForwarderDeleted, map[string]interface{}{"id": id})
-	jsonAPIResponseWithStatus(c, nil, "forwarder", http.StatusNoContent)
+	jsonAPIResponseWithStatus(c, nil, "forwarder", http.StatusTeapot)
 }
