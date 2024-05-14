@@ -128,7 +128,7 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 
 	// no need to return an error. an empty list is fine
 	if len(logs) == 0 {
-		return nil, commontypes.ErrNotFound
+		return []commontypes.Sequence{}, nil
 	}
 
 	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
