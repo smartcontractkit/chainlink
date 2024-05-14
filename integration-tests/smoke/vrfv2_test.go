@@ -31,6 +31,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 )
 
+const (
+	SethRootKeyIndex = 0
+)
+
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
 	var (
@@ -879,7 +883,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
-			0,
+			SethRootKeyIndex,
 		)
 		require.NoError(t, err, "error requesting randomness")
 
@@ -950,7 +954,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
-			0,
+			SethRootKeyIndex,
 		)
 		require.NoError(t, err, "error requesting randomness")
 
@@ -1144,7 +1148,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
-			0,
+			SethRootKeyIndex,
 		)
 		require.NoError(t, err)
 
