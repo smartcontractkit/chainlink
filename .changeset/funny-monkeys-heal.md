@@ -3,4 +3,4 @@
 ---
 
 #changed:
-AUTO-10539: improve offchain config length check
+AUTO-10539: adjust logging for offchain config and gas control
