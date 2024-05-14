@@ -589,7 +589,7 @@ func (lp *logPoller) run() {
 				}
 				// Otherwise this is the first poll _ever_ on a new chain.
 				// Only safe thing to do is to start at the first finalized block.
-				latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks()
+				latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(lp.ctx)
 				if err != nil {
 					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
 					continue
@@ -709,7 +709,7 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) {
 		lp.backupPollerNextBlock = mathutil.Max(backupStartBlock, 0)
 	}
 
-	_, latestFinalizedBlockNumber, err := lp.latestBlocks()
+	_, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
 	if err != nil {
 		lp.lggr.Warnw("Backup logpoller failed to get latest block", "err", err)
 		return
@@ -926,7 +926,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	lp.lggr.Debugw("Polling for logs", "currentBlockNumber", currentBlockNumber)
 	// Intentionally not using logPoller.finalityDepth directly but the latestFinalizedBlockNumber returned from lp.latestBlocks()
 	// latestBlocks knows how to pick a proper latestFinalizedBlockNumber based on the logPoller's configuration
-	latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks()
+	latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
 	if err != nil {
 		lp.lggr.Warnw("Unable to get latestBlockNumber block", "err", err, "currentBlockNumber", currentBlockNumber)
 		return
@@ -1011,8 +1011,8 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 }
 
 // Returns information about latestBlock, latestFinalizedBlockNumber provided by HeadTracker
-func (lp *logPoller) latestBlocks() (*evmtypes.Head, int64, error) {
-	latest, finalized, err := lp.headTracker.LatestAndFinalizedBlock(lp.ctx)
+func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, error) {
+	latest, finalized, err := lp.headTracker.LatestAndFinalizedBlock(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get latest and latest finalized block from HeadTracker: %w", err)
 	}
