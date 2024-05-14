@@ -72,7 +72,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chain-selectors v1.0.10
 	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240429120925-907b29311feb
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240503155413-cfe7f9c9ce36
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419213354-ea34a948e2ee
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240422130241-13c17a91b2ab
@@ -112,6 +112,8 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
+
+require github.com/bytecodealliance/wasmtime-go/v19 v19.0.0 // indirect
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect

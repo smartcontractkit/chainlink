@@ -125,8 +125,16 @@ const (
 	keywordTrigger = "trigger"
 )
 
-func Parse(yamlWorkflow string) (*workflow, error) {
-	spec, err := ParseWorkflowSpecYaml(yamlWorkflow)
+type yamlBuilder struct {
+	Spec string
+}
+
+func (b yamlBuilder) Build() (workflowSpec, error) {
+	return ParseWorkflowSpecYaml(b.Spec)
+}
+
+func Parse(builder specBuilder) (*workflow, error) {
+	spec, err := builder.Build()
 	if err != nil {
 		return nil, err
 	}

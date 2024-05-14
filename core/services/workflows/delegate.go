@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -52,12 +53,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	cfg := Config{
-		Lggr:       d.logger,
-		Spec:       spec.WorkflowSpec.Workflow,
-		WorkflowID: spec.WorkflowSpec.WorkflowID,
-		Registry:   d.registry,
-		DONInfo:    dinfo,
-		PeerID:     d.peerID,
+		Lggr:        d.logger,
+		SpecBuilder: yamlBuilder{Spec: spec.WorkflowSpec.Workflow},
+		WorkflowID:  spec.WorkflowSpec.WorkflowID,
+		Registry:    d.registry,
+		DONInfo:     dinfo,
+		PeerID:      d.peerID,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {

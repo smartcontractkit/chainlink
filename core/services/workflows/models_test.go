@@ -216,7 +216,7 @@ targets:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(st *testing.T) {
-			wf, err := Parse(tc.yaml)
+			wf, err := Parse(yamlBuilder{tc.yaml})
 			if tc.errMsg != "" {
 				assert.ErrorContains(st, err, tc.errMsg)
 			} else {

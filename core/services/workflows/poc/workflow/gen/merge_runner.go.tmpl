@@ -1,0 +1,75 @@
+package workflow
+
+import (
+    "errors"
+    "fmt"
+
+    "github.com/smartcontractkit/chainlink-common/pkg/values"
+)
+
+{{ range (rangeIm2 .) }}
+
+type mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O any] struct {
+	mergeRunnerBase
+	fn func({{range (rangeI .) }}{{nis .}}, {{ end }}) (O, error)
+}
+
+func (m mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]) Run(_ string, value values.Value) (values.Value, bool, error) {
+	{{- range (rangeI .) }}
+    v{{.}}, err := unwrapAction[{{nis .}}](value, "{{.}}")
+    if err != nil {
+        return nil, false, err
+    }
+	{{- end }}
+
+	merged, err :=  m.fn({{range (rangeI .) }}v{{.}},{{ end }})
+	if err != nil {
+		return nil, false, err
+	}
+	wrapped, err := values.Wrap(merged)
+	return wrapped, true, err
+}
+
+var _ capability = &mergeRunner{{.}}[{{range (rangeI .) }}any,{{ end }} any]{}
+
+func Merge{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O any](ref string, {{range (rangeI .)}}wb{{.}} *Builder[{{nis .}}], {{end}} merge func({{range (rangeI .)}}{{nis .}},{{end}}) (O, error)) (*Builder[O], error) {
+    {{- range (rangeI .) }}
+	    {{- if ne . 1 }}
+        if wb1.root != wb{{.}}.root {
+            return nil, errors.New("cannot merge builders from different workflows")
+        }
+        {{- end }}
+    {{- end }}
+
+    wb1.root.lock.Lock()
+	defer wb1.root.lock.Unlock()
+
+	if wb1.root.names[ref] {
+		return nil, fmt.Errorf("name %s already exists as a step", ref)
+	}
+	wb1.root.names[ref] = true
+	wb1.root.open[ref] = true
+
+	{{- range (rangeI .) }}
+	wb1.root.open[wb{{.}}.current.Ref()] = false
+	{{- end }}
+
+    mr := &mergeRunner{{.}}[ {{range (rangeI .) }}{{nis .}},{{ end }} O]{
+        fn: merge,
+        mergeRunnerBase: mergeRunnerBase{
+        nonTriggerCapability{
+            inputs: mergeOutputs({{range (rangeI .) }}wb{{.}}.current,{{ end }}),
+            ref:    ref,
+        },
+      },
+    }
+    wb1.root.spec.Actions = append(wb1.root.spec.Actions, capabilityToStepDef(mr))
+    wb1.root.capabilities = append(wb1.root.capabilities, mr)
+    wb1.root.spec.LocalExecutions[ref] = mr
+    return &Builder[O]{
+        root: wb1.root,
+        current: mr,
+    }, nil
+}
+{{ end }}
+
