@@ -9,14 +9,14 @@ import (
 )
 
 func TestHighestHeadNodeSelectorName(t *testing.T) {
-	selector := newNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](NodeSelectionModeHighestHead, nil)
+	selector := newNodeSelector[types.ID, Head, RPCClient[types.ID, Head]](NodeSelectionModeHighestHead, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModeHighestHead)
 }
 
 func TestHighestHeadNodeSelector(t *testing.T) {
 	t.Parallel()
 
-	type nodeClient NodeClient[types.ID, Head]
+	type nodeClient RPCClient[types.ID, Head]
 
 	var nodes []Node[types.ID, Head, nodeClient]
 

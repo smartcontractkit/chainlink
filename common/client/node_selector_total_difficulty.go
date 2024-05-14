@@ -9,13 +9,13 @@ import (
 type totalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ] []Node[CHAIN_ID, HEAD, RPC]
 
 func NewTotalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
 	return totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
 }
@@ -27,10 +27,12 @@ func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID
 	var aliveNodes []Node[CHAIN_ID, HEAD, RPC]
 
 	for _, n := range s {
-		state, _, currentTD := n.StateAndLatest()
+		state, chainInfo := n.StateAndLatest()
 		if state != nodeStateAlive {
 			continue
 		}
+
+		currentTD := chainInfo.BlockDifficulty
 
 		aliveNodes = append(aliveNodes, n)
 		if currentTD != nil && (highestTD == nil || currentTD.Cmp(highestTD) >= 0) {

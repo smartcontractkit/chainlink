@@ -11,7 +11,7 @@ import (
 type priorityLevelNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ] struct {
 	nodes           []Node[CHAIN_ID, HEAD, RPC]
 	roundRobinCount []atomic.Uint32
@@ -20,7 +20,7 @@ type priorityLevelNodeSelector[
 type nodeWithPriority[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ] struct {
 	node     Node[CHAIN_ID, HEAD, RPC]
 	priority int32
@@ -29,7 +29,7 @@ type nodeWithPriority[
 func NewPriorityLevelNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
 	return &priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC]{
 		nodes:           nodes,
@@ -77,7 +77,7 @@ func (s priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC]) getHighestPriorityAliveT
 func removeLowerTiers[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ](nodes []nodeWithPriority[CHAIN_ID, HEAD, RPC]) []nodeWithPriority[CHAIN_ID, HEAD, RPC] {
 	sort.SliceStable(nodes, func(i, j int) bool {
 		return nodes[i].priority > nodes[j].priority
@@ -99,7 +99,7 @@ func removeLowerTiers[
 func nrOfPriorityTiers[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC]) int32 {
 	highestPriority := int32(0)
 	for _, n := range nodes {
@@ -115,7 +115,7 @@ func nrOfPriorityTiers[
 func firstOrHighestPriority[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC]) Node[CHAIN_ID, HEAD, RPC] {
 	hp := int32(math.MaxInt32)
 	var node Node[CHAIN_ID, HEAD, RPC]

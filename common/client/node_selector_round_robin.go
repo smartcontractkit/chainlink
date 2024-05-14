@@ -9,7 +9,7 @@ import (
 type roundRobinSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ] struct {
 	nodes           []Node[CHAIN_ID, HEAD, RPC]
 	roundRobinCount atomic.Uint32
@@ -18,7 +18,7 @@ type roundRobinSelector[
 func NewRoundRobinSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
 	return &roundRobinSelector[CHAIN_ID, HEAD, RPC]{
 		nodes: nodes,
