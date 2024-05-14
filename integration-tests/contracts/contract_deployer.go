@@ -80,6 +80,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager_no_native"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
@@ -166,6 +167,7 @@ type ContractDeployer interface {
 	DeployMercuryVerifierContract(verifierProxyAddr common.Address) (MercuryVerifier, error)
 	DeployMercuryVerifierProxyContract(accessControllerAddr common.Address) (MercuryVerifierProxy, error)
 	DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error)
+	DeployMercuryFeeManagerNoNative(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error)
 	DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error)
 	DeployLogEmitterContract() (LogEmitter, error)
 	DeployMultiCallContract() (common.Address, error)
@@ -1840,7 +1842,7 @@ func (e *EthereumContractDeployer) DeployMercuryVerifierProxyContract(accessCont
 }
 
 func (e *EthereumContractDeployer) DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error) {
-	address, _, instance, err := e.client.DeployContract("Mercury Fee Manager", func(
+	address, _, instance, err := e.client.DeployContract("Mercury FeeManager", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
@@ -1852,6 +1854,24 @@ func (e *EthereumContractDeployer) DeployMercuryFeeManager(linkAddress common.Ad
 	return &EthereumMercuryFeeManager{
 		client:   e.client,
 		instance: instance.(*fee_manager.FeeManager),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMercuryFeeManagerNoNative(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error) {
+	address, _, instance, err := e.client.DeployContract("Mercury FeeManagerNoNative", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return fee_manager_no_native.DeployFeeManagerNoNative(auth, backend, linkAddress, nativeAddress, proxyAddress, rewardManagerAddress)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryFeeManagerNoNative{
+		client:   e.client,
+		instance: instance.(*fee_manager_no_native.FeeManagerNoNative),
 		address:  *address,
 		l:        e.l,
 	}, err
