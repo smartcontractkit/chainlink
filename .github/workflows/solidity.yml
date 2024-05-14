@@ -188,7 +188,7 @@ jobs:
           pnpm version ${{ needs.tag-check.outputs.pre-release-version }} --no-git-tag-version --no-commit-hooks --no-git-checks
 
       - name: Publish to NPM (beta)
-        uses: smartcontractkit/.github/actions/ci-publish-npm@4b0ab756abcb1760cb82e1e87b94ff431905bffc # ci-publish-npm@0.4.0
+        uses: smartcontractkit/.github/actions/ci-publish-npm@08dfd9164c757f7b7951cdaa668cfead9bdc339a # ci-publish-npm@0.4.0
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
           create-github-release: false
@@ -230,7 +230,7 @@ jobs:
           fi
 
       - name: Publish to NPM (latest)
-        uses: smartcontractkit/.github/actions/ci-publish-npm@4b0ab756abcb1760cb82e1e87b94ff431905bffc # ci-publish-npm@0.4.0
+        uses: smartcontractkit/.github/actions/ci-publish-npm@08dfd9164c757f7b7951cdaa668cfead9bdc339a # ci-publish-npm@0.4.0
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
           create-github-release: false
