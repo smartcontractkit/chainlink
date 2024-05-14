@@ -305,7 +305,7 @@ func TestCommitStoreReaders(t *testing.T) {
 			down, err = cr.IsDown(context.Background())
 			require.NoError(t, err)
 			assert.True(t, down)
-			_, err = arm.OwnerUnvoteToCurse(user, nil)
+			_, err = arm.OwnerUnvoteToCurse0(user, nil)
 			require.NoError(t, err)
 			ec.Commit()
 

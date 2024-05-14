@@ -191,7 +191,7 @@ func (ccipModule *CCIPCommon) UnvoteToCurseARM() error {
 	if err != nil {
 		return fmt.Errorf("error getting owners for ARM OwnerUnvoteToCurse %w", err)
 	}
-	tx, err := arm.OwnerUnvoteToCurse(opts, []mock_arm_contract.RMNUnvoteToCurseRecord{})
+	tx, err := arm.OwnerUnvoteToCurse0(opts, []mock_arm_contract.RMNUnvoteToCurseRecord{})
 	if err != nil {
 		return fmt.Errorf("error in calling OwnerUnvoteToCurse %w", err)
 	}

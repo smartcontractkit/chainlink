@@ -2,6 +2,7 @@ package ccipcommon
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"sort"
@@ -115,4 +116,10 @@ func IsTxRevertError(err error) bool {
 	// Nethermind, Parity, OpenEthereum eth_call reverts with "VM execution error"
 	// See: https://github.com/ethereum/go-ethereum/issues/21886
 	return strings.Contains(err.Error(), "execution reverted") || strings.Contains(err.Error(), "VM execution error")
+}
+
+func SelectorToBytes(chainSelector uint64) [32]byte {
+	var b [32]byte
+	binary.BigEndian.PutUint64(b[:], chainSelector)
+	return b
 }
