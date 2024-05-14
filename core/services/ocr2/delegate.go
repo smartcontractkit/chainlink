@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
 	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -1445,7 +1444,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
 
-	w := &logWriter{log: lggr.Named("Automation dependencies")}
+	w := &logWriter{log: lggr.Named("Automation Dependencies")}
 
 	// set some defaults
 	conf := ocr2keepers20config.ReportingFactoryConfig{

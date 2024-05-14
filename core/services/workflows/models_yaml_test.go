@@ -244,7 +244,7 @@ func TestParsesIntsCorrectly(t *testing.T) {
 }
 
 func TestMappingCustomType(t *testing.T) {
-	m := Mapping(map[string]any{})
+	m := mapping(map[string]any{})
 	data := `
 {
 	"foo": 100,

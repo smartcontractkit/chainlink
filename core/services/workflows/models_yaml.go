@@ -83,9 +83,9 @@ func (w workflowSpecYaml) toWorkflowSpec() workflowSpec {
 	}
 }
 
-type Mapping map[string]any
+type mapping map[string]any
 
-func (m *Mapping) UnmarshalJSON(b []byte) error {
+func (m *mapping) UnmarshalJSON(b []byte) error {
 	mp := map[string]any{}
 
 	d := json.NewDecoder(bytes.NewReader(b))
@@ -101,7 +101,7 @@ func (m *Mapping) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	*m = (Mapping)(nm)
+	*m = (mapping)(nm)
 	return err
 }
 
@@ -157,7 +157,7 @@ func convertNumbers(m map[string]any) (map[string]any, error) {
 	return nm, nil
 }
 
-func (m Mapping) MarshalJSON() ([]byte, error) {
+func (m mapping) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any(m))
 }
 
@@ -221,7 +221,7 @@ type stepDefinitionYaml struct {
 	//  - Input reference cannot be resolved.
 	//  - Input is defined on triggers
 	// NOTE: Should introduce a custom validator to cover trigger case
-	Inputs Mapping `json:"inputs,omitempty"`
+	Inputs mapping `json:"inputs,omitempty"`
 
 	// The configuration of a Capability will be done using the “config” property. Each capability is responsible for defining an external interface used during setup. This interface may be unique or identical, meaning multiple Capabilities might use the same configuration properties.
 	//
@@ -239,7 +239,7 @@ type stepDefinitionYaml struct {
 	//        address: "0xaabbcc"
 	//        method: "updateFeedValues(report bytes, role uint8)"
 	//        params: [$(inputs.report), 1]
-	Config Mapping `json:"config" jsonschema:"required"`
+	Config mapping `json:"config" jsonschema:"required"`
 }
 
 // toStepDefinition converts a stepDefinitionYaml to a stepDefinition.
