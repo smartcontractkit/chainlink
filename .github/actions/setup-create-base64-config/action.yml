@@ -39,6 +39,12 @@ inputs:
     description: Ethereum execution client to use (geth, besu, nethermind or erigon)
   customEthClientDockerImage:
     description: custom docker image to use for eth client (e.g. hyperledger/besu:21.10.0)
+  httpRpc:
+    description: HTTP RPC endpoint for the Ethereum client
+  wsRpc:
+    description: WS RPC endpoint for the Ethereum client
+  walletKey:
+    description: Wallet key for the Ethereum client
 
 runs:
   using: composite
@@ -64,6 +70,9 @@ runs:
         GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
         ETH_EXECUTION_CLIENT: ${{ inputs.ethExecutionClient }}
         CUSTOM_ETH_CLIENT_DOCKER_IMAGE: ${{ inputs.customEthClientDockerImage }}
+        RPC_URL: ${{ inputs.httpRpc }}
+        WS_RPC_URL: ${{ inputs.wsRpc }}
+        WALLET_KEY: ${{ inputs.walletKey }}
       run: |
         echo ::add-mask::$CHAINLINK_IMAGE
         function convert_to_toml_array() {
@@ -112,6 +121,15 @@ runs:
         cat << EOF > config.toml
         [Network]
         selected_networks=$selected_networks
+        
+        [Network.RpcHttpUrls]
+        $SELECTED_NETWORKS = ["$RPC_URL"]
+        
+        [Network.RpcWsUrls]
+        $SELECTED_NETWORKS = ["$WS_RPC_URL"]
+        
+        [Network.WalletKeys]
+        $SELECTED_NETWORKS = ["$WALLET_KEY"]
 
         [ChainlinkImage]
         image="$CHAINLINK_IMAGE"

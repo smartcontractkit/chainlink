@@ -1,6 +1,7 @@
 package experiments
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -34,5 +35,22 @@ func TestGasExperiment(t *testing.T) {
 		_, err = contracts.DeployLinkTokenContract(l, seth)
 		require.NoError(t, err, "Error deploying LINK contract")
 		time.Sleep(2 * time.Second)
+	}
+}
+
+func TestKeyfile(t *testing.T) {
+	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig("Smoke", tc.OCR)
+	require.NoError(t, err, "Error getting config")
+
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	seth, err := actions_seth.GetChainClient(&config, network)
+	require.NoError(t, err, "Error creating seth client")
+
+	for i := 0; i < len(seth.Addresses); i++ {
+		bal, err := seth.Client.BalanceAt(context.Background(), seth.Addresses[i], nil)
+		require.NoError(t, err, "Error getting balance")
+
+		l.Info().Str("balance", bal.String()).Str("Addr", seth.Addresses[i].Hex()).Msg("Balance")
 	}
 }
