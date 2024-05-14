@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -34,11 +36,11 @@ func CheckGasPrice(ctx context.Context, upkeepId *big.Int, offchainConfigBytes [
 
 	var offchainConfig UpkeepOffchainConfig
 	if err := cbor.ParseDietCBORToStruct(offchainConfigBytes, &offchainConfig); err != nil {
-		lggr.Debugw("failed to parse upkeep offchain config, gas price check is disabled", "upkeepId", upkeepId.String(), "err", err)
+		lggr.Debugw("failed to parse upkeep offchain config, gas price check is disabled", "offchainconfig", hexutil.Encode(offchainConfigBytes), "upkeepId", upkeepId.String(), "err", err)
 		return encoding.UpkeepFailureReasonNone
 	}
 	if offchainConfig.MaxGasPrice == nil || offchainConfig.MaxGasPrice.Int64() <= 0 {
-		lggr.Debugw("maxGasPrice is not configured or incorrectly configured in upkeep offchain config, gas price check is disabled", "upkeepId", upkeepId.String())
+		lggr.Debugw("maxGasPrice is not configured or incorrectly configured in upkeep offchain config, gas price check is disabled", "offchainconfig", hexutil.Encode(offchainConfigBytes), "upkeepId", upkeepId.String())
 		return encoding.UpkeepFailureReasonNone
 	}
 	lggr.Debugf("successfully decode offchain config for %s, max gas price is %s", upkeepId.String(), offchainConfig.MaxGasPrice.String())
