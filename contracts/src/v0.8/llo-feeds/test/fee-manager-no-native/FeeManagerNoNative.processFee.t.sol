@@ -424,9 +424,9 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY);
   }
 
-  function test_V1PayloadBlocksNativeBilling() public {
+  function test_blocksNativeBilling() public {
     //emulate a V1 payload with no quote
-    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
     //record the current address and switch to the recipient
     changePrank(USER);
 

@@ -171,4 +171,21 @@ contract FeeManagerNoNativeProcessFeeBulkTest is BaseFeeManagerNoNativeTest {
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY);
   }
+
+  function test_bulkBlocksNativeBilling() public {
+    //emulate a V1 payload with no quote
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
+    bytes[] memory payloads = new bytes[](NUMBER_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBER_OF_REPORTS; ++i) {
+      payloads[i] = payload;
+    }
+    //record the current address and switch to the recipient
+    changePrank(USER);
+
+    //Expect revert since no native allowed
+    vm.expectRevert(NATIVE_BILLING_DISALLOWED);
+
+    //process the fee
+    feeManagerProxy.processFeeBulk{value: 1 wei}(payloads, abi.encode(address(0)));
+  }
 }
