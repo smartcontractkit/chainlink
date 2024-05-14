@@ -3,6 +3,7 @@ package datafeeds
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"sort"
 
 	"github.com/shopspring/decimal"
@@ -88,7 +89,7 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		if _, ok := currentState.FeedInfo[feedID.String()]; !ok {
 			currentState.FeedInfo[feedID.String()] = &DataFeedsMercuryReportInfo{
 				ObservationTimestamp: 0, // will always trigger an update
-				BenchmarkPrice:       0,
+				BenchmarkPrice:       big.NewInt(0).Bytes(),
 			}
 			a.lggr.Debugw("initializing empty onchain state for feed", "feedID", feedID.String())
 		}
@@ -148,16 +149,21 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 	}, nil
 }
 
-func deviation(old, new int64) float64 {
-	oldF := float64(old)
-	diff := math.Abs(float64(new - old))
-	if oldF == 0.0 {
-		if diff == 0.0 {
+func deviation(oldBytes, newBytes []byte) float64 {
+	oldV := big.NewInt(0).SetBytes(oldBytes)
+	newV := big.NewInt(0).SetBytes(newBytes)
+	diff := &big.Int{}
+	diff.Sub(oldV, newV)
+	diff.Abs(diff)
+	if oldV.Cmp(big.NewInt(0)) == 0 {
+		if diff.Cmp(big.NewInt(0)) == 0 {
 			return 0.0
 		}
 		return math.MaxFloat64
 	}
-	return diff / oldF
+	diffFl, _ := diff.Float64()
+	oldFl, _ := oldV.Float64()
+	return diffFl / oldFl
 }
 
 func NewDataFeedsAggregator(config values.Map, mercuryCodec MercuryCodec, lggr logger.Logger) (types.Aggregator, error) {

@@ -2,6 +2,7 @@ package triggers
 
 import (
 	"context"
+	"math/big"
 	"os"
 	"testing"
 
@@ -89,7 +90,7 @@ func TestMercuryTrigger(t *testing.T) {
 		{
 			FeedID:               feedOne,
 			FullReport:           []byte("0x1234"),
-			BenchmarkPrice:       2,
+			BenchmarkPrice:       big.NewInt(2).Bytes(),
 			ObservationTimestamp: 3,
 		},
 	}
@@ -143,25 +144,25 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 		{
 			FeedID:               feedOne,
 			FullReport:           []byte("0x1234"),
-			BenchmarkPrice:       20,
+			BenchmarkPrice:       big.NewInt(20).Bytes(),
 			ObservationTimestamp: 5,
 		},
 		{
 			FeedID:               feedThree,
 			FullReport:           []byte("0x1234"),
-			BenchmarkPrice:       25,
+			BenchmarkPrice:       big.NewInt(25).Bytes(),
 			ObservationTimestamp: 8,
 		},
 		{
 			FeedID:               feedTwo,
 			FullReport:           []byte("0x1234"),
-			BenchmarkPrice:       30,
+			BenchmarkPrice:       big.NewInt(30).Bytes(),
 			ObservationTimestamp: 10,
 		},
 		{
 			FeedID:               feedFour,
 			FullReport:           []byte("0x1234"),
-			BenchmarkPrice:       40,
+			BenchmarkPrice:       big.NewInt(40).Bytes(),
 			ObservationTimestamp: 15,
 		},
 	}
@@ -189,7 +190,7 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 		{
 			FeedID:               feedThree,
 			FullReport:           []byte("0x1234"),
-			BenchmarkPrice:       50,
+			BenchmarkPrice:       big.NewInt(50).Bytes(),
 			ObservationTimestamp: 20,
 		},
 	}
@@ -202,7 +203,8 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, reports, 2)
 		require.Equal(t, "mercury", triggerEvent.TriggerType)
-		if reports[1].BenchmarkPrice == 50 {
+		price := big.NewInt(0).SetBytes(reports[1].BenchmarkPrice)
+		if price.Cmp(big.NewInt(50)) == 0 {
 			// expect to eventually get updated feed value
 			break
 		}
@@ -286,7 +288,7 @@ func upwrapTriggerEvent(t *testing.T, wrappedEvent values.Value) (capabilities.T
 	err := wrappedEvent.UnwrapTo(&event)
 	require.NoError(t, err)
 	require.NotNil(t, event.Payload)
-	mercuryReports, err := mercury.Codec{}.Unwrap(event.Payload)
+	mercuryReports, err := testMercuryCodec{}.Unwrap(event.Payload)
 	require.NoError(t, err)
 	return event, mercuryReports
 }

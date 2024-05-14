@@ -4,8 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 // hex-encoded 32-byte value, prefixed with "0x", all lowercase
@@ -54,27 +52,15 @@ func FeedIDFromBytes(b [FeedIDBytesLen]byte) FeedID {
 }
 
 type FeedReport struct {
-	FeedID               string `json:"feedId"`
-	FullReport           []byte `json:"fullReport"`
-	BenchmarkPrice       int64  `json:"benchmarkPrice"`
-	ObservationTimestamp int64  `json:"observationTimestamp"`
-}
+	FeedID     string
+	FullReport []byte
+	Rs         [][]byte
+	Ss         [][]byte
+	Vs         []byte
 
-type Codec struct {
-}
-
-func (c Codec) Unwrap(raw values.Value) ([]FeedReport, error) {
-	dest := []FeedReport{}
-	err := raw.UnwrapTo(&dest)
-	// TODO: validate reports
-	return dest, err
-}
-
-func (c Codec) Wrap(reports []FeedReport) (values.Value, error) {
-	// TODO: validate reports
-	return values.Wrap(reports)
-}
-
-func NewCodec() Codec {
-	return Codec{}
+	// Fields below are derived from FullReport
+	// NOTE: BenchmarkPrice is a byte representation of big.Int. We can't use big.Int
+	// directly due to Value serialization problems using mapstructure.
+	BenchmarkPrice       []byte
+	ObservationTimestamp int64
 }

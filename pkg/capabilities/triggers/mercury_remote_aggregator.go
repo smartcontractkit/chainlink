@@ -5,22 +5,23 @@ import (
 	"sort"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type mercuryRemoteAggregator struct {
-	codec mercury.Codec
+	codec datafeeds.MercuryCodec
 	lggr  logger.Logger
 }
 
 // This aggregator is used by TriggerSubscriber to aggregate trigger events from multiple remote nodes.
 // NOTE: Once Mercury supports parallel composition (and thus guarantee identical sets of reports),
 // this will be replaced by the default MODE aggregator.
-func NewMercuryRemoteAggregator(lggr logger.Logger) *mercuryRemoteAggregator {
+func NewMercuryRemoteAggregator(codec datafeeds.MercuryCodec, lggr logger.Logger) *mercuryRemoteAggregator {
 	return &mercuryRemoteAggregator{
-		codec: mercury.Codec{},
+		codec: codec,
 		lggr:  lggr,
 	}
 }

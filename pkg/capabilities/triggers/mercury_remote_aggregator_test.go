@@ -1,6 +1,7 @@
 package triggers
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 const (
@@ -18,32 +20,60 @@ const (
 	rawReport2 = "efgh"
 )
 
+type testMercuryCodec struct {
+}
+
+func (c testMercuryCodec) Unwrap(raw values.Value) ([]mercury.FeedReport, error) {
+	dest := []mercury.FeedReport{}
+	err := raw.UnwrapTo(&dest)
+	return dest, err
+}
+
+func (c testMercuryCodec) Wrap(reports []mercury.FeedReport) (values.Value, error) {
+	return values.Wrap(reports)
+}
+
 func TestMercuryRemoteAggregator(t *testing.T) {
-	agg := NewMercuryRemoteAggregator(logger.Nop())
+	agg := NewMercuryRemoteAggregator(testMercuryCodec{}, logger.Nop())
+	rs := [][]byte{{1, 2, 3}}
+	ss := [][]byte{{4, 5, 6}}
+	vs := []byte{7, 8, 9}
 
 	feed1Old := mercury.FeedReport{
 		FeedID:               feedOne,
-		BenchmarkPrice:       100,
+		BenchmarkPrice:       big.NewInt(100).Bytes(),
 		ObservationTimestamp: 100,
 		FullReport:           []byte(rawReport1),
+		Rs:                   rs,
+		Ss:                   ss,
+		Vs:                   vs,
 	}
 	feed1New := mercury.FeedReport{
 		FeedID:               feedOne,
-		BenchmarkPrice:       200,
+		BenchmarkPrice:       big.NewInt(200).Bytes(),
 		ObservationTimestamp: 200,
 		FullReport:           []byte(rawReport1),
+		Rs:                   rs,
+		Ss:                   ss,
+		Vs:                   vs,
 	}
 	feed2Old := mercury.FeedReport{
 		FeedID:               feedTwo,
-		BenchmarkPrice:       300,
+		BenchmarkPrice:       big.NewInt(300).Bytes(),
 		ObservationTimestamp: 300,
 		FullReport:           []byte(rawReport2),
+		Rs:                   rs,
+		Ss:                   ss,
+		Vs:                   vs,
 	}
 	feed2New := mercury.FeedReport{
 		FeedID:               feedTwo,
-		BenchmarkPrice:       400,
+		BenchmarkPrice:       big.NewInt(400).Bytes(),
 		ObservationTimestamp: 400,
 		FullReport:           []byte(rawReport2),
+		Rs:                   rs,
+		Ss:                   ss,
+		Vs:                   vs,
 	}
 
 	node1Resp, err := wrapReports([]mercury.FeedReport{feed1Old, feed2New}, eventId, 400)
@@ -60,7 +90,7 @@ func TestMercuryRemoteAggregator(t *testing.T) {
 	require.NoError(t, err)
 	aggEvent := capabilities.TriggerEvent{}
 	require.NoError(t, aggResponse.Value.UnwrapTo(&aggEvent))
-	decodedReports, err := mercury.NewCodec().Unwrap(aggEvent.Payload)
+	decodedReports, err := testMercuryCodec{}.Unwrap(aggEvent.Payload)
 	require.NoError(t, err)
 
 	require.Len(t, decodedReports, 2)

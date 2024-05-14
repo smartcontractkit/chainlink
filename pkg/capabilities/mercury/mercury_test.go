@@ -11,7 +11,6 @@ import (
 const (
 	testFeedID               = mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000")
 	testFullReport           = "0x1234"
-	testBenchmarkPrice       = int64(2)
 	testObservationTimestamp = int64(3)
 )
 
@@ -30,21 +29,4 @@ func TestFeedID_Validate(t *testing.T) {
 
 	_, err = mercury.NewFeedID("0x0001013ebd4ed3f5889fb5a8a52b42675c60c1a8c42bc79eaa72dcd922ac4292")
 	require.NoError(t, err)
-}
-
-func TestCodec(t *testing.T) {
-	feeds := []mercury.FeedReport{
-		{
-			FeedID:               string(testFeedID),
-			FullReport:           []byte(testFullReport),
-			BenchmarkPrice:       testBenchmarkPrice,
-			ObservationTimestamp: testObservationTimestamp,
-		},
-	}
-	wrapped, err := mercury.Codec{}.Wrap(feeds)
-	require.NoError(t, err)
-
-	unwrapped, err := mercury.Codec{}.Unwrap(wrapped)
-	require.NoError(t, err)
-	require.Equal(t, feeds, unwrapped)
 }

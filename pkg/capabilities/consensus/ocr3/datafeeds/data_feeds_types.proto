@@ -9,7 +9,7 @@ message DataFeedsOutcomeMetadata {
 }
 
 message DataFeedsMercuryReportInfo {
-  reserved 1, 2;
+  reserved 1, 2, 4;
   int64 observation_timestamp = 3;
-  int64 benchmark_price = 4;
+  bytes benchmark_price = 5; // big.Int
 }

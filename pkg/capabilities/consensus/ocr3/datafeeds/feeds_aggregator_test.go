@@ -1,6 +1,7 @@
 package datafeeds_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -47,14 +48,14 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.Equal(t, 1, len(newState.FeedInfo))
 	_, ok := newState.FeedInfo[feedIDA.String()]
 	require.True(t, ok)
-	require.Equal(t, int64(0), newState.FeedInfo[feedIDA.String()].BenchmarkPrice)
+	require.Equal(t, []byte(nil), newState.FeedInfo[feedIDA.String()].BenchmarkPrice)
 
 	// second round, non-empty previous Outcome, one observation
 	latestMercuryReports := []mercury.FeedReport{
 		{
 			FeedID:               feedIDA.String(),
 			ObservationTimestamp: 1,
-			BenchmarkPrice:       100,
+			BenchmarkPrice:       big.NewInt(100).Bytes(),
 			FullReport:           mercuryFullReportA,
 		},
 	}
@@ -69,7 +70,7 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.Equal(t, 1, len(newState.FeedInfo))
 	_, ok = newState.FeedInfo[feedIDA.String()]
 	require.True(t, ok)
-	require.Equal(t, int64(100), newState.FeedInfo[feedIDA.String()].BenchmarkPrice)
+	require.Equal(t, big.NewInt(100).Bytes(), newState.FeedInfo[feedIDA.String()].BenchmarkPrice)
 
 	// validate encodable outcome
 	val := values.FromMapValueProto(outcome.EncodableOutcome)

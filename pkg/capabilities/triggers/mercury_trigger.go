@@ -215,7 +215,7 @@ func (o *MercuryTriggerService) process(timestamp int64) {
 }
 
 func wrapReports(reportList []mercury.FeedReport, eventID string, timestamp int64) (capabilities.CapabilityResponse, error) {
-	val, err := mercury.Codec{}.Wrap(reportList)
+	val, err := values.Wrap(reportList)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
 	}
