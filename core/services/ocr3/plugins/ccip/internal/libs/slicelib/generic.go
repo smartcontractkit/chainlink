@@ -31,3 +31,13 @@ func Flatten[T any](slices [][]T) []T {
 	}
 	return res
 }
+
+func Filter[T any](slice []T, valid func(T) bool) []T {
+	res := make([]T, 0, len(slice))
+	for _, item := range slice {
+		if valid(item) {
+			res = append(res, item)
+		}
+	}
+	return res
+}

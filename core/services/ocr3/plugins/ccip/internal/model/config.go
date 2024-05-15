@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/smartcontractkit/libocr/commontypes"
+)
 
 type CommitPluginConfig struct {
 	// Writer indicates that the node can contribute by sending reports to the destination chain.
@@ -16,7 +20,15 @@ type CommitPluginConfig struct {
 	// FChain defines the FChain value for each chain. FChain is used while forming consensus based on the observations.
 	FChain map[ChainSelector]int
 
+	// ObserverInfo is a map of oracle IDs to ObserverInfo.
+	ObserverInfo map[commontypes.OracleID]ObserverInfo
+
 	// TBD:
-	NewMsgScanDuration time.Duration
-	NewMsgScanLimit    int
+	NewMsgScanDuration  time.Duration
+	NewMsgScanLimit     int
+	NewMsgScanBatchSize int
+}
+
+type ObserverInfo struct {
+	Reads []ChainSelector
 }
