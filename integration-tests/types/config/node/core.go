@@ -26,6 +26,7 @@ import (
 )
 
 func NewBaseConfig() *chainlink.Config {
+	logQueries := true
 	return &chainlink.Config{
 		Core: toml.Core{
 			RootDir: ptr.Ptr("/home/chainlink"),
@@ -33,6 +34,7 @@ func NewBaseConfig() *chainlink.Config {
 				MaxIdleConns:     ptr.Ptr(int64(20)),
 				MaxOpenConns:     ptr.Ptr(int64(40)),
 				MigrateOnStartup: ptr.Ptr(true),
+				LogQueries:       &logQueries,
 			},
 			Log: toml.Log{
 				Level:       ptr.Ptr(toml.LogLevel(zapcore.DebugLevel)),

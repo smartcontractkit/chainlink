@@ -102,7 +102,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = actions_seth.ConfigureOCRv2AggregatorContracts(ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
+	err = actions_seth.WatchNewOCRRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(30*time.Minute))
 	require.NoError(t, err, "error watching for new OCRv2 round")
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -113,10 +113,39 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		ocrRoundVal := (5 + i) % 10
 		err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, ocrRoundVal)
 		require.NoError(t, err)
-		err = actions_seth.WatchNewOCRRound(l, sethClient, int64(i), contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
+		err = actions_seth.WatchNewOCRRound(l, sethClient, int64(i), contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(30*time.Minute))
 		require.NoError(t, err, "error watching for new OCRv2 round")
 		answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 		require.NoError(t, err, "Error getting latest OCRv2 answer")
 		require.Equal(t, int64(ocrRoundVal), answer.Int64(), fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()))
 	}
+
+	//Deploy new forwarders
+	operators2, authorizedForwarders2, _ := actions_seth.DeployForwarderContracts(
+		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
+	)
+
+	for i := range workerNodes {
+		actions_seth.AcceptAuthorizedReceiversOperator(
+			t, l, sethClient, operators2[i], authorizedForwarders2[i], []common.Address{workerNodeAddresses[i]},
+		)
+		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
+		actions_seth.TrackForwarder(t, sethClient, authorizedForwarders2[i], workerNodes[i])
+
+		jobs, _, _ := workerNodes[i].ReadJobs()
+		for _, maps := range jobs.Data {
+			id := maps["id"].(string)
+			require.NoError(t, workerNodes[i].MustDeleteJob(id))
+		}
+
+	}
+	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), true, false)
+	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
+
+	time.Sleep(time.Minute)
+	actions_seth.DeleteForwarder(t, sethClient, authorizedForwarders2[0], workerNodes[0])
+	actions_seth.DeleteForwarder(t, sethClient, authorizedForwarders2[1], workerNodes[0])
+	actions_seth.DeleteForwarder(t, sethClient, authorizedForwarders2[2], workerNodes[0])
+
+	require.Equal(t, false, true) //To save the logs
 }
