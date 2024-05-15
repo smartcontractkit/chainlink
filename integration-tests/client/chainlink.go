@@ -1214,6 +1214,28 @@ func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName string, chainId st
 }
 
 // TrackForwarder track forwarder address in db.
+func (c *ChainlinkClient) DeleteForwarder(chainID *big.Int, address common.Address) (*Forwarder, *http.Response, error) {
+	response := &Forwarder{}
+	c.l.Debug().Str(NodeURL, c.Config.URL).
+		Str("Forwarder address", (address).Hex()).
+		Str("Chain ID", chainID.String()).
+		Msg("Delete forwarder")
+	resp, err := c.APIClient.R().
+		SetResult(response).
+		Delete("/v2/nodes/evm/forwarders/" + "1")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return response, resp.RawResponse, err
+}
+
+// TrackForwarder track forwarder address in db.
 func (c *ChainlinkClient) TrackForwarder(chainID *big.Int, address common.Address) (*Forwarder, *http.Response, error) {
 	response := &Forwarder{}
 	request := ForwarderAttributes{
