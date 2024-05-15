@@ -122,37 +122,37 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	return capabilityRegistrationErr
 }
 
-func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
+func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	// If the capability already exists, that means we've already registered it
-	if s.capability != nil {
+	if step.capability != nil {
 		return nil
 	}
 
-	cp, err := e.registry.Get(ctx, s.ID)
+	cp, err := e.registry.Get(ctx, step.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get capability with ref %s: %s", s.ID, err)
+		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
 	}
 
 	// We configure actions, consensus and targets here, and
 	// they all satisfy the `CallbackCapability` interface
 	cc, ok := cp.(capabilities.CallbackCapability)
 	if !ok {
-		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.ID)
+		return fmt.Errorf("could not coerce capability %s to CallbackCapability", step.ID)
 	}
 
-	if s.config == nil {
-		configMap, newMapErr := values.NewMap(s.Config)
+	if step.config == nil {
+		configMap, newMapErr := values.NewMap(step.Config)
 		if newMapErr != nil {
 			return fmt.Errorf("failed to convert config to values.Map: %s", newMapErr)
 		}
-		s.config = configMap
+		step.config = configMap
 	}
 
 	registrationRequest := capabilities.RegisterToWorkflowRequest{
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID: e.workflow.id,
 		},
-		Config: s.config,
+		Config: step.config,
 	}
 
 	err = cc.RegisterToWorkflow(ctx, registrationRequest)
@@ -160,7 +160,7 @@ func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
 		return fmt.Errorf("failed to register to workflow (%+v): %w", registrationRequest, err)
 	}
 
-	s.capability = cc
+	step.capability = cc
 	return nil
 }
 
@@ -540,10 +540,10 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 	return nil
 }
 
-func (e *Engine) queueIfReady(state store.WorkflowExecution, s *step) {
+func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	// Check if all dependencies are completed for the current step
 	var waitingOnDependencies bool
-	for _, dr := range s.dependencies {
+	for _, dr := range step.dependencies {
 		stepState, ok := state.Steps[dr]
 		if !ok {
 			waitingOnDependencies = true
@@ -562,10 +562,10 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, s *step) {
 
 	// If all dependencies are completed, enqueue the step.
 	if !waitingOnDependencies {
-		e.logger.Debugw("step request enqueued", "ref", s.Ref, "state", copyState(state))
+		e.logger.Debugw("step request enqueued", "ref", step.Ref, "state", copyState(state))
 		e.pendingStepRequests <- stepRequest{
 			state:   copyState(state),
-			stepRef: s.Ref,
+			stepRef: step.Ref,
 		}
 	}
 }

@@ -106,7 +106,7 @@ func (w *workflow) dependents(start string) ([]*step, error) {
 	return steps, nil
 }
 
-// step wraps a Vertex with additional context for dependencies and execution
+// step wraps a Vertex with additional context for execution that is mutated by the engine
 type step struct {
 	Vertex
 	capability        capabilities.CallbackCapability
@@ -119,9 +119,9 @@ type Vertex struct {
 	dependencies []string
 }
 
-// StaticWorkflow is an intermediate representation of a workflow wherein all the graph
-// vertices are represented and validated. The representation is static and cannot be executed.
-type StaticWorkflow struct {
+// DependencyGraph is an intermediate representation of a workflow wherein all the graph
+// vertices are represented and validated. It is a static representation of the workflow dependencies.
+type DependencyGraph struct {
 	ID string
 	graph.Graph[string, *Vertex]
 
@@ -130,13 +130,10 @@ type StaticWorkflow struct {
 	Spec *WorkflowSpec
 }
 
-func (w *StaticWorkflow) Hasher() func(s *Vertex) string {
-	return func(s *Vertex) string {
-		return s.Ref
-	}
-}
-
-func (v *Vertex) Hash() string {
+// VID is an identifier for a Vertex that can be used to uniquely identify it in a graph.
+// it represents the notion `hash` in the graph package AddVertex method.
+// we refrain from naming it `hash` to avoid confusion with the hash function.
+func (v *Vertex) VID() string {
 	return v.Ref
 }
 
@@ -151,14 +148,14 @@ const (
 )
 
 func Parse(yamlWorkflow string) (*workflow, error) {
-	wf2, err := ParseStaticWorkflow(yamlWorkflow)
+	wf2, err := ParseDepedencyGraph(yamlWorkflow)
 	if err != nil {
 		return nil, err
 	}
-	return createExecutableWorkflow(wf2)
+	return createWorkflow(wf2)
 }
 
-func ParseStaticWorkflow(yamlWorkflow string) (*StaticWorkflow, error) {
+func ParseDepedencyGraph(yamlWorkflow string) (*DependencyGraph, error) {
 	spec, err := ParseWorkflowSpecYaml(yamlWorkflow)
 	if err != nil {
 		return nil, err
@@ -172,7 +169,7 @@ func ParseStaticWorkflow(yamlWorkflow string) (*StaticWorkflow, error) {
 	// `trigger`. This is because for workflows with multiple triggers
 	// only one trigger will have started the workflow.
 	stepHash := func(s *Vertex) string {
-		return s.Hash()
+		return s.VID()
 	}
 	g := graph.New(
 		stepHash,
@@ -238,7 +235,7 @@ func ParseStaticWorkflow(yamlWorkflow string) (*StaticWorkflow, error) {
 		tt := t
 		triggerSteps = append(triggerSteps, &tt)
 	}
-	wf := &StaticWorkflow{
+	wf := &DependencyGraph{
 		Spec:     &spec,
 		Graph:    g,
 		Triggers: triggerSteps,
@@ -246,9 +243,9 @@ func ParseStaticWorkflow(yamlWorkflow string) (*StaticWorkflow, error) {
 	return wf, err
 }
 
-// createExecutableWorkflow converts a StaticWorkflow to an executable workflow
+// createWorkflow converts a StaticWorkflow to an executable workflow
 // by adding metadata to the vertices that is owned by the workflow runtime.
-func createExecutableWorkflow(wf2 *StaticWorkflow) (*workflow, error) {
+func createWorkflow(wf2 *DependencyGraph) (*workflow, error) {
 	out := &workflow{
 		id:       wf2.ID,
 		triggers: []*triggerCapability{},
@@ -262,7 +259,11 @@ func createExecutableWorkflow(wf2 *StaticWorkflow) (*workflow, error) {
 	}
 
 	stepHash := func(s *step) string {
-		return s.Vertex.Hash() // this need to be the same as the static workflow hash
+		// must use the same hash function as the DependencyGraph.
+		// this ensures that the intermediate representation (DependencyGraph) and the workflow
+		// representation label vertices with the same identifier, which in turn allows us to
+		// to copy the edges from the intermediate representation to the executable representation.
+		return s.Vertex.VID()
 	}
 	g := graph.New(
 		stepHash,
@@ -285,8 +286,8 @@ func createExecutableWorkflow(wf2 *StaticWorkflow) (*workflow, error) {
 			return nil, fmt.Errorf("failed to add vertex to executable workflow %s: %w", vertexRef, innerErr)
 		}
 	}
-	// now we can add all the edges. this works because the vertexRef value in the intermediate graph
-	// is the same as the vertexRef in the executable graph and that is due to the hash function being the same.
+	// now we can add all the edges. this works because we are using vertex hash function is the same in both graphs.
+	// see comment on `stepHash` function.
 	for vertexRef, edgeRefs := range adjMap {
 		for edgeRef := range edgeRefs {
 			innerErr := g.AddEdge(vertexRef, edgeRef)
