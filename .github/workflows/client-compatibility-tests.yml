@@ -164,6 +164,9 @@ jobs:
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           ETH2_EL_CLIENT: ${{matrix.client}}
           CHAINLINK_VERSION: ${{ github.sha }}
+          GRAFANA_URL: "http://localhost:8080/primary"
+          GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
         run: |
           convert_to_toml_array() {
               local IFS=','
@@ -205,6 +208,11 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key_secret="$PYROSCOPE_KEY"
+          
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dashboard_url="$GRAFANA_DASHBOARD_URL"
+          bearer_token_secret="$GRAFANA_BEARER_TOKEN"          
 
           [PrivateEthereumNetwork]
           ethereum_version="eth2"
@@ -242,6 +250,9 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
 
   start-slack-thread:
     name: Start Slack Thread
