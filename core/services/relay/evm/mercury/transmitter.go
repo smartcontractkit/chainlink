@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	capMercury "github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -380,6 +381,25 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	return report
 }
 
+func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, rs [][32]byte, ss [][32]byte, vs [32]byte) error {
+	var rsUnsized [][]byte
+	var ssUnsized [][]byte
+	for idx := range rs {
+		rsUnsized = append(rsUnsized, rs[idx][:])
+		ssUnsized = append(ssUnsized, ss[idx][:])
+	}
+	converted := capMercury.FeedReport{
+		FeedID:     mt.feedID.Hex(),
+		FullReport: report,
+		Rs:         rsUnsized,
+		Ss:         ssUnsized,
+		Vs:         vs[:],
+		// NOTE: Skipping fields derived from FullReport, they will be filled out at a later stage
+		// after decoding and validating signatures.
+	}
+	return mt.triggerCapability.ProcessReport([]capMercury.FeedReport{converted})
+}
+
 // Transmit sends the report to the on-chain smart contract's Transmit method.
 func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
 	var rs [][32]byte
@@ -395,7 +415,11 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		vs[i] = v
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
-	// TODO(KS-194): send report to mt.triggerCapability.ProcessReport()
+
+	if mt.triggerCapability != nil {
+		// Acting as a Capability - send report to trigger service and exit.
+		return mt.sendToTrigger(report, rs, ss, vs)
+	}
 
 	payload, err := PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
