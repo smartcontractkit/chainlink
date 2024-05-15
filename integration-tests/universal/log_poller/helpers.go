@@ -1013,7 +1013,7 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 					<-guardChan
 					wg.Done()
 					current := i + 1
-					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, testConfig.LogPoller.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
+					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, *testConfig.LogPoller.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
 				}()
 				chaosChan <- chaosPauseSyncFn(l, sethClient, testEnv.ClCluster, *testConfig.LogPoller.ChaosConfig.TargetComponent)
 				time.Sleep(10 * time.Second)
@@ -1115,6 +1115,7 @@ func SetupLogPollerTestDocker(
 	backupPollingInterval uint64,
 	finalityTagEnabled bool,
 	testConfig *tc.TestConfig,
+	logScannerSettings test_env.ChainlinkNodeLogScannerSettings,
 ) (
 	*seth.Client,
 	[]*client.ChainlinkClient,
@@ -1179,6 +1180,7 @@ func SetupLogPollerTestDocker(
 		WithFunding(big.NewFloat(chainlinkNodeFunding)).
 		WithChainOptions(logPolllerSettingsFn).
 		EVMNetworkOptions(evmNetworkSettingsFn).
+		WithChainlinkNodeLogScanner(logScannerSettings).
 		WithStandardCleanup().
 		WithSeth().
 		Build()
@@ -1344,6 +1346,7 @@ func FluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock i
 		}
 		l.Warn().
 			Msg("At least one CL node did not have expected log count. Retrying...")
+		time.Sleep(10 * time.Second)
 	}
 
 	return allNodesLogCountMatches, nil
