@@ -26,7 +26,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The id of the node operator that manages this node
     uint32 nodeOperatorId;
     /// @notice The signer address for application-layer message verification.
-    address signer;
+    bytes32 signer;
     /// @notice This is an Ed25519 public key that is used to identify a node.
     /// This key is guaranteed to be unique in the CapabilityRegistry. It is
     /// used to identify a node in the the P2P network.
@@ -42,7 +42,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The number of times the node's capability has been updated
     uint32 configCount;
     /// @notice The signer address for application-layer message verification.
-    address signer;
+    bytes32 signer;
     /// @notice This is an Ed25519 public key that is used to identify a node.
     /// This key is guaranteed to be unique in the CapabilityRegistry. It is
     /// used to identify a node in the the P2P network.
@@ -161,7 +161,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
   /// @param signer The node's signer address
-  event NodeUpdated(bytes32 p2pId, uint256 nodeOperatorId, address signer);
+  event NodeUpdated(bytes32 p2pId, uint256 nodeOperatorId, bytes32 signer);
 
   /// @notice This event is emitted when a new DON is created
   /// @param donId The ID of the newly created DON
@@ -331,10 +331,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      bool nodeExists = s_nodes[node.p2pId].signer != address(0);
+      bool nodeExists = bytes32(s_nodes[node.p2pId].signer) != bytes32("");
       if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
-      if (node.signer == address(0)) revert InvalidNodeSigner();
+      if (bytes32(node.signer) == bytes32("")) revert InvalidNodeSigner();
 
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
@@ -362,7 +362,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < removedNodeP2PIds.length; ++i) {
       bytes32 p2pId = removedNodeP2PIds[i];
 
-      bool nodeExists = s_nodes[p2pId].signer != address(0);
+      bool nodeExists = bytes32(s_nodes[p2pId].signer) != bytes32("");
       if (!nodeExists) revert InvalidNodeP2PId(p2pId);
 
       NodeOperator memory nodeOperator = s_nodeOperators[s_nodes[p2pId].nodeOperatorId];
@@ -385,10 +385,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      bool nodeExists = s_nodes[node.p2pId].signer != address(0);
+      bool nodeExists = bytes32(s_nodes[node.p2pId].signer) != bytes32("");
       if (!nodeExists) revert InvalidNodeP2PId(node.p2pId);
 
-      if (node.signer == address(0)) revert InvalidNodeSigner();
+      if (bytes32(node.signer) == bytes32("")) revert InvalidNodeSigner();
 
       bytes32[] memory supportedCapabilityIds = node.hashedCapabilityIds;
       if (supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedCapabilityIds);

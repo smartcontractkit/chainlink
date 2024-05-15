@@ -5,7 +5,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateNodesTest is BaseTest {
-  event NodeUpdated(bytes32 p2pId, uint256 nodeOperatorId, address signer);
+  event NodeUpdated(bytes32 p2pId, uint256 nodeOperatorId, bytes32 signer);
 
   uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
   uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 1;
@@ -99,7 +99,7 @@ contract CapabilityRegistry_UpdateNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: address(0),
+      signer: bytes32(""),
       hashedCapabilityIds: hashedCapabilityIds
     });
 

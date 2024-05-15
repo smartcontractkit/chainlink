@@ -46,7 +46,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
-      signer: address(0),
+      signer: bytes32(""),
       hashedCapabilityIds: hashedCapabilityIds
     });
 
