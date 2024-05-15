@@ -258,7 +258,7 @@ func DeleteForwarder(
 ) {
 	l := logging.GetTestLogger(t)
 	chainID := big.NewInt(seth.ChainID)
-	fmt.Println(fmt.Sprintf("node: %s is deleting :%s ", node.GetConfig().URL, authorizedForwarder.Hex()))
+	fmt.Printf("node: %s is deleting :%s ", node.GetConfig().URL, authorizedForwarder.Hex())
 	_, _, err := node.DeleteForwarder(chainID, authorizedForwarder)
 	require.NoError(t, err, "Forwarder deleted should be")
 	l.Info().Str("NodeURL", node.GetConfig().URL).
