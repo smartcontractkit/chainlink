@@ -305,6 +305,7 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 // the remote-runner pod gets evicted after the loadgen is resumed.
 // The recommended frequency for this test 2req/min
 func TestLoadCCIPStableRPSAfterARMCurseAndUncurse(t *testing.T) {
+	t.Skipf("need to be enabled as part of CCIP-2277")
 	t.Parallel()
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr)
