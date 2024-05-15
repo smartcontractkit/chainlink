@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 
@@ -58,7 +59,10 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	}
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	sethClient, err := actions_seth.GetChainClientWithConfigFunction(testConfig, network, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	// sethClient, err := testEnv.GetSethClient(chainID)
+	sethClient, err := actions_seth.GetChainClientWithConfigFunction(testConfig, network, func(c *seth.Config) error {
+		return nil
+	})
 	require.NoError(t, err, "Error creating seth client")
 	updatedLabels := UpdateLabels(labels, t)
 

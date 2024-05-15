@@ -537,8 +537,18 @@ func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*seth.
 	if err != nil {
 		return nil, nil, err
 	}
-	event, err := extractVRFCoordinatorV2SubscriptionCanceledEvent(tx.Events)
-	return tx, event, err
+	var subCanceledEvent *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled
+	for _, log := range tx.Receipt.Logs {
+		for _, topic := range log.Topics {
+			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled{}.Topic()) == 0 {
+				subCanceledEvent, err = v.coordinator.ParseSubscriptionCanceled(*log)
+				if err != nil {
+					return nil, nil, fmt.Errorf("parsing SubscriptionCanceled log failed, err: %w", err)
+				}
+			}
+		}
+	}
+	return tx, subCanceledEvent, err
 }
 
 func (v *EthereumVRFCoordinatorV2) ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
@@ -596,8 +606,18 @@ func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Ad
 	if err != nil {
 		return nil, nil, err
 	}
-	event, err := extractVRFCoordinatorV2SubscriptionCanceledEvent(tx.Events)
-	return tx, event, err
+	var subCanceledEvent *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled
+	for _, log := range tx.Receipt.Logs {
+		for _, topic := range log.Topics {
+			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled{}.Topic()) == 0 {
+				subCanceledEvent, err = v.coordinator.ParseSubscriptionCanceled(*log)
+				if err != nil {
+					return nil, nil, fmt.Errorf("parsing SubscriptionCanceled log failed, err: %w", err)
+				}
+			}
+		}
+	}
+	return tx, subCanceledEvent, err
 }
 
 func (v *EthereumVRFCoordinatorV2) FindSubscriptionID(subID uint64) (uint64, error) {
@@ -1142,32 +1162,4 @@ func (v *EthereumVRFMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error
 func (v *EthereumVRFMockETHLINKFeed) SetBlockTimestampDeduction(blockTimestampDeduction *big.Int) error {
 	_, err := v.client.Decode(v.feed.SetBlockTimestampDeduction(v.client.NewTXOpts(), blockTimestampDeduction))
 	return err
-}
-
-func extractVRFCoordinatorV2SubscriptionCanceledEvent(events []seth.DecodedTransactionLog) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
-	var event vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled
-	for i, e := range events {
-		if len(e.Topics) == 0 {
-			return nil, fmt.Errorf("no topics in event %d", i)
-		}
-		switch e.Topics[0] {
-		case vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled{}.Topic().String():
-			if to, ok := e.EventData["to"].(common.Address); ok {
-				event.To = to
-			} else {
-				return nil, fmt.Errorf("'to' not found in the event")
-			}
-			if amount, ok := e.EventData["amount"].(*big.Int); ok {
-				event.Amount = amount
-			} else {
-				return nil, fmt.Errorf("'amount' not found in the event")
-			}
-			if subId, ok := e.EventData["subId"].(uint64); ok {
-				event.SubId = subId
-			} else {
-				return nil, fmt.Errorf("'subId' not found in the event")
-			}
-		}
-	}
-	return &event, nil
 }

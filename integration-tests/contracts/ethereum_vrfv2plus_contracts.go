@@ -299,7 +299,17 @@ func (v *EthereumVRFCoordinatorV2_5) OwnerCancelSubscription(subID *big.Int) (*s
 	if err != nil {
 		return nil, nil, err
 	}
-	cancelEvent, err := extractVRFCoordinatorV25SubscriptionCanceledEvent(tx.Events)
+	var cancelEvent *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled
+	for _, log := range tx.Receipt.Logs {
+		for _, topic := range log.Topics {
+			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled{}.Topic()) == 0 {
+				cancelEvent, err = v.coordinator.ParseSubscriptionCanceled(*log)
+				if err != nil {
+					return nil, nil, fmt.Errorf("parsing SubscriptionCanceled log failed, err: %w", err)
+				}
+			}
+		}
+	}
 	return tx, cancelEvent, err
 }
 
@@ -315,7 +325,17 @@ func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to commo
 	if err != nil {
 		return nil, nil, err
 	}
-	cancelEvent, err := extractVRFCoordinatorV25SubscriptionCanceledEvent(tx.Events)
+	var cancelEvent *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled
+	for _, log := range tx.Receipt.Logs {
+		for _, topic := range log.Topics {
+			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled{}.Topic()) == 0 {
+				cancelEvent, err = v.coordinator.ParseSubscriptionCanceled(*log)
+				if err != nil {
+					return nil, nil, fmt.Errorf("parsing SubscriptionCanceled log failed, err: %w", err)
+				}
+			}
+		}
+	}
 	return tx, cancelEvent, err
 }
 
@@ -390,8 +410,18 @@ func (v *EthereumVRFCoordinatorV2_5) Migrate(subId *big.Int, coordinatorAddress 
 	if err != nil {
 		return nil, nil, err
 	}
-	event, err := extractVRFCoordinatorV25MigrationCompletedEvent(tx.Events)
-	return tx, event, err
+	var migrationCompletedEvent *vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted
+	for _, log := range tx.Receipt.Logs {
+		for _, topic := range log.Topics {
+			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted{}.Topic()) == 0 {
+				migrationCompletedEvent, err = v.coordinator.ParseMigrationCompleted(*log)
+				if err != nil {
+					return nil, nil, fmt.Errorf("parsing MigrationCompleted log failed, err: %w", err)
+				}
+			}
+		}
+	}
+	return tx, migrationCompletedEvent, err
 }
 
 func (v *EthereumVRFCoordinatorV2_5) RegisterMigratableCoordinator(migratableCoordinatorAddress string) error {
@@ -1162,60 +1192,4 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetLoadTestMetrics(ctx contex
 		SlowestResponseTimeInSeconds:         nil,
 		FastestResponseTimeInSeconds:         nil,
 	}, nil
-}
-
-func extractVRFCoordinatorV25SubscriptionCanceledEvent(events []seth.DecodedTransactionLog) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error) {
-	var cancelEvent vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled
-	for i, event := range events {
-		if len(event.Topics) == 0 {
-			return nil, fmt.Errorf("no topics in event %d", i)
-		}
-		switch event.Topics[0] {
-		case vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled{}.Topic().String():
-			if to, ok := event.EventData["to"].(common.Address); ok {
-				cancelEvent.To = to
-			} else {
-				return nil, fmt.Errorf("'to' not found in the event")
-			}
-			if amountNative, ok := event.EventData["amountNative"].(*big.Int); ok {
-				cancelEvent.AmountNative = amountNative
-			} else {
-				return nil, fmt.Errorf("'amountNative' not found in the event")
-			}
-			if amountLink, ok := event.EventData["amountLink"].(*big.Int); ok {
-				cancelEvent.AmountLink = amountLink
-			} else {
-				return nil, fmt.Errorf("'amountLink' not found in the event")
-			}
-			if subId, ok := event.EventData["subId"].(*big.Int); ok {
-				cancelEvent.SubId = subId
-			} else {
-				return nil, fmt.Errorf("'subId' not found in the event")
-			}
-		}
-	}
-	return &cancelEvent, nil
-}
-
-func extractVRFCoordinatorV25MigrationCompletedEvent(events []seth.DecodedTransactionLog) (*vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, error) {
-	var event vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted
-	for i, e := range events {
-		if len(e.Topics) == 0 {
-			return nil, fmt.Errorf("no topics in event %d", i)
-		}
-		switch e.Topics[0] {
-		case vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted{}.Topic().String():
-			if newCoordinator, ok := e.EventData["newCoordinator"].(common.Address); ok {
-				event.NewCoordinator = newCoordinator
-			} else {
-				return nil, fmt.Errorf("'newCoordinator' not found in the event")
-			}
-			if subId, ok := e.EventData["subId"].(*big.Int); ok {
-				event.SubId = subId
-			} else {
-				return nil, fmt.Errorf("'subId' not found in the event")
-			}
-		}
-	}
-	return &event, nil
 }
