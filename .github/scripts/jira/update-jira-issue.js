@@ -72,6 +72,7 @@ async function run() {
     const prTitle = process.env.PR_TITLE;
     const commitMessage = process.env.COMMIT_MESSAGE;
     const branchName = process.env.BRANCH_NAME;
+    // tags are not getting used in the current moment so will always default to []
     const tags = process.env.TAGS ? process.env.TAGS.split(",") : [];
 
     // Check for the existence of JIRA_HOST and JIRA_USERNAME and JIRA_API_TOKEN
