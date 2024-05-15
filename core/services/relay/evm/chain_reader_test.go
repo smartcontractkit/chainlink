@@ -27,7 +27,7 @@ const commonGasLimitOnEvms = uint64(4712388)
 
 func TestChainReader(t *testing.T) {
 	t.Parallel()
-	evmtesting.RunChainReaderTests(t, &evmtesting.EvmChainReaderInterfaceTester[*testing.T]{Helper: &helper{}})
+	evmtesting.RunChainReaderTests(t, &evmtesting.EvmChainReaderInterfaceTester[*testing.T]{Helper: &helper{}}, true)
 }
 
 type helper struct {

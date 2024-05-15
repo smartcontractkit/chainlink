@@ -44,14 +44,15 @@ type EvmChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 }
 
 type EvmChainReaderInterfaceTester[T TestingT[T]] struct {
-	Helper      EvmChainReaderInterfaceTesterHelper[T]
-	client      client.Client
-	address     string
-	address2    string
-	chainConfig types.ChainReaderConfig
-	auth        *bind.TransactOpts
-	evmTest     *chain_reader_example.LatestValueHolder
-	cr          evm.ChainReaderService
+	Helper         EvmChainReaderInterfaceTesterHelper[T]
+	client         client.Client
+	address        string
+	address2       string
+	chainConfig    types.ChainReaderConfig
+	auth           *bind.TransactOpts
+	evmTest        *chain_reader_example.LatestValueHolder
+	cr             evm.ChainReaderService
+	dirtyContracts bool
 }
 
 func (it *EvmChainReaderInterfaceTester[T]) Setup(t T) {
@@ -222,6 +223,7 @@ func (it *EvmChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, testStruct
 	it.Helper.Commit()
 	it.IncNonce()
 	it.AwaitTx(t, tx)
+	it.dirtyContracts = true
 }
 
 func (it *EvmChainReaderInterfaceTester[T]) IncNonce() {
@@ -240,8 +242,10 @@ func (it *EvmChainReaderInterfaceTester[T]) AwaitTx(t T, tx *evmtypes.Transactio
 }
 
 func (it *EvmChainReaderInterfaceTester[T]) deployNewContracts(t T) {
-	it.address = it.deployNewContract(t)
-	it.address2 = it.deployNewContract(t)
+	if it.dirtyContracts || it.address == "" {
+		it.address = it.deployNewContract(t)
+		it.address2 = it.deployNewContract(t)
+	}
 }
 
 func (it *EvmChainReaderInterfaceTester[T]) deployNewContract(t T) string {

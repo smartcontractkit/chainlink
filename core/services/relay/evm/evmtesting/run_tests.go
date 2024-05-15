@@ -11,12 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-
 )
 
-func RunChainReaderTests[T TestingT[T]](t T, it *EvmChainReaderInterfaceTester[T]) {
+func RunChainReaderTests[T TestingT[T]](t T, it *EvmChainReaderInterfaceTester[T], loopTo bool) {
 	RunChainReaderInterfaceTests[T](t, it)
-	RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop[T](it))
+	if loopTo {
+		RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop[T](it))
+	}
+
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t T) {
 		it.Setup(t)
 
