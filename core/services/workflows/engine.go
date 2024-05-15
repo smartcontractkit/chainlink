@@ -103,7 +103,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	// - fetching the capability
 	// - register the capability to this workflow
 	// - initializing the step's executionStrategy
-	capabilityRegistrationErr := e.workflow.walkDo(keywordTrigger, func(s *step) error {
+	capabilityRegistrationErr := e.workflow.walkDo(keywordTrigger, func(s *executable) error {
 		// The graph contains a dummy step for triggers, but
 		// we handle triggers separately since there might be more than one
 		// trigger registered to a workflow.
@@ -122,7 +122,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	return capabilityRegistrationErr
 }
 
-func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
+func (e *Engine) initializeCapability(ctx context.Context, s *executable) error {
 	// If the capability already exists, that means we've already registered it
 	if s.capability != nil {
 		return nil
@@ -225,7 +225,7 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 	// We may have to reprocess many executions, but should only
 	// need to calculate the dependents of a step once since
 	// they won't change.
-	refToDeps := map[string][]*step{}
+	refToDeps := map[string][]*executable{}
 	for _, execution := range wipExecutions {
 		for _, step := range execution.Steps {
 			// NOTE: In order to determine what tasks need to be enqueued,
@@ -260,7 +260,7 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 // and `scheduledExecution` for targets. If we don't have the necessary
 // config to initialize a scheduledExecution for a target, we'll fallback to
 // using `immediateExecution`.
-func (e *Engine) initializeExecutionStrategy(step *step) error {
+func (e *Engine) initializeExecutionStrategy(step *executable) error {
 	if step.executionStrategy != nil {
 		return nil
 	}
@@ -492,7 +492,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		// we've completed the workflow.
 		if len(stepDependents) == 0 {
 			workflowCompleted := true
-			err := e.workflow.walkDo(keywordTrigger, func(s *step) error {
+			err := e.workflow.walkDo(keywordTrigger, func(s *executable) error {
 				step, ok := state.Steps[s.Ref]
 				// The step is missing from the state,
 				// which means it hasn't been processed yet.
@@ -540,7 +540,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 	return nil
 }
 
-func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
+func (e *Engine) queueIfReady(state store.WorkflowExecution, step *executable) {
 	// Check if all dependencies are completed for the current step
 	var waitingOnDependencies bool
 	for _, dr := range step.dependencies {
@@ -701,7 +701,7 @@ func (e *Engine) Close() error {
 		close(e.stopCh)
 		e.wg.Wait()
 
-		err := e.workflow.walkDo(keywordTrigger, func(s *step) error {
+		err := e.workflow.walkDo(keywordTrigger, func(s *executable) error {
 			if s.Ref == keywordTrigger {
 				return nil
 			}
