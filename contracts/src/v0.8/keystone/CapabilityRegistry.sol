@@ -107,12 +107,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bytes config;
   }
 
-  struct DONNodeCapabilityConfig {
+  struct DONCapabilityConfig {
     /// @notice The set of p2pIds of nodes that belong to this DON. A node (the same
     // p2pId) can belong to multiple DONs.
     EnumerableSet.Bytes32Set nodes;
     /// @notice The set of capabilityIds
-    EnumerableSet.Bytes32Set capabilityIds;
+    bytes32[] capabilityIds;
     /// @notice Mapping from hashed capability IDs to configs
     mapping(bytes32 capabilityId => bytes config) capabilityConfigs;
   }
@@ -128,7 +128,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// external capability requests
     bool isPublic;
     /// @notice Mapping of config counts to configurations
-    mapping(uint32 configCount => DONNodeCapabilityConfig donConfig) nodeCapabilityConfigs;
+    mapping(uint32 configCount => DONCapabilityConfig donConfig) capabilityConfigs;
   }
 
   /// @notice This error is thrown when a caller is not allowed
@@ -523,15 +523,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     s_dons[id].id = id;
     s_dons[id].isPublic = isPublic;
 
-    ++s_dons[id].configCount;
-    uint32 configCount = s_dons[id].configCount;
+    uint32 configCount = 1;
+
+    DONCapabilityConfig storage donCapabilityConfig = s_dons[id].capabilityConfigs[configCount];
 
     for (uint256 i; i < nodes.length; ++i) {
       bytes32 nodeP2PId = nodes[i];
-      if (s_dons[id].nodeCapabilityConfigs[configCount].nodes.contains(nodeP2PId))
-        revert DuplicateDONNode(id, nodeP2PId);
+      if (donCapabilityConfig.nodes.contains(nodeP2PId)) revert DuplicateDONNode(id, nodeP2PId);
 
-      s_dons[id].nodeCapabilityConfigs[configCount].nodes.add(nodeP2PId);
+      donCapabilityConfig.nodes.add(nodeP2PId);
     }
 
     for (uint256 i; i < capabilityConfigurations.length; ++i) {
@@ -541,7 +541,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (!s_hashedCapabilityIds.contains(capabilityId)) revert CapabilityDoesNotExist(capabilityId);
       if (s_deprecatedHashedCapabilityIds.contains(capabilityId)) revert CapabilityIsDeprecated(capabilityId);
 
-      if (s_dons[id].nodeCapabilityConfigs[configCount].capabilityIds.contains(capabilityId))
+      if (donCapabilityConfig.capabilityConfigs[capabilityId].length > 0)
         revert DuplicateDONCapability(id, capabilityId);
 
       for (uint256 j; j < nodes.length; ++j) {
@@ -550,12 +550,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
           revert NodeDoesNotSupportCapability(nodeP2PId, capabilityId);
       }
 
-      s_dons[id].nodeCapabilityConfigs[configCount].capabilityIds.add(capabilityId);
-      s_dons[id].nodeCapabilityConfigs[configCount].capabilityConfigs[capabilityId] = configuration.config;
+      donCapabilityConfig.capabilityIds.push(capabilityId);
+      donCapabilityConfig.capabilityConfigs[capabilityId] = configuration.config;
     }
 
+    s_dons[id].configCount = configCount;
     ++s_donId;
-
     emit DONAdded(id, isPublic);
   }
 
@@ -570,20 +570,22 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   ) external view returns (uint32, bool, bytes32[] memory, CapabilityConfiguration[] memory) {
     uint32 configCount = s_dons[donId].configCount;
 
-    bytes32[] memory capabilityIds = s_dons[donId].nodeCapabilityConfigs[configCount].capabilityIds.values();
+    DONCapabilityConfig storage donCapabilityConfig = s_dons[donId].capabilityConfigs[configCount];
+
+    bytes32[] memory capabilityIds = donCapabilityConfig.capabilityIds;
     CapabilityConfiguration[] memory capabilityConfigurations = new CapabilityConfiguration[](capabilityIds.length);
 
     for (uint256 i; i < capabilityConfigurations.length; ++i) {
       capabilityConfigurations[i] = CapabilityConfiguration({
         capabilityId: capabilityIds[i],
-        config: s_dons[donId].nodeCapabilityConfigs[configCount].capabilityConfigs[capabilityIds[i]]
+        config: s_dons[donId].capabilityConfigs[configCount].capabilityConfigs[capabilityIds[i]]
       });
     }
 
     return (
       s_dons[donId].id,
       s_dons[donId].isPublic,
-      s_dons[donId].nodeCapabilityConfigs[configCount].nodes.values(),
+      s_dons[donId].capabilityConfigs[configCount].nodes.values(),
       capabilityConfigurations
     );
   }
@@ -594,6 +596,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @return bytes The DON specific configuration for the capability
   function getDONCapabilityConfig(uint32 donId, bytes32 capabilityId) external view returns (bytes memory) {
     uint32 configCount = s_dons[donId].configCount;
-    return s_dons[donId].nodeCapabilityConfigs[configCount].capabilityConfigs[capabilityId];
+    return s_dons[donId].capabilityConfigs[configCount].capabilityConfigs[capabilityId];
   }
 }
