@@ -72,7 +72,7 @@ async function run() {
     const prTitle = process.env.PR_TITLE;
     const commitMessage = process.env.COMMIT_MESSAGE;
     const branchName = process.env.BRANCH_NAME;
-    // tags are not getting used in the current moment so will always default to []
+    // tags are not getting used at the current moment so will always default to []
     const tags = process.env.FOUND_TAGS
       ? process.env.FOUND_TAGS.split(",")
       : [];
