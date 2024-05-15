@@ -5,14 +5,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -31,13 +30,7 @@ func TestOCRLoad(t *testing.T) {
 	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
 	require.NoError(t, err)
 
-	readSethCfg := config.GetSethConfig()
-	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
-
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(*evmNetwork, *readSethCfg)
-	require.NoError(t, err, "Error merging seth and evm network configs")
-
-	seth, err := seth.NewClientWithConfig(&sethCfg)
+	seth, err := actions_seth.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error creating seth client")
 
 	lta, err := SetupCluster(l, seth, workerNodes)
@@ -73,13 +66,7 @@ func TestOCRVolume(t *testing.T) {
 	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
 	require.NoError(t, err)
 
-	readSethCfg := config.GetSethConfig()
-	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
-
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(*evmNetwork, *readSethCfg)
-	require.NoError(t, err, "Error merging seth and evm network configs")
-
-	seth, err := seth.NewClientWithConfig(&sethCfg)
+	seth, err := actions_seth.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error creating seth client")
 
 	lta, err := SetupCluster(l, seth, workerNodes)
