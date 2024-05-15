@@ -225,7 +225,6 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 			_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
 			require.NoError(t, err)
-
 			backend.Commit()
 
 			ids, addrs, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
@@ -511,19 +510,19 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 			require.NoError(t, feeds.EnableMercury(t, backend, registry, registryOwner))
 			require.NoError(t, feeds.VerifyEnv(t, backend, registry, registryOwner))
 
-	h, err := backend.HeaderByNumber(testutils.Context(t), nil)
-	require.NoError(t, err)
-	startBlock := h.Number.Int64()
-	// start emitting events in a separate go-routine
-	// feed lookup relies on a single contract event log to perform multiple
-	// listener contracts
-	go func() {
-		// only 1 event is necessary to make all 10 upkeeps eligible
-		_ = feeds.EmitEvents(t, backend, 1, func() {
-			// pause per emit for expected block production time
-			time.Sleep(3 * time.Second)
-		})
-	}()
+			h, err := backend.HeaderByNumber(testutils.Context(t), nil)
+			require.NoError(t, err)
+			startBlock := h.Number.Int64()
+			// start emitting events in a separate go-routine
+			// feed lookup relies on a single contract event log to perform multiple
+			// listener contracts
+			go func() {
+				// only 1 event is necessary to make all 10 upkeeps eligible
+				_ = feeds.EmitEvents(t, backend, 1, func() {
+					// pause per emit for expected block production time
+					time.Sleep(3 * time.Second)
+				})
+			}()
 
 			go makeDummyBlocks(t, backend, 3*time.Second, 1000)
 
