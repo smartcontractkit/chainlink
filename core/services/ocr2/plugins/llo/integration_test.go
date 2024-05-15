@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"math/big"
 	"math/rand"
 	"strings"
@@ -161,6 +162,13 @@ func TestIntegration_LLO(t *testing.T) {
 
 	addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, "job-1")
 	addOCRJobs(t, streams, serverPubKey, serverURL, verifierAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, chainID, fromBlock)
+
+	for _, n := range append(nodes, bootstrapNode) {
+		chain, err := n.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+		require.NoError(t, err)
+		err = chain.LogPoller().Replay(tests.Context(t), 1)
+		require.NoError(t, err)
+	}
 
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 		// Expect at least one report per channel from each oracle (keyed by transmitter ID)
