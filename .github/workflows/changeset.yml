@@ -132,7 +132,7 @@ jobs:
         if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
         shell: bash
         run: node ./.github/scripts/jira/update-jira-ticket.js
-        with:
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JIRA_HOST: ${{ secrets.JIRA_HOST }}
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
