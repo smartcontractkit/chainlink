@@ -18,6 +18,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -96,6 +97,7 @@ type ConfigTracker interface {
 
 type TransmitterReportDecoder interface {
 	BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error)
+	ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error)
 }
 
 var _ Transmitter = (*mercuryTransmitter)(nil)
@@ -110,6 +112,7 @@ type mercuryTransmitter struct {
 	lggr logger.Logger
 	cfg  TransmitterConfig
 
+	orm     ORM
 	servers map[string]*server
 
 	codec             TransmitterReportDecoder
@@ -253,7 +256,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 		b.Reset()
 		if res.Error == "" {
 			s.transmitSuccessCount.Inc()
-			s.lggr.Debugw("Transmit report success", "payload", hexutil.Encode(t.Req.Payload), "response", res, "reportCtx", t.ReportCtx)
+			s.lggr.Debugw("Transmit report success", "payload", hexutil.Encode(t.Req.Payload), "response", res, "repts", t.ReportCtx.ReportTimestamp)
 		} else {
 			// We don't need to retry here because the mercury server
 			// has confirmed it received the report. We only need to retry
@@ -262,7 +265,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 			case DuplicateReport:
 				s.transmitSuccessCount.Inc()
 				s.transmitDuplicateCount.Inc()
-				s.lggr.Debugw("Transmit report success; duplicate report", "payload", hexutil.Encode(t.Req.Payload), "response", res, "reportCtx", t.ReportCtx)
+				s.lggr.Debugw("Transmit report success; duplicate report", "payload", hexutil.Encode(t.Req.Payload), "response", res, "repts", t.ReportCtx.ReportTimestamp)
 			default:
 				transmitServerErrorCount.WithLabelValues(feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
 				s.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
@@ -302,6 +305,7 @@ func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[strin
 		services.StateMachine{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		cfg,
+		orm,
 		servers,
 		codec,
 		triggerCapability,
@@ -402,16 +406,20 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		Payload: payload,
 	}
 
-	mt.lggr.Tracew("Transmit enqueue", "req.Payload", req.Payload, "report", report, "reportCtx", reportCtx, "signatures", signatures)
+	ts, err := mt.codec.ObservationTimestampFromReport(report)
+	if err != nil {
+		mt.lggr.Warnw("Failed to get observation timestamp from report", "err", err)
+	}
+	mt.lggr.Debugw("Transmit enqueue", "req.Payload", hexutil.Encode(req.Payload), "report", report, "repts", reportCtx.ReportTimestamp, "signatures", signatures, "observationsTimestamp", ts)
+
+	if err := mt.orm.InsertTransmitRequest(ctx, maps.Keys(mt.servers), req, mt.jobID, reportCtx); err != nil {
+		return err
+	}
 
 	g := new(errgroup.Group)
 	for _, s := range mt.servers {
 		s := s // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
-			if err := s.pm.Insert(ctx, req, reportCtx); err != nil {
-				s.transmitQueueInsertErrorCount.Inc()
-				return err
-			}
 			if ok := s.q.Push(req, reportCtx); !ok {
 				s.transmitQueuePushErrorCount.Inc()
 				return errors.New("transmit queue is closed")
