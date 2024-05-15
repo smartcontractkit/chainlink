@@ -18,8 +18,10 @@ var (
 	reportB = []byte{0xaa, 0xbb, 0xcc, 0xdd}
 
 	// hex encoded 32 byte strings
-	workflowID  = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-	executionID = "8d4e66421db647dd916d3ec28d56188c8d7dae5f808e03d03339ed2562f13bb0"
+	workflowID      = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+	donID           = "00010203"
+	executionID     = "8d4e66421db647dd916d3ec28d56188c8d7dae5f808e03d03339ed2562f13bb0"
+	workflowOwnerID = "0000000000000000000000000000000000000000000000000000000000000000"
 
 	invalidID   = "not_valid"
 	wrongLength = "8d4e66"
@@ -48,7 +50,9 @@ func TestEVMEncoder(t *testing.T) {
 	expected :=
 		// start of the outer tuple ((user_fields), workflow_id, workflow_execution_id)
 		workflowID +
+			donID +
 			executionID +
+			workflowOwnerID +
 			// start of the inner tuple (user_fields)
 			"0000000000000000000000000000000000000000000000000000000000000020" + // offset of mercury_reports array
 			"0000000000000000000000000000000000000000000000000000000000000002" + // length of mercury_reports array

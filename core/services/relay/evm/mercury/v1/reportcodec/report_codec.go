@@ -98,3 +98,11 @@ func (r *ReportCodec) BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int
 	}
 	return decoded.BenchmarkPrice, nil
 }
+
+func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error) {
+	decoded, err := r.Decode(report)
+	if err != nil {
+		return 0, err
+	}
+	return decoded.ObservationsTimestamp, nil
+}

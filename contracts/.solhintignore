@@ -3,8 +3,11 @@
 
 # Ignore frozen Automation code
 ./src/v0.8/automation/v1_2
+./src/v0.8/automation/interfaces/v1_2
 ./src/v0.8/automation/v1_3
+./src/v0.8/automation/interfaces/v1_3
 ./src/v0.8/automation/v2_0
+./src/v0.8/automation/interfaces/v2_0
 ./src/v0.8/automation/v2_1
 ./src/v0.8/automation/interfaces/v2_1/
 ./src/v0.8/automation/interfaces/MigratableKeeperRegistryInterface.sol
