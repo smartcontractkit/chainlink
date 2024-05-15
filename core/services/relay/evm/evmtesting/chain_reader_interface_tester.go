@@ -62,7 +62,9 @@ func (it *EvmChainReaderInterfaceTester[T]) Setup(t T) {
 			_ = it.cr.Close()
 		}
 		it.cr = nil
-		it.evmTest = nil
+		if it.dirtyContracts {
+			it.evmTest = nil
+		}
 	})
 
 	// can re-use the same chain for tests, just make new contract for each test
