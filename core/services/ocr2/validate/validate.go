@@ -243,15 +243,15 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	}
 
 	// OnchainSigningStrategy is optional
-	if spec.OnchainSigningStrategy != nil {
+	if spec.OnchainSigningStrategy != nil || len(spec.OnchainSigningStrategy.Bytes()) == 0 {
 		onchainSigningStrategy := OCR2OnchainSigningStrategy{}
 		err = json.Unmarshal(spec.OnchainSigningStrategy.Bytes(), &onchainSigningStrategy)
 		if err != nil {
 			return err
 		}
-		pk, err := onchainSigningStrategy.PublicKey()
-		if err != nil {
-			return err
+		pk, ossErr := onchainSigningStrategy.PublicKey()
+		if ossErr != nil {
+			return ossErr
 		}
 		if pk == "" {
 			return errors.New("generic config invalid: must provide public key for the onchain signing strategy")

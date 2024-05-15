@@ -97,12 +97,10 @@ type OCR3OnchainKeyringMultiChainAdapter struct {
 func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st OnchainSigningStrategy, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
 	keyBundles := map[string]ocr2key.KeyBundle{}
 	for name := range st.ConfigCopy() {
-		fmt.Println(name)
 		kbID, err := st.KeyBundleID(name)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(kbID)
 		kb, err := ks.Get(kbID)
 		if err != nil {
 			return nil, err
@@ -124,7 +122,6 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 		return nil, fmt.Errorf("failed to unmarshal report info: %v", err)
 	}
 	infoMap := info.AsMap()
-	fmt.Println(infoMap)
 	keyBundleName, ok := infoMap["keyBundleName"]
 	if !ok {
 		return nil, errors.New("keyBundleName not found in report info")
