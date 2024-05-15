@@ -1,203 +1,233 @@
-# Seth-specific instructions
+# Seth-Specific Instructions
 
-# Using `seth.toml`
-When used a standalone or via CLI Seth is expecting to be given a path to `seth.toml` file with configuration. In our case it's not necessary as Seth-specific config
-can be passed using `TestConfig` TOML configuration. All Seth-specific values have to placed under `[Seth]` table in the TOML file.
+## Configuring with `seth.toml`
 
-For example, if `Seth.toml` has a configuration key:
+When operating Seth either as a library or through the Command Line Interface (CLI), it typically requires a path to the `seth.toml` file for configuration settings. In our workflow, however, you can bypass this requirement by utilizing the `TestConfig` TOML configuration
+and configuring Seth settings directly in the TOML file(s).
+
+### How to Set Configuration Values
+
+Place all Seth-specific configuration entries under the `[Seth]` section in your TOML file. This can be done in files such as `default.toml` or `overrides.toml` (or any product-specific TOML) .
+
+#### Example:
+If your `Seth.toml` file contains a setting like this:
 ```toml
 tracing_level = "reverted"
 ```
 
-You can set that, for example in `default.toml` or `overrides.toml` by adding:
+You can replicate this setting in `default.toml` or `overrides.toml` (or any product-specific TOML) by adding:
 ```toml
 [Seth]
 tracing_level = "reverted"
 ```
 
-Detailed description of all the available options can be found in the [Seth.toml](https://github.com/smartcontractkit/seth/blob/master/seth.toml) or its [README.md](https://github.com/smartcontractkit/seth/blob/master/README.md). 
+Documentation and Further Details
+For a comprehensive description of all available configuration options, refer to the configuration documentation in the [Seth.toml](https://github.com/smartcontractkit/seth/blob/master/seth.toml) file or consult the [README.md on GitHub](https://github.com/smartcontractkit/seth/blob/master/README.md).
 
-# Setting log level
+# Setting Log Level
 ## Locally
-Use `SETH_LOG_LEVEL` env var. If you want to see basic tracing/decoding information be sure to set it to `debug`. Even more detailed traces
-are available with `trace` level.
+
+To adjust the logging level for Seth when running locally, use the environment variable `SETH_LOG_LEVEL`. For basic tracing and decoding information, set this variable to `debug`. For more detailed tracing, use the `trace` level.
 
 ## Remote Runner
-Use `TEST_SETH_LOG_LEVEL` to set Seth log level in the Remote Runner. In the future we will add auto-forwarding for `SETH_LOG_LEVEL` env var, but for now you need to do it explicitly.
+To set the Seth log level in the Remote Runner, use the `TEST_SETH_LOG_LEVEL` environment variable. In the future, we plan to implement automatic forwarding of the `SETH_LOG_LEVEL` environment variable. Until then, you must set it explicitly.
 
-# Seth network configuration
-Seth's network config is completely separate from good old `EVMNetwork` and you can't use it interchangeably. For now you need to provide both for tests to work, since each
-of them is used in different parts of the test.
+# Seth Network Configuration
+Seth's network configuration is entirely separate from the traditional `EVMNetwork`, and the two cannot be used interchangeably. Currently, both configurations must be provided for tests to function properly, as different parts of the test utilize each configuration.
 
-Most of test logic is based on the `EVMNetwork` struct, but Seth is using its own network configuration. We have added convenience methods that copy some of the `EVMNetwork` fields
-to `seth.Network` so that you don't have to provide the same values twice. This is true for following fields:
-* private keys
-* rpc endpoints
-* EIP-1559 support (simulated networks only)
-* default gas limit (simulated networks only)
+## Overview of Configuration Usage
+While most of the test logic relies on the `EVMNetwork` struct, Seth employs its own network configuration. To facilitate ease of use, we have introduced convenience methods that duplicate certain fields from `EVMNetwork` to `seth.Network`, eliminating the need to specify the same values twice. The following fields are automatically copied:
 
-Raw example:
+- Private keys
+- RPC endpoints
+- EIP-1559 support (only for simulated networks)
+- Default gas limit (only for simulated networks)
+
+## Example Code
+
+Here is a raw example demonstrating how to merge configurations:
+
 ```go
-    
-    import "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+import "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
-	readSethCfg := config.GetSethConfig()
-	if readSethCfg == nil {
-		return nil, fmt.Errorf("Seth config not found")
-	}
+readSethCfg := config.GetSethConfig()
+if readSethCfg == nil {
+    return nil, fmt.Errorf("Seth config not found")
+}
 
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Error merging seth and evm network configs")
-	}
+sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+if err != nil {
+    return nil, errors.Wrapf(err, "Error merging seth and evm network configs")
+}
 ```
 
-In reality there's rarely a need to even call these methods directly. It's recommended to use following higher-level convenience methods:
+In practice, you rarely need to invoke these methods directly. It is recommended to use the following higher-level convenience methods:
 ```go
+config, err := tc.GetConfig("Smoke", tc.OCR)
+require.NoError(t, err, "Error getting config")
 
-    config, err := tc.GetConfig("Smoke", tc.OCR)
-    require.NoError(t, err, "Error getting config")
-    
-    // validate Seth config before anything else
-    network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+// validate Seth config before anything else
+network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
 
-    seth, err := actions_seth.GetChainClient(config, network)
-	require.NoError(t, err, "Error getting Seth client")
-    // or
-	sethWithConfigValidated, err := actions_seth.GetChainClientWithConfigFunction(config, network, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
-	require.NoError(t, err, "Error getting Seth client")
+seth, err := actions_seth.GetChainClient(config, network)
+require.NoError(t, err, "Error getting Seth client")
+// or
+sethWithConfigValidated, err := actions_seth.GetChainClientWithConfigFunction(config, network, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+require.NoError(t, err, "Error getting Seth client")
 ```
 
-Nonetheless you are still expected to provide some Seth-specific network configuration related to the network you are using, like:
-* fallback gas price (for non-EIP-1559 networks), gas tip/fee cap (for EIP-1559 networks)
-* fallback gas limit (used for contract deployment and interaction)
-* fallback transfer fee (used for transferring funds between accounts)
-* network name 
-* chain id (really important as it's used for matching it with `EVMNetwork`)
-* transaction timeout
+`actions_seth.OneEphemeralKeysLiveTestnetCheckFn` is a validation function that checks if the network is a live network and if ephemeral keys are being used. It is recommended to use this function when working with live networks. It makes
+sure that you are not trying to use ephemeral keys on live networks, which would result in loss of funds associated with those keys.
 
-That's the bare minimum, but it's advised to read Seth documentation to learn about settings related to gas estimation, tracing, etc.
+## Seth-Specific Network Configuration
+You are still expected to manually provide some Seth-specific network configurations related to the network you are using:
+- Fallback gas price (for non-EIP-1559 networks), gas tip/fee cap (for EIP-1559 networks)
+- Fallback gas limit (used for contract deployment and interaction)
+- Fallback transfer fee (used for transferring funds between accounts)
+- Network name
+- Chain ID (critical for matching with EVMNetwork)
+- Transaction timeout
+- While this covers the essentials, it is advisable to consult the Seth documentation for detailed settings related to gas estimation, tracing, etc.
 
-## Where to get fallback (hardcoded) values from
-There are two ways to get these values:
-* first one is using a web-based gas tracker and modeling fallback values on historical gas prices
-* second one is using Seth CLI to get the values from the network you are using
+## Obtaining Fallback (Hardcoded) Values
 
-Since the second one is much more complex, but will work for any network, we will focus on it.
+There are two primary methods to obtain fallback values for network configurations:
 
-1. Clone [Seth repository](https://github.com/smartcontractkit/seth)
-2. Add required network details for your network to `seth.toml` file:
+1. **Web-Based Gas Tracker**: Model fallback values based on historical gas prices.
+2. **Seth CLI**: This method is more complex but works for any network. We will focus on this due to its broad applicability.
+
+### Steps to Use Seth CLI for Fallback Values
+
+1. **Clone the Seth Repository:**
+Clone the repository from GitHub using:
+```bash
+git clone https://github.com/smartcontractkit/seth
+```
+
+2. **Configure Network Details:**
+Add your network details in the `seth.toml` file:
 ```toml
 [[Networks]]
 name = "my_network"
 chain_id = "43113"
 urls_secret = ["RPC you want to use"]
 ```
-3. Run `SETH_CONFIG_PATH=seth.toml go run cmd/seth/seth.go -n my_network gas -b 10000 -tp 0.99` where `-b <N>` is the number of last blocks that will be used to calculate the fallback gas price and `-tp <N>` is the percentile of the gas prices that will be used as the fallback gas prices.
-4. Copy the following part of the output to your network configuration:
-```toml
-5:08PM INF Fallback prices for TOML config:
+
+3. **Run Seth CLI:**
+Execute the command to get fallback gas prices:
+```bash
+SETH_CONFIG_PATH=seth.toml go run cmd/seth/seth.go -n my_network gas -b 10000 -tp 0.99
+```
+
+4. **Copy Fallback Values:**
+From the output, copy the relevant fallback prices into your network configuration. Here's an example of what you might see:
+```bash
+ 5:08PM INF Fallback prices for TOML config:
 gas_price = 121487901046
 gas_tip_cap = 1000000000
 gas_fee_cap = 122487901046 
 ```
 
-# Ephemeral and static keys
-In order to use Seth effectively you need to understand the difference between ephemeral and static keys, but first, why would you need any of them? Two use cases come to mind:
-* parallel operations - you want to run multiple operations in parallel, but you don't want to wait for the previous one to finish (remember, Seth is **synchronous** and requires you to use different keys for each goroutine)
-* load generation - you want to generate a lot of transactions in a short period of time
+This method ensures you get the most accurate and network-specific fallback values, optimizing your setup for current network conditions.
 
-Now, let's get to the keys:
-* Ephemeral keys are generated on the fly. They are not stored anywhere and are not meant to be used on live networks. You should use them only, when you are fine with losing all funds associated with them. 
-* Static keys are ones that were passed to Seth in the configuration. They should be used on live networks, since funds associated with them are not lost after the test ends, because you have copies of the private keys.
+# Ephemeral and Static Keys
 
-In fact most (but not necessarily all) tests will not let you use ephemeral keys on live networks.
+Understanding the difference between ephemeral and static keys is essential for effective and safe use of Seth. Here are a couple of use cases where you might need them:
 
-## How to set ephemeral keys in the TOML
-It's really simple:
+- **Parallel Operations**: If you need to run multiple operations simultaneously without waiting for the previous one to finish, remember that Seth is synchronous and requires different keys for each goroutine.
+- **Load Generation**: To generate a large volume of transactions in a short time.
+
+## Understanding the Keys
+
+- **Ephemeral Keys**: These are generated on the fly, are not stored, and should not be used on live networks, because any funds associated will be lost. Use these keys only when it's acceptable to lose the funds.
+- **Static Keys**: These are specified in the Seth configuration and are suitable for use on live networks. Funds associated with these keys are not lost post-test since you retain copies of the private keys.
+
+Most tests, especially on live networks, will restrict the use of ephemeral keys.
+
+## How to Set Ephemeral Keys in the TOML
+
+Setting ephemeral keys is straightforward:
 ```toml
 [Seth]
 ephemeral_addresses_number = 10
 ```
 
-## How to set static keys in the TOML
-There are various ways to pass them, but I will show you two:
+## How to Set Static Keys in the TOML
 
-### As a list of wallet keys in your network configuration
-Simply add it to your test TOML:
+There are several methods to set static keys, but here are two:
+
+### As a List of Wallet Keys in Your Network Configuration
+
+Add it directly to your test TOML:
 ```toml
 [Network.WalletKeys]
 arbitrum_sepolia=["first_key","second_key"]
 ```
-This is best to use, when running tests on local, but should be avoided in CI. There another method should be used:
+This method is ideal for local tests, but should be avoided in continuous integration (CI) environments.
 
-### As Base64-encoded keyfile stored as GHA secret
-This is a safer and preferred way, but it involves a bit more work. 
+### As Base64-Encoded Keyfile Stored as GHA Secret
 
-First the prerequisites:
-1. Your Seth must be configured to read the keyfile from env var, by setting the following in your TOML:
-```toml
+This safer, preferred method involves more setup:
+
+1. **Configuration**: Your Seth must be configured to read the keyfile in Base64-encoded version from an environment variable, by setting in your TOML:
+```
 [Seth]
 keyfile_source = "base64_env"
 ```
-2. Your pipeline needs to set the secret with Base64-encoded keyfile as an env var called `SETH_KEYFILE_BASE64`. Seth will read
-and decode it automatically.
+2. **Pipeline Setup**: Your pipeline must have the secret with the Base64-encoded keyfile exposed as an environment variable named `SETH_KEYFILE_BASE64`. Seth will automatically read and decode it given the above-mentioned configuration.
 
-Once your pipeline is set up, you can add the keyfile to your GHA secrets. Here's how you can do it:
-1. First you need to create a keyfile (check below)
-2. Then you need to Base64-encode it and add it to your GHA secrets, you can use GH CLI for that:
-```bash
+### Setting Up Your Pipeline
+
+Here's how to add the keyfile to your GitHub Actions secrets:
+1. Create a keyfile (instructions provided below).
+2. Base64-encode the keyfile and add it to your GitHub Actions secrets using the GitHub CLI:
+```
 gh secret set SETH_KEYFILE_BASE64 -b $(cat keyfile.toml | base64)
 ```
 
-## How to split funds between static keys
-Now you might ask how to split funds between multiple static keys. Let's say your test requires 50 different static keys to generate
-sufficient load. Splitting funds manually would be a nightmare. That's why we have a simple way to do it:
-1. Fund some key, let's call it root key, with the desired amount that will be used as source of funds.
-2. Use seth to split the funds between all the keys:
-```bash
-KEYFILE_PATH=keyfile_my_network.toml ROOT_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 SETH_CONFIG_PATH=seth.toml go run cmd/seth/seth.go -n my_network  keys split -a 10 -b 1
+## How to Split Funds Between Static Keys
+
+Managing funds across multiple static keys can be complex, especially if your tests require a substantial number of keys to generate adequate load. To simplify this process, follow these steps:
+
+1. **Fund a Root Key**: Start by funding a key (referred to as the root key) with the total amount of funds you intend to distribute among other keys.
+2. **Use Seth to Distribute Funds**: Execute the command below to split the funds from the root key to other keys:
 ```
-Where `-a <N>` is the number of keys you want to split the funds between and `-b <N>` is the buffer in ether that will be left on the root key.
+KEYFILE_PATH=keyfile_my_network.toml ROOT_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 SETH_CONFIG_PATH=seth.toml go run cmd/seth/seth.go -n my_network keys split -a 10 -b 1
+```
+The `-a <N>` option specifies the number of keys to distribute funds to, and `-b <N>` denotes the buffer (in ethers) to be left on the root key.
 
-# Synchronous API
-One of the main drivers behind Seth was making its API synchronous. This can be achieved by wrapping all transactions in `seth.Decode()` function that will wait for the transaction to be mined. Then depending on Seth settings
-it will decode it either only if it was reverted (default behavior) or always (if `tracing_level` is set to `all`).
+## Synchronous API
 
-# Getting event data from transactions
-Getting event data from transaction is not overly complicated, but it requires a couple of steps:
+Seth is designed with a synchronous API to enhance usability and predictability. This feature is implemented through the `seth.Decode()` function, which waits for each transaction to be mined before proceeding. Depending on the Seth configuration, the function will:
+
+- **Decode transactions only if they are reverted**: This is the default setting.
+- **Always decode transactions**: This occurs if the `tracing_level` is set to `all`.
+
+This approach simplifies the way transactions are handled, making them more predictable and easier to debug. Therefore, it is highly recommended that you wrap all contract interactions in that method.
+
+# Getting Event Data from Transactions
+
+Retrieving event data from transactions in Seth involves a few steps but is not overly complicated. Below is a Go function example that illustrates how to capture event data from a specific transaction:
+
 ```go
-
-    // first execute the tranasaction and wrap it in Decode function
-	tx, err := v.client.Decode(v.coordinator.CancelSubscription(v.client.NewTXOpts(), subID, to)
-	if err != nil {
-        return nil, errors.Wrap(err, "Error executing transaction")
+func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to common.Address) (*seth.DecodedTransaction, *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error) {
+  tx, err := v.client.Decode(v.coordinator.CancelSubscription(v.client.NewTXOpts(), subID, to))
+  if err != nil {
+      return nil, nil, err
+  }
+  var cancelEvent *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled
+  for _, log := range tx.Receipt.Logs {
+    for _, topic := range log.Topics {
+        if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled{}.Topic()) == 0 {
+            cancelEvent, err = v.coordinator.ParseSubscriptionCanceled(*log)
+            if err != nil {
+                return nil, nil, fmt.Errorf("parsing SubscriptionCanceled log failed, err: %w", err)
+            }
+		}
     }
-	
-	// now look for the event in the transaction logs
-	var event vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled
-	for i, e := range tx.Events {
-	    if len(e.Topics) == 0 {
-	        return nil, fmt.Errorf("no topics in event %d", i)
-	    }
-	switch e.Topics[0] {
-	    case vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled{}.Topic().String():
-	        if to, ok := e.EventData["to"].(common.Address); ok {
-	            event.To = to
-	        } else {
-	            return nil, fmt.Errorf("'to' not found in the event")
-	        }
-	        if amount, ok := e.EventData["amount"].(*big.Int); ok {
-	            event.Amount = amount
-	        } else {
-	            return nil, fmt.Errorf("'amount' not found in the event")
-	        }
-	        if subId, ok := e.EventData["subId"].(uint64); ok {
-	            event.SubId = subId
-	        } else {
-	            return nil, fmt.Errorf("'subId' not found in the event")
-	        }
-	    }
-	}
-    
+  }
+  return tx, cancelEvent, err
+}
 ```
+
+This function demonstrates how to decode a transaction, check for specific event topics in the transaction logs, and parse those events. It's a structured approach to handling event data that is crucial for applications that need to respond to specific changes in state reflected by those events.
