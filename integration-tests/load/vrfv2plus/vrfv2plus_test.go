@@ -97,7 +97,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		NumberOfTxKeysToCreate: *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
 	}
 
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	evmClient, err := testEnv.GetEVMClient(chainID)
@@ -240,7 +240,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		NumberOfTxKeysToCreate: *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
 	}
 
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	evmClient, err := testEnv.GetEVMClient(chainID)
