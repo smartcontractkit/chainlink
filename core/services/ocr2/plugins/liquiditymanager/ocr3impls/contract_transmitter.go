@@ -84,7 +84,7 @@ func (c *contractTransmitterOCR3[RI]) Transmit(ctx context.Context, configDigest
 	for i, as := range sigs {
 		r, s, v, err := evmutil.SplitSignature(as.Signature)
 		if err != nil {
-			panic("eventTransmit(ev): error in SplitSignature")
+			return fmt.Errorf("failed to split signature: %w", err)
 		}
 		rs = append(rs, r)
 		ss = append(ss, s)

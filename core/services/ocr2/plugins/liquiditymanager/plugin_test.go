@@ -293,10 +293,12 @@ func TestPlugin_Observation(t *testing.T) {
 					Return(br, err2)
 			}
 
+			prevObs, err := tc.previousOutcome.Encode()
+			assert.NoError(t, err)
 			// run the observation
 			obs, err := p.plugin.Observation(ctx, ocr3types.OutcomeContext{
 				SeqNr:           tc.seqNr,
-				PreviousOutcome: tc.previousOutcome.Encode(),
+				PreviousOutcome: prevObs,
 			}, ocrtypes.Query{})
 
 			if tc.expErr != nil {
@@ -304,7 +306,9 @@ func TestPlugin_Observation(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, string(tc.expObservation.Encode()), string(obs))
+			o, err := tc.expObservation.Encode()
+			assert.NoError(t, err)
+			assert.Equal(t, string(o), string(obs))
 		})
 	}
 }
@@ -662,8 +666,9 @@ func TestPlugin_Outcome(t *testing.T) {
 
 			attributedObservations := make([]ocrtypes.AttributedObservation, 0, len(tc.observations))
 			for _, o := range tc.observations {
+				obs, _ := o.Encode()
 				attributedObservations = append(attributedObservations, ocrtypes.AttributedObservation{
-					Observation: o.Encode(),
+					Observation: obs,
 					Observer:    commontypes.OracleID(uint8(rand.Intn(10))),
 				})
 			}
@@ -674,7 +679,9 @@ func TestPlugin_Outcome(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, string(tc.expectedOutcome.Encode()), string(outc))
+			expectedOutcome, err := tc.expectedOutcome.Encode()
+			assert.NoError(t, err)
+			assert.Equal(t, string(expectedOutcome), string(outc))
 		})
 	}
 }
@@ -782,8 +789,9 @@ func TestPlugin_Reports(t *testing.T) {
 			for net, addr := range tc.rebalancerAddress {
 				p.plugin.liquidityGraph.(graph.GraphTest).AddNetwork(net, graph.Data{LiquidityManagerAddress: addr, NetworkSelector: net})
 			}
-
-			reports, err := p.plugin.Reports(tc.seqNr, tc.outcome.Encode())
+			outcome, err := tc.outcome.Encode()
+			assert.NoError(t, err)
+			reports, err := p.plugin.Reports(tc.seqNr, outcome)
 			if tc.expErr != nil {
 				tc.expErr(t, err)
 				return
