@@ -60,7 +60,7 @@ func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
 		billingType,
 		vrfv2PlusConfig,
 		m.logger,
-		m.sethClient.AnySyncedKey(),
+		RootKeyNum,
 	)
 	//todo - might need to store randRequestBlockNumber and blockhash to verify that it was stored in BHS contract at the end of the test
 	if err != nil {

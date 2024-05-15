@@ -12,6 +12,8 @@ import (
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 )
 
+const RootKeyNum = 0
+
 type BHSTestGun struct {
 	contracts  *vrfcommon.VRFContracts
 	subIDs     []uint64
@@ -52,7 +54,7 @@ func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
 		*m.testConfig.General.NumberOfWords,
 		*m.testConfig.General.RandomnessRequestCountPerRequest,
 		*m.testConfig.General.RandomnessRequestCountPerRequestDeviation,
-		m.sethClient.AnySyncedKey(),
+		RootKeyNum,
 	)
 	//todo - might need to store randRequestBlockNumber and blockhash to verify that it was stored in BHS contract at the end of the test
 	if err != nil {
@@ -109,7 +111,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		randomnessRequestCountPerRequest,
 		*vrfv2Config.RandomnessRequestCountPerRequestDeviation,
 		vrfv2Config.RandomWordsFulfilledEventTimeout.Duration,
-		m.sethClient.AnySyncedKey(),
+		RootKeyNum,
 	)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
