@@ -273,6 +273,13 @@ func integration_MercuryV1(t *testing.T) {
 		}
 	}
 
+	for _, n := range append(nodes, bootstrapNode) {
+		chain, err := n.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+		require.NoError(t, err)
+		err = chain.LogPoller().Replay(ctx, 1)
+		require.NoError(t, err)
+	}
+
 	// Setup config on contract
 	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
