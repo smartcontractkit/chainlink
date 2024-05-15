@@ -355,7 +355,16 @@ func SetupVRFV2PlusWrapperEnvironment(
 	return wrapperContracts, wrapperSubID, nil
 }
 
-func SetupVRFV2PlusUniverse(ctx context.Context, t *testing.T, testConfig tc.TestConfig, chainID int64, cleanupFn func(), newEnvConfig vrfcommon.NewEnvConfig, l zerolog.Logger) (*test_env.CLClusterTestEnv, *vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
+func SetupVRFV2PlusUniverse(
+	ctx context.Context,
+	t *testing.T,
+	testConfig tc.TestConfig,
+	chainID int64,
+	cleanupFn func(),
+	newEnvConfig vrfcommon.NewEnvConfig,
+	l zerolog.Logger,
+	chainlinkNodeLogScannerSettings test_env.ChainlinkNodeLogScannerSettings,
+) (*test_env.CLClusterTestEnv, *vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	var (
 		env            *test_env.CLClusterTestEnv
 		vrfContracts   *vrfcommon.VRFContracts
@@ -369,7 +378,7 @@ func SetupVRFV2PlusUniverse(ctx context.Context, t *testing.T, testConfig tc.Tes
 			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 Plus for Existing env", err)
 		}
 	} else {
-		vrfContracts, vrfKey, env, nodeTypeToNode, err = SetupVRFV2PlusForNewEnv(ctx, t, testConfig, chainID, cleanupFn, newEnvConfig, l)
+		vrfContracts, vrfKey, env, nodeTypeToNode, err = SetupVRFV2PlusForNewEnv(ctx, t, testConfig, chainID, cleanupFn, newEnvConfig, l, chainlinkNodeLogScannerSettings)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 Plus for New env", err)
 		}
@@ -385,6 +394,7 @@ func SetupVRFV2PlusForNewEnv(
 	cleanupFn func(),
 	newEnvConfig vrfcommon.NewEnvConfig,
 	l zerolog.Logger,
+	chainlinkNodeLogScannerSettings test_env.ChainlinkNodeLogScannerSettings,
 ) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	network, err := actions.EthereumNetworkConfigFromConfig(l, &testConfig)
 	if err != nil {
@@ -396,6 +406,7 @@ func SetupVRFV2PlusForNewEnv(
 		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
 		WithCLNodes(len(newEnvConfig.NodesToCreate)).
 		WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
+		WithChainlinkNodeLogScanner(chainlinkNodeLogScannerSettings).
 		WithCustomCleanup(cleanupFn).
 		WithSeth().
 		Build()
