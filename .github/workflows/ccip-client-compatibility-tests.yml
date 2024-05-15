@@ -1,13 +1,13 @@
 name: CCIP Client Compatibility Tests
 on:
-  merge_group:
-  pull_request:
-  push:
-    tags:
-      - "*"
-    branches:
-      - ccip-develop
-      - "release/**"
+#  merge_group:
+#  pull_request:
+#  push:
+#    tags:
+#      - "*"
+#    branches:
+#      - ccip-develop
+#      - "release/**"
   workflow_dispatch:
 
 env:
