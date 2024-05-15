@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -117,7 +117,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublic
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
 	info := new(structpb.Struct)
-	err = protojson.Unmarshal(r.Info, info)
+	err = proto.Unmarshal(r.Info, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal report info: %v", err)
 	}
@@ -143,7 +143,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
 	info := structpb.Struct{}
-	err := protojson.Unmarshal(ri.Info, &info)
+	err := proto.Unmarshal(ri.Info, &info)
 	if err != nil {
 		a.lggr.Warn("Verify: failed to unmarshal report info", "err", err)
 		return false

@@ -7,12 +7,14 @@ import (
 	"reflect"
 	"testing"
 
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,7 +32,7 @@ var (
 	seqNr        uint64           = 11
 	rwi                           = ocr3types.ReportWithInfo[[]byte]{
 		Report: []byte("report"),
-		Info:   []byte(`{"keyBundleName":"publicKey"}`),
+		Info:   []byte("info"),
 	}
 	signatures = []types.AttributedOnchainSignature{{
 		Signature: []byte("signature1"),
@@ -135,6 +137,21 @@ publicKey = "pub-key"
 	require.NoError(t, err)
 	err = json.Unmarshal(b, oss)
 	require.NoError(t, err)
+	reportInfo := ocr3types.ReportWithInfo[[]byte]{
+		Report: []byte("multi-chain-report"),
+	}
+	info := structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"keyBundleName": {
+				Kind: &structpb.Value_StringValue{
+					StringValue: "evm",
+				},
+			},
+		},
+	}
+	infoB, err := proto.Marshal(&info)
+	require.NoError(t, err)
+	reportInfo.Info = infoB
 
 	ks := keystoreMocks.NewOCR2(t)
 	fakeKey := ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
@@ -145,9 +162,9 @@ publicKey = "pub-key"
 	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(ks, oss.OnchainSigningStrategy, logger.TestLogger(t))
 	require.NoError(t, err)
 
-	sig, err := adapter.Sign(configDigest, seqNr, rwi)
+	sig, err := adapter.Sign(configDigest, seqNr, reportInfo)
 	assert.NoError(t, err)
-	assert.True(t, adapter.Verify(pk, configDigest, seqNr, rwi, sig))
+	assert.True(t, adapter.Verify(pk, configDigest, seqNr, reportInfo, sig))
 	assert.Equal(t, pk, adapter.PublicKey())
 	assert.Equal(t, fakeKey.MaxSignatureLength(), adapter.MaxSignatureLength())
 }
