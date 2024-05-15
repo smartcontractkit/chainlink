@@ -143,7 +143,7 @@ jobs:
           CHAINLINK_VERSION: ${{ steps.chainlink-version.outputs.chainlink_version }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
-          # TAGS: ${{ steps.changeset-tags.outputs.found_tags }} # Uncomment this line when we want to include tags
+          # FOUND_TAGS: ${{ steps.changeset-tags.outputs.found_tags }} # Uncomment this line when we want to include tags
 
       - name: Make a comment
         uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
