@@ -23,7 +23,7 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
-func TestForwarderOCR2Basic2(t *testing.T) {
+func TestForwarderOCR2Basic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
@@ -135,7 +135,7 @@ func TestForwarderOCR2Basic2(t *testing.T) {
 		jobs, _, _ := workerNodes[i].ReadJobs()
 		for _, maps := range jobs.Data {
 			id := maps["id"].(string)
-			workerNodes[i].DeleteJob(id)
+			require.NoError(t, workerNodes[i].MustDeleteJob(id))
 		}
 
 	}
