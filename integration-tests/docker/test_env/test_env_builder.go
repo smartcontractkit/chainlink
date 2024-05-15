@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
-
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -283,42 +282,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
 
-	if b.hasKillgrave {
-		if b.te.DockerNetwork == nil {
-			return nil, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("cannot start mock adapter without a network"))
-		}
-
-		b.te.MockAdapter = test_env.NewKillgrave([]string{b.te.DockerNetwork.Name}, "", test_env.WithLogStream(b.te.LogStream))
-
-		err = b.te.StartMockAdapter()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if b.t != nil {
-		b.te.WithTestInstance(b.t)
-	}
-
-	switch b.cleanUpType {
-	case CleanUpTypeStandard:
-		b.t.Cleanup(func() {
-			// Cleanup test environment
-			if err := b.te.Cleanup(CleanupOpts{TestName: b.t.Name()}); err != nil {
-				b.l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		})
-	case CleanUpTypeCustom:
-		b.t.Cleanup(b.cleanUpCustomFn)
-	case CleanUpTypeNone:
-		b.l.Warn().Msg("test environment won't be cleaned up")
-	case "":
-		return b.te, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("explicit cleanup type must be set when building test environment"))
-	}
-
-	if b.te.LogStream != nil {
+		// this clean up has to be added as the FIRST one, because cleanup functions are executed in reverse order (LIFO)
 		if b.t != nil {
 			b.t.Cleanup(func() {
 				b.l.Info().Msg("Shutting down LogStream")
@@ -379,7 +344,42 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				}
 			})
 		}
+	}
 
+	if b.hasKillgrave {
+		if b.te.DockerNetwork == nil {
+			return nil, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("cannot start mock adapter without a network"))
+		}
+
+		b.te.MockAdapter = test_env.NewKillgrave([]string{b.te.DockerNetwork.Name}, "", test_env.WithLogStream(b.te.LogStream))
+
+		err = b.te.StartMockAdapter()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if b.t != nil {
+		b.te.WithTestInstance(b.t)
+	}
+
+	switch b.cleanUpType {
+	case CleanUpTypeStandard:
+		b.t.Cleanup(func() {
+			// Cleanup test environment
+			if err := b.te.Cleanup(CleanupOpts{TestName: b.t.Name()}); err != nil {
+				b.l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		})
+	case CleanUpTypeCustom:
+		b.t.Cleanup(b.cleanUpCustomFn)
+	case CleanUpTypeNone:
+		b.l.Warn().Msg("test environment won't be cleaned up")
+	case "":
+		return b.te, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("explicit cleanup type must be set when building test environment"))
+	}
+
+	if b.te.LogStream != nil {
 		// this is not the cleanest way to do this, but when we originally build ethereum networks, we don't have the logstream reference
 		// so we need to rebuild them here and pass logstream to them
 		for i := range b.privateEthereumNetworks {
