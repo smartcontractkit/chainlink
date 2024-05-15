@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
 
 /**
  * @title BlockhashStore

@@ -2,7 +2,7 @@
 // Example of a single consumer contract which owns the subscription.
 pragma solidity ^0.8.0;
 
-import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 

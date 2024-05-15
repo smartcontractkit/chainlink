@@ -2,8 +2,8 @@
 pragma solidity ^0.8.6;
 
 import {VRFV2PlusWrapperConsumerBase} from "../VRFV2PlusWrapperConsumerBase.sol";
-import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
-import {ChainSpecificUtil} from "../../../ChainSpecificUtil.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, ConfirmedOwner {
