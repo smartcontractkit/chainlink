@@ -254,7 +254,20 @@ jobs:
           echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
 
           # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
-          echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+            echo "We are in a merge_group event, run both automation and keepers tests"
+            echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+          else
+            echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
+            target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
+            if [[ "$target_branch" == "develop" ]]; then
+              echo "only run automation tests"
+              echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
+            else
+              echo "run both automation and keepers tests"
+              echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+            fi
+          fi
 
   eth-smoke-tests-matrix-automation:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
