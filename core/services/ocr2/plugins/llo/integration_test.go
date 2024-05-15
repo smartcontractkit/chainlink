@@ -4,12 +4,13 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"math/big"
 	"math/rand"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
