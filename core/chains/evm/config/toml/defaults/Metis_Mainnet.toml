@@ -11,8 +11,7 @@ OCR.ContractConfirmations = 1
 Mode = 'SuggestedPrice'
 # Metis uses the SuggestedPrice estimator; we don't want to place any limits on the minimum gas price
 PriceMin = '0'
-# Never bump gas on metis
-BumpThreshold = 0
+BumpThreshold = 3
 
 [BalanceMonitor]
 Enabled = true

@@ -7,4 +7,4 @@ OCR.ContractConfirmations = 1
 [GasEstimator]
 Mode = 'SuggestedPrice'
 PriceDefault = '750 gwei' # gwei = ston
-BumpThreshold = 0
+BumpThreshold = 5

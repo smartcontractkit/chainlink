@@ -13,6 +13,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -85,6 +86,19 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			// ensure it was added to the queue
 			require.Equal(t, mt.servers[sURL].q.pq.Len(), 1)
 			assert.Subset(t, mt.servers[sURL].q.pq.Pop().(*Transmission).Req.Payload, report)
+		})
+		t.Run("v3 report transmission sent only to trigger service", func(t *testing.T) {
+			report := sampleV3Report
+			c := &mocks.MockWSRPCClient{}
+			clients[sURL] = c
+			triggerService := triggers.NewMercuryTriggerService(0, lggr)
+			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, triggerService)
+			// init the queue since we skipped starting transmitter
+			mt.servers[sURL].q.Init([]*Transmission{})
+			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
+			require.NoError(t, err)
+			// queue is empty
+			require.Equal(t, mt.servers[sURL].q.pq.Len(), 0)
 		})
 	})
 
