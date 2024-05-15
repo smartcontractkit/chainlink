@@ -20,7 +20,7 @@ func GenerateJsonSchema() ([]byte, error) {
 	return json.MarshalIndent(schema, "", "  ")
 }
 
-func ParseWorkflowSpecYaml(data string) (workflowSpec, error) {
+func ParseWorkflowSpecYaml(data string) (WorkflowSpec, error) {
 	w := workflowSpecYaml{}
 	err := yaml.Unmarshal([]byte(data), &w)
 
@@ -46,36 +46,36 @@ type workflowSpecYaml struct {
 //
 // We support multiple ways of defining a workflow spec yaml,
 // but internally we want to work with a single representation.
-func (w workflowSpecYaml) toWorkflowSpec() workflowSpec {
-	triggers := make([]stepDefinition, 0, len(w.Triggers))
+func (w workflowSpecYaml) toWorkflowSpec() WorkflowSpec {
+	triggers := make([]StepDefinition, 0, len(w.Triggers))
 	for _, t := range w.Triggers {
 		sd := t.toStepDefinition()
 		sd.CapabilityType = capabilities.CapabilityTypeTrigger
 		triggers = append(triggers, sd)
 	}
 
-	actions := make([]stepDefinition, 0, len(w.Actions))
+	actions := make([]StepDefinition, 0, len(w.Actions))
 	for _, a := range w.Actions {
 		sd := a.toStepDefinition()
 		sd.CapabilityType = capabilities.CapabilityTypeAction
 		actions = append(actions, sd)
 	}
 
-	consensus := make([]stepDefinition, 0, len(w.Consensus))
+	consensus := make([]StepDefinition, 0, len(w.Consensus))
 	for _, c := range w.Consensus {
 		sd := c.toStepDefinition()
 		sd.CapabilityType = capabilities.CapabilityTypeConsensus
 		consensus = append(consensus, sd)
 	}
 
-	targets := make([]stepDefinition, 0, len(w.Targets))
+	targets := make([]StepDefinition, 0, len(w.Targets))
 	for _, t := range w.Targets {
 		sd := t.toStepDefinition()
 		sd.CapabilityType = capabilities.CapabilityTypeTarget
 		targets = append(targets, sd)
 	}
 
-	return workflowSpec{
+	return WorkflowSpec{
 		Triggers:  triggers,
 		Actions:   actions,
 		Consensus: consensus,
@@ -247,8 +247,8 @@ type stepDefinitionYaml struct {
 // toStepDefinition converts a stepDefinitionYaml to a stepDefinition.
 //
 // `stepDefinition` is the converged representation of a step in a workflow.
-func (s stepDefinitionYaml) toStepDefinition() stepDefinition {
-	return stepDefinition{
+func (s stepDefinitionYaml) toStepDefinition() StepDefinition {
+	return StepDefinition{
 		Ref:    s.Ref,
 		ID:     s.ID.String(),
 		Inputs: s.Inputs,
