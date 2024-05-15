@@ -53,4 +53,4 @@ if [[ "$has_tags" == false ]]; then
 fi
 
 echo "has_tags=$has_tags" >> $GITHUB_OUTPUT
-echo "found_tags=${found_tags[*]// /,} >> $GITHUB_OUTPUT
+echo "found_tags=${found_tags[*]// /,}" >> $GITHUB_OUTPUT
