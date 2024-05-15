@@ -245,6 +245,7 @@ func (it *EvmChainReaderInterfaceTester[T]) deployNewContracts(t T) {
 	if it.dirtyContracts || it.address == "" {
 		it.address = it.deployNewContract(t)
 		it.address2 = it.deployNewContract(t)
+		it.dirtyContracts = false
 	}
 }
 

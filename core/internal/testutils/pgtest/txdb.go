@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -20,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
-// TODO still need to import this for side effects
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
 //
 // The original lib has various problems and is hard to understand because it
@@ -38,20 +36,14 @@ import (
 // See heavyweight.FullTestDB() as a convenience function to help you do this,
 // but please use sparingly because as it's name implies, it is expensive.
 func init() {
-	// Allow txdb to be re-used with in non-tests, like chainlink-dev
-	// where tests are run as an executable against real chains.
-	_, skipTestSetFlagSet := os.LookupEnv("CL_DATABASE_SKIP_TEST_INIT_FLAGS")
-	if !skipTestSetFlagSet {
-		testing.Init()
-		if !flag.Parsed() {
-			flag.Parse()
-		}
-		if testing.Short() {
-			// -short tests don't need a DB
-			return
-		}
+	testing.Init()
+	if !flag.Parsed() {
+		flag.Parse()
 	}
-
+	if testing.Short() {
+		// -short tests don't need a DB
+		return
+	}
 	dbURL := string(env.DatabaseURL.Get())
 	if dbURL == "" {
 		panic("you must provide a CL_DATABASE_URL environment variable")
@@ -82,8 +74,8 @@ var _ driver.Conn = &conn{}
 var _ driver.Validator = &conn{}
 var _ driver.SessionResetter = &conn{}
 
-// txDriver is an sql driver which runs on single transaction
-// when the Close is called, transaction is rolled back
+// txDriver is an sql driver which runs on a single transaction.
+// When `Close` is called, transaction is rolled back.
 type txDriver struct {
 	sync.Mutex
 	db    *sql.DB
@@ -118,8 +110,8 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 	return c, nil
 }
 
-// deleteConn is called by connection when it is closed
-// It also auto-closes the DB when the last checked out connection is closed
+// deleteConn is called by a connection when it is closed via the `close` method.
+// It also auto-closes the DB when the last checked out connection is closed.
 func (d *txDriver) deleteConn(c *conn) error {
 	// must lock here to avoid racing with Open
 	d.Lock()
