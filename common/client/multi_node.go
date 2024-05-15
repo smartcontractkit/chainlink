@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"math/big"
 	"sync"
 	"time"
@@ -47,6 +48,7 @@ type MultiNode[
 	DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC_CLIENT, isSendOnly bool) bool) error
 	// NodeStates - returns RPCs' states
 	NodeStates() map[string]nodeState
+	ChainType() config.ChainType
 	Close() error
 }
 
@@ -66,6 +68,7 @@ type multiNode[
 	nodeSelector        NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
 	leaseDuration       time.Duration
 	leaseTicker         *time.Ticker
+	chainType           config.ChainType
 	chainFamily         string
 	reportInterval      time.Duration
 
@@ -111,6 +114,10 @@ func NewMultiNode[
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
 
 	return c
+}
+
+func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) ChainType() config.ChainType {
+	return c.chainType
 }
 
 func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC_CLIENT, isSendOnly bool) bool) error {

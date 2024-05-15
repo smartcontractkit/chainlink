@@ -829,34 +829,43 @@ func (_m *Client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuer
 	return r0, r1
 }
 
-// SubscribeNewHead provides a mock function with given fields: ctx, ch
-func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
-	ret := _m.Called(ctx, ch)
+// SubscribeNewHead provides a mock function with given fields: ctx
+func (_m *Client) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SubscribeNewHead")
 	}
 
-	var r0 ethereum.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) (ethereum.Subscription, error)); ok {
-		return rf(ctx, ch)
+	var r0 <-chan *evmtypes.Head
+	var r1 ethereum.Subscription
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) ethereum.Subscription); ok {
-		r0 = rf(ctx, ch)
+	if rf, ok := ret.Get(0).(func(context.Context) <-chan *evmtypes.Head); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ethereum.Subscription)
+			r0 = ret.Get(0).(<-chan *evmtypes.Head)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- *evmtypes.Head) error); ok {
-		r1 = rf(ctx, ch)
+	if rf, ok := ret.Get(1).(func(context.Context) ethereum.Subscription); ok {
+		r1 = rf(ctx)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(ethereum.Subscription)
+		}
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // SuggestGasPrice provides a mock function with given fields: ctx

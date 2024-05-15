@@ -62,7 +62,7 @@ type Client interface {
 	// correct hash from the RPC response.
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
-	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
+	SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)
 	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
@@ -332,13 +332,14 @@ func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	return client.pool.SubscribeFilterLogs(ctx, q, ch)
 }
 
-func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
+func (client *client) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
+	ch := make(chan *evmtypes.Head)
 	csf := newChainIDSubForwarder(client.ConfiguredChainID(), ch)
 	err := csf.start(client.pool.EthSubscribe(ctx, csf.srcCh, "newHeads"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return csf, nil
+	return ch, csf, nil
 }
 
 func (client *client) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
