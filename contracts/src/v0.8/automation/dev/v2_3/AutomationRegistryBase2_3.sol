@@ -20,6 +20,7 @@ import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
  * AutomationRegistry and AutomationRegistryLogic
  * @dev all errors, events, and internal functions should live here
  */
+// solhint-disable-next-line max-states-count
 abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -376,6 +377,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @notice the billing config of a token
    * @dev this is a storage struct
    */
+  // solhint-disable-next-line gas-struct-packing
   struct BillingConfig {
     uint32 gasFeePPB;
     uint24 flatFeeMilliCents; // min fee is $0.00001, max fee is $167
@@ -438,6 +440,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member gasReimbursementInJuels the amount to reimburse a node for gas spent
    * @member premiumInJuels the premium paid to NOPs, shared between all nodes
    */
+  // solhint-disable-next-line gas-struct-packing
   struct PaymentReceipt {
     uint96 gasChargeInBillingToken;
     uint96 premiumInBillingToken;
@@ -1066,6 +1069,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @notice only allows a pre-configured address to initiate offchain read
    */
   function _preventExecution() internal view {
+    // solhint-disable-next-line avoid-tx-origin
     if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
     }

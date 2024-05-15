@@ -11,9 +11,11 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -25,45 +27,52 @@ import (
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
+	"SLOW SQL QUERY",
+	"It is expected, because we are pausing the Postgres container",
+	zapcore.DPanicLevel,
+	testreporters.WarnAboutAllowedMsgs_No,
+))
+
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
 func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
-	executeBasicLogPollerTest(t)
+	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
 func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
-	executeBasicLogPollerTest(t)
+	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
 func TestLogPollerManyFiltersFixedDepth(t *testing.T) {
 	t.Skip("Execute manually, when needed as it runs for a long time")
-	executeBasicLogPollerTest(t)
+	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
 func TestLogPollerManyFiltersFinalityTag(t *testing.T) {
 	t.Skip("Execute manually, when needed as it runs for a long time")
-	executeBasicLogPollerTest(t)
+	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
-// consistency test that introduces random distruptions by pausing either Chainlink or Postgres containers for random interval of 5-20 seconds
+// consistency test that introduces random disruptions by pausing either Chainlink or Postgres containers for random interval of 5-20 seconds
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerWithChaosFixedDepth(t *testing.T) {
-	executeBasicLogPollerTest(t)
+	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
 func TestLogPollerWithChaosFinalityTag(t *testing.T) {
-	executeBasicLogPollerTest(t)
+	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
 func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
-	executeBasicLogPollerTest(t)
+	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
 func TestLogPollerWithChaosPostgresFinalityTag(t *testing.T) {
-	executeBasicLogPollerTest(t)
+	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
 // consistency test that registers filters after events were emitted and then triggers replay via API
@@ -80,7 +89,7 @@ func TestLogPollerReplayFinalityTag(t *testing.T) {
 }
 
 // HELPER FUNCTIONS
-func executeBasicLogPollerTest(t *testing.T) {
+func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.ChainlinkNodeLogScannerSettings) {
 	testConfig, err := tc.GetConfig(t.Name(), tc.LogPoller)
 	require.NoError(t, err, "Error getting config")
 	overrideEphemeralAddressesCount(&testConfig)
@@ -96,7 +105,7 @@ func executeBasicLogPollerTest(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
 
-	lpTestEnv := prepareEnvironment(l, t, &testConfig)
+	lpTestEnv := prepareEnvironment(l, t, &testConfig, logScannerSettings)
 	testEnv := lpTestEnv.testEnv
 
 	ctx := testcontext.Get(t)
@@ -177,7 +186,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	l := logging.GetTestLogger(t)
 	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
 
-	lpTestEnv := prepareEnvironment(l, t, &testConfig)
+	lpTestEnv := prepareEnvironment(l, t, &testConfig, test_env.DefaultChainlinkNodeLogScannerSettings)
 	testEnv := lpTestEnv.testEnv
 
 	ctx := testcontext.Get(t)
@@ -262,7 +271,7 @@ type logPollerEnvironment struct {
 
 // prepareEnvironment prepares environment for log poller tests by starting DON, private Ethereum network,
 // deploying registry and log emitter contracts and registering log triggered upkeeps
-func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfig) logPollerEnvironment {
+func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfig, logScannerSettings test_env.ChainlinkNodeLogScannerSettings) logPollerEnvironment {
 	cfg := testConfig.LogPoller
 	if cfg.General.EventsToEmit == nil || len(cfg.General.EventsToEmit) == 0 {
 		l.Warn().Msg("No events to emit specified, using all events from log emitter contract")
@@ -287,6 +296,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 		*cfg.General.BackupLogPollerBlockDelay,
 		*cfg.General.UseFinalityTag,
 		testConfig,
+		logScannerSettings,
 	)
 
 	_, upkeepIDs := actions_seth.DeployConsumers(
