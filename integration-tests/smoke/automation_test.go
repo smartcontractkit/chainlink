@@ -1264,7 +1264,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterSettingLowMaxGasPrice[i].Int64()+1),
 						"Expected consumer counter to be less than %d, but got %d",
-						countersAfterSettingLowMaxGasPrice[i].Int64() + 1, latestCounter.Int64())
+						countersAfterSettingLowMaxGasPrice[i].Int64()+1, latestCounter.Int64())
 
 				}
 			}, "2m", "5s").Should(gomega.Succeed())
