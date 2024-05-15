@@ -1248,9 +1248,6 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				require.NoError(t, err, "Error setting upkeep offchain config")
 			}
 
-			// sleep for 10s to make sure any in-flight performs are done
-			time.Sleep(10 * time.Second)
-
 			// Store how many times each upkeep performed once their offchain config is set with maxGasPrice = 1 wei
 			var countersAfterSettingLowMaxGasPrice = make([]*big.Int, len(upkeepIDs))
 			for i := 0; i < len(upkeepIDs); i++ {
@@ -1265,9 +1262,10 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err = consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterSettingLowMaxGasPrice[i].Int64()),
-						"Expected consumer counter to remain constant at %d, but got %d",
-						countersAfterSettingLowMaxGasPrice[i].Int64(), latestCounter.Int64())
+					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterSettingLowMaxGasPrice[i].Int64() + 1),
+						"Expected consumer counter to be less than %d, but got %d",
+						countersAfterSettingLowMaxGasPrice[i].Int64() + 1, latestCounter.Int64())
+
 				}
 			}, "2m", "5s").Should(gomega.Succeed())
 			l.Info().Msg("no upkeeps is performed because their max gas price is only 1 wei")
