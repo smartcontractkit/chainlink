@@ -4,11 +4,13 @@ pragma solidity 0.8.19;
 import {CallWithExactGas} from "../../call/CallWithExactGas.sol";
 import {CallWithExactGasHelper} from "./CallWithExactGasHelper.sol";
 import {BaseTest} from "../BaseTest.t.sol";
-import {GenericReceiver} from "../testhelpers/GenericReceiver.sol";
+import {GenericReceiver, GasConsumer} from "../testhelpers/GenericReceiver.sol";
 
 contract CallWithExactGasSetup is BaseTest {
   GenericReceiver internal s_receiver;
   CallWithExactGasHelper internal s_caller;
+  GasConsumer internal gas_consumer;
+
   uint256 internal constant DEFAULT_GAS_LIMIT = 20_000;
   uint16 internal constant DEFAULT_GAS_FOR_CALL_EXACT_CHECK = 5000;
   uint256 internal constant EXTCODESIZE_GAS_COST = 2600;
@@ -18,6 +20,7 @@ contract CallWithExactGasSetup is BaseTest {
 
     s_receiver = new GenericReceiver(false);
     s_caller = new CallWithExactGasHelper();
+    gas_consumer = new GasConsumer();
   }
 }
 
@@ -146,6 +149,54 @@ contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
     assertFalse(success);
     assertEq(retData.length, CallWithExactGas.NotEnoughGasForCall.selector.length);
     assertEq(abi.encodeWithSelector(CallWithExactGas.NotEnoughGasForCall.selector), retData);
+  }
+}
+
+contract CallWithExactGas_callWithExactGasAndConsumeAllGas is CallWithExactGasSetup {
+  function test_callWithExactGasAndConsumeAll() external {
+
+    vm.pauseGasMetering();
+
+    uint16 maxRetBytes = 0;
+    uint256 misc_gas_overhead = 128;
+
+    bytes4 functionSelector = bytes4(keccak256("consumeAllGas()"));
+    vm.expectCall(address(gas_consumer), abi.encodeWithSelector(functionSelector));
+
+    vm.resumeGasMetering();
+    
+    (bool success, , uint256 gasUsed) = s_caller.callWithExactGasSafeReturnData(
+      abi.encodePacked(functionSelector),
+      address(gas_consumer),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      maxRetBytes
+    );
+
+    assertTrue(success, "Error: External Call Failed");
+    assertApproxEqAbs(gasUsed, DEFAULT_GAS_LIMIT, DEFAULT_GAS_LIMIT / 64, "Error: All gas not consumed by receiver");
+  }
+
+  function test_callWithExactGasAndConsumeMoreThanProvided() external {
+    vm.pauseGasMetering();
+
+    uint16 maxRetBytes = 0;
+
+    bytes4 functionSelector = bytes4(keccak256("throwOutOfGasError()"));
+    vm.expectCall(address(gas_consumer), abi.encodeWithSelector(functionSelector));
+
+    vm.resumeGasMetering();
+    
+    (bool success, bytes memory retData,) = s_caller.callWithExactGasSafeReturnData(
+      abi.encodePacked(functionSelector),
+      address(gas_consumer),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      maxRetBytes
+    );
+
+    assertFalse(success, "Error: External Call Succeeded where it should not");
+    assertEq(retData.length, 0, "retData should be zero for OOG error");    
   }
 }
 
