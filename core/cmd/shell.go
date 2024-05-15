@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -165,17 +166,21 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
 	})
 
+	capabilitiesRegistry := capabilities.NewRegistry(appLggr)
+
 	// create the relayer-chain interoperators from application configuration
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:       appLggr,
-		LoopRegistry: loopRegistry,
-		GRPCOpts:     grpcOpts,
-		MercuryPool:  mercuryPool,
+		Logger:               appLggr,
+		LoopRegistry:         loopRegistry,
+		GRPCOpts:             grpcOpts,
+		MercuryPool:          mercuryPool,
+		CapabilitiesRegistry: capabilitiesRegistry,
 	}
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
-		CSAETHKeystore: keyStore,
-		ChainOpts:      legacyevm.ChainOpts{AppConfig: cfg, MailMon: mailMon, DS: ds},
+		CSAETHKeystore:     keyStore,
+		ChainOpts:          legacyevm.ChainOpts{AppConfig: cfg, MailMon: mailMon, DS: ds},
+		MercuryTransmitter: cfg.Mercury().Transmitter(),
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
@@ -202,7 +207,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
-
 	}
 
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
@@ -235,6 +239,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		LoopRegistry:               loopRegistry,
 		GRPCOpts:                   grpcOpts,
 		MercuryPool:                mercuryPool,
+		CapabilitiesRegistry:       capabilitiesRegistry,
 	})
 }
 

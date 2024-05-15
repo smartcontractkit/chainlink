@@ -75,7 +75,6 @@ func populateDatabase(t testing.TB, o logpoller.ORM, chainID *big.Int) (common.H
 				Data:           logpoller.EvmWord(uint64(i + 1000*j)).Bytes(),
 				CreatedAt:      blockTimestamp,
 			})
-
 		}
 		require.NoError(t, o.InsertLogs(ctx, logs))
 		require.NoError(t, o.InsertBlock(ctx, utils.RandomHash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour), 0))
@@ -1679,7 +1678,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		th.EmitterAddress1,
 		0,
 		common.Hash{},
-		logpoller.Finalized,
+		evmtypes.Finalized,
 	)
 	require.NoError(t, err)
 	require.Len(t, finalizedLogs, firstBatchLen, fmt.Sprintf("len(finalizedLogs) = %d, should have been %d", len(finalizedLogs), firstBatchLen))
@@ -1691,7 +1690,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		th.EmitterAddress1,
 		0,
 		common.Hash{},
-		logpoller.Confirmations(numberOfConfirmations),
+		evmtypes.Confirmations(numberOfConfirmations),
 	)
 	require.NoError(t, err)
 	require.Len(t, logsByConfs, firstBatchLen+secondBatchLen-numberOfConfirmations)
@@ -1920,4 +1919,119 @@ func markBlockAsFinalizedByHash(t *testing.T, th TestHarness, blockHash common.H
 	b, err := th.Client.BlockByHash(testutils.Context(t), blockHash)
 	require.NoError(t, err)
 	th.Client.Blockchain().SetFinalized(b.Header())
+}
+
+func TestFindLCA(t *testing.T) {
+	ctx := testutils.Context(t)
+	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.Test(t)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+
+	orm := logpoller.NewORM(chainID, db, lggr)
+
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        20,
+		RpcBatchSize:             10,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+
+	lp := logpoller.NewLogPoller(orm, ec, lggr, lpOpts)
+	t.Run("Fails, if failed to select oldest block", func(t *testing.T) {
+		_, err := lp.FindLCA(ctx)
+		require.ErrorContains(t, err, "failed to select the latest block")
+	})
+	// oldest
+	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x123"), 10, time.Now(), 0))
+	// latest
+	latestBlockHash := common.HexToHash("0x124")
+	require.NoError(t, orm.InsertBlock(ctx, latestBlockHash, 16, time.Now(), 0))
+	t.Run("Fails, if caller's context canceled", func(t *testing.T) {
+		lCtx, cancel := context.WithCancel(ctx)
+		ec.On("HeadByHash", mock.Anything, latestBlockHash).Return(nil, nil).Run(func(_ mock.Arguments) {
+			cancel()
+		}).Once()
+		_, err := lp.FindLCA(lCtx)
+		require.ErrorContains(t, err, "aborted, FindLCA request cancelled")
+	})
+	t.Run("Fails, if RPC returns an error", func(t *testing.T) {
+		expectedError := fmt.Errorf("failed to call RPC")
+		ec.On("HeadByHash", mock.Anything, latestBlockHash).Return(nil, expectedError).Once()
+		_, err := lp.FindLCA(ctx)
+		require.ErrorContains(t, err, expectedError.Error())
+	})
+	t.Run("Fails, if block numbers do not match", func(t *testing.T) {
+		ec.On("HeadByHash", mock.Anything, latestBlockHash).Return(&evmtypes.Head{
+			Number: 123,
+		}, nil).Once()
+		_, err := lp.FindLCA(ctx)
+		require.ErrorContains(t, err, "expected block numbers to match")
+	})
+	t.Run("Fails, if none of the blocks in db matches on chain", func(t *testing.T) {
+		ec.On("HeadByHash", mock.Anything, mock.Anything).Return(nil, nil).Times(3)
+		_, err := lp.FindLCA(ctx)
+		require.ErrorContains(t, err, "failed to find LCA, this means that whole database LogPoller state was reorged out of chain or RPC/Core node is misconfigured")
+	})
+
+	type block struct {
+		BN     int
+		Exists bool
+	}
+	testCases := []struct {
+		Name                string
+		Blocks              []block
+		ExpectedBlockNumber int
+		ExpectedError       error
+	}{
+		{
+			Name:                "All of the blocks are present on chain - returns the latest",
+			Blocks:              []block{{BN: 1, Exists: true}, {BN: 2, Exists: true}, {BN: 3, Exists: true}, {BN: 4, Exists: true}},
+			ExpectedBlockNumber: 4,
+		},
+		{
+			Name:                "None of the blocks exists on chain - returns an erro",
+			Blocks:              []block{{BN: 1, Exists: false}, {BN: 2, Exists: false}, {BN: 3, Exists: false}, {BN: 4, Exists: false}},
+			ExpectedBlockNumber: 0,
+			ExpectedError:       fmt.Errorf("failed to find LCA, this means that whole database LogPoller state was reorged out of chain or RPC/Core node is misconfigured"),
+		},
+		{
+			Name:                "Only latest block does not exist",
+			Blocks:              []block{{BN: 1, Exists: true}, {BN: 2, Exists: true}, {BN: 3, Exists: true}, {BN: 4, Exists: false}},
+			ExpectedBlockNumber: 3,
+		},
+		{
+			Name:                "Only oldest block exists on chain",
+			Blocks:              []block{{BN: 1, Exists: true}, {BN: 2, Exists: false}, {BN: 3, Exists: false}, {BN: 4, Exists: false}},
+			ExpectedBlockNumber: 1,
+		},
+	}
+
+	blockHashI := int64(0)
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			// reset the database
+			require.NoError(t, orm.DeleteLogsAndBlocksAfter(ctx, 0))
+			for _, b := range tc.Blocks {
+				blockHashI++
+				hash := common.BigToHash(big.NewInt(blockHashI))
+				require.NoError(t, orm.InsertBlock(ctx, hash, int64(b.BN), time.Now(), 0))
+				// Hashes are unique for all test cases
+				var onChainBlock *evmtypes.Head
+				if b.Exists {
+					onChainBlock = &evmtypes.Head{Number: int64(b.BN)}
+				}
+				ec.On("HeadByHash", mock.Anything, hash).Return(onChainBlock, nil).Maybe()
+			}
+
+			result, err := lp.FindLCA(ctx)
+			if tc.ExpectedError != nil {
+				require.ErrorContains(t, err, tc.ExpectedError.Error())
+			} else {
+				require.NotNil(t, result)
+				require.Equal(t, result.BlockNumber, int64(tc.ExpectedBlockNumber), "expected block numbers to match")
+			}
+		})
+	}
 }

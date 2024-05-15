@@ -24,9 +24,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -44,34 +44,31 @@ type LogPoller interface {
 	GetFilters() map[string]Filter
 	LatestBlock(ctx context.Context) (LogPollerBlock, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64) ([]LogPollerBlock, error)
+	FindLCA(ctx context.Context) (*LogPollerBlock, error)
+	DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
 
 	// General querying
 	Logs(ctx context.Context, start, end int64, eventSig common.Hash, address common.Address) ([]Log, error)
 	LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]Log, error)
-	LogsCreatedAfter(ctx context.Context, eventSig common.Hash, address common.Address, time time.Time, confs Confirmations) ([]Log, error)
-	LatestLogByEventSigWithConfs(ctx context.Context, eventSig common.Hash, address common.Address, confs Confirmations) (*Log, error)
-	LatestLogEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations) ([]Log, error)
-	LatestBlockByEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations) (int64, error)
+	LogsCreatedAfter(ctx context.Context, eventSig common.Hash, address common.Address, time time.Time, confs evmtypes.Confirmations) ([]Log, error)
+	LatestLogByEventSigWithConfs(ctx context.Context, eventSig common.Hash, address common.Address, confs evmtypes.Confirmations) (*Log, error)
+	LatestLogEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs evmtypes.Confirmations) ([]Log, error)
+	LatestBlockByEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs evmtypes.Confirmations) (int64, error)
 
 	// Content based querying
-	IndexedLogs(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs Confirmations) ([]Log, error)
+	IndexedLogs(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 	IndexedLogsByBlockRange(ctx context.Context, start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash) ([]Log, error)
-	IndexedLogsCreatedAfter(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs Confirmations) ([]Log, error)
+	IndexedLogsCreatedAfter(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs evmtypes.Confirmations) ([]Log, error)
 	IndexedLogsByTxHash(ctx context.Context, eventSig common.Hash, address common.Address, txHash common.Hash) ([]Log, error)
-	IndexedLogsTopicGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs Confirmations) ([]Log, error)
-	IndexedLogsTopicRange(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs Confirmations) ([]Log, error)
-	IndexedLogsWithSigsExcluding(ctx context.Context, address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs Confirmations) ([]Log, error)
-	LogsDataWordRange(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations) ([]Log, error)
-	LogsDataWordGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs Confirmations) ([]Log, error)
-	LogsDataWordBetween(ctx context.Context, eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs Confirmations) ([]Log, error)
+	IndexedLogsTopicGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error)
+	IndexedLogsTopicRange(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs evmtypes.Confirmations) ([]Log, error)
+	IndexedLogsWithSigsExcluding(ctx context.Context, address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs evmtypes.Confirmations) ([]Log, error)
+	LogsDataWordRange(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs evmtypes.Confirmations) ([]Log, error)
+	LogsDataWordGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error)
+	LogsDataWordBetween(ctx context.Context, eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs evmtypes.Confirmations) ([]Log, error)
+
+	FilteredLogs(filter query.KeyFilter, limitAndSrt query.LimitAndSort) ([]Log, error)
 }
-
-type Confirmations int
-
-const (
-	Finalized   = Confirmations(-1)
-	Unconfirmed = Confirmations(0)
-)
 
 type LogPollerTest interface {
 	LogPoller
@@ -1114,12 +1111,12 @@ func (lp *logPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSi
 	return lp.orm.SelectLogsWithSigs(ctx, start, end, address, eventSigs)
 }
 
-func (lp *logPoller) LogsCreatedAfter(ctx context.Context, eventSig common.Hash, address common.Address, after time.Time, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) LogsCreatedAfter(ctx context.Context, eventSig common.Hash, address common.Address, after time.Time, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectLogsCreatedAfter(ctx, address, eventSig, after, confs)
 }
 
 // IndexedLogs finds all the logs that have a topic value in topicValues at index topicIndex.
-func (lp *logPoller) IndexedLogs(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) IndexedLogs(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectIndexedLogs(ctx, address, eventSig, topicIndex, topicValues, confs)
 }
 
@@ -1128,7 +1125,7 @@ func (lp *logPoller) IndexedLogsByBlockRange(ctx context.Context, start, end int
 	return lp.orm.SelectIndexedLogsByBlockRange(ctx, start, end, address, eventSig, topicIndex, topicValues)
 }
 
-func (lp *logPoller) IndexedLogsCreatedAfter(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) IndexedLogsCreatedAfter(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsCreatedAfter(ctx, address, eventSig, topicIndex, topicValues, after, confs)
 }
 
@@ -1137,22 +1134,22 @@ func (lp *logPoller) IndexedLogsByTxHash(ctx context.Context, eventSig common.Ha
 }
 
 // LogsDataWordGreaterThan note index is 0 based.
-func (lp *logPoller) LogsDataWordGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) LogsDataWordGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectLogsDataWordGreaterThan(ctx, address, eventSig, wordIndex, wordValueMin, confs)
 }
 
 // LogsDataWordRange note index is 0 based.
-func (lp *logPoller) LogsDataWordRange(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) LogsDataWordRange(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectLogsDataWordRange(ctx, address, eventSig, wordIndex, wordValueMin, wordValueMax, confs)
 }
 
 // IndexedLogsTopicGreaterThan finds all the logs that have a topic value greater than topicValueMin at index topicIndex.
 // Only works for integer topics.
-func (lp *logPoller) IndexedLogsTopicGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) IndexedLogsTopicGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsTopicGreaterThan(ctx, address, eventSig, topicIndex, topicValueMin, confs)
 }
 
-func (lp *logPoller) IndexedLogsTopicRange(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) IndexedLogsTopicRange(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsTopicRange(ctx, address, eventSig, topicIndex, topicValueMin, topicValueMax, confs)
 }
 
@@ -1172,15 +1169,15 @@ func (lp *logPoller) BlockByNumber(ctx context.Context, n int64) (*LogPollerBloc
 }
 
 // LatestLogByEventSigWithConfs finds the latest log that has confs number of blocks on top of the log.
-func (lp *logPoller) LatestLogByEventSigWithConfs(ctx context.Context, eventSig common.Hash, address common.Address, confs Confirmations) (*Log, error) {
+func (lp *logPoller) LatestLogByEventSigWithConfs(ctx context.Context, eventSig common.Hash, address common.Address, confs evmtypes.Confirmations) (*Log, error) {
 	return lp.orm.SelectLatestLogByEventSigWithConfs(ctx, eventSig, address, confs)
 }
 
-func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(ctx, fromBlock, addresses, eventSigs, confs)
 }
 
-func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations) (int64, error) {
+func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(ctx context.Context, fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs evmtypes.Confirmations) (int64, error) {
 	return lp.orm.SelectLatestBlockByEventSigsAddrsWithConfs(ctx, fromBlock, eventSigs, addresses, confs)
 }
 
@@ -1193,7 +1190,7 @@ func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(ctx context.Context, f
 //
 // This function is particularly useful for filtering logs by data word values and their positions within the event data.
 // It returns an empty slice if no logs match the provided criteria.
-func (lp *logPoller) LogsDataWordBetween(ctx context.Context, eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) LogsDataWordBetween(ctx context.Context, eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectLogsDataWordBetween(ctx, address, eventSig, wordIndexMin, wordIndexMax, wordValue, confs)
 }
 
@@ -1418,12 +1415,113 @@ func validateBlockResponse(r rpc.BatchElem) (*evmtypes.Head, error) {
 //
 // For example, query to retrieve unfulfilled requests by querying request log events without matching fulfillment log events.
 // The order of events is not significant. Both logs must be inside the block range and have the minimum number of confirmations
-func (lp *logPoller) IndexedLogsWithSigsExcluding(ctx context.Context, address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs Confirmations) ([]Log, error) {
+func (lp *logPoller) IndexedLogsWithSigsExcluding(ctx context.Context, address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsWithSigsExcluding(ctx, eventSigA, eventSigB, topicIndex, address, fromBlock, toBlock, confs)
+}
+
+// DeleteLogsAndBlocksAfter - removes blocks and logs starting from the specified block
+func (lp *logPoller) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
+	return lp.orm.DeleteLogsAndBlocksAfter(ctx, start)
+}
+
+func (lp *logPoller) FindLCA(ctx context.Context) (*LogPollerBlock, error) {
+	latest, err := lp.orm.SelectLatestBlock(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to select the latest block: %w", err)
+	}
+
+	oldest, err := lp.orm.SelectOldestBlock(ctx, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to select the oldest block: %w", err)
+	}
+
+	if latest == nil || oldest == nil {
+		return nil, fmt.Errorf("expected at least one block to be present in DB")
+	}
+
+	lp.lggr.Debugf("Received request to find LCA. Searching in range [%d, %d]", oldest.BlockNumber, latest.BlockNumber)
+
+	// Find the largest block number for which block hash stored in the DB matches one that we get from the RPC.
+	// `sort.Find` expects slice of following format s = [1, 0, -1] and returns smallest index i for which s[i] = 0.
+	// To utilise `sort.Find` we represent range of blocks as slice [latestBlock, latestBlock-1, ..., olderBlock+1, oldestBlock]
+	// and return 1 if DB block was reorged or 0 if it's still present on chain.
+	lcaI, found := sort.Find(int(latest.BlockNumber-oldest.BlockNumber)+1, func(i int) int {
+		const notFound = 1
+		const found = 0
+		// if there is an error - stop the search
+		if err != nil {
+			return notFound
+		}
+
+		// canceled search
+		if ctx.Err() != nil {
+			err = fmt.Errorf("aborted, FindLCA request cancelled: %w", ctx.Err())
+			return notFound
+		}
+		iBlockNumber := latest.BlockNumber - int64(i)
+		var dbBlock *LogPollerBlock
+		// Block with specified block number might not exist in the database, to address that we check closest child
+		// of the iBlockNumber. If the child is present on chain, it's safe to assume that iBlockNumber is present too
+		dbBlock, err = lp.orm.SelectOldestBlock(ctx, iBlockNumber)
+		if err != nil {
+			err = fmt.Errorf("failed to select block %d by number: %w", iBlockNumber, err)
+			return notFound
+		}
+
+		if dbBlock == nil {
+			err = fmt.Errorf("expected block to exist with blockNumber >= %d as observed block with number %d", iBlockNumber, latest.BlockNumber)
+			return notFound
+		}
+
+		lp.lggr.Debugf("Looking for matching block on chain blockNumber: %d blockHash: %s",
+			dbBlock.BlockNumber, dbBlock.BlockHash)
+		var chainBlock *evmtypes.Head
+		chainBlock, err = lp.ec.HeadByHash(ctx, dbBlock.BlockHash)
+		// our block in DB does not exist on chain
+		if (chainBlock == nil && err == nil) || errors.Is(err, ethereum.NotFound) {
+			err = nil
+			return notFound
+		}
+		if err != nil {
+			err = fmt.Errorf("failed to get block %s from RPC: %w", dbBlock.BlockHash, err)
+			return notFound
+		}
+
+		if chainBlock.BlockNumber() != dbBlock.BlockNumber {
+			err = fmt.Errorf("expected block numbers to match (db: %d, chain: %d), if block hashes match "+
+				"(db: %s, chain: %s)", dbBlock.BlockNumber, chainBlock.BlockNumber(), dbBlock.BlockHash, chainBlock.Hash)
+			return notFound
+		}
+
+		return found
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find: %w", err)
+	}
+
+	if !found {
+		return nil, fmt.Errorf("failed to find LCA, this means that whole database LogPoller state was reorged out of chain or RPC/Core node is misconfigured")
+	}
+
+	lcaBlockNumber := latest.BlockNumber - int64(lcaI)
+	lca, err := lp.orm.SelectBlockByNumber(ctx, lcaBlockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to select lca from db: %w", err)
+	}
+
+	if lca == nil {
+		return nil, fmt.Errorf("expected lca (blockNum: %d) to exist in DB", lcaBlockNumber)
+	}
+
+	return lca, nil
 }
 
 func EvmWord(i uint64) common.Hash {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
 	return common.BytesToHash(b)
+}
+
+func (lp *logPoller) FilteredLogs(queryFilter query.KeyFilter, sortAndLimit query.LimitAndSort) ([]Log, error) {
+	return lp.orm.FilteredLogs(queryFilter, sortAndLimit)
 }

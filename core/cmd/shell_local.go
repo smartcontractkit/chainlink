@@ -34,6 +34,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -250,6 +251,23 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 							Usage: "set to true to enable dropping non-test databases",
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:   "remove-blocks",
+			Usage:  "Deletes block range and all associated data",
+			Action: s.RemoveBlocks,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:     "start",
+					Usage:    "Beginning of block range to be deleted",
+					Required: true,
+				},
+				cli.Int64Flag{
+					Name:     "evm-chain-id",
+					Usage:    "Chain ID of the EVM-based blockchain",
+					Required: true,
 				},
 			},
 		},
@@ -578,6 +596,11 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		if !ok {
 			return s.errorOut(errors.New("invalid evmChainID"))
 		}
+	}
+
+	err = s.Config.Validate()
+	if err != nil {
+		return err
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
@@ -1174,4 +1197,65 @@ func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
 	}
 	_, err = db.Exec(string(fixturesSQL))
 	return err
+}
+
+// RemoveBlocks - removes blocks after the specified blocks number
+func (s *Shell) RemoveBlocks(c *cli.Context) error {
+	start := c.Int64("start")
+	if start <= 0 {
+		return s.errorOut(errors.New("Must pass a positive value in '--start' parameter"))
+	}
+
+	chainID := big.NewInt(0)
+	if c.IsSet("evm-chain-id") {
+		err := chainID.UnmarshalText([]byte(c.String("evm-chain-id")))
+		if err != nil {
+			return s.errorOut(err)
+		}
+	}
+
+	cfg := s.Config
+	err := cfg.Validate()
+	if err != nil {
+		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+	}
+
+	lggr := logger.Sugared(s.Logger.Named("RemoveBlocks"))
+	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
+	ctx, cancel := context.WithCancel(context.Background())
+	go shutdown.HandleShutdown(func(sig string) {
+		cancel()
+		lggr.Info("received signal to stop - closing the database and releasing lock")
+
+		if cErr := ldb.Close(); cErr != nil {
+			lggr.Criticalf("Failed to close LockedDB: %v", cErr)
+		}
+
+		if cErr := s.CloseLogger(); cErr != nil {
+			log.Printf("Failed to close Logger: %v", cErr)
+		}
+	})
+
+	if err = ldb.Open(ctx); err != nil {
+		// If not successful, we know neither locks nor connection remains opened
+		return s.errorOut(errors.Wrap(err, "opening db"))
+	}
+	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
+
+	// From now on, DB locks and DB connection will be released on every return.
+	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
+
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, ldb.DB())
+	if err != nil {
+		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+	}
+
+	err = app.DeleteLogPollerDataAfter(ctx, chainID, start)
+	if err != nil {
+		return s.errorOut(err)
+	}
+
+	lggr.Infof("RemoveBlocks: successfully removed blocks")
+
+	return nil
 }

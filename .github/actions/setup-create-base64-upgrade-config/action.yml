@@ -34,6 +34,8 @@ inputs:
     description: Grafana URL
   grafanaDashboardUrl:
     description: Grafana dashboard URL
+  grafanaBearerToken:
+    description: Grafana bearer token
 
 runs:
   using: composite
@@ -56,6 +58,7 @@ runs:
         LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
         GRAFANA_URL: ${{ inputs.grafanaUrl }}
         GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
+        GRAFANA_BEARER_TOKEN: ${{ inputs.grafanaBearerToken }}
       run: |
         function convert_to_toml_array() {
           local IFS=','
@@ -92,6 +95,7 @@ runs:
         [ChainlinkUpgradeImage]
         image="$UPGRADE_IMAGE"
         version="$UPGRADE_VERSION"
+        postgres_version="$CHAINLINK_POSTGRES_VERSION"
 
         [Logging]
         test_log_collect=$test_log_collect
@@ -108,6 +112,7 @@ runs:
         [Logging.Grafana]
         base_url="$GRAFANA_URL"
         dashboard_url="$GRAFANA_DASHBOARD_URL"
+        bearer_token_secret="$GRAFANA_BEARER_TOKEN"
         EOF
 
         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)

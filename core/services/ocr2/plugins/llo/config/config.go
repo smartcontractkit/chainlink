@@ -99,7 +99,6 @@ func validateKeyBundleIDs(keyBundleIDs map[string]string) error {
 		if !chaintype.IsSupportedChainType(chaintype.ChainType(k)) {
 			return fmt.Errorf("llo: KeyBundleIDs: key must be a supported chain type, got: %s", k)
 		}
-
 	}
 	return nil
 }

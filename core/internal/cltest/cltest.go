@@ -341,7 +341,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			case UseRealExternalInitiatorManager:
 				externalInitiatorManager = webhook.NewExternalInitiatorManager(ds, clhttptest.NewTestLocalOnlyHTTPClient())
 			}
-
 		}
 	}
 
@@ -369,7 +368,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			MailMon:   mailMon,
 			DS:        ds,
 		},
-		CSAETHKeystore: keyStore,
+		CSAETHKeystore:     keyStore,
+		MercuryTransmitter: cfg.Mercury().Transmitter(),
 	}
 
 	if cfg.EVMEnabled() {
@@ -410,7 +410,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
-
 	}
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
@@ -1016,7 +1015,6 @@ func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
 	time := uint64(0)
 	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	return &h
-
 }
 
 // LegacyTransactionsFromGasPrices returns transactions matching the given gas prices
@@ -1028,20 +1026,6 @@ func LegacyTransactionsFromGasPricesTxType(code evmtypes.TxType, gasPrices ...in
 	txs := make([]evmtypes.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
 		txs[i] = evmtypes.Transaction{Type: code, GasPrice: assets.NewWeiI(gasPrice), GasLimit: 42}
-	}
-	return txs
-}
-
-// DynamicFeeTransactionsFromTipCaps returns EIP-1559 transactions with the
-// given TipCaps (FeeCap is arbitrary)
-func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []evmtypes.Transaction {
-	return DynamicFeeTransactionsFromTipCapsTxType(0x02, tipCaps...)
-}
-
-func DynamicFeeTransactionsFromTipCapsTxType(code evmtypes.TxType, tipCaps ...int64) []evmtypes.Transaction {
-	txs := make([]evmtypes.Transaction, len(tipCaps))
-	for i, tipCap := range tipCaps {
-		txs[i] = evmtypes.Transaction{Type: code, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
 	}
 	return txs
 }

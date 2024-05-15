@@ -29,7 +29,7 @@ var _ services.Service = (*TransmitQueue)(nil)
 
 var transmitQueueLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "mercury_transmit_queue_load",
-	Help: "Percent of transmit queue capacity used",
+	Help: "Current count of items in the transmit queue",
 },
 	[]string{"feedID", "serverURL", "capacity"},
 )

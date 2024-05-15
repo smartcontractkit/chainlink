@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/grafana/pyroscope-go"
+	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -19,10 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -61,6 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -115,6 +120,11 @@ type Application interface {
 	ID() uuid.UUID
 
 	SecretGenerator() SecretGenerator
+
+	// FindLCA - finds last common ancestor for LogPoller's chain available in the database and RPC chain
+	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error)
+	// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
+	DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -170,6 +180,7 @@ type ApplicationOpts struct {
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
+	CapabilitiesRegistry       coretypes.CapabilitiesRegistry
 }
 
 // NewApplication initializes a new store if one is not already
@@ -188,7 +199,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
-	registry := capabilities.NewRegistry(globalLogger)
+
+	if opts.CapabilitiesRegistry == nil {
+		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
@@ -199,8 +213,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		srvcs = append(srvcs, externalPeerWrapper)
 
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
-		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, registry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, dispatcher, globalLogger)
+		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger)
 		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 
@@ -312,6 +326,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
+		workflowORM    = workflowstore.NewDBStore(opts.DS, clockwork.NewRealClock())
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
@@ -379,8 +394,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
-		registry,
+		opts.CapabilitiesRegistry,
 		legacyEVMChains,
+		workflowORM,
 		func() *p2ptypes.PeerID {
 			if externalPeerWrapper == nil {
 				return nil
@@ -462,7 +478,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
-			registry,
+			opts.CapabilitiesRegistry,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,
@@ -885,4 +901,40 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 
 func (app *ChainlinkApplication) ID() uuid.UUID {
 	return app.Config.AppID()
+}
+
+// FindLCA - finds last common ancestor
+func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error) {
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	if err != nil {
+		return nil, err
+	}
+	if !app.Config.Feature().LogPoller() {
+		return nil, fmt.Errorf("FindLCA is only available if LogPoller is enabled")
+	}
+
+	lca, err := chain.LogPoller().FindLCA(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find lca: %w", err)
+	}
+
+	return lca, nil
+}
+
+// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
+func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error {
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	if err != nil {
+		return err
+	}
+	if !app.Config.Feature().LogPoller() {
+		return fmt.Errorf("DeleteLogPollerDataAfter is only available if LogPoller is enabled")
+	}
+
+	err = chain.LogPoller().DeleteLogsAndBlocksAfter(ctx, start)
+	if err != nil {
+		return fmt.Errorf("failed to recover LogPoller: %w", err)
+	}
+
+	return nil
 }

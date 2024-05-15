@@ -73,6 +73,10 @@ func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
 	return evmrelayer.NewLoopRelayServerAdapter(g.r, g.e), nil
 }
 
+func (g *relayGetter) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
+	return map[types.RelayID]loop.Relayer{}, nil
+}
+
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
@@ -290,8 +294,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
 		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
-			DS:             db,
-			CSAETHKeystore: keyStore,
+			DS:                   db,
+			CSAETHKeystore:       keyStore,
+			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 		})
 		assert.NoError(t, err)
 

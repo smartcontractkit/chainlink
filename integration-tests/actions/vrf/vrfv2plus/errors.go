@@ -1,6 +1,8 @@
 package vrfv2plus
 
 const (
+	ErrDeployCoordinatorV2Plus                     = "error deploying VRF CoordinatorV2Plus"
+	ErrDeployBatchCoordinatorV2Plus                = "error deploying Batch VRF CoordinatorV2Plus"
 	ErrCreatingVRFv2PlusKey                        = "error creating VRFv2Plus key"
 	ErrAdvancedConsumer                            = "error deploying VRFv2Plus Advanced Consumer"
 	ErrCreatingVRFv2PlusJob                        = "error creating VRFv2Plus job"

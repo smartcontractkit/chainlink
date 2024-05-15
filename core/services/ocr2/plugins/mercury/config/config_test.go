@@ -134,7 +134,6 @@ func Test_PluginConfig(t *testing.T) {
 			require.NotNil(t, mc.NativeFeedID)
 			assert.Equal(t, "0x00026b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472", (*mc.LinkFeedID).String())
 			assert.Equal(t, "0x00036b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472", (*mc.NativeFeedID).String())
-
 		})
 
 		t.Run("with invalid values", func(t *testing.T) {

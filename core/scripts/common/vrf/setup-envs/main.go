@@ -52,7 +52,6 @@ var (
 )
 
 func main() {
-
 	vrfPrimaryNodeURL := flag.String("vrf-primary-node-url", "", "remote node URL")
 	vrfBackupNodeURL := flag.String("vrf-backup-node-url", "", "remote node URL")
 	bhsNodeURL := flag.String("bhs-node-url", "", "remote node URL")
@@ -198,7 +197,6 @@ func main() {
 	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodesMap, output, nodesMap[model.VRFBackupNodeName].CredsFile)
 
 	if *deployContractsAndCreateJobs {
-
 		contractAddresses := model.ContractAddresses{
 			LinkAddress:             *linkAddress,
 			LinkEthAddress:          *linkEthAddress,
