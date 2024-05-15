@@ -244,11 +244,13 @@ func (it *EvmChainReaderInterfaceTester[T]) AwaitTx(t T, tx *evmtypes.Transactio
 }
 
 func (it *EvmChainReaderInterfaceTester[T]) deployNewContracts(t T) {
-	if it.dirtyContracts || it.address == "" {
+	if it.address == "" {
 		it.address = it.deployNewContract(t)
 		it.address2 = it.deployNewContract(t)
-		it.dirtyContracts = false
+	} else if it.dirtyContracts {
+		it.address = it.deployNewContract(t)
 	}
+	it.dirtyContracts = false
 }
 
 func (it *EvmChainReaderInterfaceTester[T]) deployNewContract(t T) string {
