@@ -5,11 +5,14 @@ import fetch from "node-fetch";
 
 function parseIssueNumber(prTitle, commitMessage, branchName) {
   const jiraIssueRegex = /[A-Z]{2,}-\d+/;
-  if (jiraIssueRegex.test(branchName.toUpperCase())) {
+  if (!!branchName && jiraIssueRegex.test(branchName.toUpperCase())) {
     return branchName.toUpperCase().match(jiraIssueRegex)[0];
-  } else if (jiraIssueRegex.test(commitMessage.toUpperCase())) {
+  } else if (
+    !!commitMessage &&
+    jiraIssueRegex.test(commitMessage.toUpperCase())
+  ) {
     return commitMessage.toUpperCase().match(jiraIssueRegex)[0];
-  } else if (jiraIssueRegex.test(prTitle.toUpperCase())) {
+  } else if (!!prTitle && jiraIssueRegex.test(prTitle.toUpperCase())) {
     return prTitle.toUpperCase().match(jiraIssueRegex)[0];
   } else {
     return null;

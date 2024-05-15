@@ -132,17 +132,17 @@ jobs:
         if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
         shell: bash
         working-directory: ./.github/scripts/jira
-        run: pnpm install && node update-jira-ticket.js
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JIRA_HOST: ${{ secrets.JIRA_HOST }}
-          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-          CHAINLINK_VERSION: ${{ steps.chainlink-version.outputs.chainlink_version }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message }}
-          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
-          TAGS: ${{ steps.changeset-tags.outputs.found_tags }}
+        run: |
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "JIRA_HOST=${{ secrets.JIRA_HOST }}" >> $GITHUB_ENV
+          echo "JIRA_USERNAME=${{ secrets.JIRA_USERNAME }}" >> $GITHUB_ENV
+          echo "JIRA_API_TOKEN=${{ secrets.JIRA_API_TOKEN }}" >> $GITHUB_ENV
+          echo "CHAINLINK_VERSION=${{ steps.chainlink-version.outputs.chainlink_version }}" >> $GITHUB_ENV
+          echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+          echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+          echo "TAGS=${{ steps.changeset-tags.outputs.found_tags }}" >> $GITHUB_ENV
+          pnpm install && node update-jira-issue.js
 
       - name: Make a comment
         uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
