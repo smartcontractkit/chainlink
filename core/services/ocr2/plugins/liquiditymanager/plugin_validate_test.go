@@ -46,28 +46,28 @@ func TestPlugin_ValidateObservation(t *testing.T) {
 		},
 		{
 			name: "invalid transfers: nil amount",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{},
 				[]models.Transfer{{From: 1, To: 2, NativeBridgeFee: ubig.New(big.NewInt(1))}},
 				[]models.PendingTransfer{},
 				[]models.Transfer{},
 				[]models.Edge{},
 				[]models.ConfigDigestWithMeta{},
-			).Encode(),
+			)),
 			expErr: func(t *testing.T, err error) {
 				assert.Error(t, err)
 			},
 		},
 		{
 			name: "invalid pending transfers: nil amount",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{},
 				[]models.Transfer{},
 				[]models.PendingTransfer{{Transfer: models.Transfer{From: 1, To: 2, NativeBridgeFee: ubig.New(big.NewInt(1))}, ID: "1"}},
 				[]models.Transfer{},
 				[]models.Edge{},
 				[]models.ConfigDigestWithMeta{},
-			).Encode(),
+			)),
 			expErr: func(t *testing.T, err error) {
 				assert.Error(t, err)
 			},
@@ -88,14 +88,14 @@ func TestPlugin_ValidateObservation(t *testing.T) {
 		},
 		{
 			name: "invalid network liquidity: nil liquidity",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{{Network: 1}, {Network: 1, Liquidity: ubig.New(big.NewInt(2))}},
 				[]models.Transfer{},
 				[]models.PendingTransfer{},
 				[]models.Transfer{},
 				[]models.Edge{},
 				[]models.ConfigDigestWithMeta{},
-			).Encode(),
+			)),
 			expErr: func(t *testing.T, err error) {
 				assert.Error(t, err)
 			},
