@@ -135,7 +135,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		jobs, _, _ := workerNodes[i].ReadJobs()
 		for _, maps := range jobs.Data {
 			id := maps["id"].(string)
-			workerNodes[i].DeleteJob(id)
+			require.NoError(t, workerNodes[i].MustDeleteJob(id))
 		}
 
 	}
