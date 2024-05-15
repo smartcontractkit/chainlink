@@ -47,14 +47,14 @@ func Test_ListUnwrapTo(t *testing.T) {
 	})
 
 	t.Run("[]big.Int", func(t *testing.T) {
-		expected := []big.Int{*big.NewInt(1), *big.NewInt(2)}
-		got := []big.Int{}
-		sliceTest[big.Int](t, expected, got)
+		expected := []*big.Int{big.NewInt(1), big.NewInt(2)}
+		var got []*big.Int
+		sliceTest[*big.Int](t, expected, got)
 	})
 
 	t.Run("[]any", func(t *testing.T) {
-		expected := []any{int64(1), *big.NewInt(0)}
-		got := []any{}
+		expected := []any{int64(1), big.NewInt(0)}
+		var got []any
 		sliceTest[any](t, expected, got)
 	})
 

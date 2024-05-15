@@ -95,7 +95,7 @@ func Test_Value(t *testing.T) {
 		{
 			name: "bigInt",
 			newValue: func() (any, Value, error) {
-				b := *big.NewInt(math.MaxInt64)
+				b := big.NewInt(math.MaxInt64)
 				bv := NewBigInt(b)
 				return b, bv, nil
 			},

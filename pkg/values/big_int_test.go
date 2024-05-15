@@ -9,11 +9,11 @@ import (
 )
 
 func Test_BigIntUnwrapTo(t *testing.T) {
-	expected := *big.NewInt(100)
+	expected := big.NewInt(100)
 	v := NewBigInt(expected)
 
-	var got big.Int
-	err := v.UnwrapTo(&got)
+	got := new(big.Int)
+	err := v.UnwrapTo(got)
 	require.NoError(t, err)
 
 	assert.Equal(t, expected, got)

@@ -50,17 +50,21 @@ func (l *List) UnwrapTo(to any) error {
 	ptrVal := reflect.Indirect(val)
 	switch ptrVal.Kind() {
 	case reflect.Slice:
-		newList := reflect.New(reflect.Indirect(val).Type()).Elem()
-		for _, el := range l.Underlying {
-			newEl := reflect.New(reflect.Indirect(val).Type().Elem()).Elem()
-			ptrEl := newEl.Addr().Interface()
-			if el != nil {
-				err := el.UnwrapTo(ptrEl)
-				if err != nil {
-					return err
-				}
+		newList := reflect.MakeSlice(ptrVal.Type(), len(l.Underlying), len(l.Underlying))
+		for i, el := range l.Underlying {
+			newElm := newList.Index(i)
+			if newElm.Kind() == reflect.Pointer {
+				newElm.Set(reflect.New(newElm.Type().Elem()))
+			} else {
+				newElm = newElm.Addr()
 			}
-			newList = reflect.Append(newList, reflect.Indirect(reflect.ValueOf(ptrEl)))
+
+			if el == nil {
+				continue
+			}
+			if err := el.UnwrapTo(newElm.Interface()); err != nil {
+				return err
+			}
 		}
 		reflect.Indirect(val).Set(newList)
 		return nil

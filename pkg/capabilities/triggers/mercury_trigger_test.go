@@ -92,6 +92,8 @@ func TestMercuryTrigger(t *testing.T) {
 			FullReport:           []byte("0x1234"),
 			BenchmarkPrice:       big.NewInt(2).Bytes(),
 			ObservationTimestamp: 3,
+			Rs:                   [][]byte{},
+			Ss:                   [][]byte{},
 		},
 	}
 	err = ts.ProcessReport(mfr)
@@ -146,24 +148,32 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 			FullReport:           []byte("0x1234"),
 			BenchmarkPrice:       big.NewInt(20).Bytes(),
 			ObservationTimestamp: 5,
+			Rs:                   [][]byte{},
+			Ss:                   [][]byte{},
 		},
 		{
 			FeedID:               feedThree,
 			FullReport:           []byte("0x1234"),
 			BenchmarkPrice:       big.NewInt(25).Bytes(),
 			ObservationTimestamp: 8,
+			Rs:                   [][]byte{},
+			Ss:                   [][]byte{},
 		},
 		{
 			FeedID:               feedTwo,
 			FullReport:           []byte("0x1234"),
 			BenchmarkPrice:       big.NewInt(30).Bytes(),
 			ObservationTimestamp: 10,
+			Rs:                   [][]byte{},
+			Ss:                   [][]byte{},
 		},
 		{
 			FeedID:               feedFour,
 			FullReport:           []byte("0x1234"),
 			BenchmarkPrice:       big.NewInt(40).Bytes(),
 			ObservationTimestamp: 15,
+			Rs:                   [][]byte{},
+			Ss:                   [][]byte{},
 		},
 	}
 

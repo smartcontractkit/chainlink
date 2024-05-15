@@ -1,16 +1,17 @@
 package values
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 )
 
 type BigInt struct {
-	Underlying big.Int
+	Underlying *big.Int
 }
 
-func NewBigInt(b big.Int) *BigInt {
+func NewBigInt(b *big.Int) *BigInt {
 	return &BigInt{Underlying: b}
 }
 
@@ -23,5 +24,20 @@ func (b *BigInt) Unwrap() (any, error) {
 }
 
 func (b *BigInt) UnwrapTo(to any) error {
-	return unwrapTo(b.Underlying, to)
+	switch tb := to.(type) {
+	case *big.Int:
+		if tb == nil {
+			return fmt.Errorf("cannot unwrap to nil pointer")
+		}
+		*tb = *b.Underlying
+	case *any:
+		if tb == nil {
+			return fmt.Errorf("cannot unwrap to nil pointer")
+		}
+		*tb = b.Underlying
+	default:
+		return fmt.Errorf("cannot unwrap to value of type: %T", to)
+	}
+
+	return nil
 }

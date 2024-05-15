@@ -169,11 +169,11 @@ func TestMap_UnwrapTo_OtherMapTypes(t *testing.T) {
 		},
 		{
 			name: "map[string]big.Int",
-			expected: map[string]big.Int{
-				"string":        *big.NewInt(1),
-				"anotherString": *big.NewInt(2),
+			expected: map[string]*big.Int{
+				"string":        big.NewInt(1),
+				"anotherString": big.NewInt(2),
 			},
-			got: map[string]big.Int{},
+			got: map[string]*big.Int{},
 		},
 		{
 			name: "map[string][]byte",
