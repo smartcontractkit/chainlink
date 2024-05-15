@@ -131,7 +131,8 @@ jobs:
       - name: Update Jira ticket for core
         if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
         shell: bash
-        run: node ./.github/scripts/jira/update-jira-ticket.js
+        working-directory: ./.github/scripts/jira
+        run: pnpm install && node update-jira-ticket.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JIRA_HOST: ${{ secrets.JIRA_HOST }}
