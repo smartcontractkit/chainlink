@@ -1248,6 +1248,9 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				require.NoError(t, err, "Error setting upkeep offchain config")
 			}
 
+			// sleep for 10s to make sure any in-flight performs are done
+			time.Sleep(10 * time.Second)
+
 			// Store how many times each upkeep performed once their offchain config is set with maxGasPrice = 1 wei
 			var countersAfterSettingLowMaxGasPrice = make([]*big.Int, len(upkeepIDs))
 			for i := 0; i < len(upkeepIDs); i++ {
