@@ -52,7 +52,7 @@ func TestChainClient_BatchCallContext(t *testing.T) {
 		}
 
 		mockRpc := newMockRpc(t)
-		mockRpc.On("GetInterceptedChainInfo").Return(commonclient.ChainInfo{}, commonclient.ChainInfo{})
+		mockRpc.On("GetInterceptedChainInfo").Return(commonclient.ChainInfo{}, commonclient.ChainInfo{}).Maybe()
 		mockRpc.On("BatchCallContext", mock.Anything, b).Run(func(args mock.Arguments) {
 			reqs := args.Get(1).([]rpc.BatchElem)
 			for i := 0; i < len(reqs); i++ {
