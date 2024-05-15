@@ -101,14 +101,11 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
       EVM2EVMMultiOnRamp.StaticConfig({
         linkToken: s_sourceTokens[0],
         chainSelector: SOURCE_CHAIN_SELECTOR,
-        destChainSelector: DEST_CHAIN_SELECTOR,
-        defaultTxGasLimit: GAS_LIMIT,
         maxNopFeesJuels: MAX_NOP_FEES_JUELS,
-        prevOnRamp: address(0),
         rmnProxy: address(s_mockRMN)
       }),
       generateDynamicMultiOnRampConfig(address(s_sourceRouter), address(s_priceRegistry), address(s_tokenAdminRegistry)),
-      generateDestChainDynamicConfigArgs(),
+      generateDestChainConfigArgs(),
       getOutboundRateLimiterConfig(),
       s_feeTokenConfigArgs,
       s_tokenTransferFeeConfigArgs,
@@ -232,14 +229,9 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
     });
   }
 
-  function generateDestChainDynamicConfigArgs()
-    internal
-    pure
-    returns (EVM2EVMMultiOnRamp.DestChainDynamicConfigArgs[] memory)
-  {
-    EVM2EVMMultiOnRamp.DestChainDynamicConfigArgs[] memory destChainConfigs =
-      new EVM2EVMMultiOnRamp.DestChainDynamicConfigArgs[](1);
-    destChainConfigs[0] = EVM2EVMMultiOnRamp.DestChainDynamicConfigArgs({
+  function generateDestChainConfigArgs() internal pure returns (EVM2EVMMultiOnRamp.DestChainConfigArgs[] memory) {
+    EVM2EVMMultiOnRamp.DestChainConfigArgs[] memory destChainConfigs = new EVM2EVMMultiOnRamp.DestChainConfigArgs[](1);
+    destChainConfigs[0] = EVM2EVMMultiOnRamp.DestChainConfigArgs({
       destChainSelector: DEST_CHAIN_SELECTOR,
       dynamicConfig: EVM2EVMMultiOnRamp.DestChainDynamicConfig({
         isEnabled: true,
@@ -253,8 +245,10 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
         maxPerMsgGasLimit: MAX_GAS_LIMIT,
         defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
         defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
-        defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD
-      })
+        defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD,
+        defaultTxGasLimit: GAS_LIMIT
+      }),
+      prevOnRamp: address(0)
     });
     return destChainConfigs;
   }
@@ -265,5 +259,46 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
     nopsAndWeights[1] = EVM2EVMMultiOnRamp.NopAndWeight({nop: USER_2, weight: 52935});
     nopsAndWeights[2] = EVM2EVMMultiOnRamp.NopAndWeight({nop: USER_3, weight: 8});
     return nopsAndWeights;
+  }
+
+  function assertDestChainConfigsEqual(
+    EVM2EVMMultiOnRamp.DestChainConfig memory a,
+    EVM2EVMMultiOnRamp.DestChainConfig memory b
+  ) internal pure {
+    assertEq(a.dynamicConfig.isEnabled, b.dynamicConfig.isEnabled);
+    assertEq(a.dynamicConfig.maxNumberOfTokensPerMsg, b.dynamicConfig.maxNumberOfTokensPerMsg);
+    assertEq(a.dynamicConfig.maxDataBytes, b.dynamicConfig.maxDataBytes);
+    assertEq(a.dynamicConfig.maxPerMsgGasLimit, b.dynamicConfig.maxPerMsgGasLimit);
+    assertEq(a.dynamicConfig.destGasOverhead, b.dynamicConfig.destGasOverhead);
+    assertEq(a.dynamicConfig.destGasPerPayloadByte, b.dynamicConfig.destGasPerPayloadByte);
+    assertEq(a.dynamicConfig.destDataAvailabilityOverheadGas, b.dynamicConfig.destDataAvailabilityOverheadGas);
+    assertEq(a.dynamicConfig.destGasPerDataAvailabilityByte, b.dynamicConfig.destGasPerDataAvailabilityByte);
+    assertEq(a.dynamicConfig.destDataAvailabilityMultiplierBps, b.dynamicConfig.destDataAvailabilityMultiplierBps);
+    assertEq(a.dynamicConfig.defaultTokenFeeUSDCents, b.dynamicConfig.defaultTokenFeeUSDCents);
+    assertEq(a.dynamicConfig.defaultTokenDestGasOverhead, b.dynamicConfig.defaultTokenDestGasOverhead);
+    assertEq(a.dynamicConfig.defaultTokenDestBytesOverhead, b.dynamicConfig.defaultTokenDestBytesOverhead);
+    assertEq(a.dynamicConfig.defaultTxGasLimit, b.dynamicConfig.defaultTxGasLimit);
+    assertEq(a.prevOnRamp, b.prevOnRamp);
+    assertEq(a.sequenceNumber, b.sequenceNumber);
+    assertEq(a.metadataHash, b.metadataHash);
+  }
+
+  function assertStaticConfigsEqual(
+    EVM2EVMMultiOnRamp.StaticConfig memory a,
+    EVM2EVMMultiOnRamp.StaticConfig memory b
+  ) internal pure {
+    assertEq(a.linkToken, b.linkToken);
+    assertEq(a.chainSelector, b.chainSelector);
+    assertEq(a.maxNopFeesJuels, b.maxNopFeesJuels);
+    assertEq(a.rmnProxy, b.rmnProxy);
+  }
+
+  function assertDynamicConfigsEqual(
+    EVM2EVMMultiOnRamp.DynamicConfig memory a,
+    EVM2EVMMultiOnRamp.DynamicConfig memory b
+  ) internal pure {
+    assertEq(a.router, b.router);
+    assertEq(a.priceRegistry, b.priceRegistry);
+    assertEq(a.tokenAdminRegistry, b.tokenAdminRegistry);
   }
 }
