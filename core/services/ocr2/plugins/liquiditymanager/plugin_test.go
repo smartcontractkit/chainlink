@@ -1268,7 +1268,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 				expTransmitted: []ocr3types.ReportWithInfo[models.Report]{
 					{
 						Info: models.Report{
-							Transfers:               []models.Transfer{{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX, RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB}},
+							Transfers:               []models.Transfer{{From: networkA, To: networkB, Amount: ubig.NewI(1000), NativeBridgeFee: ubig.New(nativeBridgeFee), LocalTokenAddress: tokenX, RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB}},
 							LiquidityManagerAddress: rebalancerA,
 							NetworkID:               networkA,
 							ConfigDigest:            cfgDigest1,
@@ -1279,7 +1279,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 				expNotAccepted:    []ocr3types.ReportWithInfo[models.Report]{},
 				expOutcome: models.NewOutcome(
 					nil,
-					[]models.Transfer{{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX, RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB}},
+					[]models.Transfer{{From: networkA, To: networkB, Amount: ubig.NewI(1000), LocalTokenAddress: tokenX, RemoteTokenAddress: tokenY, Sender: rebalancerA, Receiver: rebalancerB, NativeBridgeFee: ubig.New(nativeBridgeFee)}},
 					nil,
 					[]models.ConfigDigestWithMeta{{Digest: cfgDigest1, NetworkSel: networkA}, {Digest: cfgDigest2, NetworkSel: networkB}}),
 				dataPerRebalancer: map[models.NetworkSelector]perRebalancerData{
@@ -1347,6 +1347,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 							From:               networkA,
 							To:                 networkB,
 							Amount:             ubig.NewI(1000),
+							NativeBridgeFee:    ubig.New(nativeBridgeFee),
 							LocalTokenAddress:  tokenX,
 							RemoteTokenAddress: tokenY,
 							Stage:              1,
@@ -1359,6 +1360,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 							From:               networkA,
 							To:                 networkB,
 							Amount:             ubig.NewI(1000),
+							NativeBridgeFee:    ubig.New(nativeBridgeFee),
 							LocalTokenAddress:  tokenX,
 							RemoteTokenAddress: tokenY,
 							Stage:              1,
@@ -1371,6 +1373,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 							From:               networkA,
 							To:                 networkB,
 							Amount:             ubig.NewI(1000),
+							NativeBridgeFee:    ubig.New(nativeBridgeFee),
 							LocalTokenAddress:  tokenX,
 							RemoteTokenAddress: tokenY,
 							Stage:              1,
@@ -1383,6 +1386,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 							From:               networkA,
 							To:                 networkB,
 							Amount:             ubig.NewI(1000),
+							NativeBridgeFee:    ubig.New(nativeBridgeFee),
 							LocalTokenAddress:  tokenX,
 							RemoteTokenAddress: tokenY,
 							Stage:              1,
@@ -1403,6 +1407,7 @@ func twoNodesFourRounds(t *testing.T) testCase {
 								From:               networkA,
 								To:                 networkB,
 								Amount:             ubig.NewI(1000),
+								NativeBridgeFee:    ubig.New(nativeBridgeFee),
 								LocalTokenAddress:  tokenX,
 								RemoteTokenAddress: tokenY,
 							},
@@ -1467,10 +1472,8 @@ func assertProposedTransfersEqual(t *testing.T, a, b []models.ProposedTransfer) 
 }
 
 func assertOutcomeEqual(t *testing.T, exp models.Outcome, got []byte) {
-	decodedOutcome := models.Outcome{}
-	err := json.Unmarshal(got, &decodedOutcome)
+	decodedOutcome, err := models.DecodeOutcome(got)
 	require.NoError(t, err)
-
 	require.Equal(t, exp.ConfigDigests, decodedOutcome.ConfigDigests)
 	assertTransfersEqual(t, exp.ResolvedTransfers, decodedOutcome.ResolvedTransfers)
 	assertPendingTransfersEqual(t, exp.PendingTransfers, decodedOutcome.PendingTransfers)
