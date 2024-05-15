@@ -89,10 +89,10 @@ async function run() {
     const issueNumber = parseIssueNumber(prTitle, commitMessage, branchName);
     if (!issueNumber) {
       core.info(
-        "No JIRA issue number found in: PR Title, Commit Message, or Branch Name. Please it to one of these."
+        "No JIRA issue number found in: PR title, commit message, or branch name. Please include the issue ID in one of these."
       );
       core.notice(
-        "No JIRA issue number found in: PR Title, Commit Message, or Branch Name. Please it to one of these."
+        "No JIRA issue number found in: PR title, commit message, or branch name. Please include the issue ID in one of these."
       );
       return;
     }
