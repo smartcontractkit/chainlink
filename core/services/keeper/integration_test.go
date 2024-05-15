@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -189,7 +190,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			carrol := testutils.MustNewSimTransactor(t) // client
 			nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 			nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
-			genesisData := core.GenesisAlloc{
+			genesisData := types.GenesisAlloc{
 				sergey.From: {Balance: assets.Ether(1000).ToInt()},
 				steve.From:  {Balance: assets.Ether(1000).ToInt()},
 				carrol.From: {Balance: assets.Ether(1000).ToInt()},

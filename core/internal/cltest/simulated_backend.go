@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32) *backends.SimulatedBackend {
-	backend := backends.NewSimulatedBackend(alloc, uint64(gasLimit))
+func NewSimulatedBackend(t *testing.T, alloc types.GenesisAlloc, gasLimit uint32) *simulated.Backend {
+	backend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(uint64(gasLimit)))
 	// NOTE: Make sure to finish closing any application/client before
 	// backend.Close or they can hang
 	t.Cleanup(func() {
@@ -29,10 +29,10 @@ func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32)
 func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	t testing.TB,
 	cfg chainlink.GeneralConfig,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	flagsAndDeps ...interface{},
 ) *TestApplication {
-	bid, err := backend.ChainID(testutils.Context(t))
+	bid, err := backend.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)
 	if bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
@@ -40,7 +40,7 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 
 	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
 	chainID := big.New(testutils.SimulatedChainID)
-	client := client.NewSimulatedBackendClient(t, backend.Backend, testutils.SimulatedChainID)
+	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 
 	flagsAndDeps = append(flagsAndDeps, client, chainID)
 
@@ -55,10 +55,10 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	cfg chainlink.GeneralConfig,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	flagsAndDeps ...interface{},
 ) *TestApplication {
-	bid, err := backend.ChainID(testutils.Context(t))
+	bid, err := backend.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)
 	if bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
@@ -66,7 +66,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 
 	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
 	chainID := big.New(testutils.SimulatedChainID)
-	client := client.NewSimulatedBackendClient(t, backend.Backend, testutils.SimulatedChainID)
+	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 
 	flagsAndDeps = append(flagsAndDeps, client, chainID)
 
@@ -75,7 +75,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 }
 
 // Mine forces the simulated backend to produce a new block every X seconds
-func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMining func()) {
+func Mine(backend *simulated.Backend, blockTime time.Duration) (stopMining func()) {
 	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})
 	wg := sync.WaitGroup{}
