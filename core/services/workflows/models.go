@@ -51,14 +51,14 @@ func (w *WorkflowSpec) Steps() []StepDefinition {
 // point of a workflow.
 type workflow struct {
 	id string
-	graph.Graph[string, *executable]
+	graph.Graph[string, *step]
 
 	triggers []*triggerCapability
 
 	spec *WorkflowSpec
 }
 
-func (w *workflow) walkDo(start string, do func(s *executable) error) error {
+func (w *workflow) walkDo(start string, do func(s *step) error) error {
 	var outerErr error
 	err := graph.BFS(w.Graph, start, func(ref string) bool {
 		n, err := w.Graph.Vertex(ref)
@@ -82,8 +82,8 @@ func (w *workflow) walkDo(start string, do func(s *executable) error) error {
 	return outerErr
 }
 
-func (w *workflow) dependents(start string) ([]*executable, error) {
-	steps := []*executable{}
+func (w *workflow) dependents(start string) ([]*step, error) {
+	steps := []*step{}
 	m, err := w.Graph.AdjacencyMap()
 	if err != nil {
 		return nil, err
@@ -106,8 +106,8 @@ func (w *workflow) dependents(start string) ([]*executable, error) {
 	return steps, nil
 }
 
-// executable wraps a stepDefinition with additional context for dependencies and execution
-type executable struct {
+// step wraps a Vertex with additional context for dependencies and execution
+type step struct {
 	Vertex
 	capability        capabilities.CallbackCapability
 	config            *values.Map
@@ -156,7 +156,6 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 		return nil, err
 	}
 	return createExecutableWorkflow(wf2)
-
 }
 
 func ParseStaticWorkflow(yamlWorkflow string) (*StaticWorkflow, error) {
@@ -236,7 +235,8 @@ func ParseStaticWorkflow(yamlWorkflow string) (*StaticWorkflow, error) {
 
 	triggerSteps := []*StepDefinition{}
 	for _, t := range spec.Triggers {
-		triggerSteps = append(triggerSteps, &t)
+		tt := t
+		triggerSteps = append(triggerSteps, &tt)
 	}
 	wf := &StaticWorkflow{
 		Spec:     &spec,
@@ -250,8 +250,7 @@ func ParseStaticWorkflow(yamlWorkflow string) (*StaticWorkflow, error) {
 // by adding metadata to the vertices that is owned by the workflow runtime.
 func createExecutableWorkflow(wf2 *StaticWorkflow) (*workflow, error) {
 	out := &workflow{
-		id: wf2.ID,
-		//Graph:    wf2.Graph,
+		id:       wf2.ID,
 		triggers: []*triggerCapability{},
 		spec:     wf2.Spec,
 	}
@@ -262,7 +261,7 @@ func createExecutableWorkflow(wf2 *StaticWorkflow) (*workflow, error) {
 		})
 	}
 
-	stepHash := func(s *executable) string {
+	stepHash := func(s *step) string {
 		return s.Vertex.Hash() // this need to be the same as the static workflow hash
 	}
 	g := graph.New(
@@ -281,7 +280,10 @@ func createExecutableWorkflow(wf2 *StaticWorkflow) (*workflow, error) {
 		if innerErr != nil {
 			return nil, fmt.Errorf("failed to retrieve vertex for %s: %w", vertexRef, innerErr)
 		}
-		g.AddVertex(&executable{Vertex: *v})
+		innerErr = g.AddVertex(&step{Vertex: *v})
+		if innerErr != nil {
+			return nil, fmt.Errorf("failed to add vertex to executable workflow %s: %w", vertexRef, innerErr)
+		}
 	}
 	// now we can add all the edges. this works because the vertexRef value in the intermediate graph
 	// is the same as the vertexRef in the executable graph and that is due to the hash function being the same.
@@ -295,5 +297,4 @@ func createExecutableWorkflow(wf2 *StaticWorkflow) (*workflow, error) {
 	}
 	out.Graph = g
 	return out, nil
-
 }
