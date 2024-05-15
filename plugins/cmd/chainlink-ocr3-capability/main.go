@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	ocr3rp "github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -22,8 +23,9 @@ func main() {
 	defer s.Stop()
 
 	c := ocr3.Config{
-		Logger:         s.Logger,
-		EncoderFactory: evm.NewEVMEncoder,
+		Logger:            s.Logger,
+		EncoderFactory:    evm.NewEVMEncoder,
+		AggregatorFactory: capabilities.NewAggregator,
 	}
 	p := ocr3.NewOCR3(c)
 	if err := p.Start(context.Background()); err != nil {
