@@ -35,23 +35,8 @@ MaxIdleConns = 20
 MaxOpenConns = 40
 MigrateOnStartup = true
 
-[OCR2]
-Enabled = true
-
 [Keeper]
 TurnLookBack = 0
-
-[Keeper.Registry]
-PerformGasOverhead = 150000
-SyncInterval = '5m0s'
-
-[P2P]
-[P2P.V2]
-Enabled = true
-ListenAddresses = ['0.0.0.0:6690']
-AnnounceAddresses = ['0.0.0.0:6690']
-DeltaDial = '500ms'
-DeltaReconcile = '5s'
 """
 
 [Keeper.Common]

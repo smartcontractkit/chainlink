@@ -110,13 +110,6 @@ MigrateOnStartup = true
 [OCR2]
 Enabled = true
 
-[Keeper]
-TurnLookBack = 0
-
-[Keeper.Registry]
-PerformGasOverhead = 150000
-SyncInterval = '5m0s'
-
 [P2P]
 [P2P.V2]
 Enabled = true
