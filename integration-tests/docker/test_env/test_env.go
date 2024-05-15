@@ -274,6 +274,7 @@ func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
 	if showHTMLCoverageReport || isCI {
 		// Stop all nodes in the chainlink cluster.
 		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
+		// TODO: fix this as it results in: ERR LOG AFTER TEST ENDED ... INF 🐳 Stopping container
 		err := te.ClCluster.Stop()
 		if err != nil {
 			return err
