@@ -14,6 +14,8 @@ import (
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 )
 
+const RootKeyNum = 0
+
 type BHSTestGun struct {
 	contracts  *vrfcommon.VRFContracts
 	keyHash    [32]byte
@@ -117,7 +119,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		billingType,
 		vrfv2PlusConfig,
 		m.logger,
-		m.sethClient.AnySyncedKey(),
+		RootKeyNum,
 	)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
