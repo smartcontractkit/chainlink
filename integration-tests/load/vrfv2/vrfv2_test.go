@@ -99,7 +99,7 @@ func TestVRFV2Performance(t *testing.T) {
 		UseTestCoordinator:     true,
 	}
 
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "error setting up VRFV2 universe")
 
 	evmClient, err := testEnv.GetEVMClient(chainID)
@@ -243,7 +243,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		UseTestCoordinator:     true,
 	}
 
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
 	require.NoError(t, err, "error setting up VRFV2 universe")
 
 	evmClient, err := testEnv.GetEVMClient(chainID)
