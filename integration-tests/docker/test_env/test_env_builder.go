@@ -420,7 +420,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 			if b.hasSeth {
-				seth, err := actions_seth.GetChainClientWithConfigFunction(b.testConfig, networkConfig, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
+				seth, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
 				if err != nil {
 					return nil, err
 				}
