@@ -14,6 +14,8 @@ import (
 )
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
+// To avoid a catastrophic libocr codec error, you must make sure that either all nodes in the same DON
+// (1) have no GasPriceSubunitsPipeline or all nodes in the same DON (2) have a GasPriceSubunitsPipeline
 type PluginConfig struct {
 	GasPriceSubunitsPipeline string `json:"gasPriceSubunitsSource"`
 	JuelsPerFeeCoinPipeline  string `json:"juelsPerFeeCoinSource"`

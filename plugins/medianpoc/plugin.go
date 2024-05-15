@@ -30,6 +30,14 @@ type Plugin struct {
 	reportingplugins.MedianProviderServer
 }
 
+type PipelineNotFoundError struct {
+	Message string
+}
+
+func (e *PipelineNotFoundError) Error() string {
+	return e.Message
+}
+
 func (p *Plugin) NewValidationService(ctx context.Context) (core.ValidationService, error) {
 	s := &reportingPluginValidationService{lggr: p.Logger}
 	p.SubService(s)
@@ -55,7 +63,7 @@ func (j jsonConfig) getPipeline(key string) (string, error) {
 			return v.Spec, nil
 		}
 	}
-	return "", fmt.Errorf("no pipeline found for %s", key)
+	return "", &PipelineNotFoundError{fmt.Sprintf("no pipeline found for %s", key)}
 }
 
 func (p *Plugin) NewReportingPluginFactory(
@@ -103,12 +111,39 @@ func (p *Plugin) newFactory(ctx context.Context, config core.ReportingPluginServ
 		spec:           jfp,
 		lggr:           p.Logger,
 	}
+
+	var gds median.DataSource
+	gp, err := jc.getPipeline("gasPriceSubunitsPipeline")
+
+	_, pipelineNotFound := err.(*PipelineNotFoundError)
+	if !pipelineNotFound && err != nil {
+		return nil, err
+	}
+
+	// Setting includeGasPriceSubunitsInObservation properly ensures we do not break libocr codec
+	// by including gasPriceSubunits in the observation when not allowed
+	// Once all chainlink nodes in DONs have libocr version >= fd3cab206b2c
+	// this check and IncludeGasPriceSubunitsInObservation field can be removed
+
+	var includeGasPriceSubunitsInObservation bool
+	if pipelineNotFound {
+		gds = &ZeroDataSource{}
+		includeGasPriceSubunitsInObservation = false
+	} else {
+		gds = &DataSource{
+			pipelineRunner: pipelineRunner,
+			spec:           gp,
+			lggr:           p.Logger,
+		}
+		includeGasPriceSubunitsInObservation = true
+	}
+
 	factory := &median.NumericalMedianFactory{
 		ContractTransmitter:                  provider.MedianContract(),
 		DataSource:                           ds,
 		JuelsPerFeeCoinDataSource:            jds,
-		GasPriceSubunitsDataSource:           &ZeroDataSource{},
-		IncludeGasPriceSubunitsInObservation: false,
+		GasPriceSubunitsDataSource:           gds,
+		IncludeGasPriceSubunitsInObservation: includeGasPriceSubunitsInObservation,
 		Logger: logger.NewOCRWrapper(
 			p.Logger,
 			true,
