@@ -1162,6 +1162,25 @@ func (lsn *listenerV2) simulateFulfillment(
 					res.proof = FromV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
 					res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 				}
+
+				if trr.Task.Type() == pipeline.TaskTypeVRFV2Plus {
+					if trr.Result.Error != nil {
+						// error in VRF proof generation
+						// this means that we won't be able to force-fulfill in the event of a
+						// canceled sub and active requests.
+						// since this would be an extraordinary situation,
+						// we can log loudly here.
+						lg.Criticalw("failed to generate VRF proof", "err", trr.Result.Error)
+						break
+					}
+
+					// extract the abi-encoded tx data to fulfillRandomWords from the VRF task.
+					// that's all we need in the event of a force-fulfillment.
+					m := trr.Result.Value.(map[string]interface{})
+					res.payload = m["output"].(string)
+					res.proof = FromV2PlusProof(m["proof"].(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof))
+					res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
+				}
 			}
 			res.err = multierr.Combine(res.err, errPossiblyInsufficientFunds{})
 		}
