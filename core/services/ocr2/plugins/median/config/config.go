@@ -46,7 +46,7 @@ func (config *PluginConfig) ValidatePluginConfig() error {
 	}
 
 	// Gas price pipeline is optional
-	if !config.GasPriceSubunitsPipelineExists() {
+	if !config.HasGasPriceSubunitsPipeline() {
 		return nil
 	} else if _, err := pipeline.Parse(config.GasPriceSubunitsPipeline); err != nil {
 		return errors.Wrap(err, "invalid gasPriceSubunitsSource pipeline")
@@ -55,6 +55,6 @@ func (config *PluginConfig) ValidatePluginConfig() error {
 	return nil
 }
 
-func (config *PluginConfig) GasPriceSubunitsPipelineExists() bool {
-	return !(strings.TrimSpace(config.GasPriceSubunitsPipeline) == "")
+func (config *PluginConfig) HasGasPriceSubunitsPipeline() bool {
+	return strings.TrimSpace(config.GasPriceSubunitsPipeline) != ""
 }

@@ -138,7 +138,7 @@ func NewMedianServices(ctx context.Context,
 	}
 
 	var gasPriceSubunitsDataSource libocr_median.DataSource
-	if pluginConfig.GasPriceSubunitsPipelineExists() {
+	if pluginConfig.HasGasPriceSubunitsPipeline() {
 		gasPriceSubunitsDataSource = ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
 			ID:           jb.ID,
 			DotDagSource: pluginConfig.GasPriceSubunitsPipeline,

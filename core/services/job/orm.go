@@ -296,7 +296,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errFeePipeline
 				}
 
-				if cfg.GasPriceSubunitsPipelineExists() {
+				if cfg.HasGasPriceSubunitsPipeline() {
 					if errGasPipeline := validatePipeline(cfg.GasPriceSubunitsPipeline); errGasPipeline != nil {
 						return errGasPipeline
 					}
