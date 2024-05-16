@@ -176,6 +176,10 @@ type Common struct {
 	Logging                 *ctfconfig.LoggingConfig                    `toml:",omitempty"`
 }
 
+func (p *Common) GetNodeConfig() *ctfconfig.NodeConfig {
+	return nil
+}
+
 func (p *Common) GetSethConfig() *seth.Config {
 	return nil
 }

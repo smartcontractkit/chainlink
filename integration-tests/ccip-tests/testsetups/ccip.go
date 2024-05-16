@@ -1148,7 +1148,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			}
 			lggr.Info().Msg("Tearing down the environment")
 			err = integrationactions.TeardownSuite(t, ccipEnv.K8Env, ccipEnv.CLNodes, o.Reporter,
-				zapcore.ErrorLevel, o.Cfg.EnvInput, chains...)
+				zapcore.DPanicLevel, o.Cfg.EnvInput, chains...)
 			require.NoError(t, err, "Environment teardown shouldn't fail")
 		} else {
 			//just send the report
