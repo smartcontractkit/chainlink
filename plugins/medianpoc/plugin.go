@@ -31,11 +31,11 @@ type Plugin struct {
 }
 
 type PipelineNotFoundError struct {
-	Message string
+	Key string
 }
 
 func (e *PipelineNotFoundError) Error() string {
-	return e.Message
+	return fmt.Sprintf("no pipeline found for %s", e.Key)
 }
 
 func (p *Plugin) NewValidationService(ctx context.Context) (core.ValidationService, error) {
@@ -63,7 +63,7 @@ func (j jsonConfig) getPipeline(key string) (string, error) {
 			return v.Spec, nil
 		}
 	}
-	return "", &PipelineNotFoundError{fmt.Sprintf("no pipeline found for %s", key)}
+	return "", &PipelineNotFoundError{key}
 }
 
 func (p *Plugin) NewReportingPluginFactory(
@@ -120,10 +120,9 @@ func (p *Plugin) newFactory(ctx context.Context, config core.ReportingPluginServ
 		return nil, err
 	}
 
-	// Setting includeGasPriceSubunitsInObservation properly ensures we do not break libocr codec
-	// by including gasPriceSubunits in the observation when not allowed
-	// Once all chainlink nodes in DONs have libocr version >= fd3cab206b2c
-	// this check and IncludeGasPriceSubunitsInObservation field can be removed
+	// We omit gas price in observation to maintain backwards compability in libocr (with older nodes).
+	// Once all chainlink nodes have updated to libocr version >= fd3cab206b2c
+	// the IncludeGasPriceSubunitsInObservation field can be removed
 
 	var includeGasPriceSubunitsInObservation bool
 	if pipelineNotFound {
