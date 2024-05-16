@@ -4,12 +4,13 @@ pragma solidity 0.8.19;
 import {CallWithExactGas} from "../../call/CallWithExactGas.sol";
 import {CallWithExactGasHelper} from "./CallWithExactGasHelper.sol";
 import {BaseTest} from "../BaseTest.t.sol";
-import {GenericReceiver, GasConsumer} from "../testhelpers/GenericReceiver.sol";
+import {GenericReceiver} from "../testhelpers/GenericReceiver.sol";
+import {GasConsumer} from "../testhelpers/GasConsumer.sol";
 
 contract CallWithExactGasSetup is BaseTest {
   GenericReceiver internal s_receiver;
   CallWithExactGasHelper internal s_caller;
-  GasConsumer internal gas_consumer;
+  GasConsumer internal s_gasConsumer;
 
   uint256 internal constant DEFAULT_GAS_LIMIT = 20_000;
   uint16 internal constant DEFAULT_GAS_FOR_CALL_EXACT_CHECK = 5000;
@@ -20,7 +21,7 @@ contract CallWithExactGasSetup is BaseTest {
 
     s_receiver = new GenericReceiver(false);
     s_caller = new CallWithExactGasHelper();
-    gas_consumer = new GasConsumer();
+    s_gasConsumer = new GasConsumer();
   }
 }
 
@@ -152,54 +153,6 @@ contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
   }
 }
 
-contract CallWithExactGas_callWithExactGasAndConsumeAllGas is CallWithExactGasSetup {
-  function test_callWithExactGasAndConsumeAll() external {
-
-    vm.pauseGasMetering();
-
-    uint16 maxRetBytes = 0;
-    uint256 misc_gas_overhead = 128;
-
-    bytes4 functionSelector = bytes4(keccak256("consumeAllGas()"));
-    vm.expectCall(address(gas_consumer), abi.encodeWithSelector(functionSelector));
-
-    vm.resumeGasMetering();
-    
-    (bool success, , uint256 gasUsed) = s_caller.callWithExactGasSafeReturnData(
-      abi.encodePacked(functionSelector),
-      address(gas_consumer),
-      DEFAULT_GAS_LIMIT,
-      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
-      maxRetBytes
-    );
-
-    assertTrue(success, "Error: External Call Failed");
-    assertApproxEqAbs(gasUsed, DEFAULT_GAS_LIMIT, DEFAULT_GAS_LIMIT / 64, "Error: All gas not consumed by receiver");
-  }
-
-  function test_callWithExactGasAndConsumeMoreThanProvided() external {
-    vm.pauseGasMetering();
-
-    uint16 maxRetBytes = 0;
-
-    bytes4 functionSelector = bytes4(keccak256("throwOutOfGasError()"));
-    vm.expectCall(address(gas_consumer), abi.encodeWithSelector(functionSelector));
-
-    vm.resumeGasMetering();
-    
-    (bool success, bytes memory retData,) = s_caller.callWithExactGasSafeReturnData(
-      abi.encodePacked(functionSelector),
-      address(gas_consumer),
-      DEFAULT_GAS_LIMIT,
-      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
-      maxRetBytes
-    );
-
-    assertFalse(success, "Error: External Call Succeeded where it should not");
-    assertEq(retData.length, 0, "retData should be zero for OOG error");    
-  }
-}
-
 contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSetup {
   function testFuzz_CallWithExactGasSafeReturnDataSuccess(bytes memory payload, bytes4 funcSelector) public {
     vm.pauseGasMetering();
@@ -265,6 +218,41 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     assertTrue(innerSuccess);
     assertEq(innerRetData.length, 0);
     assertGt(gasUsed, 500);
+  }
+
+  function test_CallWithExactGasSafeReturnData_ConsumeAllGas_Success() external {
+    uint16 maxRetBytes = 0;
+    uint256 miscGasOverhead = 128;
+
+    vm.expectCall(address(s_gasConsumer), abi.encodeWithSelector(s_gasConsumer.consumeAllGas.selector));
+
+    (bool success, , uint256 gasUsed) = s_caller.callWithExactGasSafeReturnData(
+      abi.encodePacked(s_gasConsumer.consumeAllGas.selector),
+      address(s_gasConsumer),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      maxRetBytes
+    );
+
+    assertTrue(success, "Error: External Call Failed");
+    assertEq(gasUsed - miscGasOverhead, DEFAULT_GAS_LIMIT, "Error: All gas not consumed by receiver");
+  }
+
+  function test_callWithExactGasSafeReturnData_ThrowOOGError_Revert() external {
+    uint16 maxRetBytes = 0;
+
+    vm.expectCall(address(s_gasConsumer), abi.encodeWithSelector(s_gasConsumer.throwOutOfGasError.selector));
+
+    (bool success, bytes memory retData, ) = s_caller.callWithExactGasSafeReturnData(
+      abi.encodePacked(s_gasConsumer.throwOutOfGasError.selector),
+      address(s_gasConsumer),
+      DEFAULT_GAS_LIMIT,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      maxRetBytes
+    );
+
+    assertFalse(success, "Error: External Call Succeeded where it should not");
+    assertEq(retData.length, 0, "retData should be zero for OOG error");
   }
 
   function testFuzz_CallWithExactGasReceiverErrorSuccess(uint16 testRetBytes) public {
