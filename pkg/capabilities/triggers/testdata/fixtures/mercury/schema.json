@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/smartcontractkit/chainlink/capabilities/mercury-trigger/root",
+  "$id": "https://github.com/smartcontractkit/chainlink/capabilities/streams-trigger/root",
   "properties": {
     "config": {
       "properties": {
@@ -66,5 +66,5 @@
     "inputs",
     "outputs"
   ],
-  "description": "An example mercury trigger."
+  "description": "Streams Trigger"
 }

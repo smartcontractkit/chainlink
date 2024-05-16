@@ -1,5 +1,5 @@
 config:
-  aggregation_method:  data_feeds_2_0
+  aggregation_method:  data_feeds
   aggregation_config:
     Underlying: {}
       

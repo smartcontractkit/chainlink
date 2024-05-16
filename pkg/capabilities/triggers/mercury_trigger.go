@@ -14,10 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
-var mercuryInfo = capabilities.MustNewCapabilityInfo(
-	"mercury-trigger",
+var capInfo = capabilities.MustNewCapabilityInfo(
+	"streams-trigger",
 	capabilities.CapabilityTypeTrigger,
-	"An example mercury trigger.",
+	"Streams Trigger",
 	"v1.0.0",
 	nil,
 )
@@ -38,7 +38,7 @@ type inputs struct {
 	TriggerID string `json:"triggerId"`
 }
 
-var mercuryTriggerValidator = capabilities.NewValidator[config, inputs, capabilities.TriggerEvent](capabilities.ValidatorArgs{Info: mercuryInfo})
+var mercuryTriggerValidator = capabilities.NewValidator[config, inputs, capabilities.TriggerEvent](capabilities.ValidatorArgs{Info: capInfo})
 
 // This Trigger Service allows for the registration and deregistration of triggers. You can also send reports to the service.
 type MercuryTriggerService struct {
@@ -71,7 +71,7 @@ func NewMercuryTriggerService(tickerResolutionMs int64, lggr logger.Logger) *Mer
 	}
 	return &MercuryTriggerService{
 		Validator:          mercuryTriggerValidator,
-		CapabilityInfo:     mercuryInfo,
+		CapabilityInfo:     capInfo,
 		tickerResolutionMs: tickerResolutionMs,
 		subscribers:        make(map[string]*subscriber),
 		latestReports:      make(map[mercury.FeedID]mercury.FeedReport),
@@ -197,7 +197,7 @@ func (o *MercuryTriggerService) process(timestamp int64) {
 			}
 
 			// use 32-byte-padded timestamp as EventID (human-readable)
-			eventID := fmt.Sprintf("mercury_%024s", strconv.FormatInt(timestamp, 10))
+			eventID := fmt.Sprintf("streams_%024s", strconv.FormatInt(timestamp, 10))
 			capabilityResponse, err := wrapReports(reportList, eventID, timestamp)
 			if err != nil {
 				o.lggr.Errorw("error wrapping reports", "err", err)

@@ -7,7 +7,7 @@
         "aggregation_method": {
           "type": "string",
           "enum": [
-            "data_feeds_2_0"
+            "data_feeds"
           ]
         },
         "aggregation_config": {

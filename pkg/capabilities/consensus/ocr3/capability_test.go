@@ -75,7 +75,7 @@ func TestOCR3Capability(t *testing.T) {
 	cp := newCapability(s, fc, 1*time.Second, mockAggregatorFactory, mockEncoderFactory, lggr, 10)
 	require.NoError(t, cp.Start(ctx))
 
-	config, err := values.NewMap(map[string]any{"aggregation_method": "data_feeds_2_0"})
+	config, err := values.NewMap(map[string]any{"aggregation_method": "data_feeds"})
 	require.NoError(t, err)
 
 	ethUsdValStr := "1.123456"
@@ -139,7 +139,7 @@ func TestOCR3Capability_Eviction(t *testing.T) {
 	cp := newCapability(s, fc, rea, mockAggregatorFactory, mockEncoderFactory, lggr, 10)
 	require.NoError(t, cp.Start(ctx))
 
-	config, err := values.NewMap(map[string]any{"aggregation_method": "data_feeds_2_0"})
+	config, err := values.NewMap(map[string]any{"aggregation_method": "data_feeds"})
 	require.NoError(t, err)
 
 	ethUsdValue, err := decimal.NewFromString("1.123456")
@@ -179,7 +179,7 @@ func TestOCR3Capability_Registration(t *testing.T) {
 	require.NoError(t, cp.Start(ctx))
 
 	config, err := values.NewMap(map[string]any{
-		"aggregation_method": "data_feeds_2_0",
+		"aggregation_method": "data_feeds",
 		"aggregation_config": map[string]any{},
 		"encoder":            "",
 		"encoder_config":     map[string]any{},
@@ -225,7 +225,7 @@ func TestOCR3Capability_ValidateConfig(t *testing.T) {
 
 	t.Run("ValidConfig", func(t *testing.T) {
 		config, err := values.NewMap(map[string]any{
-			"aggregation_method": "data_feeds_2_0",
+			"aggregation_method": "data_feeds",
 			"aggregation_config": map[string]any{},
 			"encoder":            "",
 			"encoder_config":     map[string]any{},
@@ -239,7 +239,7 @@ func TestOCR3Capability_ValidateConfig(t *testing.T) {
 
 	t.Run("InvalidConfig", func(t *testing.T) {
 		config, err := values.NewMap(map[string]any{
-			"aggregation_method": "data_feeds_2_0",
+			"aggregation_method": "data_feeds",
 		})
 		require.NoError(t, err)
 

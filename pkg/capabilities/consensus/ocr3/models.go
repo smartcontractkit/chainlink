@@ -9,7 +9,7 @@ import (
 )
 
 type config struct {
-	AggregationMethod string      `mapstructure:"aggregation_method" json:"aggregation_method" jsonschema:"enum=data_feeds_2_0"`
+	AggregationMethod string      `mapstructure:"aggregation_method" json:"aggregation_method" jsonschema:"enum=data_feeds"`
 	AggregationConfig *values.Map `mapstructure:"aggregation_config" json:"aggregation_config"`
 	Encoder           string      `mapstructure:"encoder" json:"encoder"`
 	EncoderConfig     *values.Map `mapstructure:"encoder_config" json:"encoder_config"`
