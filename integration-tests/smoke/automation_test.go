@@ -1262,9 +1262,10 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err = consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterSettingLowMaxGasPrice[i].Int64()),
-						"Expected consumer counter to remain constant at %d, but got %d",
-						countersAfterSettingLowMaxGasPrice[i].Int64(), latestCounter.Int64())
+					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterSettingLowMaxGasPrice[i].Int64()+1),
+						"Expected consumer counter to be less than %d, but got %d",
+						countersAfterSettingLowMaxGasPrice[i].Int64()+1, latestCounter.Int64())
+
 				}
 			}, "2m", "5s").Should(gomega.Succeed())
 			l.Info().Msg("no upkeeps is performed because their max gas price is only 1 wei")

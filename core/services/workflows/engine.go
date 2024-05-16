@@ -122,37 +122,37 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	return capabilityRegistrationErr
 }
 
-func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
+func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	// If the capability already exists, that means we've already registered it
-	if s.capability != nil {
+	if step.capability != nil {
 		return nil
 	}
 
-	cp, err := e.registry.Get(ctx, s.ID)
+	cp, err := e.registry.Get(ctx, step.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get capability with ref %s: %s", s.ID, err)
+		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
 	}
 
 	// We configure actions, consensus and targets here, and
 	// they all satisfy the `CallbackCapability` interface
 	cc, ok := cp.(capabilities.CallbackCapability)
 	if !ok {
-		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.ID)
+		return fmt.Errorf("could not coerce capability %s to CallbackCapability", step.ID)
 	}
 
-	if s.config == nil {
-		configMap, newMapErr := values.NewMap(s.Config)
+	if step.config == nil {
+		configMap, newMapErr := values.NewMap(step.Config)
 		if newMapErr != nil {
 			return fmt.Errorf("failed to convert config to values.Map: %s", newMapErr)
 		}
-		s.config = configMap
+		step.config = configMap
 	}
 
 	registrationRequest := capabilities.RegisterToWorkflowRequest{
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID: e.workflow.id,
 		},
-		Config: s.config,
+		Config: step.config,
 	}
 
 	err = cc.RegisterToWorkflow(ctx, registrationRequest)
@@ -160,7 +160,7 @@ func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
 		return fmt.Errorf("failed to register to workflow (%+v): %w", registrationRequest, err)
 	}
 
-	s.capability = cc
+	step.capability = cc
 	return nil
 }
 
@@ -260,8 +260,8 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 // and `scheduledExecution` for targets. If we don't have the necessary
 // config to initialize a scheduledExecution for a target, we'll fallback to
 // using `immediateExecution`.
-func (e *Engine) initializeExecutionStrategy(step *step) error {
-	if step.executionStrategy != nil {
+func (e *Engine) initializeExecutionStrategy(s *step) error {
+	if s.executionStrategy != nil {
 		return nil
 	}
 
@@ -272,16 +272,16 @@ func (e *Engine) initializeExecutionStrategy(step *step) error {
 	}
 
 	ie := immediateExecution{}
-	if step.CapabilityType != capabilities.CapabilityTypeTarget {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: not a target", step)
-		step.executionStrategy = ie
+	if s.CapabilityType != capabilities.CapabilityTypeTarget {
+		e.logger.Debugf("initializing step %+v with immediate execution strategy: not a target", s)
+		s.executionStrategy = ie
 		return nil
 	}
 
 	dinfo := e.donInfo
 	if dinfo.DON == nil {
 		e.logger.Debugf("initializing target step with immediate execution strategy: donInfo %+v", e.donInfo)
-		step.executionStrategy = ie
+		s.executionStrategy = ie
 		return nil
 	}
 
@@ -294,17 +294,17 @@ func (e *Engine) initializeExecutionStrategy(step *step) error {
 	}
 
 	if position == nil {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: position not found in donInfo %+v", step, e.donInfo)
-		step.executionStrategy = ie
+		e.logger.Debugf("initializing step %+v with immediate execution strategy: position not found in donInfo %+v", s, e.donInfo)
+		s.executionStrategy = ie
 		return nil
 	}
 
-	step.executionStrategy = scheduledExecution{
+	s.executionStrategy = scheduledExecution{
 		DON:      e.donInfo.DON,
 		Position: *position,
 		PeerID:   e.donInfo.PeerID(),
 	}
-	e.logger.Debugf("initializing step %+v with scheduled execution strategy", step)
+	e.logger.Debugf("initializing step %+v with scheduled execution strategy", s)
 	return nil
 }
 
