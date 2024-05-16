@@ -73,11 +73,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     // Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
     //     labelledName = "data-streams-reports:chain:ethereum"
     //
-    // bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
-    bytes32 labelledName;
+    // validation regex: ^[a-z0-9_\-:]$
+    string labelledName;
     // Semver, e.g., "1.2.3"
-    // bytes32(string); must be valid Semver + max 32 characters.
-    bytes32 version;
+    // must be valid Semver.
+    string version;
     // responseType indicates whether remote response requires
     // aggregation or is an OCR report. There are multiple possible
     // ways to aggregate.
@@ -489,7 +489,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice This functions returns a capability id that has been hashed to fit into a bytes32 for cheaper access
   /// @return bytes32 A unique identifier for the capability
-  function getHashedCapabilityId(bytes32 labelledName, bytes32 version) public pure returns (bytes32) {
+  function getHashedCapabilityId(string calldata labelledName, string calldata version) public pure returns (bytes32) {
     return keccak256(abi.encodePacked(labelledName, version));
   }
 

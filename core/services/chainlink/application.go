@@ -212,9 +212,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		srvcs = append(srvcs, externalPeerWrapper)
 
+		onchainCapabilityRegistryAddress := evmtypes.MustEIP55Address(cfg.Capabilities().OnchainCapabilityRegistryAddress()).Address()
+		onchainRegistry := capabilities.NewOnchainCapabilityRegistry(onchainCapabilityRegistryAddress, globalLogger)
+
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
 		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, onchainRegistry)
 		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 
