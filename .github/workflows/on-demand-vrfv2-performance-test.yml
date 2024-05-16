@@ -38,6 +38,9 @@ jobs:
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}
+      GRAFANA_URL: "http://localhost:8080/primary"
+      GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+      GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       WASP_LOG_LEVEL: info
     steps:
       - name: Collect Metrics

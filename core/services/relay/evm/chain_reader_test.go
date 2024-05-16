@@ -49,6 +49,7 @@ const (
 func TestChainReaderGetLatestValue(t *testing.T) {
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
+
 	RunChainReaderGetLatestValueInterfaceTests(t, it)
 	RunChainReaderGetLatestValueInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
 
@@ -107,6 +108,14 @@ func TestChainReaderGetLatestValue(t *testing.T) {
 		assert.Equal(t, int32(2), latest.Field2)
 		assert.Equal(t, int32(3), latest.Field3)
 	})
+}
+
+func TestChainReaderQueryKey(t *testing.T) {
+	t.Parallel()
+	it := &chainReaderInterfaceTester{}
+
+	RunQueryKeyInterfaceTests(t, it)
+	RunQueryKeyInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
 }
 
 func triggerFourTopics(t *testing.T, it *chainReaderInterfaceTester, i1, i2, i3 int32) {
