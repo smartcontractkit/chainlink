@@ -153,9 +153,11 @@ type server struct {
 
 	c  wsrpc.Client
 	pm *PersistenceManager
-	q  *TransmitQueue
+	q  TransmitQueue
 
 	deleteQueue chan *pb.TransmitRequest
+
+	url string
 
 	transmitSuccessCount          prometheus.Counter
 	transmitDuplicateCount        prometheus.Counter
@@ -268,7 +270,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 				s.transmitDuplicateCount.Inc()
 				s.lggr.Debugw("Transmit report success; duplicate report", "payload", hexutil.Encode(t.Req.Payload), "response", res, "repts", t.ReportCtx.ReportTimestamp)
 			default:
-				transmitServerErrorCount.WithLabelValues(feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
+				transmitServerErrorCount.WithLabelValues(feedIDHex, s.url, fmt.Sprintf("%d", res.Code)).Inc()
 				s.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
@@ -281,26 +283,32 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 	}
 }
 
+func newServer(lggr logger.Logger, cfg TransmitterConfig, client wsrpc.Client, pm *PersistenceManager, serverURL, feedIDHex string) *server {
+	return &server{
+		lggr,
+		cfg.TransmitTimeout().Duration(),
+		client,
+		pm,
+		NewTransmitQueue(lggr, serverURL, feedIDHex, int(cfg.TransmitQueueMaxSize()), pm),
+		make(chan *pb.TransmitRequest, int(cfg.TransmitQueueMaxSize())),
+		serverURL,
+		transmitSuccessCount.WithLabelValues(feedIDHex, serverURL),
+		transmitDuplicateCount.WithLabelValues(feedIDHex, serverURL),
+		transmitConnectionErrorCount.WithLabelValues(feedIDHex, serverURL),
+		transmitQueueDeleteErrorCount.WithLabelValues(feedIDHex, serverURL),
+		transmitQueueInsertErrorCount.WithLabelValues(feedIDHex, serverURL),
+		transmitQueuePushErrorCount.WithLabelValues(feedIDHex, serverURL),
+	}
+
+}
+
 func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[string]wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, orm ORM, codec TransmitterReportDecoder, triggerCapability *triggers.MercuryTriggerService) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	servers := make(map[string]*server, len(clients))
 	for serverURL, client := range clients {
 		cLggr := lggr.Named(serverURL).With("serverURL", serverURL)
 		pm := NewPersistenceManager(cLggr, serverURL, orm, jobID, int(cfg.TransmitQueueMaxSize()), flushDeletesFrequency, pruneFrequency)
-		servers[serverURL] = &server{
-			cLggr,
-			cfg.TransmitTimeout().Duration(),
-			client,
-			pm,
-			NewTransmitQueue(cLggr, serverURL, feedIDHex, int(cfg.TransmitQueueMaxSize()), pm),
-			make(chan *pb.TransmitRequest, int(cfg.TransmitQueueMaxSize())),
-			transmitSuccessCount.WithLabelValues(feedIDHex, serverURL),
-			transmitDuplicateCount.WithLabelValues(feedIDHex, serverURL),
-			transmitConnectionErrorCount.WithLabelValues(feedIDHex, serverURL),
-			transmitQueueDeleteErrorCount.WithLabelValues(feedIDHex, serverURL),
-			transmitQueueInsertErrorCount.WithLabelValues(feedIDHex, serverURL),
-			transmitQueuePushErrorCount.WithLabelValues(feedIDHex, serverURL),
-		}
+		servers[serverURL] = newServer(cLggr, cfg, client, pm, serverURL, feedIDHex)
 	}
 	return &mercuryTransmitter{
 		services.StateMachine{},
