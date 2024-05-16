@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
@@ -51,6 +52,7 @@ var _ ccipdata.OnRampReader = &OnRamp{}
 type OnRamp struct {
 	onRamp                           *evm_2_evm_onramp.EVM2EVMOnRamp
 	address                          common.Address
+	destChainSelectorBytes           [32]byte
 	lggr                             logger.Logger
 	lp                               logpoller.LogPoller
 	leafHasher                       ccipdata.LeafHasherInterface[[32]byte]
@@ -91,6 +93,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	return &OnRamp{
 		lggr:                       lggr,
 		client:                     source,
+		destChainSelectorBytes:     ccipcommon.SelectorToBytes(destSelector),
 		lp:                         sourceLP,
 		leafHasher:                 NewLeafHasher(sourceSelector, destSelector, onRampAddress, hashlib.NewKeccakCtx(), onRamp),
 		onRamp:                     onRamp,
@@ -198,7 +201,7 @@ func (o *OnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("intializing RMN contract through the RmnProxy: %w", err)
 	}
 
-	cursed, err := arm.IsCursed(&bind.CallOpts{Context: ctx})
+	cursed, err := arm.IsCursed0(&bind.CallOpts{Context: ctx}, o.destChainSelectorBytes)
 	if err != nil {
 		return false, fmt.Errorf("checking if source is cursed by RMN: %w", err)
 	}
