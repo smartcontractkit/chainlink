@@ -19,7 +19,7 @@ func TestPriorityLevelNodeSelector(t *testing.T) {
 	type nodeClient RPCClient[types.ID, Head]
 	type testNode struct {
 		order int32
-		state nodeState
+		state NodeState
 	}
 	type testCase struct {
 		name   string

@@ -264,11 +264,7 @@ func (c *chainClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 }
 
 func (c *chainClient) NodeStates() map[string]string {
-	nodeStates := make(map[string]string)
-	for k, v := range c.multiNode.NodeStates() {
-		nodeStates[k] = v.String()
-	}
-	return nodeStates
+	return c.multiNode.NodeStates()
 }
 
 func (c *chainClient) PendingCodeAt(ctx context.Context, account common.Address) (b []byte, err error) {

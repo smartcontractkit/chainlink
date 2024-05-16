@@ -61,7 +61,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 		if !ok {
 			return
 		}
-		s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
+		s.log.Infow("Sendonly RPC Node is online", "NodeState", s.state)
 		return
 	}
 }

@@ -39,11 +39,11 @@ var (
 	}, []string{"chainID", "nodeName"})
 )
 
-// nodeState represents the current state of the node
+// NodeState represents the current state of the node
 // Node is a FSM (finite state machine)
-type nodeState int
+type NodeState int
 
-func (n nodeState) String() string {
+func (n NodeState) String() string {
 	switch n {
 	case nodeStateUndialed:
 		return "Undialed"
@@ -64,18 +64,18 @@ func (n nodeState) String() string {
 	case nodeStateSyncing:
 		return "Syncing"
 	default:
-		return fmt.Sprintf("nodeState(%d)", n)
+		return fmt.Sprintf("NodeState(%d)", n)
 	}
 }
 
 // GoString prints a prettier state
-func (n nodeState) GoString() string {
-	return fmt.Sprintf("nodeState%s(%d)", n.String(), n)
+func (n NodeState) GoString() string {
+	return fmt.Sprintf("NodeState%s(%d)", n.String(), n)
 }
 
 const (
 	// nodeStateUndialed is the first state of a virgin node
-	nodeStateUndialed = nodeState(iota)
+	nodeStateUndialed = NodeState(iota)
 	// nodeStateDialed is after a node has successfully dialed but before it has verified the correct chain ID
 	nodeStateDialed
 	// nodeStateInvalidChainID is after chain ID verification failed
@@ -103,10 +103,10 @@ const (
 )
 
 // allNodeStates represents all possible states a node can be in
-var allNodeStates []nodeState
+var allNodeStates []NodeState
 
 func init() {
-	for s := nodeState(0); s < nodeStateLen; s++ {
+	for s := NodeState(0); s < nodeStateLen; s++ {
 		allNodeStates = append(allNodeStates, s)
 	}
 }
@@ -114,13 +114,13 @@ func init() {
 // FSM methods
 
 // State allows reading the current state of the node.
-func (n *node[CHAIN_ID, HEAD, RPC]) State() nodeState {
+func (n *node[CHAIN_ID, HEAD, RPC]) State() NodeState {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.state
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, ChainInfo) {
+func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (NodeState, ChainInfo) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.state, ChainInfo{
@@ -133,7 +133,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, ChainInfo) {
 // This is low-level; care should be taken by the caller to ensure the new state is a valid transition.
 // State changes should always be synchronous: only one goroutine at a time should change state.
 // n.stateMu should not be locked for long periods of time because external clients expect a timely response from n.State()
-func (n *node[CHAIN_ID, HEAD, RPC]) setState(s nodeState) {
+func (n *node[CHAIN_ID, HEAD, RPC]) setState(s NodeState) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.state = s
@@ -144,7 +144,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) setState(s nodeState) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareAlive() {
 	n.transitionToAlive(func() {
-		n.lfcLog.Infow("RPC Node is online", "nodeState", n.state)
+		n.lfcLog.Infow("RPC Node is online", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -170,7 +170,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 // pool consumers again
 func (n *node[CHAIN_ID, HEAD, RPC]) declareInSync() {
 	n.transitionToInSync(func() {
-		n.lfcLog.Infow("RPC Node is back in sync", "nodeState", n.state)
+		n.lfcLog.Infow("RPC Node is back in sync", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -197,7 +197,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 // clients and making it unavailable for use until back in-sync.
 func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(isOutOfSync func(num int64, td *big.Int) bool) {
 	n.transitionToOutOfSync(func() {
-		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is out of sync", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.outOfSyncLoop(isOutOfSync)
 	})
@@ -222,7 +222,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareUnreachable() {
 	n.transitionToUnreachable(func() {
-		n.lfcLog.Errorw("RPC Node is unreachable", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is unreachable", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.unreachableLoop()
 	})
@@ -245,7 +245,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 	fn()
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state nodeState) {
+func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state NodeState) {
 	if n.State() == nodeStateClosed {
 		return
 	}
@@ -265,7 +265,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state nodeState) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareInvalidChainID() {
 	n.transitionToInvalidChainID(func() {
-		n.lfcLog.Errorw("RPC Node has the wrong chain ID", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node has the wrong chain ID", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.invalidChainIDLoop()
 	})
@@ -290,7 +290,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareSyncing() {
 	n.transitionToSyncing(func() {
-		n.lfcLog.Errorw("RPC Node is syncing", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is syncing", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.syncingLoop()
 	})
@@ -317,10 +317,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 	fn()
 }
 
-func transitionString(state nodeState) string {
+func transitionString(state NodeState) string {
 	return fmt.Sprintf("Total number of times node has transitioned to %s", state)
 }
 
-func transitionFail(from nodeState, to nodeState) string {
+func transitionFail(from NodeState, to NodeState) string {
 	return fmt.Sprintf("cannot transition from %#v to %#v", from, to)
 }

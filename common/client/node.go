@@ -74,9 +74,9 @@ type Node[
 	RPC_CLIENT any,
 ] interface {
 	// State returns health state of the underlying RPC
-	State() nodeState
+	State() NodeState
 	// StateAndLatest returns health state with the latest received block number & total difficulty.
-	StateAndLatest() (nodeState, ChainInfo)
+	StateAndLatest() (NodeState, ChainInfo)
 	// Name is a unique identifier for this node.
 	Name() string
 	// String - returns string representation of the node, useful for debugging (name + URLS used to connect to the RPC)
@@ -115,7 +115,7 @@ type node[
 	rpc RPC_CLIENT
 
 	stateMu sync.RWMutex // protects state* fields
-	state   nodeState
+	state   NodeState
 	// Each node is tracking the last received head number and total difficulty
 	stateLatestBlockNumber          int64
 	stateLatestTotalDifficulty      *big.Int
@@ -258,7 +258,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) start(startCtx context.Context) {
 // verifyChainID checks that connection to the node matches the given chain ID
 // Not thread-safe
 // Pure verifyChainID: does not mutate node "state" field.
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyChainID(callerCtx context.Context, lggr logger.Logger) nodeState {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyChainID(callerCtx context.Context, lggr logger.Logger) NodeState {
 	promPoolRPCNodeVerifies.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
 	promFailed := func() {
 		promPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
@@ -279,7 +279,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyChainID(callerCtx context.Conte
 	var err error
 	if chainID, err = n.rpc.ChainID(callerCtx); err != nil {
 		promFailed()
-		lggr.Errorw("Failed to verify chain ID for node", "err", err, "nodeState", n.State())
+		lggr.Errorw("Failed to verify chain ID for node", "err", err, "NodeState", n.State())
 		return nodeStateUnreachable
 	} else if chainID.String() != n.chainID.String() {
 		promFailed()
@@ -290,7 +290,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyChainID(callerCtx context.Conte
 			n.name,
 			errInvalidChainID,
 		)
-		lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err, "nodeState", n.State())
+		lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err, "NodeState", n.State())
 		return nodeStateInvalidChainID
 	}
 
@@ -301,9 +301,9 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyChainID(callerCtx context.Conte
 
 // createVerifiedConn - establishes new connection with the RPC and verifies that it's valid: chainID matches, and it's not syncing.
 // Returns desired state if one of the verifications fails. Otherwise, returns nodeStateAlive.
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) createVerifiedConn(ctx context.Context, lggr logger.Logger) nodeState {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) createVerifiedConn(ctx context.Context, lggr logger.Logger) NodeState {
 	if err := n.rpc.Dial(ctx); err != nil {
-		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err, "nodeState", n.State())
+		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err, "NodeState", n.State())
 		return nodeStateUnreachable
 	}
 
@@ -312,7 +312,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) createVerifiedConn(ctx context.Contex
 
 // verifyConn - verifies that current connection is valid: chainID matches, and it's not syncing.
 // Returns desired state if one of the verifications fails. Otherwise, returns nodeStateAlive.
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyConn(ctx context.Context, lggr logger.Logger) nodeState {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyConn(ctx context.Context, lggr logger.Logger) NodeState {
 	state := n.verifyChainID(ctx, lggr)
 	if state != nodeStateAlive {
 		return state
@@ -321,12 +321,12 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyConn(ctx context.Context, lggr 
 	if n.nodePoolCfg.NodeIsSyncingEnabled() {
 		isSyncing, err := n.rpc.IsSyncing(ctx)
 		if err != nil {
-			lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.State())
+			lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "NodeState", n.State())
 			return nodeStateUnreachable
 		}
 
 		if isSyncing {
-			lggr.Errorw("Verification failed: Node is syncing", "nodeState", n.State())
+			lggr.Errorw("Verification failed: Node is syncing", "NodeState", n.State())
 			return nodeStateSyncing
 		}
 	}

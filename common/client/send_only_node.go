@@ -36,8 +36,8 @@ type SendOnlyNode[
 	RPC() RPC
 
 	String() string
-	// State returns nodeState
-	State() nodeState
+	// State returns NodeState
+	State() NodeState
 	// Name is a unique identifier for this node.
 	Name() string
 }
@@ -51,7 +51,7 @@ type sendOnlyNode[
 	services.StateMachine
 
 	stateMu sync.RWMutex // protects state* fields
-	state   nodeState
+	state   NodeState
 
 	rpc     RPC
 	uri     url.URL
@@ -140,7 +140,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
 
 	promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
 	s.setState(nodeStateAlive)
-	s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
+	s.log.Infow("Sendonly RPC Node is online", "NodeState", s.state)
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) Close() error {
@@ -165,7 +165,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) String() string {
 	return fmt.Sprintf("(%s)%s:%s", Secondary.String(), s.name, s.uri.Redacted())
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state nodeState) (changed bool) {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state NodeState) (changed bool) {
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
 	if s.state == state {
@@ -175,7 +175,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state nodeState) (changed bool) {
 	return true
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC]) State() nodeState {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) State() NodeState {
 	s.stateMu.RLock()
 	defer s.stateMu.RUnlock()
 	return s.state

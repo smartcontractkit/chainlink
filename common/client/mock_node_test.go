@@ -123,40 +123,40 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC_CLIENT]) Start(_a0 context.Context) error
 }
 
 // State provides a mock function with given fields:
-func (_m *mockNode[CHAIN_ID, HEAD, RPC_CLIENT]) State() nodeState {
+func (_m *mockNode[CHAIN_ID, HEAD, RPC_CLIENT]) State() NodeState {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for State")
 	}
 
-	var r0 nodeState
-	if rf, ok := ret.Get(0).(func() nodeState); ok {
+	var r0 NodeState
+	if rf, ok := ret.Get(0).(func() NodeState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(nodeState)
+		r0 = ret.Get(0).(NodeState)
 	}
 
 	return r0
 }
 
 // StateAndLatest provides a mock function with given fields:
-func (_m *mockNode[CHAIN_ID, HEAD, RPC_CLIENT]) StateAndLatest() (nodeState, ChainInfo) {
+func (_m *mockNode[CHAIN_ID, HEAD, RPC_CLIENT]) StateAndLatest() (NodeState, ChainInfo) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for StateAndLatest")
 	}
 
-	var r0 nodeState
+	var r0 NodeState
 	var r1 ChainInfo
-	if rf, ok := ret.Get(0).(func() (nodeState, ChainInfo)); ok {
+	if rf, ok := ret.Get(0).(func() (NodeState, ChainInfo)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() nodeState); ok {
+	if rf, ok := ret.Get(0).(func() NodeState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(nodeState)
+		r0 = ret.Get(0).(NodeState)
 	}
 
 	if rf, ok := ret.Get(1).(func() ChainInfo); ok {

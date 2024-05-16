@@ -105,18 +105,18 @@ func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) Start(_a0 context.Context) error {
 }
 
 // State provides a mock function with given fields:
-func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) State() nodeState {
+func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) State() NodeState {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for State")
 	}
 
-	var r0 nodeState
-	if rf, ok := ret.Get(0).(func() nodeState); ok {
+	var r0 NodeState
+	if rf, ok := ret.Get(0).(func() NodeState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(nodeState)
+		r0 = ret.Get(0).(NodeState)
 	}
 
 	return r0

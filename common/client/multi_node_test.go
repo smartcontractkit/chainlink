@@ -57,7 +57,7 @@ func newHealthyNode(t *testing.T, chainID types.ID) *mockNode[types.ID, types.He
 	return newNodeWithState(t, chainID, nodeStateAlive)
 }
 
-func newNodeWithState(t *testing.T, chainID types.ID, state nodeState) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {
+func newNodeWithState(t *testing.T, chainID types.ID, state NodeState) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {
 	node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 	node.On("ConfiguredChainID").Return(chainID).Once()
 	node.On("Start", mock.Anything).Return(nil).Once()
@@ -276,8 +276,8 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		node := newHealthyNode(t, chainID)
-		node.On("SubscribersCount").Return(int32(2))
-		node.On("UnsubscribeAllExceptAliveLoop")
+		//node.On("SubscribersCount").Return(int32(2))
+		node.On("UnsubscribeAll")
 		bestNode := newHealthyNode(t, chainID)
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(bestNode)
@@ -304,7 +304,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 	t.Run("NodeStates returns proper states", func(t *testing.T) {
 		t.Parallel()
 		chainID := types.NewIDFromInt(10)
-		nodes := map[string]nodeState{
+		nodes := map[string]NodeState{
 			"node_1": nodeStateAlive,
 			"node_2": nodeStateUnreachable,
 			"node_3": nodeStateDialed,
@@ -318,14 +318,14 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		expectedResult := map[string]string{}
 		for name, state := range nodes {
 			node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-			node.On("Name").Return(name).Once()
-			node.On("State").Return(state).Once()
+			node.On("State").Return(state)
+			node.On("String").Return(name)
 			opts.nodes = append(opts.nodes, node)
 
 			sendOnly := newMockSendOnlyNode[types.ID, multiNodeRPCClient](t)
 			sendOnlyName := "send_only_" + name
-			sendOnly.On("Name").Return(sendOnlyName).Once()
-			sendOnly.On("State").Return(state).Once()
+			sendOnly.On("State").Return(state)
+			sendOnly.On("String").Return(sendOnlyName)
 			opts.sendonlys = append(opts.sendonlys, sendOnly)
 
 			expectedResult[name] = state.String()
@@ -415,7 +415,7 @@ func TestMultiNode_nLiveNodes(t *testing.T) {
 	t.Parallel()
 	type nodeParams struct {
 		chainInfo ChainInfo
-		State     nodeState
+		State     NodeState
 	}
 	testCases := []struct {
 		Name                    string
@@ -598,7 +598,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 
 		return Successful
 	}
-	newNodeWithState := func(t *testing.T, state nodeState, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {
+	newNodeWithState := func(t *testing.T, state NodeState, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {
 		rpc := newMultiNodeRPCClient(t)
 		rpc.On("SendTransaction", mock.Anything, mock.Anything).Return(txErr).Run(sendTxRun).Maybe()
 		node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)

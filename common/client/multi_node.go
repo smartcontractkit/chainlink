@@ -47,7 +47,7 @@ type MultiNode[
 	// Returns error if `do` was not called or context returns an error.
 	DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC_CLIENT, isSendOnly bool) bool) error
 	// NodeStates - returns RPCs' states
-	NodeStates() map[string]nodeState
+	NodeStates() map[string]string
 	ChainType() config.ChainType
 	Close() error
 }
@@ -150,13 +150,13 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) DoAll(ctx context.Co
 	return nil
 }
 
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) NodeStates() map[string]nodeState {
-	states := map[string]nodeState{}
+func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) NodeStates() map[string]string {
+	states := map[string]string{}
 	for _, n := range c.primaryNodes {
-		states[n.String()] = n.State()
+		states[n.String()] = n.State().String()
 	}
 	for _, n := range c.sendOnlyNodes {
-		states[n.String()] = n.State()
+		states[n.String()] = n.State().String()
 	}
 	return states
 }
@@ -337,7 +337,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) report() {
 	}
 
 	var total, dead int
-	counts := make(map[nodeState]int)
+	counts := make(map[NodeState]int)
 	nodeStates := make([]nodeWithState, len(c.primaryNodes))
 	for i, n := range c.primaryNodes {
 		state := n.State()
