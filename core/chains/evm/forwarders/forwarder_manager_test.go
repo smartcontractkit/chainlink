@@ -2,19 +2,22 @@ package forwarders_test
 
 import (
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -102,7 +105,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	assert.True(t, cleanupCalled)
 }
 
-func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
+func TestFwdMgr_InvalidForwarderStates(t *testing.T) {
 	lggr := logger.Test(t)
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
@@ -119,8 +122,23 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, ec, linkAddr, owner.From)
 	require.NoError(t, err)
 
-	forwarderAddr, _, _, err := authorized_forwarder.DeployAuthorizedForwarder(owner, ec, linkAddr, owner.From, operatorAddr, []byte{})
+	forwarderAddr, _, forwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, ec, linkAddr, owner.From, operatorAddr, []byte{})
 	require.NoError(t, err)
+	ec.Commit()
+
+	accessAddress, _, _, err := testocr2aggregator.DeploySimpleWriteAccessController(owner, ec)
+	require.NoError(t, err, "failed to deploy test access controller contract")
+	ocr2Address, _, ocr2, err := testocr2aggregator.DeployOCR2Aggregator(
+		owner,
+		ec,
+		linkAddr,
+		big.NewInt(0),
+		big.NewInt(10),
+		accessAddress,
+		accessAddress,
+		9,
+		"TEST",
+	)
 	ec.Commit()
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
@@ -144,9 +162,42 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 
 	err = fwdMgr.Start(testutils.Context(t))
 	require.NoError(t, err)
-	addr, err := fwdMgr.ForwarderFor(owner.From)
+
+	// cannot find forwarder because it isn't authorized nor added as a transmitter
+	addr, err := fwdMgr.ForwarderForOCR2(owner.From, ocr2Address)
 	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
 	require.True(t, utils.IsZero(addr))
+
+	_, err = forwarder.SetAuthorizedSenders(owner, []common.Address{owner.From})
+	require.NoError(t, err)
+	ec.Commit()
+
+	// cannot find forwarder because it isn't added as a transmitter
+	addr, err = fwdMgr.ForwarderForOCR2(owner.From, ocr2Address)
+	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
+	require.True(t, utils.IsZero(addr))
+
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10))
+	require.NoError(t, err)
+
+	_, err = ocr2.SetConfig(owner,
+		[]common.Address{testutils.NewAddress(), testutils.NewAddress(), testutils.NewAddress(), testutils.NewAddress()},
+		[]common.Address{forwarderAddr, testutils.NewAddress(), testutils.NewAddress(), testutils.NewAddress()},
+		1,
+		onchainConfig,
+		0,
+		[]byte{})
+	require.NoError(t, err)
+	ec.Commit()
+
+	transmitters, err := ocr2.GetTransmitters(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+	require.True(t, slices.Contains(transmitters, forwarderAddr))
+
+	addr, err = fwdMgr.ForwarderForOCR2(owner.From, ocr2Address)
+	require.NoError(t, err, "forwarder should be valid and found because it is both authorized and set as a transmitter")
+	require.Equal(t, forwarderAddr, addr)
+
 	err = fwdMgr.Close()
 	require.NoError(t, err)
 }

@@ -496,7 +496,7 @@ func GetEVMEffectiveTransmitterID(jb *job.Job, chain legacyevm.Chain, lggr logge
 		if chain == nil {
 			return "", fmt.Errorf("job forwarding requires non-nil chain")
 		}
-		effectiveTransmitterID, err := chain.TxManager().GetForwarderForEOA(common.HexToAddress(spec.TransmitterID.String))
+		effectiveTransmitterID, err := chain.TxManager().GetForwarderForEOAOCR2(common.HexToAddress(spec.TransmitterID.String), common.HexToAddress(spec.ContractID))
 		if err == nil {
 			return effectiveTransmitterID.String(), nil
 		} else if !spec.TransmitterID.Valid {

@@ -2,13 +2,16 @@ package forwarders
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/graph-gophers/graphql-go/errors"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -129,6 +132,43 @@ func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, er
 		}
 	}
 	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
+}
+
+func (f *FwdMgr) ForwarderForOCR2(eoa, ocr2Aggregator common.Address) (forwarder common.Address, err error) {
+	fwdrs, err := f.ORM.FindForwardersByChain(f.ctx, big.Big(*f.evmClient.ConfiguredChainID()))
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	offchainAggregator, err := ocr2aggregator.NewOCR2Aggregator(ocr2Aggregator, f.evmClient)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	transmitters, err := offchainAggregator.GetTransmitters(&bind.CallOpts{Context: f.ctx})
+	if err != nil {
+		return common.Address{}, errors.Errorf("failed to get ocr2 aggregator transmitters: %s", err.Error())
+	}
+
+	for _, fwdr := range fwdrs {
+		if !slices.Contains(transmitters, fwdr.Address) {
+			f.logger.Criticalw("forwarder is not set as a transmitter", "forwarderAddress", fwdr.Address, "err", err)
+			continue
+		}
+
+		eoas, err := f.getContractSenders(fwdr.Address)
+		if err != nil {
+			f.logger.Errorw("Failed to get forwarder senders", "forwarder", fwdr.Address, "err", err)
+			continue
+		}
+		for _, addr := range eoas {
+			if addr == eoa {
+				return fwdr.Address, nil
+			}
+		}
+	}
+	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
+
 }
 
 func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {
