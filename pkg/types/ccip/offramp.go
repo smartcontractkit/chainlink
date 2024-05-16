@@ -77,6 +77,8 @@ type ExecOffchainConfig struct {
 	InflightCacheExpiry config.Duration
 	// RootSnoozeTime is the interval at which we check roots for executable messages.
 	RootSnoozeTime config.Duration
+	// MessageVisibilityInterval is the interval at which we check for new messages.
+	MessageVisibilityInterval config.Duration
 }
 
 type ExecOnchainConfig struct {

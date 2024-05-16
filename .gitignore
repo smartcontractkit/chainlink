@@ -23,3 +23,5 @@
 
 # IntelliJ IDE
 .idea
+
+vendor/
