@@ -14,28 +14,28 @@ ephemeral_addresses_number = 100
 
 Feel free to modify the configuration to suit your needs, but remember to scope it correctly, so that it doesn't impact other products. You can find more information about TOML configuration and override precedences [here](./testconfig/README.md).
 
-### How to Set Configuration Values
+## How to Set Configuration Values
 Place all Seth-specific configuration entries under the `[Seth]` section in your TOML file. This can be done in files such as `default.toml` or `overrides.toml` or any product-specific TOML located in the [testconfig](./testconfig) folder.
 
-#### Example:
+### Example:
 ```toml
 [Seth]
 tracing_level = "all" # trace all transactions regardless of whether they are reverted or not
 ```
 
-#### Documentation and Further Details
+### Documentation and Further Details
 For a comprehensive description of all available configuration options, refer to the `[Seth]` section of configuration documentation in the [default.toml](./testconfig/default.toml) file or consult the Seth [README.md on GitHub](https://github.com/smartcontractkit/seth/blob/master/README.md).
 
-# Setting Log Level
-## Locally
+## How to set Seth logging level
+### Locally
 To adjust the logging level for Seth when running locally, use the environment variable `SETH_LOG_LEVEL`. For basic tracing and decoding information, set this variable to `debug`. For more detailed tracing, use the `trace` level.
-## Remote Runner
+### Remote Runner
 To set the Seth log level in the Remote Runner, use the `TEST_SETH_LOG_LEVEL` environment variable. In the future, we plan to implement automatic forwarding of the `SETH_LOG_LEVEL` environment variable. Until then, you must set it explicitly.
 
-# Seth Network Configuration
+## How to set Seth Network Configuration
 Seth's network configuration is entirely separate from the traditional `EVMNetwork`, and the two cannot be used interchangeably. Currently, both configurations must be provided for tests to function properly, as different parts of the test utilize each configuration.
 
-## Overview of Configuration Usage
+### Overview of Configuration Usage
 While most of the test logic relies on the `EVMNetwork` struct, Seth employs its own network configuration. To facilitate ease of use, we have introduced convenience methods that duplicate certain fields from `EVMNetwork` to `seth.Network`, eliminating the need to specify the same values twice. The following fields are automatically copied:
 
 - Private keys
@@ -43,7 +43,7 @@ While most of the test logic relies on the `EVMNetwork` struct, Seth employs its
 - EIP-1559 support (only for simulated networks)
 - Default gas limit (only for simulated networks)
 
-## Seth-Specific Network Configuration
+### Seth-Specific Network Configuration
 You are still expected to manually provide some Seth-specific network configurations related to the network you are using:
 
 - Fallback gas price
@@ -54,9 +54,9 @@ You are still expected to manually provide some Seth-specific network configurat
 - Chain ID (critical for matching with EVMNetwork)
 - Transaction timeout
 
-## Steps for adding a new network
+### Steps for adding a new network
 
-### Network is already defined in [known_networks.go](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/networks/known_networks.go)
+#### Network is already defined in [known_networks.go](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/networks/known_networks.go)
 In that case you need add only Seth-specific network configuration to `[[Seth.networks]]` table. Here's an example:
 ```toml
 [[Seth.networks]]
@@ -83,7 +83,7 @@ Name of the network doesn't really matter and is used only for logging purposes.
 
 **Warning!** Please do not use the values from above-mentioned example. They should be replaced with the actual values obtained from gas tracker or Seth CLI (more on that later). 
 
-### It's a new network
+#### It's a new network
 
 Apart from above-mentioned fields you either need to add the network to `known_networks.go` file in the [CTF](https://github.com/smartcontractkit/chainlink-testing-framework) or define it in your test TOML file. 
 Here's an example of how to define a new `EVMNetwork` network in your test TOML file:
@@ -103,7 +103,7 @@ evm_supports_eip1559 = false
 evm_default_gas_limit = 6000000
 ```
 
-## Things to remember:
+### Things to remember:
 * you need **both** networks: one for EVM and one for Seth
 * websocket URL and private keys from the `EVMNetwork` will be copied over to the `Seth.Network` configuration so you don't need to provide them again
 * it's advised to not set the gas limit, unless your test fails without it (might happen when interacting with new networks due bugs or gas estimation quirks); Seth will try to estimate gas for each interaction
@@ -111,14 +111,14 @@ evm_default_gas_limit = 6000000
 
 While this covers the essentials, it is advisable to consult the Seth documentation for detailed settings related to gas estimation, tracing, etc.
 
-## Using Seth CLI
+## How to use Seth CLI
 The most important thing to keep in mind that the CLI requires you to provide a couple of settings via environment variables, in addition to a TOML configuration file. Here's a general breakdown of the required settings:
 * `keys` commands requires `SETH_KEYFILE_PATH`, `SETH_CONFIG_PATH` and `ROOT_PRIVATE_KEY` environment variables
 * `gas` command requires `SETH_CONFIG_PATH` environment variable
 
 You can find a sample `Seth.toml` file [here](https://github.com/smartcontractkit/seth/blob/master/seth.toml). Currently you cannot use your test TOML file as a Seth configuration file, but we will add ability that in the future.
 
-## Obtaining Fallback (Hardcoded) Values
+## How to get Fallback (Hardcoded) Values
 There are two primary methods to obtain fallback values for network configuration:
 1. **Web-Based Gas Tracker**: Model fallback values based on historical gas prices.
 2. **Seth CLI**: This method is more complex, but works for any network. We will focus on it due to its broad applicability.
@@ -173,10 +173,10 @@ gas_price_estimation_tx_priority = "standard"
 
 This method ensures you get the most accurate and network-specific fallback values, optimizing your setup for current network conditions.
 
-# Ephemeral and Static Keys
+## Ephemeral and Static Keys explained
 Understanding the difference between ephemeral and static keys is essential for effective and safe use of Seth. 
 
-## Understanding the Keys
+### Understanding the Keys
 - **Ephemeral Keys**: These are generated on the fly, are not stored, and should not be used on live networks, because any funds associated will be lost. Use these keys only when it's acceptable to lose the funds.
 - **Static Keys**: These are specified in the Seth configuration and are suitable for use on live networks. Funds associated with these keys are not lost post-test since you retain copies of the private keys.
 
@@ -187,17 +187,17 @@ Here are a couple of use cases where you might need to use ephemeral keys or mor
 
 Most tests, especially on live networks, will restrict the use of ephemeral keys.
 
-## How to Set Ephemeral Keys in the TOML
+### How to Set Ephemeral Keys in the TOML
 Setting ephemeral keys is straightforward:
 ```toml
 [Seth]
 ephemeral_addresses_number = 10
 ```
 
-## How to Set Static Keys in the TOML
+### How to Set Static Keys in the TOML
 There are several methods to set static keys, but here are two:
 
-### As a List of Wallet Keys in Your Network Configuration
+#### As a List of Wallet Keys in Your Network Configuration
 Add it directly to your test TOML:
 ```toml
 [Network.WalletKeys]
@@ -205,7 +205,7 @@ arbitrum_sepolia=["first_key","second_key"]
 ```
 This method is ideal for local tests, but should be avoided in continuous integration (CI) environments.
 
-### As Base64-Encoded Keyfile Stored as GHA Secret
+#### As Base64-Encoded Keyfile Stored as GHA Secret
 This safer, preferred method involves more setup:
 
 1. **Configuration**: Your Seth must be configured to read the keyfile in Base64-encoded version from an environment variable, by setting in your TOML:
@@ -235,7 +235,7 @@ KEYFILE_PATH=keyfile_my_network.toml ROOT_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d2
 ```
 The `-a <N>` option specifies the number of keys to distribute funds to, and `-b <N>` denotes the buffer (in ethers) to be left on the root key.
 
-## Synchronous API
+## How to use Seth's synchronous API
 Seth is designed with a synchronous API to enhance usability and predictability. This feature is implemented through the `seth.Decode()` function, which waits for each transaction to be mined before proceeding. Depending on the Seth configuration, the function will:
 
 - **Decode transactions only if they are reverted**: This is the default setting.
@@ -244,7 +244,7 @@ Seth is designed with a synchronous API to enhance usability and predictability.
 
 This approach simplifies the way transactions are handled, making them more predictable and easier to debug. Therefore, it is highly recommended that you wrap all contract interactions in that method.
 
-# Getting Event Data from Transactions
+## How to read Event Data from transactions
 Retrieving event data from transactions in Seth involves a few steps but is not overly complicated. Below is a Go function example that illustrates how to capture event data from a specific transaction:
 
 ```go
