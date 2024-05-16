@@ -429,9 +429,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       s_nodes[node.p2pId].p2pId = node.p2pId;
 
       bytes32 previousSigner = s_nodes[node.p2pId].signer;
-      s_encodedNodeSignerAddresses.remove(previousSigner);
-      s_nodes[node.p2pId].signer = node.signer;
-      s_encodedNodeSignerAddresses.add(node.signer);
+
+      if (s_nodes[node.p2pId].signer != node.signer) {
+        s_encodedNodeSignerAddresses.remove(previousSigner);
+        s_nodes[node.p2pId].signer = node.signer;
+        s_encodedNodeSignerAddresses.add(node.signer);
+      }
       emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
     }
   }
