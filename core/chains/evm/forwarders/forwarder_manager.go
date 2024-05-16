@@ -166,7 +166,6 @@ func (f *FwdMgr) ForwarderForOCR2(eoa, _ common.Address) (forwarder common.Addre
 		}
 	}
 	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
-
 }
 
 func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {
