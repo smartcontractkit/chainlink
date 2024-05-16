@@ -12,16 +12,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+//go:generate mockery --quiet --name RequestRoundDB --output ./mocks/ --case=underscore
+
 // RequestRoundDB stores requested rounds for querying by the median plugin.
 type RequestRoundDB interface {
 	SaveLatestRoundRequested(ctx context.Context, rr ocr2aggregator.OCR2AggregatorRoundRequested) error
 	LoadLatestRoundRequested(context.Context) (rr ocr2aggregator.OCR2AggregatorRoundRequested, err error)
-	Transact(context.Context, func(db RequestRoundDB) error) error
+	WithDataSource(sqlutil.DataSource) RequestRoundDB
 }
 
 var _ RequestRoundDB = &requestRoundDB{}
 
-//go:generate mockery --quiet --name RequestRoundDB --output ./mocks/ --case=underscore
 type requestRoundDB struct {
 	ds           sqlutil.DataSource
 	oracleSpecID int32
@@ -33,10 +34,8 @@ func NewRoundRequestedDB(ds sqlutil.DataSource, oracleSpecID int32, lggr logger.
 	return &requestRoundDB{ds, oracleSpecID, lggr}
 }
 
-func (d *requestRoundDB) Transact(ctx context.Context, fn func(db RequestRoundDB) error) error {
-	return sqlutil.Transact(ctx, func(ds sqlutil.DataSource) RequestRoundDB {
-		return NewRoundRequestedDB(ds, d.oracleSpecID, d.lggr)
-	}, d.ds, nil, fn)
+func (d *requestRoundDB) WithDataSource(ds sqlutil.DataSource) RequestRoundDB {
+	return NewRoundRequestedDB(ds, d.oracleSpecID, d.lggr)
 }
 
 func (d *requestRoundDB) SaveLatestRoundRequested(ctx context.Context, rr ocr2aggregator.OCR2AggregatorRoundRequested) error {

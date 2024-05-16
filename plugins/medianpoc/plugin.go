@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 func NewPlugin(lggr logger.Logger) *Plugin {
@@ -29,7 +30,7 @@ type Plugin struct {
 	reportingplugins.MedianProviderServer
 }
 
-func (p *Plugin) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+func (p *Plugin) NewValidationService(ctx context.Context) (core.ValidationService, error) {
 	s := &reportingPluginValidationService{lggr: p.Logger}
 	p.SubService(s)
 	return s, nil
@@ -59,12 +60,13 @@ func (j jsonConfig) getPipeline(key string) (string, error) {
 
 func (p *Plugin) NewReportingPluginFactory(
 	ctx context.Context,
-	config types.ReportingPluginServiceConfig,
+	config core.ReportingPluginServiceConfig,
 	provider types.MedianProvider,
-	pipelineRunner types.PipelineRunnerService,
-	telemetry types.TelemetryClient,
-	errorLog types.ErrorLog,
-	keyValueStore types.KeyValueStore,
+	pipelineRunner core.PipelineRunnerService,
+	telemetry core.TelemetryClient,
+	errorLog core.ErrorLog,
+	keyValueStore core.KeyValueStore,
+	relayerSet core.RelayerSet,
 ) (types.ReportingPluginFactory, error) {
 	f, err := p.newFactory(ctx, config, provider, pipelineRunner, telemetry, errorLog)
 	if err != nil {
@@ -75,7 +77,7 @@ func (p *Plugin) NewReportingPluginFactory(
 	return s, nil
 }
 
-func (p *Plugin) newFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner types.PipelineRunnerService, telemetry types.TelemetryClient, errorLog types.ErrorLog) (*median.NumericalMedianFactory, error) {
+func (p *Plugin) newFactory(ctx context.Context, config core.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient, errorLog core.ErrorLog) (*median.NumericalMedianFactory, error) {
 	jc := &jsonConfig{}
 	err := json.Unmarshal([]byte(config.PluginConfig), jc)
 	if err != nil {
@@ -102,9 +104,11 @@ func (p *Plugin) newFactory(ctx context.Context, config types.ReportingPluginSer
 		lggr:           p.Logger,
 	}
 	factory := &median.NumericalMedianFactory{
-		ContractTransmitter:       provider.MedianContract(),
-		DataSource:                ds,
-		JuelsPerFeeCoinDataSource: jds,
+		ContractTransmitter:                  provider.MedianContract(),
+		DataSource:                           ds,
+		JuelsPerFeeCoinDataSource:            jds,
+		GasPriceSubunitsDataSource:           &ZeroDataSource{},
+		IncludeGasPriceSubunitsInObservation: false,
 		Logger: logger.NewOCRWrapper(
 			p.Logger,
 			true,

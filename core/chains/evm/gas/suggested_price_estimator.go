@@ -19,6 +19,7 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -31,8 +32,7 @@ type suggestedPriceConfig interface {
 	BumpMin() *assets.Wei
 }
 
-//go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
-type rpcClient interface {
+type suggestedPriceEstimatorClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
@@ -41,7 +41,7 @@ type SuggestedPriceEstimator struct {
 	services.StateMachine
 
 	cfg        suggestedPriceConfig
-	client     rpcClient
+	client     suggestedPriceEstimatorClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -52,10 +52,12 @@ type SuggestedPriceEstimator struct {
 	chInitialised  chan struct{}
 	chStop         services.StopChan
 	chDone         chan struct{}
+
+	l1Oracle rollups.L1Oracle
 }
 
 // NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
-func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient, cfg suggestedPriceConfig) EvmEstimator {
+func NewSuggestedPriceEstimator(lggr logger.Logger, client feeEstimatorClient, cfg suggestedPriceConfig, l1Oracle rollups.L1Oracle) EvmEstimator {
 	return &SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,
@@ -65,11 +67,16 @@ func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient, cfg sugges
 		chInitialised:  make(chan struct{}),
 		chStop:         make(chan struct{}),
 		chDone:         make(chan struct{}),
+		l1Oracle:       l1Oracle,
 	}
 }
 
 func (o *SuggestedPriceEstimator) Name() string {
 	return o.logger.Name()
+}
+
+func (o *SuggestedPriceEstimator) L1Oracle() rollups.L1Oracle {
+	return o.l1Oracle
 }
 
 func (o *SuggestedPriceEstimator) Start(context.Context) error {

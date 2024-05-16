@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -39,12 +38,12 @@ type USDCReaderImpl struct {
 	transmitterAddress common.Address
 }
 
-func (u *USDCReaderImpl) Close(qopts ...pg.QOpt) error {
+func (u *USDCReaderImpl) Close() error {
 	// FIXME Dim pgOpts removed from LogPoller
 	return u.lp.UnregisterFilter(context.Background(), u.filter.Name)
 }
 
-func (u *USDCReaderImpl) RegisterFilters(qopts ...pg.QOpt) error {
+func (u *USDCReaderImpl) RegisterFilters() error {
 	// FIXME Dim pgOpts removed from LogPoller
 	return u.lp.RegisterFilter(context.Background(), u.filter)
 }
@@ -106,7 +105,7 @@ func (u *USDCReaderImpl) GetUSDCMessagePriorToLogIndexInTx(ctx context.Context, 
 	return parseUSDCMessageSent(allUsdcTokensData[usdcTokenIndex])
 }
 
-func NewUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, registerFilters bool, qopts ...pg.QOpt) (*USDCReaderImpl, error) {
+func NewUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, registerFilters bool) (*USDCReaderImpl, error) {
 	eventSig := utils.Keccak256Fixed([]byte("MessageSent(bytes)"))
 
 	r := &USDCReaderImpl{
@@ -123,17 +122,17 @@ func NewUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address,
 	}
 
 	if registerFilters {
-		if err := r.RegisterFilters(qopts...); err != nil {
+		if err := r.RegisterFilters(); err != nil {
 			return nil, fmt.Errorf("register filters: %w", err)
 		}
 	}
 	return r, nil
 }
 
-func CloseUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, qopts ...pg.QOpt) error {
+func CloseUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller) error {
 	r, err := NewUSDCReader(lggr, jobID, transmitter, lp, false)
 	if err != nil {
 		return err
 	}
-	return r.Close(qopts...)
+	return r.Close()
 }

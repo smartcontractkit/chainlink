@@ -94,7 +94,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config.EVM(), lggr, highestSeenHead, mailMon)
-	kst := cltest.NewKeyStore(t, db, globalConfig.Database())
+	kst := cltest.NewKeyStore(t, db)
 
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{
 		Client:         ethClient,
@@ -110,7 +110,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 		m[r.Chain().ID().String()] = r.Chain()
 	}
 	legacyChains := legacyevm.NewLegacyChains(m, cc.AppConfig().EVMConfigs())
-	pipelineHelper := cltest.NewJobPipelineV2(t, config.WebServer(), config.JobPipeline(), config.Database(), legacyChains, db, kst, nil, nil)
+	pipelineHelper := cltest.NewJobPipelineV2(t, globalConfig.WebServer(), globalConfig.JobPipeline(), legacyChains, db, kst, nil, nil)
 
 	return &broadcasterHelper{
 		t:              t,
@@ -263,7 +263,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 		PipelineSpec:  &pipeline.Spec{},
 		ExternalJobID: uuid.New(),
 	}
-	err := helper.pipelineHelper.Jrm.CreateJob(jb)
+	err := helper.pipelineHelper.Jrm.CreateJob(testutils.Context(t), jb)
 	require.NoError(t, err)
 
 	var rec received
@@ -281,14 +281,14 @@ func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
 	listener.skipMarkingConsumed.Store(skip)
 }
 
-func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
+func (listener *simpleLogListener) HandleLog(ctx context.Context, lb log.Broadcast) {
 	listener.received.Lock()
 	defer listener.received.Unlock()
 	listener.lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
-	consumed := listener.handleLogBroadcast(lb)
+	consumed := listener.handleLogBroadcast(ctx, lb)
 
 	if !consumed {
 		listener.received.uniqueLogs = append(listener.received.uniqueLogs, lb.RawLog())
@@ -321,9 +321,8 @@ func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedStat
 	}, testutils.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
 }
 
-func (listener *simpleLogListener) handleLogBroadcast(lb log.Broadcast) bool {
+func (listener *simpleLogListener) handleLogBroadcast(ctx context.Context, lb log.Broadcast) bool {
 	t := listener.t
-	ctx := testutils.Context(t)
 	consumed, err := listener.WasAlreadyConsumed(ctx, lb)
 	if !assert.NoError(t, err) {
 		return false
@@ -354,8 +353,8 @@ type mockListener struct {
 	jobID int32
 }
 
-func (l *mockListener) JobID() int32            { return l.jobID }
-func (l *mockListener) HandleLog(log.Broadcast) {}
+func (l *mockListener) JobID() int32                             { return l.jobID }
+func (l *mockListener) HandleLog(context.Context, log.Broadcast) {}
 
 type mockEthClientExpectedCalls struct {
 	SubscribeFilterLogs int

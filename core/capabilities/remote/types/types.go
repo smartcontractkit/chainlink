@@ -1,6 +1,7 @@
 package types
 
 import (
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -23,7 +24,7 @@ type Receiver interface {
 }
 
 type Aggregator interface {
-	Aggregate(eventID string, responses [][]byte) ([]byte, error)
+	Aggregate(eventID string, responses [][]byte) (commoncap.CapabilityResponse, error)
 }
 
 // NOTE: this type will become part of the Registry (KS-108)

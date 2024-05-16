@@ -624,3 +624,17 @@ LatestReportDeadline = "5s" # Default
 [Mercury.TLS]
 # CertFile is the path to a PEM file of trusted root certificate authority certificates
 CertFile = "/path/to/client/certs.pem" # Example
+
+# Mercury.Transmitter controls settings for the mercury transmitter
+[Mercury.Transmitter]
+# TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
+# per OCR instance. If the queue is full, the transmitter will start dropping
+# the oldest messages in order to make space.
+#
+# This is useful if mercury server goes offline and the nop needs to buffer
+# transmissions.
+TransmitQueueMaxSize = 10_000 # Default
+# TransmitTimeout controls how long the transmitter will wait for a response
+# when sending a message to the mercury server, before aborting and considering
+# the transmission to be failed.
+TransmitTimeout = "5s" # Default

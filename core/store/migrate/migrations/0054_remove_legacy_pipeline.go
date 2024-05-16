@@ -32,9 +32,13 @@ func init() {
 	goose.AddMigrationContext(Up54, Down54)
 }
 
+type queryer interface {
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
 // nolint
 func Up54(ctx context.Context, tx *sql.Tx) error {
-	if err := CheckNoLegacyJobs(tx); err != nil {
+	if err := CheckNoLegacyJobs(ctx, tx); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, up54); err != nil {
@@ -49,9 +53,9 @@ func Down54(ctx context.Context, tx *sql.Tx) error {
 }
 
 // CheckNoLegacyJobs ensures that there are no legacy job specs
-func CheckNoLegacyJobs(tx *sql.Tx) error {
+func CheckNoLegacyJobs(ctx context.Context, ds queryer) error {
 	var count int
-	if err := tx.QueryRow(`SELECT COUNT(*) FROM job_specs WHERE deleted_at IS NULL`).Scan(&count); err != nil {
+	if err := ds.QueryRowContext(ctx, `SELECT COUNT(*) FROM job_specs WHERE deleted_at IS NULL`).Scan(&count); err != nil {
 		return err
 	}
 	if count > 0 {

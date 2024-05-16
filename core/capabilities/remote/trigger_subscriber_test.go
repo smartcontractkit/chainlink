@@ -38,12 +38,12 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	require.NoError(t, p1.UnmarshalText([]byte(peerID1)))
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(peerID2)))
-	capDonInfo := remotetypes.DON{
+	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
 	}
-	workflowDonInfo := remotetypes.DON{
+	workflowDonInfo := commoncap.DON{
 		ID:      "workflow-don",
 		Members: []p2ptypes.PeerID{p2},
 		F:       0,
@@ -67,12 +67,13 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	}
 	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDonInfo, workflowDonInfo, dispatcher, nil, lggr)
 	require.NoError(t, subscriber.Start(ctx))
-	triggerEventCallbackCh := make(chan commoncap.CapabilityResponse, 2)
-	require.NoError(t, subscriber.RegisterTrigger(ctx, triggerEventCallbackCh, commoncap.CapabilityRequest{
+
+	triggerEventCallbackCh, err := subscriber.RegisterTrigger(ctx, commoncap.CapabilityRequest{
 		Metadata: commoncap.RequestMetadata{
 			WorkflowID: workflowID1,
 		},
-	}))
+	})
+	require.NoError(t, err)
 	<-awaitRegistrationMessageCh
 
 	// receive trigger event

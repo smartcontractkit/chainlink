@@ -1,8 +1,6 @@
 # Crib Devspace Setup
 
-CRIB is a devspace configuration to launch CCIP enabled chainlink cluster
-
-CL nodes cluster for system level tests
+CRIB is a devspace configuration to launch chainlink cluster for system level tests
 
 Install `kubefwd` (no nixpkg for it yet, planned)
 
@@ -24,7 +22,7 @@ nix develop
 
 We are using [devspace](https://www.devspace.sh/docs/getting-started/installation?x0=3)
 
-Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments for more details
+Configure the cluster, see `deployments.app.helm.values` and [values.yaml](../charts/chainlink-cluster/values.yaml) comments for more details
 
 Set up your K8s access
 
@@ -34,7 +32,7 @@ Copy the `.env.example` file to `.env` and fill in the required values
 cp crib/.env.example crib/.env
 ```
 
-```
+```sh
 cd crib/
 nix develop
 # Pro tip: use `crib-` as a prefix for your namespace.
@@ -113,16 +111,42 @@ We are using [Grabana](https://github.com/K-Phoen/grabana) lib to create dashboa
 
 You can also select dashboard platform in `INFRA_PLATFORM` either `kubernetes` or `docker`
 
+You can select the dashboard panels with `PANELS_INCLUDED` which is a list of panel names separated by comma
+If you don't specify it will include core panels by default
+
 ```
 export GRAFANA_URL=...
 export GRAFANA_TOKEN=...
 export PROMETHEUS_DATA_SOURCE_NAME=Thanos
 export LOKI_DATA_SOURCE_NAME=Loki
 export INFRA_PLATFORM=kubernetes
-export GRAFANA_FOLDER=CRIB
+export GRAFANA_FOLDER=DashboardCoreDebug
 export DASHBOARD_NAME=CCIP-Cluster-Load-Test
 
 devspace run dashboard_deploy
 ```
 
 Open Grafana folder `CRIB` and find dashboard `CCIP-Cluster-Load-Test`
+
+# Testing
+
+Deploy your dashboard and run soak/load [tests](../../integration-tests/load/), check [README](../../integration-tests/README.md) for further explanations
+
+```
+devspace run dashboard_deploy
+devspace run workload
+devspace run dashboard_test
+```
+
+# Local Testing
+
+Go to [dashboard-lib](../dashboard-lib) and link the modules locally
+
+```
+cd dashboard
+pnpm link --global
+cd crib/dashboard/tests
+pnpm link --global dashboard-tests
+```
+
+Then run the tests with commands mentioned above

@@ -32,12 +32,6 @@ func (o *ObservedOffRampReader) GetExecutionStateChangesBetweenSeqNums(ctx conte
 	})
 }
 
-func (o *ObservedOffRampReader) GetSenderNonce(ctx context.Context, sender cciptypes.Address) (uint64, error) {
-	return withObservedInteraction(o.metric, "GetSenderNonce", func() (uint64, error) {
-		return o.OffRampReader.GetSenderNonce(ctx, sender)
-	})
-}
-
 func (o *ObservedOffRampReader) CurrentRateLimiterState(ctx context.Context) (cciptypes.TokenBucketRateLimit, error) {
 	return withObservedInteraction(o.metric, "CurrentRateLimiterState", func() (cciptypes.TokenBucketRateLimit, error) {
 		return o.OffRampReader.CurrentRateLimiterState(ctx)
@@ -69,7 +63,7 @@ func (o *ObservedOffRampReader) GetTokens(ctx context.Context) (cciptypes.OffRam
 }
 
 func (o *ObservedOffRampReader) GetSendersNonce(ctx context.Context, senders []cciptypes.Address) (map[cciptypes.Address]uint64, error) {
-	return withObservedInteraction(o.metric, "GetSendersNonce", func() (map[cciptypes.Address]uint64, error) {
-		return o.OffRampReader.GetSendersNonce(ctx, senders)
+	return withObservedInteraction(o.metric, "ListSenderNonces", func() (map[cciptypes.Address]uint64, error) {
+		return o.OffRampReader.ListSenderNonces(ctx, senders)
 	})
 }

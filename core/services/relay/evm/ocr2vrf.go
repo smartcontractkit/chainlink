@@ -6,8 +6,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -44,15 +42,13 @@ var (
 
 // Relayer with added DKG and OCR2VRF provider functions.
 type ocr2vrfRelayer struct {
-	db          *sqlx.DB
 	chain       legacyevm.Chain
 	lggr        logger.Logger
 	ethKeystore keystore.Eth
 }
 
-func NewOCR2VRFRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2VRFRelayer {
+func NewOCR2VRFRelayer(chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2VRFRelayer {
 	return &ocr2vrfRelayer{
-		db:          db,
 		chain:       chain,
 		lggr:        lggr,
 		ethKeystore: ethKeystore,
@@ -60,7 +56,6 @@ func NewOCR2VRFRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, e
 }
 
 func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (DKGProvider, error) {
-
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
@@ -68,7 +63,7 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commo
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +82,6 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commo
 }
 
 func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2VRFProvider, error) {
-
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
@@ -95,7 +89,7 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs c
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil, 0)
 	if err != nil {
 		return nil, err
 	}

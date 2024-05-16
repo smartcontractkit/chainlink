@@ -11,13 +11,14 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type mockErrorLog struct {
-	types.ErrorLog
+	core.ErrorLog
 }
 
 type mockOffchainConfigDigester struct {
@@ -86,7 +87,7 @@ func TestNewPlugin(t *testing.T) {
 
 	defaultSpec := "default-spec"
 	juelsPerFeeCoinSpec := "jpfc-spec"
-	config := types.ReportingPluginServiceConfig{
+	config := core.ReportingPluginServiceConfig{
 		PluginConfig: fmt.Sprintf(
 			`{"pipelines": [{"name": "__DEFAULT_PIPELINE__", "spec": "%s"},{"name": "juelsPerFeeCoinPipeline", "spec": "%s"}]}`,
 			defaultSpec,

@@ -1,0 +1,74 @@
+#
+# This action creates or updates a Release Preview PR that shows which changes are going to be part of the next release
+# when a PR is merged into develop branch
+#
+
+name: Release Preview - Changeset
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  cicd-changesets:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changeset-added
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filters: |
+            core-changeset:
+              - added: '.changeset/**'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+        if: steps.changeset-added.outputs.core-changeset == 'true'
+        with:
+          version: ^8.0.0
+
+      - name: Setup node
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        if: steps.changeset-added.outputs.core-changeset == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: ./pnpm-lock.yaml
+
+      - name: Run changeset version
+        run: pnpm install && pnpm changeset version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: steps.changeset-added.outputs.core-changeset == 'true'
+
+      - name: Get release version
+        if: steps.changeset-added.outputs.core-changeset == 'true'
+        id: get-release-version
+        run: echo "version=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+
+      - name: cicd-changesets
+        if: steps.changeset-added.outputs.core-changeset == 'true'
+        uses: smartcontractkit/.github/actions/cicd-changesets@6da79c7b9f14bec077df2c1ad40d53823b409d9c # cicd-changesets@0.3.3
+        with:
+          # general inputs
+          git-user: app-token-issuer-releng[bot]
+          git-email: app-token-issuer-releng[bot]@users.noreply.github.com
+          pnpm-use-cache: false
+          pr-draft: true
+          pr-title: "[DO NOT MERGE] Changeset Release Preview - v${{ steps.get-release-version.outputs.version }}"
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          # grafana inputs
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

@@ -175,7 +175,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			senderNonces := map[cciptypes.Address]uint64{
 				cciptypes.Address(utils.RandomAddress().String()): tc.senderNonce,
 			}
-			mockOffRampReader.On("GetSendersNonce", mock.Anything, mock.Anything).Return(senderNonces, nil).Maybe()
+			mockOffRampReader.On("ListSenderNonces", mock.Anything, mock.Anything).Return(senderNonces, nil).Maybe()
 			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, []ccipdata.TokenPoolReader{}).
 				Return([]cciptypes.TokenBucketRateLimit{}, nil).Maybe()
 
@@ -813,7 +813,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 
 			// Mock calls to reader.
 			mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
-			mockOffRampReader.On("GetSendersNonce", mock.Anything, mock.Anything).Return(tc.offRampNoncesBySender, nil).Maybe()
+			mockOffRampReader.On("ListSenderNonces", mock.Anything, mock.Anything).Return(tc.offRampNoncesBySender, nil).Maybe()
 
 			plugin := ExecutionReportingPlugin{
 				tokenDataWorker:   tokendata.NewBackgroundWorker(map[cciptypes.Address]tokendata.Reader{}, 10, 5*time.Second, time.Hour),

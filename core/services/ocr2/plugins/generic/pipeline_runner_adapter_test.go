@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -36,16 +36,18 @@ answer;
 `
 
 func TestAdapter_Integration(t *testing.T) {
+	testutils.SkipShortDB(t)
+	ctx := testutils.Context(t)
 	logger := logger.TestLogger(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	url := cfg.Database().URL()
 	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
 
-	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger, cfg.Database())
-	pipelineORM := pipeline.NewORM(db, logger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	bridgesORM := bridges.NewORM(db, logger, cfg.Database())
-	jobORM := job.NewORM(db, pipelineORM, bridgesORM, keystore, logger, cfg.Database())
+	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger)
+	pipelineORM := pipeline.NewORM(db, logger, cfg.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	jobORM := job.NewORM(db, pipelineORM, bridgesORM, keystore, logger)
 	pr := pipeline.NewRunner(
 		pipelineORM,
 		bridgesORM,
@@ -58,7 +60,7 @@ func TestAdapter_Integration(t *testing.T) {
 		http.DefaultClient,
 		http.DefaultClient,
 	)
-	err = keystore.Unlock(cfg.Password().Keystore())
+	err = keystore.Unlock(ctx, cfg.Password().Keystore())
 	require.NoError(t, err)
 	jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), cfg.OCR2(), cfg.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
@@ -73,10 +75,10 @@ func TestAdapter_Integration(t *testing.T) {
 	jb.Name = null.StringFrom("Job 1")
 	jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jb.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
-	err = jobORM.CreateJob(&jb)
+	err = jobORM.CreateJob(ctx, &jb)
 	require.NoError(t, err)
 	pra := generic.NewPipelineRunnerAdapter(logger, jb, pr)
-	results, err := pra.ExecuteRun(testutils.Context(t), spec, types.Vars{Vars: map[string]interface{}{"val": 1}}, types.Options{})
+	results, err := pra.ExecuteRun(testutils.Context(t), spec, core.Vars{Vars: map[string]interface{}{"val": 1}}, core.Options{})
 	require.NoError(t, err)
 
 	finalResult := results[0].Value.Val.(decimal.Decimal)
@@ -108,7 +110,7 @@ func TestAdapter_AddsDefaultVars(t *testing.T) {
 	jobID, externalJobID, name := int32(100), uuid.New(), null.StringFrom("job-name")
 	pra := generic.NewPipelineRunnerAdapter(logger, job.Job{ID: jobID, ExternalJobID: externalJobID, Name: name}, mpr)
 
-	_, err := pra.ExecuteRun(testutils.Context(t), spec, types.Vars{}, types.Options{})
+	_, err := pra.ExecuteRun(testutils.Context(t), spec, core.Vars{}, core.Options{})
 	require.NoError(t, err)
 
 	gotName, err := mpr.vars.Get("jb.name")
@@ -131,7 +133,7 @@ func TestPipelineRunnerAdapter_SetsVarsOnSpec(t *testing.T) {
 	pra := generic.NewPipelineRunnerAdapter(logger, job.Job{ID: jobID, ExternalJobID: externalJobID, Name: name, Type: jobType}, mpr)
 
 	maxDuration := 100 * time.Second
-	_, err := pra.ExecuteRun(testutils.Context(t), spec, types.Vars{}, types.Options{MaxTaskDuration: maxDuration})
+	_, err := pra.ExecuteRun(testutils.Context(t), spec, core.Vars{}, core.Options{MaxTaskDuration: maxDuration})
 	require.NoError(t, err)
 
 	assert.Equal(t, jobID, mpr.spec.JobID)

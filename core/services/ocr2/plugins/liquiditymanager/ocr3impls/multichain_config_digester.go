@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 var _ types.OffchainConfigDigester = (*MultichainConfigDigester)(nil)
@@ -48,7 +48,7 @@ func (d MultichainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.C
 		if err != nil {
 			return types.ConfigDigest{}, fmt.Errorf("unable to split multi-transmitter %s: %w", multiTransmitter, err)
 		}
-		masterRelayID := relay.NewID(relay.EVM, strconv.FormatUint(d.MasterChainDigester.ChainID, 10))
+		masterRelayID := commontypes.NewRelayID(commontypes.NetworkEVM, strconv.FormatUint(d.MasterChainDigester.ChainID, 10))
 		if _, ok := split[masterRelayID]; !ok {
 			return types.ConfigDigest{}, fmt.Errorf("multi-transmitter %s does not contain a transmitter for master chain %s", multiTransmitter, masterRelayID)
 		}

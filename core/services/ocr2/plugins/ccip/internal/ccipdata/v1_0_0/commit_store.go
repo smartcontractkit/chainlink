@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -375,7 +374,7 @@ func (c *CommitStore) VerifyExecutionReport(ctx context.Context, report cciptype
 	return true, nil
 }
 
-func (c *CommitStore) RegisterFilters(qopts ...pg.QOpt) error {
+func (c *CommitStore) RegisterFilters() error {
 	return logpollerutil.RegisterLpFilters(c.lp, c.filters)
 }
 

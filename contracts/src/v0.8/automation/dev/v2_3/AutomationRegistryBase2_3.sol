@@ -11,7 +11,7 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 
@@ -41,7 +41,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint8 internal constant UPKEEP_VERSION_BASE = 4;
 
   // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
-  // These values are calibrated using hardhat tests which simulates various cases and verifies that
+  // These values are calibrated using hardhat tests which simulate various cases and verify that
   // the variables result in accurate estimation
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 93_000; // Fixed gas overhead for conditional upkeeps
   uint256 internal constant REGISTRY_LOG_OVERHEAD = 118_000; // Fixed gas overhead for log upkeeps
@@ -58,8 +58,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
   // to account for gas used in payment processing. These values are calibrated using hardhat tests which simulates various cases and verifies that
   // the variables result in accurate estimation
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 51_000; // Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 9_000; // Overhead per upkeep performed in batch
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 51_200; // Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 9_200; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkUSDFeed;
@@ -331,13 +331,18 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member index of oracle in s_signersList/s_transmittersList
    * @member balance a node's balance in LINK
    * @member lastCollected the total balance at which the node last withdrew
-   @ @dev uint96 is safe for balance / last collected because transmitters are only ever paid in LINK
+   * @dev uint96 is safe for balance / last collected because transmitters are only ever paid in LINK
    */
   struct Transmitter {
     bool active;
     uint8 index;
     uint96 balance;
     uint96 lastCollected;
+  }
+
+  struct TransmitterPayeeInfo {
+    address transmitterAddress;
+    address payeeAddress;
   }
 
   struct Signer {
@@ -375,6 +380,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 gasFeePPB;
     uint24 flatFeeMilliCents; // min fee is $0.00001, max fee is $167
     AggregatorV3Interface priceFeed;
+    uint8 decimals;
     // 1st word, read in calculating BillingTokenPaymentParams
     uint256 fallbackPrice;
     // 2nd word only read if stale
@@ -395,6 +401,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @dev this is a memory-only struct, so struct packing is less important
    */
   struct BillingTokenPaymentParams {
+    uint8 decimals;
     uint32 gasFeePPB;
     uint24 flatFeeMilliCents;
     uint256 priceUSD;
@@ -426,16 +433,16 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
   /**
    * @notice struct containing receipt information about a payment or cost estimation
-   * @member gasCharge the amount to charge a user for gas spent
-   * @member premium the premium charged to the user, shared between all nodes
-   * @member gasReimbursementJuels the amount to reimburse a node for gas spent
-   * @member premiumJuels the premium paid to NOPs, shared between all nodes
+   * @member gasChargeInBillingToken the amount to charge a user for gas spent using the billing token's native decimals
+   * @member premiumInBillingToken the premium charged to the user, shared between all nodes, using the billing token's native decimals
+   * @member gasReimbursementInJuels the amount to reimburse a node for gas spent
+   * @member premiumInJuels the premium paid to NOPs, shared between all nodes
    */
   struct PaymentReceipt {
-    uint96 gasCharge;
-    uint96 premium;
-    uint96 gasReimbursementJuels;
-    uint96 premiumJuels;
+    uint96 gasChargeInBillingToken;
+    uint96 premiumInBillingToken;
+    uint96 gasReimbursementInJuels;
+    uint96 premiumInJuels;
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
@@ -633,6 +640,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     BillingConfig storage config = s_billingConfigs[billingToken];
     paymentParams.flatFeeMilliCents = config.flatFeeMilliCents;
     paymentParams.gasFeePPB = config.gasFeePPB;
+    paymentParams.decimals = config.decimals;
     (, int256 feedValue, , uint256 timestamp, ) = config.priceFeed.latestRoundData();
     if (
       feedValue <= 0 ||
@@ -660,23 +668,39 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     HotVars memory hotVars,
     PaymentParams memory paymentParams
   ) internal view returns (PaymentReceipt memory receipt) {
+    uint256 decimals = paymentParams.billingTokenParams.decimals;
     uint256 gasWei = paymentParams.fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (paymentParams.isTransaction && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
 
+    // scaling factor is based on decimals of billing token, and applies to premium and gasCharge
+    uint256 numeratorScalingFactor = decimals > 18 ? 10 ** (decimals - 18) : 1;
+    uint256 denominatorScalingFactor = decimals < 18 ? 10 ** (18 - decimals) : 1;
+
+    // gas calculation
     uint256 gasPaymentHexaicosaUSD = (gasWei *
       (paymentParams.gasLimit + paymentParams.gasOverhead) +
       paymentParams.l1CostWei) * paymentParams.nativeUSD; // gasPaymentHexaicosaUSD has an extra 8 zeros because of decimals on nativeUSD feed
-    receipt.gasCharge = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.billingTokenParams.priceUSD); // has units of attoBillingToken, or "wei"
-    receipt.gasReimbursementJuels = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.linkUSD);
+    // gasChargeInBillingToken is scaled by the billing token's decimals
+    receipt.gasChargeInBillingToken = SafeCast.toUint96(
+      (gasPaymentHexaicosaUSD * numeratorScalingFactor) /
+        (paymentParams.billingTokenParams.priceUSD * denominatorScalingFactor)
+    );
+    receipt.gasReimbursementInJuels = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.linkUSD);
+
+    // premium calculation
     uint256 flatFeeHexaicosaUSD = uint256(paymentParams.billingTokenParams.flatFeeMilliCents) * 1e21; // 1e13 for milliCents to attoUSD and 1e8 for attoUSD to hexaicosaUSD
     uint256 premiumHexaicosaUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
       paymentParams.billingTokenParams.gasFeePPB *
       paymentParams.nativeUSD) / 1e9) + flatFeeHexaicosaUSD;
-    receipt.premium = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.billingTokenParams.priceUSD);
-    receipt.premiumJuels = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.linkUSD);
+    // premium is scaled by the billing token's decimals
+    receipt.premiumInBillingToken = SafeCast.toUint96(
+      (premiumHexaicosaUSD * numeratorScalingFactor) /
+        (paymentParams.billingTokenParams.priceUSD * denominatorScalingFactor)
+    );
+    receipt.premiumInJuels = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.linkUSD);
 
     return receipt;
   }
@@ -740,7 +764,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       })
     );
 
-    return receipt.gasCharge + receipt.premium;
+    return receipt.gasChargeInBillingToken + receipt.premiumInBillingToken;
   }
 
   /**
@@ -975,23 +999,26 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
     PaymentReceipt memory receipt = _calculatePaymentAmount(hotVars, paymentParams);
 
+    // balance is in the token's native decimals
     uint96 balance = upkeep.balance;
-    uint96 payment = receipt.gasCharge + receipt.premium;
+    // payment is in the token's native decimals
+    uint96 payment = receipt.gasChargeInBillingToken + receipt.premiumInBillingToken;
 
     // this shouldn't happen, but in rare edge cases, we charge the full balance in case the user
     // can't cover the amount owed
-    if (balance < receipt.gasCharge) {
+    if (balance < receipt.gasChargeInBillingToken) {
       // if the user can't cover the gas fee, then direct all of the payment to the transmitter and distribute no premium to the DON
       payment = balance;
-      receipt.gasReimbursementJuels = SafeCast.toUint96(
+      receipt.gasReimbursementInJuels = SafeCast.toUint96(
         (balance * paymentParams.billingTokenParams.priceUSD) / paymentParams.linkUSD
       );
-      receipt.premiumJuels = 0;
+      receipt.premiumInJuels = 0;
     } else if (balance < payment) {
       // if the user can cover the gas fee, but not the premium, then reduce the premium
       payment = balance;
-      receipt.premiumJuels = SafeCast.toUint96(
-        ((balance * paymentParams.billingTokenParams.priceUSD) / paymentParams.linkUSD) - receipt.gasReimbursementJuels
+      receipt.premiumInJuels = SafeCast.toUint96(
+        ((balance * paymentParams.billingTokenParams.priceUSD) / paymentParams.linkUSD) -
+          receipt.gasReimbursementInJuels
       );
     }
 
@@ -1064,6 +1091,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       IERC20 token = billingTokens[i];
       BillingConfig memory config = billingConfigs[i];
 
+      // most ERC20 tokens are 18 decimals, priceFeed must be 8 decimals
+      if (config.decimals != token.decimals() || config.priceFeed.decimals() != 8) {
+        revert InvalidToken();
+      }
+
       // if LINK is a billing option, payout mode must be ON_CHAIN
       if (address(token) == address(i_link) && mode == PayoutMode.OFF_CHAIN) {
         revert InvalidToken();
@@ -1089,13 +1121,12 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @notice updates the signers and transmitters lists
    */
   function _updateTransmitters(address[] memory signers, address[] memory transmitters) internal {
+    uint96 transmittersListLength = uint96(s_transmittersList.length);
+    uint96 totalPremium = s_hotVars.totalPremium;
+
     // move all pooled payments out of the pool to each transmitter's balance
     for (uint256 i = 0; i < s_transmittersList.length; i++) {
-      _updateTransmitterBalanceFromPool(
-        s_transmittersList[i],
-        s_hotVars.totalPremium,
-        uint96(s_transmittersList.length)
-      );
+      _updateTransmitterBalanceFromPool(s_transmittersList[i], totalPremium, transmittersListLength);
     }
 
     // remove any old signer/transmitter addresses

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -39,7 +40,7 @@ func CreateVRFV2PlusJob(
 	}
 	ost, err := os.String()
 	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrParseJob, err)
+		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrParseJob, err)
 	}
 
 	job, err := chainlinkNode.MustCreateJob(&client.VRFV2PlusJobSpec{
@@ -57,7 +58,7 @@ func CreateVRFV2PlusJob(
 		RequestTimeout:                vrfJobSpecConfig.RequestTimeout,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2PlusJob, err)
+		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrCreatingVRFv2PlusJob, err)
 	}
 
 	return job, nil
@@ -100,11 +101,11 @@ func SetupVRFV2_5Environment(
 	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2Plus.Address()).Msg("Registering Proving Key")
 	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, vrfContracts.CoordinatorV2Plus, uint64(assets.GWei(*configGeneral.CLNodeMaxGasPriceGWei).Int64()))
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRegisteringProvingKey, err)
+		return nil, nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrRegisteringProvingKey, err)
 	}
 	keyHash, err := vrfContracts.CoordinatorV2Plus.HashOfKey(ctx, provingKey)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrCreatingProvingKeyHash, err)
+		return nil, nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrCreatingProvingKeyHash, err)
 	}
 
 	evmClient, err := env.GetEVMClient(chainID)
@@ -124,7 +125,7 @@ func SetupVRFV2_5Environment(
 	}
 	err = evmClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+		return nil, nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	nodeTypeToNodeMap[vrfcommon.VRF].TXKeyAddressStrings = vrfTXKeyAddressStrings
@@ -219,7 +220,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *v
 		vrfJobSpecConfig,
 	)
 	if err != nil {
-		return fmt.Errorf("%s, err %w", ErrCreateVRFV2PlusJobs, err)
+		return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrCreateVRFV2PlusJobs, err)
 	}
 	vrfNode.Job = job
 
@@ -233,7 +234,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *v
 	l.Info().Msg("Restarting Node with new sending key PriceMax configuration")
 	err = vrfNode.CLNode.Restart(nodeConfig)
 	if err != nil {
-		return fmt.Errorf("%s, err %w", vrfcommon.ErrRestartCLNode, err)
+		return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrRestartCLNode, err)
 	}
 	return nil
 }
@@ -278,7 +279,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 	err = evmClient.WaitForEvents()
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	// once the wrapper is deployed, wrapper address will become consumer of external EOA subscription
@@ -289,21 +290,21 @@ func SetupVRFV2PlusWrapperEnvironment(
 
 	err = evmClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
-
 	err = wrapperContracts.VRFV2PlusWrapper.SetConfig(
 		*vrfv2PlusConfig.WrapperGasOverhead,
-		*vrfv2PlusConfig.CoordinatorGasOverhead,
-		//todo - introduce separate config for Wrapper Premium Percentage
-		*vrfv2PlusConfig.NativePremiumPercentage,
-		*vrfv2PlusConfig.LinkPremiumPercentage,
+		*vrfv2PlusConfig.CoordinatorGasOverheadNative,
+		*vrfv2PlusConfig.CoordinatorGasOverheadLink,
+		*vrfv2PlusConfig.CoordinatorGasOverheadPerWord,
+		*vrfv2PlusConfig.CoordinatorNativePremiumPercentage,
+		*vrfv2PlusConfig.CoordinatorLinkPremiumPercentage,
 		keyHash,
 		*vrfv2PlusConfig.WrapperMaxNumberOfWords,
 		*vrfv2PlusConfig.StalenessSeconds,
-		big.NewInt(*vrfv2PlusConfig.FallbackWeiPerUnitLink),
-		*vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
+		decimal.RequireFromString(*vrfv2PlusConfig.FallbackWeiPerUnitLink).BigInt(),
 		*vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
+		*vrfv2PlusConfig.FulfillmentFlatFeeLinkDiscountPPM,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -311,7 +312,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 
 	err = evmClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	//fund sub
@@ -322,7 +323,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 
 	err = evmClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	err = FundSubscriptions(
@@ -348,7 +349,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 	}
 	err = evmClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 
 	//fund consumer with Eth
@@ -358,7 +359,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 	}
 	err = evmClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return wrapperContracts, wrapperSubID, nil
 }

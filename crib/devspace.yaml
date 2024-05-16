@@ -55,6 +55,8 @@ commands:
     cd ../integration-tests/load/ocr && go test -v -run TestOCRLoad || cd -
   dashboard_deploy: |-
     go run dashboard/cmd/deploy.go
+  dashboard_test: |-
+    cd dashboard/tests && npx playwright test || cd -
 
 images:
   app:
@@ -72,7 +74,7 @@ images:
         docker push $image
 hooks:
   - command: ./scripts/check_env_vars.sh
-    events: ["before:deploy:app"]
+    events: [ "before:deploy:app" ]
   - wait:
       running: true
       terminatedWithCode: 0
@@ -96,8 +98,6 @@ deployments:
     namespace: ${DEVSPACE_NAMESPACE}
     helm:
       releaseName: "app"
-      upgradeArgs: ["--timeout", "10m"]
-      displayOutput: true
       chart:
         name: ${CCIP_HELM_CHART_URI}
         version: "0.1.1"
@@ -105,6 +105,9 @@ deployments:
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
       values:
+        podSecurityContext:
+          fsGroup: 999
+
         crib-chainlink-cluster:
           chainlink:
             global:
@@ -168,6 +171,16 @@ deployments:
             nodes:
               - name: node-1
                 image: ${runtime.images.app}
+                # default resources are 300m/1Gi
+                # first node need more resources to build faster inside container
+                # at least 2Gi of memory is required otherwise build will fail (OOM)
+                resources:
+                  requests:
+                    cpu: 2000m
+                    memory: 2048Mi
+                  limits:
+                    cpu: 2000m
+                    memory: 2048Mi
                 # override default config per node
                 # for example, use OCRv2 P2P setup, the whole config
                 #      toml: |
@@ -199,6 +212,14 @@ deployments:
                 #        [WebServer.TLS]
                 #        HTTPSPort = 0
                 # or use overridesToml to override some part of configuration
+                # overridesToml: |
+                # Enable Tracing
+                #   [Tracing]
+                #   Enabled = true
+                #   SamplingRatio = 1.0
+                #   CollectorTarget = 'app-opentelemetry-collector:4317'
+                #   TLSCertPath = ''
+                #   Mode = 'unencrypted'
               - name: node-2
                 image: ${runtime.images.app}
               - name: node-3
@@ -209,6 +230,7 @@ deployments:
                 image: ${runtime.images.app}
               - name: node-6
                 image: ${runtime.images.app}
+
           # each CL node have a dedicated PostgreSQL 11.15
           # use StatefulSet by setting:
           #
@@ -217,7 +239,22 @@ deployments:
           #
           # if you are running long tests
           db:
+            securityContext:
+              capabilities:
+                drop:
+                  - ALL
+              readOnlyRootFilesystem: false
+              runAsNonRoot: true
+              runAsUser: 999
+              runAsGroup: 999
             stateful: false
+            resources:
+              requests:
+                cpu: 1
+                memory: 1024Mi
+              limits:
+                cpu: 1
+                memory: 1024Mi
           # default cluster shipped with latest Geth ( dev mode by default )
           geth:
             securityContext:
@@ -403,6 +440,11 @@ deployments:
               # AWS ALB private CIDRs and optionally other custom CIDRs.
               # Example format: 10.0.0.0/16,192.168.0.1/24
               customCidrs: ${DEVSPACE_INGRESS_CIDRS}
+          # deployment placement, standard helm stuff
+          podAnnotations:
+          nodeSelector:
+          tolerations:
+          affinity:
         ccipScriptsDeployment:
           enabled: true
           image: ${DEVSPACE_CCIP_SCRIPTS_IMAGE}
@@ -417,7 +459,7 @@ profiles:
         path: deployments.app.helm.values.chainlink-cluster.chainlink.global.overridesToml
       - op: add
         path: deployments.app.helm.valuesFiles
-        value: ["./values-profiles/values-dev.yaml"]
+        value: ["../charts/chainlink-cluster/values-profiles/values-dev.yaml"]
       - op: replace
         path: deployments.app.helm.values.ccipScriptsDeployment.enabled
         value: false

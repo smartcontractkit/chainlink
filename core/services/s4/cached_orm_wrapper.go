@@ -1,6 +1,7 @@
 package s4
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -10,7 +11,6 @@ import (
 
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -40,18 +40,18 @@ func NewCachedORMWrapper(orm ORM, lggr logger.Logger) *CachedORM {
 	}
 }
 
-func (c CachedORM) Get(address *ubig.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
-	return c.underlayingORM.Get(address, slotId, qopts...)
+func (c CachedORM) Get(ctx context.Context, address *ubig.Big, slotId uint) (*Row, error) {
+	return c.underlayingORM.Get(ctx, address, slotId)
 }
 
-func (c CachedORM) Update(row *Row, qopts ...pg.QOpt) error {
+func (c CachedORM) Update(ctx context.Context, row *Row) error {
 	c.deleteRowFromSnapshotCache(row)
 
-	return c.underlayingORM.Update(row, qopts...)
+	return c.underlayingORM.Update(ctx, row)
 }
 
-func (c CachedORM) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) (int64, error) {
-	deletedRows, err := c.underlayingORM.DeleteExpired(limit, utcNow, qopts...)
+func (c CachedORM) DeleteExpired(ctx context.Context, limit uint, utcNow time.Time) (int64, error) {
+	deletedRows, err := c.underlayingORM.DeleteExpired(ctx, limit, utcNow)
 	if err != nil {
 		return 0, err
 	}
@@ -63,7 +63,7 @@ func (c CachedORM) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt)
 	return deletedRows, nil
 }
 
-func (c CachedORM) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
+func (c CachedORM) GetSnapshot(ctx context.Context, addressRange *AddressRange) ([]*SnapshotRow, error) {
 	key := fmt.Sprintf("%s_%s_%s", getSnapshotCachePrefix, addressRange.MinAddress.String(), addressRange.MaxAddress.String())
 
 	cached, found := c.cache.Get(key)
@@ -72,7 +72,7 @@ func (c CachedORM) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]
 	}
 
 	c.lggr.Debug("Snapshot not found in cache, fetching it from underlaying implementation")
-	data, err := c.underlayingORM.GetSnapshot(addressRange, qopts...)
+	data, err := c.underlayingORM.GetSnapshot(ctx, addressRange)
 	if err != nil {
 		return nil, err
 	}
@@ -81,8 +81,8 @@ func (c CachedORM) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]
 	return data, nil
 }
 
-func (c CachedORM) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error) {
-	return c.underlayingORM.GetUnconfirmedRows(limit, qopts...)
+func (c CachedORM) GetUnconfirmedRows(ctx context.Context, limit uint) ([]*Row, error) {
+	return c.underlayingORM.GetUnconfirmedRows(ctx, limit)
 }
 
 // deleteRowFromSnapshotCache will clean the cache for every snapshot that would involve a given row

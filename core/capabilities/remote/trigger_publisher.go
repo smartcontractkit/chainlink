@@ -5,6 +5,7 @@ import (
 	sync "sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -23,8 +24,8 @@ type triggerPublisher struct {
 	config        types.RemoteTriggerConfig
 	underlying    commoncap.TriggerCapability
 	capInfo       commoncap.CapabilityInfo
-	capDonInfo    types.DON
-	workflowDONs  map[string]types.DON
+	capDonInfo    commoncap.DON
+	workflowDONs  map[string]commoncap.DON
 	dispatcher    types.Dispatcher
 	messageCache  *messageCache[registrationKey, p2ptypes.PeerID]
 	registrations map[registrationKey]*pubRegState
@@ -40,14 +41,14 @@ type registrationKey struct {
 }
 
 type pubRegState struct {
-	callback chan<- commoncap.CapabilityResponse
+	callback <-chan commoncap.CapabilityResponse
 	request  commoncap.CapabilityRequest
 }
 
 var _ types.Receiver = &triggerPublisher{}
 var _ services.Service = &triggerPublisher{}
 
-func NewTriggerPublisher(config types.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo types.DON, workflowDONs map[string]types.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(config types.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
 	config.ApplyDefaults()
 	return &triggerPublisher{
 		config:        config,
@@ -87,17 +88,21 @@ func (p *triggerPublisher) Receive(msg *types.MessageBody) {
 		key := registrationKey{msg.CallerDonId, req.Metadata.WorkflowID}
 		nowMs := time.Now().UnixMilli()
 		p.mu.Lock()
+		defer p.mu.Unlock()
 		p.messageCache.Insert(key, sender, nowMs, msg.Payload)
+		_, exists := p.registrations[key]
+		if exists {
+			p.lggr.Debugw("trigger registration already exists", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID)
+			return
+		}
 		// NOTE: require 2F+1 by default, introduce different strategies later (KS-76)
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-int64(p.config.RegistrationExpiryMs), false)
-		p.mu.Unlock()
 		if !ready {
 			p.lggr.Debugw("not ready to aggregate yet", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
 			return
 		}
-		agg := NewDefaultModeAggregator(uint32(callerDon.F + 1))
-		aggregated, err := agg.Aggregate("", payloads)
+		aggregated, err := AggregateModeRaw(payloads, uint32(callerDon.F+1))
 		if err != nil {
 			p.lggr.Errorw("failed to aggregate trigger registrations", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 			return
@@ -107,10 +112,8 @@ func (p *triggerPublisher) Receive(msg *types.MessageBody) {
 			p.lggr.Errorw("failed to unmarshal request", "capabilityId", p.capInfo.ID, "err", err)
 			return
 		}
-		p.mu.Lock()
-		callbackCh := make(chan commoncap.CapabilityResponse)
 		ctx, cancel := p.stopCh.NewCtx()
-		err = p.underlying.RegisterTrigger(ctx, callbackCh, unmarshaled)
+		callbackCh, err := p.underlying.RegisterTrigger(ctx, unmarshaled)
 		cancel()
 		if err == nil {
 			p.registrations[key] = &pubRegState{
@@ -123,7 +126,6 @@ func (p *triggerPublisher) Receive(msg *types.MessageBody) {
 		} else {
 			p.lggr.Errorw("failed to register trigger", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 		}
-		p.mu.Unlock()
 	} else {
 		p.lggr.Errorw("received trigger request with unknown method", "method", msg.Method, "sender", sender)
 	}
@@ -150,7 +152,6 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 					cancel()
 					p.lggr.Infow("unregistered trigger", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonId, "workflowId", key.workflowId, "err", err)
 					// after calling UnregisterTrigger, the underlying trigger will not send any more events to the channel
-					close(req.callback)
 					delete(p.registrations, key)
 					p.messageCache.Delete(key)
 				}
@@ -160,7 +161,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 	}
 }
 
-func (p *triggerPublisher) triggerEventLoop(callbackCh chan commoncap.CapabilityResponse, key registrationKey) {
+func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.CapabilityResponse, key registrationKey) {
 	defer p.wg.Done()
 	for {
 		select {
@@ -171,7 +172,13 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh chan commoncap.Capability
 				p.lggr.Infow("triggerEventLoop channel closed", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId)
 				return
 			}
-			p.lggr.Debugw("received trigger event", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId)
+			triggerEvent := capabilities.TriggerEvent{}
+			err := response.Value.UnwrapTo(&triggerEvent)
+			if err != nil {
+				p.lggr.Errorw("can't unwrap trigger event", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId, "err", err)
+				break
+			}
+			p.lggr.Debugw("received trigger event", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId, "triggerEventID", triggerEvent.ID)
 			marshaled, err := pb.MarshalCapabilityResponse(response)
 			if err != nil {
 				p.lggr.Debugw("can't marshal trigger event", "err", err)
@@ -186,7 +193,8 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh chan commoncap.Capability
 				Metadata: &types.MessageBody_TriggerEventMetadata{
 					TriggerEventMetadata: &types.TriggerEventMetadata{
 						// NOTE: optionally introduce batching across workflows as an optimization
-						WorkflowIds: []string{key.workflowId},
+						WorkflowIds:    []string{key.workflowId},
+						TriggerEventId: triggerEvent.ID,
 					},
 				},
 			}

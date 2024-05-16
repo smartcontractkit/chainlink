@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -25,7 +25,6 @@ import (
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	fallow "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	fsub "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -100,7 +99,7 @@ type PendingRequest struct {
 
 var _ handlers.Handler = (*functionsHandler)(nil)
 
-func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains legacyevm.LegacyChainContainer, db *sqlx.DB, qcfg pg.QConfig, lggr logger.Logger) (handlers.Handler, error) {
+func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, lggr logger.Logger) (handlers.Handler, error) {
 	var cfg FunctionsHandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -114,7 +113,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err2
 		}
 
-		orm, err2 := fallow.NewORM(db, lggr, qcfg, cfg.OnchainAllowlist.ContractAddress)
+		orm, err2 := fallow.NewORM(ds, lggr, cfg.OnchainAllowlist.ContractAddress)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -143,7 +142,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err2
 		}
 
-		orm, err2 := fsub.NewORM(db, lggr, qcfg, cfg.OnchainSubscriptions.ContractAddress)
+		orm, err2 := fsub.NewORM(ds, lggr, cfg.OnchainSubscriptions.ContractAddress)
 		if err2 != nil {
 			return nil, err2
 		}

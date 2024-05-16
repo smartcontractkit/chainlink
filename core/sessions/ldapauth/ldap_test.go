@@ -14,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -28,7 +29,7 @@ func setupAuthenticationProvider(t *testing.T, ldapClient ldapauth.LDAPClient) (
 
 	cfg := ldapauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
-	ldapAuthProvider, err := ldapauth.NewTestLDAPAuthenticator(db, pgtest.NewQConfig(true), &cfg, true, logger.TestLogger(t), &audit.AuditLoggerService{})
+	ldapAuthProvider, err := ldapauth.NewTestLDAPAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
 	if err != nil {
 		t.Fatalf("Error constructing NewTestLDAPAuthenticator: %v\n", err)
 	}
@@ -40,6 +41,7 @@ func setupAuthenticationProvider(t *testing.T, ldapClient ldapauth.LDAPClient) (
 
 func TestORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -56,12 +58,13 @@ func TestORM_FindUser_Empty(t *testing.T) {
 	mockLdapConnProvider.On("Search", mock.AnythingOfType("*ldap.SearchRequest")).Return(&expectedResults, nil)
 
 	// Not in upstream, no local admin users, expect error
-	_, err := ldapAuthProvider.FindUser("unknown-user")
+	_, err := ldapAuthProvider.FindUser(ctx, "unknown-user")
 	require.ErrorContains(t, err, "LDAP query returned no matching users")
 }
 
 func TestORM_FindUser_NoGroups(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -95,12 +98,13 @@ func TestORM_FindUser_NoGroups(t *testing.T) {
 	mockLdapConnProvider.On("Search", mock.AnythingOfType("*ldap.SearchRequest")).Return(&expectedResults, nil)
 
 	// No Groups, expect error
-	_, err := ldapAuthProvider.FindUser(user1.Email)
+	_, err := ldapAuthProvider.FindUser(ctx, user1.Email)
 	require.ErrorContains(t, err, "user present in directory, but matching no role groups assigned")
 }
 
 func TestORM_FindUser_NotActive(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -134,12 +138,13 @@ func TestORM_FindUser_NotActive(t *testing.T) {
 	mockLdapConnProvider.On("Search", mock.AnythingOfType("*ldap.SearchRequest")).Return(&expectedResults, nil)
 
 	// User not active, expect error
-	_, err := ldapAuthProvider.FindUser(user1.Email)
+	_, err := ldapAuthProvider.FindUser(ctx, user1.Email)
 	require.ErrorContains(t, err, "user not active")
 }
 
 func TestORM_FindUser_Single(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -189,7 +194,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 	mockLdapConnProvider.On("Search", mock.AnythingOfType("*ldap.SearchRequest")).Return(&expectedGroupResults, nil).Once()
 
 	// User active, and has editor group. Expect success
-	user, err := ldapAuthProvider.FindUser(user1.Email)
+	user, err := ldapAuthProvider.FindUser(ctx, user1.Email)
 	require.NoError(t, err)
 	require.Equal(t, user1.Email, user.Email)
 	require.Equal(t, sessions.UserRoleEdit, user.Role)
@@ -197,19 +202,21 @@ func TestORM_FindUser_Single(t *testing.T) {
 
 func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	// Initilaize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)
 	_, ldapAuthProvider := setupAuthenticationProvider(t, mockLdapClient)
 
 	// Not in upstream, but utilize text fixture admin user presence in test DB. Succeed
-	user, err := ldapAuthProvider.FindUser(cltest.APIEmailAdmin)
+	user, err := ldapAuthProvider.FindUser(ctx, cltest.APIEmailAdmin)
 	require.NoError(t, err)
 	require.Equal(t, cltest.APIEmailAdmin, user.Email)
 	require.Equal(t, sessions.UserRoleAdmin, user.Role)
 }
 
 func TestORM_FindUserByAPIToken_Success(t *testing.T) {
+	ctx := testutils.Context(t)
 	// Initilaize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)
 	db, ldapAuthProvider := setupAuthenticationProvider(t, mockLdapClient)
@@ -221,13 +228,14 @@ func TestORM_FindUserByAPIToken_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Found user by API token in specific ldap_user_api_tokens table
-	user, err := ldapAuthProvider.FindUserByAPIToken(apiToken)
+	user, err := ldapAuthProvider.FindUserByAPIToken(ctx, apiToken)
 	require.NoError(t, err)
 	require.Equal(t, testEmail, user.Email)
 	require.Equal(t, sessions.UserRoleEdit, user.Role)
 }
 
 func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
+	ctx := testutils.Context(t)
 	cfg := ldapauth.TestConfig{}
 
 	// Initilaize LDAP Authentication Provider with mock client
@@ -242,12 +250,13 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 	require.NoError(t, err)
 
 	// Token found, but expired. Expect error
-	_, err = ldapAuthProvider.FindUserByAPIToken(apiToken)
+	_, err = ldapAuthProvider.FindUserByAPIToken(ctx, apiToken)
 	require.Equal(t, sessions.ErrUserSessionExpired, err)
 }
 
 func TestORM_ListUsers_Full(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -365,7 +374,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 
 	// Asserts 'uid=' parsing log in  ldapGroupMembersListToUser
 	// Expected full list of users above, including local admin user, excluding 'inactive' and duplicate users
-	users, err := ldapAuthProvider.ListUsers()
+	users, err := ldapAuthProvider.ListUsers(ctx)
 	require.NoError(t, err)
 	require.Equal(t, users[0].Email, user1.Email)
 	require.Equal(t, users[0].Role, sessions.UserRoleAdmin)
@@ -381,6 +390,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 
 func TestORM_CreateSession_UpstreamBind(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -436,12 +446,13 @@ func TestORM_CreateSession_UpstreamBind(t *testing.T) {
 		Password: cltest.Password,
 	}
 
-	_, err := ldapAuthProvider.CreateSession(sessionRequest)
+	_, err := ldapAuthProvider.CreateSession(ctx, sessionRequest)
 	require.NoError(t, err)
 }
 
 func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -461,7 +472,7 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 		Password: cltest.Password,
 	}
 
-	_, err := ldapAuthProvider.CreateSession(sessionRequest)
+	_, err := ldapAuthProvider.CreateSession(ctx, sessionRequest)
 	require.NoError(t, err)
 
 	// Finally, assert login failing altogether
@@ -472,12 +483,13 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 		Password: "incorrect-password",
 	}
 
-	_, err = ldapAuthProvider.CreateSession(sessionRequest)
+	_, err = ldapAuthProvider.CreateSession(ctx, sessionRequest)
 	require.ErrorContains(t, err, "invalid password")
 }
 
 func TestORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -497,7 +509,7 @@ func TestORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
 		Password: cltest.Password,
 	}
 
-	_, err := ldapAuthProvider.CreateSession(sessionRequest)
+	_, err := ldapAuthProvider.CreateSession(ctx, sessionRequest)
 	require.NoError(t, err)
 
 	// Finally, assert login failing altogether
@@ -508,7 +520,7 @@ func TestORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
 		Password: "incorrect-password",
 	}
 
-	_, err = ldapAuthProvider.CreateSession(sessionRequest)
+	_, err = ldapAuthProvider.CreateSession(ctx, sessionRequest)
 	require.ErrorContains(t, err, "invalid password")
 }
 

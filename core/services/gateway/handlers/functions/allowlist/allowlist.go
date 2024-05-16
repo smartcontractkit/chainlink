@@ -128,7 +128,7 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 			return nil
 		}
 
-		a.loadStoredAllowedSenderList()
+		a.loadStoredAllowedSenderList(ctx)
 
 		updateOnce := func() {
 			timeoutCtx, cancel := utils.ContextFromChanWithTimeout(a.stopCh, time.Duration(a.config.UpdateTimeoutSec)*time.Second)
@@ -245,12 +245,12 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 			return errors.Wrap(err, "error calling GetAllAllowedSenders")
 		}
 
-		err = a.orm.PurgeAllowedSenders()
+		err = a.orm.PurgeAllowedSenders(ctx)
 		if err != nil {
 			a.lggr.Errorf("failed to purge allowedSenderList: %w", err)
 		}
 
-		err = a.orm.CreateAllowedSenders(allowedSenderList)
+		err = a.orm.CreateAllowedSenders(ctx, allowedSenderList)
 		if err != nil {
 			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 		}
@@ -290,7 +290,7 @@ func (a *onchainAllowlist) getAllowedSendersBatched(ctx context.Context, tosCont
 		}
 
 		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
-		err = a.orm.CreateAllowedSenders(allowedSendersBatch)
+		err = a.orm.CreateAllowedSenders(ctx, allowedSendersBatch)
 		if err != nil {
 			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 		}
@@ -330,7 +330,7 @@ func (a *onchainAllowlist) syncBlockedSenders(ctx context.Context, tosContract *
 			return errors.Wrap(err, "error calling GetAllowedSendersInRange")
 		}
 
-		err = a.orm.DeleteAllowedSenders(blockedSendersBatch)
+		err = a.orm.DeleteAllowedSenders(ctx, blockedSendersBatch)
 		if err != nil {
 			a.lggr.Errorf("failed to delete blocked address from allowed list in storage: %w", err)
 		}
@@ -349,11 +349,11 @@ func (a *onchainAllowlist) update(addrList []common.Address) {
 	a.lggr.Infow("allowlist updated successfully", "len", len(addrList))
 }
 
-func (a *onchainAllowlist) loadStoredAllowedSenderList() {
+func (a *onchainAllowlist) loadStoredAllowedSenderList(ctx context.Context) {
 	allowedList := make([]common.Address, 0)
 	offset := uint(0)
 	for {
-		asBatch, err := a.orm.GetAllowedSenders(offset, a.config.StoredAllowlistBatchSize)
+		asBatch, err := a.orm.GetAllowedSenders(ctx, offset, a.config.StoredAllowlistBatchSize)
 		if err != nil {
 			a.lggr.Errorf("failed to get stored allowed senders: %w", err)
 			break

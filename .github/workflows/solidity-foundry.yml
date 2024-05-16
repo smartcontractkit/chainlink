@@ -80,7 +80,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
-        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && !contains(fromJson('["keystone"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
         run: |
           forge snapshot --nmt "test_?Fuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot

@@ -5,9 +5,9 @@ import {Vm} from "forge-std/Test.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistrar2_3 as Registrar} from "../v2_3/AutomationRegistrar2_3.sol";
-import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3, IAutomationV21PlusCommon} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistry2_3.t.sol
@@ -23,26 +23,30 @@ contract SetUp is BaseTest {
   bytes internal constant offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
   uint256 linkUpkeepID;
-  uint256 usdUpkeepID;
+  uint256 linkUpkeepID2; // 2 upkeeps use the same billing token (LINK) to test migration scenario
+  uint256 usdUpkeepID18; // 1 upkeep uses ERC20 token with 18 decimals
+  uint256 usdUpkeepID6; // 1 upkeep uses ERC20 token with 6 decimals
   uint256 nativeUpkeepID;
 
   function setUp() public virtual override {
     super.setUp();
-
     (registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
     config = registry.getConfig();
 
     vm.startPrank(OWNER);
     linkToken.approve(address(registry), type(uint256).max);
-    usdToken.approve(address(registry), type(uint256).max);
+    usdToken6.approve(address(registry), type(uint256).max);
+    usdToken18.approve(address(registry), type(uint256).max);
     weth.approve(address(registry), type(uint256).max);
     vm.startPrank(UPKEEP_ADMIN);
     linkToken.approve(address(registry), type(uint256).max);
-    usdToken.approve(address(registry), type(uint256).max);
+    usdToken6.approve(address(registry), type(uint256).max);
+    usdToken18.approve(address(registry), type(uint256).max);
     weth.approve(address(registry), type(uint256).max);
     vm.startPrank(STRANGER);
     linkToken.approve(address(registry), type(uint256).max);
-    usdToken.approve(address(registry), type(uint256).max);
+    usdToken6.approve(address(registry), type(uint256).max);
+    usdToken18.approve(address(registry), type(uint256).max);
     weth.approve(address(registry), type(uint256).max);
     vm.stopPrank();
 
@@ -57,12 +61,34 @@ contract SetUp is BaseTest {
       ""
     );
 
-    usdUpkeepID = registry.registerUpkeep(
+    linkUpkeepID2 = registry.registerUpkeep(
       address(TARGET1),
       config.maxPerformGas,
       UPKEEP_ADMIN,
       uint8(Trigger.CONDITION),
-      address(usdToken),
+      address(linkToken),
+      "",
+      "",
+      ""
+    );
+
+    usdUpkeepID18 = registry.registerUpkeep(
+      address(TARGET1),
+      config.maxPerformGas,
+      UPKEEP_ADMIN,
+      uint8(Trigger.CONDITION),
+      address(usdToken18),
+      "",
+      "",
+      ""
+    );
+
+    usdUpkeepID6 = registry.registerUpkeep(
+      address(TARGET1),
+      config.maxPerformGas,
+      UPKEEP_ADMIN,
+      uint8(Trigger.CONDITION),
+      address(usdToken6),
       "",
       "",
       ""
@@ -81,7 +107,9 @@ contract SetUp is BaseTest {
 
     vm.startPrank(OWNER);
     registry.addFunds(linkUpkeepID, registry.getMinBalanceForUpkeep(linkUpkeepID));
-    registry.addFunds(usdUpkeepID, registry.getMinBalanceForUpkeep(usdUpkeepID));
+    registry.addFunds(linkUpkeepID2, registry.getMinBalanceForUpkeep(linkUpkeepID2));
+    registry.addFunds(usdUpkeepID18, registry.getMinBalanceForUpkeep(usdUpkeepID18));
+    registry.addFunds(usdUpkeepID6, registry.getMinBalanceForUpkeep(usdUpkeepID6));
     registry.addFunds(nativeUpkeepID, registry.getMinBalanceForUpkeep(nativeUpkeepID));
     vm.stopPrank();
   }
@@ -160,22 +188,22 @@ contract AddFunds is SetUp {
   function test_movesFundFromCorrectToken() public {
     vm.startPrank(UPKEEP_ADMIN);
 
-    uint256 startBalanceLINK = linkToken.balanceOf(address(registry));
-    uint256 startBalanceUSDToken = usdToken.balanceOf(address(registry));
+    uint256 startLINKRegistryBalance = linkToken.balanceOf(address(registry));
+    uint256 startUSDRegistryBalance = usdToken18.balanceOf(address(registry));
     uint256 startLinkUpkeepBalance = registry.getBalance(linkUpkeepID);
-    uint256 startUSDUpkeepBalance = registry.getBalance(usdUpkeepID);
+    uint256 startUSDUpkeepBalance = registry.getBalance(usdUpkeepID18);
 
     registry.addFunds(linkUpkeepID, 1);
-    assertEq(registry.getBalance(linkUpkeepID), startBalanceLINK + 1);
-    assertEq(registry.getBalance(usdUpkeepID), startBalanceUSDToken);
-    assertEq(linkToken.balanceOf(address(registry)), startLinkUpkeepBalance + 1);
-    assertEq(usdToken.balanceOf(address(registry)), startUSDUpkeepBalance);
+    assertEq(registry.getBalance(linkUpkeepID), startLinkUpkeepBalance + 1);
+    assertEq(registry.getBalance(usdUpkeepID18), startUSDRegistryBalance);
+    assertEq(linkToken.balanceOf(address(registry)), startLINKRegistryBalance + 1);
+    assertEq(usdToken18.balanceOf(address(registry)), startUSDUpkeepBalance);
 
-    registry.addFunds(usdUpkeepID, 2);
-    assertEq(registry.getBalance(linkUpkeepID), startBalanceLINK + 1);
-    assertEq(registry.getBalance(usdUpkeepID), startBalanceUSDToken + 2);
-    assertEq(linkToken.balanceOf(address(registry)), startLinkUpkeepBalance + 1);
-    assertEq(usdToken.balanceOf(address(registry)), startUSDUpkeepBalance + 2);
+    registry.addFunds(usdUpkeepID18, 2);
+    assertEq(registry.getBalance(linkUpkeepID), startLinkUpkeepBalance + 1);
+    assertEq(registry.getBalance(usdUpkeepID18), startUSDRegistryBalance + 2);
+    assertEq(linkToken.balanceOf(address(registry)), startLINKRegistryBalance + 1);
+    assertEq(usdToken18.balanceOf(address(registry)), startUSDUpkeepBalance + 2);
   }
 
   function test_emitsAnEvent() public {
@@ -245,10 +273,10 @@ contract Withdraw is SetUp {
   }
 
   function test_WithdrawERC20Fees_RespectsReserveAmount() public {
-    assertEq(registry.getBalance(usdUpkeepID), registry.getReserveAmount(address(usdToken)));
+    assertEq(registry.getBalance(usdUpkeepID18), registry.getReserveAmount(address(usdToken18)));
     vm.startPrank(FINANCE_ADMIN);
     vm.expectRevert(abi.encodeWithSelector(Registry.InsufficientBalance.selector, 0, 1));
-    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1);
+    registry.withdrawERC20Fees(address(usdToken18), FINANCE_ADMIN, 1);
   }
 
   function test_WithdrawERC20Fees_RevertsWhen_AttemptingToWithdrawLINK() public {
@@ -260,35 +288,35 @@ contract Withdraw is SetUp {
   }
 
   function test_WithdrawERC20Fees_RevertsWhen_LinkAvailableForPaymentIsNegative() public {
-    _transmit(usdUpkeepID, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
+    _transmit(usdUpkeepID18, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
     require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
     vm.expectRevert(Registry.InsufficientLinkLiquidity.selector);
     vm.prank(FINANCE_ADMIN);
-    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1); // should revert
+    registry.withdrawERC20Fees(address(usdToken18), FINANCE_ADMIN, 1); // should revert
     _mintLink(address(registry), uint256(registry.linkAvailableForPayment() * -10)); // top up LINK liquidity pool
     vm.prank(FINANCE_ADMIN);
-    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1); // now finance can withdraw
+    registry.withdrawERC20Fees(address(usdToken18), FINANCE_ADMIN, 1); // now finance can withdraw
   }
 
   function testWithdrawERC20FeeSuccess() public {
     // deposit excess USDToken to the registry (this goes to the "finance withdrawable" pool be default)
-    uint256 startReserveAmount = registry.getReserveAmount(address(usdToken));
-    uint256 startAmount = usdToken.balanceOf(address(registry));
-    _mintERC20(address(registry), 1e10);
+    uint256 startReserveAmount = registry.getReserveAmount(address(usdToken18));
+    uint256 startAmount = usdToken18.balanceOf(address(registry));
+    _mintERC20_18Decimals(address(registry), 1e10);
 
     // depositing shouldn't change reserve amount
-    assertEq(registry.getReserveAmount(address(usdToken)), startReserveAmount);
+    assertEq(registry.getReserveAmount(address(usdToken18)), startReserveAmount);
 
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 USDToken
-    registry.withdrawERC20Fees(address(usdToken), aMockAddress, 1);
+    registry.withdrawERC20Fees(address(usdToken18), aMockAddress, 1);
 
     vm.stopPrank();
 
-    assertEq(usdToken.balanceOf(address(aMockAddress)), 1);
-    assertEq(usdToken.balanceOf(address(registry)), startAmount + 1e10 - 1);
-    assertEq(registry.getReserveAmount(address(usdToken)), startReserveAmount);
+    assertEq(usdToken18.balanceOf(address(aMockAddress)), 1);
+    assertEq(usdToken18.balanceOf(address(registry)), startAmount + 1e10 - 1);
+    assertEq(registry.getReserveAmount(address(usdToken18)), startReserveAmount);
   }
 }
 
@@ -306,6 +334,7 @@ contract SetConfig is SetUp {
   );
 
   address module = address(new ChainModuleBase());
+
   AutomationRegistryBase2_3.OnchainConfig cfg =
     AutomationRegistryBase2_3.OnchainConfig({
       checkGasLimit: 5_000_000,
@@ -319,7 +348,7 @@ contract SetConfig is SetUp {
       fallbackLinkPrice: 2_000_000_000, // $20
       fallbackNativePrice: 400_000_000_000, // $4,000
       transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-      registrars: new address[](0),
+      registrars: _getRegistrars(),
       upkeepPrivilegeManager: PRIVILEGE_MANAGER,
       chainModule: module,
       reorgProtectionEnabled: true,
@@ -330,7 +359,7 @@ contract SetConfig is SetUp {
     (uint32 configCount, uint32 blockNumber, ) = registry.latestConfigDetails();
     assertEq(configCount, 1);
 
-    address billingTokenAddress = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress = address(usdToken18);
     address[] memory billingTokens = new address[](1);
     billingTokens[0] = billingTokenAddress;
 
@@ -338,9 +367,10 @@ contract SetConfig is SetUp {
     billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_000,
       flatFeeMilliCents: 20_000,
-      priceFeed: 0x2222222222222222222222222222222222222222,
+      priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 2_000_000_000, // $20
-      minSpend: 100_000
+      minSpend: 100_000,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytes = abi.encode(cfg);
@@ -389,7 +419,7 @@ contract SetConfig is SetUp {
     AutomationRegistryBase2_3.BillingConfig memory config = registry.getBillingTokenConfig(billingTokenAddress);
     assertEq(config.gasFeePPB, 5_000);
     assertEq(config.flatFeeMilliCents, 20_000);
-    assertEq(config.priceFeed, 0x2222222222222222222222222222222222222222);
+    assertEq(config.priceFeed, address(USDTOKEN_USD_FEED));
     assertEq(config.minSpend, 100_000);
 
     address[] memory tokens = registry.getBillingTokens();
@@ -400,8 +430,8 @@ contract SetConfig is SetUp {
     (uint32 configCount, , ) = registry.latestConfigDetails();
     assertEq(configCount, 1);
 
-    address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
-    address billingTokenAddress2 = address(0x1111111111111111111111111111111111111112);
+    address billingTokenAddress1 = address(linkToken);
+    address billingTokenAddress2 = address(usdToken18);
     address[] memory billingTokens = new address[](2);
     billingTokens[0] = billingTokenAddress1;
     billingTokens[1] = billingTokenAddress2;
@@ -410,16 +440,18 @@ contract SetConfig is SetUp {
     billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_001,
       flatFeeMilliCents: 20_001,
-      priceFeed: 0x2222222222222222222222222222222222222221,
+      priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100,
-      minSpend: 100
+      minSpend: 100,
+      decimals: 18
     });
     billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_002,
       flatFeeMilliCents: 20_002,
-      priceFeed: 0x2222222222222222222222222222222222222222,
+      priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 200,
-      minSpend: 200
+      minSpend: 200,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
@@ -442,14 +474,14 @@ contract SetConfig is SetUp {
     AutomationRegistryBase2_3.BillingConfig memory config1 = registry.getBillingTokenConfig(billingTokenAddress1);
     assertEq(config1.gasFeePPB, 5_001);
     assertEq(config1.flatFeeMilliCents, 20_001);
-    assertEq(config1.priceFeed, 0x2222222222222222222222222222222222222221);
+    assertEq(config1.priceFeed, address(USDTOKEN_USD_FEED));
     assertEq(config1.fallbackPrice, 100);
     assertEq(config1.minSpend, 100);
 
     AutomationRegistryBase2_3.BillingConfig memory config2 = registry.getBillingTokenConfig(billingTokenAddress2);
     assertEq(config2.gasFeePPB, 5_002);
     assertEq(config2.flatFeeMilliCents, 20_002);
-    assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
+    assertEq(config2.priceFeed, address(USDTOKEN_USD_FEED));
     assertEq(config2.fallbackPrice, 200);
     assertEq(config2.minSpend, 200);
 
@@ -462,7 +494,7 @@ contract SetConfig is SetUp {
     assertEq(configCount, 1);
 
     // BillingConfig1
-    address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress1 = address(usdToken18);
     address[] memory billingTokens1 = new address[](1);
     billingTokens1[0] = billingTokenAddress1;
 
@@ -470,28 +502,14 @@ contract SetConfig is SetUp {
     billingConfigs1[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_001,
       flatFeeMilliCents: 20_001,
-      priceFeed: 0x2222222222222222222222222222222222222221,
+      priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100,
-      minSpend: 100
+      minSpend: 100,
+      decimals: 18
     });
 
+    // the first time uses the default onchain config with 2 registrars
     bytes memory onchainConfigBytesWithBilling1 = abi.encode(cfg, billingTokens1, billingConfigs1);
-
-    // BillingConfig2
-    address billingTokenAddress2 = address(0x1111111111111111111111111111111111111112);
-    address[] memory billingTokens2 = new address[](1);
-    billingTokens2[0] = billingTokenAddress2;
-
-    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs2 = new AutomationRegistryBase2_3.BillingConfig[](1);
-    billingConfigs2[0] = AutomationRegistryBase2_3.BillingConfig({
-      gasFeePPB: 5_002,
-      flatFeeMilliCents: 20_002,
-      priceFeed: 0x2222222222222222222222222222222222222222,
-      fallbackPrice: 200,
-      minSpend: 200
-    });
-
-    bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg, billingTokens2, billingConfigs2);
 
     // set config once
     registry.setConfig(
@@ -503,6 +521,52 @@ contract SetConfig is SetUp {
       offchainConfigBytes
     );
 
+    (, IAutomationV21PlusCommon.OnchainConfigLegacy memory onchainConfig1, , , ) = registry.getState();
+    assertEq(onchainConfig1.registrars.length, 2);
+
+    // BillingConfig2
+    address billingTokenAddress2 = address(usdToken18);
+    address[] memory billingTokens2 = new address[](1);
+    billingTokens2[0] = billingTokenAddress2;
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs2 = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs2[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_002,
+      flatFeeMilliCents: 20_002,
+      priceFeed: address(USDTOKEN_USD_FEED),
+      fallbackPrice: 200,
+      minSpend: 200,
+      decimals: 18
+    });
+
+    address[] memory newRegistrars = new address[](3);
+    newRegistrars[0] = address(uint160(uint256(keccak256("newRegistrar1"))));
+    newRegistrars[1] = address(uint160(uint256(keccak256("newRegistrar2"))));
+    newRegistrars[2] = address(uint160(uint256(keccak256("newRegistrar3"))));
+
+    // new onchain config with 3 new registrars, all other fields stay the same as the default
+    AutomationRegistryBase2_3.OnchainConfig memory cfg2 = AutomationRegistryBase2_3.OnchainConfig({
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 0,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: newRegistrars,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
+      chainModule: module,
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN
+    });
+
+    // the second time uses the new onchain config with 3 new registrars and also new billing tokens/configs
+    bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg2, billingTokens2, billingConfigs2);
+
     // set config twice
     registry.setConfig(
       SIGNERS,
@@ -513,8 +577,18 @@ contract SetConfig is SetUp {
       offchainConfigBytes
     );
 
-    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
+    (
+      ,
+      IAutomationV21PlusCommon.OnchainConfigLegacy memory onchainConfig2,
+      address[] memory signers,
+      address[] memory transmitters,
+      uint8 f
+    ) = registry.getState();
 
+    assertEq(onchainConfig2.registrars.length, 3);
+    for (uint256 i = 0; i < newRegistrars.length; i++) {
+      assertEq(newRegistrars[i], onchainConfig2.registrars[i]);
+    }
     assertEq(signers, SIGNERS);
     assertEq(transmitters, TRANSMITTERS);
     assertEq(f, F);
@@ -522,7 +596,7 @@ contract SetConfig is SetUp {
     AutomationRegistryBase2_3.BillingConfig memory config2 = registry.getBillingTokenConfig(billingTokenAddress2);
     assertEq(config2.gasFeePPB, 5_002);
     assertEq(config2.flatFeeMilliCents, 20_002);
-    assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
+    assertEq(config2.priceFeed, address(USDTOKEN_USD_FEED));
     assertEq(config2.fallbackPrice, 200);
     assertEq(config2.minSpend, 200);
 
@@ -534,8 +608,8 @@ contract SetConfig is SetUp {
     (uint32 configCount, , ) = registry.latestConfigDetails();
     assertEq(configCount, 1);
 
-    address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
-    address billingTokenAddress2 = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress1 = address(linkToken);
+    address billingTokenAddress2 = address(linkToken);
     address[] memory billingTokens = new address[](2);
     billingTokens[0] = billingTokenAddress1;
     billingTokens[1] = billingTokenAddress2;
@@ -544,16 +618,18 @@ contract SetConfig is SetUp {
     billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_001,
       flatFeeMilliCents: 20_001,
-      priceFeed: 0x2222222222222222222222222222222222222221,
+      priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100,
-      minSpend: 100
+      minSpend: 100,
+      decimals: 18
     });
     billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_002,
       flatFeeMilliCents: 20_002,
-      priceFeed: 0x2222222222222222222222222222222222222222,
+      priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 200,
-      minSpend: 200
+      minSpend: 200,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
@@ -578,9 +654,10 @@ contract SetConfig is SetUp {
     billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_000,
       flatFeeMilliCents: 20_000,
-      priceFeed: 0x2222222222222222222222222222222222222222,
+      priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 2_000_000_000, // $20
-      minSpend: 100_000
+      minSpend: 100_000,
+      decimals: 18
     });
 
     // deploy registry with OFF_CHAIN payout mode
@@ -599,13 +676,57 @@ contract SetConfig is SetUp {
     );
   }
 
+  function testSetConfigRevertDueToInvalidDecimals() public {
+    address[] memory billingTokens = new address[](1);
+    billingTokens[0] = address(linkToken);
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000,
+      priceFeed: address(USDTOKEN_USD_FEED),
+      fallbackPrice: 2_000_000_000, // $20
+      minSpend: 100_000,
+      decimals: 6 // link token should have 18 decimals
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidToken.selector));
+    registry.setConfigTypeSafe(
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes,
+      billingTokens,
+      billingConfigs
+    );
+  }
+
+  function testSetConfigOnTransmittersAndPayees() public {
+    AutomationRegistryBase2_3.TransmitterPayeeInfo[] memory transmitterPayeeInfos = registry
+      .getTransmittersWithPayees();
+    assertEq(transmitterPayeeInfos.length, TRANSMITTERS.length);
+
+    for (uint256 i = 0; i < transmitterPayeeInfos.length; i++) {
+      address transmitterAddress = transmitterPayeeInfos[i].transmitterAddress;
+      address payeeAddress = transmitterPayeeInfos[i].payeeAddress;
+
+      address expectedTransmitter = TRANSMITTERS[i];
+      address expectedPayee = PAYEES[i];
+
+      assertEq(transmitterAddress, expectedTransmitter);
+      assertEq(payeeAddress, expectedPayee);
+    }
+  }
+
   function testSetConfigWithNewTransmittersSuccess() public {
     registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
     (uint32 configCount, uint32 blockNumber, ) = registry.latestConfigDetails();
     assertEq(configCount, 0);
 
-    address billingTokenAddress = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress = address(usdToken18);
     address[] memory billingTokens = new address[](1);
     billingTokens[0] = billingTokenAddress;
 
@@ -613,9 +734,10 @@ contract SetConfig is SetUp {
     billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_000,
       flatFeeMilliCents: 20_000,
-      priceFeed: 0x2222222222222222222222222222222222222222,
+      priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 2_000_000_000, // $20
-      minSpend: 100_000
+      minSpend: 100_000,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytes = abi.encode(cfg);
@@ -702,6 +824,13 @@ contract SetConfig is SetUp {
     assertEq(transmitters, NEW_TRANSMITTERS);
   }
 
+  function _getRegistrars() private pure returns (address[] memory) {
+    address[] memory registrars = new address[](2);
+    registrars[0] = address(uint160(uint256(keccak256("registrar1"))));
+    registrars[1] = address(uint160(uint256(keccak256("registrar2"))));
+    return registrars;
+  }
+
   function _configDigestFromConfigData(
     uint256 chainId,
     address contractAddress,
@@ -777,10 +906,10 @@ contract NOPsSettlement is SetUp {
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
 
     // register an upkeep and add funds
-    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
-    _mintERC20(UPKEEP_ADMIN, 1e20);
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken18), "", "", "");
+    _mintERC20_18Decimals(UPKEEP_ADMIN, 1e20);
     vm.startPrank(UPKEEP_ADMIN);
-    usdToken.approve(address(registry), 1e20);
+    usdToken18.approve(address(registry), 1e20);
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
@@ -811,6 +940,9 @@ contract NOPsSettlement is SetUp {
       assertEq(i, index);
       assertEq(0, balance);
     }
+
+    // after the offchain settlement, the total reserve amount of LINK should be 0
+    assertEq(registry.getReserveAmount(address(linkToken)), 0);
   }
 
   function testSettleNOPsOffchainForDeactivatedTransmittersSuccess() public {
@@ -818,10 +950,10 @@ contract NOPsSettlement is SetUp {
     (Registry registry, Registrar registrar) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
 
     // register an upkeep and add funds
-    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
-    _mintERC20(UPKEEP_ADMIN, 1e20);
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken18), "", "", "");
+    _mintERC20_18Decimals(UPKEEP_ADMIN, 1e20);
     vm.startPrank(UPKEEP_ADMIN);
-    usdToken.approve(address(registry), 1e20);
+    usdToken18.approve(address(registry), 1e20);
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so TRANSMITTERS earn some rewards
@@ -906,6 +1038,9 @@ contract NOPsSettlement is SetUp {
       assertEq(i, index);
       assertEq(0, balance);
     }
+
+    // after the offchain settlement, the total reserve amount of LINK should be 0
+    assertEq(registry.getReserveAmount(address(linkToken)), 0);
   }
 
   function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {
@@ -930,10 +1065,10 @@ contract NOPsSettlement is SetUp {
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
 
     // register an upkeep and add funds
-    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
-    _mintERC20(UPKEEP_ADMIN, 1e20);
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken18), "", "", "");
+    _mintERC20_18Decimals(UPKEEP_ADMIN, 1e20);
     vm.startPrank(UPKEEP_ADMIN);
-    usdToken.approve(address(registry), 1e20);
+    usdToken18.approve(address(registry), 1e20);
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
@@ -968,10 +1103,10 @@ contract NOPsSettlement is SetUp {
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
 
     // register an upkeep and add funds
-    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
-    _mintERC20(UPKEEP_ADMIN, 1e20);
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken18), "", "", "");
+    _mintERC20_18Decimals(UPKEEP_ADMIN, 1e20);
     vm.startPrank(UPKEEP_ADMIN);
-    usdToken.approve(address(registry), 1e20);
+    usdToken18.approve(address(registry), 1e20);
     registry.addFunds(id, 1e20);
 
     // manually call transmit so transmitters earn some rewards
@@ -1012,26 +1147,30 @@ contract NOPsSettlement is SetUp {
 
   function _configureWithNewTransmitters(Registry registry, Registrar registrar) internal {
     IERC20[] memory billingTokens = new IERC20[](1);
-    billingTokens[0] = IERC20(address(usdToken));
+    billingTokens[0] = IERC20(address(usdToken18));
+
     uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
-    minRegistrationFees[0] = 100000000000000000000; // 100 USD
+    minRegistrationFees[0] = 100e18; // 100 USD
+
     address[] memory billingTokenAddresses = new address[](billingTokens.length);
     for (uint256 i = 0; i < billingTokens.length; i++) {
       billingTokenAddresses[i] = address(billingTokens[i]);
     }
+
     AutomationRegistryBase2_3.BillingConfig[]
       memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
     billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 10_000_000, // 15%
       flatFeeMilliCents: 2_000, // 2 cents
       priceFeed: address(USDTOKEN_USD_FEED),
-      fallbackPrice: 100_000_000, // $1
-      minSpend: 1000000000000000000 // 1 USD
+      fallbackPrice: 1e8, // $1
+      minSpend: 1e18, // 1 USD
+      decimals: 18
     });
 
-    address[] memory registrars;
-    registrars = new address[](1);
+    address[] memory registrars = new address[](1);
     registrars[0] = address(registrar);
+
     AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
       checkGasLimit: 5_000_000,
       stalenessSeconds: 90_000,
@@ -1050,6 +1189,7 @@ contract NOPsSettlement is SetUp {
       reorgProtectionEnabled: true,
       financeAdmin: FINANCE_ADMIN
     });
+
     registry.setConfigTypeSafe(
       SIGNERS,
       NEW_TRANSMITTERS,
@@ -1060,6 +1200,7 @@ contract NOPsSettlement is SetUp {
       billingTokenAddresses,
       billingTokenConfigs
     );
+
     registry.setPayees(NEW_PAYEES);
   }
 }
@@ -1227,7 +1368,7 @@ contract OnTokenTransfer is SetUp {
   function test_RevertsWhen_TheUpkeepDoesNotUseLINKAsItsBillingToken() public {
     vm.startPrank(address(linkToken));
     vm.expectRevert(Registry.InvalidToken.selector);
-    registry.onTokenTransfer(UPKEEP_ADMIN, 100, abi.encode(usdUpkeepID));
+    registry.onTokenTransfer(UPKEEP_ADMIN, 100, abi.encode(usdUpkeepID18));
   }
 
   function test_Happy() public {
@@ -1239,20 +1380,42 @@ contract OnTokenTransfer is SetUp {
 }
 
 contract GetMinBalanceForUpkeep is SetUp {
-  function test_accountsForFlatFee() public {
+  function test_accountsForFlatFee_with18Decimals() public {
     // set fee to 0
-    AutomationRegistryBase2_3.BillingConfig memory usdTokenConfig = registry.getBillingTokenConfig(address(usdToken));
+    AutomationRegistryBase2_3.BillingConfig memory usdTokenConfig = registry.getBillingTokenConfig(address(usdToken18));
     usdTokenConfig.flatFeeMilliCents = 0;
-    _updateBillingTokenConfig(registry, address(usdToken), usdTokenConfig);
+    _updateBillingTokenConfig(registry, address(usdToken18), usdTokenConfig);
 
-    uint256 minBalanceBefore = registry.getMinBalanceForUpkeep(usdUpkeepID);
+    uint256 minBalanceBefore = registry.getMinBalanceForUpkeep(usdUpkeepID18);
 
     // set fee to non-zero
     usdTokenConfig.flatFeeMilliCents = 100;
-    _updateBillingTokenConfig(registry, address(usdToken), usdTokenConfig);
+    _updateBillingTokenConfig(registry, address(usdToken18), usdTokenConfig);
 
-    uint256 minBalanceAfter = registry.getMinBalanceForUpkeep(usdUpkeepID);
-    assertEq(minBalanceAfter, minBalanceBefore + (uint256(usdTokenConfig.flatFeeMilliCents) * 1e13));
+    uint256 minBalanceAfter = registry.getMinBalanceForUpkeep(usdUpkeepID18);
+    assertEq(
+      minBalanceAfter,
+      minBalanceBefore + ((uint256(usdTokenConfig.flatFeeMilliCents) * 1e13) / 10 ** (18 - usdTokenConfig.decimals))
+    );
+  }
+
+  function test_accountsForFlatFee_with6Decimals() public {
+    // set fee to 0
+    AutomationRegistryBase2_3.BillingConfig memory usdTokenConfig = registry.getBillingTokenConfig(address(usdToken6));
+    usdTokenConfig.flatFeeMilliCents = 0;
+    _updateBillingTokenConfig(registry, address(usdToken6), usdTokenConfig);
+
+    uint256 minBalanceBefore = registry.getMinBalanceForUpkeep(usdUpkeepID6);
+
+    // set fee to non-zero
+    usdTokenConfig.flatFeeMilliCents = 100;
+    _updateBillingTokenConfig(registry, address(usdToken6), usdTokenConfig);
+
+    uint256 minBalanceAfter = registry.getMinBalanceForUpkeep(usdUpkeepID6);
+    assertEq(
+      minBalanceAfter,
+      minBalanceBefore + ((uint256(usdTokenConfig.flatFeeMilliCents) * 1e13) / 10 ** (18 - usdTokenConfig.decimals))
+    );
   }
 }
 
@@ -1328,29 +1491,29 @@ contract Transmit is SetUp {
   function test_handlesMixedBatchOfBillingTokens() external {
     uint256[] memory prevUpkeepBalances = new uint256[](3);
     prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
-    prevUpkeepBalances[1] = registry.getBalance(usdUpkeepID);
+    prevUpkeepBalances[1] = registry.getBalance(usdUpkeepID18);
     prevUpkeepBalances[2] = registry.getBalance(nativeUpkeepID);
     uint256[] memory prevTokenBalances = new uint256[](3);
     prevTokenBalances[0] = linkToken.balanceOf(address(registry));
-    prevTokenBalances[1] = usdToken.balanceOf(address(registry));
+    prevTokenBalances[1] = usdToken18.balanceOf(address(registry));
     prevTokenBalances[2] = weth.balanceOf(address(registry));
     uint256[] memory prevReserveBalances = new uint256[](3);
     prevReserveBalances[0] = registry.getReserveAmount(address(linkToken));
-    prevReserveBalances[1] = registry.getReserveAmount(address(usdToken));
+    prevReserveBalances[1] = registry.getReserveAmount(address(usdToken18));
     prevReserveBalances[2] = registry.getReserveAmount(address(weth));
     uint256[] memory upkeepIDs = new uint256[](3);
     upkeepIDs[0] = linkUpkeepID;
-    upkeepIDs[1] = usdUpkeepID;
+    upkeepIDs[1] = usdUpkeepID18;
     upkeepIDs[2] = nativeUpkeepID;
     // do the thing
     _transmit(upkeepIDs, registry);
     // assert upkeep balances have decreased
     require(prevUpkeepBalances[0] > registry.getBalance(linkUpkeepID), "link upkeep balance should have decreased");
-    require(prevUpkeepBalances[1] > registry.getBalance(usdUpkeepID), "usd upkeep balance should have decreased");
+    require(prevUpkeepBalances[1] > registry.getBalance(usdUpkeepID18), "usd upkeep balance should have decreased");
     require(prevUpkeepBalances[2] > registry.getBalance(nativeUpkeepID), "native upkeep balance should have decreased");
     // assert token balances have not changed
     assertEq(prevTokenBalances[0], linkToken.balanceOf(address(registry)));
-    assertEq(prevTokenBalances[1], usdToken.balanceOf(address(registry)));
+    assertEq(prevTokenBalances[1], usdToken18.balanceOf(address(registry)));
     assertEq(prevTokenBalances[2], weth.balanceOf(address(registry)));
     // assert reserve amounts have adjusted accordingly
     require(
@@ -1358,7 +1521,7 @@ contract Transmit is SetUp {
       "usd reserve amount should have increased"
     ); // link reserve amount increases in value equal to the decrease of the other reserve amounts
     require(
-      prevReserveBalances[1] > registry.getReserveAmount(address(usdToken)),
+      prevReserveBalances[1] > registry.getReserveAmount(address(usdToken18)),
       "usd reserve amount should have decreased"
     );
     require(
@@ -1379,7 +1542,8 @@ contract MigrateReceive is SetUp {
     super.setUp();
     (newRegistry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
     idsToMigrate.push(linkUpkeepID);
-    idsToMigrate.push(usdUpkeepID);
+    idsToMigrate.push(linkUpkeepID2);
+    idsToMigrate.push(usdUpkeepID18);
     idsToMigrate.push(nativeUpkeepID);
     registry.setPeerRegistryMigrationPermission(address(newRegistry), 1);
     newRegistry.setPeerRegistryMigrationPermission(address(registry), 2);
@@ -1435,89 +1599,109 @@ contract MigrateReceive is SetUp {
     vm.startPrank(UPKEEP_ADMIN);
 
     // add some changes in upkeep data to the mix
-    registry.pauseUpkeep(usdUpkeepID);
+    registry.pauseUpkeep(usdUpkeepID18);
     registry.setUpkeepTriggerConfig(linkUpkeepID, randomBytes(100));
     registry.setUpkeepCheckData(nativeUpkeepID, randomBytes(25));
 
     // record previous state
-    uint256[] memory prevUpkeepBalances = new uint256[](3);
+    uint256[] memory prevUpkeepBalances = new uint256[](4);
     prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
-    prevUpkeepBalances[1] = registry.getBalance(usdUpkeepID);
-    prevUpkeepBalances[2] = registry.getBalance(nativeUpkeepID);
+    prevUpkeepBalances[1] = registry.getBalance(linkUpkeepID2);
+    prevUpkeepBalances[2] = registry.getBalance(usdUpkeepID18);
+    prevUpkeepBalances[3] = registry.getBalance(nativeUpkeepID);
     uint256[] memory prevReserveBalances = new uint256[](3);
     prevReserveBalances[0] = registry.getReserveAmount(address(linkToken));
-    prevReserveBalances[1] = registry.getReserveAmount(address(usdToken));
+    prevReserveBalances[1] = registry.getReserveAmount(address(usdToken18));
     prevReserveBalances[2] = registry.getReserveAmount(address(weth));
     uint256[] memory prevTokenBalances = new uint256[](3);
     prevTokenBalances[0] = linkToken.balanceOf(address(registry));
-    prevTokenBalances[1] = usdToken.balanceOf(address(registry));
+    prevTokenBalances[1] = usdToken18.balanceOf(address(registry));
     prevTokenBalances[2] = weth.balanceOf(address(registry));
-    bytes[] memory prevUpkeepData = new bytes[](3);
+    bytes[] memory prevUpkeepData = new bytes[](4);
     prevUpkeepData[0] = abi.encode(registry.getUpkeep(linkUpkeepID));
-    prevUpkeepData[1] = abi.encode(registry.getUpkeep(usdUpkeepID));
-    prevUpkeepData[2] = abi.encode(registry.getUpkeep(nativeUpkeepID));
-    bytes[] memory prevUpkeepTriggerData = new bytes[](3);
+    prevUpkeepData[1] = abi.encode(registry.getUpkeep(linkUpkeepID2));
+    prevUpkeepData[2] = abi.encode(registry.getUpkeep(usdUpkeepID18));
+    prevUpkeepData[3] = abi.encode(registry.getUpkeep(nativeUpkeepID));
+    bytes[] memory prevUpkeepTriggerData = new bytes[](4);
     prevUpkeepTriggerData[0] = registry.getUpkeepTriggerConfig(linkUpkeepID);
-    prevUpkeepTriggerData[1] = registry.getUpkeepTriggerConfig(usdUpkeepID);
-    prevUpkeepTriggerData[2] = registry.getUpkeepTriggerConfig(nativeUpkeepID);
+    prevUpkeepTriggerData[1] = registry.getUpkeepTriggerConfig(linkUpkeepID2);
+    prevUpkeepTriggerData[2] = registry.getUpkeepTriggerConfig(usdUpkeepID18);
+    prevUpkeepTriggerData[3] = registry.getUpkeepTriggerConfig(nativeUpkeepID);
 
     // event expectations
     vm.expectEmit(address(registry));
     emit UpkeepMigrated(linkUpkeepID, prevUpkeepBalances[0], address(newRegistry));
     vm.expectEmit(address(registry));
-    emit UpkeepMigrated(usdUpkeepID, prevUpkeepBalances[1], address(newRegistry));
+    emit UpkeepMigrated(linkUpkeepID2, prevUpkeepBalances[1], address(newRegistry));
     vm.expectEmit(address(registry));
-    emit UpkeepMigrated(nativeUpkeepID, prevUpkeepBalances[2], address(newRegistry));
+    emit UpkeepMigrated(usdUpkeepID18, prevUpkeepBalances[2], address(newRegistry));
+    vm.expectEmit(address(registry));
+    emit UpkeepMigrated(nativeUpkeepID, prevUpkeepBalances[3], address(newRegistry));
     vm.expectEmit(address(newRegistry));
     emit UpkeepReceived(linkUpkeepID, prevUpkeepBalances[0], address(registry));
     vm.expectEmit(address(newRegistry));
-    emit UpkeepReceived(usdUpkeepID, prevUpkeepBalances[1], address(registry));
+    emit UpkeepReceived(linkUpkeepID2, prevUpkeepBalances[1], address(registry));
     vm.expectEmit(address(newRegistry));
-    emit UpkeepReceived(nativeUpkeepID, prevUpkeepBalances[2], address(registry));
+    emit UpkeepReceived(usdUpkeepID18, prevUpkeepBalances[2], address(registry));
+    vm.expectEmit(address(newRegistry));
+    emit UpkeepReceived(nativeUpkeepID, prevUpkeepBalances[3], address(registry));
 
     // do the thing
     registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
 
     // assert upkeep balances have been migrated
     assertEq(registry.getBalance(linkUpkeepID), 0);
-    assertEq(registry.getBalance(usdUpkeepID), 0);
+    assertEq(registry.getBalance(linkUpkeepID2), 0);
+    assertEq(registry.getBalance(usdUpkeepID18), 0);
     assertEq(registry.getBalance(nativeUpkeepID), 0);
     assertEq(newRegistry.getBalance(linkUpkeepID), prevUpkeepBalances[0]);
-    assertEq(newRegistry.getBalance(usdUpkeepID), prevUpkeepBalances[1]);
-    assertEq(newRegistry.getBalance(nativeUpkeepID), prevUpkeepBalances[2]);
+    assertEq(newRegistry.getBalance(linkUpkeepID2), prevUpkeepBalances[1]);
+    assertEq(newRegistry.getBalance(usdUpkeepID18), prevUpkeepBalances[2]);
+    assertEq(newRegistry.getBalance(nativeUpkeepID), prevUpkeepBalances[3]);
 
     // assert reserve balances have been adjusted
-    assertEq(newRegistry.getReserveAmount(address(linkToken)), newRegistry.getBalance(linkUpkeepID));
-    assertEq(newRegistry.getReserveAmount(address(usdToken)), newRegistry.getBalance(usdUpkeepID));
+    assertEq(
+      newRegistry.getReserveAmount(address(linkToken)),
+      newRegistry.getBalance(linkUpkeepID) + newRegistry.getBalance(linkUpkeepID2)
+    );
+    assertEq(newRegistry.getReserveAmount(address(usdToken18)), newRegistry.getBalance(usdUpkeepID18));
     assertEq(newRegistry.getReserveAmount(address(weth)), newRegistry.getBalance(nativeUpkeepID));
     assertEq(
       newRegistry.getReserveAmount(address(linkToken)),
       prevReserveBalances[0] - registry.getReserveAmount(address(linkToken))
     );
     assertEq(
-      newRegistry.getReserveAmount(address(usdToken)),
-      prevReserveBalances[1] - registry.getReserveAmount(address(usdToken))
+      newRegistry.getReserveAmount(address(usdToken18)),
+      prevReserveBalances[1] - registry.getReserveAmount(address(usdToken18))
     );
     assertEq(
       newRegistry.getReserveAmount(address(weth)),
       prevReserveBalances[2] - registry.getReserveAmount(address(weth))
     );
 
-    // assert token have been transfered
-    assertEq(linkToken.balanceOf(address(newRegistry)), newRegistry.getBalance(linkUpkeepID));
-    assertEq(usdToken.balanceOf(address(newRegistry)), newRegistry.getBalance(usdUpkeepID));
+    // assert token have been transferred
+    assertEq(
+      linkToken.balanceOf(address(newRegistry)),
+      newRegistry.getBalance(linkUpkeepID) + newRegistry.getBalance(linkUpkeepID2)
+    );
+    assertEq(usdToken18.balanceOf(address(newRegistry)), newRegistry.getBalance(usdUpkeepID18));
     assertEq(weth.balanceOf(address(newRegistry)), newRegistry.getBalance(nativeUpkeepID));
     assertEq(linkToken.balanceOf(address(registry)), prevTokenBalances[0] - linkToken.balanceOf(address(newRegistry)));
-    assertEq(usdToken.balanceOf(address(registry)), prevTokenBalances[1] - usdToken.balanceOf(address(newRegistry)));
+    assertEq(
+      usdToken18.balanceOf(address(registry)),
+      prevTokenBalances[1] - usdToken18.balanceOf(address(newRegistry))
+    );
     assertEq(weth.balanceOf(address(registry)), prevTokenBalances[2] - weth.balanceOf(address(newRegistry)));
 
     // assert upkeep data matches
     assertEq(prevUpkeepData[0], abi.encode(newRegistry.getUpkeep(linkUpkeepID)));
-    assertEq(prevUpkeepData[1], abi.encode(newRegistry.getUpkeep(usdUpkeepID)));
-    assertEq(prevUpkeepData[2], abi.encode(newRegistry.getUpkeep(nativeUpkeepID)));
+    assertEq(prevUpkeepData[1], abi.encode(newRegistry.getUpkeep(linkUpkeepID2)));
+    assertEq(prevUpkeepData[2], abi.encode(newRegistry.getUpkeep(usdUpkeepID18)));
+    assertEq(prevUpkeepData[3], abi.encode(newRegistry.getUpkeep(nativeUpkeepID)));
     assertEq(prevUpkeepTriggerData[0], newRegistry.getUpkeepTriggerConfig(linkUpkeepID));
-    assertEq(prevUpkeepTriggerData[1], newRegistry.getUpkeepTriggerConfig(usdUpkeepID));
-    assertEq(prevUpkeepTriggerData[2], newRegistry.getUpkeepTriggerConfig(nativeUpkeepID));
+    assertEq(prevUpkeepTriggerData[1], newRegistry.getUpkeepTriggerConfig(linkUpkeepID2));
+    assertEq(prevUpkeepTriggerData[2], newRegistry.getUpkeepTriggerConfig(usdUpkeepID18));
+    assertEq(prevUpkeepTriggerData[3], newRegistry.getUpkeepTriggerConfig(nativeUpkeepID));
 
     vm.stopPrank();
   }

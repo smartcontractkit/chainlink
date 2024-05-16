@@ -170,8 +170,8 @@ func newTestPipelineGetter(t *testing.T, source string) *pricegetter.PipelineGet
 	cfg.On("DefaultHTTPLimit").Return(int64(1024 * 10))
 	cfg.On("VerboseLogging").Return(true)
 	db := pgtest.NewSqlxDB(t)
-	bridgeORM := bridges.NewORM(db, lggr, config.NewTestGeneralConfig(t).Database())
-	runner := pipeline.NewRunner(pipeline.NewORM(db, lggr, config.NewTestGeneralConfig(t).Database(), config.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
+	bridgeORM := bridges.NewORM(db)
+	runner := pipeline.NewRunner(pipeline.NewORM(db, lggr, config.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
 		bridgeORM, cfg, nil, nil, nil, nil, lggr, &http.Client{}, &http.Client{})
 	ds, err := pricegetter.NewPipelineGetter(source, runner, 1, uuid.New(), "test", lggr)
 	require.NoError(t, err)

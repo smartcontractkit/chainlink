@@ -63,3 +63,5 @@ func (t *ETHTxTask) HelperSetDependencies(legacyChains legacyevm.LegacyChainCont
 	t.specGasLimit = specGasLimit
 	t.jobType = jobType
 }
+
+func (o *orm) Prune(pipelineSpecID int32) { o.prune(o.ds, pipelineSpecID) }

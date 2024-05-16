@@ -147,9 +147,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		if payload.GasTipCap != nil {
 			gasTipCap = payload.GasTipCap
 		}
-	}
-
-	if !client.Cfg.Network.EIP1559DynamicFees {
+	} else {
 		if payload.GasPrice == nil {
 			txOptions := client.NewTXOpts((seth.WithGasLimit(gasLimit)))
 			gasPrice = txOptions.GasPrice
