@@ -717,6 +717,20 @@ jobs:
           if [ "${{ matrix.product.config_path }}" != "" ]; then
             echo "base_64_override=$(base64 -w 0 -i ${{ matrix.product.config_path }})" >> "$GITHUB_OUTPUT"
           fi
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@033324feb567e736cabd0d7eea8c41ed8b9e7f7a # cleanup-old-branches@0.2.1
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
+          # metrics inputs
+          metrics-job-name: "grafana"
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/setup-create-base64-config
         with:
@@ -732,8 +746,9 @@ jobs:
           lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaUrl: "http://localhost:8080/primary" # this is GAP url, it will know where to forward the requests so that they reach the correct Grafana instance
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       - name: Prepare Base64 TOML override for CCIP secrets
         uses: ./.github/actions/setup-create-base64-config-ccip
         with:
@@ -746,8 +761,10 @@ jobs:
           lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaUrl: "http://localhost:8080/primary"
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
