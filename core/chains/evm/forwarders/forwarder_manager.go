@@ -152,7 +152,7 @@ func (f *FwdMgr) ForwarderForOCR2(eoa, ocr2Aggregator common.Address) (forwarder
 
 	for _, fwdr := range fwdrs {
 		if !slices.Contains(transmitters, fwdr.Address) {
-			f.logger.Criticalw("forwarder is not set as a transmitter", "forwarderAddress", fwdr.Address, "err", err)
+			f.logger.Criticalw("forwarder is not set as a transmitter", "forwarder", fwdr.Address, "err", err)
 			continue
 		}
 
@@ -168,7 +168,6 @@ func (f *FwdMgr) ForwarderForOCR2(eoa, ocr2Aggregator common.Address) (forwarder
 		}
 	}
 	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
-
 }
 
 func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {

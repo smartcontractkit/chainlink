@@ -301,6 +301,34 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetFor
 	return r0, r1
 }
 
+// GetForwarderForEOAOCR2 provides a mock function with given fields: eoa, ocr2AggregatorID
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetForwarderForEOAOCR2(eoa ADDR, ocr2AggregatorID ADDR) (ADDR, error) {
+	ret := _m.Called(eoa, ocr2AggregatorID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetForwarderForEOAOCR2")
+	}
+
+	var r0 ADDR
+	var r1 error
+	if rf, ok := ret.Get(0).(func(ADDR, ADDR) (ADDR, error)); ok {
+		return rf(eoa, ocr2AggregatorID)
+	}
+	if rf, ok := ret.Get(0).(func(ADDR, ADDR) ADDR); ok {
+		r0 = rf(eoa, ocr2AggregatorID)
+	} else {
+		r0 = ret.Get(0).(ADDR)
+	}
+
+	if rf, ok := ret.Get(1).(func(ADDR, ADDR) error); ok {
+		r1 = rf(eoa, ocr2AggregatorID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // HealthReport provides a mock function with given fields:
 func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) HealthReport() map[string]error {
 	ret := _m.Called()
