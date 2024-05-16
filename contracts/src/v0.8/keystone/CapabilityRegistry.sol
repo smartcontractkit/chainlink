@@ -42,6 +42,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The number of times the node's capability has been updated
     uint32 configCount;
     /// @notice The signer address for application-layer message verification.
+    /// @dev This key is guaranteed to be unique in the CapabilityRegistry
+    /// as a signer address can only belong to one node.
+    /// @dev This should be the ABI encoded version of the node's address.
+    /// I.e 0x0000address.  The Capability Registry does not store it as an address so that
+    /// non EVM chains with addresses greater than 20 bytes can be supported
+    /// in the future.
     bytes32 signer;
     /// @notice This is an Ed25519 public key that is used to identify a node.
     /// This key is guaranteed to be unique in the CapabilityRegistry. It is
@@ -151,7 +157,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice This event is emitted when a new node is added
   /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
-  event NodeAdded(bytes32 p2pId, uint256 nodeOperatorId);
+  /// @param signer The encoded node's signer address
+  event NodeAdded(bytes32 p2pId, uint256 nodeOperatorId, bytes32 signer);
 
   /// @notice This event is emitted when a node is removed
   /// @param p2pId The P2P ID of the node that was removed
@@ -169,7 +176,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   event DONAdded(uint256 donId, bool isPublic);
 
   /// @notice This error is thrown when trying to set the node's
-  /// signer address to zero
+  /// signer address to zero or if the signer address has already
+  /// been used by another node
   error InvalidNodeSigner();
 
   /// @notice This error is thrown when trying add a capability that already
@@ -243,6 +251,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   ///
   /// Deprecated capabilities are skipped by the `getCapabilities` function.
   EnumerableSet.Bytes32Set private s_deprecatedHashedCapabilityIds;
+
+  /// @notice Encoded node signer addresses
+  EnumerableSet.Bytes32Set private s_encodedNodeSignerAddresses;
 
   /// @notice Mapping of node operators
   mapping(uint256 nodeOperatorId => NodeOperator nodeOperator) private s_nodeOperators;
@@ -334,7 +345,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bool nodeExists = bytes32(s_nodes[node.p2pId].signer) != bytes32("");
       if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
-      if (bytes32(node.signer) == bytes32("")) revert InvalidNodeSigner();
+      if (bytes32(node.signer) == bytes32("") || s_encodedNodeSignerAddresses.contains(node.signer))
+        revert InvalidNodeSigner();
 
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
@@ -350,7 +362,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
       s_nodes[node.p2pId].p2pId = node.p2pId;
       s_nodes[node.p2pId].signer = node.signer;
-      emit NodeAdded(node.p2pId, node.nodeOperatorId);
+      s_encodedNodeSignerAddresses.add(node.signer);
+      emit NodeAdded(node.p2pId, node.nodeOperatorId, node.signer);
     }
   }
 
@@ -368,6 +381,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[s_nodes[p2pId].nodeOperatorId];
 
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+      s_encodedNodeSignerAddresses.remove(s_nodes[p2pId].signer);
       delete s_nodes[p2pId];
       emit NodeRemoved(p2pId);
     }
@@ -388,7 +402,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bool nodeExists = bytes32(s_nodes[node.p2pId].signer) != bytes32("");
       if (!nodeExists) revert InvalidNodeP2PId(node.p2pId);
 
-      if (bytes32(node.signer) == bytes32("")) revert InvalidNodeSigner();
+      if (
+        bytes32(node.signer) == bytes32("") ||
+        (s_nodes[node.p2pId].signer != node.signer && s_encodedNodeSignerAddresses.contains(node.signer))
+      ) revert InvalidNodeSigner();
 
       bytes32[] memory supportedCapabilityIds = node.hashedCapabilityIds;
       if (supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedCapabilityIds);
@@ -403,7 +420,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
       s_nodes[node.p2pId].p2pId = node.p2pId;
+
+      bytes32 previousSigner = s_nodes[node.p2pId].signer;
+      s_encodedNodeSignerAddresses.remove(previousSigner);
       s_nodes[node.p2pId].signer = node.signer;
+      s_encodedNodeSignerAddresses.add(node.signer);
       emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
     }
   }

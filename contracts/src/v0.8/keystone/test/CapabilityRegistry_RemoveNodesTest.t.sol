@@ -80,6 +80,37 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     assertEq(configCount, 0);
   }
 
+  function test_CanAddNodeWithSameSignerAddressAfterRemoving() public {
+    changePrank(NODE_OPERATOR_ONE_ADMIN);
+
+    bytes32[] memory nodes = new bytes32[](1);
+    nodes[0] = P2P_ID;
+
+    s_capabilityRegistry.removeNodes(nodes);
+
+    CapabilityRegistry.NodeParams[] memory nodeParams = new CapabilityRegistry.NodeParams[](1);
+    bytes32[] memory hashedCapabilityIds = new bytes32[](2);
+    hashedCapabilityIds[0] = s_basicHashedCapabilityId;
+    hashedCapabilityIds[1] = s_capabilityWithConfigurationContractId;
+
+    nodeParams[0] = CapabilityRegistry.NodeParams({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+
+    s_capabilityRegistry.addNodes(nodeParams);
+
+    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
+    assertEq(node.nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
+    assertEq(node.p2pId, P2P_ID);
+    assertEq(node.hashedCapabilityIds.length, 2);
+    assertEq(node.hashedCapabilityIds[0], s_basicHashedCapabilityId);
+    assertEq(node.hashedCapabilityIds[1], s_capabilityWithConfigurationContractId);
+    assertEq(configCount, 1);
+  }
+
   function test_OwnerCanRemoveNodes() public {
     changePrank(ADMIN);
 
