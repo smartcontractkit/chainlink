@@ -3,9 +3,6 @@ package model
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type CommitPluginObservation struct {
@@ -98,24 +95,18 @@ func NewMerkleRootChain(chainSel ChainSelector, seqNumsRange SeqNumRange, merkle
 }
 
 type CommitPluginReport struct {
-	MerkleRoots  []MerkleRootChain  `json:"merkleRoots"`
-	PriceUpdates []TokenPriceUpdate `json:"priceUpdates"`
+	MerkleRoots       []MerkleRootChain `json:"merkleRoots"`
+	TokenPriceUpdates []TokenPrice      `json:"tokenPriceUpdates"`
 }
 
-func NewCommitPluginReport(merkleRoots []MerkleRootChain, priceUpdates []TokenPriceUpdate) CommitPluginReport {
+func NewCommitPluginReport(merkleRoots []MerkleRootChain, tokenPriceUpdates []TokenPrice) CommitPluginReport {
 	return CommitPluginReport{
-		MerkleRoots:  merkleRoots,
-		PriceUpdates: priceUpdates,
+		MerkleRoots:       merkleRoots,
+		TokenPriceUpdates: tokenPriceUpdates,
 	}
 }
 
 // IsEmpty returns true if the CommitPluginReport is empty
 func (r CommitPluginReport) IsEmpty() bool {
-	return len(r.MerkleRoots) == 0 &&
-		len(r.PriceUpdates) == 0
-}
-
-type TokenPriceUpdate struct {
-	TokenID types.Account `json:"tokenID"`
-	Price   *big.Int      `json:"price"`
+	return len(r.MerkleRoots) == 0 && len(r.TokenPriceUpdates) == 0
 }

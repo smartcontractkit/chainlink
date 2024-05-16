@@ -703,16 +703,14 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 	testCases := []struct {
 		name         string
 		observations []model.CommitPluginObservation
-		fChain       map[model.ChainSelector]int
-		destChain    model.ChainSelector
+		fChain       int
 		expSeqNums   []model.SeqNumChain
 		expErr       bool
 	}{
 		{
 			name:         "empty observations",
 			observations: []model.CommitPluginObservation{},
-			fChain:       map[model.ChainSelector]int{1: 2},
-			destChain:    1,
+			fChain:       2,
 			expSeqNums:   []model.SeqNumChain{},
 			expErr:       false,
 		},
@@ -731,8 +729,7 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 					},
 				},
 			},
-			fChain:    map[model.ChainSelector]int{1: 2},
-			destChain: 1,
+			fChain: 2,
 			expSeqNums: []model.SeqNumChain{
 				{ChainSel: 2, SeqNum: 20},
 			},
@@ -751,8 +748,7 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 					},
 				},
 			},
-			fChain:     map[model.ChainSelector]int{1: 3},
-			destChain:  1,
+			fChain:     3,
 			expSeqNums: []model.SeqNumChain{},
 			expErr:     false,
 		},
@@ -771,8 +767,7 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 					},
 				},
 			},
-			fChain:    map[model.ChainSelector]int{1: 3},
-			destChain: 1,
+			fChain: 3,
 			expSeqNums: []model.SeqNumChain{
 				{ChainSel: 2, SeqNum: 20},
 			},
@@ -799,61 +794,19 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 					},
 				},
 			},
-			fChain: map[model.ChainSelector]int{
-				1: 2,
-			},
-			destChain: 1,
+			fChain: 2,
 			expSeqNums: []model.SeqNumChain{
 				{ChainSel: 2, SeqNum: 20},
 				{ChainSel: 3, SeqNum: 30},
 			},
 			expErr: false,
 		},
-		{
-			name: "two chains but f chain is not defined for dest",
-			observations: []model.CommitPluginObservation{
-				{
-					MaxSeqNums: []model.SeqNumChain{
-						{ChainSel: 2, SeqNum: 20},
-						{ChainSel: 2, SeqNum: 20},
-						{ChainSel: 2, SeqNum: 20},
-						{ChainSel: 2, SeqNum: 20},
-						{ChainSel: 2, SeqNum: 20},
-						{ChainSel: 2, SeqNum: 20},
-						{ChainSel: 2, SeqNum: 20},
-
-						{ChainSel: 3, SeqNum: 30},
-						{ChainSel: 3, SeqNum: 30},
-						{ChainSel: 3, SeqNum: 30},
-						{ChainSel: 3, SeqNum: 30},
-						{ChainSel: 3, SeqNum: 30},
-					},
-				},
-			},
-			fChain:    map[model.ChainSelector]int{},
-			destChain: 1,
-			expErr:    true,
-		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
 			lggr := logger.Test(t)
-			p := NewPlugin(
-				ctx,
-				commontypes.OracleID(123),
-				model.CommitPluginConfig{
-					FChain:    tc.fChain,
-					DestChain: tc.destChain,
-				},
-				nil,
-				nil,
-				nil,
-				lggr,
-			)
-
-			seqNums, err := p.maxSeqNumsConsensus(tc.observations)
+			seqNums, err := maxSeqNumsConsensus(lggr, tc.fChain, tc.observations)
 			if tc.expErr {
 				assert.Error(t, err)
 				return

@@ -186,6 +186,11 @@ func (p *Plugin) ObservationQuorum(_ ocr3types.OutcomeContext, _ types.Query) (o
 //   - Merkle Roots: One merkle tree root per source chain. The leaves of the tree are the IDs of the observed messages.
 //     The merkle root data type contains information about the chain and the sequence numbers range.
 func (p *Plugin) Outcome(_ ocr3types.OutcomeContext, _ types.Query, aos []types.AttributedObservation) (ocr3types.Outcome, error) {
+	fChainDest, ok := p.cfg.FChain[p.cfg.DestChain]
+	if !ok {
+		return ocr3types.Outcome{}, fmt.Errorf("missing destination chain %d in fChain config", p.cfg.DestChain)
+	}
+
 	decodedObservations := make([]model.CommitPluginObservation, 0)
 	for _, ao := range aos {
 		obs, err := model.DecodeCommitPluginObservation(ao.Observation)
@@ -195,17 +200,17 @@ func (p *Plugin) Outcome(_ ocr3types.OutcomeContext, _ types.Query, aos []types.
 		decodedObservations = append(decodedObservations, obs)
 	}
 
-	maxSeqNumsConsensus, err := p.maxSeqNumsConsensus(decodedObservations)
+	maxSeqNums, err := maxSeqNumsConsensus(p.lggr, fChainDest, decodedObservations)
 	if err != nil {
 		return ocr3types.Outcome{}, fmt.Errorf("max sequence numbers consensus: %w", err)
 	}
-	if len(maxSeqNumsConsensus) == 0 {
+	if len(maxSeqNums) == 0 {
 		p.lggr.Warnw("no consensus on max sequence numbers")
 		return ocr3types.Outcome{}, nil
 	}
-	p.lggr.Debugw("max sequence numbers consensus", "maxSeqNumsConsensus", maxSeqNumsConsensus)
+	p.lggr.Debugw("max sequence numbers consensus", "maxSeqNumsConsensus", maxSeqNums)
 
-	merkleRoots, err := newMsgsConsensus(p.lggr, maxSeqNumsConsensus, decodedObservations, p.cfg.FChain)
+	merkleRoots, err := newMsgsConsensus(p.lggr, maxSeqNums, decodedObservations, p.cfg.FChain)
 	if err != nil {
 		return ocr3types.Outcome{}, fmt.Errorf("new messages consensus: %w", err)
 	}
@@ -216,7 +221,7 @@ func (p *Plugin) Outcome(_ ocr3types.OutcomeContext, _ types.Query, aos []types.
 		return ocr3types.Outcome{}, fmt.Errorf("token prices consensus: %w", err)
 	}
 
-	return model.NewCommitPluginOutcome(maxSeqNumsConsensus, merkleRoots, tokenPrices).Encode()
+	return model.NewCommitPluginOutcome(maxSeqNums, merkleRoots, tokenPrices).Encode()
 }
 
 func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportWithInfo[[]byte], error) {
@@ -225,15 +230,15 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 		return nil, fmt.Errorf("decode commit plugin outcome: %w", err)
 	}
 
-	// todo: include token price updates
 	// todo: include gas price updates
-	priceUpdates := make([]model.TokenPriceUpdate, 0)
 
 	/*
-		Once token/gas prices are implemented, we would want to probably check if outc.MerkleRoots is empty or not
+		todo: Once token/gas prices are implemented, we would want to probably check if outc.MerkleRoots is empty or not
 		and only create a report if outc.MerkleRoots is non-empty OR gas/token price timer has expired
 	*/
-	rep := model.NewCommitPluginReport(outc.MerkleRoots, priceUpdates)
+
+	rep := model.NewCommitPluginReport(outc.MerkleRoots, outc.TokenPrices)
+
 	encodedReport, err := p.reportCodec.Encode(context.Background(), rep)
 	if err != nil {
 		return nil, fmt.Errorf("encode commit plugin report: %w", err)
@@ -269,7 +274,8 @@ func (p *Plugin) ShouldTransmitAcceptedReport(ctx context.Context, u uint64, r o
 	}
 
 	p.lggr.Debugw("transmitting report",
-		"roots", len(decodedReport.MerkleRoots), "priceUpdates", len(decodedReport.PriceUpdates))
+		"roots", len(decodedReport.MerkleRoots),
+		"tokenPriceUpdates", len(decodedReport.TokenPriceUpdates))
 
 	// todo: if report is stale -> do not transmit
 	return true, nil

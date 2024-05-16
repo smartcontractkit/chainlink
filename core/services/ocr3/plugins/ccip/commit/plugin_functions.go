@@ -294,12 +294,8 @@ func newMsgsConsensusForChain(
 //     of the chain, then the report will revert onchain but still succeed upon retry
 //   - We minimize the risk of naturally hitting the error condition minSeqNum > maxSeqNum due to oracles
 //     delayed views of the chain (would be an issue with taking sorted_mins[-f])
-func (p *Plugin) maxSeqNumsConsensus(observations []model.CommitPluginObservation) ([]model.SeqNumChain, error) {
-	fChain, ok := p.cfg.FChain[p.cfg.DestChain]
-	if !ok {
-		return nil, fmt.Errorf("fchain not found for chain %d", p.cfg.DestChain)
-	}
-
+func maxSeqNumsConsensus(lggr logger.Logger, fChain int, observations []model.CommitPluginObservation,
+) ([]model.SeqNumChain, error) {
 	observedSeqNumsPerChain := make(map[model.ChainSelector][]model.SeqNum)
 	for _, obs := range observations {
 		for _, maxSeqNum := range obs.MaxSeqNums {
@@ -313,7 +309,7 @@ func (p *Plugin) maxSeqNumsConsensus(observations []model.CommitPluginObservatio
 	maxSeqNumsConsensus := make([]model.SeqNumChain, 0, len(observedSeqNumsPerChain))
 	for ch, observedSeqNums := range observedSeqNumsPerChain {
 		if len(observedSeqNums) < 2*fChain+1 {
-			p.lggr.Warnw("not enough observations for chain", "chain", ch, "observedSeqNums", observedSeqNums)
+			lggr.Warnw("not enough observations for chain", "chain", ch, "observedSeqNums", observedSeqNums)
 			continue
 		}
 

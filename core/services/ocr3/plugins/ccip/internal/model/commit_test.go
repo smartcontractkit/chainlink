@@ -65,10 +65,10 @@ func TestCommitPluginReport(t *testing.T) {
 		r := NewCommitPluginReport(make([]MerkleRootChain, 1), nil)
 		assert.False(t, r.IsEmpty())
 
-		r = NewCommitPluginReport(nil, make([]TokenPriceUpdate, 1))
+		r = NewCommitPluginReport(nil, make([]TokenPrice, 1))
 		assert.False(t, r.IsEmpty())
 
-		r = NewCommitPluginReport(make([]MerkleRootChain, 1), make([]TokenPriceUpdate, 1))
+		r = NewCommitPluginReport(make([]MerkleRootChain, 1), make([]TokenPrice, 1))
 		assert.False(t, r.IsEmpty())
 	})
 }
