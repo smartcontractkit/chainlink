@@ -131,6 +131,11 @@ runs:
           fi
         fi
 
+        grafana_bearer_token=""
+        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
+        fi
+
         cat << EOF > config.toml
         [CCIP]
         [CCIP.Env]
@@ -162,7 +167,7 @@ runs:
         [CCIP.Env.Logging.Grafana]
         base_url="$GRAFANA_URL"
         dashboard_url="$GRAFANA_DASHBOARD_URL"
-        bearer_token_secret="$GRAFANA_BEARER_TOKEN"
+        $grafana_bearer_token
 
         [CCIP.Groups.load]
         TestRunName = '$EXISTING_NAMESPACE'

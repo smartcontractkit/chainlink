@@ -112,6 +112,11 @@ runs:
             execution_layer="geth"
         fi
 
+        grafana_bearer_token=""
+        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
+        fi
+
         cat << EOF > config.toml
         [Network]
         selected_networks=$selected_networks
@@ -142,7 +147,7 @@ runs:
         [Logging.Grafana]
         base_url="$GRAFANA_URL"
         dashboard_url="$GRAFANA_DASHBOARD_URL"
-        bearer_token_secret="$GRAFANA_BEARER_TOKEN"
+        $grafana_bearer_token
 
         [PrivateEthereumNetwork]
         execution_layer="$execution_layer"
