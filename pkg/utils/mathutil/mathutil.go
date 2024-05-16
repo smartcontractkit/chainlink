@@ -3,6 +3,7 @@ package mathutil
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	"golang.org/x/exp/constraints"
 )
@@ -48,4 +49,18 @@ func Avg[V constraints.Integer](arr ...V) (V, error) {
 	}
 
 	return total / V(len(arr)), nil
+}
+
+// Median mirrors implementation with generics: https://github.com/montanaflynn/stats/blob/249b5aaa10484bb7e8f3b866b0925aaebdac8170/median.go#L6
+func Median[V constraints.Integer](arr ...V) (V, error) {
+	slices.Sort(arr)
+
+	l := len(arr)
+	if l == 0 {
+		return 0, fmt.Errorf("empty input")
+	}
+	if l%2 == 0 {
+		return Avg(arr[l/2-1 : l/2+1]...)
+	}
+	return arr[l/2], nil
 }

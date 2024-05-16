@@ -56,3 +56,20 @@ func TestAvg(t *testing.T) {
 	r, err = Avg(a...)
 	assert.ErrorContains(t, err, "overflow: array len")
 }
+
+func TestMedian(t *testing.T) {
+	// happy path len = odd
+	v, err := Median(2, 1, 5, 4, 3)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, v)
+
+	// happy path len = even
+	v, err = Median(10, 11, 1, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 6, v)
+
+	// zero input
+	v, err = Median[int]()
+	assert.Error(t, err)
+	assert.Equal(t, 0, v)
+}
