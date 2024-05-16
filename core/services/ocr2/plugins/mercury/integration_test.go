@@ -272,14 +272,6 @@ func integration_MercuryV1(t *testing.T) {
 			)
 		}
 	}
-
-	for _, n := range append(nodes, bootstrapNode) {
-		chain, err := n.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-		require.NoError(t, err)
-		err = chain.LogPoller().Replay(ctx, 1)
-		require.NoError(t, err)
-	}
-
 	// Setup config on contract
 	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
@@ -347,6 +339,13 @@ func integration_MercuryV1(t *testing.T) {
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
+	}
+
+	for _, n := range append(nodes, bootstrapNode) {
+		chain, err := n.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+		require.NoError(t, err)
+		err = chain.LogPoller().Replay(ctx, 1)
+		require.NoError(t, err)
 	}
 
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {

@@ -52,7 +52,7 @@ func LoadOffchainAggregator(l zerolog.Logger, seth *seth.Client, contractAddress
 	seth.ContractStore.AddABI("OffChainAggregator", *abi)
 	seth.ContractStore.AddBIN("OffChainAggregator", common.FromHex(offchainaggregator.OffchainAggregatorMetaData.Bin))
 
-	ocr, err := offchainaggregator.NewOffchainAggregator(contractAddress, seth.Client)
+	ocr, err := offchainaggregator.NewOffchainAggregator(contractAddress, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return EthereumOffchainAggregator{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
 	}
@@ -144,9 +144,6 @@ func (o *EthereumOffchainAggregator) SetConfig(
 			return fmt.Errorf("no OCR keys found for node %v", node)
 		}
 		primaryOCRKey := ocrKeys.Data[0]
-		if err != nil {
-			return err
-		}
 		p2pKeys, err := node.MustReadP2PKeys()
 		if err != nil {
 			return err
