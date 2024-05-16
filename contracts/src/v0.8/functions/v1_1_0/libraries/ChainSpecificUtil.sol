@@ -25,7 +25,6 @@ library ChainSpecificUtil {
   /// @dev OP_L1_FEE_DATA_PADDING_SIZE is the L1 data padding for Optimism
   uint256 private const OP_L1_FEE_DATA_PADDING_SIZE = 35;
   /// @dev L1BLOCK_ADDR is the address of the L1Block precompile on Optimism.
-  /// @dev Reference for calculating the gas for the Ecotone upgrade: https://docs.optimism.io/stack/transactions/fees#ecotone
   address private constant L1BLOCK_ADDR = address(0x4200000000000000000000000000000000000015);
   L1Block private constant L1BLOCK = L1Block(L1BLOCK_ADDR);
 
