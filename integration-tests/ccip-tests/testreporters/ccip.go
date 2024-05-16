@@ -22,17 +22,20 @@ type Phase string
 type Status string
 
 const (
-	E2E                Phase  = "CommitAndExecute"
-	TX                 Phase  = "CCIP-Send Transaction"
-	CCIPSendRe         Phase  = "CCIPSendRequested"
-	SourceLogFinalized Phase  = "SourceLogFinalizedTentatively"
-	Commit             Phase  = "Commit-ReportAccepted"
-	ExecStateChanged   Phase  = "ExecutionStateChanged"
-	ReportBlessed      Phase  = "ReportBlessedByARM"
-	Success            Status = "✅"
-	Failure            Status = "❌"
-	Unsure                    = "⚠️"
-	slackFile          string = "payload_ccip.json"
+	// These are the different phases of a CCIP transaction lifecycle
+	// You can see an illustration of the flow here: https://docs.chain.link/images/ccip/ccip-diagram-04_v04.webp
+	TX                 Phase = "CCIP-Send Transaction"         // The initial transaction is sent from the client to the OnRamp
+	CCIPSendRe         Phase = "CCIPSendRequested"             // The OnRamp emits the CCIPSendRequested event which acknowledges the transaction requesting a CCIP transfer
+	SourceLogFinalized Phase = "SourceLogFinalizedTentatively" // The source chain finalizes the transaction where the CCIPSendRequested event was emitted
+	Commit             Phase = "Commit-ReportAccepted"         // The destination chain commits to the transaction and emits the ReportAccepted event
+	ReportBlessed      Phase = "ReportBlessedByARM"            // The destination chain emits the ReportBlessed event. This is triggered by the RMN, for tests we usually mock it.
+	E2E                Phase = "CommitAndExecute"              // This is effectively an alias for the below phase, but it's used to represent the end-to-end flow
+	ExecStateChanged   Phase = "ExecutionStateChanged"         // The destination chain emits the ExecutionStateChanged event. This indicates that the transaction has been executed
+
+	Success   Status = "✅"
+	Failure   Status = "❌"
+	Unsure           = "⚠️"
+	slackFile string = "payload_ccip.json"
 )
 
 type AggregatorMetrics struct {

@@ -7,6 +7,7 @@ import {IPriceRegistry} from "./interfaces/IPriceRegistry.sol";
 import {IRMN} from "./interfaces/IRMN.sol";
 
 import {Internal} from "./libraries/Internal.sol";
+
 import {MerkleMultiProof} from "./libraries/MerkleMultiProof.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
 

@@ -34,7 +34,6 @@ type CommonContracts struct {
 	TokenTransmitter   string            `json:"token_transmitter,omitempty"`
 	TokenMessenger     string            `json:"token_messenger,omitempty"`
 	TokenAdminRegistry string            `json:"token_admin_registry,omitempty"`
-	Version            string            `json:"version,omitempty"`
 }
 
 type SourceContracts struct {
@@ -83,9 +82,6 @@ func (l *LaneConfig) Validate() error {
 	}
 	if l.PriceRegistry == "" || !common.IsHexAddress(l.PriceRegistry) {
 		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for price_registry"))
-	}
-	if l.Version != "" && (l.TokenAdminRegistry == "" || !common.IsHexAddress(l.TokenAdminRegistry)) {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for token_admin_registry"))
 	}
 	if l.WrappedNative == "" || !common.IsHexAddress(l.WrappedNative) {
 		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for wrapped_native"))

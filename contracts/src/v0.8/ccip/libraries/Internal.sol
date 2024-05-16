@@ -60,6 +60,17 @@ library Internal {
     bytes extraData;
   }
 
+  /// @notice Report that is submitted by the execution DON at the execution phase. (including chain selector data)
+  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
+  struct ExecutionReportSingleChain {
+    uint64 sourceChainSelector; // Source chain selector for which the report is submitted
+    EVM2EVMMessage[] messages;
+    // Contains a bytes array for each message, each inner bytes array contains bytes per transferred token
+    bytes[][] offchainTokenData;
+    bytes32[] proofs;
+    uint256 proofFlagBits;
+  }
+
   /// @notice Report that is submitted by the execution DON at the execution phase.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct ExecutionReport {

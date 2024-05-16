@@ -49,6 +49,7 @@ type l1ToL2Bridge struct {
 	l2LogPoller               logpoller.LogPoller
 	l1FilterName              string
 	l2FilterName              string
+	l1Token, l2Token          common.Address
 	lggr                      logger.Logger
 }
 
@@ -160,6 +161,10 @@ func NewL1ToL2Bridge(
 	if err != nil {
 		return nil, fmt.Errorf("instantiate l2 arbitrum gateway at %s: %w", l2Gateway, err)
 	}
+	l2Token, err := l2GatewayWrapper.CalculateL2TokenAddress(nil, l1Token)
+	if err != nil {
+		return nil, fmt.Errorf("get local token from liquidityManager: %w", err)
+	}
 
 	lggr = lggr.Named("ArbitrumL1ToL2Bridge").With(
 		"localSelector", localSelector,
@@ -172,6 +177,8 @@ func NewL1ToL2Bridge(
 		"l1GatewayRouter", l1GatewayRouter.Address(),
 		"l1Inbox", l1Inbox.Address(),
 		"l2Gateway", l2Gateway,
+		"l1Token", l1Token,
+		"l2Token", l2Token,
 	)
 	lggr.Infow("successfully initialized arbitrum L1 -> L2 bridge")
 
@@ -190,6 +197,8 @@ func NewL1ToL2Bridge(
 		l2LogPoller:               l2LogPoller,
 		l1FilterName:              l1FilterName,
 		l2FilterName:              l2FilterName,
+		l1Token:                   l1Token,
+		l2Token:                   l2Token,
 		lggr:                      lggr,
 	}, nil
 }
@@ -205,9 +214,12 @@ func (l *l1ToL2Bridge) GetTransfers(
 	)
 	lggr.Info("getting transfers from L1 -> L2")
 
-	// TODO: check that l1LiquidityManager token matches localToken
-	// TODO: check that l2LiquidityManager token matches remoteToken
-	// TODO: this should not be hardcoded here
+	if l.l1Token.Cmp(common.Address(localToken)) != 0 {
+		return nil, fmt.Errorf("local token mismatch: expected %s, got %s", l.l1Token, localToken)
+	}
+	if l.l2Token.Cmp(common.Address(remoteToken)) != 0 {
+		return nil, fmt.Errorf("remote token mismatch: expected %s, got %s", l.l2Token, remoteToken)
+	}
 	// TODO: heavy query warning
 	fromTs := time.Now().Add(-24 * time.Hour) // last day
 

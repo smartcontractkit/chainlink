@@ -128,3 +128,53 @@ func TestFlatten(t *testing.T) {
 		})
 	}
 }
+
+func TestFilter(t *testing.T) {
+	type person struct {
+		id   string
+		name string
+		age  int
+	}
+
+	testCases := []struct {
+		name       string
+		items      []person
+		valid      func(person) bool
+		expResults []person
+	}{
+		{
+			name:       "empty slice",
+			items:      []person{},
+			valid:      func(p person) bool { return p.age > 20 },
+			expResults: []person{},
+		},
+		{
+			name: "no valid item",
+			items: []person{
+				{id: "1", name: "Alice", age: 18},
+				{id: "2", name: "Bob", age: 20},
+				{id: "3", name: "Charlie", age: 19},
+			},
+			valid:      func(p person) bool { return p.age > 20 },
+			expResults: []person{},
+		},
+		{
+			name: "with valid item",
+			items: []person{
+				{id: "1", name: "Alice", age: 18},
+				{id: "2", name: "Bob", age: 25},
+				{id: "3", name: "Charlie", age: 19},
+			},
+			valid: func(p person) bool { return p.age > 20 },
+			expResults: []person{
+				{id: "2", name: "Bob", age: 25},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expResults, Filter(tc.items, tc.valid))
+		})
+	}
+}

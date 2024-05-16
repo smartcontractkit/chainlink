@@ -127,15 +127,13 @@ func (p *Plugin) Observation(ctx context.Context, outcomeCtx ocr3types.OutcomeCo
 		"numExpired", numExpired,
 	)
 
-	encodedObservation := models.NewObservation(
+	return models.NewObservation(
 		networkLiquidities,
 		resolvedTransfers,
 		pendingTransfers,
 		inflightTransfers,
 		edges,
 		configDigests).Encode()
-
-	return encodedObservation, nil
 }
 
 func (p *Plugin) ObservationQuorum(outctx ocr3types.OutcomeContext, query ocrtypes.Query) (ocr3types.Quorum, error) {
@@ -212,7 +210,7 @@ func (p *Plugin) Outcome(outctx ocr3types.OutcomeContext, query ocrtypes.Query, 
 		"resolvedTransfers", resolvedTransfersQuorum,
 	)
 
-	return models.NewOutcome(proposedTransfers, resolvedTransfersQuorum, pendingTransfers, configDigests).Encode(), nil
+	return models.NewOutcome(proposedTransfers, resolvedTransfersQuorum, pendingTransfers, configDigests).Encode()
 }
 
 func combinedUnexecutedTransfers(

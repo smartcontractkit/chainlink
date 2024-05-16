@@ -73,6 +73,7 @@ type CCIPTestConfig struct {
 	Test                *testing.T
 	EnvInput            *testconfig.Common
 	TestGroupInput      *testconfig.CCIPTestConfig
+	VersionInput        map[string]*contracts.ContractVersion
 	ContractsInput      *testconfig.CCIPContractConfig
 	AllNetworks         map[string]blockchain.EVMNetwork
 	SelectedNetworks    []blockchain.EVMNetwork
@@ -294,6 +295,31 @@ func (c *CCIPTestConfig) FormNetworkPairCombinations() {
 	}
 }
 
+func (c *CCIPTestConfig) SetContractVersion() error {
+	if c.VersionInput == nil {
+		return nil
+	}
+	for contractName, version := range c.VersionInput {
+		if version != nil {
+			if _, ok := contracts.VersionMap[contractName]; !ok {
+				return fmt.Errorf("contract versioning is not supported for %s, versioning is supported for %v",
+					contractName, contracts.SupportedContracts)
+			}
+			supportedVersions, ok := contracts.SupportedContracts[contractName]
+			if !ok {
+				return fmt.Errorf("contract %s is not supported, versioning is supported for %v",
+					contractName, contracts.SupportedContracts)
+			}
+			if valid, exists := supportedVersions[*version]; !exists || !valid {
+				return fmt.Errorf("contract %s does not support version %s, versioning is supported for %v",
+					contractName, *version, supportedVersions)
+			}
+			contracts.VersionMap[contractName] = *version
+		}
+	}
+	return nil
+}
+
 func (c *CCIPTestConfig) SetOCRParams() error {
 	if c.TestGroupInput.CommitOCRParams != nil {
 		err := mergo.Merge(&contracts.OCR2ParamsForCommit, c.TestGroupInput.CommitOCRParams, mergo.WithOverride)
@@ -353,10 +379,15 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 		Test:                t,
 		EnvInput:            testCfg.CCIP.Env,
 		ContractsInput:      testCfg.CCIP.Deployments,
+		VersionInput:        testCfg.CCIP.ContractVersions,
 		TestGroupInput:      groupCfg,
 		GethResourceProfile: GethResourceProfile,
 	}
-	err := ccipTestConfig.SetOCRParams()
+	err := ccipTestConfig.SetContractVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ccipTestConfig.SetOCRParams()
 	if err != nil {
 		t.Fatal(err)
 	}

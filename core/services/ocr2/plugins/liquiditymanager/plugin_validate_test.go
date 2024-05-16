@@ -35,95 +35,137 @@ func TestPlugin_ValidateObservation(t *testing.T) {
 		},
 		{
 			name: "some observation",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{},
-				[]models.Transfer{{}},
+				[]models.Transfer{{From: 1, To: 2, Amount: ubig.New(big.NewInt(1)), NativeBridgeFee: ubig.New(big.NewInt(1))}},
 				[]models.PendingTransfer{},
 				[]models.Transfer{},
 				[]models.Edge{},
 				[]models.ConfigDigestWithMeta{},
-			).Encode(),
+			)),
+		},
+		{
+			name: "invalid transfers: nil amount",
+			obs: newTestObservation(models.NewObservation(
+				[]models.NetworkLiquidity{},
+				[]models.Transfer{{From: 1, To: 2, NativeBridgeFee: ubig.New(big.NewInt(1))}},
+				[]models.PendingTransfer{},
+				[]models.Transfer{},
+				[]models.Edge{},
+				[]models.ConfigDigestWithMeta{},
+			)),
+			expErr: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name: "invalid pending transfers: nil amount",
+			obs: newTestObservation(models.NewObservation(
+				[]models.NetworkLiquidity{},
+				[]models.Transfer{},
+				[]models.PendingTransfer{{Transfer: models.Transfer{From: 1, To: 2, NativeBridgeFee: ubig.New(big.NewInt(1))}, ID: "1"}},
+				[]models.Transfer{},
+				[]models.Edge{},
+				[]models.ConfigDigestWithMeta{},
+			)),
+			expErr: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
 		},
 		{
 			name: "deduped liquidity observations",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{{Network: 1, Liquidity: ubig.New(big.NewInt(1))}, {Network: 1, Liquidity: ubig.New(big.NewInt(2))}},
 				[]models.Transfer{},
 				[]models.PendingTransfer{},
 				[]models.Transfer{},
 				[]models.Edge{},
 				[]models.ConfigDigestWithMeta{},
-			).Encode(),
+			)),
+			expErr: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name: "invalid network liquidity: nil liquidity",
+			obs: newTestObservation(models.NewObservation(
+				[]models.NetworkLiquidity{{Network: 1}, {Network: 1, Liquidity: ubig.New(big.NewInt(2))}},
+				[]models.Transfer{},
+				[]models.PendingTransfer{},
+				[]models.Transfer{},
+				[]models.Edge{},
+				[]models.ConfigDigestWithMeta{},
+			)),
 			expErr: func(t *testing.T, err error) {
 				assert.Error(t, err)
 			},
 		},
 		{
 			name: "deduped resolved transfers",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{},
 				[]models.Transfer{{From: 1}, {From: 1}},
 				[]models.PendingTransfer{},
 				[]models.Transfer{},
 				[]models.Edge{},
 				[]models.ConfigDigestWithMeta{},
-			).Encode(),
+			)),
 			expErr: func(t *testing.T, err error) {
 				assert.Error(t, err)
 			},
 		},
 		{
 			name: "deduped pending transfers",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{},
 				[]models.Transfer{},
 				[]models.PendingTransfer{{ID: "1"}, {ID: "1"}},
 				[]models.Transfer{},
 				[]models.Edge{},
 				[]models.ConfigDigestWithMeta{},
-			).Encode(),
+			)),
 			expErr: func(t *testing.T, err error) {
 				assert.Error(t, err)
 			},
 		},
 		{
 			name: "deduped inflight transfers",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{},
 				[]models.Transfer{},
 				[]models.PendingTransfer{},
 				[]models.Transfer{{From: 1}, {From: 1}},
 				[]models.Edge{},
 				[]models.ConfigDigestWithMeta{},
-			).Encode(),
+			)),
 			expErr: func(t *testing.T, err error) {
 				assert.Error(t, err)
 			},
 		},
 		{
 			name: "deduped edges",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{},
 				[]models.Transfer{},
 				[]models.PendingTransfer{},
 				[]models.Transfer{},
 				[]models.Edge{{Source: 1, Dest: 2}, {Source: 1, Dest: 2}},
 				[]models.ConfigDigestWithMeta{},
-			).Encode(),
+			)),
 			expErr: func(t *testing.T, err error) {
 				assert.Error(t, err)
 			},
 		},
 		{
 			name: "deduped config digest",
-			obs: models.NewObservation(
+			obs: newTestObservation(models.NewObservation(
 				[]models.NetworkLiquidity{},
 				[]models.Transfer{},
 				[]models.PendingTransfer{},
 				[]models.Transfer{},
 				[]models.Edge{},
 				[]models.ConfigDigestWithMeta{{NetworkSel: 1}, {NetworkSel: 1}},
-			).Encode(),
+			)),
 			expErr: func(t *testing.T, err error) {
 				assert.Error(t, err)
 			},
@@ -147,12 +189,13 @@ func TestPlugin_ValidateObservation(t *testing.T) {
 	}
 }
 
-func Test_validateDedupedItems(t *testing.T) {
+func Test_validateItems(t *testing.T) {
 	tests := []struct {
-		name    string
-		keyFn   func(models.Transfer) string
-		items   []models.Transfer
-		wantErr bool
+		name        string
+		keyFn       func(models.Transfer) string
+		items       []models.Transfer
+		validateFns []func(models.Transfer) error
+		wantErr     bool
 	}{
 		{
 			name: "no duplicates",
@@ -191,11 +234,20 @@ func Test_validateDedupedItems(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "invalid transfer: nil amount",
+			items: []models.Transfer{
+				{From: 1, NativeBridgeFee: ubig.New(big.NewInt(1))},
+			},
+			keyFn:       dedupKeyTransfer,
+			wantErr:     true,
+			validateFns: []func(models.Transfer) error{validateTransfer},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateDedupedItems(tc.keyFn, tc.items...)
+			err := validateItems(tc.keyFn, tc.items, tc.validateFns...)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -203,4 +255,9 @@ func Test_validateDedupedItems(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func newTestObservation(obs models.Observation) ocrtypes.Observation {
+	o, _ := obs.Encode()
+	return o
 }

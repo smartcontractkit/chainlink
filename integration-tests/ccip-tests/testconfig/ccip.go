@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 
+	ccipcontracts "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -370,9 +371,10 @@ func (c *CCIPContractConfig) ContractsData() ([]byte, error) {
 }
 
 type CCIP struct {
-	Env         *Common                    `toml:",omitempty"`
-	Deployments *CCIPContractConfig        `toml:",omitempty"`
-	Groups      map[string]*CCIPTestConfig `toml:",omitempty"`
+	Env              *Common                                   `toml:",omitempty"`
+	ContractVersions map[string]*ccipcontracts.ContractVersion `toml:",omitempty"`
+	Deployments      *CCIPContractConfig                       `toml:",omitempty"`
+	Groups           map[string]*CCIPTestConfig                `toml:",omitempty"`
 }
 
 func (c *CCIP) Validate() error {

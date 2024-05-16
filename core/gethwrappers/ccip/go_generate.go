@@ -23,6 +23,7 @@ package ccip
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MockV3Aggregator/MockV3Aggregator.abi ../../../contracts/solc/v0.8.24/MockV3Aggregator/MockV3Aggregator.bin MockV3Aggregator mock_v3_aggregator_contract
 
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/EVM2EVMOnRamp/EVM2EVMOnRamp.abi ../../../contracts/solc/v0.8.24/EVM2EVMOnRamp/EVM2EVMOnRamp.bin EVM2EVMOnRamp evm_2_evm_onramp
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/EVM2EVMMultiOnRamp/EVM2EVMMultiOnRamp.abi ../../../contracts/solc/v0.8.24/EVM2EVMMultiOnRamp/EVM2EVMMultiOnRamp.bin EVM2EVMMultiOnRamp evm_2_evm_multi_onramp
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/EVM2EVMOffRamp/EVM2EVMOffRamp.abi ../../../contracts/solc/v0.8.24/EVM2EVMOffRamp/EVM2EVMOffRamp.bin EVM2EVMOffRamp evm_2_evm_offramp
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/EVM2EVMMultiOffRamp/EVM2EVMMultiOffRamp.abi ../../../contracts/solc/v0.8.24/EVM2EVMMultiOffRamp/EVM2EVMMultiOffRamp.bin EVM2EVMMultiOffRamp evm_2_evm_multi_offramp
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/Router/Router.abi ../../../contracts/solc/v0.8.24/Router/Router.bin Router router

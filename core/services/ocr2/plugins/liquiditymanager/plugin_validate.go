@@ -18,22 +18,22 @@ func (p *Plugin) ValidateObservation(outctx ocr3types.OutcomeContext, query ocrt
 		return fmt.Errorf("invalid observation: %w", err)
 	}
 
-	if err := validateDedupedItems(dedupKeyNetworkLiquidity, obs.LiquidityPerChain...); err != nil {
+	if err := validateItems(dedupKeyNetworkLiquidity, obs.LiquidityPerChain, validateNetworkLiquidity); err != nil {
 		return fmt.Errorf("invalid LiquidityPerChain: %w", err)
 	}
-	if err := validateDedupedItems(dedupKeyTransfer, obs.ResolvedTransfers...); err != nil {
+	if err := validateItems(dedupKeyTransfer, obs.ResolvedTransfers, validateTransfer); err != nil {
 		return fmt.Errorf("invalid ResolvedTransfers: %w", err)
 	}
-	if err := validateDedupedItems(dedupKeyPendingTransfer, obs.PendingTransfers...); err != nil {
+	if err := validateItems(dedupKeyPendingTransfer, obs.PendingTransfers, validatePendingTransfer); err != nil {
 		return fmt.Errorf("invalid PendingTransfers: %w", err)
 	}
-	if err := validateDedupedItems(dedupKeyTransfer, obs.InflightTransfers...); err != nil {
+	if err := validateItems(dedupKeyTransfer, obs.InflightTransfers, validateTransfer); err != nil {
 		return fmt.Errorf("invalid InflightTransfers: %w", err)
 	}
-	if err := validateDedupedItems(dedupKeyEdge, obs.Edges...); err != nil {
+	if err := validateItems(dedupKeyEdge, obs.Edges); err != nil {
 		return fmt.Errorf("invalid Edges: %w", err)
 	}
-	if err := validateDedupedItems(dedupKeyConfigDigest, obs.ConfigDigests...); err != nil {
+	if err := validateItems(dedupKeyConfigDigest, obs.ConfigDigests); err != nil {
 		return fmt.Errorf("invalid ConfigDigests: %w", err)
 	}
 
@@ -44,12 +44,39 @@ func dedupKeyNetworkLiquidity(liq models.NetworkLiquidity) string {
 	return fmt.Sprintf("%d", liq.Network)
 }
 
+func validateNetworkLiquidity(liq models.NetworkLiquidity) error {
+	if liq.Liquidity == nil {
+		return fmt.Errorf("nil Liquidity")
+	}
+	return nil
+}
+
 func dedupKeyPendingTransfer(pt models.PendingTransfer) string {
 	return pt.ID // TODO: check if we need to use dedupKeyTransfer
 }
 
+func validatePendingTransfer(t models.PendingTransfer) error {
+	if t.Transfer.Amount == nil {
+		return fmt.Errorf("nil Amount")
+	}
+	if t.Transfer.NativeBridgeFee == nil {
+		return fmt.Errorf("nil NativeBridgeFee")
+	}
+	return nil
+}
+
 func dedupKeyTransfer(t models.Transfer) string {
 	return fmt.Sprintf("%d-%d-%s-%s-%d", t.From, t.To, t.LocalTokenAddress.String(), t.RemoteTokenAddress.String(), t.Stage)
+}
+
+func validateTransfer(t models.Transfer) error {
+	if t.Amount == nil {
+		return fmt.Errorf("nil Amount")
+	}
+	if t.NativeBridgeFee == nil {
+		return fmt.Errorf("nil NativeBridgeFee")
+	}
+	return nil
 }
 
 func dedupKeyEdge(e models.Edge) string {
@@ -60,13 +87,18 @@ func dedupKeyConfigDigest(obs models.ConfigDigestWithMeta) string {
 	return fmt.Sprintf("%d", obs.NetworkSel) // we only allow 1 config digest per network
 }
 
-// validateDedupedItems checks if there are any duplicated items in the provided slice.
-func validateDedupedItems[T any](keyFn func(T) string, items ...T) error {
+// validateItems verifies there are no duplicated items and runs the given validate functions against all items.
+func validateItems[T any](keyFn func(T) string, items []T, validateFns ...func(T) error) error {
 	existing := map[string]bool{}
 	for _, item := range items {
 		k := keyFn(item)
 		if existing[k] {
 			return fmt.Errorf("duplicated item")
+		}
+		for _, validateFn := range validateFns {
+			if err := validateFn(item); err != nil {
+				return fmt.Errorf("invalid item: %w", err)
+			}
 		}
 		existing[k] = true
 	}
