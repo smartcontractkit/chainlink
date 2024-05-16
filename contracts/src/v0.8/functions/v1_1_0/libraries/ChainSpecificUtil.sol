@@ -49,6 +49,7 @@ library ChainSpecificUtil {
   function _getL1DataGasCostUpperLimit(bytes memory dataSizeBytes) internal view returns (uint256 l1FeeWei) {
     uint256 chainid = block.chainid;
     if (_isArbitrumChainId(chainid)) {
+      // https://docs.arbitrum.io/build-decentralized-apps/how-to-estimate-gas#where-do-we-get-all-this-information-from
       (, uint256 l1PricePerByte, , , , ) = ARBGAS.getPricesInWei();
       return l1PricePerByte * (calldataSizeBytes + ARB_L1_FEE_DATA_PADDING_SIZE);
     } else if (_isOptimismChainId(chainid)) {
