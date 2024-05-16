@@ -132,7 +132,8 @@ type node[
 	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
 	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
 	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
-	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *big.Int)
+	nLiveNodes   func() (count int, blockNumber int64, totalDifficulty *big.Int)
+	aliveLoopSub types.Subscription
 }
 
 func NewNode[
@@ -176,6 +177,7 @@ func NewNode[
 	n.stateLatestBlockNumber = -1
 	n.rpc = rpc
 	n.chainFamily = chainFamily
+	n.aliveLoopSub = nil
 	return n
 }
 
@@ -200,7 +202,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) RPC() RPC_CLIENT {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) UnsubscribeAll() {
-	n.rpc.UnsubscribeAllExcept()
+	n.rpc.UnsubscribeAllExcept(n.aliveLoopSub)
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) Close() error {

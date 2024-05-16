@@ -108,10 +108,11 @@ func (r *RpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtyp
 }
 
 func (r *RpcClient) Ping(ctx context.Context) error {
-	_, err := r.ClientVersion(ctx)
+	version, err := r.ClientVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("ping failed: %v", err)
 	}
+	r.rpcLog.Debugf("ping client version: %s", version)
 	return err
 }
 

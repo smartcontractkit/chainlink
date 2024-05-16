@@ -108,8 +108,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	}
 	// TODO: nit fix. If multinode switches primary node before we set sub as AliveSub, sub will be closed and we'll
 	// falsely transition this node to unreachable state
-	// TODO: Do we need this SetAliveLoopSub???
-	//TODO: Delete this?: n.rpc.SetAliveLoopSub(sub)
+	n.aliveLoopSub = sub
 	defer sub.Unsubscribe()
 
 	var outOfSyncT *time.Ticker
@@ -161,13 +160,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		case <-n.nodeCtx.Done():
 			return
 		case <-pollCh:
+			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
+			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
 			ctx, cancel := context.WithTimeout(n.nodeCtx, pollInterval)
 			err := n.RPC().Ping(ctx)
 			cancel()
-
-			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
-			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
-
 			if err != nil {
 				// prevent overflow
 				if pollFailures < math.MaxUint32 {

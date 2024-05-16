@@ -53,33 +53,33 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		const destinationState = nodeStateOutOfSync
 		allowedStates := []nodeState{nodeStateAlive}
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept").Once()
+		rpc.On("UnsubscribeAllExcept", nil).Once()
 		testTransition(t, rpc, testNode.transitionToOutOfSync, destinationState, allowedStates...)
 	})
 	t.Run("transitionToUnreachable", func(t *testing.T) {
 		const destinationState = nodeStateUnreachable
 		allowedStates := []nodeState{nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing}
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept").Times(len(allowedStates))
+		rpc.On("UnsubscribeAllExcept", nil).Times(len(allowedStates))
 		testTransition(t, rpc, testNode.transitionToUnreachable, destinationState, allowedStates...)
 	})
 	t.Run("transitionToInvalidChain", func(t *testing.T) {
 		const destinationState = nodeStateInvalidChainID
 		allowedStates := []nodeState{nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing}
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept").Times(len(allowedStates))
+		rpc.On("UnsubscribeAllExcept", nil).Times(len(allowedStates))
 		testTransition(t, rpc, testNode.transitionToInvalidChainID, destinationState, allowedStates...)
 	})
 	t.Run("transitionToSyncing", func(t *testing.T) {
 		const destinationState = nodeStateSyncing
 		allowedStates := []nodeState{nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID}
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept").Times(len(allowedStates))
+		rpc.On("UnsubscribeAllExcept", nil).Times(len(allowedStates))
 		testTransition(t, rpc, testNode.transitionToSyncing, destinationState, allowedStates...)
 	})
 	t.Run("transitionToSyncing panics if nodeIsSyncing is disabled", func(t *testing.T) {
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept").Once()
+		rpc.On("UnsubscribeAllExcept", nil).Once()
 		node := newTestNode(t, testNodeOpts{rpc: rpc})
 		node.setState(nodeStateDialed)
 		fn := new(fnMock)
