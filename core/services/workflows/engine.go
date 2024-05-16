@@ -29,6 +29,11 @@ type donInfo struct {
 	PeerID func() *p2ptypes.PeerID
 }
 
+type stepRequest struct {
+	stepRef string
+	state   store.WorkflowExecution
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
@@ -103,11 +108,11 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	// - fetching the capability
 	// - register the capability to this workflow
 	// - initializing the step's executionStrategy
-	capabilityRegistrationErr := e.workflow.walkDo(keywordTrigger, func(s *step) error {
+	capabilityRegistrationErr := e.workflow.walkDo(KeywordTrigger, func(s *step) error {
 		// The graph contains a dummy step for triggers, but
 		// we handle triggers separately since there might be more than one
 		// trigger registered to a workflow.
-		if s.Ref == keywordTrigger {
+		if s.Ref == KeywordTrigger {
 			return nil
 		}
 
@@ -441,13 +446,13 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	e.logger.Debugw("executing on a trigger event", "event", event, "executionID", executionID)
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
-			keywordTrigger: {
+			KeywordTrigger: {
 				Outputs: &store.StepOutput{
 					Value: event,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: executionID,
-				Ref:         keywordTrigger,
+				Ref:         KeywordTrigger,
 			},
 		},
 		WorkflowID:  e.workflow.id,
@@ -463,7 +468,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	// Find the tasks we need to fire when a trigger has fired and enqueue them.
 	// This consists of a) nodes without a dependency and b) nodes which depend
 	// on a trigger
-	triggerDependents, err := e.workflow.dependents(keywordTrigger)
+	triggerDependents, err := e.workflow.dependents(KeywordTrigger)
 	if err != nil {
 		return err
 	}
@@ -492,7 +497,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		// we've completed the workflow.
 		if len(stepDependents) == 0 {
 			workflowCompleted := true
-			err := e.workflow.walkDo(keywordTrigger, func(s *step) error {
+			err := e.workflow.walkDo(KeywordTrigger, func(s *step) error {
 				step, ok := state.Steps[s.Ref]
 				// The step is missing from the state,
 				// which means it hasn't been processed yet.
@@ -701,8 +706,8 @@ func (e *Engine) Close() error {
 		close(e.stopCh)
 		e.wg.Wait()
 
-		err := e.workflow.walkDo(keywordTrigger, func(s *step) error {
-			if s.Ref == keywordTrigger {
+		err := e.workflow.walkDo(KeywordTrigger, func(s *step) error {
+			if s.Ref == KeywordTrigger {
 				return nil
 			}
 

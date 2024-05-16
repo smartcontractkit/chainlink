@@ -2,7 +2,6 @@ package workflows
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -118,16 +117,12 @@ func interpolateKey(key string, state store.WorkflowExecution) (any, error) {
 	return val, nil
 }
 
-var (
-	interpolationTokenRe = regexp.MustCompile(`^\$\((\S+)\)$`)
-)
-
 // findAndInterpolateAllKeys takes an `input` any value, and recursively
 // identifies any values that should be replaced from `state`.
 //
 // A value `v` should be replaced if it is wrapped as follows: `$(v)`.
 func findAndInterpolateAllKeys(input any, state store.WorkflowExecution) (any, error) {
-	return deepMap(
+	return DeepMap(
 		input,
 		func(el string) (any, error) {
 			matches := interpolationTokenRe.FindStringSubmatch(el)
@@ -139,93 +134,4 @@ func findAndInterpolateAllKeys(input any, state store.WorkflowExecution) (any, e
 			return interpolateKey(interpolatedVar, state)
 		},
 	)
-}
-
-// findRefs takes an `inputs` map and returns a list of all the step references
-// contained within it.
-func findRefs(inputs map[string]any) ([]string, error) {
-	refs := []string{}
-	_, err := deepMap(
-		inputs,
-		// This function is called for each string in the map
-		// for each string, we iterate over each match of the interpolation token
-		// - if there are no matches, return no reference
-		// - if there is one match, return the reference
-		// - if there are multiple matches (in the case of a multi-part state reference), return just the step ref
-		func(el string) (any, error) {
-			matches := interpolationTokenRe.FindStringSubmatch(el)
-			if len(matches) < 2 {
-				return el, nil
-			}
-
-			m := matches[1]
-			parts := strings.Split(m, ".")
-			if len(parts) < 1 {
-				return nil, fmt.Errorf("invalid ref %s", m)
-			}
-
-			refs = append(refs, parts[0])
-			return el, nil
-		},
-	)
-	return refs, err
-}
-
-// deepMap recursively applies a transformation function
-// over each string within:
-//
-//   - a map[string]any
-//   - a []any
-//   - a string
-func deepMap(input any, transform func(el string) (any, error)) (any, error) {
-	// in the case of a string, simply apply the transformation
-	// in the case of a map, recurse and apply the transformation to each value
-	// in the case of a list, recurse and apply the transformation to each element
-	switch tv := input.(type) {
-	case string:
-		nv, err := transform(tv)
-		if err != nil {
-			return nil, err
-		}
-
-		return nv, nil
-	case mapping:
-		// coerce mapping to map[string]any
-		mp := map[string]any(tv)
-
-		nm := map[string]any{}
-		for k, v := range mp {
-			nv, err := deepMap(v, transform)
-			if err != nil {
-				return nil, err
-			}
-
-			nm[k] = nv
-		}
-		return nm, nil
-	case map[string]any:
-		nm := map[string]any{}
-		for k, v := range tv {
-			nv, err := deepMap(v, transform)
-			if err != nil {
-				return nil, err
-			}
-
-			nm[k] = nv
-		}
-		return nm, nil
-	case []any:
-		a := []any{}
-		for _, el := range tv {
-			ne, err := deepMap(el, transform)
-			if err != nil {
-				return nil, err
-			}
-
-			a = append(a, ne)
-		}
-		return a, nil
-	}
-
-	return nil, fmt.Errorf("cannot traverse item %+v of type %T", input, input)
 }

@@ -547,13 +547,13 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
-			keywordTrigger: {
+			KeywordTrigger: {
 				Outputs: &store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: "<execution-ID>",
-				Ref:         keywordTrigger,
+				Ref:         KeywordTrigger,
 			},
 		},
 		WorkflowID:  "",
@@ -602,13 +602,13 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
-			keywordTrigger: {
+			KeywordTrigger: {
 				Outputs: &store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: "<execution-ID>",
-				Ref:         keywordTrigger,
+				Ref:         KeywordTrigger,
 			},
 		},
 		WorkflowID:  "",

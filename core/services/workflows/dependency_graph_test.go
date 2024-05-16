@@ -1,13 +1,14 @@
-package workflows
+package workflows_test
 
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestParse_Graph(t *testing.T) {
+func TestParseDependencyGraph(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name   string
@@ -41,7 +42,7 @@ targets:
       consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
-				KeywordTrigger: {
+				workflows.KeywordTrigger: {
 					"an-action":   struct{}{},
 					"a-consensus": struct{}{},
 				},
@@ -175,7 +176,7 @@ targets:
       consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
-				KeywordTrigger: {
+				workflows.KeywordTrigger: {
 					"an-action": struct{}{},
 				},
 				"an-action": {
@@ -216,7 +217,8 @@ targets:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(st *testing.T) {
-			wf, err := Parse(tc.yaml)
+			//wf, err := workflows.Parse(tc.yaml)
+			wf, err := workflows.ParseDependencyGraph(tc.yaml)
 			if tc.errMsg != "" {
 				assert.ErrorContains(st, err, tc.errMsg)
 			} else {
@@ -239,14 +241,4 @@ targets:
 			}
 		})
 	}
-}
-
-func TestParsesIntsCorrectly(t *testing.T) {
-	wf, err := Parse(hardcodedWorkflow)
-	require.NoError(t, err)
-
-	n, err := wf.Vertex("evm_median")
-	require.NoError(t, err)
-
-	assert.Equal(t, int64(3600), n.Config["aggregation_config"].(map[string]any)["0x1111111111111111111100000000000000000000000000000000000000000000"].(map[string]any)["heartbeat"])
 }

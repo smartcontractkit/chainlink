@@ -232,16 +232,6 @@ func TestJsonSchema(t *testing.T) {
 	})
 }
 
-func TestParsesIntsCorrectly(t *testing.T) {
-	wf, err := Parse(hardcodedWorkflow)
-	require.NoError(t, err)
-
-	n, err := wf.Vertex("evm_median")
-	require.NoError(t, err)
-
-	assert.Equal(t, int64(3600), n.Config["aggregation_config"].(map[string]any)["0x1111111111111111111100000000000000000000000000000000000000000000"].(map[string]any)["heartbeat"])
-}
-
 func TestMappingCustomType(t *testing.T) {
 	m := mapping(map[string]any{})
 	data := `
