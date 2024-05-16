@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
@@ -82,6 +83,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		)
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 		actions_seth.TrackForwarder(t, sethClient, authorizedForwarders[i], workerNodes[i])
+		actions_seth.TrackForwarder(t, sethClient, utils.RandomAddress(), workerNodes[i])
 	}
 
 	// Gather transmitters
@@ -121,4 +123,6 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		require.NoError(t, err, "Error getting latest OCRv2 answer")
 		require.Equal(t, int64(ocrRoundVal), answer.Int64(), fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()))
 	}
+
+	require.Equal(t, false, true) //To save the logs
 }
