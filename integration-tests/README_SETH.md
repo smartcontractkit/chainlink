@@ -235,6 +235,22 @@ KEYFILE_PATH=keyfile_my_network.toml ROOT_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d2
 ```
 The `-a <N>` option specifies the number of keys to distribute funds to, and `-b <N>` denotes the buffer (in ethers) to be left on the root key.
 
+## How to Return Funds From Static Keys to the Root Key
+Returning funds from static keys to the root key is a simple process. Execute the following command:
+```bash
+KEYFILE_PATH=keyfile_my_network.toml ROOT_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 SETH_CONFIG_PATH=seth.toml go run cmd/seth/seth.go -n my_network keys return
+```
+This command will return all funds from static keys read from `keyfile_my_network.toml` to the root key.
+
+### How to Rebalance Static Keys
+Rebalancing static keys is a more complex process that involves redistributing funds among keys. Currently, there's no built-in functionality for this in Seth, but you can achieve it by following these steps:
+1. **Return Funds**: Use the `keys return` command to return all funds to the root key.
+2. **Split Funds**: Use the `keys split` command to redistribute funds among the keys as needed.
+
+Once you've completed these steps, remember to upload new keyfile to the CI (as a base64-ed secret).
+
+**When performing any keyfile-related operations it is advised to keep copies of files in 1password, so you can easily restore them if needed**. That's especially important for rebalancing, because you will not be able to download the keyfile from the CI since it's a secret.
+
 ## How to use Seth's synchronous API
 Seth is designed with a synchronous API to enhance usability and predictability. This feature is implemented through the `seth.Decode()` function, which waits for each transaction to be mined before proceeding. Depending on the Seth configuration, the function will:
 
