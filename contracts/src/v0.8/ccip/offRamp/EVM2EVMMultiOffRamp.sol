@@ -58,6 +58,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
   error InvalidDataLength(uint256 expected, uint256 got);
   error InvalidNewState(uint64 sourceChainSelector, uint64 sequenceNumber, Internal.MessageExecutionState newState);
   error IndexOutOfRange();
+  error StaticConfigCannotBeUpdated();
 
   /// @dev Atlas depends on this event, if changing, please notify Atlas.
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
@@ -232,15 +233,33 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
   }
 
   /// @inheritdoc IAny2EVMMultiOffRamp
-  function getSenderNonce(uint64 sourceChainSelector, address sender) public view returns (uint64 nonce) {
-    uint256 senderNonce = s_senderNonce[sourceChainSelector][sender];
+  function getSenderNonce(uint64 sourceChainSelector, address sender) external view returns (uint64) {
+    (uint64 nonce,) = _getSenderNonce(sourceChainSelector, sender);
+    return nonce;
+  }
 
-    // TODO: re-implement for multi-lane
-    // if (senderNonce == 0 && i_prevOffRamp != address(0)) {
-    //   // If OffRamp was upgraded, check if sender has a nonce from the previous OffRamp.
-    //   return IAny2EVMOffRamp(i_prevOffRamp).getSenderNonce(sender);
-    // }
-    return uint64(senderNonce);
+  /// @notice Returns the the current nonce for a receiver.
+  /// @param sourceChainSelector The source chain to retrieve the nonce for
+  /// @param sender The sender address
+  /// @return nonce The nonce value belonging to the sender address.
+  /// @return isFromPrevRamp True if the nonce was retrieved from the prevOffRamps
+  function _getSenderNonce(
+    uint64 sourceChainSelector,
+    address sender
+  ) internal view returns (uint64 nonce, bool isFromPrevRamp) {
+    uint64 senderNonce = s_senderNonce[sourceChainSelector][sender];
+
+    if (senderNonce == 0) {
+      address prevOffRamp = s_sourceChainConfigs[sourceChainSelector].prevOffRamp;
+      if (prevOffRamp != address(0)) {
+        // If OffRamp was upgraded, check if sender has a nonce from the previous OffRamp.
+        // NOTE: assuming prevOffRamp is always a lane-specific off ramp
+        // TODO: on deployment - revisit if this assumption holds
+        return (IAny2EVMOffRamp(prevOffRamp).getSenderNonce(sender), true);
+      }
+    }
+
+    return (senderNonce, false);
   }
 
   /// @notice Manually executes a set of reports.
@@ -397,12 +416,8 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
       // Referencing the old offRamp to check the expected nonce if none is set for a
       // given sender allows us to skip the current message if it would not be the next according
       // to the old offRamp. This preserves sequencing between updates.
-      uint64 prevNonce = s_senderNonce[sourceChainSelector][message.sender];
-      address prevOffRamp = sourceChainConfig.prevOffRamp;
-      if (prevNonce == 0 && prevOffRamp != address(0)) {
-        // NOTE: assuming prevOffRamp is always a lane-specific off ramp
-        // TODO: on deployment - revisit if this assumption holds
-        prevNonce = IAny2EVMOffRamp(prevOffRamp).getSenderNonce(message.sender);
+      (uint64 prevNonce, bool isFromPrevRamp) = _getSenderNonce(sourceChainSelector, message.sender);
+      if (isFromPrevRamp) {
         if (prevNonce + 1 != message.nonce) {
           // the starting v2 onramp nonce, i.e. the 1st message nonce v2 offramp is expected to receive,
           // is guaranteed to equal (largest v1 onramp nonce + 1).
@@ -619,10 +634,21 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
         revert ZeroAddressNotAllowed();
       }
 
+      SourceChainConfig storage currentConfig = s_sourceChainConfigs[sourceChainSelector];
+
       // OnRamp can never be zero - if it is, then the source chain has been added for the first time
-      if (s_sourceChainConfigs[sourceChainSelector].onRamp == address(0)) {
+      if (currentConfig.onRamp == address(0)) {
+        currentConfig.metadataHash =
+          _metadataHash(sourceChainSelector, sourceConfigUpdate.onRamp, Internal.EVM_2_EVM_MESSAGE_HASH);
+        currentConfig.onRamp = sourceConfigUpdate.onRamp;
+        currentConfig.prevOffRamp = sourceConfigUpdate.prevOffRamp;
+
         // s_sourceChainSelectors.push(sourceChainSelector);
         emit SourceChainSelectorAdded(sourceChainSelector);
+      } else if (
+        currentConfig.onRamp != sourceConfigUpdate.onRamp || currentConfig.prevOffRamp != sourceConfigUpdate.prevOffRamp
+      ) {
+        revert StaticConfigCannotBeUpdated();
       }
 
       // TODO: re-introduce check when MultiCommitStore is ready
@@ -630,18 +656,9 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
       // already has roots committed.
       // if (ICommitStore(staticConfig.commitStore).getExpectedNextSequenceNumber() != 1) revert CommitStoreAlreadyInUse();
 
-      SourceChainConfig memory sourceChainConfig = SourceChainConfig({
-        isEnabled: sourceConfigUpdate.isEnabled,
-        prevOffRamp: sourceConfigUpdate.prevOffRamp,
-        onRamp: sourceConfigUpdate.onRamp,
-        metadataHash: _metadataHash(sourceChainSelector, sourceConfigUpdate.onRamp, Internal.EVM_2_EVM_MESSAGE_HASH)
-      });
-      // TODO: confirm if re-updating is allowed
-      //       If it can happen - reset nonces
-      //       If it cannot - validate and restrict
-      s_sourceChainConfigs[sourceChainSelector] = sourceChainConfig;
-
-      emit SourceChainConfigSet(sourceChainSelector, sourceChainConfig);
+      // The only dynamic config is the isEnabled flag
+      currentConfig.isEnabled = sourceConfigUpdate.isEnabled;
+      emit SourceChainConfigSet(sourceChainSelector, currentConfig);
     }
   }
 

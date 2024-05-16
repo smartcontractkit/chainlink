@@ -5,13 +5,16 @@ import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
 
 import {Router} from "../../Router.sol";
+import {IAny2EVMOffRamp} from "../../interfaces/IAny2EVMOffRamp.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {EVM2EVMMultiOffRamp} from "../../offRamp/EVM2EVMMultiOffRamp.sol";
+import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {TokenSetup} from "../TokenSetup.t.sol";
 import {EVM2EVMMultiOffRampHelper} from "../helpers/EVM2EVMMultiOffRampHelper.sol";
+import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {MockCommitStore} from "../mocks/MockCommitStore.sol";
@@ -21,11 +24,11 @@ import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
-  uint64 internal constant SOURCE_CHAIN_SELECTOR_1 = 16015286601757825753;
+  uint64 internal constant SOURCE_CHAIN_SELECTOR_1 = SOURCE_CHAIN_SELECTOR;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_2 = 6433500567565415381;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_3 = 4051577828743386545;
 
-  address internal constant ON_RAMP_ADDRESS_1 = 0x11118e64e1FB0c487f25dD6D3601FF6aF8d32E4e;
+  address internal constant ON_RAMP_ADDRESS_1 = ON_RAMP_ADDRESS;
   address internal constant ON_RAMP_ADDRESS_2 = 0xaA3f843Cf8E33B1F02dd28303b6bD87B1aBF8AE4;
   address internal constant ON_RAMP_ADDRESS_3 = 0x71830C37Cb193e820de488Da111cfbFcC680a1b9;
 
@@ -94,6 +97,48 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     s_offRamp.updateRateLimitTokens(new EVM2EVMMultiOffRamp.RateLimitToken[](0), tokensToAdd);
   }
 
+  // TODO: function can be made common across OffRampSetup and MultiOffRampSetup
+  function _deploySingleLaneOffRamp(
+    ICommitStore commitStore,
+    Router router,
+    address prevOffRamp,
+    uint64 sourceChainSelector,
+    address onRampAddress
+  ) internal returns (EVM2EVMOffRampHelper) {
+    EVM2EVMOffRampHelper offRamp = new EVM2EVMOffRampHelper(
+      EVM2EVMOffRamp.StaticConfig({
+        commitStore: address(commitStore),
+        chainSelector: DEST_CHAIN_SELECTOR,
+        sourceChainSelector: sourceChainSelector,
+        onRamp: onRampAddress,
+        prevOffRamp: prevOffRamp,
+        rmnProxy: address(s_mockRMN)
+      }),
+      getInboundRateLimiterConfig()
+    );
+    offRamp.setOCR2Config(
+      s_valid_signers,
+      s_valid_transmitters,
+      s_f,
+      abi.encode(generateDynamicOffRampConfig(address(router), address(s_priceRegistry))),
+      s_offchainConfigVersion,
+      abi.encode("")
+    );
+
+    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
+    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](2);
+    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: sourceChainSelector, offRamp: address(s_offRamp)});
+    offRampUpdates[1] = Router.OffRamp({sourceChainSelector: sourceChainSelector, offRamp: address(prevOffRamp)});
+    s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
+    EVM2EVMOffRamp.RateLimitToken[] memory tokensToAdd = new EVM2EVMOffRamp.RateLimitToken[](s_sourceTokens.length);
+    for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
+      tokensToAdd[i] = EVM2EVMOffRamp.RateLimitToken({sourceToken: s_sourceTokens[i], destToken: s_destTokens[i]});
+    }
+    offRamp.updateRateLimitTokens(new EVM2EVMOffRamp.RateLimitToken[](0), tokensToAdd);
+
+    return offRamp;
+  }
+
   function _setupMultipleOffRamps() internal {
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](3);
@@ -115,11 +160,16 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
       prevOffRamp: address(0),
       onRamp: ON_RAMP_ADDRESS_3
     });
+    _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
+  }
 
+  function _setupMultipleOffRampsFromConfigs(EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs)
+    internal
+  {
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
 
-    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](3);
-    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](6);
+    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](sourceChainConfigs.length);
+    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](2 * onRampUpdates.length);
 
     for (uint256 i = 0; i < sourceChainConfigs.length; ++i) {
       uint64 sourceChainSelector = sourceChainConfigs[i].sourceChainSelector;
@@ -132,6 +182,20 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     }
 
     s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
+  }
+
+  function generateDynamicOffRampConfig(
+    address router,
+    address priceRegistry
+  ) internal pure returns (EVM2EVMOffRamp.DynamicConfig memory) {
+    return EVM2EVMOffRamp.DynamicConfig({
+      permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
+      router: router,
+      priceRegistry: priceRegistry,
+      maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
+      maxDataBytes: MAX_DATA_SIZE,
+      maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS
+    });
   }
 
   function generateDynamicMultiOffRampConfig(
@@ -258,6 +322,21 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     messages[1] = _generateAny2EVMMessage(sourceChainSelector, onRamp, 2, tokenAmounts);
 
     return messages;
+  }
+
+  function _generateSingleRampReportFromMessages(
+    uint64 sourceChainSelector,
+    Internal.EVM2EVMMessage[] memory messages
+  ) internal pure returns (Internal.ExecutionReport memory) {
+    Internal.ExecutionReportSingleChain memory singleChainReport =
+      _generateReportFromMessages(sourceChainSelector, messages);
+
+    return Internal.ExecutionReport({
+      proofs: singleChainReport.proofs,
+      proofFlagBits: singleChainReport.proofFlagBits,
+      messages: singleChainReport.messages,
+      offchainTokenData: singleChainReport.offchainTokenData
+    });
   }
 
   function _generateReportFromMessages(

@@ -16,6 +16,7 @@ import {EVM2EVMMultiOffRamp} from "../../offRamp/EVM2EVMMultiOffRamp.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {EVM2EVMMultiOffRampHelper} from "../helpers/EVM2EVMMultiOffRampHelper.sol";
+import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
 import {ConformingReceiver} from "../helpers/receivers/ConformingReceiver.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
@@ -32,7 +33,6 @@ import {Vm} from "forge-std/Vm.sol";
 // TODO: re-use constants (SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, etc.) in other tests
 
 // TODO: re-add tests:
-//       - execute_upgrade
 //       - getAllRateLimitTokens
 //       - updateRateLimitTokens
 //       - trialExecute - after pool interface changes
@@ -407,23 +407,27 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
     s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
   }
 
-  // TODO: re-do test after pulling in pool interface changes
-  // function test_SkippedIncorrectNonceStillExecutes_Success() public {
-  //   Internal.EVM2EVMMessage[] memory messages = _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+  function test_SkippedIncorrectNonceStillExecutes_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
-  //   messages[1].nonce++;
-  //   messages[1].messageId = Internal._hash(messages[1], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+    messages[1].nonce++;
+    messages[1].messageId =
+      Internal._hash(messages[1], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
 
-  //   vm.expectEmit();
-  //   emit ExecutionStateChanged(
-  //     messages[0].sequenceNumber, messages[0].messageId, Internal.MessageExecutionState.SUCCESS, ""
-  //   );
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
 
-  //   vm.expectEmit();
-  //   emit SkippedIncorrectNonce(messages[1].nonce, messages[1].sender);
+    vm.expectEmit();
+    emit SkippedIncorrectNonce(SOURCE_CHAIN_SELECTOR_1, messages[1].nonce, messages[1].sender);
 
-  //   s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
-  // }
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+  }
 
   function test__execute_SkippedAlreadyExecutedMessage_Success() public {
     Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
@@ -485,81 +489,101 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
     s_offRamp.execute(report, new uint256[](0));
   }
 
-  // TODO: re-do test after pulling in pool interface changes
-  // function test_TwoMessagesWithTokensSuccess_gas() public {
-  //   vm.pauseGasMetering();
-  //   Internal.EVM2EVMMessage[] memory messages = _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-  //   // Set message 1 to use another receiver to simulate more fair gas costs
-  //   messages[1].receiver = address(s_secondary_receiver);
-  //   messages[1].messageId = Internal._hash(messages[1], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+  function test_TwoMessagesWithTokensSuccess_gas() public {
+    vm.pauseGasMetering();
+    Internal.EVM2EVMMessage[] memory messages = _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    // Set message 1 to use another receiver to simulate more fair gas costs
+    messages[1].receiver = address(s_secondary_receiver);
+    messages[1].messageId =
+      Internal._hash(messages[1], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
 
-  //   vm.expectEmit();
-  //   emit ExecutionStateChanged(
-  //     messages[0].sequenceNumber, messages[0].messageId, Internal.MessageExecutionState.SUCCESS, ""
-  //   );
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
 
-  //   vm.expectEmit();
-  //   emit ExecutionStateChanged(
-  //     messages[1].sequenceNumber, messages[1].messageId, Internal.MessageExecutionState.SUCCESS, ""
-  //   );
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[1].sequenceNumber,
+      messages[1].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
 
-  //   Internal.ExecutionReport memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReportSingleChain memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
-  //   vm.resumeGasMetering();
-  //   s_offRamp.execute(report, new uint256[](0));
-  // }
+    vm.resumeGasMetering();
+    s_offRamp.execute(report, new uint256[](0));
+  }
 
-  // TODO: re-do test after pulling in pool interface changes
-  // function test_TwoMessagesWithTokensAndGE_Success() public {
-  //   Internal.EVM2EVMMessage[] memory messages = _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-  //   // Set message 1 to use another receiver to simulate more fair gas costs
-  //   messages[1].receiver = address(s_secondary_receiver);
-  //   messages[1].messageId = Internal._hash(messages[1], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+  function test_TwoMessagesWithTokensAndGE_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    // Set message 1 to use another receiver to simulate more fair gas costs
+    messages[1].receiver = address(s_secondary_receiver);
+    messages[1].messageId =
+      Internal._hash(messages[1], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
 
-  //   vm.expectEmit();
-  //   emit ExecutionStateChanged(
-  //     messages[0].sequenceNumber, messages[0].messageId, Internal.MessageExecutionState.SUCCESS, ""
-  //   );
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
 
-  //   vm.expectEmit();
-  //   emit ExecutionStateChanged(
-  //     messages[1].sequenceNumber, messages[1].messageId, Internal.MessageExecutionState.SUCCESS, ""
-  //   );
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[1].sequenceNumber,
+      messages[1].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
 
-  //   assertEq(uint64(0), s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, OWNER));
-  //   s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), _getGasLimitsFromMessages(messages));
-  //   assertEq(uint64(2), s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, OWNER));
-  // }
+    assertEq(uint64(0), s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, OWNER));
+    s_offRamp.execute(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), _getGasLimitsFromMessages(messages)
+    );
+    assertEq(uint64(2), s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, OWNER));
+  }
 
-  // TODO: re-do test after pulling in pool interface changes
-  // function test_InvalidSourcePoolAddress_Success() public {
-  //   address fakePoolAddress = address(0x0000000000333333);
+  function test_InvalidSourcePoolAddress_Success() public {
+    address fakePoolAddress = address(0x0000000000333333);
 
-  //   Internal.EVM2EVMMessage[] memory messages = _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-  //   messages[0].sourceTokenData[0] = abi.encode(
-  //     IPool.SourceTokenData({
-  //       sourcePoolAddress: abi.encode(fakePoolAddress),
-  //       destPoolAddress: abi.encode(s_destPoolBySourceToken[messages[0].tokenAmounts[0].token]),
-  //       extraData: ""
-  //     })
-  //   );
+    Internal.EVM2EVMMessage[] memory messages = _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    messages[0].sourceTokenData[0] = abi.encode(
+      Internal.SourceTokenData({
+        sourcePoolAddress: abi.encode(fakePoolAddress),
+        destPoolAddress: abi.encode(s_destPoolBySourceToken[messages[0].tokenAmounts[0].token]),
+        extraData: ""
+      })
+    );
 
-  //   messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
-  //   messages[1].messageId = Internal._hash(messages[1], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+    messages[1].messageId =
+      Internal._hash(messages[1], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
 
-  //   vm.expectEmit();
-  //   emit ExecutionStateChanged(
-  //     messages[0].sequenceNumber,
-  //     messages[0].messageId,
-  //     Internal.MessageExecutionState.FAILURE,
-  //     abi.encodeWithSelector(
-  //       EVM2EVMMultiOffRamp.TokenHandlingError.selector,
-  //       abi.encodeWithSelector(TokenPool.InvalidSourcePoolAddress.selector, abi.encode(fakePoolAddress))
-  //     )
-  //   );
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.FAILURE,
+      abi.encodeWithSelector(
+        EVM2EVMMultiOffRamp.TokenHandlingError.selector,
+        abi.encodeWithSelector(TokenPool.InvalidSourcePoolAddress.selector, abi.encode(fakePoolAddress))
+      )
+    );
 
-  //   s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
-  // }
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+  }
 
   // Reverts
 
@@ -763,6 +787,265 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
   }
 }
 
+contract EVM2EVMMultiOffRamp_execute_upgrade is EVM2EVMMultiOffRampSetup {
+  event SkippedSenderWithPreviousRampMessageInflight(
+    uint64 indexed sourceChainSelector, uint64 nonce, address indexed sender
+  );
+
+  EVM2EVMOffRampHelper internal s_prevOffRamp;
+  EVM2EVMOffRampHelper[] internal s_nestedPrevOffRamps;
+
+  function setUp() public virtual override {
+    super.setUp();
+
+    s_prevOffRamp =
+      _deploySingleLaneOffRamp(s_mockCommitStore, s_destRouter, address(0), SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+
+    s_nestedPrevOffRamps = new EVM2EVMOffRampHelper[](2);
+    s_nestedPrevOffRamps[0] =
+      _deploySingleLaneOffRamp(s_mockCommitStore, s_destRouter, address(0), SOURCE_CHAIN_SELECTOR_2, ON_RAMP_ADDRESS_2);
+    s_nestedPrevOffRamps[1] = _deploySingleLaneOffRamp(
+      s_mockCommitStore, s_destRouter, address(s_nestedPrevOffRamps[0]), SOURCE_CHAIN_SELECTOR_2, ON_RAMP_ADDRESS_2
+    );
+
+    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
+      new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](3);
+    sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      isEnabled: true,
+      prevOffRamp: address(s_prevOffRamp),
+      onRamp: ON_RAMP_ADDRESS_1
+    });
+    sourceChainConfigs[1] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR_2,
+      isEnabled: true,
+      prevOffRamp: address(s_nestedPrevOffRamps[1]),
+      onRamp: ON_RAMP_ADDRESS_2
+    });
+    sourceChainConfigs[2] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR_3,
+      isEnabled: true,
+      prevOffRamp: address(0),
+      onRamp: ON_RAMP_ADDRESS_3
+    });
+
+    _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
+  }
+
+  function test_Upgraded_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+  }
+
+  function test_NoPrevOffRampForChain_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    uint64 startNonceChain3 = s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_3, messages[0].sender);
+    s_prevOffRamp.execute(_generateSingleRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+
+    // Nonce unchanged for chain 3
+    assertEq(startNonceChain3, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_3, messages[0].sender));
+
+    Internal.EVM2EVMMessage[] memory messagesChain3 = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3);
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_3,
+      messagesChain3[0].sequenceNumber,
+      messagesChain3[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messagesChain3), new uint256[](0));
+    assertEq(startNonceChain3 + 1, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_3, messagesChain3[0].sender));
+  }
+
+  function test_UpgradedSenderNoncesReadsPreviousRamp_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    uint64 startNonce = s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
+
+    for (uint64 i = 1; i < 4; ++i) {
+      s_prevOffRamp.execute(_generateSingleRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+
+      // messages contains a single message - update for the next execution
+      messages[0].nonce++;
+      messages[0].sequenceNumber++;
+      messages[0].messageId = Internal._hash(messages[0], s_prevOffRamp.metadataHash());
+
+      assertEq(startNonce + i, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
+    }
+  }
+
+  function test_UpgradedSEnderNoncesReadsPreviousRampTransitive_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_2, ON_RAMP_ADDRESS_2);
+    uint64 startNonce = s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_2, messages[0].sender);
+
+    for (uint64 i = 1; i < 4; ++i) {
+      s_nestedPrevOffRamps[0].execute(
+        _generateSingleRampReportFromMessages(SOURCE_CHAIN_SELECTOR_2, messages), new uint256[](0)
+      );
+
+      // messages contains a single message - update for the next execution
+      messages[0].nonce++;
+      messages[0].sequenceNumber++;
+      messages[0].messageId = Internal._hash(messages[0], s_nestedPrevOffRamps[0].metadataHash());
+
+      // Read through prev sender nonce through prevOffRamp -> prevPrevOffRamp
+      assertEq(startNonce + i, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_2, messages[0].sender));
+    }
+  }
+
+  function test_UpgradedNonceStartsAtV1Nonce_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+
+    uint64 startNonce = s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
+    s_prevOffRamp.execute(_generateSingleRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+
+    assertEq(startNonce + 1, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
+
+    messages[0].nonce++;
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    assertEq(startNonce + 2, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
+
+    messages[0].nonce++;
+    messages[0].sequenceNumber++;
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    assertEq(startNonce + 3, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
+  }
+
+  function test_UpgradedNonceNewSenderStartsAtZero_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+
+    s_prevOffRamp.execute(_generateSingleRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+
+    address newSender = address(1234567);
+    messages[0].sender = newSender;
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    // new sender nonce in new offramp should go from 0 -> 1
+    assertEq(s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, newSender), 0);
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    assertEq(s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, newSender), 1);
+  }
+
+  function test_UpgradedOffRampNonceSkipsIfMsgInFlight_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+
+    address newSender = address(1234567);
+    messages[0].sender = newSender;
+    messages[0].nonce = 2;
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+
+    uint64 startNonce = s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
+
+    // new offramp sees msg nonce higher than senderNonce
+    // it waits for previous offramp to execute
+    vm.expectEmit();
+    emit SkippedSenderWithPreviousRampMessageInflight(SOURCE_CHAIN_SELECTOR_1, messages[0].nonce, newSender);
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    assertEq(startNonce, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
+
+    messages[0].nonce = 1;
+    messages[0].messageId = Internal._hash(messages[0], s_prevOffRamp.metadataHash());
+
+    // previous offramp executes msg and increases nonce
+    s_prevOffRamp.execute(_generateSingleRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    assertEq(startNonce + 1, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
+
+    messages[0].nonce = 2;
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+
+    // new offramp is able to execute
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    assertEq(startNonce + 2, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
+  }
+
+  function test_UpgradedWithMultiRamp_Revert() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      SOURCE_CHAIN_SELECTOR_1,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+
+    address prevOffRamp = address(s_offRamp);
+    deployOffRamp(s_mockCommitStore, s_destRouter);
+
+    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
+      new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](1);
+    sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      isEnabled: true,
+      prevOffRamp: address(prevOffRamp),
+      onRamp: ON_RAMP_ADDRESS_1
+    });
+    _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
+
+    vm.expectRevert();
+    s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
+
+    vm.expectRevert();
+    s_offRamp.execute(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+  }
+}
+
 contract EVM2EVMMultiOffRamp_executeSingleMessage is EVM2EVMMultiOffRampSetup {
   event MessageReceived();
   event Released(address indexed sender, address indexed recipient, uint256 amount);
@@ -780,9 +1063,8 @@ contract EVM2EVMMultiOffRamp_executeSingleMessage is EVM2EVMMultiOffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
   }
 
-  // TODO: re-do test after pulling in pool interface changes
   // function test_executeSingleMessage_WithTokens_Success() public {
-  //   Internal.EVM2EVMMessage memory message = _generateMessagesWithTokens()[0];
+  //   Internal.EVM2EVMMessage memory message = _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)[0];
   //   bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
   //   vm.expectCall(
   //     s_destPoolByToken[s_destTokens[0]],
@@ -792,7 +1074,7 @@ contract EVM2EVMMultiOffRamp_executeSingleMessage is EVM2EVMMultiOffRampSetup {
   //       message.receiver,
   //       message.tokenAmounts[0].amount,
   //       SOURCE_CHAIN_SELECTOR,
-  //       abi.decode(message.sourceTokenData[0], (IPool.SourceTokenData)),
+  //       abi.decode(message.sourceTokenData[0], (Internal.SourceTokenData)),
   //       offchainTokenData[0]
   //     )
   //   );
@@ -807,37 +1089,37 @@ contract EVM2EVMMultiOffRamp_executeSingleMessage is EVM2EVMMultiOffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
   }
 
-  // TODO: re-do test after pulling in pool interface changes
-  // function test_NonContractWithTokens_Success() public {
-  //   uint256[] memory amounts = new uint256[](2);
-  //   amounts[0] = 1000;
-  //   amounts[1] = 50;
-  //   vm.expectEmit();
-  //   emit Released(address(s_offRamp), STRANGER, amounts[0]);
-  //   vm.expectEmit();
-  //   emit Minted(address(s_offRamp), STRANGER, amounts[1]);
-  //   Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageWithTokens(1, amounts);
-  //   message.receiver = STRANGER;
-  //   s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
-  // }
+  function test_NonContractWithTokens_Success() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 50;
+    vm.expectEmit();
+    emit Released(address(s_offRamp), STRANGER, amounts[0]);
+    vm.expectEmit();
+    emit Minted(address(s_offRamp), STRANGER, amounts[1]);
+    Internal.EVM2EVMMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+    message.receiver = STRANGER;
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+  }
 
   // Reverts
 
-  // TODO: re-do test after pulling in pool interface changes
-  // function test_TokenHandlingError_Revert() public {
-  //   uint256[] memory amounts = new uint256[](2);
-  //   amounts[0] = 1000;
-  //   amounts[1] = 50;
+  function test_TokenHandlingError_Revert() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 50;
 
-  //   bytes memory errorMessage = "Random token pool issue";
+    bytes memory errorMessage = "Random token pool issue";
 
-  //   Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
-  //   s_maybeRevertingPool.setShouldRevert(errorMessage);
+    Internal.EVM2EVMMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+    s_maybeRevertingPool.setShouldRevert(errorMessage);
 
-  //   vm.expectRevert(abi.encodeWithSelector(EVM2EVMMultiOffRamp.TokenHandlingError.selector, errorMessage));
+    vm.expectRevert(abi.encodeWithSelector(EVM2EVMMultiOffRamp.TokenHandlingError.selector, errorMessage));
 
-  //   s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
-  // }
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+  }
 
   function test_ZeroGasDONExecution_Revert() public {
     Internal.EVM2EVMMessage memory message =
@@ -1402,61 +1684,64 @@ contract EVM2EVMMultiOffRamp_manuallyExecute is EVM2EVMMultiOffRampSetup {
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
   }
 
-  // TODO: re-do test after pulling in pool interface changes
-  // function test_ReentrancyManualExecuteFails() public {
-  //   uint256 tokenAmount = 1e9;
-  //   IERC20 tokenToAbuse = IERC20(s_destFeeToken);
+  function test_ReentrancyManualExecuteFails() public {
+    uint256 tokenAmount = 1e9;
+    IERC20 tokenToAbuse = IERC20(s_destFeeToken);
 
-  //   // This needs to be deployed before the source chain message is sent
-  //   // because we need the address for the receiver.
-  //   ReentrancyAbuserMultiRamp receiver = new ReentrancyAbuserMultiRamp(address(s_destRouter), s_offRamp);
-  //   uint256 balancePre = tokenToAbuse.balanceOf(address(receiver));
+    // This needs to be deployed before the source chain message is sent
+    // because we need the address for the receiver.
+    ReentrancyAbuserMultiRamp receiver = new ReentrancyAbuserMultiRamp(address(s_destRouter), s_offRamp);
+    uint256 balancePre = tokenToAbuse.balanceOf(address(receiver));
 
-  //   // For this test any message will be flagged as correct by the
-  //   // commitStore. In a real scenario the abuser would have to actually
-  //   // send the message that they want to replay.
-  //   Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-  //   messages[0].tokenAmounts = new Client.EVMTokenAmount[](1);
-  //   messages[0].tokenAmounts[0] = Client.EVMTokenAmount({token: s_sourceFeeToken, amount: tokenAmount});
-  //   messages[0].receiver = address(receiver);
-  //   messages[0].sourceTokenData = new bytes[](1);
-  //   messages[0].sourceTokenData[0] = abi.encode(
-  //     IPool.SourceTokenData({
-  //       sourcePoolAddress: abi.encode(s_sourcePoolByToken[s_sourceFeeToken]),
-  //       destPoolAddress: abi.encode(s_destPoolBySourceToken[s_sourceFeeToken]),
-  //       extraData: ""
-  //     })
-  //   );
+    // For this test any message will be flagged as correct by the
+    // commitStore. In a real scenario the abuser would have to actually
+    // send the message that they want to replay.
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    messages[0].tokenAmounts = new Client.EVMTokenAmount[](1);
+    messages[0].tokenAmounts[0] = Client.EVMTokenAmount({token: s_sourceFeeToken, amount: tokenAmount});
+    messages[0].receiver = address(receiver);
+    messages[0].sourceTokenData = new bytes[](1);
+    messages[0].sourceTokenData[0] = abi.encode(
+      Internal.SourceTokenData({
+        sourcePoolAddress: abi.encode(s_sourcePoolByToken[s_sourceFeeToken]),
+        destPoolAddress: abi.encode(s_destPoolBySourceToken[s_sourceFeeToken]),
+        extraData: ""
+      })
+    );
 
-  //   messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
 
-  //   Internal.ExecutionReportSingleChain memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReportSingleChain memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
-  //   // sets the report to be repeated on the ReentrancyAbuser to be able to replay
-  //   receiver.setPayload(report);
+    // sets the report to be repeated on the ReentrancyAbuser to be able to replay
+    receiver.setPayload(report);
 
-  //   // TODO: convert to shared internal function
-  //   uint256[][] memory gasLimitOverrides = new uint256[][](1);
-  //   gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
+    // TODO: convert to shared internal function
+    uint256[][] memory gasLimitOverrides = new uint256[][](1);
+    gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
 
-  //   // The first entry should be fine and triggers the second entry. This one fails
-  //   // but since it's an inner tx of the first one it is caught in the try-catch.
-  //   // Since this is manual exec, the entire tx fails on any failure.
-  //   vm.expectRevert(
-  //     abi.encodeWithSelector(
-  //       EVM2EVMMultiOffRamp.ExecutionError.selector,
-  //       abi.encodeWithSelector(
-  //         EVM2EVMMultiOffRamp.ReceiverError.selector,
-  //         abi.encodeWithSelector(EVM2EVMMultiOffRamp.AlreadyExecuted.selector, SOURCE_CHAIN_SELECTOR_1, messages[0].sequenceNumber)
-  //       )
-  //     )
-  //   );
+    // The first entry should be fine and triggers the second entry. This one fails
+    // but since it's an inner tx of the first one it is caught in the try-catch.
+    // Since this is manual exec, the entire tx fails on any failure.
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        EVM2EVMMultiOffRamp.ExecutionError.selector,
+        messages[0].messageId,
+        abi.encodeWithSelector(
+          EVM2EVMMultiOffRamp.ReceiverError.selector,
+          abi.encodeWithSelector(
+            EVM2EVMMultiOffRamp.AlreadyExecuted.selector, SOURCE_CHAIN_SELECTOR_1, messages[0].sequenceNumber
+          )
+        )
+      )
+    );
 
-  //   s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
+    s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
 
-  //   // Since the tx failed we don't release the tokens
-  //   assertEq(tokenToAbuse.balanceOf(address(receiver)), balancePre);
-  // }
+    // Since the tx failed we don't release the tokens
+    assertEq(tokenToAbuse.balanceOf(address(receiver)), balancePre);
+  }
 }
 
 contract EVM2EVMMultiOffRamp_report is EVM2EVMMultiOffRampSetup {
@@ -1726,35 +2011,143 @@ contract EVM2EVMMultiOffRamp_getExecutionState is EVM2EVMMultiOffRampSetup {
   }
 }
 
+contract EVM2EVMMultiOffRamp_trialExecute is EVM2EVMMultiOffRampSetup {
+  function setUp() public virtual override {
+    super.setUp();
+    _setupMultipleOffRamps();
+  }
+
+  function test_trialExecute_Success() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 50;
+
+    Internal.EVM2EVMMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+    IERC20 dstToken0 = IERC20(s_destTokens[0]);
+    uint256 startingBalance = dstToken0.balanceOf(message.receiver);
+
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+    assertEq(uint256(Internal.MessageExecutionState.SUCCESS), uint256(newState));
+    assertEq("", err);
+
+    // Check that the tokens were transferred
+    assertEq(startingBalance + amounts[0], dstToken0.balanceOf(message.receiver));
+  }
+
+  function test_TokenHandlingErrorIsCaught_Success() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 50;
+
+    IERC20 dstToken0 = IERC20(s_destTokens[0]);
+    uint256 startingBalance = dstToken0.balanceOf(OWNER);
+
+    bytes memory errorMessage = "Random token pool issue";
+
+    Internal.EVM2EVMMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+    s_maybeRevertingPool.setShouldRevert(errorMessage);
+
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+    assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
+    assertEq(abi.encodeWithSelector(EVM2EVMMultiOffRamp.TokenHandlingError.selector, errorMessage), err);
+
+    // Expect the balance to remain the same
+    assertEq(startingBalance, dstToken0.balanceOf(OWNER));
+  }
+
+  function test_RateLimitError_Success() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 50;
+
+    bytes memory errorMessage = abi.encodeWithSelector(RateLimiter.BucketOverfilled.selector);
+
+    Internal.EVM2EVMMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+    s_maybeRevertingPool.setShouldRevert(errorMessage);
+
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+    assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
+    assertEq(abi.encodeWithSelector(EVM2EVMMultiOffRamp.TokenHandlingError.selector, errorMessage), err);
+  }
+
+  function test_TokenPoolIsNotAContract_Success() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 10000;
+    Internal.EVM2EVMMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+
+    // Happy path, pool is correct
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+
+    assertEq(uint256(Internal.MessageExecutionState.SUCCESS), uint256(newState));
+    assertEq("", err);
+
+    // address 0 has no contract
+    assertEq(address(0).code.length, 0);
+    message.sourceTokenData[0] = abi.encode(
+      Internal.SourceTokenData({
+        sourcePoolAddress: abi.encode(address(0)),
+        destPoolAddress: abi.encode(address(0)),
+        extraData: ""
+      })
+    );
+
+    message.messageId = Internal._hash(
+      message,
+      keccak256(
+        abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_SELECTOR, DEST_CHAIN_SELECTOR, ON_RAMP_ADDRESS)
+      )
+    );
+
+    // Unhappy path, no revert but marked as failed.
+    (newState, err) = s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+
+    assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
+    assertEq(abi.encodeWithSelector(Internal.InvalidEVMAddress.selector, abi.encode(address(0))), err);
+
+    address notAContract = makeAddr("not_a_contract");
+
+    message.sourceTokenData[0] = abi.encode(
+      Internal.SourceTokenData({
+        sourcePoolAddress: abi.encode(address(0)),
+        destPoolAddress: abi.encode(notAContract),
+        extraData: ""
+      })
+    );
+
+    message.messageId = Internal._hash(
+      message,
+      keccak256(
+        abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_SELECTOR, DEST_CHAIN_SELECTOR, ON_RAMP_ADDRESS)
+      )
+    );
+
+    (newState, err) = s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+
+    assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
+    assertEq(abi.encodeWithSelector(EVM2EVMMultiOffRamp.NotACompatiblePool.selector, notAContract), err);
+  }
+}
+
 contract EVM2EVMMultiOffRamp_releaseOrMintTokens is EVM2EVMMultiOffRampSetup {
   EVM2EVMMultiOffRamp.Any2EVMMessageRoute internal MESSAGE_ROUTE;
 
   function setUp() public virtual override {
     super.setUp();
+    _setupMultipleOffRamps();
+
     MESSAGE_ROUTE = EVM2EVMMultiOffRamp.Any2EVMMessageRoute({
       sender: abi.encode(OWNER),
-      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       receiver: OWNER
     });
-
-    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
-      new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](1);
-    sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
-      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
-      isEnabled: true,
-      prevOffRamp: address(0),
-      onRamp: ON_RAMP_ADDRESS
-    });
-
-    s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
-
-    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
-    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](2);
-
-    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: address(s_offRamp)});
-    offRampUpdates[1] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: address(0)});
-
-    s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
   }
 
   function test_releaseOrMintTokens_Success() public {
@@ -1995,6 +2388,43 @@ contract EVM2EVMMultiOffRamp_releaseOrMintTokens is EVM2EVMMultiOffRampSetup {
     s_offRamp.releaseOrMintTokens(new Client.EVMTokenAmount[](1), MESSAGE_ROUTE, sourceTokenData, new bytes[](1));
   }
 
+  function test_releaseOrMintTokens_PoolDoesNotSupportDest_Reverts() public {
+    Client.EVMTokenAmount[] memory srcTokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
+    IERC20 dstToken1 = IERC20(s_destFeeToken);
+    uint256 amount1 = 100;
+    srcTokenAmounts[0].amount = amount1;
+
+    bytes[] memory offchainTokenData = new bytes[](srcTokenAmounts.length);
+    offchainTokenData[0] = abi.encode(0x12345678);
+
+    bytes[] memory encodedSourceTokenData = _getDefaultSourceTokenData(srcTokenAmounts);
+    Internal.SourceTokenData memory sourceTokenData = abi.decode(encodedSourceTokenData[0], (Internal.SourceTokenData));
+
+    EVM2EVMMultiOffRamp.Any2EVMMessageRoute memory messageRouteChain3 = EVM2EVMMultiOffRamp.Any2EVMMessageRoute({
+      sender: abi.encode(OWNER),
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR_3,
+      receiver: OWNER
+    });
+
+    vm.expectCall(
+      s_destPoolBySourceToken[srcTokenAmounts[0].token],
+      abi.encodeWithSelector(
+        LockReleaseTokenPool.releaseOrMint.selector,
+        Pool.ReleaseOrMintInV1({
+          originalSender: messageRouteChain3.sender,
+          receiver: messageRouteChain3.receiver,
+          amount: srcTokenAmounts[0].amount,
+          remoteChainSelector: messageRouteChain3.sourceChainSelector,
+          sourcePoolAddress: sourceTokenData.sourcePoolAddress,
+          sourcePoolData: sourceTokenData.extraData,
+          offchainTokenData: offchainTokenData[0]
+        })
+      )
+    );
+    vm.expectRevert();
+    s_offRamp.releaseOrMintTokens(srcTokenAmounts, messageRouteChain3, encodedSourceTokenData, offchainTokenData);
+  }
+
   function test_PriceNotFoundForToken_Reverts() public {
     // Set token price to 0
     s_priceRegistry.updatePrices(getSingleTokenPriceUpdateStruct(s_destFeeToken, 0));
@@ -2111,9 +2541,9 @@ contract EVM2EVMMultiOffRamp_applySourceChainConfigUpdates is EVM2EVMMultiOffRam
 
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
 
-    sourceChainConfigs[0].onRamp = address(uint160(ON_RAMP_ADDRESS) + 1);
+    sourceChainConfigs[0].isEnabled = false;
     EVM2EVMMultiOffRamp.SourceChainConfig memory expectedSourceChainConfig = EVM2EVMMultiOffRamp.SourceChainConfig({
-      isEnabled: true,
+      isEnabled: false,
       prevOffRamp: address(0),
       onRamp: sourceChainConfigs[0].onRamp,
       metadataHash: s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, sourceChainConfigs[0].onRamp)
@@ -2189,6 +2619,8 @@ contract EVM2EVMMultiOffRamp_applySourceChainConfigUpdates is EVM2EVMMultiOffRam
     }
   }
 
+  // Reverts
+
   function test_ZeroOnRampAddress_Revert() public {
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](1);
@@ -2200,6 +2632,61 @@ contract EVM2EVMMultiOffRamp_applySourceChainConfigUpdates is EVM2EVMMultiOffRam
     });
 
     vm.expectRevert(EVM2EVMMultiOffRamp.ZeroAddressNotAllowed.selector);
+    s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
+  }
+
+  function test_ReplaceExistingChainOnRamp_Revert() public {
+    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
+      new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](1);
+    sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      isEnabled: true,
+      prevOffRamp: address(0),
+      onRamp: ON_RAMP_ADDRESS
+    });
+
+    s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
+
+    sourceChainConfigs[0].onRamp = address(uint160(sourceChainConfigs[0].onRamp) + 1);
+
+    vm.expectRevert(EVM2EVMMultiOffRamp.StaticConfigCannotBeUpdated.selector);
+    s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
+  }
+
+  function test_ReplaceExistingChainPrevOffRamp_Revert() public {
+    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
+      new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](1);
+    sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      isEnabled: true,
+      prevOffRamp: address(0),
+      onRamp: ON_RAMP_ADDRESS
+    });
+
+    s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
+
+    sourceChainConfigs[0].prevOffRamp = address(uint160(sourceChainConfigs[0].prevOffRamp) + 1);
+
+    vm.expectRevert(EVM2EVMMultiOffRamp.StaticConfigCannotBeUpdated.selector);
+    s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
+  }
+
+  function test_ReplaceExistingChainOnRampAndPrevOffRamp_Revert() public {
+    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
+      new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](1);
+    sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      isEnabled: true,
+      prevOffRamp: address(0),
+      onRamp: ON_RAMP_ADDRESS
+    });
+
+    s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
+
+    sourceChainConfigs[0].onRamp = address(uint160(sourceChainConfigs[0].onRamp) + 1);
+    sourceChainConfigs[0].prevOffRamp = address(uint160(sourceChainConfigs[0].prevOffRamp) + 1);
+
+    vm.expectRevert(EVM2EVMMultiOffRamp.StaticConfigCannotBeUpdated.selector);
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
   }
 }
