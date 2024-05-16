@@ -273,7 +273,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 
 		// this clean up has to be added as the FIRST one, because cleanup functions are executed in reverse order (LIFO)
-		if b.t != nil {
+		if b.t != nil && b.cleanUpType == CleanUpTypeStandard {
 			b.t.Cleanup(func() {
 				b.l.Info().Msg("Shutting down LogStream")
 				logPath, err := osutil.GetAbsoluteFolderPath("logs")
@@ -332,6 +332,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					scanClNodeLogs()
 				}
 			})
+		} else {
+			b.l.Warn().Msg("LogStream won't be cleaned up, because test instance is not set or cleanup type is not standard")
 		}
 	}
 
