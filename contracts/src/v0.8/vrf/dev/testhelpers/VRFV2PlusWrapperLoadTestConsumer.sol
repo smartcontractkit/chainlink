@@ -41,7 +41,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     uint16 _requestConfirmations,
     uint32 _numWords,
     uint16 _requestCount
-  ) external onlyOwner {
+  ) external {
     for (uint16 i = 0; i < _requestCount; i++) {
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}));
       (uint256 requestId, uint256 paid) = requestRandomness(
@@ -74,7 +74,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     uint16 _requestConfirmations,
     uint32 _numWords,
     uint16 _requestCount
-  ) external onlyOwner {
+  ) external {
     for (uint16 i = 0; i < _requestCount; i++) {
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}));
       (uint256 requestId, uint256 paid) = requestRandomnessPayInNative(
