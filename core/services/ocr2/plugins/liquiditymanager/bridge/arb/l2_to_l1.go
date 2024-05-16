@@ -48,6 +48,7 @@ type l2ToL1Bridge struct {
 	l2ArbMessenger     l2_arbitrum_messenger.L2ArbitrumMessengerInterface
 	rollupCore         arbitrum_rollup_core.ArbRollupCoreInterface
 	nodeInterface      arb_node_interface.NodeInterfaceInterface
+	l1Token, l2Token   common.Address
 }
 
 func NewL2ToL1Bridge(
@@ -163,6 +164,15 @@ func NewL2ToL1Bridge(
 		return nil, fmt.Errorf("instantiate NodeInterface contract: %w", err)
 	}
 
+	l2Token, err := l2LiquidityManager.ILocalToken(nil)
+	if err != nil {
+		return nil, fmt.Errorf("get L2 token address: %w", err)
+	}
+	l1Token, err := l1LiquidityManager.ILocalToken(nil)
+	if err != nil {
+		return nil, fmt.Errorf("get L1 token address: %w", err)
+	}
+
 	lggr = lggr.Named("ArbitrumL2ToL1Bridge").With(
 		"localSelector", localSelector,
 		"remoteSelector", remoteSelector,
@@ -173,6 +183,8 @@ func NewL2ToL1Bridge(
 		"l1BridgeAdapter", l1XchainRebal.LocalBridge,
 		"l2BridgeAdapter", l2XchainRebal.LocalBridge,
 		"l1LiquidityManager", l1LiquidityManagerAddress,
+		"l1Token", l1Token,
+		"l2Token", l2Token,
 	)
 	lggr.Infow("Initialized arbitrum L2 -> L1 bridge")
 
@@ -193,6 +205,8 @@ func NewL2ToL1Bridge(
 		l2ArbMessenger:     l2ArbMessenger,
 		rollupCore:         rollupCore,
 		nodeInterface:      nodeInterface,
+		l1Token:            l1Token,
+		l2Token:            l2Token,
 	}, nil
 }
 
@@ -218,6 +232,12 @@ func (l *l2ToL1Bridge) Close(ctx context.Context) error {
 // GetTransfers implements bridge.Bridge.
 func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Address, remoteToken models.Address) ([]models.PendingTransfer, error) {
 	lggr := l.lggr.With("l2Token", localToken, "l1Token", remoteToken)
+	if l.l2Token.Cmp(common.Address(localToken)) != 0 {
+		return nil, fmt.Errorf("local token mismatch: expected %s, got %s", l.l2Token, localToken)
+	}
+	if l.l1Token.Cmp(common.Address(remoteToken)) != 0 {
+		return nil, fmt.Errorf("remote token mismatch: expected %s, got %s", l.l1Token, remoteToken)
+	}
 	// get all the L2 -> L1 transfers in the past 14 days for the given l2Token.
 	// that should be enough time to catch all the transfers that were potentially not finalized.
 	// TODO: make more performant. Perhaps filter on more than just one topic here to avoid doing in-memory filtering.
