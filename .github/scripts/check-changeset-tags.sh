@@ -30,10 +30,10 @@ if [[ ! -f "$CHANGESET_FILE_PATH" ]]; then
 fi
 
 changeset_content=$(sed -n '/^---$/,/^---$/{ /^---$/!p; }' $CHANGESET_FILE_PATH)
-semvar_value=$(echo "$changeset_content" | awk -F": " '/"chainlink"/ {print $2}')
+semvar_value=$(echo "$changeset_content" | awk -F": " '/"ccip"/ {print $2}')
 
 if [[ "$semvar_value" != "major" && "$semvar_value" != "minor" && "$semvar_value" != "patch" ]]; then
-  echo "Invalid changeset semvar value for 'chainlink'. Must be 'major', 'minor', or 'patch'."
+  echo "Invalid changeset semvar value for 'ccip'. Must be 'major', 'minor', or 'patch'."
   exit 1
 fi
 
