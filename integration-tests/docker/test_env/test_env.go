@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -424,6 +425,11 @@ func (te *CLClusterTestEnv) GetSethClient(chainId int64) (*seth.Client, error) {
 	}
 
 	return nil, fmt.Errorf("no Seth client available for chain ID %d", chainId)
+}
+
+func (te *CLClusterTestEnv) GetSethClientForSelectedNetwork() (*seth.Client, error) {
+	n := networks.MustGetSelectedNetworkConfig(te.TestConfig.GetNetworkConfig())[0]
+	return te.GetSethClient(n.ChainID)
 }
 
 func (te *CLClusterTestEnv) GetRpcProvider(chainId int64) (*test_env.RpcProvider, error) {
