@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -108,11 +109,11 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	// - fetching the capability
 	// - register the capability to this workflow
 	// - initializing the step's executionStrategy
-	capabilityRegistrationErr := e.workflow.walkDo(KeywordTrigger, func(s *step) error {
+	capabilityRegistrationErr := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
 		// The graph contains a dummy step for triggers, but
 		// we handle triggers separately since there might be more than one
 		// trigger registered to a workflow.
-		if s.Ref == KeywordTrigger {
+		if s.Ref == workflows.KeywordTrigger {
 			return nil
 		}
 
@@ -446,13 +447,13 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	e.logger.Debugw("executing on a trigger event", "event", event, "executionID", executionID)
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
-			KeywordTrigger: {
+			workflows.KeywordTrigger: {
 				Outputs: &store.StepOutput{
 					Value: event,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: executionID,
-				Ref:         KeywordTrigger,
+				Ref:         workflows.KeywordTrigger,
 			},
 		},
 		WorkflowID:  e.workflow.id,
@@ -468,7 +469,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	// Find the tasks we need to fire when a trigger has fired and enqueue them.
 	// This consists of a) nodes without a dependency and b) nodes which depend
 	// on a trigger
-	triggerDependents, err := e.workflow.dependents(KeywordTrigger)
+	triggerDependents, err := e.workflow.dependents(workflows.KeywordTrigger)
 	if err != nil {
 		return err
 	}
@@ -497,7 +498,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		// we've completed the workflow.
 		if len(stepDependents) == 0 {
 			workflowCompleted := true
-			err := e.workflow.walkDo(KeywordTrigger, func(s *step) error {
+			err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
 				step, ok := state.Steps[s.Ref]
 				// The step is missing from the state,
 				// which means it hasn't been processed yet.
@@ -548,7 +549,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	// Check if all dependencies are completed for the current step
 	var waitingOnDependencies bool
-	for _, dr := range step.dependencies {
+	for _, dr := range step.Vertex.Dependencies {
 		stepState, ok := state.Steps[dr]
 		if !ok {
 			waitingOnDependencies = true
@@ -706,8 +707,8 @@ func (e *Engine) Close() error {
 		close(e.stopCh)
 		e.wg.Wait()
 
-		err := e.workflow.walkDo(KeywordTrigger, func(s *step) error {
-			if s.Ref == KeywordTrigger {
+		err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+			if s.Ref == workflows.KeywordTrigger {
 				return nil
 			}
 

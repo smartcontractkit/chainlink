@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
 // workflow is a directed graph of nodes, where each node is a step.
@@ -20,7 +21,7 @@ type workflow struct {
 
 	triggers []*triggerCapability
 
-	spec *WorkflowSpec
+	spec *workflows.WorkflowSpec
 }
 
 func (w *workflow) walkDo(start string, do func(s *step) error) error {
@@ -73,20 +74,20 @@ func (w *workflow) dependents(start string) ([]*step, error) {
 
 // step wraps a Vertex with additional context for execution that is mutated by the engine
 type step struct {
-	Vertex
+	workflows.Vertex
 	capability        capabilities.CallbackCapability
 	config            *values.Map
 	executionStrategy executionStrategy
 }
 
 type triggerCapability struct {
-	StepDefinition
+	workflows.StepDefinition
 	trigger capabilities.TriggerCapability
 	config  *values.Map
 }
 
 func Parse(yamlWorkflow string) (*workflow, error) {
-	wf2, err := ParseDependencyGraph(yamlWorkflow)
+	wf2, err := workflows.ParseDependencyGraph(yamlWorkflow)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 
 // createWorkflow converts a StaticWorkflow to an executable workflow
 // by adding metadata to the vertices that is owned by the workflow runtime.
-func createWorkflow(wf2 *DependencyGraph) (*workflow, error) {
+func createWorkflow(wf2 *workflows.DependencyGraph) (*workflow, error) {
 	out := &workflow{
 		id:       wf2.ID,
 		triggers: []*triggerCapability{},

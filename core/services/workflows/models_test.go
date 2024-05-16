@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
 func TestParse_Graph(t *testing.T) {
@@ -41,7 +43,7 @@ targets:
       consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
-				KeywordTrigger: {
+				workflows.KeywordTrigger: {
 					"an-action":   struct{}{},
 					"a-consensus": struct{}{},
 				},
@@ -175,7 +177,7 @@ targets:
       consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
-				KeywordTrigger: {
+				workflows.KeywordTrigger: {
 					"an-action": struct{}{},
 				},
 				"an-action": {

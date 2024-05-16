@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
 // copyState returns a deep copy of the input executionState
@@ -122,10 +123,10 @@ func interpolateKey(key string, state store.WorkflowExecution) (any, error) {
 //
 // A value `v` should be replaced if it is wrapped as follows: `$(v)`.
 func findAndInterpolateAllKeys(input any, state store.WorkflowExecution) (any, error) {
-	return DeepMap(
+	return workflows.DeepMap(
 		input,
 		func(el string) (any, error) {
-			matches := interpolationTokenRe.FindStringSubmatch(el)
+			matches := workflows.InterpolationTokenRe.FindStringSubmatch(el)
 			if len(matches) < 2 {
 				return el, nil
 			}
