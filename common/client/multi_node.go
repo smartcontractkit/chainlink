@@ -22,14 +22,14 @@ var (
 	// PromMultiNodeRPCNodeStates reports current RPC node state
 	PromMultiNodeRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "multi_node_states",
-		Help: "The number of RPC primaryNodes currently in the given state for the given chain",
+		Help: "The number of RPC nodes currently in the given state for the given chain",
 	}, []string{"network", "chainId", "state"})
 	// PromMultiNodeInvariantViolations reports violation of our assumptions
 	PromMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "multi_node_invariant_violations",
 		Help: "The number of invariant violations",
 	}, []string{"network", "chainId", "invariant"})
-	ErroringNodeError = fmt.Errorf("no live primaryNodes available")
+	ErroringNodeError = fmt.Errorf("no live nodes available")
 )
 
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
@@ -38,7 +38,7 @@ type MultiNode[
 	CHAIN_ID types.ID,
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
-	RPC_CLIENT RPCClient[CHAIN_ID, HEAD],
+	RPC_CLIENT any,
 ] interface {
 	// SelectRPC - returns the best healthy RPCClient
 	SelectRPC() (RPC_CLIENT, error)
@@ -60,7 +60,7 @@ type multiNode[
 ] struct {
 	services.StateMachine
 	primaryNodes        []Node[CHAIN_ID, HEAD, RPC_CLIENT]
-	sendOnlyNodes       []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	sendOnlyNodes       []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
 	chainID             CHAIN_ID
 	lggr                logger.SugaredLogger
 	selectionMode       string
@@ -89,7 +89,7 @@ func NewMultiNode[
 	selectionMode string, // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
 	leaseDuration time.Duration, // defines interval on which new "best" RPC should be selected
 	primaryNodes []Node[CHAIN_ID, HEAD, RPC_CLIENT],
-	sendOnlyNodes []Node[CHAIN_ID, HEAD, RPC_CLIENT],
+	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC_CLIENT],
 	chainID CHAIN_ID, // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
 	chainFamily string, // name of the chain family - used in the metrics
 ) MultiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT] {
@@ -121,36 +121,41 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) ChainType() config.C
 }
 
 func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC_CLIENT, isSendOnly bool) bool) error {
-	runDo := func(nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT], isSendOnly bool) error {
-		for _, n := range nodes {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			if n.State() == nodeStateAlive {
-				if !do(ctx, n.RPC(), isSendOnly) {
-					if ctx.Err() != nil {
-						return ctx.Err()
-					}
-					return fmt.Errorf("do aborted on node %s", n.String())
-				}
-			}
+	callsCompleted := 0
+	for _, n := range c.primaryNodes {
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-		return nil
+		if n.State() != nodeStateAlive {
+			continue
+		}
+		if do(ctx, n.RPC(), false) {
+			callsCompleted++
+		}
 	}
-
-	if err := runDo(c.primaryNodes, false); err != nil {
-		return err
+	for _, n := range c.sendOnlyNodes {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if n.State() != nodeStateAlive {
+			continue
+		}
+		if do(ctx, n.RPC(), false) {
+			callsCompleted++
+		}
 	}
-	if err := runDo(c.sendOnlyNodes, true); err != nil {
-		return err
+	if callsCompleted == 0 {
+		return ErroringNodeError
 	}
 	return nil
 }
 
 func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) NodeStates() map[string]nodeState {
 	states := map[string]nodeState{}
-	allNodes := append(c.primaryNodes, c.sendOnlyNodes...)
-	for _, n := range allNodes {
+	for _, n := range c.primaryNodes {
+		states[n.String()] = n.State()
+	}
+	for _, n := range c.sendOnlyNodes {
 		states[n.String()] = n.State()
 	}
 	return states
@@ -247,8 +252,8 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) selectNode() (node N
 	c.activeNode = c.nodeSelector.Select()
 
 	if c.activeNode == nil {
-		c.lggr.Criticalw("No live RPC primaryNodes available", "NodeSelectionMode", c.nodeSelector.Name())
-		errmsg := fmt.Errorf("no live primaryNodes available for chain %s", c.chainID.String())
+		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
+		errmsg := fmt.Errorf("no live nodes available for chain %s", c.chainID.String())
 		c.SvcErrBuffer.Append(errmsg)
 		err = ErroringNodeError
 	}

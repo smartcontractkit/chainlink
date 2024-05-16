@@ -20,7 +20,7 @@ func TestChainIDSubForwarder(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan *evmtypes.Head)
-		forwarder := newChainIDSubForwarder(chainID, ch)
+		_, forwarder := newChainIDSubForwarder(chainID, ch)
 		sub := NewMockSubscription()
 		err := forwarder.start(sub, nil)
 		assert.NoError(t, err)
@@ -37,7 +37,7 @@ func TestChainIDSubForwarder(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan *evmtypes.Head)
-		forwarder := newChainIDSubForwarder(chainID, ch)
+		_, forwarder := newChainIDSubForwarder(chainID, ch)
 		sub := NewMockSubscription()
 		err := forwarder.start(sub, nil)
 		assert.NoError(t, err)
@@ -55,11 +55,11 @@ func TestChainIDSubForwarder(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan *evmtypes.Head)
-		forwarder := newChainIDSubForwarder(chainID, ch)
+		_, forwarder := newChainIDSubForwarder(chainID, ch)
 		sub := NewMockSubscription()
 		err := forwarder.start(sub, nil)
 		assert.NoError(t, err)
-		forwarder.srcCh <- &evmtypes.Head{}
+		ch <- &evmtypes.Head{}
 		forwarder.Unsubscribe()
 
 		assert.True(t, sub.unsubscribed)
@@ -73,7 +73,7 @@ func TestChainIDSubForwarder(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan *evmtypes.Head)
-		forwarder := newChainIDSubForwarder(chainID, ch)
+		_, forwarder := newChainIDSubForwarder(chainID, ch)
 		sub := NewMockSubscription()
 		errIn := errors.New("foo")
 		errOut := forwarder.start(sub, errIn)
@@ -84,7 +84,7 @@ func TestChainIDSubForwarder(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan *evmtypes.Head)
-		forwarder := newChainIDSubForwarder(chainID, ch)
+		fwdCh, forwarder := newChainIDSubForwarder(chainID, ch)
 		sub := NewMockSubscription()
 		err := forwarder.start(sub, nil)
 		assert.NoError(t, err)
@@ -92,8 +92,8 @@ func TestChainIDSubForwarder(t *testing.T) {
 		head := &evmtypes.Head{
 			ID: 1,
 		}
-		forwarder.srcCh <- head
-		receivedHead := <-ch
+		ch <- head
+		receivedHead := <-fwdCh
 		assert.Equal(t, head, receivedHead)
 		assert.Equal(t, ubig.New(chainID), receivedHead.EVMChainID)
 

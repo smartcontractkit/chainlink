@@ -47,17 +47,17 @@ func (_m *mockSendOnlyClient[CHAIN_ID]) Close() {
 	_m.Called()
 }
 
-// DialHTTP provides a mock function with given fields:
-func (_m *mockSendOnlyClient[CHAIN_ID]) DialHTTP() error {
-	ret := _m.Called()
+// Dial provides a mock function with given fields: ctx
+func (_m *mockSendOnlyClient[CHAIN_ID]) Dial(ctx context.Context) error {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for DialHTTP")
+		panic("no return value specified for Dial")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Error(0)
 	}

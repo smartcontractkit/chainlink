@@ -16,7 +16,7 @@ type chainIDSubForwarder struct {
 	chainID *big.Int
 	destCh  chan<- *evmtypes.Head
 
-	srcCh  chan *evmtypes.Head
+	srcCh  <-chan *evmtypes.Head
 	srcSub ethereum.Subscription
 
 	done  chan struct{}
@@ -24,11 +24,12 @@ type chainIDSubForwarder struct {
 	unSub chan struct{}
 }
 
-func newChainIDSubForwarder(chainID *big.Int, ch chan<- *evmtypes.Head) *chainIDSubForwarder {
-	return &chainIDSubForwarder{
+func newChainIDSubForwarder(chainID *big.Int, ch <-chan *evmtypes.Head) (<-chan *evmtypes.Head, *chainIDSubForwarder) {
+	destCh := make(chan *evmtypes.Head)
+	return destCh, &chainIDSubForwarder{
 		chainID: chainID,
-		destCh:  ch,
-		srcCh:   make(chan *evmtypes.Head),
+		destCh:  destCh,
+		srcCh:   ch,
 		done:    make(chan struct{}),
 		err:     make(chan error),
 		unSub:   make(chan struct{}, 1),
@@ -38,7 +39,7 @@ func newChainIDSubForwarder(chainID *big.Int, ch chan<- *evmtypes.Head) *chainID
 // start spawns the forwarding loop for sub.
 func (c *chainIDSubForwarder) start(sub ethereum.Subscription, err error) error {
 	if err != nil {
-		close(c.srcCh)
+		close(c.destCh)
 		return err
 	}
 	c.srcSub = sub

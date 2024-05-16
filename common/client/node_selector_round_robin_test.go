@@ -9,14 +9,14 @@ import (
 )
 
 func TestRoundRobinNodeSelectorName(t *testing.T) {
-	selector := newNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](NodeSelectionModeRoundRobin, nil)
+	selector := newNodeSelector[types.ID, Head, RPCClient[types.ID, Head]](NodeSelectionModeRoundRobin, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModeRoundRobin)
 }
 
 func TestRoundRobinNodeSelector(t *testing.T) {
 	t.Parallel()
 
-	type nodeClient NodeClient[types.ID, Head]
+	type nodeClient RPCClient[types.ID, Head]
 	var nodes []Node[types.ID, Head, nodeClient]
 
 	for i := 0; i < 3; i++ {
@@ -41,7 +41,7 @@ func TestRoundRobinNodeSelector(t *testing.T) {
 func TestRoundRobinNodeSelector_None(t *testing.T) {
 	t.Parallel()
 
-	type nodeClient NodeClient[types.ID, Head]
+	type nodeClient RPCClient[types.ID, Head]
 	var nodes []Node[types.ID, Head, nodeClient]
 
 	for i := 0; i < 3; i++ {

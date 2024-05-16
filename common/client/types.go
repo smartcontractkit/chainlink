@@ -12,7 +12,7 @@ import (
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
 //
-//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
+//go:generate mockery --quiet --name RPCClient --structname MockRPCClient --filename "mock_rpc_client_test.go" --inpackage --case=underscore
 type RPCClient[
 	CHAIN_ID types.ID,
 	HEAD Head,
@@ -22,7 +22,7 @@ type RPCClient[
 	// Dial - prepares the RPC for usage. Can be called on fresh or closed RPC
 	Dial(ctx context.Context) error
 	// SubscribeToHeads - returns channel and subscription for new heads.
-	SubscribeToHeads(ctx context.Context) (chan HEAD, types.Subscription, error)
+	SubscribeToHeads(ctx context.Context) (<-chan HEAD, types.Subscription, error)
 	// SubscribeToFinalizedHeads - returns channel and subscription for finalized heads.
 	SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, types.Subscription, error)
 	// Ping - returns error if RPC is not reachable

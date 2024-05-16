@@ -91,7 +91,7 @@ func NewRPCClient(
 	return r
 }
 
-func (r *RpcClient) SubscribeToHeads(ctx context.Context) (chan *evmtypes.Head, commontypes.Subscription, error) {
+func (r *RpcClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
 	channel := make(chan *evmtypes.Head)
 	sub, err := r.Subscribe(ctx, channel)
 	return channel, sub, err

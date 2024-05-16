@@ -71,7 +71,7 @@ type ChainInfo struct {
 type Node[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC_CLIENT RPCClient[CHAIN_ID, HEAD],
+	RPC_CLIENT any,
 ] interface {
 	// State returns health state of the underlying RPC
 	State() nodeState

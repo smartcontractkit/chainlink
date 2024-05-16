@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"math/big"
+	"sync"
 	"time"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -41,7 +42,7 @@ func NewChainClient(
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
 	nodes []commonclient.Node[*big.Int, *evmtypes.Head, *RpcClient],
-	sendonlys []commonclient.Node[*big.Int, *evmtypes.Head, *RpcClient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient],
 	chainID *big.Int,
 	chainType config.ChainType,
 	clientErrors evmconfig.ClientErrors,
@@ -83,13 +84,37 @@ func (c *chainClient) BatchCallContext(ctx context.Context, b []ethrpc.BatchElem
 
 // Similar to BatchCallContext, ensure the provided BatchElem slice is passed through
 func (c *chainClient) BatchCallContextAll(ctx context.Context, b []ethrpc.BatchElem) error {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	// Select main RPC to use for return value
+	main, selectionErr := c.multiNode.SelectRPC()
+	if selectionErr != nil {
+		return selectionErr
+	}
+
 	doFunc := func(ctx context.Context, rpc *RpcClient, isSendOnly bool) bool {
-		if err := rpc.BatchCallContext(ctx, b); err != nil {
-			return false
+		if rpc == main {
+			return true
 		}
+		// Parallel call made to all other nodes with ignored return value
+		wg.Add(1)
+		go func(rpc *RpcClient) {
+			defer wg.Done()
+			err := rpc.BatchCallContext(ctx, b)
+			if err != nil {
+				rpc.rpcLog.Debugw("Secondary node BatchCallContext failed", "err", err)
+			} else {
+				rpc.rpcLog.Trace("Secondary node BatchCallContext success")
+			}
+		}(rpc)
 		return true
 	}
-	return c.multiNode.DoAll(ctx, doFunc)
+
+	if err := c.multiNode.DoAll(ctx, doFunc); err != nil {
+		return err
+	}
+	return main.BatchCallContext(ctx, b)
 }
 
 // TODO-1663: return custom Block type instead of geth's once client.go is deprecated.
@@ -300,14 +325,13 @@ func (c *chainClient) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.He
 		return nil, nil, err
 	}
 
-	// TODO: Implement this
 	ch, sub, err := rpc.SubscribeToHeads(ctx)
-	csf := newChainIDSubForwarder(c.ConfiguredChainID(), ch)
+	forwardCh, csf := newChainIDSubForwarder(c.ConfiguredChainID(), ch)
 	err = csf.start(sub, err)
 	if err != nil {
 		return nil, nil, err
 	}
-	return ch, csf, nil
+	return forwardCh, csf, nil
 }
 
 func (c *chainClient) SuggestGasPrice(ctx context.Context) (p *big.Int, err error) {

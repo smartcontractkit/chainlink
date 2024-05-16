@@ -17,7 +17,7 @@ const (
 type NodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC RPCClient[CHAIN_ID, HEAD],
+	RPC any,
 ] interface {
 	// Select returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.

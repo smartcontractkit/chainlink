@@ -334,12 +334,12 @@ func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 
 func (client *client) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
 	ch := make(chan *evmtypes.Head)
-	csf := newChainIDSubForwarder(client.ConfiguredChainID(), ch)
-	err := csf.start(client.pool.EthSubscribe(ctx, csf.srcCh, "newHeads"))
+	forwardCh, csf := newChainIDSubForwarder(client.ConfiguredChainID(), ch)
+	err := csf.start(client.pool.EthSubscribe(ctx, ch, "newHeads"))
 	if err != nil {
 		return nil, nil, err
 	}
-	return ch, csf, nil
+	return forwardCh, csf, nil
 }
 
 func (client *client) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
