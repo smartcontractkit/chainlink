@@ -260,7 +260,6 @@ func (pm *PollManager) startPollTicker() {
 
 // startIdleTimer starts the idle timer if it is enabled
 func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
-
 	if pm.cfg.IdleTimerDisabled {
 		pm.idleTimer.Stop()
 

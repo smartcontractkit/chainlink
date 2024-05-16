@@ -18,10 +18,12 @@ import (
 	tc "github.com/testcontainers/testcontainers-go"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -29,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
-	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -40,7 +41,7 @@ type CLClusterTestEnv struct {
 	Cfg           *TestEnvConfig
 	DockerNetwork *tc.DockerNetwork
 	LogStream     *logstream.LogStream
-	TestConfig    core_testconfig.GlobalTestConfig
+	TestConfig    ctf_config.GlobalTestConfig
 
 	/* components */
 	ClCluster              *ClCluster
@@ -49,7 +50,7 @@ type CLClusterTestEnv struct {
 	sethClients            map[int64]*seth.Client
 	ContractDeployer       contracts.ContractDeployer
 	ContractLoader         contracts.ContractLoader
-	PrivateEthereumConfigs []*test_env.EthereumNetwork // new approach to private chains, supporting eth1 and eth2
+	PrivateEthereumConfigs []*ctf_config.EthereumNetworkConfig
 	EVMNetworks            []*blockchain.EVMNetwork
 	rpcProviders           map[int64]*test_env.RpcProvider
 	l                      zerolog.Logger
@@ -95,18 +96,11 @@ func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
 	}
 }
 
-func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *test_env.EthereumNetwork) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
+func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetworkConfig) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
 	// if environment is being restored from a previous state, use the existing config
 	// this might fail terribly if temporary folders with chain data on the host machine were removed
-	if te.Cfg != nil && te.Cfg.EthereumNetwork != nil {
-		builder := test_env.NewEthereumNetworkBuilder()
-		c, err := builder.WithExistingConfig(*te.Cfg.EthereumNetwork).
-			WithTest(te.t).
-			Build()
-		if err != nil {
-			return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
-		}
-		cfg = &c
+	if te.Cfg != nil && te.Cfg.EthereumNetworkConfig != nil {
+		cfg = te.Cfg.EthereumNetworkConfig
 	}
 
 	te.l.Info().
@@ -115,7 +109,15 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *test_env.EthereumNetwork) 
 		Str("Custom Docker Images", fmt.Sprintf("%v", cfg.CustomDockerImages)).
 		Msg("Starting Ethereum network")
 
-	n, rpc, err := cfg.Start()
+	builder := test_env.NewEthereumNetworkBuilder()
+	c, err := builder.WithExistingConfig(*cfg).
+		WithTest(te.t).
+		Build()
+	if err != nil {
+		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
+	}
+
+	n, rpc, err := c.Start()
 
 	if err != nil {
 		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
@@ -129,7 +131,7 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 }
 
 // pass config here
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig core_testconfig.GlobalTestConfig, opts ...ClNodeOption) error {
+func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig ctf_config.GlobalTestConfig, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
@@ -273,6 +275,7 @@ func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
 	if showHTMLCoverageReport || isCI {
 		// Stop all nodes in the chainlink cluster.
 		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
+		// TODO: fix this as it results in: ERR LOG AFTER TEST ENDED ... INF 🐳 Stopping container
 		err := te.ClCluster.Stop()
 		if err != nil {
 			return err
@@ -392,7 +395,7 @@ func (te *CLClusterTestEnv) returnFunds() error {
 	}
 
 	for _, sethClient := range te.sethClients {
-		if err := actions_seth.ReturnFunds(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
+		if err := actions_seth.ReturnFundsFromNodes(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
 			te.l.Error().Err(err).Msg("Error returning funds from node")
 		}
 	}
@@ -402,6 +405,10 @@ func (te *CLClusterTestEnv) returnFunds() error {
 }
 
 func (te *CLClusterTestEnv) GetEVMClient(chainId int64) (blockchain.EVMClient, error) {
+	if len(te.sethClients) > 0 {
+		return nil, fmt.Errorf("Environment is using Seth clients, not EVM clients")
+	}
+
 	if evmClient, ok := te.evmClients[chainId]; ok {
 		return evmClient, nil
 	}
@@ -410,11 +417,19 @@ func (te *CLClusterTestEnv) GetEVMClient(chainId int64) (blockchain.EVMClient, e
 }
 
 func (te *CLClusterTestEnv) GetSethClient(chainId int64) (*seth.Client, error) {
+	if len(te.evmClients) > 0 {
+		return nil, fmt.Errorf("Environment is using EVMClients, not Seth clients")
+	}
 	if sethClient, ok := te.sethClients[chainId]; ok {
 		return sethClient, nil
 	}
 
 	return nil, fmt.Errorf("no Seth client available for chain ID %d", chainId)
+}
+
+func (te *CLClusterTestEnv) GetSethClientForSelectedNetwork() (*seth.Client, error) {
+	n := networks.MustGetSelectedNetworkConfig(te.TestConfig.GetNetworkConfig())[0]
+	return te.GetSethClient(n.ChainID)
 }
 
 func (te *CLClusterTestEnv) GetRpcProvider(chainId int64) (*test_env.RpcProvider, error) {

@@ -50,31 +50,31 @@ before(async () => {
 
   roles = users.roles
   basicConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/BasicConsumer.sol:BasicConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/BasicConsumer.sol:BasicConsumer',
   )
   multiWordConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/MultiWordConsumer.sol:MultiWordConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/MultiWordConsumer.sol:MultiWordConsumer',
   )
   gasGuzzlingConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/GasGuzzlingConsumer.sol:GasGuzzlingConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/GasGuzzlingConsumer.sol:GasGuzzlingConsumer',
   )
   getterSetterFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/GetterSetter.sol:GetterSetter',
+    'src/v0.8/operatorforwarder/test/testhelpers/GetterSetter.sol:GetterSetter',
   )
   maliciousRequesterFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/MaliciousRequester.sol:MaliciousRequester',
+    'src/v0.8/operatorforwarder/test/testhelpers/MaliciousRequester.sol:MaliciousRequester',
   )
   maliciousConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/MaliciousConsumer.sol:MaliciousConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/MaliciousConsumer.sol:MaliciousConsumer',
   )
   maliciousMultiWordConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/test/testhelpers/MaliciousMultiWordConsumer.sol:MaliciousMultiWordConsumer',
+    'src/v0.8/operatorforwarder/test/testhelpers/MaliciousMultiWordConsumer.sol:MaliciousMultiWordConsumer',
   )
   operatorFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/Operator.sol:Operator',
+    'src/v0.8/operatorforwarder/Operator.sol:Operator',
   )
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/AuthorizedForwarder.sol:AuthorizedForwarder',
+    'src/v0.8/operatorforwarder/AuthorizedForwarder.sol:AuthorizedForwarder',
   )
   linkTokenFactory = await ethers.getContractFactory(
     'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
@@ -1076,7 +1076,7 @@ describe('Operator', () => {
             .connect(roles.oracleNode)
             .fulfillOracleRequest(...convertFufillParams(request, response))
 
-          const currentValue = await basicConsumer.currentPrice()
+          const currentValue = await basicConsumer.getCurrentPrice()
           assert.equal(response, ethers.utils.parseBytes32String(currentValue))
         })
 
@@ -1105,7 +1105,7 @@ describe('Operator', () => {
               .fulfillOracleRequest(...convertFufillParams(request, response2)),
           )
 
-          const currentValue = await basicConsumer.currentPrice()
+          const currentValue = await basicConsumer.getCurrentPrice()
           assert.equal(response, ethers.utils.parseBytes32String(currentValue))
         })
       })
@@ -1419,7 +1419,7 @@ describe('Operator', () => {
   })
 
   describe('#fulfillOracleRequest2', () => {
-    describe('single word fulfils', () => {
+    describe('single word fulfills', () => {
       const response = 'Hi mom!'
       const responseTypes = ['bytes32']
       const responseValues = [toBytes32String(response)]
@@ -1528,7 +1528,7 @@ describe('Operator', () => {
                 ),
               )
 
-            const currentValue = await basicConsumer.currentPrice()
+            const currentValue = await basicConsumer.getCurrentPrice()
             assert.equal(
               response,
               ethers.utils.parseBytes32String(currentValue),
@@ -1576,7 +1576,7 @@ describe('Operator', () => {
                 ),
             )
 
-            const currentValue = await basicConsumer.currentPrice()
+            const currentValue = await basicConsumer.getCurrentPrice()
             assert.equal(
               response,
               ethers.utils.parseBytes32String(currentValue),
@@ -2024,7 +2024,7 @@ describe('Operator', () => {
       })
     })
 
-    describe('multi word fulfils', () => {
+    describe('multi word fulfills', () => {
       describe('one bytes parameter', () => {
         const response =
           'Lorem ipsum dolor sit amet, consectetur adipiscing elit.\
@@ -2149,7 +2149,7 @@ describe('Operator', () => {
                   ),
                 )
 
-              const currentValue = await multiConsumer.currentPrice()
+              const currentValue = await multiConsumer.getCurrentPrice()
               assert.equal(response, ethers.utils.toUtf8String(currentValue))
             })
 
@@ -2195,7 +2195,7 @@ describe('Operator', () => {
                   ),
               )
 
-              const currentValue = await multiConsumer.currentPrice()
+              const currentValue = await multiConsumer.getCurrentPrice()
               assert.equal(response, ethers.utils.toUtf8String(currentValue))
             })
           })

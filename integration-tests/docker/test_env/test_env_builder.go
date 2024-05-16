@@ -1,31 +1,34 @@
 package test_env
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"math/big"
 	"os"
+	"slices"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/seth"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
-
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 type CleanUpType string
@@ -36,38 +39,65 @@ const (
 	CleanUpTypeCustom   CleanUpType = "custom"
 )
 
+type ChainlinkNodeLogScannerSettings struct {
+	FailingLogLevel zapcore.Level
+	Threshold       uint
+	AllowedMessages []testreporters.AllowedLogMessage
+}
+
 type CLTestEnvBuilder struct {
-	hasLogStream            bool
-	hasKillgrave            bool
-	hasForwarders           bool
-	hasSeth                 bool
-	hasEVMClient            bool
-	clNodeConfig            *chainlink.Config
-	secretsConfig           string
-	clNodesCount            int
-	clNodesOpts             []func(*ClNode)
-	customNodeCsaKeys       []string
-	defaultNodeCsaKeys      []string
-	l                       zerolog.Logger
-	t                       *testing.T
-	te                      *CLClusterTestEnv
-	isNonEVM                bool
-	cleanUpType             CleanUpType
-	cleanUpCustomFn         func()
-	chainOptionsFn          []ChainOption
-	evmClientNetworkOption  []EVMClientNetworkOption
-	privateEthereumNetworks []*test_env.EthereumNetwork
-	testConfig              tc.GlobalTestConfig
+	hasLogStream                    bool
+	hasKillgrave                    bool
+	hasForwarders                   bool
+	hasSeth                         bool
+	hasEVMClient                    bool
+	clNodeConfig                    *chainlink.Config
+	secretsConfig                   string
+	clNodesCount                    int
+	clNodesOpts                     []func(*ClNode)
+	customNodeCsaKeys               []string
+	defaultNodeCsaKeys              []string
+	l                               zerolog.Logger
+	t                               *testing.T
+	te                              *CLClusterTestEnv
+	isNonEVM                        bool
+	cleanUpType                     CleanUpType
+	cleanUpCustomFn                 func()
+	chainOptionsFn                  []ChainOption
+	evmNetworkOption                []EVMNetworkOption
+	privateEthereumNetworks         []*ctf_config.EthereumNetworkConfig
+	testConfig                      ctf_config.GlobalTestConfig
+	chainlinkNodeLogScannerSettings *ChainlinkNodeLogScannerSettings
 
 	/* funding */
 	ETHFunds *big.Float
 }
 
+var DefaultAllowedMessages = []testreporters.AllowedLogMessage{
+	testreporters.NewAllowedLogMessage("Failed to get LINK balance", "Happens only when we deploy LINK token for test purposes. Harmless.", zapcore.ErrorLevel, testreporters.WarnAboutAllowedMsgs_No),
+}
+
+var DefaultChainlinkNodeLogScannerSettings = ChainlinkNodeLogScannerSettings{
+	FailingLogLevel: zapcore.DPanicLevel,
+	Threshold:       1, // we want to fail on the first concerning log
+	AllowedMessages: DefaultAllowedMessages,
+}
+
+func GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(extraAllowedMessages ...testreporters.AllowedLogMessage) ChainlinkNodeLogScannerSettings {
+	allowedMessages := append(DefaultAllowedMessages, extraAllowedMessages...)
+	return ChainlinkNodeLogScannerSettings{
+		FailingLogLevel: zapcore.DPanicLevel,
+		Threshold:       1,
+		AllowedMessages: allowedMessages,
+	}
+}
+
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
-		l:            log.Logger,
-		hasLogStream: true,
-		hasEVMClient: true,
+		l:                               log.Logger,
+		hasLogStream:                    true,
+		hasEVMClient:                    true,
+		chainlinkNodeLogScannerSettings: &DefaultChainlinkNodeLogScannerSettings,
 	}
 }
 
@@ -115,12 +145,22 @@ func (b *CLTestEnvBuilder) WithoutLogStream() *CLTestEnvBuilder {
 	return b
 }
 
+func (b *CLTestEnvBuilder) WithoutChainlinkNodeLogScanner() *CLTestEnvBuilder {
+	b.chainlinkNodeLogScannerSettings = &ChainlinkNodeLogScannerSettings{}
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithChainlinkNodeLogScanner(settings ChainlinkNodeLogScannerSettings) *CLTestEnvBuilder {
+	b.chainlinkNodeLogScannerSettings = &settings
+	return b
+}
+
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithTestConfig(cfg tc.GlobalTestConfig) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder) WithTestConfig(cfg ctf_config.GlobalTestConfig) *CLTestEnvBuilder {
 	b.testConfig = cfg
 	return b
 }
@@ -146,12 +186,12 @@ func (b *CLTestEnvBuilder) WithSeth() *CLTestEnvBuilder {
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(en test_env.EthereumNetwork) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(en ctf_config.EthereumNetworkConfig) *CLTestEnvBuilder {
 	b.privateEthereumNetworks = append(b.privateEthereumNetworks, &en)
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithPrivateEthereumNetworks(ens []*test_env.EthereumNetwork) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder) WithPrivateEthereumNetworks(ens []*ctf_config.EthereumNetworkConfig) *CLTestEnvBuilder {
 	b.privateEthereumNetworks = ens
 	return b
 }
@@ -202,11 +242,11 @@ func (b *CLTestEnvBuilder) WithChainOptions(opts ...ChainOption) *CLTestEnvBuild
 	return b
 }
 
-type EVMClientNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
+type EVMNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
 
-func (b *CLTestEnvBuilder) EVMClientNetworkOptions(opts ...EVMClientNetworkOption) *CLTestEnvBuilder {
-	b.evmClientNetworkOption = make([]EVMClientNetworkOption, 0)
-	b.evmClientNetworkOption = append(b.evmClientNetworkOption, opts...)
+func (b *CLTestEnvBuilder) EVMNetworkOptions(opts ...EVMNetworkOption) *CLTestEnvBuilder {
+	b.evmNetworkOption = make([]EVMNetworkOption, 0)
+	b.evmNetworkOption = append(b.evmNetworkOption, opts...)
 
 	return b
 }
@@ -232,9 +272,77 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.hasLogStream {
+		loggingConfig := b.testConfig.GetLoggingConfig()
+		// we need to enable logging to file if we want to scan logs
+		if b.chainlinkNodeLogScannerSettings != nil && !slices.Contains(loggingConfig.LogStream.LogTargets, string(logstream.File)) {
+			b.l.Debug().Msg("Enabling logging to file in order to support Chainlink node log scanning")
+			loggingConfig.LogStream.LogTargets = append(loggingConfig.LogStream.LogTargets, string(logstream.File))
+		}
 		b.te.LogStream, err = logstream.NewLogStream(b.te.t, b.testConfig.GetLoggingConfig())
 		if err != nil {
 			return nil, err
+		}
+
+		// this clean up has to be added as the FIRST one, because cleanup functions are executed in reverse order (LIFO)
+		if b.t != nil {
+			b.t.Cleanup(func() {
+				b.l.Info().Msg("Shutting down LogStream")
+				logPath, err := osutil.GetAbsoluteFolderPath("logs")
+				if err != nil {
+					b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
+				}
+
+				var scanClNodeLogs = func() {
+					//filter out non-cl logs
+					logLocation := b.te.LogStream.GetLogLocation()
+					logFiles, err := testreporters.FindAllLogFilesToScan(logLocation, "cl-node")
+					if err != nil {
+						b.l.Warn().Err(err).Msg("Error looking for Chainlink Node log files to scan")
+					} else {
+						// we ignore the context returned by errgroup here, since we have no way of interrupting ongoing scanning of logs
+						verifyLogsGroup, _ := errgroup.WithContext(context.Background())
+						for _, f := range logFiles {
+							file := f
+							verifyLogsGroup.Go(func() error {
+								logErr := testreporters.VerifyLogFile(file, b.chainlinkNodeLogScannerSettings.FailingLogLevel, b.chainlinkNodeLogScannerSettings.Threshold, b.chainlinkNodeLogScannerSettings.AllowedMessages...)
+								if logErr != nil {
+									return errors.Wrapf(logErr, "Found a concerning log in %s", file.Name())
+								}
+								return nil
+							})
+						}
+						if err := verifyLogsGroup.Wait(); err != nil {
+							b.l.Error().Err(err).Msg("Found a concerning log. Failing test.")
+							b.t.Fatalf("Found a concerning log in Chainklink Node logs: %v", err)
+						}
+					}
+					b.l.Info().Msg("Finished scanning Chainlink Node logs for concerning errors")
+				}
+
+				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
+					// we can't do much if this fails, so we just log the error in logstream
+					flushErr := b.te.LogStream.FlushAndShutdown()
+					if flushErr != nil {
+						b.l.Error().Err(flushErr).Msg("Error flushing and shutting down LogStream")
+						return
+					}
+					b.te.LogStream.PrintLogTargetsLocations()
+					b.te.LogStream.SaveLogLocationInTestSummary()
+
+					// if test hasn't failed, but we have chainlinkNodeLogScannerSettings, we should check the logs
+					if !b.t.Failed() && b.chainlinkNodeLogScannerSettings != nil {
+						scanClNodeLogs()
+					}
+				} else if b.chainlinkNodeLogScannerSettings != nil {
+					flushErr := b.te.LogStream.FlushAndShutdown()
+					if flushErr != nil {
+						b.l.Error().Err(flushErr).Msg("Error flushing and shutting down LogStream")
+						return
+					}
+
+					scanClNodeLogs()
+				}
+			})
 		}
 	}
 
@@ -272,23 +380,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.te.LogStream != nil {
-		if b.t != nil {
-			b.t.Cleanup(func() {
-				b.l.Info().Msg("Shutting down LogStream")
-				logPath, err := osutil.GetAbsoluteFolderPath("logs")
-				if err != nil {
-					b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
-				}
-
-				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
-					// we can't do much if this fails, so we just log the error in logstream
-					_ = b.te.LogStream.FlushAndShutdown()
-					b.te.LogStream.PrintLogTargetsLocations()
-					b.te.LogStream.SaveLogLocationInTestSummary()
-				}
-			})
-		}
-
 		// this is not the cleanest way to do this, but when we originally build ethereum networks, we don't have the logstream reference
 		// so we need to rebuild them here and pass logstream to them
 		for i := range b.privateEthereumNetworks {
@@ -300,8 +391,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			if err != nil {
 				return nil, err
 			}
-			b.privateEthereumNetworks[i] = &netWithLs
+			b.privateEthereumNetworks[i] = &netWithLs.EthereumNetworkConfig
 		}
+	}
+
+	if b.te.LogStream == nil && b.chainlinkNodeLogScannerSettings != nil {
+		log.Warn().Msg("Chainlink node log scanner settings provided, but LogStream is not enabled. Ignoring Chainlink node log scanner settings, as no logs will be available.")
 	}
 
 	// in this case we will use the builder only to start chains, not the cluster, because currently we support only 1 network config per cluster
@@ -325,16 +420,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 			if b.hasSeth {
-				readSethCfg := b.testConfig.GetSethConfig()
-				sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
-				if err != nil {
-					return nil, err
-				}
-				err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-				if err != nil {
-					return nil, err
-				}
-				seth, err := seth.NewClientWithConfig(&sethCfg)
+				seth, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
 				if err != nil {
 					return nil, err
 				}
@@ -398,8 +484,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if !b.isNonEVM {
-		if b.evmClientNetworkOption != nil && len(b.evmClientNetworkOption) > 0 {
-			for _, fn := range b.evmClientNetworkOption {
+		if b.evmNetworkOption != nil && len(b.evmNetworkOption) > 0 {
+			for _, fn := range b.evmNetworkOption {
 				fn(&networkConfig)
 			}
 		}
@@ -427,16 +513,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 		if b.hasSeth {
 			b.te.sethClients = make(map[int64]*seth.Client)
-			readSethCfg := b.testConfig.GetSethConfig()
-			sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
-			if err != nil {
-				return nil, err
-			}
-			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-			if err != nil {
-				return nil, err
-			}
-			seth, err := seth.NewClientWithConfig(&sethCfg)
+			seth, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -479,7 +556,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			if b.chainOptionsFn != nil && len(b.chainOptionsFn) > 0 {
 				for _, fn := range b.chainOptionsFn {
 					for _, evmCfg := range cfg.EVM {
-						fn(&evmCfg.Chain)
+						chainCfg := evmCfg.Chain
+						fn(&chainCfg)
 					}
 				}
 			}

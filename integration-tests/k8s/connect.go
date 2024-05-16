@@ -73,6 +73,12 @@ func ConnectRemote() (*blockchain.EVMNetwork, *client2.MockserverClient, *client
 		LocalURL:   cfg.MockServerURL,
 		ClusterURL: cfg.MockServerURL,
 	})
+
+	if len(clClients) < 2 {
+		return &blockchain.EVMNetwork{}, nil, nil, nil, fmt.Errorf("not enough chainlink nodes, need at least 2, got %d", len(clClients))
+	}
+
+	//nolint:gosec // G602 - how is this potentially causing slice out of bounds is beyond me
 	return net, msClient, clClients[0], clClients[1:], nil
 }
 

@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
-// TODO still need to import this for side effects
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
 //
 // The original lib has various problems and is hard to understand because it
@@ -75,8 +74,8 @@ var _ driver.Conn = &conn{}
 var _ driver.Validator = &conn{}
 var _ driver.SessionResetter = &conn{}
 
-// txDriver is an sql driver which runs on single transaction
-// when the Close is called, transaction is rolled back
+// txDriver is an sql driver which runs on a single transaction.
+// When `Close` is called, transaction is rolled back.
 type txDriver struct {
 	sync.Mutex
 	db    *sql.DB
@@ -90,7 +89,7 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 	defer d.Unlock()
 	// Open real db connection if its the first call
 	if d.db == nil {
-		db, err := sql.Open("pgx", d.dbURL)
+		db, err := sql.Open(string(dialects.Postgres), d.dbURL)
 		if err != nil {
 			return nil, err
 		}
@@ -111,8 +110,8 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 	return c, nil
 }
 
-// deleteConn is called by connection when it is closed
-// It also auto-closes the DB when the last checked out connection is closed
+// deleteConn is called by a connection when it is closed via the `close` method.
+// It also auto-closes the DB when the last checked out connection is closed.
 func (d *txDriver) deleteConn(c *conn) error {
 	// must lock here to avoid racing with Open
 	d.Lock()

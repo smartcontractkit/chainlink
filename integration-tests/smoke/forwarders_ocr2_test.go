@@ -38,7 +38,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(privateNetwork).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
@@ -73,6 +73,8 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	operators, authorizedForwarders, _ := actions_seth.DeployForwarderContracts(
 		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
 	)
+
+	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
 
 	for i := range workerNodes {
 		actions_seth.AcceptAuthorizedReceiversOperator(

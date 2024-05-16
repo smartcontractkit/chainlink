@@ -335,7 +335,6 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 }
 
 func TestNewUserCache(t *testing.T) {
-
 	r, err := rand.Int(rand.Reader, big.NewInt(256*1024*1024))
 	require.NoError(t, err)
 	// NewUserCache owns it's Dir.
@@ -350,7 +349,6 @@ func TestNewUserCache(t *testing.T) {
 	}()
 
 	assert.DirExists(t, c.RootDir())
-
 }
 
 func TestSetupSolanaRelayer(t *testing.T) {
@@ -603,11 +601,9 @@ func flagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCom
 			flag.Apply(flagSet)
 		}
 	}
-
 }
 
 func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, parent string, foundName bool) []cli.Flag {
-
 	if command.Action != nil {
 		if actionFuncName == getFuncName(command.Action) && foundName {
 			return command.Flags

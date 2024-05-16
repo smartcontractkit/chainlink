@@ -319,5 +319,4 @@ func TestGetNextTaskOf(t *testing.T) {
 
 	nextTask = trrs.GetNextTaskOf(*nextTask)
 	assert.Empty(t, nextTask)
-
 }

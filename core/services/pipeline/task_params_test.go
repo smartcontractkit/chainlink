@@ -82,7 +82,6 @@ func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {

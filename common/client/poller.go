@@ -27,10 +27,11 @@ type Poller[T any] struct {
 	wg     sync.WaitGroup
 }
 
-// NewPoller creates a new Poller instance
+// NewPoller creates a new Poller instance and returns a channel to receive the polled data
 func NewPoller[
 	T any,
-](pollingInterval time.Duration, pollingFunc func(ctx context.Context) (T, error), pollingTimeout time.Duration, channel chan<- T, logger logger.Logger) Poller[T] {
+](pollingInterval time.Duration, pollingFunc func(ctx context.Context) (T, error), pollingTimeout time.Duration, logger logger.Logger) (Poller[T], <-chan T) {
+	channel := make(chan T)
 	return Poller[T]{
 		pollingInterval: pollingInterval,
 		pollingFunc:     pollingFunc,
@@ -39,7 +40,7 @@ func NewPoller[
 		logger:          logger,
 		errCh:           make(chan error),
 		stopCh:          make(chan struct{}),
-	}
+	}, channel
 }
 
 var _ types.Subscription = &Poller[any]{}
@@ -58,6 +59,7 @@ func (p *Poller[T]) Unsubscribe() {
 		close(p.stopCh)
 		p.wg.Wait()
 		close(p.errCh)
+		close(p.channel)
 		return nil
 	})
 }
@@ -78,8 +80,7 @@ func (p *Poller[T]) pollingLoop() {
 			return
 		case <-ticker.C:
 			// Set polling timeout
-			pollingCtx, cancelPolling := context.WithTimeout(context.Background(), p.pollingTimeout)
-			p.stopCh.CtxCancel(pollingCtx, cancelPolling)
+			pollingCtx, cancelPolling := p.stopCh.CtxCancel(context.WithTimeout(context.Background(), p.pollingTimeout))
 			// Execute polling function
 			result, err := p.pollingFunc(pollingCtx)
 			cancelPolling()

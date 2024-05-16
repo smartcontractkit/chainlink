@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// solhint-disable-next-line interface-starts-with-i
 interface AutomationCompatibleInterface {
   /**
    * @notice method that is simulated by the keepers to see if any work actually
