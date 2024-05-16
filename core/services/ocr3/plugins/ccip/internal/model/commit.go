@@ -42,12 +42,18 @@ func DecodeCommitPluginObservation(b []byte) (CommitPluginObservation, error) {
 type CommitPluginOutcome struct {
 	MaxSeqNums  []SeqNumChain     `json:"maxSeqNums"`
 	MerkleRoots []MerkleRootChain `json:"merkleRoots"`
+	TokenPrices []TokenPrice      `json:"tokenPrices"`
 }
 
-func NewCommitPluginOutcome(seqNums []SeqNumChain, merkleRoots []MerkleRootChain) CommitPluginOutcome {
+func NewCommitPluginOutcome(
+	seqNums []SeqNumChain,
+	merkleRoots []MerkleRootChain,
+	tokenPrices []TokenPrice,
+) CommitPluginOutcome {
 	return CommitPluginOutcome{
 		MaxSeqNums:  seqNums,
 		MerkleRoots: merkleRoots,
+		TokenPrices: tokenPrices,
 	}
 }
 

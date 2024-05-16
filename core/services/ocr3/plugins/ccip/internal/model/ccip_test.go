@@ -77,7 +77,7 @@ func TestNewTokenPrice(t *testing.T) {
 	t.Run("base", func(t *testing.T) {
 		tp := NewTokenPrice("link", big.NewInt(1000))
 		assert.Equal(t, "link", string(tp.TokenID))
-		assert.Equal(t, uint64(1000), tp.Price.Uint64())
+		assert.Equal(t, uint64(1000), tp.Price.Int.Uint64())
 	})
 }
 

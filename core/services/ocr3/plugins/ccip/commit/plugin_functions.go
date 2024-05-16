@@ -115,6 +115,29 @@ func observeNewMsgs(
 	return observedNewMsgs, nil
 }
 
+func observeTokenPrices(
+	ctx context.Context,
+	tokenPricesReader reader.TokenPrices,
+	tokens []types.Account,
+) ([]model.TokenPrice, error) {
+	tokenPrices, err := tokenPricesReader.GetTokenPricesUSD(ctx, tokens)
+	if err != nil {
+		return nil, fmt.Errorf("get token prices: %w", err)
+	}
+
+	if len(tokenPrices) != len(tokens) {
+		return nil, fmt.Errorf("internal critical error token prices length mismatch: got %d, want %d",
+			len(tokenPrices), len(tokens))
+	}
+
+	tokenPricesUSD := make([]model.TokenPrice, 0, len(tokens))
+	for i, token := range tokens {
+		tokenPricesUSD = append(tokenPricesUSD, model.NewTokenPrice(token, tokenPrices[i]))
+	}
+
+	return tokenPricesUSD, nil
+}
+
 // newMsgsConsensus comes in consensus on the observed messages for each source chain. Generates one merkle root
 // for each source chain based on the consensus on the messages.
 func newMsgsConsensus(
@@ -302,6 +325,34 @@ func (p *Plugin) maxSeqNumsConsensus(observations []model.CommitPluginObservatio
 	return maxSeqNumsConsensus, nil
 }
 
+// tokenPricesConsensus returns the median price for tokens that have at least 2f_chain+1 observations.
+func tokenPricesConsensus(
+	observations []model.CommitPluginObservation,
+	fChain int,
+) ([]model.TokenPrice, error) {
+	pricesPerToken := make(map[types.Account][]model.BigInt)
+	for _, obs := range observations {
+		for _, price := range obs.TokenPrices {
+			if _, exists := pricesPerToken[price.TokenID]; !exists {
+				pricesPerToken[price.TokenID] = make([]model.BigInt, 0)
+			}
+			pricesPerToken[price.TokenID] = append(pricesPerToken[price.TokenID], price.Price)
+		}
+	}
+
+	// Keep the median
+	consensusPrices := make([]model.TokenPrice, 0)
+	for token, prices := range pricesPerToken {
+		if len(prices) < 2*fChain+1 {
+			continue
+		}
+		consensusPrices = append(consensusPrices, model.NewTokenPrice(token, slicelib.BigIntSortedMiddle(prices).Int))
+	}
+
+	sort.Slice(consensusPrices, func(i, j int) bool { return consensusPrices[i].TokenID < consensusPrices[j].TokenID })
+	return consensusPrices, nil
+}
+
 // validateObservedSequenceNumbers checks if the sequence numbers of the provided messages are unique for each chain and
 // that they match the observed max sequence numbers.
 func validateObservedSequenceNumbers(msgs []model.CCIPMsgBaseDetails, maxSeqNums []model.SeqNumChain) error {
@@ -368,8 +419,23 @@ func validateObserverReadingEligibility(
 	return nil
 }
 
-// validateGasAndTokenPrices checks if the provided gas and token prices are valid.
-func validateObservedGasAndTokenPrices(gasPrices []model.GasPriceChain, tokenPrices []model.TokenPrice) error {
+func validateObservedTokenPrices(tokenPrices []model.TokenPrice) error {
+	tokensWithPrice := mapset.NewSet[types.Account]()
+	for _, t := range tokenPrices {
+		if tokensWithPrice.Contains(t.TokenID) {
+			return fmt.Errorf("duplicate token price for token: %s", t.TokenID)
+		}
+		tokensWithPrice.Add(t.TokenID)
+
+		if t.Price.IsEmpty() {
+			return fmt.Errorf("token price must not be empty")
+		}
+	}
+
+	return nil
+}
+
+func validateObservedGasPrices(gasPrices []model.GasPriceChain, tokenPrices []model.TokenPrice) error {
 	// Duplicate gas prices must not appear for the same chain and must not be empty.
 	gasPriceChains := mapset.NewSet[model.ChainSelector]()
 	for _, g := range gasPrices {
@@ -379,18 +445,6 @@ func validateObservedGasAndTokenPrices(gasPrices []model.GasPriceChain, tokenPri
 		gasPriceChains.Add(g.ChainSel)
 		if g.GasPrice == nil {
 			return fmt.Errorf("gas price must not be nil")
-		}
-	}
-
-	// Duplicate token prices must not appear for the same token and must not be empty.
-	tokensWithPrice := mapset.NewSet[types.Account]()
-	for _, t := range tokenPrices {
-		if tokensWithPrice.Contains(t.TokenID) {
-			return fmt.Errorf("duplicate token price for token: %s", t.TokenID)
-		}
-		tokensWithPrice.Add(t.TokenID)
-		if t.Price == nil {
-			return fmt.Errorf("token price must not be nil")
 		}
 	}
 

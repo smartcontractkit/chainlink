@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type CommitPluginConfig struct {
@@ -23,7 +24,12 @@ type CommitPluginConfig struct {
 	// ObserverInfo is a map of oracle IDs to ObserverInfo.
 	ObserverInfo map[commontypes.OracleID]ObserverInfo
 
-	// TBD:
+	// FeeTokens is a list of tokens that can be used to pay for ccip fees.
+	FeeTokens []types.Account
+
+	// TokenPricesObserver indicates that the node can observe token prices.
+	TokenPricesObserver bool
+
 	NewMsgScanDuration  time.Duration
 	NewMsgScanLimit     int
 	NewMsgScanBatchSize int

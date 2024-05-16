@@ -1,7 +1,6 @@
 package model
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -12,13 +11,13 @@ import (
 
 type TokenPrice struct {
 	TokenID types.Account `json:"tokenID"`
-	Price   *big.Int
+	Price   BigInt        `json:"price"`
 }
 
 func NewTokenPrice(tokenID types.Account, price *big.Int) TokenPrice {
 	return TokenPrice{
 		TokenID: tokenID,
-		Price:   price,
+		Price:   BigInt{price},
 	}
 }
 
@@ -87,27 +86,4 @@ type CCIPMsgBaseDetails struct {
 	ID          Bytes32       `json:"id"`
 	SourceChain ChainSelector `json:"sourceChain,string"`
 	SeqNum      SeqNum        `json:"seqNum,string"`
-}
-
-type Bytes32 [32]byte
-
-func (m Bytes32) String() string {
-	return "0x" + hex.EncodeToString(m[:])
-}
-
-func (m Bytes32) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s"`, m.String())), nil
-}
-
-func (m *Bytes32) UnmarshalJSON(data []byte) error {
-	v := string(data)
-	if len(v) < 4 {
-		return fmt.Errorf("invalid MerkleRoot: %s", v)
-	}
-	b, err := hex.DecodeString(v[1 : len(v)-1][2:])
-	if err != nil {
-		return err
-	}
-	copy(m[:], b)
-	return nil
 }
