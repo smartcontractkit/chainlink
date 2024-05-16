@@ -98,16 +98,16 @@ deployments:
     namespace: ${DEVSPACE_NAMESPACE}
     helm:
       releaseName: "app"
+      # TODO: change this back to the official chart once it's available (bump vers. too).
+      # chart:
+      #   name: ${CHAINLINK_CLUSTER_HELM_CHART_URI}
+      #   version: 0.7.0
       chart:
-        name: ${CHAINLINK_CLUSTER_HELM_CHART_URI}
-        version: 0.6.0
+        path: "../../infra-charts/crib-chainlink-cluster"
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
       values:
-        podSecurityContext:
-          fsGroup: 999
-
         chainlink:
           global:
             overridesToml: |-
@@ -217,7 +217,6 @@ deployments:
               image: ${runtime.images.app}
             - name: node-5
               image: ${runtime.images.app}
-
         # each CL node have a dedicated PostgreSQL 11.15
         # use StatefulSet by setting:
         #
@@ -292,6 +291,20 @@ deployments:
             limits:
               cpu: 1
               memory: 1024Mi
+        blockscout-stack1:
+          frontend:
+            ingress:
+              hostname: ${DEVSPACE_NAMESPACE}-blockscout1.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              annotations:
+                alb.ingress.kubernetes.io/certificate-arn: ${DEVSPACE_INGRESS_CERT_ARN}
+                alb.ingress.kubernetes.io/group.name: ${DEVSPACE_NAMESPACE}
+        blockscout-stack2:
+          frontend:
+            ingress:
+              hostname: ${DEVSPACE_NAMESPACE}-blockscout2.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              annotations:
+                alb.ingress.kubernetes.io/certificate-arn: ${DEVSPACE_INGRESS_CERT_ARN}
+                alb.ingress.kubernetes.io/group.name: ${DEVSPACE_NAMESPACE}
         # monitoring.coreos.com/v1 PodMonitor for each node
         prometheusMonitor: true
 
