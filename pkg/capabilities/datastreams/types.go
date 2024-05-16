@@ -1,9 +1,11 @@
-package mercury
+package datastreams
 
 import (
 	"encoding/hex"
 	"errors"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 // hex-encoded 32-byte value, prefixed with "0x", all lowercase
@@ -63,4 +65,13 @@ type FeedReport struct {
 	// directly due to Value serialization problems using mapstructure.
 	BenchmarkPrice       []byte
 	ObservationTimestamp int64
+}
+
+//go:generate mockery --quiet --name ReportCodec --output ./mocks/ --case=underscore
+type ReportCodec interface {
+	// validate each report and convert to a list of Mercury reports
+	Unwrap(raw values.Value) ([]FeedReport, error)
+
+	// validate each report and convert to Value
+	Wrap(reports []FeedReport) (values.Value, error)
 }

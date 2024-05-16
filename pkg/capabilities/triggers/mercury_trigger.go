@@ -8,14 +8,16 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
+const triggerID = "streams-trigger"
+
 var capInfo = capabilities.MustNewCapabilityInfo(
-	"streams-trigger",
+	triggerID,
 	capabilities.CapabilityTypeTrigger,
 	"Streams Trigger",
 	"v1.0.0",
@@ -46,7 +48,7 @@ type MercuryTriggerService struct {
 	capabilities.CapabilityInfo
 	tickerResolutionMs int64
 	subscribers        map[string]*subscriber
-	latestReports      map[mercury.FeedID]mercury.FeedReport
+	latestReports      map[datastreams.FeedID]datastreams.FeedReport
 	mu                 sync.Mutex
 	stopCh             services.StopChan
 	wg                 sync.WaitGroup
@@ -74,17 +76,17 @@ func NewMercuryTriggerService(tickerResolutionMs int64, lggr logger.Logger) *Mer
 		CapabilityInfo:     capInfo,
 		tickerResolutionMs: tickerResolutionMs,
 		subscribers:        make(map[string]*subscriber),
-		latestReports:      make(map[mercury.FeedID]mercury.FeedReport),
+		latestReports:      make(map[datastreams.FeedID]datastreams.FeedReport),
 		stopCh:             make(services.StopChan),
 		lggr:               logger.Named(lggr, "MercuryTriggerService")}
 }
 
-func (o *MercuryTriggerService) ProcessReport(reports []mercury.FeedReport) error {
+func (o *MercuryTriggerService) ProcessReport(reports []datastreams.FeedReport) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.lggr.Debugw("ProcessReport", "nReports", len(reports))
 	for _, report := range reports {
-		feedID := mercury.FeedID(report.FeedID)
+		feedID := datastreams.FeedID(report.FeedID)
 		o.latestReports[feedID] = report
 	}
 	return nil
@@ -189,9 +191,9 @@ func (o *MercuryTriggerService) process(timestamp int64) {
 	defer o.mu.Unlock()
 	for _, sub := range o.subscribers {
 		if timestamp%int64(sub.config.MaxFrequencyMs) == 0 {
-			reportList := make([]mercury.FeedReport, 0)
+			reportList := make([]datastreams.FeedReport, 0)
 			for _, feedID := range sub.config.FeedIDs {
-				if latest, ok := o.latestReports[mercury.FeedID(feedID)]; ok {
+				if latest, ok := o.latestReports[datastreams.FeedID(feedID)]; ok {
 					reportList = append(reportList, latest)
 				}
 			}
@@ -214,14 +216,14 @@ func (o *MercuryTriggerService) process(timestamp int64) {
 	}
 }
 
-func wrapReports(reportList []mercury.FeedReport, eventID string, timestamp int64) (capabilities.CapabilityResponse, error) {
+func wrapReports(reportList []datastreams.FeedReport, eventID string, timestamp int64) (capabilities.CapabilityResponse, error) {
 	val, err := values.Wrap(reportList)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
 	}
 
 	triggerEvent := capabilities.TriggerEvent{
-		TriggerType: "mercury",
+		TriggerType: triggerID,
 		ID:          eventID,
 		Timestamp:   strconv.FormatInt(timestamp, 10),
 		Payload:     val,

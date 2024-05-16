@@ -13,14 +13,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds/mocks"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 var (
-	feedIDA            = mercury.FeedID("0x0001013ebd4ed3f5889fb5a8a52b42675c60c1a8c42bc79eaa72dcd922ac4292")
+	feedIDA            = datastreams.FeedID("0x0001013ebd4ed3f5889fb5a8a52b42675c60c1a8c42bc79eaa72dcd922ac4292")
 	deviationA         = decimal.NewFromFloat(0.1)
 	heartbeatA         = 60
 	mercuryFullReportA = []byte("report")
@@ -32,7 +32,7 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	})
 	require.NoError(t, err)
 	config := getConfig(t, feedIDA.String(), deviationA, heartbeatA)
-	codec := mocks.NewMercuryCodec(t)
+	codec := mocks.NewReportCodec(t)
 	agg, err := datafeeds.NewDataFeedsAggregator(*config, codec, logger.Nop())
 	require.NoError(t, err)
 
@@ -51,7 +51,7 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.Equal(t, []byte(nil), newState.FeedInfo[feedIDA.String()].BenchmarkPrice)
 
 	// second round, non-empty previous Outcome, one observation
-	latestMercuryReports := []mercury.FeedReport{
+	latestMercuryReports := []datastreams.FeedReport{
 		{
 			FeedID:               feedIDA.String(),
 			ObservationTimestamp: 1,
@@ -106,7 +106,7 @@ func TestDataFeedsAggregator_ParseConfig(t *testing.T) {
 	})
 
 	t.Run("parsed workflow config", func(t *testing.T) {
-		fdID := mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000")
+		fdID := datastreams.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000")
 		cfg, err := values.NewMap(map[string]any{
 			fdID.String(): map[string]any{
 				"deviation": "0.1",
