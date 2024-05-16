@@ -50,7 +50,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint40 minimumEstimateGasPriceWei; //            ║ The lowest amount of wei that will be used as the tx.gasprice when estimating the cost to fulfill the request
     uint16 maxSupportedRequestDataVersion; // ═══════╝ The highest support request data version supported by the node. All lower versions should also be supported.
     uint224 fallbackNativePerUnitLink; // ═══════════╗ Fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
-    uint32 requestTimeoutSeconds; // ════════════════╝ How many seconds it takes before we consider a request to be timed out
+    uint32 requestTimeoutSeconds; //                 ║ How many seconds it takes before we consider a request to be timed out
+    uint24 transmitTxSizeBytes; // ══════════════════╝ The size of the transmit transaction in bytes used to calculate the L1 data fee on L2s
   }
 
   Config private s_config;
@@ -180,7 +181,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     /// @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
 
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
-    uint256 l1FeeWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
+    uint256 l1FeeWei = ChainSpecificUtil._getL1DataGasCostUpperLimit(s_config.transmitTxSizeBytes);
     uint96 estimatedGasReimbursementJuels = _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
 
     uint96 feesJuels = uint96(donFee) + uint96(adminFee);
@@ -274,7 +275,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     FunctionsResponse.Commitment memory commitment = abi.decode(onchainMetadata, (FunctionsResponse.Commitment));
 
     uint256 gasOverheadWei = (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback) * tx.gasprice;
-    uint256 l1FeeShareWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data) / reportBatchSize;
+    uint256 l1FeeShareWei = ChainSpecificUtil._getL1DataGasCostUpperLimit(msg.data) / reportBatchSize;
     // Gas overhead without callback
     uint96 gasOverheadJuels = _getJuelsFromWei(gasOverheadWei + l1FeeShareWei);
     uint96 juelsPerGas = _getJuelsFromWei(tx.gasprice);
