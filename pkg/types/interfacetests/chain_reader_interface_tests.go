@@ -45,7 +45,12 @@ var AnySliceToReadWithoutAnArgument = []uint64{3, 4}
 
 const AnyExtraValue = 3
 
-func RunChainReaderGetLatestValueInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) {
+func RunChainReaderInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) {
+	t.Run("GetLatestValue for "+tester.Name(), func(t *testing.T) { runChainReaderGetLatestValueInterfaceTests(t, tester) })
+	t.Run("QueryKey for "+tester.Name(), func(t *testing.T) { runQueryKeyInterfaceTests(t, tester) })
+}
+
+func runChainReaderGetLatestValueInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) {
 	tests := []testcase{
 		{
 			name: "Gets the latest value",
@@ -209,7 +214,7 @@ func RunChainReaderGetLatestValueInterfaceTests(t *testing.T, tester ChainReader
 	runTests(t, tester, tests)
 }
 
-func RunQueryKeyInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) {
+func runQueryKeyInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) {
 	tests := []testcase{
 		{
 			name: "QueryKey returns not found if sequence never happened",
