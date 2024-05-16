@@ -299,7 +299,6 @@ func newServer(lggr logger.Logger, cfg TransmitterConfig, client wsrpc.Client, p
 		transmitQueueInsertErrorCount.WithLabelValues(feedIDHex, serverURL),
 		transmitQueuePushErrorCount.WithLabelValues(feedIDHex, serverURL),
 	}
-
 }
 
 func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[string]wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, orm ORM, codec TransmitterReportDecoder, triggerCapability *triggers.MercuryTriggerService) *mercuryTransmitter {
