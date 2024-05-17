@@ -47,7 +47,7 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 	dispatcher := remoteMocks.NewDispatcher(t)
 	dispatcher.On("SetReceiver", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	onchainRegistry := coreCapabilities.NewOnchainCapabilityRegistry(capabilityRegistry.Address(), lggr)
+	onchainRegistry := coreCapabilities.NewRemoteRegistry(capabilityRegistry.Address(), lggr)
 
 	newClient := client.NewSimulatedBackendClient(t, simulatedBackend, testutils.SimulatedChainID)
 

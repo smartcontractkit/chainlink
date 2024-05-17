@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
@@ -43,58 +42,10 @@ const (
 	ObservationIdentical CapabilityResponseType = 1
 )
 
-type Capability struct {
-	ID [32]byte
-	// The `labelledName` is a partially qualified ID for the capability.
-	//
-	// Given the following capability ID: {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
-	// Then we denote the `labelledName` as the `{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}` portion of the ID.
-	//
-	// Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
-	//     labelledName = "data-streams-reports:chain:ethereum"
-	//
-	// Validation: ^[a-z0-9_\-:]{1,32}$
-	Name string
-	// Semver, e.g., "1.2.3"
-	Version string
-	// responseType indicates whether remote response requires
-	// aggregation or is an OCR report. There are multiple possible
-	// ways to aggregate.
-	ResponseType CapabilityResponseType
-	// An address to the capability configuration contract. Having this defined
-	// on a capability enforces consistent configuration across DON instances
-	// serving the same capability.
-	//
-	// The main use cases are:
-	// 1) Sharing capability configuration across DON instances
-	// 2) Inspect and modify on-chain configuration without off-chain
-	// capability code.
-	//
-	// It is not recommended to store configuration which requires knowledge of
-	// the DON membership.
-	ConfigurationContract common.Address
-}
-
-// onchainCapabilityRegistry contains a local cache of the CapabilityRegistry deployed
-// on-chain. It is updated by the registrySyncer and is otherwise read-only.
-type onchainCapabilityRegistry struct {
-	address      common.Address
-	capabilities []Capability
-	lggr         logger.Logger
-}
-
-// NewCapabilityRegistry creates a new remote capability registry
-func NewOnchainCapabilityRegistry(registryAddress common.Address, lggr logger.Logger) *onchainCapabilityRegistry {
-	return &onchainCapabilityRegistry{
-		address: registryAddress,
-		lggr:    lggr,
-	}
-}
-
 type registrySyncer struct {
 	peerWrapper     p2ptypes.PeerWrapper
 	registry        core.CapabilitiesRegistry
-	onchainRegistry *onchainCapabilityRegistry
+	onchainRegistry *remoteRegistry
 	dispatcher      remotetypes.Dispatcher
 	subServices     []services.Service
 	lggr            logger.Logger
@@ -123,7 +74,7 @@ var CALLER_ADDRESS = types.MustEIP55Address("0x000000000000000000000000000000000
 // RegistrySyncer updates local Registry to match its onchain counterpart
 func NewRegistrySyncer(
 	peerWrapper p2ptypes.PeerWrapper,
-	registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger, onchainRegistry *onchainCapabilityRegistry,
+	registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger, onchainRegistry *remoteRegistry,
 	client evmclient.Client,
 ) *registrySyncer {
 	return &registrySyncer{
@@ -251,7 +202,6 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 	}
 
 	capabilityRegistry, err := kcr.NewCapabilityRegistry(s.onchainRegistry.address, s.client)
-
 	if err != nil {
 		s.lggr.Errorw("failed to create capability registry", "error", err)
 		return err
