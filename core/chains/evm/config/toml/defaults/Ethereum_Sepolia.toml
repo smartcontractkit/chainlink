@@ -1,6 +1,11 @@
 ChainID = '11155111'
 LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
 MinContractPayment = '0.1 link'
+FinalityTagEnabled = true
+FinalizedBlockOffset = 5
+
+[EVM.NodePool]
+EnforceRepeatableRead = true
 
 [GasEstimator]
 EIP1559DynamicFees = true
