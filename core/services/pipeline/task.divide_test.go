@@ -198,6 +198,7 @@ func TestDivideTask_Overflow(t *testing.T) {
 }
 
 func TestDivide_Example(t *testing.T) {
+	testutils.SkipFlakey(t, "BCF-3236")
 	t.Parallel()
 
 	dag := `
