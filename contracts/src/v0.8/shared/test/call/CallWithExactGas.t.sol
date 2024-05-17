@@ -15,6 +15,8 @@ contract CallWithExactGasSetup is BaseTest {
   uint256 internal constant DEFAULT_GAS_LIMIT = 20_000;
   uint16 internal constant DEFAULT_GAS_FOR_CALL_EXACT_CHECK = 5000;
   uint256 internal constant EXTCODESIZE_GAS_COST = 2600;
+  uint256 internal constant CALL_WITH_EXACT_GAS_SAFE_RETURN_DATA_GAS_OVERHEAD = 128;
+
 
   function setUp() public virtual override {
     BaseTest.setUp();
@@ -222,7 +224,10 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
 
   function test_CallWithExactGasSafeReturnData_ConsumeAllGas_Success() external {
     uint16 maxRetBytes = 0;
-    uint256 miscGasOverhead = 128;
+
+
+    // Calculated as the difference between gasUsed as returned from function and gas passed in to the function
+
 
     vm.expectCall(address(s_gasConsumer), abi.encodeWithSelector(s_gasConsumer.consumeAllGas.selector));
 
@@ -235,7 +240,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     );
 
     assertTrue(success, "Error: External Call Failed");
-    assertEq(gasUsed - miscGasOverhead, DEFAULT_GAS_LIMIT, "Error: All gas not consumed by receiver");
+    assertEq(gasUsed - CALL_WITH_EXACT_GAS_SAFE_RETURN_DATA_GAS_OVERHEAD, DEFAULT_GAS_LIMIT, "Error: All gas not consumed by receiver");
   }
 
   function test_callWithExactGasSafeReturnData_ThrowOOGError_Revert() external {

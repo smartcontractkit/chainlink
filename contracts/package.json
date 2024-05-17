@@ -16,7 +16,7 @@
     "compile": "hardhat compile",
     "coverage": "hardhat coverage",
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
-    "publish- beta": "pnpm publish --tag beta",
+    "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "pnpm publish --tag latest",
     "solhint": "solhint --max-warnings 2 \"./src/v0.8/**/*.sol\""
   },
