@@ -1,0 +1,31 @@
+{
+  "triggers": [
+    {
+      "id": "on_mercury_report@1",
+      "ref": "report_data",
+      "config": {}
+    }
+  ],
+  "consensus": [
+    {
+      "id": "trigger_test:aaShouldBeFirst_true:chain_ethereum:network_mainnet@2",
+      "inputs": {
+        "observations": [
+          "triggers.report_data.outputs"
+        ]
+      },
+      "config": {}
+    }
+  ],
+  "targets": [
+    {
+      "id": "write_polygon_mainnet@1",
+      "inputs": {
+        "report": [
+          "consensus.evm_median.outputs.report"
+        ]
+      },
+      "config": {}
+    }
+  ]
+}
