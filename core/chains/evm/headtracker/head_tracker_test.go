@@ -984,6 +984,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 }
 
+// BenchmarkHeadTracker_Backfill - benchmarks HeadTracker's Backfill with focus on efficiency after initial
+// backfill on start up
 func BenchmarkHeadTracker_Backfill(b *testing.B) {
 	cfg := configtest.NewGeneralConfig(b, nil)
 
@@ -1012,9 +1014,10 @@ func BenchmarkHeadTracker_Backfill(b *testing.B) {
 	err := ht.headTracker.Backfill(ctx, latest, finalized)
 	require.NoError(b, err)
 	b.ResetTimer()
+	// focus benchmark on processing of a new latest block
 	for i := 0; i < b.N; i++ {
-		latest = makeBlock(finalityDepth)
-		finalized = makeBlock(1)
+		latest = makeBlock(int64(finalityDepth + i))
+		finalized = makeBlock(int64(i + 1))
 		err := ht.headTracker.Backfill(ctx, latest, finalized)
 		require.NoError(b, err)
 	}

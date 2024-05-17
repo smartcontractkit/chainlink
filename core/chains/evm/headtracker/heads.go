@@ -26,9 +26,8 @@ type Heads interface {
 }
 
 type heads struct {
-	heads    []*evmtypes.Head
-	headsMap map[common.Hash]*evmtypes.Head
-	mu       sync.RWMutex
+	heads []*evmtypes.Head
+	mu    sync.RWMutex
 }
 
 func NewHeads() Heads {
@@ -49,11 +48,12 @@ func (h *heads) HeadByHash(hash common.Hash) *evmtypes.Head {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	if h.headsMap == nil {
-		return nil
+	for _, head := range h.heads {
+		if head.Hash == hash {
+			return head
+		}
 	}
-
-	return h.headsMap[hash]
+	return nil
 }
 
 func (h *heads) Count() int {
@@ -74,23 +74,26 @@ func (h *heads) MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool 
 	}
 
 	// deep copy to avoid race on head.Parent
-	h.heads, h.headsMap = deepCopy(h.heads, minBlockToKeep)
+	h.heads = deepCopy(h.heads, minBlockToKeep)
 
-	finalizedHead, ok := h.headsMap[finalized]
-	if !ok {
-		return false
-	}
-	for finalizedHead != nil {
-		finalizedHead.IsFinalized = true
-		finalizedHead = finalizedHead.Parent
+	head := h.heads[0]
+	foundFinalized := false
+	for head != nil {
+		if head.Hash == finalized {
+			foundFinalized = true
+		}
+
+		// we might see finalized to move back in chain due to request to lagging RPC,
+		// we should not override the flag in such cases
+		head.IsFinalized = head.IsFinalized || foundFinalized
+		head = head.Parent
 	}
 
-	return true
+	return foundFinalized
 }
 
-func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) ([]*evmtypes.Head, map[common.Hash]*evmtypes.Head) {
+func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) []*evmtypes.Head {
 	headsMap := make(map[common.Hash]*evmtypes.Head, len(oldHeads))
-	heads := make([]*evmtypes.Head, 0, len(headsMap))
 	for _, head := range oldHeads {
 		if head.Hash == head.ParentHash {
 			// shouldn't happen but it is untrusted input
@@ -108,11 +111,18 @@ func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) ([]*evmtypes.Head
 		// prefer head that was already in heads as it might have been marked as finalized on previous run
 		if _, ok := headsMap[head.Hash]; !ok {
 			headsMap[head.Hash] = &headCopy
-			heads = append(heads, &headCopy)
 		}
 	}
 
-	// sort the heads as original slice might be out of order
+	heads := make([]*evmtypes.Head, 0, len(headsMap))
+	// unsorted unique heads
+	{
+		for _, head := range headsMap {
+			heads = append(heads, head)
+		}
+	}
+
+	// sort the heads
 	sort.SliceStable(heads, func(i, j int) bool {
 		// sorting from the highest number to lowest
 		return heads[i].Number > heads[j].Number
@@ -127,7 +137,7 @@ func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) ([]*evmtypes.Head
 		}
 	}
 
-	return heads, headsMap
+	return heads
 }
 
 func (h *heads) AddHeads(newHeads ...*evmtypes.Head) {
@@ -135,5 +145,5 @@ func (h *heads) AddHeads(newHeads ...*evmtypes.Head) {
 	defer h.mu.Unlock()
 
 	// deep copy to avoid race on head.Parent
-	h.heads, h.headsMap = deepCopy(append(h.heads, newHeads...), 0)
+	h.heads = deepCopy(append(h.heads, newHeads...), 0)
 }
