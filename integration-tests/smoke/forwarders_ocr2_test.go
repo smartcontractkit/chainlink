@@ -87,15 +87,15 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	ocrInstances, err := actions_seth.DeployOCRv2Contracts(l, sethClient, 1, common.HexToAddress(lt.Address()), transmitters, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 
-	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), true, false)
-	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
-
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
 	require.NoError(t, err, "Error building OCRv2 config")
 	ocrv2Config.Transmitters = authorizedForwarders
 
 	err = actions_seth.ConfigureOCRv2AggregatorContracts(ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+
+	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), true, false)
+	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
 
 	err = actions_seth.WatchNewOCRRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
 	require.NoError(t, err, "error watching for new OCRv2 round")

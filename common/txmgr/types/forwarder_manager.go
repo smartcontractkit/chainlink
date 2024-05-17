@@ -9,6 +9,7 @@ import (
 type ForwarderManager[ADDR types.Hashable] interface {
 	services.Service
 	ForwarderFor(addr ADDR) (forwarder ADDR, err error)
+	ForwarderForOCR2Feeds(eoa, ocr2Aggregator ADDR) (forwarder ADDR, err error)
 	// Converts payload to be forwarder-friendly
 	ConvertPayload(dest ADDR, origPayload []byte) ([]byte, error)
 }
