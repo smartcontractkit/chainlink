@@ -31,6 +31,14 @@ type ocr2test struct {
 	chainReaderAndCodec bool
 }
 
+func defaultTestData() ocr2test {
+	return ocr2test{
+		name:                "n/a",
+		env:                 make(map[string]string),
+		chainReaderAndCodec: false,
+	}
+}
+
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
@@ -70,7 +78,7 @@ func TestOCRv2Request(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	_, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, l, 5)
+	_, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, defaultTestData(), l, 5)
 
 	// Keep the mockserver value the same and continually request new rounds
 	for round := 2; round <= 4; round++ {
@@ -92,7 +100,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	env, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, l, 5)
+	env, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, defaultTestData(), l, 5)
 	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
@@ -128,7 +136,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	)
 }
 
-func prepareORCv2SmokeTestEnv(t *testing.T, test ocr2test, l zerolog.Logger, firstRoundResult int) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregatorV2, *seth.Client) {
+func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger, firstRoundResult int) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregatorV2, *seth.Client) {
 	config, err := tc.GetConfig("Smoke", tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
@@ -147,7 +155,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, test ocr2test, l zerolog.Logger, fir
 			node.WithP2Pv2(),
 			node.WithTracing(),
 		)).
-		WithCLNodeOptions(test_env.WithNodeEnvVars(test.env)).
+		WithCLNodeOptions(test_env.WithNodeEnvVars(testData.env)).
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
@@ -182,7 +190,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, test ocr2test, l zerolog.Logger, fir
 	aggregatorContracts, err := actions_seth.DeployOCRv2Contracts(l, sethClient, 1, common.HexToAddress(linkContract.Address()), transmitters, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), false, false)
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), false, testData.chainReaderAndCodec)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
