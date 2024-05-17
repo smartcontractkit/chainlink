@@ -1589,7 +1589,11 @@ func (sourceCCIP *SourceCCIPModule) AssertEventCCIPSendRequested(
 						// prevEventAt is the time when the message was successful, this should be same as the time when the event was emitted
 						reqStat[i].UpdateState(lggr, seqNum, testreporters.CCIPSendRe, 0, testreporters.Success)
 					}
-					return sendRequestedEvents, prevEventAt, nil
+					var err error
+					if len(sendRequestedEvents) == 0 {
+						err = fmt.Errorf("message logs not found, no CCIPSendRequested event found for tx %s", txHash)
+					}
+					return sendRequestedEvents, prevEventAt, err
 				}
 			}
 		case <-timer.C:
@@ -2188,7 +2192,8 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 							testreporters.TransactionStats{
 								TxHash:  vLogs.TxHash.Hex(),
 								GasUsed: gasUsed,
-							})
+							},
+						)
 						return e.State, nil
 					}
 					reqStat.UpdateState(lggr, seqNum, testreporters.ExecStateChanged, time.Since(timeNow), testreporters.Failure)
@@ -2838,7 +2843,8 @@ func (lane *CCIPLane) ExecuteManually() error {
 			}
 			lane.Logger.Info().Uint64("seqNum", seqNum).Msg("Manual Execution completed")
 			_, err = lane.Dest.AssertEventExecutionStateChanged(lane.Logger, seqNum, lane.ValidationTimeout,
-				timeNow, ccipReq.RequestStat, testhelpers.ExecutionStateSuccess)
+				timeNow, ccipReq.RequestStat, testhelpers.ExecutionStateSuccess,
+			)
 			if err != nil {
 				return fmt.Errorf("could not validate ExecutionStateChanged event: %w", err)
 			}
@@ -2847,17 +2853,77 @@ func (lane *CCIPLane) ExecuteManually() error {
 	return nil
 }
 
-func (lane *CCIPLane) ValidateRequests(successfulExecution bool) {
+// validationOptions are used in the ValidateRequests function to specify which phase is expected to fail and how
+type validationOptions struct {
+	phaseExpectedToFail  testreporters.Phase // the phase expected to fail
+	phaseShouldExist     bool                // for some phases, their lack of existence is a failure, for others their existence can also have a failure state
+	expectedErrorMessage string              // if provided, we're looking for a specific error message
+}
+
+// ValidationOptionFunc is a function that can be passed to ValidateRequests to specify which phase is expected to fail
+type ValidationOptionFunc func(logger zerolog.Logger, opts *validationOptions)
+
+type PhaseSpecificValidationOptionFunc func(*validationOptions)
+
+// WithErrorMessage specifies the expected error message for the phase that is expected to fail.
+func WithErrorMessage(expectedErrorMessage string) PhaseSpecificValidationOptionFunc {
+	return func(opts *validationOptions) {
+		opts.expectedErrorMessage = expectedErrorMessage
+	}
+}
+
+// PhaseShouldExist specifies that a specific phase should exist, but be in a failed state. This is only applicable to the `ExecStateChanged` phase.
+func ShouldExist() PhaseSpecificValidationOptionFunc {
+	return func(opts *validationOptions) {
+		opts.phaseShouldExist = true
+	}
+}
+
+// ExpectPhaseToFail specifies that a specific phase is expected to fail.
+// You can optionally provide an expected error message, if you don't have one in mind, just pass an empty string.
+// shouldExist is used to specify whether the phase should exist or not, which is only applicable to the `ExecStateChanged` phase.
+// If you expect the `ExecStateChanged` events to be there, but in a "failed" state, set this to true.
+// It will otherwise be ignored.
+func ExpectPhaseToFail(phase testreporters.Phase, phaseSpecificOptions ...PhaseSpecificValidationOptionFunc) ValidationOptionFunc {
+	return func(logger zerolog.Logger, opts *validationOptions) {
+		opts.phaseExpectedToFail = phase
+		for _, f := range phaseSpecificOptions {
+			if f != nil {
+				f(opts)
+			}
+		}
+		if phase == testreporters.ExecStateChanged {
+			if opts.expectedErrorMessage != "" {
+				logger.Warn().Msg("You are overriding the expected error message for the ExecStateChanged phase. This can cause unexpected behavior and is generally not recommended.")
+			} else if !opts.phaseShouldExist {
+				opts.expectedErrorMessage = "ExecutionStateChanged event not found for seq num"
+			} else {
+				opts.expectedErrorMessage = "ExecutionStateChanged event state - expected"
+			}
+		}
+		if phase != testreporters.ExecStateChanged && opts.phaseShouldExist {
+			logger.Warn().Msg("phaseShouldExist is only applicable to the ExecStateChanged phase. Ignoring for other phases.")
+			opts.phaseShouldExist = false
+		}
+	}
+}
+
+// ValidateRequests validates all sent request events.
+// If you expect a specific phase to fail, you can pass a validationOptionFunc to specify exactly which one.
+// If not, just pass in nil.
+func (lane *CCIPLane) ValidateRequests(validationOptionFuncs ...ValidationOptionFunc) {
+	var opts validationOptions
+	require.LessOrEqual(lane.Test, len(validationOptionFuncs), 1, "only one validation option function can be passed in to ValidateRequests")
+	for _, f := range validationOptionFuncs {
+		if f != nil {
+			f(lane.Logger, &opts)
+		}
+	}
 	for txHash, ccipReqs := range lane.SentReqs {
 		require.Greater(lane.Test, len(ccipReqs), 0, "no ccip requests found for tx hash")
-		execState := testhelpers.ExecutionStateSuccess
-		if !successfulExecution {
-			execState = testhelpers.ExecutionStateFailure
-		}
-		require.NoError(lane.Test, lane.ValidateRequestByTxHash(txHash, execState),
-			"validating request events by tx hash")
+		require.NoError(lane.Test, lane.ValidateRequestByTxHash(txHash, opts), "validating request events by tx hash")
 	}
-	if !successfulExecution {
+	if len(validationOptionFuncs) > 0 {
 		return
 	}
 	// Asserting balances reliably work only for simulated private chains. The testnet contract balances might get updated by other transactions
@@ -2868,11 +2934,14 @@ func (lane *CCIPLane) ValidateRequests(successfulExecution bool) {
 	}
 }
 
-func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, execState testhelpers.MessageExecutionState) error {
+// ValidateRequestByTxHash validates the request events by tx hash.
+// If a phaseExpectedToFail is provided, it will return no error if that phase fails, but will error if it succeeds.
+func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, opts validationOptions) error {
 	var reqStats []*testreporters.RequestStat
 	ccipRequests := lane.SentReqs[txHash]
 	require.Greater(lane.Test, len(ccipRequests), 0, "no ccip requests found for tx hash")
 	txConfirmation := ccipRequests[0].txConfirmationTimestamp
+
 	defer func() {
 		for _, req := range ccipRequests {
 			lane.Reports.UpdatePhaseStatsForReq(req.RequestStat)
@@ -2883,13 +2952,15 @@ func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, execState test
 	}
 
 	msgLogs, ccipSendReqGenAt, err := lane.Source.AssertEventCCIPSendRequested(
-		lane.Logger, txHash.Hex(), lane.ValidationTimeout, txConfirmation, reqStats)
-	if err != nil || msgLogs == nil {
-		return fmt.Errorf("could not validate CCIPSendRequested event: %w", err)
+		lane.Logger, txHash.Hex(), lane.ValidationTimeout, txConfirmation, reqStats,
+	)
+	if shouldReturn, phaseErr := isPhaseValid(lane.Logger, testreporters.CCIPSendRe, opts, err); shouldReturn {
+		return phaseErr
 	}
+
 	sourceLogFinalizedAt, _, err := lane.Source.AssertSendRequestedLogFinalized(lane.Logger, txHash, ccipSendReqGenAt, reqStats)
-	if err != nil {
-		return fmt.Errorf("could not finalize CCIPSendRequested event: %w", err)
+	if shouldReturn, phaseErr := isPhaseValid(lane.Logger, testreporters.SourceLogFinalized, opts, err); shouldReturn {
+		return phaseErr
 	}
 	for _, msgLog := range msgLogs {
 		seqNumber := msgLog.SequenceNumber
@@ -2905,28 +2976,62 @@ func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, execState test
 		}
 
 		err = lane.Dest.AssertSeqNumberExecuted(lane.Logger, seqNumber, lane.ValidationTimeout, sourceLogFinalizedAt, reqStat)
-		if err != nil {
-			return fmt.Errorf("could not validate seq number increase at commit store: %w", err)
+		if shouldReturn, phaseErr := isPhaseValid(lane.Logger, testreporters.Commit, opts, err); shouldReturn {
+			return phaseErr
 		}
 
 		// Verify whether commitStore has accepted the report
 		commitReport, reportAcceptedAt, err := lane.Dest.AssertEventReportAccepted(
-			lane.Logger, seqNumber, lane.ValidationTimeout, sourceLogFinalizedAt, reqStat)
-		if err != nil || commitReport == nil {
-			return fmt.Errorf("could not validate ReportAccepted event: %w", err)
+			lane.Logger, seqNumber, lane.ValidationTimeout, sourceLogFinalizedAt, reqStat,
+		)
+		if shouldReturn, phaseErr := isPhaseValid(lane.Logger, testreporters.Commit, opts, err); shouldReturn {
+			return phaseErr
 		}
 
 		reportBlessedAt, err := lane.Dest.AssertReportBlessed(lane.Logger, seqNumber, lane.ValidationTimeout, *commitReport, reportAcceptedAt, reqStat)
-		if err != nil {
-			return fmt.Errorf("could not validate ReportBlessed event: %w", err)
+		if shouldReturn, phaseErr := isPhaseValid(lane.Logger, testreporters.ReportBlessed, opts, err); shouldReturn {
+			return phaseErr
 		}
+
 		// Verify whether the execution state is changed and the transfer is successful
-		_, err = lane.Dest.AssertEventExecutionStateChanged(lane.Logger, seqNumber, lane.ValidationTimeout, reportBlessedAt, reqStat, execState)
-		if err != nil {
-			return fmt.Errorf("could not validate ExecutionStateChanged event: %w", err)
+		_, err = lane.Dest.AssertEventExecutionStateChanged(
+			lane.Logger, seqNumber,
+			lane.ValidationTimeout,
+			reportBlessedAt,
+			reqStat,
+			testhelpers.ExecutionStateSuccess,
+		)
+		if shouldReturn, phaseErr := isPhaseValid(lane.Logger, testreporters.ExecStateChanged, opts, err); shouldReturn {
+			return phaseErr
 		}
 	}
 	return nil
+}
+
+// isPhaseValid checks if the phase is in a valid state or not given expectations.
+// If `shouldComplete` is true, it means that the phase validation is meant to end and we should return from the calling function.
+func isPhaseValid(
+	logger zerolog.Logger,
+	currentPhase testreporters.Phase,
+	opts validationOptions,
+	err error,
+) (shouldComplete bool, validationError error) {
+	// If no phase is expected to fail or the current phase is not the one expected to fail, we just return what we were given
+	if opts.phaseExpectedToFail == "" || currentPhase != opts.phaseExpectedToFail {
+		return false, err
+	}
+	if err == nil {
+		return true, fmt.Errorf("expected phase '%s' to fail, but it passed", opts.phaseExpectedToFail)
+	}
+	logmsg := logger.Info().Str("Failed with Error", err.Error()).Str("Phase", string(currentPhase))
+	if opts.expectedErrorMessage != "" {
+		if !strings.Contains(err.Error(), opts.expectedErrorMessage) {
+			return true, fmt.Errorf("expected phase '%s' to fail with error message '%s' but got error '%s'", currentPhase, opts.expectedErrorMessage, err.Error())
+		}
+		logmsg.Str("Expected Error Message", opts.expectedErrorMessage)
+	}
+	logmsg.Msg("Expected phase to fail and it did")
+	return true, nil
 }
 
 func (lane *CCIPLane) StartEventWatchers() error {

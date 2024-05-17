@@ -320,8 +320,7 @@ func (c *CCIPE2ELoad) Validate(lggr zerolog.Logger, sendTx *types.Transaction, t
 	// wait for
 	// - CCIPSendRequested Event log to be generated,
 	msgLogs, sourceLogTime, err := c.Lane.Source.AssertEventCCIPSendRequested(lggr, sendTx.Hash().Hex(), c.CallTimeOut, txConfirmationTime, stats)
-
-	if err != nil || msgLogs == nil || len(msgLogs) == 0 {
+	if err != nil {
 		return err
 	}
 

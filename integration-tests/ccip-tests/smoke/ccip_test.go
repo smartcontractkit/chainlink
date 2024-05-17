@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
@@ -81,7 +82,7 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 			tc.lane.RecordStateBeforeTransfer()
 			err := tc.lane.SendRequests(1, gasLimit)
 			require.NoError(t, err)
-			tc.lane.ValidateRequests(true)
+			tc.lane.ValidateRequests()
 		})
 	}
 }
@@ -281,7 +282,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			require.Equal(t, "AggregateValueRateLimitReached", errReason)
 
 			// validate the  successful request was delivered to the destination
-			tc.lane.ValidateRequests(true)
+			tc.lane.ValidateRequests()
 
 			// now set the token pool rate limit
 			if SetRateLimit {
@@ -381,7 +382,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			require.Equal(t, "TokenRateLimitReached", errReason)
 
 			// validate that the successful transfers are reflected in destination
-			tc.lane.ValidateRequests(true)
+			tc.lane.ValidateRequests()
 		})
 	}
 }
@@ -433,7 +434,7 @@ func TestSmokeCCIPMulticall(t *testing.T) {
 			tc.lane.RecordStateBeforeTransfer()
 			err := tc.lane.Multicall(TestCfg.TestGroupInput.NoOfSendsInMulticall, tc.lane.Source.Common.MulticallContract)
 			require.NoError(t, err)
-			tc.lane.ValidateRequests(true)
+			tc.lane.ValidateRequests()
 		})
 	}
 }
@@ -484,7 +485,7 @@ func TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas(t *te
 			// send with insufficient gas for ccip-receive to fail
 			err := tc.lane.SendRequests(1, big.NewInt(0))
 			require.NoError(t, err)
-			tc.lane.ValidateRequests(false)
+			tc.lane.ValidateRequests(actions.ExpectPhaseToFail(testreporters.ExecStateChanged, actions.ShouldExist()))
 			// wait for events
 			err = tc.lane.Dest.Common.ChainClient.WaitForEvents()
 			require.NoError(t, err)
