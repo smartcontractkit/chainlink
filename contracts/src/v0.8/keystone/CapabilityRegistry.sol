@@ -175,6 +175,14 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param isPublic True if the newly created DON is public
   event DONAdded(uint256 donId, bool isPublic);
 
+  /// @notice This event is emitted when a DON is removed
+  /// @param donId The ID of the removed DON
+  event DONRemoved(uint32 donId);
+
+  /// @notice This error is emitted when a DON does not exist
+  /// @param donId The ID of the nonexistent DON
+  error DONDoesNotExist(uint32 donId);
+
   /// @notice This error is thrown when trying to set the node's
   /// signer address to zero
   error InvalidNodeSigner();
@@ -557,6 +565,20 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     s_dons[id].configCount = configCount;
     ++s_donId;
     emit DONAdded(id, isPublic);
+  }
+
+  /// @notice Removes DONs from the Capability Registry
+  /// @param donIds The IDs of the DON to be removed
+  function removeDONs(uint32[] calldata donIds) external onlyOwner {
+    for (uint256 i; i < donIds.length; ++i) {
+      uint32 donId = donIds[i];
+      DON storage don = s_dons[donId];
+
+      // DON config count starts at index 1
+      if (don.configCount == 0) revert DONDoesNotExist(donId);
+      delete s_dons[donId];
+      emit DONRemoved(donId);
+    }
   }
 
   /// @notice Gets DON's data
