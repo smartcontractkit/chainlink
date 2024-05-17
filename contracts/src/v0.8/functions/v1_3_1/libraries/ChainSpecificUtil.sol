@@ -36,7 +36,7 @@ library ChainSpecificUtil {
   uint256 private constant BASE_SEPOLIA_CHAIN_ID = 84532;
   // ------------ End Optimism Constants ------------
 
-  /// @notice Returns the L1 fees in wei that will be paid for L2 chains
+  /// @notice Returns the upper limit estimate of the L1 fees in wei that will be paid for L2 chains
   /// @notice based on the size of the transaction data and the current gas conditions.
   function _getL1FeeUpperLimit(uint256 dataSizeBytes) internal view returns (uint256 l1FeeWei) {
     uint256 chainid = block.chainid;

@@ -10,7 +10,7 @@ import {FunctionsResponse} from "../v1_0_0/libraries/FunctionsResponse.sol";
 
 import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
-import {ChainSpecificUtil} from "../v1_1_0/libraries/ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "./libraries/ChainSpecificUtil.sol";
 
 /// @title Functions Billing contract
 /// @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
@@ -197,13 +197,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       gasPriceWei = s_config.minimumEstimateGasPriceWei;
     }
 
-    uint256 gasPriceWithOverestimation = gasPriceWei +
-      ((gasPriceWei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
-    /// @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
-
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
     uint256 l1FeeWei = ChainSpecificUtil._getL1FeeUpperLimit(s_config.transmitTxSizeBytes);
-    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
+
+    uint256 totalFeeWei = (gasPriceWei * executionGas) + l1FeeWei;
+    uint256 totalFeeWeiWithOverestimate = totalFee + ((totalFee * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
+
+    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei(totalFeeWeiWithOverestimate);
 
     uint96 feesJuels = uint96(donFeeJuels) + uint96(adminFeeJuels) + uint96(operationFeeJuels);
 
