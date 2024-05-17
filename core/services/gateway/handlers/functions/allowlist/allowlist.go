@@ -297,7 +297,7 @@ func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, to
 		}
 
 		if updatedAllowedSenderCount > currentAllowedSenderCount {
-			lastBatchIdxStart := updatedAllowedSenderCount - (updatedAllowedSenderCount - currentAllowedSenderCount)
+			lastBatchIdxStart := currentAllowedSenderCount
 			lastBatchIdxEnd := updatedAllowedSenderCount - 1
 			currentAllowedSenderCount = updatedAllowedSenderCount
 
