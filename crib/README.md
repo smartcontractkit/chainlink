@@ -3,6 +3,7 @@
 CRIB is a devspace configuration to launch chainlink cluster for system level tests
 
 Install `kubefwd` (no nixpkg for it yet, planned)
+test
 
 ```
 brew install txn2/tap/kubefwd
