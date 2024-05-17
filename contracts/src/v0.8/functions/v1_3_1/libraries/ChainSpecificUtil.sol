@@ -11,12 +11,14 @@ library ChainSpecificUtil {
   /// @dev ARB_L1_FEE_DATA_PADDING_SIZE is the L1 data padding for Optimism
   uint256 private const ARB_L1_FEE_DATA_PADDING_SIZE = 140;
   /// @dev ARBGAS_ADDR is the address of the ArbGasInfo precompile on Arbitrum.
+  /// @dev reference: https://github.com/OffchainLabs/nitro/blob/v2.0.14/contracts/src/precompiles/ArbGasInfo.sol#L10
   address private constant ARBGAS_ADDR = address(0x000000000000000000000000000000000000006C);
   ArbGasInfo private constant ARBGAS = ArbGasInfo(ARBGAS_ADDR);
 
   uint256 private constant ARB_MAINNET_CHAIN_ID = 42161;
   uint256 private constant ARB_GOERLI_TESTNET_CHAIN_ID = 421613;
   uint256 private constant ARB_SEPOLIA_TESTNET_CHAIN_ID = 421614;
+
   // ------------ End Arbitrum Constants ------------
 
   // ------------ Start Optimism Constants ------------
@@ -34,6 +36,7 @@ library ChainSpecificUtil {
   uint256 private constant BASE_MAINNET_CHAIN_ID = 8453;
   uint256 private constant BASE_GOERLI_CHAIN_ID = 84531;
   uint256 private constant BASE_SEPOLIA_CHAIN_ID = 84532;
+
   // ------------ End Optimism Constants ------------
 
   /// @notice Returns the upper limit estimate of the L1 fees in wei that will be paid for L2 chains
