@@ -280,7 +280,7 @@ KeepEnvAlive = false # same as above
 CommitAndExecuteOnSameDON = true # same as above
 BiDirectionalLane = true # same as above
 NoOfCommitNodes = 5 # same as above
-PhaseTimeout = '50m' # same as above
+PhaseTimeout = '10m' # same as above
 LocalCluster = false # same as above
 ExistingDeployment = false # same as above
 ReuseContracts = true            # same as above
@@ -289,6 +289,9 @@ NoOfRoutersPerPair = 1  # same as above
 MulticallInOneTx = false # same as above
 NoOfSendsInMulticall = 5    # same as above
 NoOfNetworks = 2   # same as above
+
+[CCIP.Groups.load.OffRampConfig]
+BatchGasLimit = 11000000
 
 [CCIP.Groups.load.LoadProfile]
 RequestPerUnitTime = [1] # number of ccip requests to be sent per unit time
