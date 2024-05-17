@@ -60,6 +60,9 @@ var (
 			"memory": "6Gi",
 		},
 	}
+	// to set default values through test config use sync.once
+	setContractVersion sync.Once
+	setOCRParams       sync.Once
 )
 
 type NetworkPair struct {
@@ -383,15 +386,19 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 		TestGroupInput:      groupCfg,
 		GethResourceProfile: GethResourceProfile,
 	}
-	err := ccipTestConfig.SetContractVersion()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = ccipTestConfig.SetOCRParams()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = ccipTestConfig.SetNetworkPairs(lggr)
+	setContractVersion.Do(func() {
+		err := ccipTestConfig.SetContractVersion()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	setOCRParams.Do(func() {
+		err := ccipTestConfig.SetOCRParams()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	err := ccipTestConfig.SetNetworkPairs(lggr)
 	if err != nil {
 		t.Fatal(err)
 	}

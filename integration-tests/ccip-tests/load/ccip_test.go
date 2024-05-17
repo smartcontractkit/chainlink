@@ -280,6 +280,7 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 			testArgs.TestCfg.TestGroupInput.LoadProfile.TestDuration = config.MustNewDuration(5 * time.Minute)
 			testArgs.TestCfg.TestGroupInput.LoadProfile.TimeUnit = config.MustNewDuration(1 * time.Second)
 			testArgs.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime = []int64{2}
+			testArgs.TestCfg.TestGroupInput.PhaseTimeout = config.MustNewDuration(15 * time.Minute)
 
 			testArgs.Setup()
 			// if the test runs on remote runner
