@@ -53,6 +53,7 @@ type CLTestEnvBuilder struct {
 	clNodeConfig                    *chainlink.Config
 	secretsConfig                   string
 	clNodesCount                    int
+	clNodesOpts                     []func(*ClNode)
 	customNodeCsaKeys               []string
 	defaultNodeCsaKeys              []string
 	l                               zerolog.Logger
@@ -160,6 +161,11 @@ func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 
 func (b *CLTestEnvBuilder) WithTestConfig(cfg ctf_config.GlobalTestConfig) *CLTestEnvBuilder {
 	b.testConfig = cfg
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuilder {
+	b.clNodesOpts = append(b.clNodesOpts, opt...)
 	return b
 }
 
@@ -440,7 +446,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 
-		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig)
+		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -570,7 +576,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 
-		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig)
+		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}
