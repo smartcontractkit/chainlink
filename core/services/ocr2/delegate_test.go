@@ -67,10 +67,17 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = tc.sendingKeys
 		jb.ForwardingAllowed = tc.forwardingEnabled
 
+		args := []interface{}{tc.getForwarderForEOAArg}
+		getForwarderMethodName := "GetForwarderForEOA"
+		if tc.pluginType == types.Median {
+			getForwarderMethodName = "GetForwarderForEOAOCR2Feeds"
+			args = append(args, common.HexToAddress(jb.OCR2OracleSpec.ContractID))
+		}
+
 		if tc.forwardingEnabled && tc.getForwarderForEOAErr {
-			txManager.Mock.On("GetForwarderForEOA", tc.getForwarderForEOAArg).Return(common.HexToAddress("0x0"), errors.New("random error")).Once()
+			txManager.Mock.On(getForwarderMethodName, args...).Return(common.HexToAddress("0x0"), errors.New("random error")).Once()
 		} else if tc.forwardingEnabled {
-			txManager.Mock.On("GetForwarderForEOA", tc.getForwarderForEOAArg).Return(common.HexToAddress(tc.expectedTransmitterID), nil).Once()
+			txManager.Mock.On(getForwarderMethodName, args...).Return(common.HexToAddress(tc.expectedTransmitterID), nil).Once()
 		}
 	}
 

@@ -2,7 +2,6 @@ package smoke
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"math/big"
 	"net/http"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
