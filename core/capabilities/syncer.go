@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -97,7 +97,7 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		return err
 	}
 	// NOTE: temporary hard-coded capabilities
-	capId := "mercury-trigger"
+	capId := "streams-trigger"
 	triggerInfo := capabilities.CapabilityInfo{
 		ID:             capId,
 		CapabilityType: capabilities.CapabilityTypeTrigger,
@@ -233,7 +233,7 @@ func (m *mockMercuryDataProducer) loop() {
 			prices[i].Add(prices[i], big.NewInt(1))
 		}
 
-		reports := []mercury.FeedReport{
+		reports := []datastreams.FeedReport{
 			{
 				FeedID:               "0x1111111111111111111100000000000000000000000000000000000000000000",
 				FullReport:           []byte{0x11, 0xaa, 0xbb, 0xcc},
