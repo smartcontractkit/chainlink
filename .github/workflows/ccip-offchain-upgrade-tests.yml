@@ -249,7 +249,7 @@ jobs:
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
         env:
           BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
           TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
@@ -266,7 +266,7 @@ jobs:
           RR_CPU: 4
           BASE64_NETWORK_CONFIG: ${{ secrets.BASE64_NETWORK_CONFIG }}
         with:
-          test_command_to_run: cd ./integration-tests/ccip-tests && go test -timeout 30m -count=1 -json -run ${{ matrix.product.run }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests/ccip-tests && go test -timeout 30m -count=1 -json -run ${{ matrix.product.run }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}/w0i8p0z9/chainlink-ccip # releases are published to public registry
           cl_image_tag: ${{ env.RELEASE_TAG }}
@@ -375,7 +375,7 @@ jobs:
           grafanaDashboardUrl: "/d/6vjVx-1V8/ccip-long-running-tests"
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
         env:
           BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
           TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
@@ -386,7 +386,7 @@ jobs:
           RR_MEM: 8Gi
           RR_CPU: 4
         with:
-          test_command_to_run: cd ./integration-tests/ccip-tests && go test -timeout 1h -count=1 -json -run ${{ matrix.product.run }} ./load 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests/ccip-tests && go test -timeout 1h -count=1 -json -run ${{ matrix.product.run }} ./load 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
