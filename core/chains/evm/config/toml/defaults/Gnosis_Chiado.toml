@@ -3,6 +3,10 @@ ChainID = '10200'
 FinalityDepth = 100
 ChainType = 'gnosis'
 LogPollInterval = '5s'
+FinalizedBlockOffset = 5
+
+[EVM.NodePool]
+EnforceRepeatableRead = true
 
 [GasEstimator]
 EIP1559DynamicFees = true
