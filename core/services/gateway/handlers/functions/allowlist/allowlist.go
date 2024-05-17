@@ -256,7 +256,6 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 // the iteration order will give priority to new allowed senders, if new addresses are added while iterating over the batches
 // an extra step will be executed to keep this up to date.
 func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, tosContract functions_allow_list.TermsOfServiceAllowListInterface, blockNum *big.Int) error {
-
 	// currentAllowedSenderList will be the starting point from which we will be adding the new allowed senders
 	currentAllowedSenderList := make(map[common.Address]struct{}, 0)
 	if cal := a.allowlist.Load(); cal != nil {

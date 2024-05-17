@@ -18,7 +18,6 @@ import (
 )
 
 func TestUpdateAllowedSendersInBatches(t *testing.T) {
-
 	t.Run("OK-simple_update_in_batches", func(t *testing.T) {
 		ctx := context.Background()
 		config := OnchainAllowlistConfig{
@@ -108,7 +107,6 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 		// with the orm mock we can validate the actual order in which the allowlist is fetched giving priority to newest addresses
 		orm := amocks.NewORM(t)
 		firstCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[40:50]).Times(1).Run(func(args mock.Arguments) {
-
 			// after the first call we update the tosContract by adding a new address
 			addr := testutils.NewAddress()
 			allowlist = append(allowlist, addr)
