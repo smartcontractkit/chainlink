@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -21,8 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
 )
 
 // CapabilityResponseType indicates whether remote response requires
@@ -93,6 +98,7 @@ type registrySyncer struct {
 	dispatcher      remotetypes.Dispatcher
 	subServices     []services.Service
 	lggr            logger.Logger
+	client          evmclient.Client
 }
 
 var _ services.Service = &registrySyncer{}
@@ -111,16 +117,22 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 	},
 }
 
+var CALLER_ADDRESS = types.MustEIP55Address("0x0000000000000000000000000000000000000001").Address()
+
+// Should extract chainReader from relayer and pass it to the syncer
 // RegistrySyncer updates local Registry to match its onchain counterpart
 func NewRegistrySyncer(
 	peerWrapper p2ptypes.PeerWrapper,
-	registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger, onchainRegistry *onchainCapabilityRegistry) *registrySyncer {
+	registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger, onchainRegistry *onchainCapabilityRegistry,
+	client evmclient.Client,
+) *registrySyncer {
 	return &registrySyncer{
 		peerWrapper:     peerWrapper,
 		registry:        registry,
 		dispatcher:      dispatcher,
 		lggr:            lggr,
 		onchainRegistry: onchainRegistry,
+		client:          client,
 	}
 }
 
@@ -237,7 +249,42 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 			return err
 		}
 	}
+
+	capabilityRegistry, err := kcr.NewCapabilityRegistry(s.onchainRegistry.address, s.client)
+
+	if err != nil {
+		s.lggr.Errorw("failed to create capability registry", "error", err)
+		return err
+	}
+
+	capabilities, err := capabilityRegistry.GetCapabilities(&bind.CallOpts{})
+	if err != nil {
+		s.lggr.Errorw("failed to get capabilities from on-chain registry", "error", err)
+		return err
+	}
+
+	for _, capability := range capabilities {
+		capabilityID, err := capabilityRegistry.GetHashedCapabilityId(&bind.CallOpts{}, capability.LabelledName, capability.Version)
+		if err != nil {
+			s.lggr.Errorw("failed to get capability ID", "error", err)
+			return err
+		}
+
+		capabilityStruct := Capability{
+			ID:                    capabilityID,
+			Name:                  capability.LabelledName,
+			Version:               capability.Version,
+			ResponseType:          CapabilityResponseType(capability.ResponseType),
+			ConfigurationContract: capability.ConfigurationContract,
+		}
+		s.lggr.Infof("capability struct %v", capabilityStruct)
+
+		s.onchainRegistry.capabilities = append(s.onchainRegistry.capabilities, capabilityStruct)
+	}
+
+	s.lggr.Infof("capabilities, %v", capabilities)
 	s.lggr.Info("registry syncer started")
+
 	return nil
 }
 

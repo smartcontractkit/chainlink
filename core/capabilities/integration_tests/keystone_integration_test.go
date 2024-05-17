@@ -13,7 +13,7 @@ import (
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	utils "github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/internal"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
@@ -46,9 +46,15 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 	registry.On("Add", mock.Anything, mock.Anything).Return(nil)
 	dispatcher := remoteMocks.NewDispatcher(t)
 	dispatcher.On("SetReceiver", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	onchainRegistry := coreCapabilities.NewOnchainCapabilityRegistry(types.MustEIP55Address("0x0000000000000000000000000000000000000001").Address(), lggr)
 
-	syncer := coreCapabilities.NewRegistrySyncer(wrapper, registry, dispatcher, lggr, onchainRegistry)
+	onchainRegistry := coreCapabilities.NewOnchainCapabilityRegistry(capabilityRegistry.Address(), lggr)
+
+	newClient := client.NewSimulatedBackendClient(t, simulatedBackend, testutils.SimulatedChainID)
+
+	syncer := coreCapabilities.NewRegistrySyncer(wrapper, registry, dispatcher, lggr, onchainRegistry, newClient)
 	require.NoError(t, syncer.Start(ctx))
+
+	// Do assertions here
+
 	require.NoError(t, syncer.Close())
 }

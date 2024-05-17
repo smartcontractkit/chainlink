@@ -1407,7 +1407,8 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 }
 
 type Capabilities struct {
-	Peering P2P `toml:",omitempty"`
+	Peering                          P2P    `toml:",omitempty"`
+	OnchainCapabilityRegistryAddress string `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
