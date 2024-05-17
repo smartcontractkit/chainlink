@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-// Copied from the implementation contract for https://optimistic.etherscan.io/address/0x4200000000000000000000000000000000000015#readProxyContract
-// https://optimistic.etherscan.io/address/0x07dbe8500fc591d1852b76fee44d5a05e13097ff#code
-
-import { ISemver } from "./ISemver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
 /// @custom:proxied
 /// @custom:predeploy 0x4200000000000000000000000000000000000015
