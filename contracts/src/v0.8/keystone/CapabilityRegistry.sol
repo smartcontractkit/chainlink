@@ -268,7 +268,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   EnumerableSet.Bytes32Set private s_deprecatedHashedCapabilityIds;
 
   /// @notice Encoded node signer addresses
-  EnumerableSet.Bytes32Set private s_encodedNodeSignerAddresses;
+  EnumerableSet.Bytes32Set private s_nodeSigners;
 
   /// @notice Mapping of node operators
   mapping(uint256 nodeOperatorId => NodeOperator nodeOperator) private s_nodeOperators;
@@ -357,11 +357,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      bool nodeExists = bytes32(s_nodes[node.p2pId].signer) != bytes32("");
+      bool nodeExists = s_nodes[node.p2pId].signer != bytes32("");
       if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
-      if (bytes32(node.signer) == bytes32("") || s_encodedNodeSignerAddresses.contains(node.signer))
-        revert InvalidNodeSigner();
+      if (bytes32(node.signer) == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
 
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
@@ -377,7 +376,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
       s_nodes[node.p2pId].p2pId = node.p2pId;
       s_nodes[node.p2pId].signer = node.signer;
-      s_encodedNodeSignerAddresses.add(node.signer);
+      s_nodeSigners.add(node.signer);
       emit NodeAdded(node.p2pId, node.nodeOperatorId, node.signer);
     }
   }
@@ -396,7 +395,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[s_nodes[p2pId].nodeOperatorId];
 
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
-      s_encodedNodeSignerAddresses.remove(s_nodes[p2pId].signer);
+      s_nodeSigners.remove(s_nodes[p2pId].signer);
       delete s_nodes[p2pId];
       emit NodeRemoved(p2pId);
     }
@@ -414,12 +413,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      bool nodeExists = bytes32(s_nodes[node.p2pId].signer) != bytes32("");
+      bool nodeExists = s_nodes[node.p2pId].signer != bytes32("");
       if (!nodeExists) revert InvalidNodeP2PId(node.p2pId);
 
       if (
         bytes32(node.signer) == bytes32("") ||
-        (s_nodes[node.p2pId].signer != node.signer && s_encodedNodeSignerAddresses.contains(node.signer))
+        (s_nodes[node.p2pId].signer != node.signer && s_nodeSigners.contains(node.signer))
       ) revert InvalidNodeSigner();
 
       bytes32[] memory supportedCapabilityIds = node.hashedCapabilityIds;
@@ -439,9 +438,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bytes32 previousSigner = s_nodes[node.p2pId].signer;
 
       if (s_nodes[node.p2pId].signer != node.signer) {
-        s_encodedNodeSignerAddresses.remove(previousSigner);
+        s_nodeSigners.remove(previousSigner);
         s_nodes[node.p2pId].signer = node.signer;
-        s_encodedNodeSignerAddresses.add(node.signer);
+        s_nodeSigners.add(node.signer);
       }
       emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
     }
