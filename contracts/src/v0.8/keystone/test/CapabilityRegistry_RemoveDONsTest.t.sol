@@ -86,11 +86,13 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
 
     (
       uint32 id,
+      uint32 configCount,
       bool isPublic,
       bytes32[] memory donNodes,
       CapabilityRegistry.CapabilityConfiguration[] memory donCapabilityConfigs
     ) = s_capabilityRegistry.getDON(DON_ID);
     assertEq(id, 0);
+    assertEq(configCount, 0);
     assertEq(isPublic, false);
     assertEq(donCapabilityConfigs.length, 0);
     assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), bytes(""));

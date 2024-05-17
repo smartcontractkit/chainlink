@@ -5,8 +5,8 @@ import {BaseTest} from "./BaseTest.t.sol";
 
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
-contract CapabilityRegistry_AddDONTest is BaseTest {
-  event DONAdded(uint256 donId, bool isPublic);
+contract CapabilityRegistry_UpdateDONTest is BaseTest {
+  event DONUpdated(uint256 donId, bool isPublic);
   event ConfigSet(uint32 donId, uint32 configCount);
 
   uint32 private constant DON_ID = 1;
@@ -48,6 +48,17 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     s_capabilityRegistry.addNodes(nodes);
 
     changePrank(ADMIN);
+
+    bytes32[] memory donNodes = new bytes32[](1);
+    donNodes[0] = P2P_ID;
+
+    CapabilityRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
+      capabilityId: s_basicHashedCapabilityId,
+      config: CONFIG
+    });
+    s_capabilityRegistry.addDON(donNodes, capabilityConfigs, true);
   }
 
   function test_RevertWhen_CalledByNonAdmin() public {
@@ -61,7 +72,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
       capabilityId: s_basicHashedCapabilityId,
       config: CONFIG
     });
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, true);
   }
 
   function test_RevertWhen_NodeDoesNotSupportCapability() public {
@@ -80,7 +91,20 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
         s_capabilityWithConfigurationContractId
       )
     );
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, true);
+  }
+
+  function test_RevertWhen_DONDoesNotExist() public {
+    uint32 nonExistentDONId = 10;
+    bytes32[] memory nodes = new bytes32[](1);
+    CapabilityRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
+      capabilityId: s_basicHashedCapabilityId,
+      config: CONFIG
+    });
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.DONDoesNotExist.selector, nonExistentDONId));
+    s_capabilityRegistry.updateDON(nonExistentDONId, nodes, capabilityConfigs, true);
   }
 
   function test_RevertWhen_CapabilityDoesNotExist() public {
@@ -94,7 +118,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     vm.expectRevert(
       abi.encodeWithSelector(CapabilityRegistry.CapabilityDoesNotExist.selector, s_nonExistentHashedCapabilityId)
     );
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, true);
   }
 
   function test_RevertWhen_DuplicateCapabilityAdded() public {
@@ -115,7 +139,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     vm.expectRevert(
       abi.encodeWithSelector(CapabilityRegistry.DuplicateDONCapability.selector, 1, s_basicHashedCapabilityId)
     );
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, true);
   }
 
   function test_RevertWhen_DeprecatedCapabilityAdded() public {
@@ -130,7 +154,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({capabilityId: capabilityId, config: CONFIG});
 
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.CapabilityIsDeprecated.selector, capabilityId));
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, true);
   }
 
   function test_RevertWhen_DuplicateNodeAdded() public {
@@ -145,25 +169,34 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
       config: CONFIG
     });
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.DuplicateDONNode.selector, 1, P2P_ID));
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, true);
   }
 
-  function test_AddDON() public {
+  function test_UpdatesDON() public {
     bytes32[] memory nodes = new bytes32[](1);
     nodes[0] = P2P_ID;
 
     CapabilityRegistry.CapabilityConfiguration[]
-      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
+      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](2);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
       config: CONFIG
     });
+    capabilityConfigs[1] = CapabilityRegistry.CapabilityConfiguration({
+      capabilityId: s_capabilityWithConfigurationContractId,
+      config: CONFIG
+    });
+
+    (, uint32 oldConfigCount, , , ) = s_capabilityRegistry.getDON(DON_ID);
+
+    bool expectedDONIsPublic = false;
+    uint32 expectedConfigCount = oldConfigCount + 1;
 
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit ConfigSet(DON_ID, 1);
+    emit ConfigSet(DON_ID, expectedConfigCount);
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit DONAdded(DON_ID, true);
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    emit DONUpdated(DON_ID, expectedDONIsPublic);
+    s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, expectedDONIsPublic);
 
     (
       uint32 id,
@@ -173,8 +206,8 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
       CapabilityRegistry.CapabilityConfiguration[] memory donCapabilityConfigs
     ) = s_capabilityRegistry.getDON(DON_ID);
     assertEq(id, DON_ID);
-    assertEq(configCount, 1);
-    assertEq(isPublic, true);
+    assertEq(configCount, expectedConfigCount);
+    assertEq(isPublic, false);
     assertEq(donCapabilityConfigs.length, capabilityConfigs.length);
     assertEq(donCapabilityConfigs[0].capabilityId, s_basicHashedCapabilityId);
     assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), CONFIG);
