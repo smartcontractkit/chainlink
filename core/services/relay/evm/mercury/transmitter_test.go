@@ -3,6 +3,7 @@ package mercury
 import (
 	"context"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -56,8 +58,8 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			require.NoError(t, err)
 
 			// ensure it was added to the queue
-			require.Equal(t, mt.servers[sURL].q.pq.Len(), 1)
-			assert.Subset(t, mt.servers[sURL].q.pq.Pop().(*Transmission).Req.Payload, report)
+			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
 		})
 		t.Run("v2 report transmission successfully enqueued", func(t *testing.T) {
 			report := sampleV2Report
@@ -70,8 +72,8 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			require.NoError(t, err)
 
 			// ensure it was added to the queue
-			require.Equal(t, mt.servers[sURL].q.pq.Len(), 1)
-			assert.Subset(t, mt.servers[sURL].q.pq.Pop().(*Transmission).Req.Payload, report)
+			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
 		})
 		t.Run("v3 report transmission successfully enqueued", func(t *testing.T) {
 			report := sampleV3Report
@@ -84,8 +86,8 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			require.NoError(t, err)
 
 			// ensure it was added to the queue
-			require.Equal(t, mt.servers[sURL].q.pq.Len(), 1)
-			assert.Subset(t, mt.servers[sURL].q.pq.Pop().(*Transmission).Req.Payload, report)
+			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
 		})
 		t.Run("v3 report transmission sent only to trigger service", func(t *testing.T) {
 			report := sampleV3Report
@@ -98,7 +100,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 			require.NoError(t, err)
 			// queue is empty
-			require.Equal(t, mt.servers[sURL].q.pq.Len(), 0)
+			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 0)
 		})
 	})
 
@@ -119,12 +121,12 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 		require.NoError(t, err)
 
 		// ensure it was added to the queue
-		require.Equal(t, mt.servers[sURL].q.pq.Len(), 1)
-		assert.Subset(t, mt.servers[sURL].q.pq.Pop().(*Transmission).Req.Payload, report)
-		require.Equal(t, mt.servers[sURL2].q.pq.Len(), 1)
-		assert.Subset(t, mt.servers[sURL2].q.pq.Pop().(*Transmission).Req.Payload, report)
-		require.Equal(t, mt.servers[sURL3].q.pq.Len(), 1)
-		assert.Subset(t, mt.servers[sURL3].q.pq.Pop().(*Transmission).Req.Payload, report)
+		require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+		assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
+		require.Equal(t, mt.servers[sURL2].q.(*transmitQueue).pq.Len(), 1)
+		assert.Subset(t, mt.servers[sURL2].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
+		require.Equal(t, mt.servers[sURL3].q.(*transmitQueue).pq.Len(), 1)
+		assert.Subset(t, mt.servers[sURL3].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
 	})
 }
 
@@ -412,4 +414,167 @@ func Test_sortReportsLatestFirst(t *testing.T) {
 	assert.Equal(t, int64(0), reports[5].CurrentBlockNumber)
 	assert.Nil(t, reports[6])
 	assert.Nil(t, reports[7])
+}
+
+type mockQ struct {
+	ch chan *Transmission
+}
+
+func newMockQ() *mockQ {
+	return &mockQ{make(chan *Transmission, 100)}
+}
+
+func (m *mockQ) Start(context.Context) error { return nil }
+func (m *mockQ) Close() error {
+	m.ch <- nil
+	return nil
+}
+func (m *mockQ) Ready() error                   { return nil }
+func (m *mockQ) HealthReport() map[string]error { return nil }
+func (m *mockQ) Name() string                   { return "" }
+func (m *mockQ) BlockingPop() (t *Transmission) {
+	val := <-m.ch
+	return val
+}
+func (m *mockQ) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {
+	m.ch <- &Transmission{Req: req, ReportCtx: reportCtx}
+	return true
+}
+func (m *mockQ) Init(transmissions []*Transmission) {}
+func (m *mockQ) IsEmpty() bool                      { return false }
+
+func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
+	feedIDHex := utils.NewHash().Hex()
+	lggr := logger.TestLogger(t)
+	c := &mocks.MockWSRPCClient{}
+	db := pgtest.NewSqlxDB(t)
+	orm := NewORM(db)
+	pm := NewPersistenceManager(lggr, sURL, orm, 0, 0, 0, 0)
+	cfg := mockCfg{}
+
+	s := newServer(lggr, cfg, c, pm, sURL, feedIDHex)
+
+	req := &pb.TransmitRequest{
+		Payload:      []byte{1, 2, 3},
+		ReportFormat: 32,
+	}
+
+	t.Run("pulls from queue and transmits successfully", func(t *testing.T) {
+		transmit := make(chan *pb.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+			transmit <- in
+			return &pb.TransmitResponse{Code: 0, Error: ""}, nil
+		}
+		q := newMockQ()
+		s.q = q
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+
+		go s.runQueueLoop(nil, wg, feedIDHex)
+
+		q.Push(req, sampleReportContext)
+
+		select {
+		case tr := <-transmit:
+			assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
+			assert.Equal(t, 32, int(tr.ReportFormat))
+			// case <-time.After(testutils.WaitTimeout(t)):
+		case <-time.After(1 * time.Second):
+			t.Fatal("expected a transmit request to be sent")
+		}
+
+		q.Close()
+		wg.Wait()
+	})
+
+	t.Run("on duplicate, success", func(t *testing.T) {
+		transmit := make(chan *pb.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+			transmit <- in
+			return &pb.TransmitResponse{Code: DuplicateReport, Error: ""}, nil
+		}
+		q := newMockQ()
+		s.q = q
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+
+		go s.runQueueLoop(nil, wg, feedIDHex)
+
+		q.Push(req, sampleReportContext)
+
+		select {
+		case tr := <-transmit:
+			assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
+			assert.Equal(t, 32, int(tr.ReportFormat))
+			// case <-time.After(testutils.WaitTimeout(t)):
+		case <-time.After(1 * time.Second):
+			t.Fatal("expected a transmit request to be sent")
+		}
+
+		q.Close()
+		wg.Wait()
+	})
+	t.Run("on server-side error, does not retry", func(t *testing.T) {
+		transmit := make(chan *pb.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+			transmit <- in
+			return &pb.TransmitResponse{Code: DuplicateReport, Error: ""}, nil
+		}
+		q := newMockQ()
+		s.q = q
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+
+		go s.runQueueLoop(nil, wg, feedIDHex)
+
+		q.Push(req, sampleReportContext)
+
+		select {
+		case tr := <-transmit:
+			assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
+			assert.Equal(t, 32, int(tr.ReportFormat))
+			// case <-time.After(testutils.WaitTimeout(t)):
+		case <-time.After(1 * time.Second):
+			t.Fatal("expected a transmit request to be sent")
+		}
+
+		q.Close()
+		wg.Wait()
+	})
+	t.Run("on transmit error, retries", func(t *testing.T) {
+		transmit := make(chan *pb.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+			transmit <- in
+			return &pb.TransmitResponse{}, errors.New("transmission error")
+		}
+		q := newMockQ()
+		s.q = q
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		stopCh := make(chan struct{}, 1)
+
+		go s.runQueueLoop(stopCh, wg, feedIDHex)
+
+		q.Push(req, sampleReportContext)
+
+		cnt := 0
+	Loop:
+		for {
+			select {
+			case tr := <-transmit:
+				assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
+				assert.Equal(t, 32, int(tr.ReportFormat))
+				if cnt > 2 {
+					break Loop
+				}
+				cnt++
+				// case <-time.After(testutils.WaitTimeout(t)):
+			case <-time.After(1 * time.Second):
+				t.Fatal("expected 3 transmit requests to be sent")
+			}
+		}
+
+		close(stopCh)
+		wg.Wait()
+	})
 }

@@ -17,8 +17,10 @@ func logRandRequest(
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
 	keyhash [32]byte,
+	keyNum int,
 ) {
 	l.Info().
+		Int("KeyNum", keyNum).
 		Str("Consumer", consumer).
 		Str("Coordinator", coordinator).
 		Uint64("SubID", subID).
