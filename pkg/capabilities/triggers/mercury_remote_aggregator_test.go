@@ -35,45 +35,35 @@ func (c testMercuryCodec) Wrap(reports []datastreams.FeedReport) (values.Value, 
 
 func TestMercuryRemoteAggregator(t *testing.T) {
 	agg := NewMercuryRemoteAggregator(testMercuryCodec{}, logger.Nop())
-	rs := [][]byte{{1, 2, 3}}
-	ss := [][]byte{{4, 5, 6}}
-	vs := []byte{7, 8, 9}
+	signatures := [][]byte{{1, 2, 3}}
 
 	feed1Old := datastreams.FeedReport{
 		FeedID:               feedOne,
 		BenchmarkPrice:       big.NewInt(100).Bytes(),
 		ObservationTimestamp: 100,
 		FullReport:           []byte(rawReport1),
-		Rs:                   rs,
-		Ss:                   ss,
-		Vs:                   vs,
+		Signatures:           signatures,
 	}
 	feed1New := datastreams.FeedReport{
 		FeedID:               feedOne,
 		BenchmarkPrice:       big.NewInt(200).Bytes(),
 		ObservationTimestamp: 200,
 		FullReport:           []byte(rawReport1),
-		Rs:                   rs,
-		Ss:                   ss,
-		Vs:                   vs,
+		Signatures:           signatures,
 	}
 	feed2Old := datastreams.FeedReport{
 		FeedID:               feedTwo,
 		BenchmarkPrice:       big.NewInt(300).Bytes(),
 		ObservationTimestamp: 300,
 		FullReport:           []byte(rawReport2),
-		Rs:                   rs,
-		Ss:                   ss,
-		Vs:                   vs,
+		Signatures:           signatures,
 	}
 	feed2New := datastreams.FeedReport{
 		FeedID:               feedTwo,
 		BenchmarkPrice:       big.NewInt(400).Bytes(),
 		ObservationTimestamp: 400,
 		FullReport:           []byte(rawReport2),
-		Rs:                   rs,
-		Ss:                   ss,
-		Vs:                   vs,
+		Signatures:           signatures,
 	}
 
 	node1Resp, err := wrapReports([]datastreams.FeedReport{feed1Old, feed2New}, eventId, 400)

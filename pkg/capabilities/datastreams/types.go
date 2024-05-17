@@ -56,9 +56,7 @@ func FeedIDFromBytes(b [FeedIDBytesLen]byte) FeedID {
 type FeedReport struct {
 	FeedID     string
 	FullReport []byte
-	Rs         [][]byte
-	Ss         [][]byte
-	Vs         []byte
+	Signatures [][]byte
 
 	// Fields below are derived from FullReport
 	// NOTE: BenchmarkPrice is a byte representation of big.Int. We can't use big.Int
