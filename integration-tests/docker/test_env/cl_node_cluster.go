@@ -51,6 +51,9 @@ func (c *ClCluster) Stop() error {
 	for i := 0; i < len(nodes); i++ {
 		nodeIndex := i
 		eg.Go(func() error {
+			if nodes[nodeIndex].Container == nil {
+				return fmt.Errorf("attempt to stop node %d failed, because Container was nil, this should not have happened", nodeIndex)
+			}
 			err := nodes[nodeIndex].Container.Stop(context.Background(), &timeout)
 			if err != nil {
 				return err
