@@ -284,9 +284,6 @@ func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, to
 		}
 
 		idxEnd := uint64(i) - 1
-		if idxEnd >= currentAllowedSenderCount {
-			idxEnd = currentAllowedSenderCount - 1
-		}
 
 		// before continuing we evaluate if the size of the list changed, if that happens we trigger an extra step
 		// getting the latest added addresses from the list

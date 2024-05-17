@@ -33,7 +33,7 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 		}
 
 		// allowlistSize defines how big the mocked allowlist will be
-		allowlistSize := 50
+		allowlistSize := 53
 		// allowlist represents the actual allowlist the tos contract will return
 		allowlist := make([]common.Address, 0, allowlistSize)
 		// expectedAllowlist will be used to compare the actual status with what we actually want
@@ -50,11 +50,12 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 
 		// with the orm mock we can validate the actual order in which the allowlist is fetched giving priority to newest addresses
 		orm := amocks.NewORM(t)
-		firstCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[40:50]).Times(1).Return(nil)
-		secondCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[30:40]).Times(1).Return(nil).NotBefore(firstCall)
-		thirdCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[20:30]).Times(1).Return(nil).NotBefore(secondCall)
-		forthCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[10:20]).Times(1).Return(nil).NotBefore(thirdCall)
-		orm.On("CreateAllowedSenders", context.Background(), allowlist[0:10]).Times(1).Return(nil).NotBefore(forthCall)
+		firstCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[43:53]).Times(1).Return(nil)
+		secondCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[33:43]).Times(1).Return(nil).NotBefore(firstCall)
+		thirdCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[23:33]).Times(1).Return(nil).NotBefore(secondCall)
+		forthCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[13:23]).Times(1).Return(nil).NotBefore(thirdCall)
+		fifthCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[3:13]).Times(1).Return(nil).NotBefore(forthCall)
+		orm.On("CreateAllowedSenders", context.Background(), allowlist[0:3]).Times(1).Return(nil).NotBefore(fifthCall)
 
 		onchainAllowlist := &onchainAllowlist{
 			config:             config,
