@@ -9,7 +9,7 @@ import (
 	gotoml "github.com/pelletier/go-toml/v2"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	commoncfg "github.com/smartcontractkit/chainlink/v2/common/config"
@@ -39,7 +39,7 @@ type Config struct {
 
 	Cosmos coscfg.TOMLConfigs `toml:",omitempty"`
 
-	Solana solana.TOMLConfigs `toml:",omitempty"`
+	Solana solcfg.TOMLConfigs `toml:",omitempty"`
 
 	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
 }
@@ -122,7 +122,7 @@ func (c *Config) setDefaults() {
 
 	for i := range c.Solana {
 		if c.Solana[i] == nil {
-			c.Solana[i] = new(solana.TOMLConfig)
+			c.Solana[i] = new(solcfg.TOMLConfig)
 		}
 		c.Solana[i].Chain.SetDefaults()
 	}
