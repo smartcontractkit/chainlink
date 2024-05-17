@@ -100,6 +100,7 @@ core/scripts/gateway @smartcontractkit/functions
 /integration-tests/**/*ccip* @smartcontractkit/test-tooling-team @jasonmci @mateusz-sekara @emate
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
+/integration-tests/**/*lm_* @anirudhwarrier @infiloop2 @RyanRHall @amirylm @ogtownsend @cmalec @makramkd #TODO: replace with LM team tag when ready
 
 # CI/CD
 /.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @jasonmci

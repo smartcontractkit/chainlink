@@ -497,6 +497,52 @@ func (w TokenPoolWrapper) GetCurrentInboundRateLimiterState(opts *bind.CallOpts,
 	return nil, fmt.Errorf("no pool found to get current outbound rate limiter state")
 }
 
+func (w TokenPoolWrapper) SetRouter(opts *bind.TransactOpts, routerAddr common.Address) (*types.Transaction, error) {
+	if w.Latest != nil && w.Latest.PoolInterface != nil {
+		return w.Latest.PoolInterface.SetRouter(opts, routerAddr)
+	}
+	if w.V1_4_0 != nil && w.V1_4_0.PoolInterface != nil {
+		return w.V1_4_0.PoolInterface.SetRouter(opts, routerAddr)
+	}
+	return nil, fmt.Errorf("no pool found to set router")
+}
+
+func (w TokenPoolWrapper) GetRouter(opts *bind.CallOpts) (common.Address, error) {
+	if w.Latest != nil && w.Latest.PoolInterface != nil {
+		addr, err := w.Latest.PoolInterface.GetRouter(opts)
+		if err != nil {
+			return common.Address{}, err
+		}
+		return addr, nil
+	}
+	if w.V1_4_0 != nil && w.V1_4_0.PoolInterface != nil {
+		addr, err := w.V1_4_0.PoolInterface.GetRouter(opts)
+		if err != nil {
+			return common.Address{}, err
+		}
+		return addr, nil
+	}
+	return common.Address{}, fmt.Errorf("no pool found to get router")
+}
+
+func (w TokenPoolWrapper) GetRebalancer(opts *bind.CallOpts) (common.Address, error) {
+	if w.Latest != nil && w.Latest.LockReleasePool != nil {
+		addr, err := w.Latest.LockReleasePool.GetRebalancer(opts)
+		if err != nil {
+			return common.Address{}, err
+		}
+		return addr, nil
+	}
+	if w.V1_4_0 != nil && w.V1_4_0.LockReleasePool != nil {
+		addr, err := w.V1_4_0.LockReleasePool.GetRebalancer(opts)
+		if err != nil {
+			return common.Address{}, err
+		}
+		return addr, nil
+	}
+	return common.Address{}, fmt.Errorf("no pool found to get rebalancer")
+}
+
 // TokenPool represents a TokenPool address
 type TokenPool struct {
 	client     blockchain.EVMClient
@@ -747,6 +793,54 @@ func (pool *TokenPool) SetRemoteChainRateLimits(remoteChainSelector uint64, rl t
 		Interface("RateLimiterConfig", rl).
 		Msg("Rate Limit on token pool is set")
 	return pool.client.ProcessTransaction(tx)
+}
+
+func (pool *TokenPool) SetRouter(routerAddr common.Address) error {
+	log.Info().
+		Str("Token Pool", pool.Address()).
+		Msg("Setting router on pool")
+	opts, err := pool.client.TransactionOpts(pool.client.GetDefaultWallet())
+	if err != nil {
+		return fmt.Errorf("failed to get transaction opts: %w", err)
+	}
+	tx, err := pool.Instance.SetRouter(opts, routerAddr)
+	if err != nil {
+		return fmt.Errorf("failed to set router: %w", err)
+
+	}
+	log.Info().
+		Str("Token Pool", pool.Address()).
+		Str("Router", routerAddr.String()).
+		Msg("Router set on pool")
+	return pool.client.ProcessTransaction(tx)
+}
+
+func (pool *TokenPool) GetRouter() (common.Address, error) {
+	return pool.Instance.GetRouter(nil)
+}
+
+func (pool *TokenPool) SetRebalancer(rebalancerAddress common.Address) error {
+	log.Info().
+		Str("Token Pool", pool.Address()).
+		Msg("Setting rebalancer on pool")
+	opts, err := pool.client.TransactionOpts(pool.client.GetDefaultWallet())
+	if err != nil {
+		return fmt.Errorf("failed to get transaction opts: %w", err)
+	}
+	tx, err := pool.Instance.SetRebalancer(opts, rebalancerAddress)
+	if err != nil {
+		return fmt.Errorf("failed to set router: %w", err)
+
+	}
+	log.Info().
+		Str("Token Pool", pool.Address()).
+		Str("Rebalancer", rebalancerAddress.String()).
+		Msg("Rebalancer set on pool")
+	return pool.client.ProcessTransaction(tx)
+}
+
+func (pool *TokenPool) GetRebalancer() (common.Address, error) {
+	return pool.Instance.GetRebalancer(nil)
 }
 
 type ARM struct {
