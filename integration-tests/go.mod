@@ -25,7 +25,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240522203001-10ea0211efd7
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240524173852-a74b009c7303
 	github.com/smartcontractkit/chainlink-testing-framework v1.28.7
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
@@ -84,7 +84,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
 	github.com/NethermindEth/juno v0.3.1 // indirect
-	github.com/NethermindEth/starknet.go v0.6.1-0.20231218140327-915109ab5bc1 // indirect
+	github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
 	github.com/XSAM/otelsql v0.27.0 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect

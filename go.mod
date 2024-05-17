@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/NethermindEth/juno v0.3.1
-	github.com/NethermindEth/starknet.go v0.6.1-0.20231218140327-915109ab5bc1
+	github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb
 	github.com/XSAM/otelsql v0.27.0
 	github.com/avast/retry-go/v4 v4.5.1
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
@@ -72,7 +72,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chain-selectors v1.0.10
 	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240522203001-10ea0211efd7
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240524173852-a74b009c7303
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419213354-ea34a948e2ee
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240522213638-159fb2d99917

@@ -16,7 +16,7 @@ require (
 	github.com/rs/zerolog v1.30.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240522203001-10ea0211efd7
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240524173852-a74b009c7303
 	github.com/smartcontractkit/chainlink-testing-framework v1.28.7
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
@@ -61,7 +61,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
 	github.com/NethermindEth/juno v0.3.1 // indirect
-	github.com/NethermindEth/starknet.go v0.6.1-0.20231218140327-915109ab5bc1 // indirect
+	github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
 	github.com/XSAM/otelsql v0.27.0 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect

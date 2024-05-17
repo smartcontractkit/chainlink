@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	capStreams "github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
@@ -380,8 +381,28 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	return report
 }
 
+func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
+	rawSignatures := [][]byte{}
+	for _, sig := range signatures {
+		rawSignatures = append(rawSignatures, sig.Signature)
+	}
+	converted := capStreams.FeedReport{
+		FeedID:     mt.feedID.Hex(),
+		FullReport: report,
+		Signatures: rawSignatures,
+		// NOTE: Skipping fields derived from FullReport, they will be filled out at a later stage
+		// after decoding and validating signatures.
+	}
+	return mt.triggerCapability.ProcessReport([]capStreams.FeedReport{converted})
+}
+
 // Transmit sends the report to the on-chain smart contract's Transmit method.
 func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
+	if mt.triggerCapability != nil {
+		// Acting as a Capability - send report to trigger service and exit.
+		return mt.sendToTrigger(report, signatures)
+	}
+
 	var rs [][32]byte
 	var ss [][32]byte
 	var vs [32]byte
