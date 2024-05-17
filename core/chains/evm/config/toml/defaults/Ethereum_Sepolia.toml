@@ -4,7 +4,7 @@ MinContractPayment = '0.1 link'
 FinalityTagEnabled = true
 FinalizedBlockOffset = 5
 
-[EVM.NodePool]
+[NodePool]
 EnforceRepeatableRead = true
 
 [GasEstimator]

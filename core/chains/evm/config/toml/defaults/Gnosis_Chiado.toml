@@ -5,7 +5,7 @@ ChainType = 'gnosis'
 LogPollInterval = '5s'
 FinalizedBlockOffset = 5
 
-[EVM.NodePool]
+[NodePool]
 EnforceRepeatableRead = true
 
 [GasEstimator]
