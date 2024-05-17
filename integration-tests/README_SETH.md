@@ -1,5 +1,37 @@
 # Seth-Specific Instructions
 
+## Table of Contents
+1. [Introduction](#introduction)
+2. [How to Set Configuration Values](#how-to-set-configuration-values)
+   1. [Example](#example)
+   2. [Documentation and Further Details](#documentation-and-further-details)
+3. [How to Set Seth Logging Level](#how-to-set-seth-logging-level)
+   1. [Locally](#locally)
+   2. [Remote Runner](#remote-runner)
+4. [How to Set Seth Network Configuration](#how-to-set-seth-network-configuration)
+   1. [Overview of Configuration Usage](#overview-of-configuration-usage)
+   2. [Seth-Specific Network Configuration](#seth-specific-network-configuration)
+   3. [Steps for Adding a New Network](#steps-for-adding-a-new-network)
+      1. [Network is Already Defined in known_networks.go](#network-is-already-defined-in-known_networksgo)
+      2. [It's a New Network](#its-a-new-network)
+5. [How to Use Seth CLI](#how-to-use-seth-cli)
+6. [How to Get Fallback (Hardcoded) Values](#how-to-get-fallback-hardcoded-values)
+   1. [Steps to Use Seth CLI for Fallback Values](#steps-to-use-seth-cli-for-fallback-values)
+7. [Ephemeral and Static Keys Explained](#ephemeral-and-static-keys-explained)
+   1. [Understanding the Keys](#understanding-the-keys)
+   2. [How to Set Ephemeral Keys in the TOML](#how-to-set-ephemeral-keys-in-the-toml)
+   3. [How to Set Static Keys in the TOML](#how-to-set-static-keys-in-the-toml)
+      1. [As a List of Wallet Keys in Your Network Configuration](#as-a-list-of-wallet-keys-in-your-network-configuration)
+      2. [As Base64-Encoded Keyfile Stored as GHA Secret](#as-base64-encoded-keyfile-stored-as-gha-secret)
+8. [How to Split Funds Between Static Keys](#how-to-split-funds-between-static-keys)
+9. [How to Return Funds From Static Keys to the Root Key](#how-to-return-funds-from-static-keys-to-the-root-key)
+   1. [How to Rebalance Static Keys](#how-to-rebalance-static-keys)
+10. [How to Deal with "TX Fee Exceeds the Configured Cap" Error](#how-to-deal-with-tx-fee-exceeds-the-configured-cap-error)
+11. [How to Use Seth's Synchronous API](#how-to-use-seths-synchronous-api)
+12. [How to Read Event Data from Transactions](#how-to-read-event-data-from-transactions)
+
+## Introduction
+
 [Seth](https://github.com/smartcontractkit/seth) is the Ethereum client we use for integration tests. It is designed to be a thin wrapper over `go-ethereum` client that adds a couple of key features:
 * key management
 * transaction decoding and tracing
@@ -242,7 +274,7 @@ KEYFILE_PATH=keyfile_my_network.toml ROOT_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d2
 ```
 This command will return all funds from static keys read from `keyfile_my_network.toml` to the root key.
 
-### How to Rebalance Static Keys
+## How to Rebalance Static Keys
 Rebalancing static keys is a more complex process that involves redistributing funds among keys. Currently, there's no built-in functionality for this in Seth, but you can achieve it by following these steps:
 1. **Return Funds**: Use the `keys return` command to return all funds to the root key.
 2. **Split Funds**: Use the `keys split` command to redistribute funds among the keys as needed.
@@ -250,6 +282,16 @@ Rebalancing static keys is a more complex process that involves redistributing f
 Once you've completed these steps, remember to upload new keyfile to the CI (as a base64-ed secret).
 
 **When performing any keyfile-related operations it is advised to keep copies of files in 1password, so you can easily restore them if needed**. That's especially important for rebalancing, because you will not be able to download the keyfile from the CI since it's a secret.
+
+## How to Deal with "TX Fee Exceeds the Configured Cap" Error
+If the gas prices set for a transaction and the gas limit result in the transaction fee exceeding the maximum fee set for a given RPC node, you can try the following solutions:
+1. **Try a Different RPC Node**: This setting is usually specific to the RPC node. Try using a different node, as it might have a higher limit.
+2. **Decrease Gas Price**: If you are using legacy transactions and not using automated gas estimation, try decreasing the gas price in your TOML configuration. This will lower the overall transaction fee.
+3. **Decrease Fee Cap**: If you are using EIP-1559 transactions and not using automated gas estimation, try decreasing the fee cap in your TOML configuration. You should also decrease the tip cap accordingly, as the fee cap includes both the base fee and the tip. This will lower the overall transaction fee.
+4. **Decrease Gas Limit**: If you are using a hardcoded gas limit, try decreasing it. This will lower the overall transaction fee regardless of the transaction type.
+5. **Use Gas Estimation**: If you are not using automated gas estimation, enable it. This will make Seth estimate gas for each transaction and adjust the gas price accordingly, which could prevent the error if your hardcoded gas-related values were too high.
+6. **Use Different Gas Estimation Settings**: If you are using automated gas estimation, try lowering the gas estimation settings in your TOML configuration. Adjust the number of blocks used for estimation or the priority of the transaction.
+7. **Disable Gas Estimations**: If you are using automated gas estimation, you can try disabling it. This will make Seth use the hardcoded gas-related values from your TOML configuration. This could prevent the error if you set the values low enough, but be aware it might lead to other issues, such as long waits for transaction inclusion in a block.
 
 ## How to use Seth's synchronous API
 Seth is designed with a synchronous API to enhance usability and predictability. This feature is implemented through the `seth.Decode()` function, which waits for each transaction to be mined before proceeding. Depending on the Seth configuration, the function will:
