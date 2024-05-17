@@ -16,7 +16,6 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -34,7 +33,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 	}
 	cfg := solcfg.TOMLConfig{
 		ChainID: &chainID,
-		Nodes:   solana.SolanaNodes{&node},
+		Nodes:   solcfg.SolanaNodes{&node},
 		Enabled: ptr(true),
 	}
 	app := solanaStartNewApplication(t, &cfg)
