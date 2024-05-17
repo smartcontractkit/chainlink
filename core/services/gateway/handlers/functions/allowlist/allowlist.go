@@ -278,8 +278,11 @@ func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, to
 
 	for i := int64(currentAllowedSenderCount); i > 0; i -= int64(a.config.OnchainAllowlistBatchSize) {
 		<-throttleTicker.C
+		var idxStart uint64
+		if uint64(i) > uint64(a.config.OnchainAllowlistBatchSize) {
+			idxStart = uint64(i) - uint64(a.config.OnchainAllowlistBatchSize)
+		}
 
-		idxStart := uint64(i) - uint64(a.config.OnchainAllowlistBatchSize)
 		idxEnd := uint64(i) - 1
 		if idxEnd >= currentAllowedSenderCount {
 			idxEnd = currentAllowedSenderCount - 1

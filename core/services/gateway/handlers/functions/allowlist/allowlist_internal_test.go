@@ -142,6 +142,57 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 		require.Equal(t, &expectedAllowlist, currentAllowlist)
 	})
 
+	t.Run("OK-allowlist_size_smaller_than_batchsize", func(t *testing.T) {
+		ctx := context.Background()
+		config := OnchainAllowlistConfig{
+			ContractAddress:           testutils.NewAddress(),
+			ContractVersion:           1,
+			BlockConfirmations:        1,
+			UpdateFrequencySec:        2,
+			UpdateTimeoutSec:          1,
+			StoredAllowlistBatchSize:  2,
+			OnchainAllowlistBatchSize: 100,
+			FetchingDelayInRangeSec:   1,
+		}
+
+		// allowlistSize defines how big the mocked allowlist will be
+		allowlistSize := 50
+		// allowlist represents the actual allowlist the tos contract will return
+		allowlist := make([]common.Address, 0, allowlistSize)
+		// expectedAllowlist will be used to compare the actual status with what we actually want
+		expectedAllowlist := make(map[common.Address]struct{}, 0)
+
+		// we load both the expectedAllowlist and the allowlist the contract will return with some new addresses
+		for i := 0; i < allowlistSize; i++ {
+			addr := testutils.NewAddress()
+			allowlist = append(allowlist, addr)
+			expectedAllowlist[addr] = struct{}{}
+		}
+
+		tosContract := NewTosContractMock(allowlist)
+
+		// with the orm mock we can validate the actual order in which the allowlist is fetched giving priority to newest addresses
+		orm := amocks.NewORM(t)
+		orm.On("CreateAllowedSenders", context.Background(), allowlist[0:50]).Times(1).Return(nil)
+
+		onchainAllowlist := &onchainAllowlist{
+			config:             config,
+			orm:                orm,
+			blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
+			lggr:               logger.TestLogger(t).Named("OnchainAllowlist"),
+			stopCh:             make(services.StopChan),
+		}
+
+		// we set the onchain allowlist to an empty state before updating it in batches
+		emptyMap := make(map[common.Address]struct{})
+		onchainAllowlist.allowlist.Store(&emptyMap)
+
+		err := onchainAllowlist.updateAllowedSendersInBatches(ctx, tosContract, big.NewInt(0))
+		require.NoError(t, err)
+
+		currentAllowlist := onchainAllowlist.allowlist.Load()
+		require.Equal(t, &expectedAllowlist, currentAllowlist)
+	})
 }
 
 type tosContractMock struct {
