@@ -18,6 +18,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -162,9 +163,9 @@ func (cr *chainReader) addMethod(
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	if len(chainReaderDefinition.EventInputFields) != 0 {
+	if chainReaderDefinition.EventDefinitions != nil {
 		return fmt.Errorf(
-			"%w: method %s has event topic fields defined, but is not an event",
+			"%w: method %s has event definition, but is not an event",
 			commontypes.ErrInvalidConfig,
 			chainReaderDefinition.ChainSpecificName)
 	}
@@ -207,16 +208,27 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
+	eventDefinitions := chainReaderDefinition.EventDefinitions
+	pollingFilter := eventDefinitions.PollingFilter
 	eb := &eventBinding{
-		contractName:   contractName,
-		eventName:      eventName,
-		lp:             cr.lp,
+		contractName: contractName,
+		eventName:    eventName,
+		lp:           cr.lp,
+		logPollerFilter: logpoller.Filter{
+			EventSigs:    evmtypes.HashArray{event.ID},
+			Topic2:       pollingFilter.Topic2,
+			Topic3:       pollingFilter.Topic3,
+			Topic4:       pollingFilter.Topic4,
+			Retention:    pollingFilter.Retention.Duration(),
+			MaxLogsKept:  pollingFilter.MaxLogsKept,
+			LogsPerBlock: pollingFilter.LogsPerBlock,
+		},
 		hash:           event.ID,
 		inputInfo:      inputInfo,
 		inputModifier:  inputModifier,
 		codecTopicInfo: codecTopicInfo,
 		topics:         make(map[string]topicDetail),
-		eventDataWords: chainReaderDefinition.GenericDataWordNames,
+		eventDataWords: eventDefinitions.GenericDataWordNames,
 		id:             wrapItemType(contractName, eventName, false) + uuid.NewString(),
 	}
 
@@ -224,7 +236,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 
 	// set topic mappings for QueryKeys
 	for topicIndex, topic := range event.Inputs {
-		genericTopicName, ok := chainReaderDefinition.GenericTopicNames[topic.Name]
+		genericTopicName, ok := eventDefinitions.GenericTopicNames[topic.Name]
 		if ok {
 			eb.topics[genericTopicName] = topicDetail{
 				Argument: topic,
@@ -262,7 +274,7 @@ func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractNa
 }
 
 func verifyEventInputsUsed(chainReaderDefinition types.ChainReaderDefinition, indexArgNames map[string]bool) error {
-	for _, value := range chainReaderDefinition.EventInputFields {
+	for _, value := range chainReaderDefinition.EventDefinitions.InputFields {
 		if !indexArgNames[abi.ToCamelCase(value)] {
 			return fmt.Errorf("%w: %s is not an indexed argument of event %s", commontypes.ErrInvalidConfig, value, chainReaderDefinition.ChainSpecificName)
 		}
@@ -298,7 +310,7 @@ func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.
 
 func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Argument, types.CodecEntry, map[string]bool) {
 	topicFieldDefs := map[string]bool{}
-	for _, value := range def.EventInputFields {
+	for _, value := range def.EventDefinitions.InputFields {
 		capFirstValue := abi.ToCamelCase(value)
 		topicFieldDefs[capFirstValue] = true
 	}

@@ -21,19 +21,20 @@ import (
 )
 
 type eventBinding struct {
-	address        common.Address
-	contractName   string
-	eventName      string
-	lp             logpoller.LogPoller
-	hash           common.Hash
-	codec          commontypes.RemoteCodec
-	pending        bool
-	bound          bool
-	registerCalled bool
-	lock           sync.Mutex
-	inputInfo      types.CodecEntry
-	inputModifier  codec.Modifier
-	codecTopicInfo types.CodecEntry
+	address         common.Address
+	contractName    string
+	eventName       string
+	logPollerFilter logpoller.Filter
+	lp              logpoller.LogPoller
+	hash            common.Hash
+	codec           commontypes.RemoteCodec
+	pending         bool
+	bound           bool
+	registerCalled  bool
+	lock            sync.Mutex
+	inputInfo       types.CodecEntry
+	inputModifier   codec.Modifier
+	codecTopicInfo  types.CodecEntry
 	// topics maps a generic topic name (key) to topic data
 	topics map[string]topicDetail
 	// eventDataWords maps a generic name to a word index
@@ -63,11 +64,7 @@ func (e *eventBinding) Register(ctx context.Context) error {
 		return nil
 	}
 
-	if err := e.lp.RegisterFilter(ctx, logpoller.Filter{
-		Name:      e.id,
-		EventSigs: evmtypes.HashArray{e.hash},
-		Addresses: evmtypes.AddressArray{e.address},
-	}); err != nil {
+	if err := e.lp.RegisterFilter(ctx, e.logPollerFilter); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 	return nil
@@ -140,7 +137,8 @@ func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContra
 	}
 
 	e.address = common.HexToAddress(binding.Address)
-	e.pending = binding.Pending
+	e.logPollerFilter.Name = logpoller.FilterName(e.id, e.address)
+	e.logPollerFilter.Addresses = evmtypes.AddressArray{e.address}
 	e.bound = true
 
 	if e.registerCalled {

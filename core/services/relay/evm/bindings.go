@@ -5,13 +5,19 @@ import (
 	"fmt"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
 // key is contract name
 type contractBindings map[string]readBindings
 
-// key is read name
-type readBindings map[string]readBinding
+type readBindings struct {
+	// contractFilter is used to filter over all events or any subset of events with same filtering parameters.
+	// if an event is present in the contract filter, it can't define its own filter in the event binding.
+	contractFilter logpoller.Filter
+	// key is read name
+	bindings map[string]readBinding
+}
 
 func (b contractBindings) GetReadBinding(contractName, readName string) (readBinding, error) {
 	rb, rbExists := b[contractName]
@@ -19,7 +25,7 @@ func (b contractBindings) GetReadBinding(contractName, readName string) (readBin
 		return nil, fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidType, contractName)
 	}
 
-	reader, readerExists := rb[readName]
+	reader, readerExists := rb.bindings[readName]
 	if !readerExists {
 		return nil, fmt.Errorf("%w: no readName named %s in contract %s", commontypes.ErrInvalidType, readName, contractName)
 	}
@@ -32,7 +38,7 @@ func (b contractBindings) AddReadBinding(contractName, readName string, reader r
 		rbs = readBindings{}
 		b[contractName] = rbs
 	}
-	rbs[readName] = reader
+	rbs.bindings[readName] = reader
 }
 
 func (b contractBindings) Bind(ctx context.Context, boundContracts []commontypes.BoundContract) error {
@@ -41,7 +47,7 @@ func (b contractBindings) Bind(ctx context.Context, boundContracts []commontypes
 		if !rbsExist {
 			return fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidConfig, bc.Name)
 		}
-		for _, r := range rbs {
+		for _, r := range rbs.bindings {
 			if err := r.Bind(ctx, bc); err != nil {
 				return err
 			}
@@ -52,7 +58,7 @@ func (b contractBindings) Bind(ctx context.Context, boundContracts []commontypes
 
 func (b contractBindings) ForEach(ctx context.Context, fn func(readBinding, context.Context) error) error {
 	for _, rbs := range b {
-		for _, rb := range rbs {
+		for _, rb := range rbs.bindings {
 			if err := fn(rb, ctx); err != nil {
 				return err
 			}

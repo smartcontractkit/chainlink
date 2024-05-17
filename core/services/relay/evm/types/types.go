@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -37,11 +39,25 @@ type ChainCodecConfig struct {
 
 type ChainContractReader struct {
 	ContractABI string `json:"contractABI" toml:"contractABI"`
+
+	ContractPollingFilter ContractPollingFilter `json:"contractPollingFilter"`
 	// key is genericName from config
 	Configs map[string]*ChainReaderDefinition `json:"configs" toml:"configs"`
 }
 
 type ChainReaderDefinition chainReaderDefinitionFields
+
+type EventDefinitions struct {
+	PollingFilter PollingFilter `json:"pollingFilter"`
+	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
+	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
+	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
+	// key is a predefined generic name for evm log event data word
+	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
+	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
+	// InputFields allows you to choose which indexed fields are expected from the input
+	InputFields []string `json:"inputFields,omitempty"`
+}
 
 // chainReaderDefinitionFields has the fields for ChainReaderDefinition but no methods.
 // This is necessary because package json recognizes the text encoding methods used for TOML,
@@ -53,15 +69,7 @@ type chainReaderDefinitionFields struct {
 	ReadType            ReadType              `json:"readType,omitempty"`
 	InputModifications  codec.ModifiersConfig `json:"inputModifications,omitempty"`
 	OutputModifications codec.ModifiersConfig `json:"outputModifications,omitempty"`
-
-	// EventInputFields allows you to choose which indexed fields are expected from the input
-	EventInputFields []string `json:"eventInputFields,omitempty"`
-	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
-	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
-	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
-	// key is a predefined generic name for evm log event data word
-	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
-	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
+	EventDefinitions    *EventDefinitions     `json:"eventDefinitions,omitempty"`
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
@@ -109,6 +117,21 @@ func (r *ReadType) UnmarshalText(text []byte) error {
 		return nil
 	}
 	return fmt.Errorf("unrecognized ReadType: %s", string(text))
+}
+
+type PollingFilter struct {
+	Topic2       evmtypes.HashArray `json:"topic2"`       // list of possible values for topic2
+	Topic3       evmtypes.HashArray `json:"topic3"`       // list of possible values for topic3
+	Topic4       evmtypes.HashArray `json:"topic4"`       // list of possible values for topic4
+	Retention    models.Interval    `json:"retention"`    // maximum amount of time to retain logs
+	MaxLogsKept  uint64             `json:"maxLogsKept"`  // maximum number of logs to retain ( 0 = unlimited )
+	LogsPerBlock uint64             `json:"logsPerBlock"` // rate limit ( maximum # of logs per block, 0 = unlimited )
+}
+
+type ContractPollingFilter struct {
+	EventKeys []string `json:"eventKeys"` // list of possible values for eventsig (aka topic1)
+	// contract wide polling filter
+	PollingFilter PollingFilter
 }
 
 type RelayConfig struct {
