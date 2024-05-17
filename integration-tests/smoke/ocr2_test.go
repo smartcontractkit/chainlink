@@ -25,17 +25,19 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
+type ocr2test struct {
+	name                string
+	env                 map[string]string
+	chainReaderAndCodec bool
+}
+
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
 
 	noMedianPlugin := map[string]string{string(env.MedianPlugin.Cmd): ""}
 	medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}
-	for _, test := range []struct {
-		name                string
-		env                 map[string]string
-		chainReaderAndCodec bool
-	}{
+	for _, test := range []ocr2test{
 		{"legacy", noMedianPlugin, false},
 		{"legacy-chain-reader", noMedianPlugin, true},
 		{"plugins", medianPlugin, false},
@@ -46,7 +48,7 @@ func TestOCRv2Basic(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 
-			env, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, l, 5)
+			env, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, test, l, 5)
 
 			err := env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
 			require.NoError(t, err)
@@ -126,7 +128,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	)
 }
 
-func prepareORCv2SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult int) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregatorV2, *seth.Client) {
+func prepareORCv2SmokeTestEnv(t *testing.T, test ocr2test, l zerolog.Logger, firstRoundResult int) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregatorV2, *seth.Client) {
 	config, err := tc.GetConfig("Smoke", tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
@@ -145,6 +147,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 			node.WithP2Pv2(),
 			node.WithTracing(),
 		)).
+		WithCLNodeOptions(test_env.WithNodeEnvVars(test.env)).
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
