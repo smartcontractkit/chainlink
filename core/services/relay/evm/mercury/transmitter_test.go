@@ -419,11 +419,23 @@ func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	c := &mocks.MockWSRPCClient{}
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(db)
+	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
 	pm := NewPersistenceManager(lggr, sURL, orm, 0, 0, 0, 0)
-	cfg := mockCfg{}
 
-	s := newServer(lggr, cfg, c, pm, sURL, feedIDHex)
+	s := &server{
+		lggr,
+		c,
+		pm,
+		NewTransmitQueue(lggr, sURL, feedIDHex, maxTransmitQueueSize, pm),
+		make(chan *pb.TransmitRequest, maxDeleteQueueSize),
+		sURL,
+		transmitSuccessCount.WithLabelValues(feedIDHex, sURL),
+		transmitDuplicateCount.WithLabelValues(feedIDHex, sURL),
+		transmitConnectionErrorCount.WithLabelValues(feedIDHex, sURL),
+		transmitQueueDeleteErrorCount.WithLabelValues(feedIDHex, sURL),
+		transmitQueueInsertErrorCount.WithLabelValues(feedIDHex, sURL),
+		transmitQueuePushErrorCount.WithLabelValues(feedIDHex, sURL),
+	}
 
 	req := &pb.TransmitRequest{
 		Payload:      []byte{1, 2, 3},
@@ -449,8 +461,7 @@ func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
 		case tr := <-transmit:
 			assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
 			assert.Equal(t, 32, int(tr.ReportFormat))
-			// case <-time.After(testutils.WaitTimeout(t)):
-		case <-time.After(1 * time.Second):
+		case <-time.After(testutils.WaitTimeout(t)):
 			t.Fatal("expected a transmit request to be sent")
 		}
 
@@ -477,8 +488,7 @@ func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
 		case tr := <-transmit:
 			assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
 			assert.Equal(t, 32, int(tr.ReportFormat))
-			// case <-time.After(testutils.WaitTimeout(t)):
-		case <-time.After(1 * time.Second):
+		case <-time.After(testutils.WaitTimeout(t)):
 			t.Fatal("expected a transmit request to be sent")
 		}
 
@@ -504,8 +514,7 @@ func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
 		case tr := <-transmit:
 			assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
 			assert.Equal(t, 32, int(tr.ReportFormat))
-			// case <-time.After(testutils.WaitTimeout(t)):
-		case <-time.After(1 * time.Second):
+		case <-time.After(testutils.WaitTimeout(t)):
 			t.Fatal("expected a transmit request to be sent")
 		}
 
@@ -539,8 +548,7 @@ func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
 					break Loop
 				}
 				cnt++
-				// case <-time.After(testutils.WaitTimeout(t)):
-			case <-time.After(1 * time.Second):
+			case <-time.After(testutils.WaitTimeout(t)):
 				t.Fatal("expected 3 transmit requests to be sent")
 			}
 		}
