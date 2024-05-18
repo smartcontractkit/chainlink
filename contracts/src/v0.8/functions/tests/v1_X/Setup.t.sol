@@ -93,7 +93,8 @@ contract FunctionsRouterSetup is BaseTest {
         fallbackNativePerUnitLink: 5000000000000000,
         fallbackUsdPerUnitLink: 1400000000,
         fallbackUsdPerUnitLinkDecimals: 8,
-        minimumEstimateGasPriceWei: 1000000000 // 1 gwei
+        minimumEstimateGasPriceWei: 1000000000, // 1 gwei
+        transmitTxSizeBytes: 5000
       });
   }
 

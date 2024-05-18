@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
-import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
+import {IFunctionsSubscriptions} from "../v1_0_0/interfaces/IFunctionsSubscriptions.sol";
+import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling, FunctionsBillingConfig} from "./interfaces/IFunctionsBilling.sol";
 
-import {Routable} from "./Routable.sol";
-import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
+import {Routable} from "../v1_0_0/Routable.sol";
+import {FunctionsResponse} from "../v1_0_0/libraries/FunctionsResponse.sol";
 
-import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 import {ChainSpecificUtil} from "./libraries/ChainSpecificUtil.sol";
 
@@ -106,13 +106,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   /// @inheritdoc IFunctionsBilling
   function getDONFeeJuels(bytes memory /* requestData */) public view override returns (uint72) {
-    // s_config.donFee is in cents of USD. Convert to dollars amount then get amount of Juels.
+    // s_config.donFee is in cents of USD. Get Juel amount then convert to dollars.
     return SafeCast.toUint72(_getJuelsFromUsd(s_config.donFeeCentsUsd) / 100);
   }
 
   /// @inheritdoc IFunctionsBilling
   function getOperationFeeJuels() public view override returns (uint72) {
-    // s_config.donFee is in cents of USD. Convert to dollars then get amount of Juels.
+    // s_config.donFee is in cents of USD. Get Juel amount then convert to dollars.
     return SafeCast.toUint72(_getJuelsFromUsd(s_config.operationFeeCentsUsd) / 100);
   }
 
@@ -201,8 +201,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint256 l1FeeWei = ChainSpecificUtil._getL1FeeUpperLimit(s_config.transmitTxSizeBytes);
 
     uint256 totalFeeWei = (gasPriceWei * executionGas) + l1FeeWei;
-    // Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
-    uint256 totalFeeWeiWithOverestimate = totalFeeWei + ((totalFeeWei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
+    uint256 totalFeeWeiWithOverestimate = totalFee + ((totalFee * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
 
     uint96 estimatedGasReimbursementJuels = _getJuelsFromWei(totalFeeWeiWithOverestimate);
 

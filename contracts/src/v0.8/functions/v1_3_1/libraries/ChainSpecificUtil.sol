@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {ArbGasInfo} from "../../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import {L1Block} from "../../../../vendor/@eth-optimism/contracts-bedrock/v0.17.1/src/L2/L1Block.sol";
+import {ArbGasInfo} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
+import {L1Block} from "../../../vendor/@eth-optimism/contracts-bedrock/v0.17.1/src/L2/L1Block.sol";
 
 /// @dev A library that abstracts out opcodes that behave differently across chains.
 /// @dev The methods below return values that are pertinent to the given chain.
 library ChainSpecificUtil {
   // ------------ Start Arbitrum Constants ------------
-
   /// @dev ARB_L1_FEE_DATA_PADDING_SIZE is the L1 data padding for Optimism
-  uint256 private constant ARB_L1_FEE_DATA_PADDING_SIZE = 140;
+  uint256 private const ARB_L1_FEE_DATA_PADDING_SIZE = 140;
   /// @dev ARBGAS_ADDR is the address of the ArbGasInfo precompile on Arbitrum.
   /// @dev reference: https://github.com/OffchainLabs/nitro/blob/v2.0.14/contracts/src/precompiles/ArbGasInfo.sol#L10
   address private constant ARBGAS_ADDR = address(0x000000000000000000000000000000000000006C);
@@ -24,7 +23,7 @@ library ChainSpecificUtil {
 
   // ------------ Start Optimism Constants ------------
   /// @dev OP_L1_FEE_DATA_PADDING_SIZE is the L1 data padding for Optimism
-  uint256 private constant OP_L1_FEE_DATA_PADDING_SIZE = 35;
+  uint256 private const OP_L1_FEE_DATA_PADDING_SIZE = 35;
   /// @dev L1BLOCK_ADDR is the address of the L1Block precompile on Optimism.
   address private constant L1BLOCK_ADDR = address(0x4200000000000000000000000000000000000015);
   L1Block private constant L1BLOCK = L1Block(L1BLOCK_ADDR);
@@ -51,11 +50,11 @@ library ChainSpecificUtil {
     } else if (_isOptimismChainId(chainid)) {
       // https://docs.optimism.io/stack/transactions/fees#ecotone
       // note we conservatively assume all non-zero bytes: tx_compressed_size = tx_data_size_bytes
-      uint256 l1BaseFeeWei = L1BLOCK.basefee();
+      uint256 l1BaseFeeWei = L1BLOCK.baseFee();
       uint256 l1BaseFeeScalar = L1BLOCK.baseFeeScalar();
       uint256 l1BlobBaseFeeWei = L1BLOCK.blobBaseFee();
       uint256 l1BlobBaseFeeScalar = L1BLOCK.blobBaseFeeScalar();
-      uint256 weightedGasPrice = 16 * l1BaseFeeScalar * l1BaseFeeWei + l1BlobBaseFeeScalar * l1BlobBaseFeeWei;
+      uint256 weightedGasPrice = 16 * l1BaseFeeScalar * l1BaseFee + l1BlobBaseFeeScalar * l1BlobBaseFeeWei;
       return weightedGasPrice * dataSizeBytes;
     }
     return 0;

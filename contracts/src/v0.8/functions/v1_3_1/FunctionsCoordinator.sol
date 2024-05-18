@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {IFunctionsCoordinator} from "../v1_0_0/interfaces/IFunctionsCoordinator.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 import {FunctionsBilling, FunctionsBillingConfig} from "./FunctionsBilling.sol";
-import {OCR2Base} from "./ocr/OCR2Base.sol";
-import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
+import {OCR2Base} from "../v1_3_0/ocr/OCR2Base.sol";
+import {FunctionsResponse} from "../v1_0_0/libraries/FunctionsResponse.sol";
 
 /// @title Functions Coordinator contract
 /// @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
@@ -16,6 +16,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
   /// @inheritdoc ITypeAndVersion
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "Functions Coordinator v1.3.1";
 
   event OracleRequest(
