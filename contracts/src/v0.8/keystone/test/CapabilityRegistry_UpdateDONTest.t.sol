@@ -6,7 +6,6 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateDONTest is BaseTest {
-  event DONUpdated(uint256 donId, bool isPublic);
   event ConfigSet(uint32 donId, uint32 configCount);
 
   uint32 private constant DON_ID = 1;
@@ -194,8 +193,6 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
 
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
     emit ConfigSet(DON_ID, expectedConfigCount);
-    vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit DONUpdated(DON_ID, expectedDONIsPublic);
     s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, expectedDONIsPublic);
 
     (

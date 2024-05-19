@@ -183,20 +183,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// configured
   event ConfigSet(uint32 donId, uint32 configCount);
 
-  /// @notice This event is emitted when a new DON is created
-  /// @param donId The ID of the newly created DON
-  /// @param isPublic True if the newly created DON is public
-  event DONAdded(uint256 donId, bool isPublic);
-
-  /// @notice This event is emitted when a DON is removed
-  /// @param donId The ID of the removed DON
-  event DONRemoved(uint32 donId);
-
-  /// @notice This event is emitted when a new DON is created
-  /// @param donId The ID of the updated DON
-  /// @param isPublic True if the updated DON is public
-  event DONUpdated(uint256 donId, bool isPublic);
-
   /// @notice This error is emitted when a DON does not exist
   /// @param donId The ID of the nonexistent DON
   error DONDoesNotExist(uint32 donId);
@@ -562,10 +548,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   ) external onlyOwner {
     uint32 id = s_donId;
     s_dons[id].id = id;
-    uint32 configCount = 1; // Initialize config count to start at 1
-    _setDONConfig(id, configCount, nodes, capabilityConfigurations, isPublic);
+    _setDONConfig(id, 1, nodes, capabilityConfigurations, isPublic);
     ++s_donId;
-    emit DONAdded(id, isPublic);
   }
 
   /// @notice Updates a DON's configuration.  This allows
@@ -586,7 +570,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     if (configCount == 0) revert DONDoesNotExist(donId);
     _setDONConfig(donId, ++configCount, nodes, capabilityConfigurations, isPublic);
     ++s_donId;
-    emit DONUpdated(donId, isPublic);
   }
 
   /// @notice Removes DONs from the Capability Registry
@@ -599,7 +582,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       // DON config count starts at index 1
       if (don.configCount == 0) revert DONDoesNotExist(donId);
       delete s_dons[donId];
-      emit DONRemoved(donId);
+      emit ConfigSet(donId, 0);
     }
   }
 
