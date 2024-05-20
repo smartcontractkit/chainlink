@@ -112,6 +112,7 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetwork
 	builder := test_env.NewEthereumNetworkBuilder()
 	c, err := builder.WithExistingConfig(*cfg).
 		WithTest(te.t).
+		WithLogStream(te.LogStream).
 		Build()
 	if err != nil {
 		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
