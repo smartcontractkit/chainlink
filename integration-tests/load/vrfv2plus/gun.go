@@ -6,11 +6,13 @@ import (
 	"math/rand"
 
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/wasp"
 
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 type BHSTestGun struct {
@@ -19,6 +21,7 @@ type BHSTestGun struct {
 	subIDs     []*big.Int
 	testConfig *vrfv2plus_config.Config
 	logger     zerolog.Logger
+	sethClient *seth.Client
 }
 
 func NewBHSTestGun(
@@ -27,6 +30,7 @@ func NewBHSTestGun(
 	subIDs []*big.Int,
 	testConfig *vrfv2plus_config.Config,
 	logger zerolog.Logger,
+	sethClient *seth.Client,
 ) *BHSTestGun {
 	return &BHSTestGun{
 		contracts:  contracts,
@@ -34,6 +38,7 @@ func NewBHSTestGun(
 		keyHash:    keyHash,
 		testConfig: testConfig,
 		logger:     logger,
+		sethClient: sethClient,
 	}
 }
 
@@ -54,6 +59,7 @@ func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
 		billingType,
 		vrfv2PlusConfig,
 		m.logger,
+		utils.AvailableSethKeyNum(m.sethClient),
 	)
 	//todo - might need to store randRequestBlockNumber and blockhash to verify that it was stored in BHS contract at the end of the test
 	if err != nil {
@@ -69,6 +75,7 @@ type SingleHashGun struct {
 	subIDs     []*big.Int
 	testConfig *vrfv2plus_config.Config
 	logger     zerolog.Logger
+	sethClient *seth.Client
 }
 
 func NewSingleHashGun(
@@ -77,6 +84,7 @@ func NewSingleHashGun(
 	subIDs []*big.Int,
 	testConfig *vrfv2plus_config.Config,
 	logger zerolog.Logger,
+	sethClient *seth.Client,
 ) *SingleHashGun {
 	return &SingleHashGun{
 		contracts:  contracts,
@@ -84,6 +92,7 @@ func NewSingleHashGun(
 		subIDs:     subIDs,
 		testConfig: testConfig,
 		logger:     logger,
+		sethClient: sethClient,
 	}
 }
 
@@ -109,6 +118,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		billingType,
 		vrfv2PlusConfig,
 		m.logger,
+		utils.AvailableSethKeyNum(m.sethClient),
 	)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}

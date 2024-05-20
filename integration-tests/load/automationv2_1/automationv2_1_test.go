@@ -474,7 +474,7 @@ Load Config:
 			TriggerType:    uint8(1),
 			CheckData:      encodedCheckDataStruct,
 			TriggerConfig:  encodedLogTriggerConfig,
-			OffchainConfig: []byte("0"),
+			OffchainConfig: []byte(""),
 			FundingAmount:  automationDefaultLinkFunds,
 		}
 		l.Debug().Interface("Upkeep Config", upkeepConfig).Msg("Upkeep Config")

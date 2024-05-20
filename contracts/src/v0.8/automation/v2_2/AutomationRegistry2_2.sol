@@ -60,6 +60,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
   /**
    * @notice holds the variables used in the transmit function, necessary to avoid stack too deep errors
    */
+  // solhint-disable-next-line gas-struct-packing
   struct TransmitVars {
     uint16 numUpkeepsPassedChecks;
     uint256 totalCalldataWeight;
