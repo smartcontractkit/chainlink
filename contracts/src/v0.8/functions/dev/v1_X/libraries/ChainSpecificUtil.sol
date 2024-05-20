@@ -2,13 +2,15 @@
 pragma solidity ^0.8.19;
 
 import {ArbGasInfo} from "../../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import {GasPriceOracle} from "../../../../vendor/@eth-optimism/contracts-bedrock/v0.16.2/src/L2/GasPriceOracle.sol";
+import {L1Block} from "../../../../vendor/@eth-optimism/contracts-bedrock/v0.17.1/src/L2/L1Block.sol";
 
 /// @dev A library that abstracts out opcodes that behave differently across chains.
 /// @dev The methods below return values that are pertinent to the given chain.
 library ChainSpecificUtil {
   // ------------ Start Arbitrum Constants ------------
 
+  /// @dev ARB_L1_FEE_DATA_PADDING_SIZE is the L1 data padding for Optimism
+  uint256 private constant ARB_L1_FEE_DATA_PADDING_SIZE = 140;
   /// @dev ARBGAS_ADDR is the address of the ArbGasInfo precompile on Arbitrum.
   /// @dev reference: https://github.com/OffchainLabs/nitro/blob/v2.0.14/contracts/src/precompiles/ArbGasInfo.sol#L10
   address private constant ARBGAS_ADDR = address(0x000000000000000000000000000000000000006C);
@@ -21,13 +23,11 @@ library ChainSpecificUtil {
   // ------------ End Arbitrum Constants ------------
 
   // ------------ Start Optimism Constants ------------
-  /// @dev L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
-  bytes internal constant L1_FEE_DATA_PADDING =
-    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  /// @dev OVM_GASPRICEORACLE_ADDR is the address of the GasPriceOracle precompile on Optimism.
-  /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
-  address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
-  GasPriceOracle private constant OVM_GASPRICEORACLE = GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
+  /// @dev OP_L1_FEE_DATA_PADDING_SIZE is the L1 data padding for Optimism
+  uint256 private constant OP_L1_FEE_DATA_PADDING_SIZE = 35;
+  /// @dev L1BLOCK_ADDR is the address of the L1Block precompile on Optimism.
+  address private constant L1BLOCK_ADDR = address(0x4200000000000000000000000000000000000015);
+  L1Block private constant L1BLOCK = L1Block(L1BLOCK_ADDR);
 
   uint256 private constant OP_MAINNET_CHAIN_ID = 10;
   uint256 private constant OP_GOERLI_CHAIN_ID = 420;
@@ -40,18 +40,23 @@ library ChainSpecificUtil {
 
   // ------------ End Optimism Constants ------------
 
-  /// @notice Returns the L1 fees in wei that will be paid for the current transaction, given any calldata
-  /// @notice for the current transaction.
-  /// @notice When on a known Arbitrum chain, it uses ArbGas.getCurrentTxL1GasFees to get the fees.
-  /// @notice On Arbitrum, the provided calldata is not used to calculate the fees.
-  /// @notice On Optimism, the provided calldata is passed to the GasPriceOracle predeploy
-  /// @notice and getL1Fee is called to get the fees.
-  function _getCurrentTxL1GasFees(bytes memory txCallData) internal view returns (uint256 l1FeeWei) {
+  /// @notice Returns the upper limit estimate of the L1 fees in wei that will be paid for L2 chains
+  /// @notice based on the size of the transaction data and the current gas conditions.
+  function _getL1FeeUpperLimit(uint256 dataSizeBytes) internal view returns (uint256 l1FeeWei) {
     uint256 chainid = block.chainid;
     if (_isArbitrumChainId(chainid)) {
-      return ARBGAS.getCurrentTxL1GasFees();
+      // https://docs.arbitrum.io/build-decentralized-apps/how-to-estimate-gas#where-do-we-get-all-this-information-from
+      (, uint256 l1PricePerByte, , , , ) = ARBGAS.getPricesInWei();
+      return l1PricePerByte * (dataSizeBytes + ARB_L1_FEE_DATA_PADDING_SIZE);
     } else if (_isOptimismChainId(chainid)) {
-      return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(txCallData, L1_FEE_DATA_PADDING));
+      // https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/exec-engine.md#ecotone-l1-cost-fee-changes-eip-4844-da
+      // note we conservatively assume all non-zero bytes: tx_compressed_size = tx_data_size_bytes
+      uint256 l1BaseFeeWei = L1BLOCK.basefee();
+      uint256 l1BaseFeeScalar = L1BLOCK.baseFeeScalar();
+      uint256 l1BlobBaseFeeWei = L1BLOCK.blobBaseFee();
+      uint256 l1BlobBaseFeeScalar = L1BLOCK.blobBaseFeeScalar();
+      uint256 weightedGasPrice = (l1BaseFeeScalar * l1BaseFeeWei + l1BlobBaseFeeScalar * l1BlobBaseFeeWei) / 10^6;
+      return weightedGasPrice * (dataSizeBytes + OP_L1_FEE_DATA_PADDING_SIZE);
     }
     return 0;
   }
