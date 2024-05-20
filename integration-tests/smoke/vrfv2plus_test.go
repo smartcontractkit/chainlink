@@ -1331,7 +1331,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			randRequestBlockNumber+uint64(257),
 			sethClient,
 			&wg,
-			time.Second*260,
+			configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration,
 			t,
 			l,
 		)
@@ -1564,12 +1564,12 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
 		wg.Add(1)
-		//Wait at least 260 blocks
+		//Wait at least 256 blocks
 		_, err = actions.WaitForBlockNumberToBe(
-			randRequestBlockNumber+uint64(260),
+			randRequestBlockNumber+uint64(257),
 			sethClient,
 			&wg,
-			time.Second*262,
+			configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration,
 			t,
 			l,
 		)
