@@ -345,9 +345,8 @@ func SetupVRFV2ForNewEnv(
 ) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	network, err := actions.EthereumNetworkConfigFromConfig(l, &testConfig)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error building ethereum network config", err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error building ethereum network config for V2", err)
 	}
-
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&testConfig).
@@ -358,26 +357,21 @@ func SetupVRFV2ForNewEnv(
 		WithCustomCleanup(cleanupFn).
 		WithSeth().
 		Build()
-
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating V2 test env", err)
 	}
-
 	sethClient, err := env.GetSethClientForSelectedNetwork()
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-
 	mockETHLinkFeed, err := contracts.DeployVRFMockETHLINKFeed(sethClient, big.NewInt(*testConfig.VRFv2.General.LinkNativeFeedResponse))
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying mock ETH/LINK feed", err)
 	}
-
 	linkToken, err := contracts.DeployLinkTokenContract(l, sethClient)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying LINK contract", err)
 	}
-
 	vrfContracts, vrfKey, nodeTypeToNode, err := SetupVRFV2Environment(
 		ctx,
 		env,
@@ -423,17 +417,14 @@ func SetupVRFV2ForExistingEnv(t *testing.T, testConfig tc.TestConfig, chainID in
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 	}
-
 	sethClient, err := env.GetSethClient(chainID)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
 	err = vrfcommon.FundNodesIfNeeded(testcontext.Get(t), commonExistingEnvConfig, sethClient, l)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
 	}
-
 	blockHashStoreAddress, err := coordinator.GetBlockHashStoreAddress(testcontext.Get(t))
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
