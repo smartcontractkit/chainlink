@@ -7,7 +7,7 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_RemoveNodeOperatorsTest is BaseTest {
   event NodeOperatorRemoved(uint256 nodeOperatorId);
 
-  uint256 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
+  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
   uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 1;
 
   function setUp() public override {

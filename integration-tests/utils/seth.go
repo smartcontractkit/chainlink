@@ -67,13 +67,25 @@ func MustReplaceSimulatedNetworkUrlWithK8(l zerolog.Logger, network blockchain.E
 		return network
 	}
 
-	if _, ok := testEnvironment.URLs["Simulated Geth"]; !ok {
+	networkKeys := []string{"Simulated Geth", "Simulated-Geth"}
+	var keyToUse string
+
+	for _, key := range networkKeys {
+		_, ok := testEnvironment.URLs[key]
+		if ok {
+			keyToUse = key
+			break
+		}
+	}
+
+	if keyToUse == "" {
 		for k := range testEnvironment.URLs {
 			l.Info().Str("Network", k).Msg("Available networks")
 		}
 		panic("no network settings for Simulated Geth")
 	}
-	network.URLs = testEnvironment.URLs["Simulated Geth"]
+
+	network.URLs = testEnvironment.URLs[keyToUse]
 
 	return network
 }
@@ -119,4 +131,16 @@ func ValidateSethNetworkConfig(cfg *seth.Network) error {
 	}
 
 	return nil
+}
+
+const RootKeyNum = 0
+
+// AvailableSethKeyNum returns the available Seth address index
+// If there are multiple addresses, it will return any synced key
+// Otherwise it will return the root key
+func AvailableSethKeyNum(client *seth.Client) int {
+	if len(client.Addresses) > 1 {
+		return client.AnySyncedKey()
+	}
+	return RootKeyNum
 }

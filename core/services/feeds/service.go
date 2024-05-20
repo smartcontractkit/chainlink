@@ -800,8 +800,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				}
 			case job.Workflow:
 				// do nothing. assume there is no existing job
-				// TODO FIXME: this is a temporary fix to avoid checking for existing jobs for workflow jobs
-				existingJobID, txerr = findExistingWorkflowJob(ctx, j, tx.jobORM)
+				existingJobID, txerr = findExistingWorkflowJob(ctx, *j.WorkflowSpec, tx.jobORM)
 				if txerr != nil {
 					// Return an error if the repository errors. If there is a not found
 					// error we want to continue with approving the job.
@@ -1106,10 +1105,8 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	return nil
 }
 
-// TODO implement this
-func findExistingWorkflowJob(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
-	// might need an ORM method FindJobIDByWorkflowID.
-	//
+// TODO KS-205 implement this. Need to figure out how exactly how we want to handle this.
+func findExistingWorkflowJob(ctx context.Context, wfSpec job.WorkflowSpec, tx job.ORM) (int32, error) {
 	return 0, nil
 }
 
@@ -1128,7 +1125,7 @@ func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32,
 			feedID = j.BootstrapSpec.FeedID
 		}
 	case job.FluxMonitor, job.OffchainReporting:
-		return 0, errors.Errorf("contradID and feedID not applicable for job type: %s", j.Type)
+		return 0, errors.Errorf("contractID and feedID not applicable for job type: %s", j.Type)
 	default:
 		return 0, errors.Errorf("unsupported job type: %s", j.Type)
 	}

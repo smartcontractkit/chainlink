@@ -29,19 +29,84 @@ addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
 [PrivateEthereumNetwork.EthereumChainConfig.HardForkEpochs]
 Deneb=500
 
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '1m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR]
+Enabled = true
+DefaultTransactionQueueDepth = 0
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+"""
+
+# override config toml related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink toml
+CommonChainConfigTOML = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+
 [Seth]
-# enables automatic tracing of all transactions that are decoded via Decode() method
-tracing_enabled = false
-# saves each tracing result to json file in ./traces/<tx_hash>.json
-trace_to_json = false
+# controls which transactions are decoded/traced. Possbile values are: none, all, reverted (default).
+# if transaction level doesn't match, then calling Decode() does nothing. It's advised to keep it set
+# to 'reverted' to limit noise. If you combine it with 'trace_to_json' it will save all possible data
+# in JSON files for reverted transactions.
+tracing_level = "reverted"
+# saves each decoding/tracing results to JSON files; what exactly is saved depends on what we
+# were able te decode, we try to save maximum information possible. It can either be:
+# just tx hash, decoded transaction or call trace. Which transactions traces are saved depends
+# on 'tracing_level'.
 # number of addresses to be generated and runtime, if set to 0, no addresses will be generated
 # each generated address will receive a proportion of native tokens from root private key's balance
 # with the value equal to (root_balance / ephemeral_addresses_number) - transfer_fee * ephemeral_addresses_number
-ephemeral_addresses_number = 0
+ephemeral_addresses_number = 10
 
 # If enabled we will panic when getting transaction options if current key/address has a pending transaction
 # That's because the one we are about to send would get queued, possibly for a very long time
-pending_nonce_protection_enabled = false
+pending_nonce_protection_enabled = true
+
+root_key_funds_buffer = 1000
 
 # when enabled when creating a new Seth client we will send 10k wei from root address to root address
 # to make sure transaction can be submited and mined
@@ -49,7 +114,7 @@ check_rpc_health_on_start = false
 
 [Seth.nonce_manager]
 key_sync_rate_limit_per_sec = 10
-key_sync_timeout = "2s"
+key_sync_timeout = "100s"
 key_sync_retry_delay = "1s"
 key_sync_retries = 10
 
@@ -57,21 +122,20 @@ key_sync_retries = 10
 name = "Geth"
 chain_id = "1337"
 transaction_timeout = "30s"
-eip_1559_dynamic_fees = false
 
 # gas limits
 transfer_gas_fee = 21_000
 # gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
-# gas_limit = 8_000_000
+gas_limit = 8_000_000
 
 # manual settings, used when gas_price_estimation_enabled is false or when it fails
 # legacy transactions
 gas_price = 1_000_000_000
 
 # EIP-1559 transactions
-#eip_1559_dynamic_fees = true
-gas_fee_cap = 10_000_000_000
-gas_tip_cap = 3_000_000_000
+eip_1559_dynamic_fees = true
+gas_fee_cap = 15_000_000_000
+gas_tip_cap = 5_000_000_000
 
 [[Seth.networks]]
 name = "Fuji"
@@ -204,3 +268,58 @@ gas_price = 50_000_000
 # EIP-1559 transactions
 gas_fee_cap = 3_800_000_000
 gas_tip_cap = 1_800_000_000
+
+
+[[Seth.networks]]
+name = "ARBITRUM_SEPOLIA"
+chain_id = "421614"
+transaction_timeout = "1m"
+
+# if set to true we will estimate gas for every transaction
+gas_price_estimation_enabled = true
+
+# transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
+# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
+transfer_gas_fee = 50_000
+# gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
+# gas_limit = 100_000_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 50_000_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = true
+gas_fee_cap = 50_000_000_000
+gas_tip_cap = 2_000_000_000
+
+# how many last blocks to use, when estimating gas for a transaction
+gas_price_estimation_blocks = 100
+# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
+gas_price_estimation_tx_priority = "standard"
+
+[[Seth.networks]]
+name = "POLYGON_AMOY"
+chain_id = "80002"
+transaction_timeout = "1m"
+
+# if set to true we will estimate gas for every transaction
+gas_price_estimation_enabled = true
+
+# transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
+# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
+transfer_gas_fee = 21_000
+# gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
+# gas_limit = 100_000_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 200_000_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = true
+gas_fee_cap = 200_000_000_000
+gas_tip_cap = 2_000_000_000
+
+# how many last blocks to use, when estimating gas for a transaction
+gas_price_estimation_blocks = 100
+# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
+gas_price_estimation_tx_priority = "standard"
