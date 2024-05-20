@@ -716,7 +716,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 						Version: int64(proposalSpecWF.Version),
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)
-
 			},
 			args:   argsWF,
 			wantID: proposalIDWF,
@@ -752,7 +751,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(fmt.Errorf("error creating job"))
-
 			},
 			args:    argsWF,
 			wantID:  0,

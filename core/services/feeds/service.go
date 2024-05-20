@@ -615,7 +615,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	// auto approve workflow specs
 	if isWFSpec(args.Spec) {
 		promWorkflowRequests.Inc()
-		err := s.ApproveSpec(ctx, id, true)
+		err = s.ApproveSpec(ctx, id, true)
 		if err != nil {
 			promWorkflowFailures.Inc()
 			logger.Errorw("Failed to auto approve workflow spec", "id", id, "err", err)
@@ -1187,7 +1187,8 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse workflow spec TOML: %w", err)
 		}
-		if err := s.Validate(); err != nil {
+		err = s.Validate()
+		if err != nil {
 			return nil, fmt.Errorf("failed to validate workflow spec: %w", err)
 		}
 		js = job.Job{
@@ -1392,7 +1393,6 @@ func extractName(defn string) null.String {
 	}
 
 	return spec.Name
-
 }
 
 // isApprovable returns nil if a spec can be approved based on the current
