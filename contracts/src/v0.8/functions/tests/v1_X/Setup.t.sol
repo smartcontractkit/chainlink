@@ -94,7 +94,7 @@ contract FunctionsRouterSetup is BaseTest {
         fallbackUsdPerUnitLink: 1400000000,
         fallbackUsdPerUnitLinkDecimals: 8,
         minimumEstimateGasPriceWei: 1000000000, // 1 gwei
-        transmitTxSizeBytes: 5000
+        transmitTxSizeBytes: 1764
       });
   }
 

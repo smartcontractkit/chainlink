@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {ArbGasInfo} from "../../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import {L1Block} from "../../../../vendor/@eth-optimism/contracts-bedrock/v0.17.1/src/L2/L1Block.sol";
+import "forge-std/console.sol";
 
 /// @dev A library that abstracts out opcodes that behave differently across chains.
 /// @dev The methods below return values that are pertinent to the given chain.
@@ -47,15 +48,17 @@ library ChainSpecificUtil {
     if (_isArbitrumChainId(chainid)) {
       // https://docs.arbitrum.io/build-decentralized-apps/how-to-estimate-gas#where-do-we-get-all-this-information-from
       (, uint256 l1PricePerByte, , , , ) = ARBGAS.getPricesInWei();
+      console.log("l1PricePerByte: %s", l1PricePerByte);
       return l1PricePerByte * (dataSizeBytes + ARB_L1_FEE_DATA_PADDING_SIZE);
     } else if (_isOptimismChainId(chainid)) {
-      // https://docs.optimism.io/stack/transactions/fees#ecotone
+      // https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/exec-engine.md#ecotone-l1-cost-fee-changes-eip-4844-da
       // note we conservatively assume all non-zero bytes: tx_compressed_size = tx_data_size_bytes
       uint256 l1BaseFeeWei = L1BLOCK.basefee();
       uint256 l1BaseFeeScalar = L1BLOCK.baseFeeScalar();
       uint256 l1BlobBaseFeeWei = L1BLOCK.blobBaseFee();
       uint256 l1BlobBaseFeeScalar = L1BLOCK.blobBaseFeeScalar();
-      uint256 weightedGasPrice = 16 * l1BaseFeeScalar * l1BaseFeeWei + l1BlobBaseFeeScalar * l1BlobBaseFeeWei;
+      uint256 weightedGasPrice = (l1BaseFeeScalar * l1BaseFeeWei + l1BlobBaseFeeScalar * l1BlobBaseFeeWei) / 10^6;
+      console.log("weightedGasPrice: %s", weightedGasPrice);
       return weightedGasPrice * dataSizeBytes;
     }
     return 0;
