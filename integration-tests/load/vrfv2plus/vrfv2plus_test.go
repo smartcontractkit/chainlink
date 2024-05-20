@@ -209,7 +209,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	sethClient, err := actions_seth.GetChainClientWithConfigFunction(testConfig, network, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	sethClient, err := actions_seth.GetChainClient(testConfig, network)
 	require.NoError(t, err, "Error creating seth client")
 
 	cleanupFn := func() {

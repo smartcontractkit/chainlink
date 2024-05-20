@@ -210,13 +210,13 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		Bool("UseExistingEnv", *vrfv2Config.General.UseExistingEnv).
 		Msg("Performance Test Configuration")
 
-	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
-	sethClient, err := testEnv.GetSethClient(chainID)
-
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	chainID := network.ChainID
+	sethClient, err := actions_seth.GetChainClient(testConfig, network)
+	require.NoError(t, err, "Error creating seth client")
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
-		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -302,8 +302,6 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		var wgBlockNumberTobe sync.WaitGroup
 		wgBlockNumberTobe.Add(1)
 		//Wait at least 256 blocks
-		sethClient, err := testEnv.GetSethClient(chainID)
-		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 		require.NoError(t, err)
 		_, err = actions.WaitForBlockNumberToBe(
