@@ -10,10 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
@@ -35,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -1801,6 +1804,154 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 		require.NoError(t, err2)
 		require.Equal(t, int32(1), count)
 	})
+}
+
+func Test_ORM_FindJobByWorkflow(t *testing.T) {
+	type fields struct {
+		ds          sqlutil.DataSource
+		keyStore    keystore.Master
+		pipelineORM pipeline.ORM
+		lggr        logger.SugaredLogger
+		bridgeORM   bridges.ORM
+	}
+	type args struct {
+		spec   job.WorkflowSpec
+		before func(t *testing.T, o job.ORM, s job.WorkflowSpec) int32
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		//		wantJ   int32
+		wantErr bool
+	}{
+		{
+			name: "wf not job found",
+			fields: fields{
+				ds:          pgtest.NewSqlxDB(t),
+				keyStore:    cltest.NewKeyStore(t, pgtest.NewSqlxDB(t)),
+				pipelineORM: pipeline.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), configtest.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
+				bridgeORM:   bridges.NewORM(pgtest.NewSqlxDB(t)),
+				lggr:        logger.TestLogger(t),
+			},
+			args: args{
+				spec: job.WorkflowSpec{
+					ID:            1,
+					WorkflowID:    "hack",
+					Workflow:      "abcd",
+					WorkflowOwner: "me",
+					WorkflowName:  "myworkflow",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "wf job found",
+			fields: fields{
+				ds:          pgtest.NewSqlxDB(t),
+				keyStore:    cltest.NewKeyStore(t, pgtest.NewSqlxDB(t)),
+				pipelineORM: pipeline.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), configtest.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
+				bridgeORM:   bridges.NewORM(pgtest.NewSqlxDB(t)),
+				lggr:        logger.TestLogger(t),
+			},
+			args: args{
+				spec: job.WorkflowSpec{
+					ID:            1,
+					WorkflowID:    "hack",
+					Workflow:      "abcd",
+					WorkflowOwner: "me",
+					WorkflowName:  "myworkflow",
+				},
+				before: mustInsertWFJob,
+			},
+			wantErr: false,
+		},
+		{
+			name: "wf wrong name",
+			fields: fields{
+				ds:          pgtest.NewSqlxDB(t),
+				keyStore:    cltest.NewKeyStore(t, pgtest.NewSqlxDB(t)),
+				pipelineORM: pipeline.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), configtest.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
+				bridgeORM:   bridges.NewORM(pgtest.NewSqlxDB(t)),
+				lggr:        logger.TestLogger(t),
+			},
+			args: args{
+				spec: job.WorkflowSpec{
+					ID:            1,
+					WorkflowID:    "hack",
+					Workflow:      "abcd",
+					WorkflowOwner: "me",
+					WorkflowName:  "myworkflow",
+				},
+				before: func(t *testing.T, o job.ORM, s job.WorkflowSpec) int32 {
+					s.WorkflowName = "notmyworkflow"
+					return mustInsertWFJob(t, o, s)
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "wf wrong owner",
+			fields: fields{
+				ds:          pgtest.NewSqlxDB(t),
+				keyStore:    cltest.NewKeyStore(t, pgtest.NewSqlxDB(t)),
+				pipelineORM: pipeline.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), configtest.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
+				bridgeORM:   bridges.NewORM(pgtest.NewSqlxDB(t)),
+				lggr:        logger.TestLogger(t),
+			},
+			args: args{
+				spec: job.WorkflowSpec{
+					ID:            1,
+					WorkflowID:    "hack",
+					Workflow:      "abcd",
+					WorkflowOwner: "me",
+					WorkflowName:  "myworkflow",
+				},
+				before: func(t *testing.T, o job.ORM, s job.WorkflowSpec) int32 {
+					s.WorkflowOwner = "notme"
+					return mustInsertWFJob(t, o, s)
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o := NewTestORM(t, tt.fields.ds, tt.fields.pipelineORM, tt.fields.bridgeORM, tt.fields.keyStore)
+			var wantJobID int32
+			if tt.args.before != nil {
+				wantJobID = tt.args.before(t, o, tt.args.spec)
+			}
+			ctx := testutils.Context(t)
+			gotJ, err := o.FindJobIDByWorkflow(ctx, tt.args.spec)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("orm.FindJobByWorkflow() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				assert.Equal(t, wantJobID, gotJ, "mismatch job id")
+			}
+		})
+	}
+}
+
+func mustInsertWFJob(t *testing.T, orm job.ORM, s job.WorkflowSpec) int32 {
+	t.Helper()
+	ctx := testutils.Context(t)
+	_, err := toml.Marshal(s.Workflow)
+	require.NoError(t, err)
+	//require.NoError(t, s.Validate(), "invalid workflow spec")
+	j := job.Job{
+		//WorkflowSpecID: &s.ID,
+		Type:          job.Workflow,
+		WorkflowSpec:  &s,
+		Name:          null.StringFrom(s.WorkflowOwner + "_" + s.WorkflowName),
+		SchemaVersion: 1,
+	}
+	err = orm.CreateJob(ctx, &j)
+	require.NoError(t, err)
+	return j.ID
 }
 
 func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.Run {
