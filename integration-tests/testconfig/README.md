@@ -118,9 +118,10 @@ Finally `default.toml` file is envisioned to contain fundamental and universally
 
 ### Chainlink Node TOML config
 
-To set custom config for Chainlink Node use `NodeConfig.BaseConfigTOML` in TOML. Example:
+Find default node config in `testconfig/default.toml`
 
-```
+To set custom config for Chainlink Node use `NodeConfig.BaseConfigTOML` in TOML. Example:
+```toml
 [NodeConfig]
 BaseConfigTOML = """
 [Feature]
@@ -140,9 +141,11 @@ Enabled = true
 DefaultTransactionQueueDepth = 0
 """
 ```
+Note that you cannot override individual values in BaseConfigTOML. You must provide the entire configuration.
 
-To set base config for EVM network use `NodeConfig.CommonChainConfigTOML`. Example:
-```
+
+To set base config for EVM chains use `NodeConfig.CommonChainConfigTOML`. Example:
+```toml
 CommonChainConfigTOML = """
 AutoCreateKey = true
 FinalityDepth = 1
@@ -155,8 +158,10 @@ FeeCapDefault = '200 gwei'
 """
 ```
 
+This is the default configuration used for all EVM chains unless ChainConfigTOMLByChainID is specified.
+
 To set custom per-chain config use `[NodeConfig.ChainConfigTOMLByChainID]`. Example:
-```
+```toml
 [NodeConfig.ChainConfigTOMLByChainID]
 # applicable for arbitrum-goerli chain
 421613 = """
@@ -176,7 +181,7 @@ For more examples see `example.toml` in product TOML configs like `testconfig/au
 
 To set env vars for Chainlink Node use `WithCLNodeOptions()` and `WithNodeEnvVars()` when building a test environment. Example:
 
-```
+```go
 envs := map[string]string{
     "CL_LOOPP_HOSTNAME": "hostname",
 }
