@@ -1,5 +1,10 @@
 # Changelog Chainlink Core
 
+## 2.11.1
+
+### Patch Changes
+
+- [#13254](https://github.com/smartcontractkit/chainlink/pull/13254) [`c0d201a9a8`](https://github.com/smartcontractkit/chainlink/commit/c0d201a9a85b66718c5102427c34276e0b61c84e) Thanks [@samsondav](https://github.com/samsondav)! - Fix panic if mercury server returns error #bugfix
 
 ## 2.11.0 - 2024-04-30
 
