@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -613,7 +614,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		return 0, err
 	}
 	// auto approve workflow specs
-	if isWFSpec(args.Spec) {
+	if isWFSpec(logger, args.Spec) {
 		promWorkflowRequests.Inc()
 		err = s.ApproveSpec(ctx, id, true)
 		if err != nil {
@@ -635,13 +636,14 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	return id, nil
 }
 
-func isWFSpec(spec string) bool {
-	var s job.WorkflowSpec
-	err := toml.Unmarshal([]byte(spec), &s)
+func isWFSpec(lggr logger.Logger, spec string) bool {
+	jobType, err := job.ValidateSpec(spec)
 	if err != nil {
+		// this should not happen in practice
+		lggr.Errorw("Failed to validate spec while checking for workflow", "err", err)
 		return false
 	}
-	return s.Validate() == nil
+	return jobType == job.Workflow
 }
 
 // GetJobProposal gets a job proposal by id.
@@ -799,7 +801,6 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 					}
 				}
 			case job.Workflow:
-				// do nothing. assume there is no existing job
 				existingJobID, txerr = findExistingWorkflowJob(ctx, *j.WorkflowSpec, tx.jobORM)
 				if txerr != nil {
 					// Return an error if the repository errors. If there is a not found
@@ -1181,23 +1182,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	case job.Workflow:
-		// TODO what the right way to validate a workflow spec?
-		var s job.WorkflowSpec
-		err = toml.Unmarshal([]byte(spec), &s)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse workflow spec TOML: %w", err)
-		}
-		err = s.Validate()
-		if err != nil {
-			return nil, fmt.Errorf("failed to validate workflow spec: %w", err)
-		}
-		js = job.Job{
-			Type:          job.Workflow,
-			SchemaVersion: 1,
-			ExternalJobID: uuid.New(), // is this right?
-			WorkflowSpec:  &s,
-		}
-
+		js, err = workflows.ValidatedWorkflowSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}

@@ -122,21 +122,27 @@ func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
 	if err != nil {
 		return jb, fmt.Errorf("toml unmarshal error on spec: %w", err)
 	}
+	if jb.Type != job.Workflow {
+		return jb, fmt.Errorf("unsupported type %s, expected %s", jb.Type, job.Workflow)
+	}
 
 	var spec job.WorkflowSpec
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return jb, fmt.Errorf("toml unmarshal error on job: %w", err)
+		return jb, fmt.Errorf("toml unmarshal error on workflow spec: %w", err)
 	}
 
 	if err := spec.Validate(); err != nil {
 		return jb, err
 	}
 
-	jb.WorkflowSpec = &spec
-	if jb.Type != job.Workflow {
-		return jb, fmt.Errorf("unsupported type %s", jb.Type)
+	// ensure the embedded workflow graph is valid
+	_, err = Parse(spec.Workflow)
+	if err != nil {
+		return jb, fmt.Errorf("failed to parse workflow graph: %w", err)
 	}
+	jb.WorkflowSpec = &spec
+	jb.WorkflowSpecID = &spec.ID
 
 	return jb, nil
 }

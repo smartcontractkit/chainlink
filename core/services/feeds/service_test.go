@@ -641,9 +641,32 @@ func Test_Service_ProposeJob(t *testing.T) {
 		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 
 		// variables for workflow spec
-		wfID         = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-		wfOwner      = "00000000000000000000000000000000000000aa"
-		wfSpec       = testspecs.GenerateWorkflowSpec(wfID, wfOwner, "spec details").Toml()
+		wfID     = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+		wfOwner  = "00000000000000000000000000000000000000aa"
+		specYaml = `
+triggers:
+  - id: "a-trigger"
+
+actions:
+  - id: "an-action"
+    ref: "an-action"
+    inputs:
+      trigger_output: $(trigger.outputs)
+
+consensus:
+  - id: "a-consensus"
+    ref: "a-consensus"
+    inputs:
+      trigger_output: $(trigger.outputs)
+      an-action_output: $(an-action.outputs)
+
+targets:
+  - id: "a-target"
+    ref: "a-target"
+    inputs: 
+      consensus_output: $(a-consensus.outputs)
+`
+		wfSpec       = testspecs.GenerateWorkflowSpec(wfID, wfOwner, specYaml).Toml()
 		proposalIDWF = int64(11)
 		remoteUUIDWF = uuid.New()
 		argsWF       = &feeds.ProposeJobArgs{
