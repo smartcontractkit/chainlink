@@ -60,12 +60,9 @@ func (d scheduledExecution) Apply(ctx context.Context, lggr logger.Logger, cap c
 	switch {
 	// Case 1: Local DON
 	case info.DON == nil:
-		donPeerIDs := d.DON.Members
-		sharedSecret := d.DON.Config.SharedSecret
-		workflowID := req.Metadata.WorkflowID
-		workflowExecutionID := req.Metadata.WorkflowExecutionID
 
-		peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(donPeerIDs, sharedSecret, workflowID, workflowExecutionID, tc)
+		peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(d.DON.Members, d.DON.Config.SharedSecret,
+			req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get peer ID to transmission delay map: %w", err)
 		}
@@ -88,15 +85,6 @@ func (d scheduledExecution) Apply(ctx context.Context, lggr logger.Logger, cap c
 	default:
 
 		// In this case just execute immediately on the capability and the shims will handle the scheduling and f+1 aggregation
-
-		// so in this scenario, the local worflow nodes all have to tell the remote node that it should execute the transmission
-		// the remote node should only do this when it receives f + 1 requests with the same report.
-
-		// ok, so here we are given a capability - we would have to execute against dons and have f+1 to ensure at least one
-		// honest node will transmit the message.
-
-		// so the question becomes, do we execute against the DONS here or do we have the consensus publisher
-		// subscriber somehow embed the logic?
 
 		// TODO: fill in the remote DON case once consensus has been reach on what to do.
 		lggr.Debugw("remote DON transmission not implemented: using immediate execution")
