@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 // PluginFactoryConstructor implements common OCR3ReportingPluginClient and is used for initializing a plugin factory
@@ -19,18 +19,19 @@ func NewPluginFactoryConstructor() *PluginFactoryConstructor {
 }
 func (p PluginFactoryConstructor) NewReportingPluginFactory(
 	ctx context.Context,
-	config types.ReportingPluginServiceConfig,
+	config core.ReportingPluginServiceConfig,
 	grpcProvider grpc.ClientConnInterface,
-	pipelineRunner types.PipelineRunnerService,
-	telemetry types.TelemetryService,
-	errorLog types.ErrorLog,
-	capRegistry types.CapabilitiesRegistry,
-	keyValueStore types.KeyValueStore,
-) (types.OCR3ReportingPluginFactory, error) {
+	pipelineRunner core.PipelineRunnerService,
+	telemetry core.TelemetryService,
+	errorLog core.ErrorLog,
+	capRegistry core.CapabilitiesRegistry,
+	keyValueStore core.KeyValueStore,
+	relayerSet core.RelayerSet,
+) (core.OCR3ReportingPluginFactory, error) {
 	return NewPluginFactory(), nil
 }
 
-func (p PluginFactoryConstructor) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+func (p PluginFactoryConstructor) NewValidationService(ctx context.Context) (core.ValidationService, error) {
 	panic("implement me")
 }
 
@@ -75,5 +76,5 @@ func (p PluginFactory) HealthReport() map[string]error {
 }
 
 // Interface compatibility checks.
-var _ types.OCR3ReportingPluginClient = &PluginFactoryConstructor{}
-var _ types.OCR3ReportingPluginFactory = &PluginFactory{}
+var _ core.OCR3ReportingPluginClient = &PluginFactoryConstructor{}
+var _ core.OCR3ReportingPluginFactory = &PluginFactory{}
