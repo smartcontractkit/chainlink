@@ -143,7 +143,7 @@ func New(p Props) []dashboard.Option {
 					),
 				),
 				row.WithTimeSeries(
-					"Receive Bandwidth",
+					"OnMessage Bandwidth",
 					timeseries.Span(6),
 					timeseries.Height("200px"),
 					timeseries.DataSource(p.PrometheusDataSource),

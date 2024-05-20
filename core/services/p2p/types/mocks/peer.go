@@ -115,7 +115,7 @@ func (_m *Peer) Receive() <-chan types.Message {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for Receive")
+		panic("no return value specified for OnMessage")
 	}
 
 	var r0 <-chan types.Message

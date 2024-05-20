@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	peerID1       = "12D3KooWF3dVeJ6YoT5HFnYhmwQWWMoEwVFzJQ5kKCMX3ZityxMC"
-	peerID2       = "12D3KooWQsmok6aD8PZqt3RnJhQRrNzKHLficq7zYFRp7kZ1hHP8"
-	workflowID1   = "workflowID1"
+	PeerID1       = "12D3KooWF3dVeJ6YoT5HFnYhmwQWWMoEwVFzJQ5kKCMX3ZityxMC"
+	PeerID2       = "12D3KooWQsmok6aD8PZqt3RnJhQRrNzKHLficq7zYFRp7kZ1hHP8"
+	WorkflowID1   = "workflowID1"
 	triggerEvent1 = "triggerEvent1"
 	triggerEvent2 = "triggerEvent2"
 )
@@ -35,9 +35,9 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 		Version:        "0.0.1",
 	}
 	p1 := p2ptypes.PeerID{}
-	require.NoError(t, p1.UnmarshalText([]byte(peerID1)))
+	require.NoError(t, p1.UnmarshalText([]byte(PeerID1)))
 	p2 := p2ptypes.PeerID{}
-	require.NoError(t, p2.UnmarshalText([]byte(peerID2)))
+	require.NoError(t, p2.UnmarshalText([]byte(PeerID2)))
 	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
 		Members: []p2ptypes.PeerID{p1},
@@ -70,7 +70,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 
 	triggerEventCallbackCh, err := subscriber.RegisterTrigger(ctx, commoncap.CapabilityRequest{
 		Metadata: commoncap.RequestMetadata{
-			WorkflowID: workflowID1,
+			WorkflowID: WorkflowID1,
 		},
 	})
 	require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 		Method: remotetypes.MethodTriggerEvent,
 		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
 			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
-				WorkflowIds: []string{workflowID1},
+				WorkflowIds: []string{WorkflowID1},
 			},
 		},
 		Payload: marshaled,
