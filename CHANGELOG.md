@@ -189,7 +189,7 @@
   You may disable if this results in excessive log volume. Disable like so:
 
   ```
-  [Pipeline]
+  [JobPipeline]
   VerboseLogging = false
   ```
 
@@ -219,7 +219,7 @@
 
 - [#12404](https://github.com/smartcontractkit/chainlink/pull/12404) [`b74079b672`](https://github.com/smartcontractkit/chainlink/commit/b74079b672f36fb0c241f90ea1e875ea3a9524da) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - Add OCR3 capability contract wrapper
 
-- [#12498](https://github.com/smartcontractkit/chainlink/pull/12498) [`1c576d0e34`](https://github.com/smartcontractkit/chainlink/commit/1c576d0e34d93a6298ddcb662ee89fd04eeda53e) Thanks [@samsondav](https://github.com/samsondav)! - Add new config option Pipeline.VerboseLogging
+- [#12498](https://github.com/smartcontractkit/chainlink/pull/12498) [`1c576d0e34`](https://github.com/smartcontractkit/chainlink/commit/1c576d0e34d93a6298ddcb662ee89fd04eeda53e) Thanks [@samsondav](https://github.com/samsondav)! - Add new config option JobPipeline.VerboseLogging
 
   VerboseLogging enables detailed logging of pipeline execution steps. This is
   disabled by default because it increases log volume for pipeline runs, but can
@@ -230,7 +230,7 @@
   Set it like the following example:
 
   ```
-  [Pipeline]
+  [JobPipeline]
   VerboseLogging = true
   ```
 

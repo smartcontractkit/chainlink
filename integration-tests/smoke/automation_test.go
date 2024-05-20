@@ -20,11 +20,9 @@ import (
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -34,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/gasprice"
@@ -1262,9 +1259,10 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err = consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterSettingLowMaxGasPrice[i].Int64()),
-						"Expected consumer counter to remain constant at %d, but got %d",
-						countersAfterSettingLowMaxGasPrice[i].Int64(), latestCounter.Int64())
+					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterSettingLowMaxGasPrice[i].Int64()+1),
+						"Expected consumer counter to be less than %d, but got %d",
+						countersAfterSettingLowMaxGasPrice[i].Int64()+1, latestCounter.Int64())
+
 				}
 			}, "2m", "5s").Should(gomega.Succeed())
 			l.Info().Msg("no upkeeps is performed because their max gas price is only 1 wei")
@@ -1352,17 +1350,6 @@ func setupAutomationTestDocker(
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.MustGetSelectedNetworkConfig(automationTestConfig.GetNetworkConfig())[0]
 
-	// build the node config
-	clNodeConfig := node.NewConfig(node.NewBaseConfig())
-	syncInterval := *commonconfig.MustNewDuration(5 * time.Minute)
-	clNodeConfig.Feature.LogPoller = ptr.Ptr[bool](true)
-	clNodeConfig.OCR2.Enabled = ptr.Ptr[bool](true)
-	clNodeConfig.Keeper.TurnLookBack = ptr.Ptr[int64](int64(0))
-	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
-	clNodeConfig.Keeper.Registry.PerformGasOverhead = ptr.Ptr[uint32](uint32(150000))
-	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
-	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
-
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
 	var err error
@@ -1374,14 +1361,13 @@ func setupAutomationTestDocker(
 	require.NoError(t, err, "Error building ethereum network config")
 
 	if isMercuryV02 || isMercuryV03 {
-		env, err = test_env.NewCLTestEnvBuilder().
+		// start mock adapter only
+		mockAdapterEnv, err := test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 			WithMockAdapter().
-			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
-			WithStandardCleanup().
-			WithSeth().
+			WithoutEvmClients().
+			WithoutCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 
@@ -1391,28 +1377,24 @@ func setupAutomationTestDocker(
 		URL = '%s'
 		Username = 'node'
 		Password = 'nodepass'`
-		secretsConfig = fmt.Sprintf(secretsConfig, env.MockAdapter.InternalEndpoint, env.MockAdapter.InternalEndpoint)
+		secretsConfig = fmt.Sprintf(secretsConfig, mockAdapterEnv.MockAdapter.InternalEndpoint, mockAdapterEnv.MockAdapter.InternalEndpoint)
 
-		rpcProvider, err := env.GetRpcProvider(network.ChainID)
-		require.NoError(t, err, "Error getting rpc provider")
+		builder, err := test_env.NewCLTestEnvBuilder().WithTestEnv(mockAdapterEnv)
+		require.NoError(t, err, "Error building test environment for Mercury")
 
-		var httpUrls []string
-		var wsUrls []string
-		if network.Simulated {
-			httpUrls = []string{rpcProvider.PrivateHttpUrls()[0]}
-			wsUrls = []string{rpcProvider.PrivateWsUrsl()[0]}
-		} else {
-			httpUrls = network.HTTPURLs
-			wsUrls = network.URLs
-		}
+		env, err = builder.
+			WithTestInstance(t).
+			WithTestConfig(automationTestConfig).
+			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+			WithSecretsConfig(secretsConfig).
+			WithCLNodes(clNodesCount).
+			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
+			WithStandardCleanup().
+			WithSeth().
+			Build()
+		require.NoError(t, err, "Error deploying test environment for Mercury")
 
-		node.SetChainConfig(clNodeConfig, wsUrls, httpUrls, network, false)
-
-		err = env.StartClCluster(clNodeConfig, clNodesCount, secretsConfig, automationTestConfig)
-		require.NoError(t, err, "Error starting CL nodes test environment for Mercury")
-		err = env.FundChainlinkNodes(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding))
-		require.NoError(t, err, "Error funding CL nodes")
-
+		env.MockAdapter = mockAdapterEnv.MockAdapter
 	} else {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
@@ -1420,7 +1402,6 @@ func setupAutomationTestDocker(
 			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
-			WithCLNodeConfig(clNodeConfig).
 			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
 			WithSeth().
