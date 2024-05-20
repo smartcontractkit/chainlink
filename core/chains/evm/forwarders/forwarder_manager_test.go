@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -203,7 +204,8 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), evmClient, lggr, lpOpts)
+	ht := headtracker.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), evmClient, lggr, ht, lpOpts)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM())
 	fwdMgr.ORM = forwarders.NewORM(db)
 

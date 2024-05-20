@@ -1078,8 +1078,9 @@ func TestHeadTracker_Backfill(t *testing.T) {
 // BenchmarkHeadTracker_Backfill - benchmarks HeadTracker's Backfill with focus on efficiency after initial
 // backfill on start up
 func BenchmarkHeadTracker_Backfill(b *testing.B) {
-	cfg := configtest.NewGeneralConfig(b, nil)
-
+	cfg := configtest.NewGeneralConfig(b, func(c *chainlink.Config, _ *chainlink.Secrets) {
+		c.EVM[0].FinalityTagEnabled = ptr(true)
+	})
 	evmcfg := evmtest.NewChainScopedConfig(b, cfg)
 	db := pgtest.NewSqlxDB(b)
 	chainID := big.NewInt(evmclient.NullClientChainID)
@@ -1101,15 +1102,17 @@ func BenchmarkHeadTracker_Backfill(b *testing.B) {
 		number := hash.Big().Int64()
 		return makeBlock(number), nil
 	})
+	ethClient.On("LatestFinalizedBlock", mock.Anything).Return(finalized, nil).Once()
 	// run initial backfill to populate the database
-	err := ht.headTracker.Backfill(ctx, latest, finalized)
+	err := ht.headTracker.Backfill(ctx, latest)
 	require.NoError(b, err)
 	b.ResetTimer()
 	// focus benchmark on processing of a new latest block
 	for i := 0; i < b.N; i++ {
 		latest = makeBlock(int64(finalityDepth + i))
 		finalized = makeBlock(int64(i + 1))
-		err := ht.headTracker.Backfill(ctx, latest, finalized)
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(finalized, nil).Once()
+		err := ht.headTracker.Backfill(ctx, latest)
 		require.NoError(b, err)
 	}
 }
