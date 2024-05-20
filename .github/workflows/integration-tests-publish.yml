@@ -9,7 +9,6 @@ on:
   workflow_dispatch:
 
 env:
-  ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests:ccip-develop
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
 
 jobs:
@@ -35,15 +34,14 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Setup Other Tags If Not Workflow Dispatch
+      - name: Setup Other Tags
         id: tags
         run: |
-          echo "other_tags=${ECR_TAG}" >> $GITHUB_OUTPUT
           echo 'release_tag="${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink-ccip-tests:{2}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, github.ref_name) }}"' >> $GITHUB_OUTPUT
       - name: Build Image
         uses: ./.github/actions/build-test-image
         with:
-          other_tags: ${{ steps.tags.outputs.other_tags }},${{steps.tags.outputs.release_tag}}
+          other_tags: ${{steps.tags.outputs.release_tag}}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
