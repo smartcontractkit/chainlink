@@ -1,8 +1,11 @@
 # Changelog Chainlink Core
 
+
 ## 2.12.0 - UNRELEASED
 
 ### Minor Changes
+
+- [#13246](https://github.com/smartcontractkit/chainlink/pull/13246) [`119df08eec`](https://github.com/smartcontractkit/chainlink/commit/119df08eec3609a41880a5b471c466e90fff36f8) Thanks [@ilija42](https://github.com/ilija42)! - Added a mechanism to validate forwarders for OCR2 and fallback to EOA if necessary #added
 
 - [#13000](https://github.com/smartcontractkit/chainlink/pull/13000) [`1b994043b0`](https://github.com/smartcontractkit/chainlink/commit/1b994043b00cad9e0c900b6d12173dd1008480a5) Thanks [@ettec](https://github.com/ettec)! - #internal changes to core required by change BCF3168 in common to add relayer set
 
@@ -40,6 +43,15 @@
 - [#12851](https://github.com/smartcontractkit/chainlink/pull/12851) [`40064f0dfe`](https://github.com/smartcontractkit/chainlink/commit/40064f0dfecda6e404993dff056e7a666cca7d26) Thanks [@amit-momin](https://github.com/amit-momin)! - #internal Updated FindTxesWithAttemptsAndReceiptsByIdsAndState method signature to accept int64 for tx ID instead of big.Int
 
 ### Patch Changes
+
+- [#13260](https://github.com/smartcontractkit/chainlink/pull/13260) [`5daefad14c`](https://github.com/smartcontractkit/chainlink/commit/5daefad14c42011ad0c19d9c21fb1e27d93c649c) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Fixed CPU usage issues caused by inefficiencies in HeadTracker.
+
+  HeadTracker's support of finality tags caused a drastic increase in the number of tracked blocks on the Arbitrum chain (from 50 to 12,000), which has led to a 30% increase in CPU usage.
+
+  The fix improves the data structure for tracking blocks and makes lookup more efficient. BenchmarkHeadTracker_Backfill shows 40x time reduction.
+  #bugfix
+
+- [#13256](https://github.com/smartcontractkit/chainlink/pull/13256) [`d133da44a9`](https://github.com/smartcontractkit/chainlink/commit/d133da44a9bb0a1393363740cbdc7edc18871b4f) Thanks [@samsondav](https://github.com/samsondav)! - Fix panic if mercury server returns error #bugfix
 
 - [#13151](https://github.com/smartcontractkit/chainlink/pull/13151) [`b3d431c41a`](https://github.com/smartcontractkit/chainlink/commit/b3d431c41ae78a678a9d0c769ec20874785cbcda) Thanks [@jmank88](https://github.com/jmank88)! - core/services: fix ocrWrapper saveError contexts #internal
 
