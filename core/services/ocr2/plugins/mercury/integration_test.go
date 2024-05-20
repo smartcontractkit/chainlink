@@ -333,21 +333,6 @@ func integration_MercuryV1(t *testing.T) {
 		backend.Commit()
 	}
 
-	// Bury it with finality depth
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
-	}
-
-	for _, n := range append(nodes, bootstrapNode) {
-		chain, err := n.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-		require.NoError(t, err)
-		err = chain.LogPoller().Replay(ctx, 1)
-		require.NoError(t, err)
-	}
-
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 		// Expect at least one report per feed from each oracle
 		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
