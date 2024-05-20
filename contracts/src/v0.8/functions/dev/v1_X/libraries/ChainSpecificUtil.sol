@@ -56,7 +56,7 @@ library ChainSpecificUtil {
       uint256 l1BlobBaseFeeWei = L1BLOCK.blobBaseFee();
       uint256 l1BlobBaseFeeScalar = L1BLOCK.blobBaseFeeScalar();
       uint256 weightedGasPrice = (l1BaseFeeScalar * l1BaseFeeWei + l1BlobBaseFeeScalar * l1BlobBaseFeeWei) / 10^6;
-      return weightedGasPrice * dataSizeBytes;
+      return weightedGasPrice * (dataSizeBytes + OP_L1_FEE_DATA_PADDING_SIZE);
     }
     return 0;
   }
