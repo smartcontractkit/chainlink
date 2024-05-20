@@ -900,7 +900,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			randRequestBlockNumber+uint64(257),
 			sethClient,
 			&wg,
-			time.Second*260,
+			configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration,
 			t,
 			l,
 		)
