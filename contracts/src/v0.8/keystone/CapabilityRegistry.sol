@@ -60,7 +60,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedCapabilityIds;
   }
 
-  // CapabilityResponseType indicates whether remote response requires
+  /// @notice CapabilityResponseType indicates whether remote response requires
   // aggregation or is an already aggregated report. There are multiple
   // possible ways to aggregate.
   enum CapabilityResponseType {
@@ -71,29 +71,29 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   struct Capability {
-    // The `labelledName` is a partially qualified ID for the capability.
-    //
-    // Given the following capability ID: {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
+    /// @notice The partially qualified ID for the capability.
+    ///
+    /// @dev Given the following capability ID: {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
     // Then we denote the `labelledName` as the `{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}` portion of the ID.
-    //
-    // Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
-    //     labelledName = "data-streams-reports:chain:ethereum"
-    //
-    // bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
+    ///
+    /// Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
+    ///     labelledName = "data-streams-reports:chain:ethereum"
+    ///
+    /// bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
     bytes32 labelledName;
-    // Semver, e.g., "1.2.3"
-    // bytes32(string); must be valid Semver + max 32 characters.
+    /// @notice Semver, e.g., "1.2.3"
+    ///  @dev must be valid Semver + max 32 characters.
     bytes32 version;
-    // responseType indicates whether remote response requires
+    /// @notice Indicates whether remote response requires
     // aggregation or is an OCR report. There are multiple possible
     // ways to aggregate.
     CapabilityResponseType responseType;
-    // An address to the capability configuration contract. Having this defined
+    /// @notice An address to the capability configuration contract. Having this defined
     // on a capability enforces consistent configuration across DON instances
     // serving the same capability. Configuration contract MUST implement
     // CapabilityConfigurationContractInterface.
     //
-    // The main use cases are:
+    /// @dev The main use cases are:
     // 1) Sharing capability configuration across DON instances
     // 2) Inspect and modify on-chain configuration without off-chain
     // capability code.
@@ -459,6 +459,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     );
   }
 
+  /// @notice Adds a new capability to the capability registry
+  /// @param capability The capability being added
   function addCapability(Capability calldata capability) external onlyOwner {
     bytes32 hashedId = getHashedCapabilityId(capability.labelledName, capability.version);
     if (s_hashedCapabilityIds.contains(hashedId)) revert CapabilityAlreadyExists();
@@ -523,9 +525,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   /// @notice This functions returns a capability id that has been hashed to fit into a bytes32 for cheaper access
+  /// @param labelledName The name of the capability
+  /// @param version The capability's version number
   /// @return bytes32 A unique identifier for the capability
+  /// @dev The hash of the encoded labelledName and version
   function getHashedCapabilityId(bytes32 labelledName, bytes32 version) public pure returns (bytes32) {
-    return keccak256(abi.encode(labelledName, version));
+    return keccak256(abi.encodePacked(labelledName, version));
   }
 
   /// @notice Returns whether a capability is deprecated
