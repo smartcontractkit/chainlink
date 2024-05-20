@@ -2076,8 +2076,8 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
-FinalityDepth = 200
-FinalityTagEnabled = false
+FinalityDepth = 1000
+FinalityTagEnabled = true
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
@@ -2127,7 +2127,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 300
+HistoryDepth = 1100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
