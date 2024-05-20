@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 type VRFEncodedProvingKey [2]*big.Int
@@ -83,8 +84,15 @@ type VRFLoadTestConsumer interface {
 }
 
 type NewEnvConfig struct {
-	NodesToCreate          []VRFNodeType
-	NumberOfTxKeysToCreate int
-	UseVRFOwner            bool
-	UseTestCoordinator     bool
+	NodesToCreate                   []VRFNodeType
+	NumberOfTxKeysToCreate          int
+	UseVRFOwner                     bool
+	UseTestCoordinator              bool
+	ChainlinkNodeLogScannerSettings test_env.ChainlinkNodeLogScannerSettings
+}
+
+type VRFEnvConfig struct {
+	TestConfig tc.TestConfig
+	ChainID    int64
+	CleanupFn  func()
 }
