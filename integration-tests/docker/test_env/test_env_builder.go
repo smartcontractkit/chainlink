@@ -329,8 +329,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 							b.l.Error().Err(err).Msg("Error processing logs")
 							return
 						} else if err != nil && (strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr)) {
-							b.l.Error().Err(err).Msg("Found concerning logs in Chainlink Node logs. Failing test.")
-
 							// err return ignored on purpose since we are already failing the test
 							_ = flushLogStreamFn()
 							b.t.Fatalf("Found a concerning log in Chainklink Node logs: %v", err)
