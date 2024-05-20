@@ -75,6 +75,7 @@ type CLTestEnvBuilder struct {
 
 var DefaultAllowedMessages = []testreporters.AllowedLogMessage{
 	testreporters.NewAllowedLogMessage("Failed to get LINK balance", "Happens only when we deploy LINK token for test purposes. Harmless.", zapcore.ErrorLevel, testreporters.WarnAboutAllowedMsgs_No),
+	testreporters.NewAllowedLogMessage("Error stopping job service", "It's a known issue with lifecycle. There's ongoing work that will fix it.", zapcore.DPanicLevel, testreporters.WarnAboutAllowedMsgs_No),
 }
 
 var DefaultChainlinkNodeLogScannerSettings = ChainlinkNodeLogScannerSettings{
