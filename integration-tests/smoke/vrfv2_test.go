@@ -3,6 +3,7 @@ package smoke
 import (
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -851,7 +852,9 @@ func TestVRFV2WithBHS(t *testing.T) {
 	require.NoError(t, err, "Error setting up VRFV2 universe")
 
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
-		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
+		if os.Getenv("TEST_UNSKIP") != "true" {
+			t.Skip("Skipped due to long execution time. Should be run on-demand on live testnet with TEST_UNSKIP=\"true\".")
+		}
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
 

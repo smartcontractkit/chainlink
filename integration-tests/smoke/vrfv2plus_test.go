@@ -3,6 +3,7 @@ package smoke
 import (
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -1287,7 +1288,9 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 	var isNativeBilling = true
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
-		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
+		if os.Getenv("TEST_UNSKIP") != "true" {
+			t.Skip("Skipped due to long execution time. Should be run on-demand on live testnet with TEST_UNSKIP=\"true\".")
+		}
 		configCopy := config.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
@@ -1525,7 +1528,6 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 
 	var isNativeBilling = true
 	t.Run("BHF Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
-		// t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
 		configCopy := config.MustCopy().(tc.TestConfig)
 		// Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
