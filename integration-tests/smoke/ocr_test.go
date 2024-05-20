@@ -39,6 +39,9 @@ func TestOCRBasic(t *testing.T) {
 	err = actions_seth.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
 	require.NoError(t, err, ErrWatchingNewOCRRound)
 
+	//TODO remove me
+	require.True(t, false, "just to test")
+
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest OCR answer")
 	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
