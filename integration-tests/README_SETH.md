@@ -29,6 +29,13 @@
 10. [How to Deal with "TX Fee Exceeds the Configured Cap" Error](#how-to-deal-with-tx-fee-exceeds-the-configured-cap-error)
 11. [How to Use Seth's Synchronous API](#how-to-use-seths-synchronous-api)
 12. [How to Read Event Data from Transactions](#how-to-read-event-data-from-transactions)
+13. [How to Deal with Failed Transactions](#how-to-deal-with-failed-transactions)
+14. [How Automated Gas Estimation Works](#how-automated-gas-estimation-works)
+    1. [Legacy Transactions](#legacy-transactions)
+    2. [EIP-1559 Transactions](#eip-1559-transactions)
+    3. [Adjustment Factor](#adjustment-factor)
+    4. [Buffer Percents](#buffer-percents)
+18. [How to Tweak Automated Gas Estimation](#how-to-tweak-automated-gas-estimation)
 
 ## Introduction
 
@@ -332,3 +339,101 @@ func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to commo
 ```
 
 This function demonstrates how to decode a transaction, check for specific event topics in the transaction logs, and parse those events. It's a structured approach to handling event data that is crucial for applications that need to respond to specific changes in state reflected by those events.
+
+## How to deal with Failed Transactions
+When a state-changing interaction with a contract fails it's often difficult to know why it failed without using dedicated tools like Tenderly. That's why we have included transaction tracing and decoding in Seth. By default, it only applies to reverted transactions,
+but you can enable it for all transactions by setting `tracing_level` to `all` in your TOML configuration. The information is printed to the console (with a mix of `debug` and `trace` levels), but you can also automatically save tracing information to a json file by setting `trace_to_json=true`.
+
+If you suspect your tests might run into failed transactions in hard to reproduce circumstances it's advised to:
+* set `SETH_LOG_LEVEL` and `TEST_SETH_LOG_LEVEL` to `trace`
+* for tests running in the CI/Docker enable `trace_to_json` in your TOML configuration and add upload `./traces` directory to the artifacts in your CI pipeline (it will be located in the same directory as `./logs`)
+* make sure that in your code you upload contracts only using Seth's `ContractLoader` helper struct as it will automatically add contract's ABI to Seth's ABI cache -- and that's a prerequisite for decoding transactions (more info below)
+* make sure that in your code when you load contracts manually you always add its ABI to Seth's ABI cache using `seth.ContractStore.AddABI()` function
+* make sure that contracts you are using are not very heavily optimised (as the optimiser might remove custom revert reasons) and that your EVM target version is >= Constantinople hard fork (as custom revert reasons are not supported in earlier versions)
+
+Example of loading contract using `ContractLoader`:
+```go
+func LoadOffchainAggregator(client *seth.Client, contractAddress common.Address) (offchainaggregator.OffchainAggregator, error) {
+	// intialize contract loader with the generic type of the Geth contract wrapper
+	loader := seth.NewContractLoader[offchainaggregator.OffchainAggregator](client)
+	// call load function with contract name, address, ABI getter function and Geth wrapper constructor function
+	ocr, err := loader.LoadContract("OffChainAggregator", contractAddress, offchainaggregator.OffchainAggregatorMetaData.GetAbi, offchainaggregator.NewOffchainAggregator)
+	if err != nil {
+		return EthereumOffchainAggregator{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
+	}
+ }
+```
+
+## How Automated Gas Estimation works
+Gas estimation varies based on whether the network is a private Ethereum Network or a live network.
+
+- **Private Ethereum Networks**: no estimation is ever done. We always use hardcoded values.
+
+For real networks, the estimation process differs for legacy transactions and those compliant with EIP-1559:
+
+##### Legacy Transactions
+1. **Initial Price**: Query the network node for the current suggested gas price.
+2. **Priority Adjustment**: Modify the initial price based on `gas_price_estimation_tx_priority`. Higher priority increases the price to ensure faster inclusion in a block.
+3. **Congestion Analysis**: Examine the last X blocks (as specified by `gas_price_estimation_blocks`) to determine network congestion, calculating the usage rate of gas in each block and giving recent blocks more weight.
+4. **Buffering**: Add a buffer to the adjusted gas price to increase transaction reliability during high congestion.
+
+##### EIP-1559 Transactions
+1. **Tip Fee Query**: Ask the node for the current recommended tip fee.
+2. **Fee History Analysis**: Gather the base fee and tip history from recent blocks to establish a fee baseline.
+3. **Fee Selection**: Use the greater of the node's suggested tip or the historical average tip for upcoming calculations.
+4. **Priority and Adjustment**: Increase the base and tip fees based on transaction priority (`gas_price_estimation_tx_priority`), which influences how much you are willing to spend to expedite your transaction.
+5. **Final Fee Calculation**: Sum the base fee and adjusted tip to set the `gas_fee_cap`.
+6. **Congestion Buffer**: Similar to legacy transactions, analyze congestion and apply a buffer to both the fee cap and the tip to secure transaction inclusion.
+
+Understanding and setting these parameters correctly ensures that your transactions are processed efficiently and cost-effectively on the network.
+
+Finally, `gas_price_estimation_tx_priority` is also used, when deciding, which percentile to use for base fee and tip for historical fee data. Here's how that looks:
+```go
+		case Priority_Fast:
+			baseFee = stats.GasPrice.Perc99
+			historicalGasTipCap = stats.TipCap.Perc99
+		case Priority_Standard:
+			baseFee = stats.GasPrice.Perc50
+			historicalGasTipCap = stats.TipCap.Perc50
+		case Priority_Slow:
+			baseFee = stats.GasPrice.Perc25
+			historicalGasTipCap = stats.TipCap.Perc25
+```
+
+##### Adjustment factor
+All values are multiplied by the adjustment factor, which is calculated based on `gas_price_estimation_tx_priority`:
+```go
+	case Priority_Fast:
+		return 1.2
+	case Priority_Standard:
+		return 1.0
+	case Priority_Slow:
+		return 0.8
+```
+For fast transactions we will increase gas price by 20%, for standard we will use the value as is and for slow we will decrease it by 20%.
+
+##### Buffer percents
+We further adjust the gas price by adding a buffer to it, based on congestion rate:
+```go
+	case Congestion_Low:
+		return 1.10, nil
+	case Congestion_Medium:
+		return 1.20, nil
+	case Congestion_High:
+		return 1.30, nil
+	case Congestion_VeryHigh:
+		return 1.40, nil
+```
+
+For low congestion rate we will increase gas price by 10%, for medium by 20%, for high by 30% and for very high by 40%.  
+We cache block header data in an in-memory cache, so we don't have to fetch it every time we estimate gas. The cache has capacity equal to `gas_price_estimation_blocks` and every time we add a new element, we remove one that is least frequently used and oldest (with block number being a constant and chain always moving forward it makes no sense to keep old blocks).
+
+It's important to know that in order to use congestion metrics we need to fetch at least 80% of the requested blocks. If that fails, we will skip this part of the estimation and only adjust the gas price based on priority.
+
+For both transaction types if any of the steps fails, we fallback to hardcoded values.
+
+## How to tweak Automated Gas Estimation
+Now that you know how automated gas estimation works, you can tweak it to better suit your needs. Here are some tips to help you optimize your gas estimation process:
+* **Adjust the Gas Price Estimation Blocks**: Increase or decrease the number of blocks used for gas estimation based on network conditions. More blocks provide a more accurate picture of network congestion and can smooth out short spikes of high gas prices. On the other hand, fewer blocks can speed up the estimation process or even be a prerequisite for the estimation to work (if the RPC is slow). Remember also that longer block range can lead to less accurate estimation, if network conditions changed very recently (although the algorithm tries to counter that by assigning higher weights to more recent blocks.
+* **Set the Gas Price Estimation Tx Priority**: Choose the transaction priority that best suits your needs. A higher priority will increase the gas price, ensuring faster inclusion in a block. Conversely, a lower priority will reduce the gas price, potentially saving you money.
+* **Disable Gas Estimation**: If you prefer to use hardcoded values, you can disable automated gas estimation. This will make Seth use the hardcoded values from your TOML configuration, which can be useful if you want to avoid the overhead of estimation or if you have specific gas prices you want to use or in a rare case that estimations are inaccurate.
