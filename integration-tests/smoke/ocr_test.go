@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
@@ -38,9 +42,6 @@ func TestOCRBasic(t *testing.T) {
 
 	err = actions_seth.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
 	require.NoError(t, err, ErrWatchingNewOCRRound)
-
-	//TODO remove me
-	require.True(t, false, "just to test")
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest OCR answer")
@@ -91,6 +92,11 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
 
+	//TODO remove me
+	settings := test_env.DefaultChainlinkNodeLogScannerSettings
+	settings.FailingLogLevel = zapcore.ErrorLevel
+	settings.AllowedMessages = []testreporters.AllowedLogMessage{}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
@@ -98,6 +104,7 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 		WithMockAdapter().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.5)).
+		WithChainlinkNodeLogScanner(settings). //TODO remove me
 		WithStandardCleanup().
 		WithSeth().
 		Build()
