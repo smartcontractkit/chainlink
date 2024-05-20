@@ -144,9 +144,11 @@ type server struct {
 
 	c  wsrpc.Client
 	pm *PersistenceManager
-	q  *TransmitQueue
+	q  TransmitQueue
 
 	deleteQueue chan *pb.TransmitRequest
+
+	url string
 
 	transmitSuccessCount          prometheus.Counter
 	transmitDuplicateCount        prometheus.Counter
@@ -259,7 +261,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 				s.transmitDuplicateCount.Inc()
 				s.lggr.Debugw("Transmit report success; duplicate report", "payload", hexutil.Encode(t.Req.Payload), "response", res, "reportCtx", t.ReportCtx)
 			default:
-				transmitServerErrorCount.WithLabelValues(feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
+				transmitServerErrorCount.WithLabelValues(feedIDHex, s.url, fmt.Sprintf("%d", res.Code)).Inc()
 				s.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
@@ -284,6 +286,7 @@ func NewTransmitter(lggr logger.Logger, clients map[string]wsrpc.Client, fromAcc
 			pm,
 			NewTransmitQueue(cLggr, serverURL, feedIDHex, maxTransmitQueueSize, pm),
 			make(chan *pb.TransmitRequest, maxDeleteQueueSize),
+			serverURL,
 			transmitSuccessCount.WithLabelValues(feedIDHex, serverURL),
 			transmitDuplicateCount.WithLabelValues(feedIDHex, serverURL),
 			transmitConnectionErrorCount.WithLabelValues(feedIDHex, serverURL),
