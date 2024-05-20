@@ -50,7 +50,7 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 // GetPeerIDToTransmissionDelay returns a map of PeerID to the time.Duration that the node with that PeerID should wait
 // before transmitting. If a node is not in the map, it should not transmit.
 func GetPeerIDToTransmissionDelay(donPeerIDs []ragep2ptypes.PeerID, sharedSecret [16]byte, workflowID string,
-	workflowExecutionID string, tc TransmissionConfig) (map[p2ptypes.PeerID]*time.Duration, error) {
+	workflowExecutionID string, tc TransmissionConfig) (map[p2ptypes.PeerID]time.Duration, error) {
 	donMemberCount := len(donPeerIDs)
 	key := scheduleSeed(sharedSecret, workflowID, workflowExecutionID)
 	sched, err := schedule(tc.Schedule, donMemberCount)
@@ -60,11 +60,11 @@ func GetPeerIDToTransmissionDelay(donPeerIDs []ragep2ptypes.PeerID, sharedSecret
 
 	picked := permutation.Permutation(donMemberCount, key)
 
-	peerIDToTransmissionDelay := map[p2ptypes.PeerID]*time.Duration{}
+	peerIDToTransmissionDelay := map[p2ptypes.PeerID]time.Duration{}
 	for i, peerID := range donPeerIDs {
 		delay := delayFor(i, sched, picked, tc.DeltaStage)
 		if delay != nil {
-			peerIDToTransmissionDelay[peerID] = delay
+			peerIDToTransmissionDelay[peerID] = *delay
 		}
 	}
 	return peerIDToTransmissionDelay, nil

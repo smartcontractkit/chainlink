@@ -26,9 +26,9 @@ func TestTriggerPublisher_Register(t *testing.T) {
 		Version:        "0.0.1",
 	}
 	p1 := p2ptypes.PeerID{}
-	require.NoError(t, p1.UnmarshalText([]byte(peerID1)))
+	require.NoError(t, p1.UnmarshalText([]byte(PeerID1)))
 	p2 := p2ptypes.PeerID{}
-	require.NoError(t, p2.UnmarshalText([]byte(peerID2)))
+	require.NoError(t, p2.UnmarshalText([]byte(PeerID2)))
 	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
 		Members: []p2ptypes.PeerID{p1},
@@ -60,7 +60,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	// trigger registration event
 	capRequest := commoncap.CapabilityRequest{
 		Metadata: commoncap.RequestMetadata{
-			WorkflowID: workflowID1,
+			WorkflowID: WorkflowID1,
 		},
 	}
 	marshaled, err := pb.MarshalCapabilityRequest(capRequest)
