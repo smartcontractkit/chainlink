@@ -433,11 +433,20 @@ func SetupVRFV2ForExistingEnv(t *testing.T, testConfig tc.TestConfig, chainID in
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
 	}
+
+	blockHashStoreAddress, err := coordinator.GetBlockHashStoreAddress(testcontext.Get(t))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("err: %w", err)
+	}
+	blockHashStore, err := contracts.LoadBlockHashStore(sethClient, blockHashStoreAddress.String())
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading BlockHashStore", err)
+	}
 	vrfContracts := &vrfcommon.VRFContracts{
 		CoordinatorV2:  coordinator,
 		VRFV2Consumers: nil,
 		LinkToken:      linkToken,
-		BHS:            nil,
+		BHS:            blockHashStore,
 	}
 	vrfKey := &vrfcommon.VRFKeyData{
 		VRFKey:            nil,
