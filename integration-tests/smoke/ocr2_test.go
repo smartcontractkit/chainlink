@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 type ocr2test struct {
@@ -154,13 +153,8 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
-		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
-			node.WithOCR2(),
-			node.WithP2Pv2(),
-			node.WithTracing(),
-		)).
-		WithCLNodeOptions(test_env.WithNodeEnvVars(testData.env)).
 		WithCLNodes(clNodeCount).
+		WithCLNodeOptions(test_env.WithNodeEnvVars(testData.env)).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
 		WithSeth().
