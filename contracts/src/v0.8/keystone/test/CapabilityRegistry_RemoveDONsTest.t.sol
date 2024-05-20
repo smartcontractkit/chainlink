@@ -6,7 +6,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_RemoveDONsTest is BaseTest {
-  event DONRemoved(uint32 donId);
+  event ConfigSet(uint32 donId, uint32 configCount);
 
   uint32 private constant DON_ID = 1;
   uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
@@ -81,16 +81,18 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     uint32[] memory donIDs = new uint32[](1);
     donIDs[0] = DON_ID;
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit DONRemoved(DON_ID);
+    emit ConfigSet(DON_ID, 0);
     s_capabilityRegistry.removeDONs(donIDs);
 
     (
       uint32 id,
+      uint32 configCount,
       bool isPublic,
       bytes32[] memory donNodes,
       CapabilityRegistry.CapabilityConfiguration[] memory donCapabilityConfigs
     ) = s_capabilityRegistry.getDON(DON_ID);
     assertEq(id, 0);
+    assertEq(configCount, 0);
     assertEq(isPublic, false);
     assertEq(donCapabilityConfigs.length, 0);
     assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), bytes(""));
