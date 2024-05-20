@@ -211,7 +211,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	eb, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
-	endBlock, err := logpoller.GetEndBlockToWaitFor(int64(eb), sethClient.ChainID, cfg)
+	endBlock, err := logpoller.GetEndBlockToWaitFor(int64(eb), network, cfg)
 	require.NoError(t, err, "Error getting end block to wait for")
 
 	l.Info().Int64("Ending Block", endBlock).Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
@@ -292,8 +292,6 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 		ethereum.RegistryVersion_2_1,
 		logpoller.DefaultOCRRegistryConfig,
 		upKeepsNeeded,
-		cfg.General.LogPollInterval.Duration,
-		*cfg.General.BackupLogPollerBlockDelay,
 		*cfg.General.UseFinalityTag,
 		testConfig,
 		logScannerSettings,
