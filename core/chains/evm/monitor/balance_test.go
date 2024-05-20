@@ -257,13 +257,10 @@ func Test_ApproximateFloat64(t *testing.T) {
 	}
 }
 
-func callbackOrTimeout(t testing.TB, msg string, callback func(), durationParams ...time.Duration) {
+func callbackOrTimeout(t testing.TB, msg string, callback func()) {
 	t.Helper()
 
 	duration := 100 * time.Millisecond
-	if len(durationParams) > 0 {
-		duration = durationParams[0]
-	}
 
 	done := make(chan struct{})
 	go func() {
