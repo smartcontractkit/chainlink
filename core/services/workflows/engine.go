@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -27,6 +28,11 @@ const (
 type donInfo struct {
 	*capabilities.DON
 	PeerID func() *p2ptypes.PeerID
+}
+
+type stepRequest struct {
+	stepRef string
+	state   store.WorkflowExecution
 }
 
 // Engine handles the lifecycle of a single workflow and its executions.
@@ -103,11 +109,11 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	// - fetching the capability
 	// - register the capability to this workflow
 	// - initializing the step's executionStrategy
-	capabilityRegistrationErr := e.workflow.walkDo(keywordTrigger, func(s *step) error {
+	capabilityRegistrationErr := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
 		// The graph contains a dummy step for triggers, but
 		// we handle triggers separately since there might be more than one
 		// trigger registered to a workflow.
-		if s.Ref == keywordTrigger {
+		if s.Ref == workflows.KeywordTrigger {
 			return nil
 		}
 
@@ -122,37 +128,37 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	return capabilityRegistrationErr
 }
 
-func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
+func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	// If the capability already exists, that means we've already registered it
-	if s.capability != nil {
+	if step.capability != nil {
 		return nil
 	}
 
-	cp, err := e.registry.Get(ctx, s.ID)
+	cp, err := e.registry.Get(ctx, step.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get capability with ref %s: %s", s.ID, err)
+		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
 	}
 
 	// We configure actions, consensus and targets here, and
 	// they all satisfy the `CallbackCapability` interface
 	cc, ok := cp.(capabilities.CallbackCapability)
 	if !ok {
-		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.ID)
+		return fmt.Errorf("could not coerce capability %s to CallbackCapability", step.ID)
 	}
 
-	if s.config == nil {
-		configMap, newMapErr := values.NewMap(s.Config)
+	if step.config == nil {
+		configMap, newMapErr := values.NewMap(step.Config)
 		if newMapErr != nil {
 			return fmt.Errorf("failed to convert config to values.Map: %s", newMapErr)
 		}
-		s.config = configMap
+		step.config = configMap
 	}
 
 	registrationRequest := capabilities.RegisterToWorkflowRequest{
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID: e.workflow.id,
 		},
-		Config: s.config,
+		Config: step.config,
 	}
 
 	err = cc.RegisterToWorkflow(ctx, registrationRequest)
@@ -160,7 +166,7 @@ func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
 		return fmt.Errorf("failed to register to workflow (%+v): %w", registrationRequest, err)
 	}
 
-	s.capability = cc
+	step.capability = cc
 	return nil
 }
 
@@ -260,8 +266,8 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 // and `scheduledExecution` for targets. If we don't have the necessary
 // config to initialize a scheduledExecution for a target, we'll fallback to
 // using `immediateExecution`.
-func (e *Engine) initializeExecutionStrategy(step *step) error {
-	if step.executionStrategy != nil {
+func (e *Engine) initializeExecutionStrategy(s *step) error {
+	if s.executionStrategy != nil {
 		return nil
 	}
 
@@ -272,16 +278,16 @@ func (e *Engine) initializeExecutionStrategy(step *step) error {
 	}
 
 	ie := immediateExecution{}
-	if step.CapabilityType != capabilities.CapabilityTypeTarget {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: not a target", step)
-		step.executionStrategy = ie
+	if s.CapabilityType != capabilities.CapabilityTypeTarget {
+		e.logger.Debugf("initializing step %+v with immediate execution strategy: not a target", s)
+		s.executionStrategy = ie
 		return nil
 	}
 
 	dinfo := e.donInfo
 	if dinfo.DON == nil {
 		e.logger.Debugf("initializing target step with immediate execution strategy: donInfo %+v", e.donInfo)
-		step.executionStrategy = ie
+		s.executionStrategy = ie
 		return nil
 	}
 
@@ -294,17 +300,17 @@ func (e *Engine) initializeExecutionStrategy(step *step) error {
 	}
 
 	if position == nil {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: position not found in donInfo %+v", step, e.donInfo)
-		step.executionStrategy = ie
+		e.logger.Debugf("initializing step %+v with immediate execution strategy: position not found in donInfo %+v", s, e.donInfo)
+		s.executionStrategy = ie
 		return nil
 	}
 
-	step.executionStrategy = scheduledExecution{
+	s.executionStrategy = scheduledExecution{
 		DON:      e.donInfo.DON,
 		Position: *position,
 		PeerID:   e.donInfo.PeerID(),
 	}
-	e.logger.Debugf("initializing step %+v with scheduled execution strategy", step)
+	e.logger.Debugf("initializing step %+v with scheduled execution strategy", s)
 	return nil
 }
 
@@ -441,13 +447,13 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	e.logger.Debugw("executing on a trigger event", "event", event, "executionID", executionID)
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
-			keywordTrigger: {
+			workflows.KeywordTrigger: {
 				Outputs: &store.StepOutput{
 					Value: event,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: executionID,
-				Ref:         keywordTrigger,
+				Ref:         workflows.KeywordTrigger,
 			},
 		},
 		WorkflowID:  e.workflow.id,
@@ -463,7 +469,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	// Find the tasks we need to fire when a trigger has fired and enqueue them.
 	// This consists of a) nodes without a dependency and b) nodes which depend
 	// on a trigger
-	triggerDependents, err := e.workflow.dependents(keywordTrigger)
+	triggerDependents, err := e.workflow.dependents(workflows.KeywordTrigger)
 	if err != nil {
 		return err
 	}
@@ -492,7 +498,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		// we've completed the workflow.
 		if len(stepDependents) == 0 {
 			workflowCompleted := true
-			err := e.workflow.walkDo(keywordTrigger, func(s *step) error {
+			err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
 				step, ok := state.Steps[s.Ref]
 				// The step is missing from the state,
 				// which means it hasn't been processed yet.
@@ -543,7 +549,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	// Check if all dependencies are completed for the current step
 	var waitingOnDependencies bool
-	for _, dr := range step.dependencies {
+	for _, dr := range step.Vertex.Dependencies {
 		stepState, ok := state.Steps[dr]
 		if !ok {
 			waitingOnDependencies = true
@@ -701,8 +707,8 @@ func (e *Engine) Close() error {
 		close(e.stopCh)
 		e.wg.Wait()
 
-		err := e.workflow.walkDo(keywordTrigger, func(s *step) error {
-			if s.Ref == keywordTrigger {
+		err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+			if s.Ref == workflows.KeywordTrigger {
 				return nil
 			}
 

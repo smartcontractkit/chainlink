@@ -2,6 +2,9 @@ package contracts
 
 import (
 	"errors"
+	"fmt"
+
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
@@ -18,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
@@ -45,12 +46,6 @@ type ContractLoader interface {
 	LoadMercuryRewardManager(addr common.Address) (MercuryRewardManager, error)
 
 	LoadWERC20Mock(addr common.Address) (WERC20Mock, error)
-
-	// VRF
-	LoadVRFCoordinatorV2(addr string) (VRFCoordinatorV2, error)
-	LoadVRFv2LoadTestConsumer(addr string) (VRFv2LoadTestConsumer, error)
-	LoadVRFCoordinatorV2_5(addr string) (VRFCoordinatorV2_5, error)
-	LoadVRFv2PlusLoadTestConsumer(addr string) (VRFv2PlusLoadTestConsumer, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -368,74 +363,44 @@ func (e *EthereumContractLoader) LoadWERC20Mock(addr common.Address) (WERC20Mock
 	}, err
 }
 
-func (e *EthereumContractLoader) LoadVRFCoordinatorV2_5(addr string) (VRFCoordinatorV2_5, error) {
+func LoadVRFCoordinatorV2_5(seth *seth.Client, addr string) (VRFCoordinatorV2_5, error) {
 	address := common.HexToAddress(addr)
-	instance, err := e.client.LoadContract("VRFCoordinatorV2_5", address, func(
-		address common.Address,
-		backend bind.ContractBackend,
-	) (interface{}, error) {
-		return vrf_coordinator_v2_5.NewVRFCoordinatorV25(address, backend)
-	})
+	abi, err := vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("failed to get VRFCoordinatorV2_5 ABI: %w", err)
 	}
+	seth.ContractStore.AddABI("VRFCoordinatorV2_5", *abi)
+	seth.ContractStore.AddBIN("VRFCoordinatorV2_5", common.FromHex(vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.Bin))
+
+	contract, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("failed to instantiate VRFCoordinatorV2_5 instance: %w", err)
+	}
+
 	return &EthereumVRFCoordinatorV2_5{
-		address:     &address,
-		client:      e.client,
-		coordinator: instance.(*vrf_coordinator_v2_5.VRFCoordinatorV25),
-	}, err
+		client:      seth,
+		address:     address,
+		coordinator: contract,
+	}, nil
 }
 
-func (e *EthereumContractLoader) LoadVRFv2PlusLoadTestConsumer(addr string) (VRFv2PlusLoadTestConsumer, error) {
+func LoadVRFv2PlusLoadTestConsumer(seth *seth.Client, addr string) (VRFv2PlusLoadTestConsumer, error) {
 	address := common.HexToAddress(addr)
-	instance, err := e.client.LoadContract("VRFV2PlusLoadTestWithMetrics", address, func(
-		address common.Address,
-		backend bind.ContractBackend,
-	) (interface{}, error) {
-		return vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(address, backend)
-	})
+	abi, err := vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetricsMetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumVRFv2PlusLoadTestConsumer{}, fmt.Errorf("failed to get VRFV2PlusLoadTestWithMetrics ABI: %w", err)
 	}
+	seth.ContractStore.AddABI("VRFV2PlusLoadTestWithMetrics", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusLoadTestWithMetrics", common.FromHex(vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetricsMetaData.Bin))
+
+	contract, err := vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFv2PlusLoadTestConsumer{}, fmt.Errorf("failed to instantiate VRFV2PlusLoadTestWithMetrics instance: %w", err)
+	}
+
 	return &EthereumVRFv2PlusLoadTestConsumer{
-		client:   e.client,
-		consumer: instance.(*vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetrics),
-		address:  &address,
-	}, err
-}
-
-func (e *EthereumContractLoader) LoadVRFCoordinatorV2(addr string) (VRFCoordinatorV2, error) {
-	address := common.HexToAddress(addr)
-	instance, err := e.client.LoadContract("VRFCoordinatorV2", address, func(
-		address common.Address,
-		backend bind.ContractBackend,
-	) (interface{}, error) {
-		return vrf_coordinator_v2.NewVRFCoordinatorV2(address, wrappers.MustNewWrappedContractBackend(e.client, nil))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFCoordinatorV2{
-		address:     &address,
-		client:      e.client,
-		coordinator: instance.(*vrf_coordinator_v2.VRFCoordinatorV2),
-	}, err
-}
-
-func (e *EthereumContractLoader) LoadVRFv2LoadTestConsumer(addr string) (VRFv2LoadTestConsumer, error) {
-	address := common.HexToAddress(addr)
-	instance, err := e.client.LoadContract("VRFV2LoadTestWithMetrics", address, func(
-		address common.Address,
-		backend bind.ContractBackend,
-	) (interface{}, error) {
-		return vrf_load_test_with_metrics.NewVRFV2LoadTestWithMetrics(address, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFv2LoadTestConsumer{
-		client:   e.client,
-		consumer: instance.(*vrf_load_test_with_metrics.VRFV2LoadTestWithMetrics),
-		address:  &address,
-	}, err
+		client:   seth,
+		address:  address,
+		consumer: contract,
+	}, nil
 }

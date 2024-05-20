@@ -2,13 +2,13 @@ package capabilities
 
 import (
 	"context"
+	"math/big"
 	"slices"
 	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -96,10 +97,10 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		return err
 	}
 	// NOTE: temporary hard-coded capabilities
-	capId := "mercury-trigger"
-	triggerInfo := commoncap.CapabilityInfo{
+	capId := "streams-trigger"
+	triggerInfo := capabilities.CapabilityInfo{
 		ID:             capId,
-		CapabilityType: commoncap.CapabilityTypeTrigger,
+		CapabilityType: capabilities.CapabilityTypeTrigger,
 		Description:    "Remote Trigger",
 		Version:        "0.0.1",
 		DON:            &triggerCapabilityDonInfo,
@@ -111,7 +112,8 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 	}
 	if slices.Contains(workflowDONPeers, myId) {
 		s.lggr.Info("member of a workflow DON - starting remote subscribers")
-		aggregator := triggers.NewMercuryRemoteAggregator(s.lggr)
+		codec := streams.NewCodec()
+		aggregator := triggers.NewMercuryRemoteAggregator(codec, s.lggr)
 		triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, triggerCapabilityDonInfo, workflowDonInfo, s.dispatcher, aggregator, s.lggr)
 		err = s.registry.Add(ctx, triggerCap)
 		if err != nil {
@@ -224,30 +226,30 @@ func (m *mockMercuryDataProducer) loop() {
 	ticker := time.NewTicker(time.Duration(sleepSec) * time.Second)
 	defer ticker.Stop()
 
-	prices := []int64{300000, 40000, 5000000}
+	prices := []*big.Int{big.NewInt(300000), big.NewInt(40000), big.NewInt(5000000)}
 
 	for range ticker.C {
 		for i := range prices {
-			prices[i] = prices[i] + 1
+			prices[i].Add(prices[i], big.NewInt(1))
 		}
 
-		reports := []mercury.FeedReport{
+		reports := []datastreams.FeedReport{
 			{
 				FeedID:               "0x1111111111111111111100000000000000000000000000000000000000000000",
 				FullReport:           []byte{0x11, 0xaa, 0xbb, 0xcc},
-				BenchmarkPrice:       prices[0],
+				BenchmarkPrice:       prices[0].Bytes(),
 				ObservationTimestamp: time.Now().Unix(),
 			},
 			{
 				FeedID:               "0x2222222222222222222200000000000000000000000000000000000000000000",
 				FullReport:           []byte{0x22, 0xaa, 0xbb, 0xcc},
-				BenchmarkPrice:       prices[1],
+				BenchmarkPrice:       prices[1].Bytes(),
 				ObservationTimestamp: time.Now().Unix(),
 			},
 			{
 				FeedID:               "0x3333333333333333333300000000000000000000000000000000000000000000",
 				FullReport:           []byte{0x33, 0xaa, 0xbb, 0xcc},
-				BenchmarkPrice:       prices[2],
+				BenchmarkPrice:       prices[2].Bytes(),
 				ObservationTimestamp: time.Now().Unix(),
 			},
 		}
