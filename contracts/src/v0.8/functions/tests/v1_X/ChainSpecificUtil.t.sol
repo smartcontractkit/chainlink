@@ -13,14 +13,13 @@ import {FunctionsFulfillmentSetup} from "./Setup.t.sol";
 import {ArbGasInfo} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import {L1Block} from "../../../vendor/@eth-optimism/contracts-bedrock/v0.17.1/src/L2/L1Block.sol";
 
-import "forge-std/console.sol";
-
 /// @notice #_getL1FeeUpperLimit Arbitrum
 /// @dev Arbitrum gas formula = L2 Gas Price * (Gas used on L2 + Extra Buffer for L1 cost)
 /// @dev where Extra Buffer for L1 cost = (L1 Estimated Cost / L2 Gas Price)
 contract ChainSpecificUtil__getL1FeeUpperLimit_Arbitrum is FunctionsFulfillmentSetup {
   address private constant ARBGAS_ADDR = address(0x000000000000000000000000000000000000006C);
   uint256 private constant WEI_PER_L1_CALLDATA_BYTE = 2_243_708_528;
+
   uint256 private constant L1_FEE_ESTIMATE_WITH_OVERESTIMATION_WEI = 6_408_031_555_968;
   uint256 private constant L1_FEE_WEI = 3_697_631_654_144;
 
@@ -101,8 +100,9 @@ contract ChainSpecificUtil__getL1FeeUpperLimit_Optimism is FunctionsFulfillmentS
   uint256 private constant L1_BASE_FEE_SCALAR = 1_368;
   uint256 private constant L1_BLOB_BASE_FEE_WEI = 1;
   uint256 private constant L1_BLOB_BASE_FEE_SCALAR = 810_949;
-  uint256 private constant L1_FEE_ESTIMATE_WITH_OVERESTIMATION_WEI = 26_196_960_380_817_618;
-  uint256 private constant L1_FEE_WEI = 14_930_089_287_329_164;
+
+  uint256 private constant L1_FEE_ESTIMATE_WITH_OVERESTIMATION_WEI = 9_918_401_245_915_050;
+  uint256 private constant L1_FEE_WEI = 5_652_664_050_959_900;
 
   uint96 l1FeeEstimateJuels = uint96((1e18 * L1_FEE_ESTIMATE_WITH_OVERESTIMATION_WEI) / uint256(LINK_ETH_RATE));
   uint96 l1FeeJuels = uint96((1e18 * L1_FEE_WEI) / uint256(LINK_ETH_RATE));
@@ -156,7 +156,7 @@ contract ChainSpecificUtil__getL1FeeUpperLimit_Optimism is FunctionsFulfillmentS
 
     // Check request cost estimate
     uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
-      l1FeeJuels;
+      l1FeeEstimateJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels, "Estimated cost mismatch for Optimism Goerli");
 
     // Check response actual cost
@@ -173,7 +173,7 @@ contract ChainSpecificUtil__getL1FeeUpperLimit_Optimism is FunctionsFulfillmentS
 
     // Check request cost estimate
     uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
-      l1FeeJuels;
+      l1FeeEstimateJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels, "Estimated cost mismatch for Optimism Sepolia");
 
     // Check response actual cost
@@ -193,7 +193,11 @@ contract ChainSpecificUtil__getL1FeeUpperLimit_Base is FunctionsFulfillmentSetup
   uint256 private constant L1_BLOB_BASE_FEE_WEI = 1;
   uint256 private constant L1_BLOB_BASE_FEE_SCALAR = 659_851;
 
-  uint96 l1FeeJuels = uint96((1e18 * L1_BASE_FEE_WEI) / uint256(LINK_ETH_RATE));
+  uint256 private constant L1_FEE_ESTIMATE_WITH_OVERESTIMATION_WEI = 14_442_897_701_264_382;
+  uint256 private constant L1_FEE_WEI = 8_231_250_844_106_836;
+
+  uint96 l1FeeEstimateJuels = uint96((1e18 * L1_FEE_ESTIMATE_WITH_OVERESTIMATION_WEI) / uint256(LINK_ETH_RATE));
+  uint96 l1FeeJuels = uint96((1e18 * L1_FEE_WEI) / uint256(LINK_ETH_RATE));
 
   function setUp() public virtual override {
     vm.mockCall(
@@ -227,7 +231,7 @@ contract ChainSpecificUtil__getL1FeeUpperLimit_Base is FunctionsFulfillmentSetup
 
     // Check request cost estimate
     uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
-      l1FeeJuels;
+      l1FeeEstimateJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels, "Estimated cost mismatch for Base mainnet");
 
     // Check response actual cost
@@ -244,7 +248,7 @@ contract ChainSpecificUtil__getL1FeeUpperLimit_Base is FunctionsFulfillmentSetup
 
     // Check request cost estimate
     uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
-      l1FeeJuels;
+      l1FeeEstimateJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels, "Estimated cost mismatch for Base Goerli");
 
     // Check response actual cost
@@ -261,7 +265,7 @@ contract ChainSpecificUtil__getL1FeeUpperLimit_Base is FunctionsFulfillmentSetup
 
     // Check request cost estimate
     uint96 expectedEstimatedTotalCostJuels = _getExpectedCostEstimate(s_requests[1].requestData.callbackGasLimit) +
-      l1FeeJuels;
+      l1FeeEstimateJuels;
     assertEq(s_requests[1].commitment.estimatedTotalCostJuels, expectedEstimatedTotalCostJuels, "Estimated cost mismatch for Base Sepolia");
 
     // Check response actual cost
