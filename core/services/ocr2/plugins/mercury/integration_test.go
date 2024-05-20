@@ -138,7 +138,6 @@ func integration_MercuryV1(t *testing.T) {
 		detectPanicLogs(t, logObservers)
 	})
 	lggr := logger.TestLogger(t)
-	const fromBlock = 1 // cannot use zero, start from block 1
 	testStartTimeStamp := uint32(time.Now().Unix())
 
 	// test vars
@@ -184,6 +183,16 @@ func integration_MercuryV1(t *testing.T) {
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
+
+	// Bury it with finality depth
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
+	fromBlock := int(finalityDepth) // cannot use zero, start from block 1
 
 	// Set up n oracles
 	var (

@@ -208,6 +208,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			}
 
 			backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
+
 			stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 			defer stopMining()
 
@@ -655,6 +656,15 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
+
+	// Bury it with finality depth
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
 	var (
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
