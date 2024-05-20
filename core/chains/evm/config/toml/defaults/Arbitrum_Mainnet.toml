@@ -1,6 +1,8 @@
 # Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 ChainID = '42161'
 ChainType = 'arbitrum'
+FinalityDepth = 7500
+FinalityTagEnabled = true
 LinkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
 LogPollInterval = '1s'
 # Arbitrum only emits blocks when a new tx is received, so this method of liveness detection is not useful
@@ -20,6 +22,9 @@ BumpThreshold = 5
 [GasEstimator.BlockHistory]
 # Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 BlockHistorySize = 0
+
+[HeadTracker]
+HistoryDepth = 8000
 
 [NodePool]
 SyncThreshold = 10

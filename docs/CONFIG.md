@@ -4877,8 +4877,8 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'arbitrum'
-FinalityDepth = 50
-FinalityTagEnabled = false
+FinalityDepth = 7500
+FinalityTagEnabled = true
 LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
@@ -4928,7 +4928,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 100
+HistoryDepth = 8000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -6151,8 +6151,8 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'arbitrum'
-FinalityDepth = 50
-FinalityTagEnabled = false
+FinalityDepth = 10000
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
@@ -6201,7 +6201,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 100
+HistoryDepth = 11000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 

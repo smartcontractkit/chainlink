@@ -1,5 +1,7 @@
 ChainID = '421614'
 ChainType = 'arbitrum'
+FinalityDepth = 10000
+FinalityTagEnabled = true
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 LogPollInterval = '1s'
@@ -17,6 +19,9 @@ BumpThreshold = 5
 [GasEstimator.BlockHistory]
 # Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 BlockHistorySize = 0
+
+[HeadTracker]
+HistoryDepth = 11000
 
 [NodePool]
 SyncThreshold = 10
