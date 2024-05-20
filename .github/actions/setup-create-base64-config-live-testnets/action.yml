@@ -89,6 +89,11 @@ runs:
           pyroscope_enabled=false
         fi
 
+        grafana_bearer_token=""
+        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
+        fi
+
         cat << EOF > config.toml
         [Common]
         chainlink_node_funding=0.5
@@ -118,7 +123,7 @@ runs:
         [Logging.Grafana]
         base_url="$GRAFANA_URL"
         dashboard_url="$GRAFANA_DASHBOARD_URL"
-        bearer_token_secret="$GRAFANA_BEARER_TOKEN"
+        $grafana_bearer_token
 
         [Network]
         selected_networks=["$NETWORK"]
