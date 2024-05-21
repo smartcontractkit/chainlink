@@ -201,3 +201,12 @@ jobs:
           cache_key_id: ccip-load-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           should_cleanup: "true"
+      ## Notify in slack if the job fails
+      - name: Notify Slack
+        if: failure() && github.event_name != 'workflow_dispatch'
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        with:
+          channel-id: "#ccip-testing"
+          slack-message: ":x: :mild-panic-intensifies: CCIP load tests failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
