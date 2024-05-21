@@ -132,8 +132,9 @@ func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
 		return jb, fmt.Errorf("toml unmarshal error on workflow spec: %w", err)
 	}
 
-	if err := spec.Validate(); err != nil {
-		return jb, err
+	err = spec.Validate()
+	if err != nil {
+		return jb, fmt.Errorf("invalid WorkflowSpec: %w", err)
 	}
 
 	// ensure the embedded workflow graph is valid
