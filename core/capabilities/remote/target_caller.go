@@ -20,8 +20,8 @@ import (
 
 // remoteTargetCaller/Receiver are shims translating between capability API calls and network messages
 type remoteTargetCaller struct {
-	capInfo              commoncap.CapabilityInfo
-	donInfo              capabilities.DON
+	remoteCapabilityInfo commoncap.CapabilityInfo
+	localDONInfo         capabilities.DON
 	dispatcher           types.Dispatcher
 	lggr                 logger.Logger
 	messageIDToWaitgroup sync.Map
@@ -31,17 +31,22 @@ type remoteTargetCaller struct {
 var _ commoncap.TargetCapability = &remoteTargetCaller{}
 var _ types.Receiver = &remoteTargetCaller{}
 
-func NewRemoteTargetCaller(lggr logger.Logger, capInfo commoncap.CapabilityInfo, donInfo capabilities.DON, dispatcher types.Dispatcher) *remoteTargetCaller {
-	return &remoteTargetCaller{
-		capInfo:    capInfo,
-		donInfo:    donInfo,
-		dispatcher: dispatcher,
-		lggr:       lggr,
+func NewRemoteTargetCaller(lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher) (*remoteTargetCaller, error) {
+
+	if remoteCapabilityInfo.DON == nil {
+		return nil, errors.New("missing remote capability DON info")
 	}
+
+	return &remoteTargetCaller{
+		remoteCapabilityInfo: remoteCapabilityInfo,
+		localDONInfo:         localDonInfo,
+		dispatcher:           dispatcher,
+		lggr:                 lggr,
+	}, nil
 }
 
 func (c *remoteTargetCaller) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
-	return c.capInfo, nil
+	return c.remoteCapabilityInfo, nil
 }
 
 func (c *remoteTargetCaller) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
@@ -52,15 +57,12 @@ func (c *remoteTargetCaller) UnregisterFromWorkflow(ctx context.Context, request
 	return errors.New("not implemented")
 }
 
-func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 
-	if c.capInfo.DON == nil {
-		return nil, errors.New("missing remote capability DON info")
-	}
-
+	// TODO should the transmission config be passed into the constructor rather than pulled from the request?
 	tc, err := transmission.ExtractTransmissionConfig(req.Config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to extract transmission config from request config: %w", err)
 	}
 
 	rawRequest, err := pb.MarshalCapabilityRequest(req)
@@ -68,7 +70,7 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
 	}
 
-	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(c.capInfo.DON.Members, c.donInfo.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
+	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(c.remoteCapabilityInfo.DON.Members, c.localDONInfo.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
@@ -85,8 +87,11 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 		close(responseReceived)
 	}()
 
-	for peerID, delay := range peerIDToDelay {
+	// Once a response is returned from a remote capability any pending scheduled calls can be cancelled
+	ctx, cancelFn := context.WithCancel(parentCtx)
+	defer cancelFn()
 
+	for peerID, delay := range peerIDToDelay {
 		go func(peerID ragep2ptypes.PeerID, delay time.Duration) {
 			select {
 			case <-ctx.Done():
@@ -94,9 +99,9 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 			case <-time.After(delay):
 				c.lggr.Debugw("executing delayed execution for peer", "peerID", peerID)
 				m := &types.MessageBody{
-					CapabilityId:    c.capInfo.ID,
-					CapabilityDonId: c.capInfo.DON.ID,
-					CallerDonId:     c.donInfo.ID,
+					CapabilityId:    c.remoteCapabilityInfo.ID,
+					CapabilityDonId: c.remoteCapabilityInfo.DON.ID,
+					CallerDonId:     c.localDONInfo.ID,
 					Method:          types.MethodExecute,
 					Payload:         rawRequest,
 					MessageId:       []byte(messageID),
@@ -116,12 +121,17 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 			return nil, fmt.Errorf("no response found for message ID %s", messageID)
 		}
 
-		capabilityResponse, ok := response.(commoncap.CapabilityResponse)
+		payload, ok := response.([]byte)
 		if !ok {
-			return nil, fmt.Errorf("failed to cast response to CapabilityResponse: %v", response)
+			return nil, fmt.Errorf("unexpected response type %T for message ID %s", response, messageID)
 		}
 
-		// TODO going to need to handle the case where the capability returns a stream of responses
+		capabilityResponse, err := pb.UnmarshalCapabilityResponse(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal capability response: %w", err)
+		}
+
+		// TODO handle the case where the capability returns a stream of responses
 		resultCh := make(chan commoncap.CapabilityResponse, 1)
 		resultCh <- capabilityResponse
 		close(resultCh)
@@ -136,10 +146,10 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 
 	// TODO handle the case where the capability returns a stream of responses
-	wg, loaded := c.messageIDToWaitgroup.LoadAndDelete(msg.MessageId)
+	wg, loaded := c.messageIDToWaitgroup.LoadAndDelete(string(msg.MessageId))
 	if loaded {
 		wg.(*sync.WaitGroup).Done()
-		c.messageIDToResponse.Store(msg.MessageId, msg.Payload)
+		c.messageIDToResponse.Store(string(msg.MessageId), msg.Payload)
 		return
 	}
 }

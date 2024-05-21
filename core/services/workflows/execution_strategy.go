@@ -67,17 +67,17 @@ func (d scheduledExecution) Apply(ctx context.Context, lggr logger.Logger, cap c
 			return nil, fmt.Errorf("failed to get peer ID to transmission delay map: %w", err)
 		}
 
-		delay := peerIDToTransmissionDelay[*d.PeerID]
-		if delay == nil {
+		delay, existsForPeerID := peerIDToTransmissionDelay[*d.PeerID]
+		if !existsForPeerID {
 			lggr.Debugw("skipping transmission: node is not included in schedule")
 			return nil, nil
 		}
 
-		lggr.Debugf("execution delayed by %+v", *delay)
+		lggr.Debugf("execution delayed by %+v", delay)
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(*delay):
+		case <-time.After(delay):
 			lggr.Debugw("executing delayed execution")
 			return immediateExecution{}.Apply(ctx, lggr, cap, req)
 		}
