@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/exp/rand"
 
@@ -118,6 +119,7 @@ type TokenTransmitter struct {
 
 type ERC677Token struct {
 	client          blockchain.EVMClient
+	logger          zerolog.Logger
 	instance        *burn_mint_erc677.BurnMintERC677
 	ContractAddress common.Address
 }
@@ -127,7 +129,7 @@ func (token *ERC677Token) GrantMintAndBurn(burnAndMinter common.Address) error {
 	if err != nil {
 		return fmt.Errorf("failed to get transaction opts: %w", err)
 	}
-	log.Info().
+	token.logger.Info().
 		Str(Network, token.client.GetNetworkName()).
 		Str("BurnAndMinter", burnAndMinter.Hex()).
 		Str("Token", token.ContractAddress.Hex()).
@@ -144,7 +146,7 @@ func (token *ERC677Token) GrantMintRole(minter common.Address) error {
 	if err != nil {
 		return err
 	}
-	log.Info().
+	token.logger.Info().
 		Str(Network, token.client.GetNetworkName()).
 		Str("Minter", minter.Hex()).
 		Str("Token", token.ContractAddress.Hex()).
@@ -161,7 +163,7 @@ func (token *ERC677Token) Mint(to common.Address, amount *big.Int) error {
 	if err != nil {
 		return err
 	}
-	log.Info().
+	token.logger.Info().
 		Str(Network, token.client.GetNetworkName()).
 		Str("To", to.Hex()).
 		Str("Token", token.ContractAddress.Hex()).
@@ -176,6 +178,7 @@ func (token *ERC677Token) Mint(to common.Address, amount *big.Int) error {
 
 type ERC20Token struct {
 	client          blockchain.EVMClient
+	logger          zerolog.Logger
 	instance        *erc20.ERC20
 	ContractAddress common.Address
 }
@@ -209,7 +212,7 @@ func (token *ERC20Token) Approve(to string, amount *big.Int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get transaction options: %w", err)
 	}
-	log.Info().
+	token.logger.Info().
 		Str("From", token.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Token", token.Address()).
@@ -229,7 +232,7 @@ func (token *ERC20Token) Transfer(to string, amount *big.Int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get transaction options: %w", err)
 	}
-	log.Info().
+	token.logger.Info().
 		Str("From", token.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
@@ -245,6 +248,7 @@ func (token *ERC20Token) Transfer(to string, amount *big.Int) error {
 
 type LinkToken struct {
 	client     blockchain.EVMClient
+	logger     zerolog.Logger
 	instance   *link_token_interface.LinkToken
 	EthAddress common.Address
 }
@@ -278,7 +282,7 @@ func (l *LinkToken) Approve(to string, amount *big.Int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get transaction opts: %w", err)
 	}
-	log.Info().
+	l.logger.Info().
 		Str("From", l.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Token", l.Address()).
@@ -298,7 +302,7 @@ func (l *LinkToken) Transfer(to string, amount *big.Int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get transaction opts: %w", err)
 	}
-	log.Info().
+	l.logger.Info().
 		Str("From", l.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
@@ -546,6 +550,7 @@ func (w TokenPoolWrapper) GetRebalancer(opts *bind.CallOpts) (common.Address, er
 // TokenPool represents a TokenPool address
 type TokenPool struct {
 	client     blockchain.EVMClient
+	logger     zerolog.Logger
 	Instance   *TokenPoolWrapper
 	EthAddress common.Address
 }
@@ -593,7 +598,7 @@ func (pool *TokenPool) SyncUSDCDomain(destTokenTransmitter *TokenTransmitter, de
 	if err != nil {
 		return fmt.Errorf("failed to get transaction opts: %w", err)
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str(Network, pool.client.GetNetworkName()).
 		Uint32("Domain", domain).
@@ -622,7 +627,7 @@ func (pool *TokenPool) RemoveLiquidity(amount *big.Int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get transaction opts: %w", err)
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str("Amount", amount.String()).
 		Msg("Initiating removing funds from pool")
@@ -630,7 +635,7 @@ func (pool *TokenPool) RemoveLiquidity(amount *big.Int) error {
 	if err != nil {
 		return fmt.Errorf("failed to withdraw liquidity: %w", err)
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str("Amount", amount.String()).
 		Str(Network, pool.client.GetNetworkConfig().Name).
@@ -644,7 +649,7 @@ func (pool *TokenPool) AddLiquidity(approveFn tokenApproveFn, tokenAddr string, 
 	if !pool.IsLockRelease() {
 		return fmt.Errorf("pool is not a lock release pool, cannot add liquidity")
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Link Token", tokenAddr).
 		Str("Token Pool", pool.Address()).
 		Msg("Initiating transferring of token to token pool")
@@ -668,14 +673,14 @@ func (pool *TokenPool) AddLiquidity(approveFn tokenApproveFn, tokenAddr string, 
 	if err != nil {
 		return fmt.Errorf("failed to get transaction opts: %w", err)
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Msg("Initiating adding Tokens in pool")
 	tx, err := pool.Instance.ProvideLiquidity(opts, amount)
 	if err != nil {
 		return fmt.Errorf("failed to provide liquidity: %w", err)
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str("Link Token", tokenAddr).
 		Str(Network, pool.client.GetNetworkConfig().Name).
@@ -688,7 +693,7 @@ func (pool *TokenPool) SetRemotePool(remoteChainSelector uint64, remotePool comm
 	if pool.Instance.V1_4_0 != nil {
 		return nil
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str("Dest Pool", remotePool.Hex()).
 		Uint64("RemoteChain", remoteChainSelector).
@@ -706,7 +711,7 @@ func (pool *TokenPool) SetRemotePool(remoteChainSelector uint64, remotePool comm
 	if err != nil {
 		return fmt.Errorf("failed to set remote pool %s on token pool: %w", remotePool.Hex(), err)
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str("Dest Pool", remotePool.Hex()).
 		Uint64("RemoteChain", remoteChainSelector).
@@ -715,7 +720,7 @@ func (pool *TokenPool) SetRemotePool(remoteChainSelector uint64, remotePool comm
 }
 
 func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelectors []uint64) error {
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Msg("Setting remote chain on pool")
 	var selectorsToUpdate []token_pool.TokenPoolChainUpdate
@@ -726,7 +731,7 @@ func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelectors []uint64) error
 		}
 		// Check if remote chain is already supported , if yes continue
 		if isSupported {
-			log.Info().
+			pool.logger.Info().
 				Str("Token Pool", pool.Address()).
 				Str(Network, pool.client.GetNetworkName()).
 				Uint64("Remote Chain Selector", remoteChainSelector).
@@ -763,7 +768,7 @@ func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelectors []uint64) error
 		return fmt.Errorf("failed to set chain updates on token pool: %w", err)
 	}
 
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Uints64("Chain selectors", remoteChainSelectors).
 		Str(Network, pool.client.GetNetworkConfig().Name).
@@ -776,7 +781,7 @@ func (pool *TokenPool) SetRemoteChainRateLimits(remoteChainSelector uint64, rl t
 	if err != nil {
 		return fmt.Errorf("error getting transaction opts: %w", err)
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str("Remote chain selector", strconv.FormatUint(remoteChainSelector, 10)).
 		Interface("RateLimiterConfig", rl).
@@ -787,7 +792,7 @@ func (pool *TokenPool) SetRemoteChainRateLimits(remoteChainSelector uint64, rl t
 		return fmt.Errorf("error setting rate limit token pool: %w", err)
 	}
 
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str("Remote chain selector", strconv.FormatUint(remoteChainSelector, 10)).
 		Interface("RateLimiterConfig", rl).
@@ -796,7 +801,7 @@ func (pool *TokenPool) SetRemoteChainRateLimits(remoteChainSelector uint64, rl t
 }
 
 func (pool *TokenPool) SetRouter(routerAddr common.Address) error {
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Msg("Setting router on pool")
 	opts, err := pool.client.TransactionOpts(pool.client.GetDefaultWallet())
@@ -808,7 +813,7 @@ func (pool *TokenPool) SetRouter(routerAddr common.Address) error {
 		return fmt.Errorf("failed to set router: %w", err)
 
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str("Router", routerAddr.String()).
 		Msg("Router set on pool")
@@ -820,7 +825,7 @@ func (pool *TokenPool) GetRouter() (common.Address, error) {
 }
 
 func (pool *TokenPool) SetRebalancer(rebalancerAddress common.Address) error {
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Msg("Setting rebalancer on pool")
 	opts, err := pool.client.TransactionOpts(pool.client.GetDefaultWallet())
@@ -832,7 +837,7 @@ func (pool *TokenPool) SetRebalancer(rebalancerAddress common.Address) error {
 		return fmt.Errorf("failed to set router: %w", err)
 
 	}
-	log.Info().
+	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Str("Rebalancer", rebalancerAddress.String()).
 		Msg("Rebalancer set on pool")
@@ -907,6 +912,7 @@ func (w CommitStoreWrapper) GetExpectedNextSequenceNumber(opts *bind.CallOpts) (
 
 type CommitStore struct {
 	client     blockchain.EVMClient
+	logger     zerolog.Logger
 	Instance   *CommitStoreWrapper
 	EthAddress common.Address
 }
@@ -924,14 +930,14 @@ func (b *CommitStore) SetOCR2Config(
 	offchainConfigVersion uint64,
 	offchainConfig []byte,
 ) error {
-	log.Info().Str("Contract Address", b.Address()).Msg("Configuring OCR config for CommitStore Contract")
+	b.logger.Info().Str("Contract Address", b.Address()).Msg("Configuring OCR config for CommitStore Contract")
 	// Set Config
 	opts, err := b.client.TransactionOpts(b.client.GetDefaultWallet())
 	if err != nil {
 		return fmt.Errorf("error getting transaction opts: %w", err)
 	}
 
-	log.Info().
+	b.logger.Info().
 		Interface("signerAddresses", signers).
 		Interface("transmitterAddresses", transmitters).
 		Str(Network, b.client.GetNetworkConfig().Name).
@@ -966,12 +972,12 @@ func (b *CommitStore) WatchReportAccepted(opts *bind.WatchOpts, acceptedEvent ch
 		}
 		return newCommitStore.WatchReportAccepted(opts, acceptedEvent)
 	}
-	log.Fatal().Msg("No instance found to watch for report accepted")
 	return nil, fmt.Errorf("no instance found to watch for report accepted")
 }
 
 type ReceiverDapp struct {
 	client     blockchain.EVMClient
+	logger     zerolog.Logger
 	instance   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
 	EthAddress common.Address
 }
@@ -989,7 +995,7 @@ func (rDapp *ReceiverDapp) ToggleRevert(revert bool) error {
 	if err != nil {
 		return fmt.Errorf("error setting revert: %w", err)
 	}
-	log.Info().
+	rDapp.logger.Info().
 		Bool("revert", revert).
 		Str("tx", tx.Hash().String()).
 		Str("ReceiverDapp", rDapp.Address()).
@@ -1089,6 +1095,7 @@ type InternalTokenPriceUpdate struct {
 
 type PriceRegistry struct {
 	client     blockchain.EVMClient
+	logger     zerolog.Logger
 	Instance   *PriceRegistryWrappers
 	EthAddress common.Address
 }
@@ -1106,7 +1113,7 @@ func (c *PriceRegistry) AddPriceUpdater(addr common.Address) error {
 	if err != nil {
 		return fmt.Errorf("error adding price updater: %w", err)
 	}
-	log.Info().
+	c.logger.Info().
 		Str("updaters", addr.Hex()).
 		Str(Network, c.client.GetNetworkConfig().Name).
 		Msg("PriceRegistry updater added")
@@ -1122,7 +1129,7 @@ func (c *PriceRegistry) AddFeeToken(addr common.Address) error {
 	if err != nil {
 		return fmt.Errorf("error adding fee token: %w", err)
 	}
-	log.Info().
+	c.logger.Info().
 		Str("feeTokens", addr.Hex()).
 		Str(Network, c.client.GetNetworkConfig().Name).
 		Msg("PriceRegistry feeToken set")
@@ -1184,7 +1191,7 @@ func (c *PriceRegistry) UpdatePrices(tokenUpdates []InternalTokenPriceUpdate, ga
 	if tx == nil {
 		return fmt.Errorf("no instance found to update prices")
 	}
-	log.Info().
+	c.logger.Info().
 		Str(Network, c.client.GetNetworkConfig().Name).
 		Interface("tokenUpdates", tokenUpdates).
 		Interface("gasUpdates", gasUpdates).
@@ -1203,12 +1210,12 @@ func (c *PriceRegistry) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, latest c
 		}
 		return newP.WatchUsdPerUnitGasUpdated(opts, latest, destChain)
 	}
-	log.Fatal().Msg("No instance found to watch for price updates")
 	return nil, fmt.Errorf("no instance found to watch for price updates")
 }
 
 type TokenAdminRegistry struct {
 	client     blockchain.EVMClient
+	logger     zerolog.Logger
 	Instance   *token_admin_registry.TokenAdminRegistry
 	EthAddress common.Address
 }
@@ -1230,7 +1237,7 @@ func (r *TokenAdminRegistry) SetAdminAndRegisterPool(tokenAddr, poolAddr common.
 	if err != nil {
 		return fmt.Errorf("error processing tx for setting admin on token %w", err)
 	}
-	log.Info().
+	r.logger.Info().
 		Str("Admin", opts.From.Hex()).
 		Str("Token", tokenAddr.Hex()).
 		Str("TokenAdminRegistry", r.Address()).
@@ -1247,7 +1254,7 @@ func (r *TokenAdminRegistry) SetAdminAndRegisterPool(tokenAddr, poolAddr common.
 	if err != nil {
 		return fmt.Errorf("error setting token %s and pool %s : %w", tokenAddr.Hex(), poolAddr.Hex(), err)
 	}
-	log.Info().
+	r.logger.Info().
 		Str("token", tokenAddr.Hex()).
 		Str("Pool", poolAddr.Hex()).
 		Str("TokenAdminRegistry", r.Address()).
@@ -1261,6 +1268,7 @@ func (r *TokenAdminRegistry) SetAdminAndRegisterPool(tokenAddr, poolAddr common.
 
 type Router struct {
 	client     blockchain.EVMClient
+	logger     zerolog.Logger
 	Instance   *router.Router
 	EthAddress common.Address
 }
@@ -1274,7 +1282,7 @@ func (r *Router) SetOnRamp(chainSelector uint64, onRamp common.Address) error {
 	if err != nil {
 		return fmt.Errorf("error getting transaction opts: %w", err)
 	}
-	log.Info().
+	r.logger.Info().
 		Str("Router", r.Address()).
 		Str("OnRamp", onRamp.Hex()).
 		Str(Network, r.client.GetNetworkName()).
@@ -1285,7 +1293,7 @@ func (r *Router) SetOnRamp(chainSelector uint64, onRamp common.Address) error {
 	if err != nil {
 		return fmt.Errorf("error applying ramp updates: %w", err)
 	}
-	log.Info().
+	r.logger.Info().
 		Str("onRamp", onRamp.Hex()).
 		Str("Network Name", r.client.GetNetworkConfig().Name).
 		Msg("Router is configured")
@@ -1301,7 +1309,7 @@ func (r *Router) CCIPSend(destChainSelector uint64, msg router.ClientEVM2AnyMess
 		opts.Value = valueForNative
 	}
 
-	log.Info().
+	r.logger.Info().
 		Str(Network, r.client.GetNetworkName()).
 		Str("Router", r.Address()).
 		Interface("TokensAndAmounts", msg.TokenAmounts).
@@ -1317,7 +1325,7 @@ func (r *Router) CCIPSendAndProcessTx(destChainSelector uint64, msg router.Clien
 	if err != nil {
 		return nil, fmt.Errorf("failed to send msg: %w", err)
 	}
-	log.Info().
+	r.logger.Info().
 		Str("router", r.Address()).
 		Str("txHash", tx.Hash().Hex()).
 		Str(Network, r.client.GetNetworkConfig().Name).
@@ -1335,7 +1343,7 @@ func (r *Router) AddOffRamp(offRamp common.Address, sourceChainId uint64) (*type
 	if err != nil {
 		return nil, fmt.Errorf("failed to add offRamp: %w", err)
 	}
-	log.Info().
+	r.logger.Info().
 		Str("offRamp", offRamp.Hex()).
 		Str(Network, r.client.GetNetworkConfig().Name).
 		Msg("offRamp is added to Router")
@@ -1351,7 +1359,7 @@ func (r *Router) SetWrappedNative(wNative common.Address) (*types.Transaction, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to set wrapped native: %w", err)
 	}
-	log.Info().
+	r.logger.Info().
 		Str("wrapped native", wNative.Hex()).
 		Str("router", r.Address()).
 		Str(Network, r.client.GetNetworkConfig().Name).
@@ -1539,6 +1547,7 @@ func (w OnRampWrapper) CurrentRateLimiterState(opts *bind.CallOpts) (*RateLimite
 
 type OnRamp struct {
 	client     blockchain.EVMClient
+	logger     zerolog.Logger
 	Instance   *OnRampWrapper
 	EthAddress common.Address
 }
@@ -1559,7 +1568,6 @@ func (onRamp *OnRamp) WatchCCIPSendRequested(opts *bind.WatchOpts, sendReqEvent 
 		return newRamp.WatchCCIPSendRequested(opts, sendReqEvent)
 	}
 	// should never reach here
-	log.Fatal().Msg("no instance found to watch for CCIPSendRequested")
 	return nil, fmt.Errorf("no instance found to watch for CCIPSendRequested")
 }
 
@@ -1590,7 +1598,7 @@ func (onRamp *OnRamp) SetTokenTransferFeeConfig(tokenTransferFeeConfig []evm_2_e
 	if err != nil {
 		return fmt.Errorf("failed to set token transfer fee config: %w", err)
 	}
-	log.Info().
+	onRamp.logger.Info().
 		Interface("tokenTransferFeeConfig", tokenTransferFeeConfig).
 		Str("onRamp", onRamp.Address()).
 		Str(Network, onRamp.client.GetNetworkConfig().Name).
@@ -1632,7 +1640,7 @@ func (onRamp *OnRamp) SetRateLimit(rlConfig evm_2_evm_onramp.RateLimiterConfig) 
 	if err != nil {
 		return fmt.Errorf("failed to set rate limit: %w", err)
 	}
-	log.Info().
+	onRamp.logger.Info().
 		Bool("Enabled", rlConfig.IsEnabled).
 		Str("capacity", rlConfig.Capacity.String()).
 		Str("rate", rlConfig.Rate.String()).
@@ -1655,7 +1663,7 @@ func (onRamp *OnRamp) ApplyPoolUpdates(tokens []common.Address, pools []common.A
 	if err != nil {
 		return fmt.Errorf("failed to apply pool updates: %w", err)
 	}
-	log.Info().
+	onRamp.logger.Info().
 		Interface("tokens", tokens).
 		Interface("pools", pools).
 		Str("onRamp", onRamp.Address()).
@@ -1705,6 +1713,7 @@ type EVM2EVMOffRampExecutionStateChanged struct {
 
 type OffRamp struct {
 	client     blockchain.EVMClient
+	logger     zerolog.Logger
 	Instance   *OffRampWrapper
 	EthAddress common.Address
 }
@@ -1727,7 +1736,6 @@ func (offRamp *OffRamp) WatchExecutionStateChanged(opts *bind.WatchOpts, execEve
 		}
 		return newOffRamp.WatchExecutionStateChanged(opts, execEvent, sequenceNumber, messageId)
 	}
-	log.Fatal().Msg("no instance found to watch for ExecutionStateChanged")
 	return nil, fmt.Errorf("no instance found to watch for ExecutionStateChanged")
 }
 
@@ -1740,13 +1748,13 @@ func (offRamp *OffRamp) SetOCR2Config(
 	offchainConfigVersion uint64,
 	offchainConfig []byte,
 ) error {
-	log.Info().Str("Contract Address", offRamp.Address()).Msg("Configuring OffRamp Contract")
+	offRamp.logger.Info().Str("Contract Address", offRamp.Address()).Msg("Configuring OffRamp Contract")
 	// Set Config
 	opts, err := offRamp.client.TransactionOpts(offRamp.client.GetDefaultWallet())
 	if err != nil {
 		return fmt.Errorf("failed to get transaction options: %w", err)
 	}
-	log.Info().
+	offRamp.logger.Info().
 		Interface("signerAddresses", signers).
 		Interface("transmitterAddresses", transmitters).
 		Str(Network, offRamp.client.GetNetworkConfig().Name).
@@ -1805,7 +1813,7 @@ func (offRamp *OffRamp) UpdateRateLimitTokens(sourceTokens, destTokens []common.
 		if err != nil {
 			return fmt.Errorf("failed to apply rate limit tokens updates: %w", err)
 		}
-		log.Info().
+		offRamp.logger.Info().
 			Interface("rateLimitToken adds", rateLimitTokens).
 			Str("offRamp", offRamp.Address()).
 			Str(Network, offRamp.client.GetNetworkConfig().Name).
@@ -1835,7 +1843,7 @@ func (offRamp *OffRamp) SyncTokensAndPools(sourceTokens, pools []common.Address)
 		if err != nil {
 			return fmt.Errorf("failed to apply pool updates: %w", err)
 		}
-		log.Info().
+		offRamp.logger.Info().
 			Interface("tokenUpdates", tokenUpdates).
 			Str("offRamp", offRamp.Address()).
 			Str(Network, offRamp.client.GetNetworkConfig().Name).
@@ -1847,6 +1855,7 @@ func (offRamp *OffRamp) SyncTokensAndPools(sourceTokens, pools []common.Address)
 
 type MockAggregator struct {
 	client          blockchain.EVMClient
+	logger          zerolog.Logger
 	Instance        *mock_v3_aggregator_contract.MockV3Aggregator
 	ContractAddress common.Address
 }
@@ -1860,7 +1869,7 @@ func (a *MockAggregator) UpdateRoundData(answer *big.Int) error {
 	if err != nil {
 		return fmt.Errorf("unable to get transaction opts: %w", err)
 	}
-	log.Info().
+	a.logger.Info().
 		Str("Contract Address", a.ContractAddress.Hex()).
 		Str("Network Name", a.client.GetNetworkConfig().Name).
 		Msg("Updating Round Data")
