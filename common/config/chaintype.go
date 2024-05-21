@@ -51,8 +51,8 @@ func ChainTypeFromSlug(slug string) (ChainType, error) {
 	}
 }
 
-func (t ChainType) String() string {
-	switch t {
+func (c ChainType) String() string {
+	switch c {
 	case ChainArbitrum:
 		return "arbitrum"
 	case ChainCelo:

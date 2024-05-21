@@ -295,11 +295,15 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	} else if must, ok := ChainTypeForID(c.ChainID); ok { // known chain id
 		is := config.ChainTypeNone
+		var parseErr error
 		if c.ChainType != nil {
-			is, _ = config.ChainTypeFromSlug(*c.ChainType)
+			is, parseErr = config.ChainTypeFromSlug(*c.ChainType)
 		}
 
-		if is != must {
+		// Check if the parsed value matched the expected value
+		// Also, check if there was an error parsing the value. If there was it means the value was set to an invalid
+		// string and we want to add a warning stating the value it should be set to.
+		if is != must || parseErr != nil {
 			if must == config.ChainTypeNone {
 				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: "must not be set with this chain id"})
