@@ -91,13 +91,17 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			}
 		}
 	}
-
-	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
-		NumberOfTxKeysToCreate: *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: testConfig,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
 	}
-
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate:          *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
+		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
+	}
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	var consumers []contracts.VRFv2PlusLoadTestConsumer
@@ -209,7 +213,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	sethClient, err := actions_seth.GetChainClientWithConfigFunction(testConfig, network, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	sethClient, err := actions_seth.GetChainClient(testConfig, network)
 	require.NoError(t, err, "Error creating seth client")
 
 	cleanupFn := func() {
@@ -232,12 +236,17 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		}
 	}
 
-	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
-		NumberOfTxKeysToCreate: *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: testConfig,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
 	}
-
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
+		NumberOfTxKeysToCreate:          *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
+		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
+	}
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	t.Run("vrfv2plus and bhs performance test", func(t *testing.T) {
