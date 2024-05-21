@@ -860,11 +860,6 @@ func (w *WorkflowSpec) Validate() error {
 		return fmt.Errorf("incorrect length for id %s: expected %d, got %d", w.WorkflowID, workflowIDLen, len(w.WorkflowID))
 	}
 
-	// special case empty owner and name for anonymous workflows
-	if w.WorkflowOwner == "" && w.WorkflowName == "" {
-		return nil
-	}
-
 	if len(w.WorkflowOwner) != workflowOwnerLen {
 		return fmt.Errorf("incorrect length for owner %s: expected %d, got %d", w.WorkflowOwner, workflowOwnerLen, len(w.WorkflowOwner))
 	}
