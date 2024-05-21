@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -130,7 +130,10 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 	if !ok {
 		return nil, errors.New("keyBundleName is not a string")
 	}
-	kb := a.keyBundles[name]
+	kb, ok := a.keyBundles[name]
+	if !ok {
+		return nil, fmt.Errorf("keyBundle not found: %s", name)
+	}
 	return kb.Sign(ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -142,8 +145,8 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
-	info := structpb.Struct{}
-	err := proto.Unmarshal(ri.Info, &info)
+	info := new(structpb.Struct)
+	err := proto.Unmarshal(ri.Info, info)
 	if err != nil {
 		a.lggr.Warn("Verify: failed to unmarshal report info", "err", err)
 		return false
@@ -159,7 +162,11 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicK
 		a.lggr.Warn("Verify: keyBundleName is not a string")
 		return false
 	}
-	kb := a.keyBundles[name]
+	kb, ok := a.keyBundles[name]
+	if !ok {
+		a.lggr.Warn("Verify: keyBundle not found", "keyBundleName", name)
+		return false
+	}
 	return kb.Verify(opk, ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,

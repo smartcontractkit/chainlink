@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"testing"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -140,16 +140,11 @@ publicKey = "pub-key"
 	reportInfo := ocr3types.ReportWithInfo[[]byte]{
 		Report: []byte("multi-chain-report"),
 	}
-	info := structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"keyBundleName": {
-				Kind: &structpb.Value_StringValue{
-					StringValue: "evm",
-				},
-			},
-		},
-	}
-	infoB, err := proto.Marshal(&info)
+	info, err := structpb.NewStruct(map[string]interface{}{
+		"keyBundleName": "evm",
+	})
+	require.NoError(t, err)
+	infoB, err := proto.Marshal(info)
 	require.NoError(t, err)
 	reportInfo.Info = infoB
 
