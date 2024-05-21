@@ -120,7 +120,8 @@ func NewMockConfig() *MockConfig {
 }
 
 func (m *MockConfig) ChainType() config.ChainType {
-	return config.ChainType(m.ChainTypeF)
+	chainType, _ := config.ChainTypeFromSlug(m.ChainTypeF)
+	return chainType
 }
 
 func (m *MockConfig) FinalityDepth() uint32 {

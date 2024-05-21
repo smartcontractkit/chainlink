@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -164,12 +165,11 @@ func TestPool_Dial(t *testing.T) {
 			for i, n := range test.sendNodes {
 				sendNodes[i] = n.newSendOnlyNode(t, test.sendNodeChainID)
 			}
-			p := evmclient.NewPool(logger.Test(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendNodes, test.poolChainID, "")
+			p := evmclient.NewPool(logger.Test(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendNodes, test.poolChainID, config.ChainTypeNone)
 			err := p.Dial(ctx)
 			if err == nil {
 				t.Cleanup(func() { assert.NoError(t, p.Close()) })
 			}
-			assert.True(t, p.ChainType().IsValid())
 			assert.False(t, p.ChainType().IsL2())
 			if test.errStr != "" {
 				require.Error(t, err)
@@ -257,7 +257,7 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	nodes := []evmclient.Node{n1, n2, n3}
 
 	lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
-	p := evmclient.NewPool(lggr, defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
+	p := evmclient.NewPool(lggr, defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, config.ChainTypeNone)
 
 	n1.On("String").Maybe().Return("n1")
 	n2.On("String").Maybe().Return("n2")
@@ -331,9 +331,8 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 		sendonlys = append(sendonlys, s)
 	}
 
-	p := evmclient.NewPool(logger.Test(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendonlys, &cltest.FixtureChainID, "")
+	p := evmclient.NewPool(logger.Test(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendonlys, &cltest.FixtureChainID, config.ChainTypeNone)
 
-	assert.True(t, p.ChainType().IsValid())
 	assert.False(t, p.ChainType().IsL2())
 	require.NoError(t, p.BatchCallContextAll(ctx, b))
 }
@@ -379,7 +378,7 @@ func TestUnit_Pool_LeaseDuration(t *testing.T) {
 	n2.On("ChainID").Return(testutils.FixtureChainID).Once()
 
 	lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
-	p := evmclient.NewPool(lggr, "PriorityLevel", time.Second*2, time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
+	p := evmclient.NewPool(lggr, "PriorityLevel", time.Second*2, time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, config.ChainTypeNone)
 	require.NoError(t, p.Dial(testutils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, p.Close()) })
 

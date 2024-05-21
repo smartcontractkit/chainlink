@@ -990,17 +990,17 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		require.Equal(t, assets.NewWeiI(11), gas.GetGasPrice(bhe))
 
 		// Set chainType to Gnosis - GasEstimator should now ignore zero priced transactions
-		cfg.ChainTypeF = string(config.ChainGnosis)
+		cfg.ChainTypeF = config.ChainGnosis.String()
 		bhe.Recalculate(testutils.Head(0))
 		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
 
 		// Same for xDai (deprecated)
-		cfg.ChainTypeF = string(config.ChainXDai)
+		cfg.ChainTypeF = "xdai"
 		bhe.Recalculate(testutils.Head(0))
 		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
 
 		// And for X Layer
-		cfg.ChainTypeF = string(config.ChainXLayer)
+		cfg.ChainTypeF = config.ChainXLayer.String()
 		bhe.Recalculate(testutils.Head(0))
 		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
 	})
@@ -1418,7 +1418,7 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 	})
 
 	t.Run("returns false if transaction is of type 0x71 or 0xff only on zkSync", func(t *testing.T) {
-		cfg.ChainTypeF = string(config.ChainZkSync)
+		cfg.ChainTypeF = config.ChainZkSync.String()
 		tx := evmtypes.Transaction{Type: 0x71, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 

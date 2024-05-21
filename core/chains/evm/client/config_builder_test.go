@@ -50,7 +50,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, *nodeConfigs[0].HTTPURL, (*nodes[0].HTTPURL).String())
 
 	// Validate chain config
-	require.Equal(t, chainTypeStr, string(chainCfg.ChainType()))
+	require.Equal(t, chainTypeStr, chainCfg.ChainType().String())
 	require.Equal(t, noNewHeadsThreshold, chainCfg.NodeNoNewHeadsThreshold())
 	require.Equal(t, *finalityDepth, chainCfg.FinalityDepth())
 	require.Equal(t, *finalityTagEnabled, chainCfg.FinalityTagEnabled())

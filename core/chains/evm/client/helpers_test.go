@@ -133,7 +133,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 		sendonlys = append(sendonlys, s)
 	}
 
-	pool := NewPool(lggr, nodePoolCfg.SelectionMode(), nodePoolCfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
+	pool := NewPool(lggr, nodePoolCfg.SelectionMode(), nodePoolCfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, commonconfig.ChainTypeNone)
 	c := &client{logger: lggr, pool: pool}
 	t.Cleanup(c.Close)
 	return c, nil

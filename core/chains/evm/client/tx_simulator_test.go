@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 )
@@ -46,7 +47,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
+		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), config.ChainTypeNone, msg)
 		require.Empty(t, sendErr)
 	})
 
@@ -77,7 +78,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
+		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), config.ChainTypeNone, msg)
 		require.Equal(t, true, sendErr.IsOutOfCounters(nil))
 	})
 
@@ -107,7 +108,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
+		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), config.ChainTypeNone, msg)
 		require.Equal(t, false, sendErr.IsOutOfCounters(nil))
 	})
 }

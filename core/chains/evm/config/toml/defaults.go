@@ -95,11 +95,12 @@ func ChainTypeForID(chainID *big.Big) (config.ChainType, bool) {
 	s := chainID.String()
 	if d, ok := defaults[s]; ok {
 		if d.ChainType == nil {
-			return "", true
+			return config.ChainTypeNone, true
 		}
-		return config.ChainType(*d.ChainType), true
+		chainType, _ := config.ChainTypeFromSlug(*d.ChainType)
+		return chainType, true
 	}
-	return "", false
+	return config.ChainTypeNone, false
 }
 
 // SetFrom updates c with any non-nil values from f.
