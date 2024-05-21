@@ -1,0 +1,63 @@
+name: On Demand VRFV2Plus Smoke Test (Ethereum clients)
+on:
+  workflow_dispatch:
+    inputs:
+      base64Config:
+        description: base64-ed config
+        required: true
+        type: string       
+
+jobs:
+  vrfv2plus_smoke_test:
+    name: VRFV2Plus Smoke Test with custom EL client
+    environment: integration
+    runs-on: ubuntu22.04-8cores-32GB
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      TEST_LOG_LEVEL: debug
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+    steps:            
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+      - name: Mask base64 config
+        run: |
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Parse base64 config
+        uses: ./.github/actions/setup-parse-base64-config
+        with:
+          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}
+      - name: Send details to Step Summary
+        shell: bash
+        run: |
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.CHAINLINK_IMAGE }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### Execution client used" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY              
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        with:
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run ^TestVRFv2Plus$/^Link_Billing$ ./smoke/vrfv2plus_test.go 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: vrfplus-test-logs
+          artifacts_location: ./integration-tests/smoke/logs/
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          should_cleanup: false
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}          
+          QA_KUBECONFIG: ""

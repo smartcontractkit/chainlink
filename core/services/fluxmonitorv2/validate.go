@@ -3,49 +3,52 @@ package fluxmonitorv2
 import (
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func ValidatedFluxMonitorSpec(config *orm.Config, ts string) (job.SpecDB, error) {
-	var specDB = job.SpecDB{
-		Pipeline: *pipeline.NewTaskDAG(),
+type ValidationConfig interface {
+	DefaultHTTPTimeout() commonconfig.Duration
+}
+
+func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, error) {
+	var jb = job.Job{
+		ExternalJobID: uuid.New(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 	}
 	var spec job.FluxMonitorSpec
 	tree, err := toml.Load(ts)
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
-	err = tree.Unmarshal(&specDB)
+	err = tree.Unmarshal(&jb)
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
-	specDB.FluxMonitorSpec = &spec
+	jb.FluxMonitorSpec = &spec
 
-	if specDB.Type != job.FluxMonitor {
-		return specDB, errors.Errorf("unsupported type %s", specDB.Type)
-	}
-	if specDB.SchemaVersion != uint32(1) {
-		return specDB, errors.Errorf("the only supported schema version is currently 1, got %v", specDB.SchemaVersion)
+	if jb.Type != job.FluxMonitor {
+		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
 
 	// Find the smallest of all the timeouts
 	// and ensure the polling period is greater than that.
-	minTaskTimeout, aTimeoutSet, err := specDB.Pipeline.MinTimeout()
+	minTaskTimeout, aTimeoutSet, err := jb.Pipeline.MinTimeout()
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
 	timeouts := []time.Duration{
 		config.DefaultHTTPTimeout().Duration(),
-		config.JobPipelineMaxTaskDuration(),
-		time.Duration(specDB.MaxTaskDuration),
+		time.Duration(jb.MaxTaskDuration),
 	}
 	if aTimeoutSet {
 		timeouts = append(timeouts, minTaskTimeout)
@@ -56,8 +59,32 @@ func ValidatedFluxMonitorSpec(config *orm.Config, ts string) (job.SpecDB, error)
 			minTimeout = timeout
 		}
 	}
-	if !spec.PollTimerDisabled && spec.PollTimerPeriod < minTimeout {
-		return specDB, errors.Errorf("pollTimer.period must be equal or greater than %v, got %v", minTimeout, spec.PollTimerPeriod)
+
+	if jb.FluxMonitorSpec.DrumbeatEnabled {
+		err := utils.ValidateCronSchedule(jb.FluxMonitorSpec.DrumbeatSchedule)
+		if err != nil {
+			return jb, errors.Wrap(err, "while validating drumbeat schedule")
+		}
+
+		if !spec.IdleTimerDisabled {
+			return jb, errors.Errorf("When the drumbeat ticker is enabled, the idle timer must be disabled. Please set IdleTimerDisabled to true")
+		}
 	}
-	return specDB, nil
+
+	if !validatePollTimer(jb.FluxMonitorSpec.PollTimerDisabled, minTimeout, jb.FluxMonitorSpec.PollTimerPeriod) {
+		return jb, errors.Errorf("PollTimerPeriod (%v) must be equal or greater than the smallest value of MaxTaskDuration param, JobPipeline.HTTPRequest.DefaultTimeout config var, or MinTimeout of all tasks (%v)", jb.FluxMonitorSpec.PollTimerPeriod, minTimeout)
+	}
+
+	return jb, nil
+}
+
+// validatePollTime validates the period is greater than the min timeout for an
+// enabled poll timer.
+func validatePollTimer(disabled bool, minTimeout time.Duration, period time.Duration) bool {
+	// Disabled timers do not need to validate the period
+	if disabled {
+		return true
+	}
+
+	return period >= minTimeout
 }

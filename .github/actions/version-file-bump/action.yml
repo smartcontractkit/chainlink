@@ -1,0 +1,51 @@
+name: version-file-bump
+description: "Ensure that the VERSION file has been bumped since the last release."
+inputs:
+  github-token:
+    description: "Github access token"
+    default: ${{ github.token }}
+    required: true
+outputs:
+  result:
+    value: ${{ steps.compare.outputs.result }}
+    description: "Result of the comparison"
+runs:
+  using: composite
+  steps:
+    - name: Get latest release version
+      id: get-latest-version
+      shell: bash
+      run: |
+        untrimmed_ver=$(
+          curl --header "Authorization: token ${{ inputs.github-token }}" \
+            --request GET \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest?draft=false&prerelease=false" \
+            | jq -r .name
+        )
+        latest_version="${untrimmed_ver:1}"
+        echo "latest_version=${latest_version}" | tee -a "$GITHUB_OUTPUT"
+    - name: Get current version
+      id: get-current-version
+      shell: bash
+      run: |
+        current_version=$(jq -r '.version' ./package.json)
+        echo "current_version=${current_version}" | tee -a "$GITHUB_OUTPUT"
+    - name: Compare semantic versions
+      uses: smartcontractkit/chainlink-github-actions/semver-compare@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+      id: compare
+      with:
+        version1: ${{ steps.get-current-version.outputs.current_version }}
+        operator: eq
+        version2: ${{ steps.get-latest-version.outputs.latest_version }}
+    - name: Fail if version not bumped
+      # XXX: The reason we are not checking if the current is greater than the
+      # latest release is to account for hot fixes which may have been branched
+      # from a previous tag.
+      shell: bash
+      env:
+        VERSION_NOT_BUMPED: ${{ steps.compare.outputs.result }}
+      run: |
+        if [[ "${VERSION_NOT_BUMPED:-}" = "true" ]]; then
+          echo "The version in `package.json` has not bumped since the last release. Please fix by running `pnpm changeset version`."
+          exit 1
+        fi

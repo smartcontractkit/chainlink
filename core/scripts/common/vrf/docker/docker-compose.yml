@@ -1,0 +1,140 @@
+version: '3.5'
+services:
+  chainlink-node-0:
+    container_name: vrf-primary-node
+    image: ${NODE_IMAGE_VERSION}
+    entrypoint:
+      - /opt/docker-wait-for-others.sh
+      - database:5432
+      - --
+    command: chainlink -config /opt/config/base.toml -config /opt/config/rpc-nodes.toml -config /opt/config/vrf-primary.toml node start -p /run/secrets/node_password -a /run/secrets/apicredentials
+    environment:
+      - CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@database:5432/chainlink_0_test?sslmode=disable
+    platform: "linux/x86_64"
+    volumes:
+      - ./wait-for-others/docker-wait-for-it.sh:/opt/docker-wait-for-it.sh:ro
+      - ./wait-for-others/docker-wait-for-others.sh:/opt/docker-wait-for-others.sh:ro
+      - ./toml-config:/opt/config:ro
+    ports:
+      - "6610:6688"
+      - "6059:6060"
+    secrets:
+      - apicredentials
+      - node_password
+    depends_on:
+      - database
+
+  chainlink-node-1:
+    container_name: vrf-backup-node
+    image: ${NODE_IMAGE_VERSION}
+    entrypoint:
+      - /opt/docker-wait-for-others.sh
+      - database:5432
+      - --
+    command: chainlink node -config /opt/config/base.toml -config /opt/config/rpc-nodes.toml -config /opt/config/vrf-primary.toml -config /opt/config/vrf-backup.toml start -p /run/secrets/node_password -a /run/secrets/apicredentials
+    environment:
+      - CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@database:5432/chainlink_1_test?sslmode=disable
+    platform: "linux/x86_64"
+    volumes:
+      - ./wait-for-others/docker-wait-for-it.sh:/opt/docker-wait-for-it.sh:ro
+      - ./wait-for-others/docker-wait-for-others.sh:/opt/docker-wait-for-others.sh:ro
+      - ./toml-config:/opt/config:ro
+    ports:
+      - "6611:6688"
+      - "6060:6060"
+    secrets:
+      - apicredentials
+      - node_password
+    depends_on:
+      - database
+
+  chainlink-node-2:
+    container_name: bhs-node
+    image: ${NODE_IMAGE_VERSION}
+    entrypoint:
+      - /opt/docker-wait-for-others.sh
+      - database:5432
+      - --
+    command: chainlink node -config /opt/config/base.toml -config /opt/config/rpc-nodes.toml -config /opt/config/bhs.toml start -p /run/secrets/node_password -a /run/secrets/apicredentials
+    volumes:
+      - ./wait-for-others/docker-wait-for-it.sh:/opt/docker-wait-for-it.sh:ro
+      - ./wait-for-others/docker-wait-for-others.sh:/opt/docker-wait-for-others.sh:ro
+      - ./toml-config:/opt/config:ro
+    environment:
+      - CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@database:5432/chainlink_2_test?sslmode=disable
+    platform: "linux/x86_64"
+    ports:
+      - "6612:6688"
+      - "6062:6060"
+    secrets:
+      - apicredentials
+      - node_password
+    depends_on:
+      - database
+
+  chainlink-node-3:
+    container_name: bhs-backup-node
+    image: ${NODE_IMAGE_VERSION}
+    entrypoint:
+      - /opt/docker-wait-for-others.sh
+      - database:5432
+      - --
+    command: chainlink node -config /opt/config/base.toml -config /opt/config/rpc-nodes.toml -config /opt/config/bhs.toml start -p /run/secrets/node_password -a /run/secrets/apicredentials
+    volumes:
+      - ./wait-for-others/docker-wait-for-it.sh:/opt/docker-wait-for-it.sh:ro
+      - ./wait-for-others/docker-wait-for-others.sh:/opt/docker-wait-for-others.sh:ro
+      - ./toml-config:/opt/config:ro
+    environment:
+      - CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@database:5432/chainlink_3_test?sslmode=disable
+    platform: "linux/x86_64"
+    ports:
+      - "6613:6688"
+      - "6063:6060"
+    secrets:
+      - apicredentials
+      - node_password
+    depends_on:
+      - database
+
+  chainlink-node-4:
+    container_name: bhf-node
+    image: ${NODE_IMAGE_VERSION}
+    entrypoint:
+      - /opt/docker-wait-for-others.sh
+      - database:5432
+      - --
+    command: chainlink node -config /opt/config/base.toml -config /opt/config/rpc-nodes.toml -config /opt/config/bhf.toml start -p /run/secrets/node_password -a /run/secrets/apicredentials
+    volumes:
+      - ./wait-for-others/docker-wait-for-it.sh:/opt/docker-wait-for-it.sh:ro
+      - ./wait-for-others/docker-wait-for-others.sh:/opt/docker-wait-for-others.sh:ro
+      - ./toml-config:/opt/config:ro
+    environment:
+      - CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@database:5432/chainlink_4_test?sslmode=disable
+    platform: "linux/x86_64"
+    ports:
+      - "6614:6688"
+      - "6064:6060"
+    secrets:
+      - apicredentials
+      - node_password
+    depends_on:
+      - database
+
+  database:
+    image: postgres:11.6
+    volumes:
+      - ./db/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh
+    environment:
+      POSTGRES_PASSWORD: chainlink
+      POSTGRES_MULTIPLE_DATABASES: chainlink_0_test,chainlink_1_test,chainlink_2_test,chainlink_3_test,chainlink_4_test
+    ports:
+      - "5432:5432"
+
+secrets:
+  node_password:
+    file: secrets/password.txt
+  apicredentials:
+    file: secrets/apicredentials
+
+volumes:
+  docker-compose-db:

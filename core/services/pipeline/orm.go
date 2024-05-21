@@ -2,499 +2,784 @@ package pipeline
 
 import (
 	"context"
-	"encoding/json"
+	"database/sql"
 	"fmt"
-	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
+
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+// KeepersObservationSource is the same for all keeper jobs and it is not persisted in DB
+const KeepersObservationSource = `
+    encode_check_upkeep_tx      [type=ethabiencode
+                                 abi="checkUpkeep(uint256 id, address from)"
+                                 data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.effectiveKeeperAddress)}"]
+    check_upkeep_tx             [type=ethcall
+                                 failEarly=true
+                                 extractRevertReason=true
+                                 evmChainID="$(jobSpec.evmChainID)"
+                                 contract="$(jobSpec.contractAddress)"
+                                 gasUnlimited=true
+                                 gasPrice="$(jobSpec.gasPrice)"
+                                 gasTipCap="$(jobSpec.gasTipCap)"
+                                 gasFeeCap="$(jobSpec.gasFeeCap)"
+                                 data="$(encode_check_upkeep_tx)"]
+    decode_check_upkeep_tx      [type=ethabidecode
+                                 abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
+    calculate_perform_data_len  [type=length
+                                 input="$(decode_check_upkeep_tx.performData)"]
+    perform_data_lessthan_limit [type=lessthan
+                                 left="$(calculate_perform_data_len)"
+                                 right="$(jobSpec.maxPerformDataSize)"]
+    check_perform_data_limit    [type=conditional
+                                 failEarly=true
+                                 data="$(perform_data_lessthan_limit)"]
+    encode_perform_upkeep_tx    [type=ethabiencode
+                                 abi="performUpkeep(uint256 id, bytes calldata performData)"
+                                 data="{\"id\": $(jobSpec.upkeepID),\"performData\":$(decode_check_upkeep_tx.performData)}"]
+    simulate_perform_upkeep_tx  [type=ethcall
+                                 extractRevertReason=true
+                                 evmChainID="$(jobSpec.evmChainID)"
+                                 contract="$(jobSpec.contractAddress)"
+                                 from="$(jobSpec.effectiveKeeperAddress)"
+                                 gasUnlimited=true
+                                 data="$(encode_perform_upkeep_tx)"]
+    decode_check_perform_tx     [type=ethabidecode
+                                 abi="bool success"]
+    check_success            	[type=conditional
+                                 failEarly=true
+                                 data="$(decode_check_perform_tx.success)"]
+    perform_upkeep_tx        	[type=ethtx
+                                 minConfirmations=0
+                                 to="$(jobSpec.contractAddress)"
+                                 from="[$(jobSpec.fromAddress)]"
+                                 evmChainID="$(jobSpec.evmChainID)"
+                                 data="$(encode_perform_upkeep_tx)"
+                                 gasLimit="$(jobSpec.performUpkeepGasLimit)"
+                                 txMeta="{\"jobID\":$(jobSpec.jobID),\"upkeepID\":$(jobSpec.prettyID)}"]
+    encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> calculate_perform_data_len -> perform_data_lessthan_limit -> check_perform_data_limit -> encode_perform_upkeep_tx -> simulate_perform_upkeep_tx -> decode_check_perform_tx -> check_success -> perform_upkeep_tx
+`
 
-type (
-	ORM interface {
-		CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
-		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-		ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error)
-		ListenForNewRuns() (postgres.Subscription, error)
-		InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
-		AwaitRun(ctx context.Context, runID int64) error
-		RunFinished(runID int64) (bool, error)
-		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
-		DeleteRunsOlderThan(threshold time.Duration) error
+type CreateDataSource interface {
+	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+}
 
-		FindBridge(name models.TaskType) (models.BridgeType, error)
+//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
-		DB() *gorm.DB
-	}
+type ORM interface {
+	services.Service
 
-	orm struct {
-		db               *gorm.DB
-		config           Config
-		eventBroadcaster postgres.EventBroadcaster
-	}
-)
+	// ds is optional and to be removed after completing https://smartcontract-it.atlassian.net/browse/BCF-2978
+	CreateSpec(ctx context.Context, ds CreateDataSource, pipeline Pipeline, maxTaskTimeout models.Interval) (int32, error)
+	CreateRun(ctx context.Context, run *Run) (err error)
+	InsertRun(ctx context.Context, run *Run) error
+	DeleteRun(ctx context.Context, id int64) error
+	StoreRun(ctx context.Context, run *Run) (restart bool, err error)
+	UpdateTaskRunResult(ctx context.Context, taskID uuid.UUID, result Result) (run Run, start bool, err error)
+	InsertFinishedRun(ctx context.Context, run *Run, saveSuccessfulTaskRuns bool) (err error)
+	InsertFinishedRunWithSpec(ctx context.Context, run *Run, saveSuccessfulTaskRuns bool) (err error)
+
+	// InsertFinishedRuns inserts all the given runs into the database.
+	// If saveSuccessfulTaskRuns is false, only errored runs are saved.
+	InsertFinishedRuns(ctx context.Context, run []*Run, saveSuccessfulTaskRuns bool) (err error)
+
+	DeleteRunsOlderThan(context.Context, time.Duration) error
+	FindRun(ctx context.Context, id int64) (Run, error)
+	GetAllRuns(ctx context.Context) ([]Run, error)
+	GetUnfinishedRuns(context.Context, time.Time, func(run Run) error) error
+
+	DataSource() sqlutil.DataSource
+	WithDataSource(sqlutil.DataSource) ORM
+	Transact(context.Context, func(ORM) error) error
+}
+
+type orm struct {
+	services.StateMachine
+	ds                sqlutil.DataSource
+	lggr              logger.Logger
+	maxSuccessfulRuns uint64
+	// jobID => count
+	pm   sync.Map
+	wg   sync.WaitGroup
+	ctx  context.Context
+	cncl context.CancelFunc
+}
 
 var _ ORM = (*orm)(nil)
 
-var (
-	promPipelineRunErrors = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pipeline_run_errors",
-		Help: "Number of errors for each pipeline spec",
-	},
-		[]string{"pipeline_spec_id"},
-	)
-	promPipelineRunTotalTimeToCompletion = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pipeline_run_total_time_to_completion",
-		Help: "How long each pipeline run took to finish (from the moment it was created)",
-	},
-		[]string{"pipeline_spec_id"},
-	)
-	promPipelineTasksTotalFinished = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pipeline_tasks_total_finished",
-		Help: "The total number of pipeline tasks which have finished",
-	},
-		[]string{"pipeline_spec_id", "task_type", "status"},
-	)
-)
-
-func NewORM(db *gorm.DB, config Config, eventBroadcaster postgres.EventBroadcaster) *orm {
-	return &orm{db, config, eventBroadcaster}
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger, jobPipelineMaxSuccessfulRuns uint64) *orm {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &orm{
+		ds:                ds,
+		lggr:              lggr.Named("PipelineORM"),
+		maxSuccessfulRuns: jobPipelineMaxSuccessfulRuns,
+		ctx:               ctx,
+		cncl:              cancel,
+	}
 }
 
-// The tx argument must be an already started transaction.
-func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxTaskDuration models.Interval) (int32, error) {
-	var specID int32
-	spec := Spec{
-		DotDagSource:    taskDAG.DOTSource,
-		MaxTaskDuration: maxTaskDuration,
-	}
-	err := tx.Create(&spec).Error
-	if err != nil {
-		return specID, err
-	}
-	specID = spec.ID
-
-	// Create the pipeline task specs in dependency order so
-	// that we know what the successor ID for each task is
-	tasks, err := taskDAG.TasksInDependencyOrder()
-	if err != nil {
-		return specID, err
-	}
-
-	// Create the final result task that collects the answers from the pipeline's
-	// outputs.  This is a Postgres-related performance optimization.
-	resultTask := ResultTask{BaseTask{dotID: ResultTaskDotID}}
-	for _, task := range tasks {
-		if task.DotID() == ResultTaskDotID {
-			return specID, errors.Errorf("%v is a reserved keyword and cannot be used in job specs", ResultTaskDotID)
-		}
-		if task.OutputTask() == nil {
-			task.SetOutputTask(&resultTask)
-		}
-	}
-	tasks = append([]Task{&resultTask}, tasks...)
-
-	taskSpecIDs := make(map[Task]int32)
-	for _, task := range tasks {
-		var successorID null.Int
-		if task.OutputTask() != nil {
-			successor := task.OutputTask()
-			successorID = null.IntFrom(int64(taskSpecIDs[successor]))
-		}
-
-		taskSpec := TaskSpec{
-			DotID:          task.DotID(),
-			PipelineSpecID: spec.ID,
-			Type:           task.Type(),
-			JSON:           JSONSerializable{task, false},
-			Index:          task.OutputIndex(),
-			SuccessorID:    successorID,
-		}
-		err = tx.Create(&taskSpec).Error
-		if err != nil {
-			return specID, err
-		}
-
-		taskSpecIDs[task] = taskSpec.ID
-	}
-	return specID, errors.WithStack(err)
-}
-
-// CreateRun adds a Run record to the DB, and one TaskRun
-// per TaskSpec associated with the given Spec.  Processing of the
-// TaskRuns is maximally parallelized across all of the Chainlink nodes in the
-// cluster.
-func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error) {
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
-	defer cancel()
-
-	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) (err error) {
-		// Create the job run
-		run := Run{}
-
-		err = tx.Raw(`
-            INSERT INTO pipeline_runs (pipeline_spec_id, meta, created_at)
-            SELECT pipeline_spec_id, ?, NOW()
-            FROM jobs WHERE id = ? 
-            RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
-		if run.ID == 0 {
-			return errors.Errorf("no job found with id %v (most likely it was deleted)", jobID)
-		} else if err != nil {
-			return errors.Wrap(err, "could not create pipeline run")
-		}
-
-		runID = run.ID
-
-		// Create the task runs
-		err = tx.Exec(`
-            INSERT INTO pipeline_task_runs (
-            	pipeline_run_id, pipeline_task_spec_id, type, index, created_at
-            )
-            SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, type, index, NOW() AS created_at
-            FROM pipeline_task_specs
-            WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
-		return errors.Wrap(err, "could not create pipeline task runs")
-	})
-	return runID, errors.WithStack(err)
-}
-
-// TODO: Remove generation of special "result" task
-// TODO: Remove the unique index on successor_id
-// https://www.pivotaltracker.com/story/show/176557536
-type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, pRun Run, l logger.Logger) (TaskRunResults, error)
-
-// ProcessNextUnfinishedRun pulls the next available unfinished run from the
-// database and passes it into the provided ProcessRunFunc for execution.
-func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (anyRemaining bool, err error) {
-	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
-	utils.RetryWithBackoff(ctx, func() (retry bool) {
-		err = o.processNextUnfinishedRun(ctx, fn)
-		// "Record not found" errors mean that we're done with all unclaimed
-		// job runs.
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			anyRemaining = false
-			retry = false
-			err = nil
-		} else if err != nil {
-			retry = true
-			err = errors.Wrap(err, "Pipeline runner could not process job run")
-			logger.Error(err)
-
+func (o *orm) Start(_ context.Context) error {
+	return o.StartOnce("PipelineORM", func() error {
+		var msg string
+		if o.maxSuccessfulRuns == 0 {
+			msg = "Pipeline runs saving is disabled for all jobs: MaxSuccessfulRuns=0"
 		} else {
-			anyRemaining = true
-			retry = false
+			msg = fmt.Sprintf("Pipeline runs will be pruned above per-job limit of MaxSuccessfulRuns=%d", o.maxSuccessfulRuns)
 		}
-		return
-	})
-	return anyRemaining, errors.WithStack(err)
-}
-
-func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) error {
-	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
-	txContext, cancel := context.WithTimeout(context.Background(), o.config.DatabaseMaximumTxDuration())
-	defer cancel()
-	var pRun Run
-
-	err := postgres.GormTransaction(txContext, o.db, func(tx *gorm.DB) error {
-		err := tx.Raw(`
-		SELECT id FROM pipeline_runs
-		WHERE finished_at IS NULL
-		ORDER BY id ASC
-		FOR UPDATE SKIP LOCKED
-		LIMIT 1
-		`).Scan(&pRun).Error
-		if err != nil {
-			return errors.Wrap(err, "error finding next pipeline run")
-		}
-		// NOTE: We have to lock and load in two distinct queries to work
-		// around a bizarre bug in gormv1.
-		// Trying to lock and load in one hit _sometimes_ fails to preload
-		// associations for no discernable reason.
-		err = tx.
-			Preload("PipelineSpec").
-			Preload("PipelineTaskRuns.PipelineTaskSpec").
-			Where("pipeline_runs.id = ?", pRun.ID).
-			First(&pRun).Error
-		if err != nil {
-			return errors.Wrap(err, "error loading run associations")
-		}
-
-		logger.Infow("Pipeline run started", "runID", pRun.ID)
-
-		trrs, err := fn(ctx, tx, pRun, *logger.Default)
-		if err != nil {
-			return errors.Wrap(err, "error calling ProcessRunFunc")
-		}
-
-		if err = o.updateTaskRuns(tx, trrs); err != nil {
-			return errors.Wrap(err, "could not update task runs")
-		}
-
-		if err = o.UpdatePipelineRun(tx, &pRun, trrs.FinalResult()); err != nil {
-			return errors.Wrap(err, "could not mark pipeline_run as finished")
-		}
-
-		err = o.eventBroadcaster.NotifyInsideGormTx(tx, postgres.ChannelRunCompleted, fmt.Sprintf("%v", pRun.ID))
-		if err != nil {
-			return errors.Wrap(err, "could not notify pipeline_run_completed")
-		}
-
-		elapsed := time.Since(pRun.CreatedAt)
-		promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpecID)).Set(float64(elapsed))
-
-		if pRun.HasErrors() {
-			promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpecID)).Inc()
-		}
-
+		o.lggr.Info(msg)
 		return nil
 	})
-	if err != nil {
-		return errors.Wrap(err, "while processing run")
+}
+
+func (o *orm) Close() error {
+	return o.StopOnce("PipelineORM", func() error {
+		o.cncl()
+		o.wg.Wait()
+		return nil
+	})
+}
+
+func (o *orm) Name() string {
+	return o.lggr.Name()
+}
+
+func (o *orm) HealthReport() map[string]error {
+	return map[string]error{o.Name(): o.Healthy()}
+}
+
+func (o *orm) Transact(ctx context.Context, fn func(ORM) error) error {
+	return sqlutil.Transact(ctx, func(tx sqlutil.DataSource) ORM {
+		return o.withDataSource(tx)
+	}, o.ds, nil, func(tx ORM) error {
+		defer func() {
+			if err := tx.Close(); err != nil {
+				o.lggr.Warnw("Error closing temporary transactional ORM", "err", err)
+			}
+		}()
+		return fn(tx)
+	})
+}
+
+func (o *orm) DataSource() sqlutil.DataSource { return o.ds }
+
+func (o *orm) WithDataSource(ds sqlutil.DataSource) ORM { return o.withDataSource(ds) }
+
+func (o *orm) withDataSource(ds sqlutil.DataSource) *orm {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &orm{
+		ds:                ds,
+		lggr:              o.lggr,
+		maxSuccessfulRuns: o.maxSuccessfulRuns,
+		ctx:               ctx,
+		cncl:              cancel,
 	}
-	logger.Infow("Pipeline run completed", "runID", pRun.ID)
-	return nil
 }
 
-// updateTaskRuns updates multiple task runs in one query
-func (o *orm) updateTaskRuns(db *gorm.DB, trrs TaskRunResults) error {
-	sql := `
-UPDATE pipeline_task_runs AS ptr SET
-output = updates.output,
-error = updates.error,
-finished_at = updates.finished_at
-FROM (VALUES
-%s
-) AS updates(id, output, error, finished_at)
-WHERE ptr.id = updates.id
-`
-	// NOTE: gormv1 does not support bulk updates so we have to
-	// manually construct it ourselves
-	valueStrings := []string{}
-	valueArgs := []interface{}{}
-	for _, trr := range trrs {
-		valueStrings = append(valueStrings, "(?::bigint, ?::jsonb, ?::text, ?::timestamptz)")
-		valueArgs = append(valueArgs, trr.ID, trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.FinishedAt)
+func (o *orm) transact(ctx context.Context, fn func(*orm) error) error {
+	return sqlutil.Transact(ctx, o.withDataSource, o.ds, nil, fn)
+}
+
+func (o *orm) CreateSpec(ctx context.Context, ds CreateDataSource, pipeline Pipeline, maxTaskDuration models.Interval) (id int32, err error) {
+	sql := `INSERT INTO pipeline_specs (dot_dag_source, max_task_duration, created_at)
+	VALUES ($1, $2, NOW())
+	RETURNING id;`
+	if ds == nil {
+		ds = o.ds
 	}
-
-	/* #nosec G201 */
-	stmt := fmt.Sprintf(sql, strings.Join(valueStrings, ","))
-	return db.Exec(stmt, valueArgs...).Error
+	err = ds.GetContext(ctx, &id, sql, pipeline.Source, maxTaskDuration)
+	return id, errors.WithStack(err)
 }
 
-func (o *orm) UpdatePipelineRun(db *gorm.DB, run *Run, result FinalResult) error {
-	return db.Raw(`
-		UPDATE pipeline_runs SET finished_at = ?, outputs = ?, errors = ?
-		WHERE id = ?
-		RETURNING *
-		`, time.Now(), result.OutputsDB(), result.ErrorsDB(), run.ID).
-		Scan(run).Error
-}
-
-func (o *orm) ListenForNewRuns() (postgres.Subscription, error) {
-	return o.eventBroadcaster.Subscribe(postgres.ChannelRunStarted, "")
-}
-
-func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error) {
+func (o *orm) CreateRun(ctx context.Context, run *Run) (err error) {
 	if run.CreatedAt.IsZero() {
-		return 0, errors.New("run.CreatedAt must be set")
-	}
-	if run.FinishedAt.IsZero() {
-		return 0, errors.New("run.FinishedAt must be set")
-	}
-	if run.Outputs.Val == nil || run.Errors.Val == nil {
-		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors.Val)
+		return errors.New("run.CreatedAt must be set")
 	}
 
-	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		if err = tx.Create(&run).Error; err != nil {
-			return errors.Wrap(err, "error inserting finished pipeline_run")
+	err = o.transact(ctx, func(tx *orm) error {
+		if e := tx.InsertRun(ctx, run); e != nil {
+			return errors.Wrap(e, "error inserting pipeline_run")
 		}
 
-		runID = run.ID
+		// Now create pipeline_task_runs if any
+		if len(run.PipelineTaskRuns) == 0 {
+			return nil
+		}
+
+		// update the ID key everywhere
+		for i := range run.PipelineTaskRuns {
+			run.PipelineTaskRuns[i].PipelineRunID = run.ID
+		}
+
+		sql := `INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at)
+		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at);`
+		_, err = tx.ds.NamedExecContext(ctx, sql, run.PipelineTaskRuns)
+		return err
+	})
+
+	return errors.Wrap(err, "CreateRun failed")
+}
+
+// InsertRun inserts a run into the database
+func (o *orm) InsertRun(ctx context.Context, run *Run) error {
+	if run.Status() == RunStatusCompleted {
+		defer o.prune(o.ds, run.PruningKey)
+	}
+	query, args, err := o.ds.BindNamed(`INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
+		RETURNING *;`, run)
+	if err != nil {
+		return fmt.Errorf("error binding arg: %w", err)
+	}
+	return o.ds.GetContext(ctx, run, query, args...)
+}
+
+// StoreRun will persist a partially executed run before suspending, or finish a run.
+// If `restart` is true, then new task run data is available and the run should be resumed immediately.
+func (o *orm) StoreRun(ctx context.Context, run *Run) (restart bool, err error) {
+	err = o.transact(ctx, func(tx *orm) error {
+		finished := run.FinishedAt.Valid
+		if !finished {
+			// Lock the current run. This prevents races with /v2/resume
+			sql := `SELECT id FROM pipeline_runs WHERE id = $1 FOR UPDATE;`
+			if _, err = tx.ds.ExecContext(ctx, sql, run.ID); err != nil {
+				return errors.Wrap(err, "StoreRun")
+			}
+
+			taskRuns := []TaskRun{}
+			// Reload task runs, we want to check for any changes while the run was ongoing
+			if err = tx.ds.SelectContext(ctx, &taskRuns, `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`, run.ID); err != nil {
+				return errors.Wrap(err, "StoreRun")
+			}
+
+			// Construct a temporary run so we can use r.ByDotID
+			tempRun := Run{PipelineTaskRuns: taskRuns}
+
+			// Diff with current state, if updated, swap run.PipelineTaskRuns and early return with restart = true
+			for i, tr := range run.PipelineTaskRuns {
+				if !tr.IsPending() {
+					continue
+				}
+
+				// Look for new data
+				if taskRun := tempRun.ByDotID(tr.DotID); taskRun != nil && !taskRun.IsPending() {
+					// Swap in the latest state
+					run.PipelineTaskRuns[i] = *taskRun
+					restart = true
+				}
+			}
+
+			if restart {
+				return nil
+			}
+
+			// Suspend the run
+			run.State = RunStatusSuspended
+			if _, err = tx.ds.NamedExecContext(ctx, `UPDATE pipeline_runs SET state = :state WHERE id = :id`, run); err != nil {
+				return errors.Wrap(err, "StoreRun")
+			}
+		} else {
+			defer o.prune(tx.ds, run.PruningKey)
+			// Simply finish the run, no need to do any sort of locking
+			if run.Outputs.Val == nil || len(run.FatalErrors)+len(run.AllErrors) == 0 {
+				return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, FatalErrors: %#v, AllErrors: %#v", run.Outputs.Val, run.FatalErrors, run.AllErrors)
+			}
+			sql := `UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, all_errors= :all_errors, fatal_errors= :fatal_errors, outputs = :outputs WHERE id = :id`
+			if _, err = tx.ds.NamedExecContext(ctx, sql, run); err != nil {
+				return errors.Wrap(err, "StoreRun")
+			}
+		}
 
 		sql := `
-		INSERT INTO pipeline_task_runs (pipeline_run_id, type, index, output, error, pipeline_task_spec_id, created_at, finished_at)
-		SELECT ?, pts.type, pts.index, ptruns.output, ptruns.error, pts.id, ptruns.created_at, ptruns.finished_at
-		FROM (VALUES %s) ptruns (pipeline_task_spec_id, output, error, created_at, finished_at)
-		JOIN pipeline_task_specs pts ON pts.id = ptruns.pipeline_task_spec_id
+		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
+		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
+		ON CONFLICT (pipeline_run_id, dot_id) DO UPDATE SET
+		output = EXCLUDED.output, error = EXCLUDED.error, finished_at = EXCLUDED.finished_at
+		RETURNING *;
 		`
 
-		valueStrings := []string{}
-		valueArgs := []interface{}{runID}
-		for _, trr := range trrs {
-			valueStrings = append(valueStrings, "(?::int,?::jsonb,?::text,?::timestamptz,?::timestamptz)")
-			valueArgs = append(valueArgs, trr.TaskSpecID, trr.Result.OutputDB(), trr.Result.ErrorDB(), run.CreatedAt, trr.FinishedAt)
-		}
-
-		/* #nosec G201 */
-		stmt := fmt.Sprintf(sql, strings.Join(valueStrings, ","))
-		err = tx.Exec(stmt, valueArgs...).Error
-		return errors.Wrap(err, "error inserting finished pipeline_task_runs")
-	})
-
-	return runID, err
-}
-
-// AwaitRun waits until a run has completed (either successfully or with errors)
-// and then returns.  It uses two distinct methods to determine when a job run
-// has completed:
-//    1) periodic polling
-//    2) Postgres notifications
-func (o *orm) AwaitRun(ctx context.Context, runID int64) error {
-	// This goroutine polls the DB at a set interval
-	chPoll := make(chan error)
-	chDone := make(chan struct{})
-	defer close(chDone)
-	go func() {
-		var err error
-		for {
-			select {
-			case <-chDone:
-				return
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			var done bool
-			done, err = o.RunFinished(runID)
-			if err != nil || done {
-				break
-			}
-			time.Sleep(1 * time.Second)
-		}
-
-		select {
-		case chPoll <- err:
-		case <-chDone:
-		case <-ctx.Done():
-		}
-	}()
-
-	// This listener subscribes to the Postgres event informing us of a completed pipeline run
-	sub, err := o.eventBroadcaster.Subscribe(postgres.ChannelRunCompleted, fmt.Sprintf("%d", runID))
-	if err != nil {
-		return err
-	}
-	defer sub.Close()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-chPoll:
-		return err
-	case <-sub.Events():
-		return nil
-	}
-}
-
-func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) {
-	// TODO(sam): I think this can be optimised by condensing it down into one query
-	// See: https://www.pivotaltracker.com/story/show/175288635
-	done, err := o.RunFinished(runID)
-	if err != nil {
-		return nil, err
-	} else if !done {
-		return nil, errors.New("can't fetch run results, run is still in progress")
-	}
-
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
-	defer cancel()
-
-	var results []Result
-	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		var resultTaskRun TaskRun
-		err = tx.
-			Preload("PipelineTaskSpec").
-			Joins("INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id").
-			Where("pipeline_run_id = ?", runID).
-			Where("finished_at IS NOT NULL").
-			Where("pipeline_task_specs.successor_id IS NULL").
-			Where("pipeline_task_specs.dot_id = ?", ResultTaskDotID).
-			First(&resultTaskRun).
-			Error
+		// NOTE: can't use Select() to auto scan because we're using NamedQuery,
+		// sqlx.Named + Select is possible but it's about the same amount of code
+		var rows *sqlx.Rows
+		rows, err = sqlx.NamedQueryContext(ctx, tx.ds, sql, run.PipelineTaskRuns)
 		if err != nil {
-			return errors.Wrapf(err, "Pipeline runner could not fetch pipeline results (runID: %v)", runID)
+			return errors.Wrap(err, "StoreRun")
 		}
-
-		var values []interface{}
-		var errs FinalErrors
-		if resultTaskRun.Output != nil && resultTaskRun.Output.Val != nil {
-			vals, is := resultTaskRun.Output.Val.([]interface{})
-			if !is {
-				return errors.Errorf("Pipeline runner invariant violation: result task run's output must be []interface{}, got %T", resultTaskRun.Output.Val)
-			}
-			values = vals
+		taskRuns := []TaskRun{}
+		if err = sqlx.StructScan(rows, &taskRuns); err != nil {
+			return errors.Wrap(err, "StoreRun")
 		}
-		if !resultTaskRun.Error.IsZero() {
-			err = json.Unmarshal([]byte(resultTaskRun.Error.ValueOrZero()), &errs)
-			if err != nil {
-				return errors.Errorf("Pipeline runner invariant violation: result task run's errors must be []error, got %v", resultTaskRun.Error.ValueOrZero())
-			}
-		}
-		if len(values) != len(errs) {
-			return errors.Errorf("Pipeline runner invariant violation: result task run must have equal numbers of outputs and errors (got %v and %v)", len(values), len(errs))
-		}
-		results = make([]Result, len(values))
-		for i := range values {
-			results[i].Value = values[i]
-			if !errs[i].IsZero() {
-				results[i].Error = errors.New(errs[i].ValueOrZero())
-			}
-		}
+		// replace with new task run data
+		run.PipelineTaskRuns = taskRuns
 		return nil
 	})
-	return results, err
+	return
 }
 
-func (o *orm) RunFinished(runID int64) (bool, error) {
-	// TODO: Since we denormalised this can be made more efficient
-	// https://www.pivotaltracker.com/story/show/176557536
-	var tr TaskRun
-	err := o.db.Raw(`
-        SELECT * 
-        FROM pipeline_task_runs
-        INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
-        WHERE pipeline_task_runs.pipeline_run_id = ? AND pipeline_task_specs.successor_id IS NULL
-		LIMIT 1
-    `, runID).Scan(&tr).Error
-	if err != nil {
-		return false, errors.Wrapf(err, "could not determine if run is finished (run ID: %v)", runID)
-	}
-	if tr.ID == 0 {
-		return false, errors.Errorf("run not found - could not determine if run is finished (run ID: %v)", runID)
-	}
-	return tr.FinishedAt != nil, nil
+// DeleteRun cleans up a run that failed and is marked failEarly (should leave no trace of the run)
+func (o *orm) DeleteRun(ctx context.Context, id int64) error {
+	// NOTE: this will cascade and wipe pipeline_task_runs too
+	_, err := o.ds.ExecContext(ctx, `DELETE FROM pipeline_runs WHERE id = $1`, id)
+	return err
 }
 
-func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {
-	err := o.db.Exec(`DELETE FROM pipeline_runs WHERE finished_at < ?`, time.Now().Add(-threshold)).Error
-	if err != nil {
-		return err
+func (o *orm) UpdateTaskRunResult(ctx context.Context, taskID uuid.UUID, result Result) (run Run, start bool, err error) {
+	if result.OutputDB().Valid && result.ErrorDB().Valid {
+		panic("run result must specify either output or error, not both")
+	}
+	err = o.transact(ctx, func(tx *orm) error {
+		sql := `
+		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source", job_pipeline_specs.job_id "job_id"
+		FROM pipeline_runs
+		JOIN pipeline_task_runs ON (pipeline_task_runs.pipeline_run_id = pipeline_runs.id)
+		JOIN pipeline_specs ON (pipeline_specs.id = pipeline_runs.pipeline_spec_id)
+		JOIN job_pipeline_specs ON (job_pipeline_specs.pipeline_spec_id = pipeline_specs.id)
+		WHERE pipeline_task_runs.id = $1 AND pipeline_runs.state in ('running', 'suspended')
+		FOR UPDATE`
+		if err = tx.ds.GetContext(ctx, &run, sql, taskID); err != nil {
+			return fmt.Errorf("failed to find pipeline run for task ID %s: %w", taskID.String(), err)
+		}
+
+		// Update the task with result
+		sql = `UPDATE pipeline_task_runs SET output = $2, error = $3, finished_at = $4 WHERE id = $1`
+		if _, err = tx.ds.ExecContext(ctx, sql, taskID, result.OutputDB(), result.ErrorDB(), time.Now()); err != nil {
+			return fmt.Errorf("failed to update pipeline task run: %w", err)
+		}
+
+		if run.State == RunStatusSuspended {
+			start = true
+			run.State = RunStatusRunning
+
+			sql = `UPDATE pipeline_runs SET state = $2 WHERE id = $1`
+			if _, err = tx.ds.ExecContext(ctx, sql, run.ID, run.State); err != nil {
+				return fmt.Errorf("failed to update pipeline run state: %w", err)
+			}
+		}
+
+		return loadAssociations(ctx, tx.ds, []*Run{&run})
+	})
+
+	return run, start, err
+}
+
+// InsertFinishedRuns inserts all the given runs into the database.
+func (o *orm) InsertFinishedRuns(ctx context.Context, runs []*Run, saveSuccessfulTaskRuns bool) error {
+	err := o.transact(ctx, func(tx *orm) error {
+		pipelineRunsQuery := `
+INSERT INTO pipeline_runs 
+	(pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+VALUES 
+	(:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
+RETURNING id
+	`
+		rows, errQ := sqlx.NamedQueryContext(ctx, tx.ds, pipelineRunsQuery, runs)
+		if errQ != nil {
+			return errors.Wrap(errQ, "inserting finished pipeline runs")
+		}
+		defer rows.Close()
+
+		var runIDs []int64
+		for rows.Next() {
+			var runID int64
+			if errS := rows.Scan(&runID); errS != nil {
+				return errors.Wrap(errS, "scanning pipeline runs id row")
+			}
+			runIDs = append(runIDs, runID)
+		}
+
+		pruningKeysm := make(map[int32]struct{})
+		for i, run := range runs {
+			pruningKeysm[run.PruningKey] = struct{}{}
+			for j := range run.PipelineTaskRuns {
+				run.PipelineTaskRuns[j].PipelineRunID = runIDs[i]
+			}
+		}
+
+		defer func() {
+			for pruningKey := range pruningKeysm {
+				o.prune(tx.ds, pruningKey)
+			}
+		}()
+
+		pipelineTaskRunsQuery := `
+INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
+VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);
+	`
+		var pipelineTaskRuns []TaskRun
+		for _, run := range runs {
+			if !saveSuccessfulTaskRuns && !run.HasErrors() {
+				continue
+			}
+			pipelineTaskRuns = append(pipelineTaskRuns, run.PipelineTaskRuns...)
+		}
+
+		_, errE := tx.ds.NamedExecContext(ctx, pipelineTaskRunsQuery, pipelineTaskRuns)
+		return errors.Wrap(errE, "insert pipeline task runs")
+	})
+	return errors.Wrap(err, "InsertFinishedRuns failed")
+}
+
+func (o *orm) checkFinishedRun(run *Run, saveSuccessfulTaskRuns bool) error {
+	if run.CreatedAt.IsZero() {
+		return errors.New("run.CreatedAt must be set")
+	}
+	if run.FinishedAt.IsZero() {
+		return errors.New("run.FinishedAt must be set")
+	}
+	if run.Outputs.Val == nil || len(run.FatalErrors)+len(run.AllErrors) == 0 {
+		return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, FatalErrors: %#v, AllErrors: %#v", run.Outputs.Val, run.FatalErrors, run.AllErrors)
+	}
+	if len(run.PipelineTaskRuns) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
+		return errors.New("must provide task run results")
 	}
 	return nil
 }
 
-func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {
-	return FindBridge(o.db, name)
+// InsertFinishedRun inserts the given run into the database.
+// If saveSuccessfulTaskRuns = false, we only save errored runs.
+// That way if the job is run frequently (such as OCR) we avoid saving a large number of successful task runs
+// which do not provide much value.
+func (o *orm) InsertFinishedRun(ctx context.Context, run *Run, saveSuccessfulTaskRuns bool) (err error) {
+	if err = o.checkFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
+		return err
+	}
+
+	if o.maxSuccessfulRuns == 0 {
+		// optimisation: avoid persisting if we oughtn't to save any
+		return nil
+	}
+
+	err = o.insertFinishedRun(ctx, run, saveSuccessfulTaskRuns)
+	return errors.Wrap(err, "InsertFinishedRun failed")
 }
 
-// FindBridge find a bridge using the given database
-func FindBridge(db *gorm.DB, name models.TaskType) (models.BridgeType, error) {
-	var bt models.BridgeType
-	return bt, errors.Wrapf(db.First(&bt, "name = ?", name.String()).Error, "could not find bridge with name '%s'", name)
+// InsertFinishedRunWithSpec works like InsertFinishedRun but also inserts the pipeline spec.
+func (o *orm) InsertFinishedRunWithSpec(ctx context.Context, run *Run, saveSuccessfulTaskRuns bool) (err error) {
+	if err = o.checkFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
+		return err
+	}
+
+	if o.maxSuccessfulRuns == 0 {
+		// optimisation: avoid persisting if we oughtn't to save any
+		return nil
+	}
+
+	err = o.transact(ctx, func(tx *orm) error {
+		sqlStmt1 := `INSERT INTO pipeline_specs (dot_dag_source, max_task_duration, created_at)
+	VALUES ($1, $2, NOW())
+	RETURNING id;`
+		err = tx.ds.GetContext(ctx, &run.PipelineSpecID, sqlStmt1, run.PipelineSpec.DotDagSource, run.PipelineSpec.MaxTaskDuration)
+		if err != nil {
+			return errors.Wrap(err, "failed to insert pipeline_specs")
+		}
+		// This `job_pipeline_specs` record won't be primary since when this method is called, the job already exists, so it will have primary record.
+		sqlStmt2 := `INSERT INTO job_pipeline_specs (job_id, pipeline_spec_id, is_primary) VALUES ($1, $2, false)`
+		_, err = tx.ds.ExecContext(ctx, sqlStmt2, run.JobID, run.PipelineSpecID)
+		if err != nil {
+			return errors.Wrap(err, "failed to insert job_pipeline_specs")
+		}
+		return tx.insertFinishedRun(ctx, run, saveSuccessfulTaskRuns)
+	})
+	return errors.Wrap(err, "InsertFinishedRun failed")
 }
 
-func (o *orm) DB() *gorm.DB {
-	return o.db
+func (o *orm) insertFinishedRun(ctx context.Context, run *Run, saveSuccessfulTaskRuns bool) error {
+	sql := `INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
+		RETURNING id;`
+
+	query, args, err := o.ds.BindNamed(sql, run)
+	if err != nil {
+		return errors.Wrap(err, "failed to bind")
+	}
+
+	if err = o.ds.QueryRowxContext(ctx, query, args...).Scan(&run.ID); err != nil {
+		return errors.Wrap(err, "error inserting finished pipeline_run")
+	}
+
+	// update the ID key everywhere
+	for i := range run.PipelineTaskRuns {
+		run.PipelineTaskRuns[i].PipelineRunID = run.ID
+	}
+
+	if !saveSuccessfulTaskRuns && !run.HasErrors() {
+		return nil
+	}
+
+	defer o.prune(o.ds, run.PruningKey)
+	sql = `
+		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
+		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);`
+	_, err = o.ds.NamedExecContext(ctx, sql, run.PipelineTaskRuns)
+	return errors.Wrap(err, "failed to insert pipeline_task_runs")
+
+}
+
+// DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
+// Caller is expected to set timeout on calling context.
+func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
+	start := time.Now()
+
+	queryThreshold := start.Add(-threshold)
+
+	rowsDeleted := int64(0)
+
+	err := pg.Batch(func(_, limit uint) (count uint, err error) {
+		result, err := o.ds.ExecContext(ctx, `
+WITH batched_pipeline_runs AS (
+	SELECT * FROM pipeline_runs
+	WHERE finished_at < ($1)
+	ORDER BY finished_at ASC
+	LIMIT $2
+)
+DELETE FROM pipeline_runs
+USING batched_pipeline_runs
+WHERE pipeline_runs.id = batched_pipeline_runs.id`,
+			queryThreshold,
+			limit,
+		)
+		if err != nil {
+			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to delete old pipeline_runs")
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to get rows affected")
+		}
+		rowsDeleted += rowsAffected
+
+		return uint(rowsAffected), err
+	})
+	if err != nil {
+		return errors.Wrap(err, "DeleteRunsOlderThan failed")
+	}
+
+	deleteTS := time.Now()
+
+	o.lggr.Debugw("pipeline_runs reaper DELETE query completed", "rowsDeleted", rowsDeleted, "duration", deleteTS.Sub(start))
+	defer func(start time.Time) {
+		o.lggr.Debugw("pipeline_runs reaper VACUUM ANALYZE query completed", "duration", time.Since(start))
+	}(deleteTS)
+
+	_, err = o.ds.ExecContext(ctx, "VACUUM ANALYZE pipeline_runs")
+	if err != nil {
+		o.lggr.Warnw("DeleteRunsOlderThan successfully deleted old pipeline_runs rows, but failed to run VACUUM ANALYZE", "err", err)
+		return nil
+	}
+
+	return nil
+}
+
+func (o *orm) FindRun(ctx context.Context, id int64) (r Run, err error) {
+	var runs []*Run
+	err = o.transact(ctx, func(tx *orm) error {
+		if err = tx.ds.SelectContext(ctx, &runs, `SELECT * from pipeline_runs WHERE id = $1 LIMIT 1`, id); err != nil {
+			return errors.Wrap(err, "failed to load runs")
+		}
+		return loadAssociations(ctx, tx.ds, runs)
+	})
+	if len(runs) == 0 {
+		return r, sql.ErrNoRows
+	}
+	return *runs[0], err
+}
+
+func (o *orm) GetAllRuns(ctx context.Context) (runs []Run, err error) {
+	var runsPtrs []*Run
+	err = o.transact(ctx, func(tx *orm) error {
+		err = tx.ds.SelectContext(ctx, &runsPtrs, `SELECT * from pipeline_runs ORDER BY created_at ASC, id ASC`)
+		if err != nil {
+			return errors.Wrap(err, "failed to load runs")
+		}
+
+		return loadAssociations(ctx, tx.ds, runsPtrs)
+	})
+	runs = make([]Run, len(runsPtrs))
+	for i, runPtr := range runsPtrs {
+		runs[i] = *runPtr
+	}
+	return runs, err
+}
+
+func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run Run) error) error {
+	return pg.Batch(func(offset, limit uint) (count uint, err error) {
+		var runs []*Run
+
+		err = o.transact(ctx, func(tx *orm) error {
+			err = tx.ds.SelectContext(ctx, &runs, `SELECT * from pipeline_runs WHERE state = $1 AND created_at < $2 ORDER BY created_at ASC, id ASC OFFSET $3 LIMIT $4`, RunStatusRunning, now, offset, limit)
+			if err != nil {
+				return errors.Wrap(err, "failed to load runs")
+			}
+
+			err = loadAssociations(ctx, tx.ds, runs)
+			if err != nil {
+				return err
+			}
+
+			for _, run := range runs {
+				if err = fn(*run); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+
+		return uint(len(runs)), err
+	})
+}
+
+// loads PipelineSpec and PipelineTaskRuns for Runs in exactly 2 queries
+func loadAssociations(ctx context.Context, ds sqlutil.DataSource, runs []*Run) error {
+	if len(runs) == 0 {
+		return nil
+	}
+	var specs []Spec
+	pipelineSpecIDM := make(map[int32]Spec)
+	var pipelineSpecIDs []int32 // keyed by pipelineSpecID
+	pipelineRunIDs := make([]int64, len(runs))
+	for i, run := range runs {
+		pipelineRunIDs[i] = run.ID
+		if _, exists := pipelineSpecIDM[run.PipelineSpecID]; !exists {
+			pipelineSpecIDs = append(pipelineSpecIDs, run.PipelineSpecID)
+			pipelineSpecIDM[run.PipelineSpecID] = Spec{}
+		}
+	}
+	sqlQuery := `SELECT
+			ps.id,
+			ps.dot_dag_source,
+			ps.created_at,
+			ps.max_task_duration,
+			coalesce(jobs.id, 0) "job_id",
+			coalesce(jobs.name, '') "job_name",
+			coalesce(jobs.type, '') "job_type"
+		FROM pipeline_specs ps
+		LEFT JOIN job_pipeline_specs jps ON jps.pipeline_spec_id=ps.id
+		LEFT JOIN jobs ON jobs.id=jps.job_id
+		WHERE ps.id = ANY($1)`
+	if err := ds.SelectContext(ctx, &specs, sqlQuery, pipelineSpecIDs); err != nil {
+		return errors.Wrap(err, "failed to postload pipeline_specs for runs")
+	}
+	for _, spec := range specs {
+		if spec.JobType == "keeper" {
+			spec.DotDagSource = KeepersObservationSource
+		}
+		pipelineSpecIDM[spec.ID] = spec
+	}
+
+	var taskRuns []TaskRun
+	taskRunPRIDM := make(map[int64][]TaskRun, len(runs)) // keyed by pipelineRunID
+	if err := ds.SelectContext(ctx, &taskRuns, `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = ANY($1) ORDER BY created_at ASC, id ASC`, pipelineRunIDs); err != nil {
+		return errors.Wrap(err, "failed to postload pipeline_task_runs for runs")
+	}
+	for _, taskRun := range taskRuns {
+		taskRunPRIDM[taskRun.PipelineRunID] = append(taskRunPRIDM[taskRun.PipelineRunID], taskRun)
+	}
+
+	for i, run := range runs {
+		runs[i].PipelineSpec = pipelineSpecIDM[run.PipelineSpecID]
+		runs[i].PipelineTaskRuns = taskRunPRIDM[run.ID]
+	}
+
+	return nil
+}
+
+func (o *orm) loadCount(jobID int32) *atomic.Uint64 {
+	// fast path; avoids allocation
+	actual, exists := o.pm.Load(jobID)
+	if exists {
+		return actual.(*atomic.Uint64)
+	}
+	// "slow" path
+	actual, _ = o.pm.LoadOrStore(jobID, new(atomic.Uint64))
+	return actual.(*atomic.Uint64)
+}
+
+// Runs will be pruned async on a sampled basis if maxSuccessfulRuns is set to
+// this value or higher
+const syncLimit = 1000
+
+// prune attempts to keep the pipeline_runs table capped close to the
+// maxSuccessfulRuns length for each job_id.
+//
+// It does this synchronously for small values and async/sampled for large
+// values.
+//
+// Note this does not guarantee the pipeline_runs table is kept to exactly the
+// max length, rather that it doesn't excessively larger than it.
+func (o *orm) prune(ds sqlutil.DataSource, jobID int32) {
+	if jobID == 0 {
+		o.lggr.Panic("expected a non-zero job ID")
+	}
+	// For small maxSuccessfulRuns its fast enough to prune every time
+	if o.maxSuccessfulRuns < syncLimit {
+		o.execPrune(o.ctx, ds, jobID)
+		return
+	}
+	// for large maxSuccessfulRuns we do it async on a sampled basis
+	every := o.maxSuccessfulRuns / 20 // it can get up to 5% larger than maxSuccessfulRuns before a prune
+	cnt := o.loadCount(jobID)
+	val := cnt.Add(1)
+	if val%every == 0 {
+		ok := o.IfStarted(func() {
+			o.wg.Add(1)
+			go func() {
+				o.lggr.Debugw("Pruning runs", "jobID", jobID, "count", val, "every", every, "maxSuccessfulRuns", o.maxSuccessfulRuns)
+				defer o.wg.Done()
+				// Must not use ds here since it's async and the transaction
+				// could be stale
+				ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(o.ctx), time.Minute)
+				defer cancel()
+				o.execPrune(ctx, o.ds, jobID)
+			}()
+		})
+		if !ok {
+			o.lggr.Warnw("Cannot prune: ORM is not running", "jobID", jobID)
+			return
+		}
+	}
+}
+
+func (o *orm) execPrune(ctx context.Context, ds sqlutil.DataSource, jobID int32) {
+	res, err := ds.ExecContext(o.ctx, `DELETE FROM pipeline_runs WHERE pruning_key = $1 AND state = $2 AND id NOT IN (
+SELECT id FROM pipeline_runs
+WHERE pruning_key = $1 AND state = $2
+ORDER BY id DESC
+LIMIT $3
+)`, jobID, RunStatusCompleted, o.maxSuccessfulRuns)
+	if err != nil {
+		o.lggr.Errorw("Failed to prune runs", "err", err, "jobID", jobID)
+		return
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		o.lggr.Errorw("Failed to get RowsAffected while pruning runs", "err", err, "jobID", jobID)
+		return
+	}
+	if rowsAffected == 0 {
+		// check the spec still exists and garbage collect if necessary
+		var exists bool
+		if err := ds.GetContext(ctx, &exists, `SELECT EXISTS(SELECT ps.* FROM pipeline_specs ps JOIN job_pipeline_specs jps ON (ps.id=jps.pipeline_spec_id) WHERE jps.job_id = $1)`, jobID); err != nil {
+			o.lggr.Errorw("Failed check existence of pipeline_spec while pruning runs", "err", err, "jobID", jobID)
+			return
+		}
+		if !exists {
+			o.lggr.Debugw("Pipeline spec no longer exists, removing prune count", "jobID", jobID)
+			o.pm.Delete(jobID)
+		}
+	} else if o.maxSuccessfulRuns < syncLimit {
+		o.lggr.Tracew("Pruned runs", "rowsAffected", rowsAffected, "jobID", jobID)
+	} else {
+		o.lggr.Debugw("Pruned runs", "rowsAffected", rowsAffected, "jobID", jobID)
+	}
 }

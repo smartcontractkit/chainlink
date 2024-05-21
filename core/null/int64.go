@@ -43,7 +43,7 @@ func (i *Int64) UnmarshalJSON(data []byte) error {
 		// Unmarshal again, directly to value, to avoid intermediate float64
 		err = json.Unmarshal(data, &i.Int64)
 	case string:
-		str := string(x)
+		str := x
 		if len(str) == 0 {
 			i.Valid = false
 			return nil
@@ -85,7 +85,7 @@ func (i Int64) MarshalJSON() ([]byte, error) {
 	if !i.Valid {
 		return []byte("null"), nil
 	}
-	return []byte(strconv.FormatInt(int64(i.Int64), 10)), nil
+	return []byte(strconv.FormatInt(i.Int64, 10)), nil
 }
 
 // MarshalText implements encoding.TextMarshaler.
@@ -94,7 +94,7 @@ func (i Int64) MarshalText() ([]byte, error) {
 	if !i.Valid {
 		return []byte{}, nil
 	}
-	return []byte(strconv.FormatInt(int64(i.Int64), 10)), nil
+	return []byte(strconv.FormatInt(i.Int64, 10)), nil
 }
 
 // SetValid changes this Int64's value and also sets it to be non-null.
@@ -112,7 +112,7 @@ func (i Int64) Value() (driver.Value, error) {
 	// golang's sql driver types as determined by IsValue only supports:
 	// []byte, bool, float64, int64, string, time.Time
 	// https://golang.org/src/database/sql/driver/types.go
-	return int64(i.Int64), nil
+	return i.Int64, nil
 }
 
 // Scan reads the database value and returns an instance.
@@ -130,7 +130,7 @@ func (i *Int64) Scan(value interface{}) error {
 		safe := int64(typed)
 		*i = Int64From(safe)
 	case int64:
-		safe := int64(typed)
+		safe := typed
 		*i = Int64From(safe)
 	case uint:
 		if typed > uint(math.MaxInt64) {
@@ -146,6 +146,13 @@ func (i *Int64) Scan(value interface{}) error {
 		*i = Int64From(safe)
 	default:
 		return fmt.Errorf("unable to convert %v of %T to Int64", value, value)
+	}
+	return nil
+}
+
+func (i Int64) Ptr() *int64 {
+	if i.Valid {
+		return &i.Int64
 	}
 	return nil
 }

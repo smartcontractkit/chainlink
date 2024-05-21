@@ -1,27 +1,24 @@
 package models
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
-	"gorm.io/gorm/schema"
-
-	"github.com/pelletier/go-toml"
-	"gorm.io/gorm"
-
-	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
+	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 // CronParser is the global parser for crontabs.
@@ -34,135 +31,10 @@ func init() {
 	CronParser = cron.NewParser(cronParserSpec)
 }
 
-// RunStatus is a string that represents the run status
-type RunStatus string
-
-const (
-	// RunStatusUnstarted is the default state of any run status.
-	RunStatusUnstarted = RunStatus("unstarted")
-	// RunStatusInProgress is used for when a run is actively being executed.
-	RunStatusInProgress = RunStatus("in_progress")
-	// RunStatusPendingIncomingConfirmations is used for when a run is awaiting for incoming block confirmations
-	// e.g. waiting for the log event to be N blocks deep
-	RunStatusPendingIncomingConfirmations = RunStatus("pending_incoming_confirmations")
-	// RunStatusPendingConnection states that the run is waiting on a connection to the block chain.
-	RunStatusPendingConnection = RunStatus("pending_connection")
-	// RunStatusPendingBridge is used for when a run is waiting on the completion
-	// of another event.
-	RunStatusPendingBridge = RunStatus("pending_bridge")
-	// RunStatusPendingSleep is used for when a run is waiting on a sleep function to finish.
-	RunStatusPendingSleep = RunStatus("pending_sleep")
-	// RunStatusPendingOutgoingConfirmations is used for when a run is waiting for outgoing block confirmations
-	// e.g. we have sent a transaction using ethtx and are now waiting for it to be N blocks deep
-	RunStatusPendingOutgoingConfirmations = RunStatus("pending_outgoing_confirmations")
-	// RunStatusErrored is used for when a run has errored and will not complete.
-	RunStatusErrored = RunStatus("errored")
-	// RunStatusCompleted is used for when a run has successfully completed execution.
-	RunStatusCompleted = RunStatus("completed")
-	// RunStatusCancelled is used to indicate a run is no longer desired.
-	RunStatusCancelled = RunStatus("cancelled")
-)
-
-// Unstarted returns true if the status is the initial state.
-func (s RunStatus) Unstarted() bool {
-	return s == RunStatusUnstarted
-}
-
-// PendingBridge returns true if the status is pending_bridge.
-func (s RunStatus) PendingBridge() bool {
-	return s == RunStatusPendingBridge
-}
-
-// PendingIncomingConfirmations returns true if the status is pending_incoming_confirmations.
-func (s RunStatus) PendingIncomingConfirmations() bool {
-	return s == RunStatusPendingIncomingConfirmations
-}
-
-// PendingConnection returns true if the status is pending_connection.
-func (s RunStatus) PendingConnection() bool {
-	return s == RunStatusPendingConnection
-}
-
-// PendingSleep returns true if the status is pending_sleep.
-func (s RunStatus) PendingSleep() bool {
-	return s == RunStatusPendingSleep
-}
-
-// PendingOutgoingConfirmations returns true if the status is pending_incoming_confirmations.
-func (s RunStatus) PendingOutgoingConfirmations() bool {
-	return s == RunStatusPendingOutgoingConfirmations
-}
-
-// Completed returns true if the status is RunStatusCompleted.
-func (s RunStatus) Completed() bool {
-	return s == RunStatusCompleted
-}
-
-// Cancelled returns true if the status is RunStatusCancelled.
-func (s RunStatus) Cancelled() bool {
-	return s == RunStatusCancelled
-}
-
-// Errored returns true if the status is RunStatusErrored.
-func (s RunStatus) Errored() bool {
-	return s == RunStatusErrored
-}
-
-// Pending returns true if the status is pending external or confirmations.
-func (s RunStatus) Pending() bool {
-	return s.PendingBridge() || s.PendingIncomingConfirmations() || s.PendingOutgoingConfirmations() || s.PendingSleep() || s.PendingConnection()
-}
-
-// Finished returns true if the status is final and can't be changed.
-func (s RunStatus) Finished() bool {
-	return s.Completed() || s.Errored() || s.Cancelled()
-}
-
-// Runnable returns true if the status is ready to be run.
-func (s RunStatus) Runnable() bool {
-	return !s.Errored() && !s.Pending()
-}
-
-// Value returns this instance serialized for database storage.
-func (s RunStatus) Value() (driver.Value, error) {
-	return string(s), nil
-}
-
-// Scan reads the database value and returns an instance.
-func (s *RunStatus) Scan(value interface{}) error {
-	switch v := value.(type) {
-	case []byte:
-		*s = RunStatus(string(v))
-	case string:
-		*s = RunStatus(v)
-	default:
-		return fmt.Errorf("unable to convert %#v of %T to RunStatus", value, value)
-	}
-	return nil
-}
-
-const (
-	ResultKey           = "result"
-	ResultCollectionKey = "__chainlink_result_collection__"
-)
-
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
-}
-
-func (JSON) GormDataType() string {
-	return "json"
-}
-
-// GormDBDataType gorm db data type
-func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case "postgres":
-		return "JSONB"
-	}
-	return ""
 }
 
 // Value returns this instance serialized for database storage.
@@ -225,15 +97,7 @@ func (j *JSON) UnmarshalTOML(val interface{}) error {
 	case []byte:
 		bs = v
 	}
-	var unmarshaled interface{}
-	err := toml.Unmarshal(bs, &unmarshaled)
-	if err != nil {
-		return err
-	}
-	bs, err = json.Marshal(unmarshaled)
-	if err != nil {
-		return err
-	}
+	var err error
 	*j, err = ParseJSON(bs)
 	return err
 }
@@ -244,96 +108,6 @@ func (j JSON) Bytes() []byte {
 		return nil
 	}
 	return []byte(j.String())
-}
-
-// AsMap returns j as a map
-func (j JSON) AsMap() (map[string]interface{}, error) {
-	output := make(map[string]interface{})
-	switch v := j.Result.Value().(type) {
-	case map[string]interface{}:
-		for key, value := range v {
-			output[key] = value
-		}
-	case nil:
-	default:
-		return nil, errors.New("can only add to JSON objects or null")
-	}
-	return output, nil
-}
-
-// mapToJSON returns m as a JSON object, or errors
-func mapToJSON(m map[string]interface{}) (JSON, error) {
-	bytes, err := json.Marshal(m)
-	if err != nil {
-		return JSON{}, err
-	}
-	return JSON{Result: gjson.ParseBytes(bytes)}, nil
-}
-
-// Add returns a new instance of JSON with the new value added.
-func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
-	return j.MultiAdd(KV{insertKey: insertValue})
-}
-
-func (j JSON) PrependAtArrayKey(insertKey string, insertValue interface{}) (JSON, error) {
-	curr := j.Get(insertKey).Array()
-	updated := make([]interface{}, 0)
-	updated = append(updated, insertValue)
-	for _, c := range curr {
-		updated = append(updated, c.Value())
-	}
-	return j.Add(insertKey, updated)
-}
-
-// KV represents a key/value pair to be added to a JSON object
-type KV map[string]interface{}
-
-// MultiAdd returns a new instance of j with the new values added.
-func (j JSON) MultiAdd(keyValues KV) (JSON, error) {
-	output, err := j.AsMap()
-	if err != nil {
-		return JSON{}, err
-	}
-	for key, value := range keyValues {
-		output[key] = value
-	}
-	return mapToJSON(output)
-}
-
-// Delete returns a new instance of JSON with the specified key removed.
-func (j JSON) Delete(key string) (JSON, error) {
-	js, err := sjson.Delete(j.String(), key)
-	if err != nil {
-		return j, err
-	}
-	return ParseJSON([]byte(js))
-}
-
-// CBOR returns a bytes array of the JSON map or array encoded to CBOR.
-func (j JSON) CBOR() ([]byte, error) {
-	switch v := j.Result.Value().(type) {
-	case map[string]interface{}, []interface{}, nil:
-		return cbor.Marshal(v)
-	default:
-		var b []byte
-		return b, fmt.Errorf("unable to coerce JSON to CBOR for type %T", v)
-	}
-}
-
-// MarshalToMap converts a struct (typically) to a map[string] so it can be
-// manipulated without repeatedly serializing/deserializing
-func MarshalToMap(input interface{}) (map[string]interface{}, error) {
-	bytes, err := json.Marshal(input)
-	if err != nil {
-		return nil, err
-	}
-	var output map[string]interface{}
-	err = json.Unmarshal(bytes, &output)
-	if err != nil {
-		// Technically this should be impossible
-		return nil, err
-	}
-	return output, nil
 }
 
 // WebURL contains the URL of the endpoint.
@@ -391,95 +165,6 @@ func (w *WebURL) Scan(value interface{}) error {
 	return nil
 }
 
-// AnyTime holds a common field for time, and serializes it as
-// a json number.
-type AnyTime struct {
-	time.Time
-	Valid bool
-}
-
-// NewAnyTime creates a new Time.
-func NewAnyTime(t time.Time) AnyTime {
-	return AnyTime{Time: t, Valid: true}
-}
-
-// MarshalJSON implements json.Marshaler.
-// It will encode null if this time is null.
-func (t AnyTime) MarshalJSON() ([]byte, error) {
-	if !t.Valid {
-		return []byte("null"), nil
-	}
-	return t.Time.UTC().MarshalJSON()
-}
-
-// UnmarshalJSON parses the raw time stored in JSON-encoded
-// data and stores it to the Time field.
-func (t *AnyTime) UnmarshalJSON(b []byte) error {
-	var str string
-
-	var n json.Number
-	if err := json.Unmarshal(b, &n); err == nil {
-		str = n.String()
-	} else if err := json.Unmarshal(b, &str); err != nil {
-		return err
-	}
-
-	if len(str) == 0 {
-		t.Valid = false
-		return nil
-	}
-
-	newTime, err := dateparse.ParseAny(str)
-	t.Time = newTime.UTC()
-	t.Valid = true
-	return err
-}
-
-// MarshalText returns null if not set, or the time.
-func (t AnyTime) MarshalText() ([]byte, error) {
-	if !t.Valid {
-		return []byte("null"), nil
-	}
-	return t.Time.MarshalText()
-}
-
-// UnmarshalText parses null or a valid time.
-func (t *AnyTime) UnmarshalText(text []byte) error {
-	str := string(text)
-	if str == "" || str == "null" {
-		t.Valid = false
-		return nil
-	}
-	if err := t.Time.UnmarshalText(text); err != nil {
-		return err
-	}
-	t.Valid = true
-	return nil
-}
-
-// Value returns this instance serialized for database storage.
-func (t AnyTime) Value() (driver.Value, error) {
-	if !t.Valid {
-		return nil, nil
-	}
-	return t.Time, nil
-}
-
-// Scan reads the database value and returns an instance.
-func (t *AnyTime) Scan(value interface{}) error {
-	switch temp := value.(type) {
-	case time.Time:
-		t.Time = temp.UTC()
-		t.Valid = true
-		return nil
-	case nil:
-		t.Valid = false
-		return nil
-	default:
-		return fmt.Errorf("unable to convert %v of %T to Time", value, value)
-	}
-}
-
 // Cron holds the string that will represent the spec of the cron-job.
 type Cron string
 
@@ -489,7 +174,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)
 	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
+		return fmt.Errorf("Cron: %w", err)
 	}
 	if s == "" {
 		return nil
@@ -501,7 +186,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 
 	_, err = CronParser.Parse(s)
 	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
+		return fmt.Errorf("Cron: %w", err)
 	}
 	*c = Cron(s)
 	return nil
@@ -512,88 +197,19 @@ func (c Cron) String() string {
 	return string(c)
 }
 
-// Duration is a non-negative time duration.
-type Duration struct{ d time.Duration }
-
-func MakeDuration(d time.Duration) (Duration, error) {
-	if d < time.Duration(0) {
-		return Duration{}, fmt.Errorf("cannot make negative time duration: %s", d)
-	}
-	return Duration{d: d}, nil
-}
-
-func MustMakeDuration(d time.Duration) Duration {
-	rv, err := MakeDuration(d)
-	if err != nil {
-		panic(err)
-	}
-	return rv
-}
-
-// Duration returns the value as the standard time.Duration value.
-func (d Duration) Duration() time.Duration {
-	return d.d
-}
-
-// Before returns the time d units before time t
-func (d Duration) Before(t time.Time) time.Time {
-	return t.Add(-d.Duration())
-}
-
-// Shorter returns true if and only if d is shorter than od.
-func (d Duration) Shorter(od Duration) bool { return d.d < od.d }
-
-// IsInstant is true if and only if d is of duration 0
-func (d Duration) IsInstant() bool { return d.d == 0 }
-
-// String returns a string representing the duration in the form "72h3m0.5s".
-// Leading zero units are omitted. As a special case, durations less than one
-// second format use a smaller unit (milli-, micro-, or nanoseconds) to ensure
-// that the leading digit is non-zero. The zero duration formats as 0s.
-func (d Duration) String() string {
-	return d.Duration().String()
-}
-
-// MarshalJSON implements the json.Marshaler interface.
-func (d Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(d.String())
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (d *Duration) UnmarshalJSON(input []byte) error {
-	var txt string
-	err := json.Unmarshal(input, &txt)
-	if err != nil {
-		return err
-	}
-	v, err := time.ParseDuration(string(txt))
-	if err != nil {
-		return err
-	}
-	*d, err = MakeDuration(v)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (d *Duration) Scan(v interface{}) (err error) {
-	switch tv := v.(type) {
-	case int64:
-		*d, err = MakeDuration(time.Duration(tv))
-		return err
-	default:
-		return errors.Errorf(`don't know how to parse "%s" of type %T as a `+
-			`models.Duration`, tv, tv)
-	}
-}
-
-func (d Duration) Value() (driver.Value, error) {
-	return int64(d.d), nil
-}
-
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
+
+// NewInterval creates Interval for specified duration
+func NewInterval(d time.Duration) *Interval {
+	i := new(Interval)
+	*i = Interval(d)
+	return i
+}
+
+func (i Interval) Duration() time.Duration {
+	return time.Duration(i)
+}
 
 // MarshalText implements the text.Marshaler interface.
 func (i Interval) MarshalText() ([]byte, error) {
@@ -631,23 +247,15 @@ func (i Interval) IsZero() bool {
 	return time.Duration(i) == time.Duration(0)
 }
 
-// WithdrawalRequest request to withdraw LINK.
-type WithdrawalRequest struct {
-	DestinationAddress common.Address `json:"address"`
-	ContractAddress    common.Address `json:"contractAddress"`
-	Amount             *assets.Link   `json:"amount"`
-}
-
 // SendEtherRequest represents a request to transfer ETH.
 type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
-}
-
-// CreateJobSpecRequest represents a request to create and start and OCR job spec.
-type CreateJobSpecRequest struct {
-	TOML string `json:"toml"`
+	EVMChainID         *big.Big       `json:"evmChainID"`
+	AllowHigherAmounts bool           `json:"allowHigherAmounts"`
+	SkipWaitTxAttempt  bool           `json:"skipWaitTxAttempt"`
+	WaitAttemptTimeout *time.Duration `json:"waitAttemptTimeout"`
 }
 
 // AddressCollection is an array of common.Address
@@ -690,17 +298,8 @@ func (r *AddressCollection) Scan(value interface{}) error {
 	return nil
 }
 
-// Configuration stores key value pairs for overriding global configuration
-type Configuration struct {
-	ID        int64  `gorm:"primary_key"`
-	Name      string `gorm:"not null;unique;index"`
-	Value     string `gorm:"not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *gorm.DeletedAt
-}
-
-// Merge returns a new map with all keys merged from right to left
+// Merge returns a new map with all keys merged from left to right
+// On conflicting keys, rightmost inputs will clobber leftmost inputs
 func Merge(inputs ...JSON) (JSON, error) {
 	output := make(map[string]interface{})
 
@@ -726,6 +325,8 @@ func Merge(inputs ...JSON) (JSON, error) {
 
 // Explicit type indicating a 32-byte sha256 hash
 type Sha256Hash [32]byte
+
+var EmptySha256Hash = new(Sha256Hash)
 
 // MarshalJSON converts a Sha256Hash to a JSON byte slice.
 func (s Sha256Hash) MarshalJSON() ([]byte, error) {
@@ -772,14 +373,13 @@ func (s Sha256Hash) String() string {
 	return hex.EncodeToString(s[:])
 }
 
-func (s *Sha256Hash) UnmarshalText(bs []byte) error {
-	x, err := hex.DecodeString(string(bs))
-	if err != nil {
-		return err
-	}
-	*s = Sha256Hash{}
-	copy((*s)[:], x)
-	return nil
+func (s *Sha256Hash) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
+}
+
+func (s *Sha256Hash) UnmarshalText(bs []byte) (err error) {
+	*s, err = Sha256HashFromHex(string(bs))
+	return
 }
 
 func (s *Sha256Hash) Scan(value interface{}) error {
@@ -798,4 +398,100 @@ func (s Sha256Hash) Value() (driver.Value, error) {
 	b := make([]byte, 32)
 	copy(b, s[:])
 	return b, nil
+}
+
+// ServiceHeader is an HTTP header to include in POST to log service.
+type ServiceHeader struct {
+	Header string
+	Value  string
+}
+
+func (h *ServiceHeader) UnmarshalText(input []byte) error {
+	parts := strings.SplitN(string(input), ":", 2)
+	h.Header = parts[0]
+	if len(parts) > 1 {
+		h.Value = strings.TrimSpace(parts[1])
+	}
+	return h.Validate()
+}
+
+func (h *ServiceHeader) MarshalText() ([]byte, error) {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "%s: %s", h.Header, h.Value)
+	return b.Bytes(), nil
+}
+
+type ServiceHeaders []ServiceHeader
+
+func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
+	if sh == nil {
+		return errors.New("Cannot unmarshal to a nil receiver")
+	}
+
+	headers := string(input)
+
+	var parsedHeaders []ServiceHeader
+	if headers != "" {
+		headerLines := strings.Split(headers, "\\")
+		for _, header := range headerLines {
+			keyValue := strings.Split(header, "||")
+			if len(keyValue) != 2 {
+				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
+			}
+			h := ServiceHeader{
+				Header: keyValue[0],
+				Value:  keyValue[1],
+			}
+
+			if err := h.Validate(); err != nil {
+				return err
+			}
+			parsedHeaders = append(parsedHeaders, h)
+		}
+	}
+
+	*sh = parsedHeaders
+	return nil
+}
+
+func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
+	if sh == nil {
+		return nil, errors.New("Cannot marshal to a nil receiver")
+	}
+
+	sb := strings.Builder{}
+	for _, header := range *sh {
+		sb.WriteString(header.Header)
+		sb.WriteString("||")
+		sb.WriteString(header.Value)
+		sb.WriteString("\\")
+	}
+
+	serialized := sb.String()
+
+	if len(serialized) > 0 {
+		serialized = serialized[:len(serialized)-1]
+	}
+
+	return []byte(serialized), nil
+}
+
+// We act slightly more strictly than the HTTP specifications
+// technically allow instead following the guidelines of
+// cloudflare transforms.
+// https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format
+var (
+	headerNameRegex  = regexp.MustCompile(`^[A-Za-z\-]+$`)
+	headerValueRegex = regexp.MustCompile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
+)
+
+func (h ServiceHeader) Validate() (err error) {
+	if !headerNameRegex.MatchString(h.Header) {
+		err = multierr.Append(err, errors.Errorf("invalid header name: %s", h.Header))
+	}
+
+	if !headerValueRegex.MatchString(h.Value) {
+		err = multierr.Append(err, errors.Errorf("invalid header value: %s", h.Value))
+	}
+	return
 }

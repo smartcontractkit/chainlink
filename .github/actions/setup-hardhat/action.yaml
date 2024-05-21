@@ -1,0 +1,31 @@
+name: Setup NodeJS
+inputs:
+  namespace:
+    required: true
+    description: A cache namespace to add
+  cache-version:
+    default: "6"
+    description: Change to bust cache
+description: Setup pnpm for contracts
+runs:
+  using: composite
+  steps:
+    - name: Cache Compilers
+      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      with:
+        path: ~/.cache/hardhat-nodejs/
+        key: contracts-compilers-${{ runner.os }}-${{ inputs.cache-version }}-${{ hashFiles('contracts/pnpm-lock.yaml', 'contracts/hardhat.config.ts') }}
+
+    - name: Cache contracts build outputs
+      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      with:
+        path: |
+          contracts/cache/
+          contracts/artifacts/
+          contracts/typechain/
+        key: ${{ format('contracts-{0}-{1}-{2}-{3}', runner.os, inputs.cache-version, inputs.namespace, hashFiles('contracts/pnpm-lock.yaml', 'contracts/hardhat.config.ts', 'contracts/src/**/*.sol')) }}
+
+    - name: Compile contracts
+      shell: bash
+      run: pnpm compile
+      working-directory: contracts

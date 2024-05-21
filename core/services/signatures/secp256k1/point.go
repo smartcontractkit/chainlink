@@ -1,7 +1,9 @@
 // Package secp256k1 is an implementation of the kyber.{Group,Point,Scalar}
-////////////////////////////////////////////////////////////////////////////////
-//       XXX: Do not use in production until this code has been audited.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
+//
+//	XXX: Do not use in production until this code has been audited.
+//
+// //////////////////////////////////////////////////////////////////////////////
 // interfaces, based on btcd/btcec and kyber/group/mod
 //
 // XXX: NOT CONSTANT TIME!
@@ -70,7 +72,7 @@ func (P *secp256k1Point) Pick(rand cipher.Stream) kyber.Point {
 			P.Y.Set(maybeY)
 			// Take the negative with 50% probability
 			b := make([]byte, 1)
-			rand.XORKeyStream(b[:], b[:])
+			rand.XORKeyStream(b, b)
 			if b[0]&1 == 0 {
 				P.Y.Neg(P.Y)
 			}

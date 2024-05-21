@@ -1,4 +1,4 @@
-// package cryptotest provides convenience functions for kyber-based APIs.
+// Package cryptotest provides convenience functions for kyber-based APIs.
 //
 // It is separate from cltest to prevent an import cycle.
 package cryptotest

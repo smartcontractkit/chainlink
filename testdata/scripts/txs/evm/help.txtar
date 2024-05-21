@@ -1,0 +1,18 @@
+exec chainlink txs evm --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink txs evm - Commands for handling EVM transactions
+
+USAGE:
+   chainlink txs evm command [command options] [arguments...]
+
+COMMANDS:
+   create  Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.
+   list    List the Ethereum Transactions in descending order
+   show    get information on a specific Ethereum Transaction
+
+OPTIONS:
+   --help, -h  show help
+   

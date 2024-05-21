@@ -3,16 +3,17 @@ package web_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -21,36 +22,34 @@ import (
 
 func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
-	app.Start()
+	app := cltest.NewApplicationEVMDisabled(t)
+	require.NoError(t, app.Start(testutils.Context(t)))
 
-	config := app.Store.Config
-	client := http.Client{}
+	user := cltest.MustRandomUser(t)
+	require.NoError(t, app.AuthenticationProvider().CreateUser(ctx, &user))
+
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	tests := []struct {
 		name        string
 		email       string
 		password    string
 		wantSession bool
 	}{
-		{"incorrect pwd", cltest.APIEmail, "incorrect", false},
+		{"incorrect pwd", user.Email, "incorrect", false},
 		{"incorrect email", "incorrect@test.net", cltest.Password, false},
-		{"correct", cltest.APIEmail, cltest.Password, true},
+		{"correct", user.Email, cltest.Password, true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, test.email, test.password)
-			request, err := http.NewRequest("POST", config.ClientNodeURL()+"/sessions", bytes.NewBufferString(body))
+			request, err := http.NewRequestWithContext(ctx, "POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
 			assert.NoError(t, err)
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { assert.NoError(t, resp.Body.Close()) }()
 
 			if test.wantSession {
 				require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -61,17 +60,17 @@ func TestSessionsController_Create(t *testing.T) {
 
 				decrypted, err := cltest.DecodeSessionCookie(sessionCookie.Value)
 				require.NoError(t, err)
-				user, err := app.Store.AuthorizedUserWithSession(decrypted)
+				user, err := app.AuthenticationProvider().AuthorizedUserWithSession(ctx, decrypted)
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
 
-				b, err := ioutil.ReadAll(resp.Body)
+				b, err := io.ReadAll(resp.Body)
 				assert.NoError(t, err)
 				assert.Contains(t, string(b), `"attributes":{"authenticated":true}`)
 			} else {
 				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
 				// Ignore fixture session
-				sessions, err := app.Store.Sessions(1, 2)
+				sessions, err := app.AuthenticationProvider().Sessions(ctx, 1, 2)
 				assert.NoError(t, err)
 				assert.Empty(t, sessions)
 			}
@@ -79,56 +78,66 @@ func TestSessionsController_Create(t *testing.T) {
 	}
 }
 
+func mustInsertSession(t *testing.T, q pg.Q, session *sessions.Session) {
+	sql := "INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, $4) RETURNING *"
+	_, err := q.Exec(sql, session.ID, session.Email, session.LastUsed, session.CreatedAt)
+	require.NoError(t, err)
+}
+
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
-	app.Start()
+	ctx := testutils.Context(t)
+	app := cltest.NewApplicationEVMDisabled(t)
+	require.NoError(t, app.Start(ctx))
+
+	user := cltest.MustRandomUser(t)
+	require.NoError(t, app.AuthenticationProvider().CreateUser(ctx, &user))
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.Store.SaveSession(&staleSession))
+	staleSession.Email = user.Email
+	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
+	mustInsertSession(t, q, &staleSession)
 
-	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmail, cltest.Password)
-	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
+	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, user.Email, cltest.Password)
+	req, err := http.NewRequestWithContext(ctx, "POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
 	assert.NoError(t, err)
-	defer resp.Body.Close()
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	assert.NoError(t, err)
+	defer func() { assert.NoError(t, resp.Body.Close()) }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var sessions []models.Session
-	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions, err = app.Store.Sessions(0, 10)
+	var s []sessions.Session
+	gomega.NewWithT(t).Eventually(func() []sessions.Session {
+		s, err = app.AuthenticationProvider().Sessions(ctx, 0, 10)
 		assert.NoError(t, err)
-		return sessions
+		return s
 	}).Should(gomega.HaveLen(1))
 
-	for _, session := range sessions {
+	for _, session := range s {
 		assert.NotEqual(t, session.ID, staleSession.ID)
 	}
 }
 
 func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	require.NoError(t, app.Start())
+	app := cltest.NewApplicationEVMDisabled(t)
+	require.NoError(t, app.Start(testutils.Context(t)))
 
-	correctSession := models.NewSession()
-	require.NoError(t, app.Store.SaveSession(&correctSession))
-	defer cleanup()
+	user := cltest.MustRandomUser(t)
+	require.NoError(t, app.AuthenticationProvider().CreateUser(ctx, &user))
 
-	config := app.Store.Config
-	client := http.Client{}
+	correctSession := sessions.NewSession()
+	correctSession.Email = user.Email
+	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
+	mustInsertSession(t, q, &correctSession)
+
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	tests := []struct {
 		name, sessionID string
 		success         bool
@@ -139,15 +148,15 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cookie := cltest.MustGenerateSessionCookie(test.sessionID)
-			request, err := http.NewRequest("DELETE", config.ClientNodeURL()+"/sessions", nil)
+			cookie := cltest.MustGenerateSessionCookie(t, test.sessionID)
+			request, err := http.NewRequestWithContext(ctx, "DELETE", app.Server.URL+"/sessions", nil)
 			assert.NoError(t, err)
 			request.AddCookie(cookie)
 
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
 
-			_, err = app.Store.AuthorizedUserWithSession(test.sessionID)
+			_, err = app.AuthenticationProvider().AuthorizedUserWithSession(ctx, test.sessionID)
 			assert.Error(t, err)
 			if test.success {
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -160,25 +169,28 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
-	client := http.Client{}
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
+	app := cltest.NewApplicationEVMDisabled(t)
+	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
-	correctSession := models.NewSession()
-	require.NoError(t, app.Store.SaveSession(&correctSession))
-	cookie := cltest.MustGenerateSessionCookie(correctSession.ID)
+	user := cltest.MustRandomUser(t)
+	require.NoError(t, app.AuthenticationProvider().CreateUser(ctx, &user))
+
+	correctSession := sessions.NewSession()
+	correctSession.Email = user.Email
+
+	mustInsertSession(t, q, &correctSession)
+	cookie := cltest.MustGenerateSessionCookie(t, correctSession.ID)
 
 	staleSession := cltest.NewSession()
+	staleSession.Email = user.Email
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.Store.SaveSession(&staleSession))
+	mustInsertSession(t, q, &staleSession)
 
-	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL()+"/sessions", nil)
+	request, err := http.NewRequestWithContext(ctx, "DELETE", app.Server.URL+"/sessions", nil)
 	assert.NoError(t, err)
 	request.AddCookie(cookie)
 
@@ -186,8 +198,8 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions, err := app.Store.Sessions(0, 10)
+	gomega.NewWithT(t).Eventually(func() []sessions.Session {
+		sessions, err := app.AuthenticationProvider().Sessions(ctx, 0, 10)
 		assert.NoError(t, err)
 		return sessions
 	}).Should(gomega.HaveLen(0))

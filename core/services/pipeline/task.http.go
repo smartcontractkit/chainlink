@@ -1,70 +1,33 @@
 package pipeline
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
 
-type (
-	MaybeBool string
-)
-
-const (
-	MaybeBoolTrue  = MaybeBool("true")
-	MaybeBoolFalse = MaybeBool("false")
-	MaybeBoolNull  = MaybeBool("")
-)
-
-func MaybeBoolFromString(s string) (MaybeBool, error) {
-	switch s {
-	case "true":
-		return MaybeBoolTrue, nil
-	case "false":
-		return MaybeBoolFalse, nil
-	case "":
-		return MaybeBoolNull, nil
-	default:
-		return "", errors.Errorf("unknown value for bool: %s", s)
-	}
-}
-
-func (m MaybeBool) Bool() (b bool, isSet bool) {
-	switch m {
-	case MaybeBoolTrue:
-		return true, true
-	case MaybeBoolFalse:
-		return false, true
-	default:
-		return false, false
-	}
-}
-
+// Return types:
+//
+//	string
 type HTTPTask struct {
 	BaseTask                       `mapstructure:",squash"`
 	Method                         string
-	URL                            models.WebURL
-	RequestData                    HttpRequestData `json:"requestData"`
-	AllowUnrestrictedNetworkAccess MaybeBool
+	URL                            string
+	RequestData                    string `json:"requestData"`
+	AllowUnrestrictedNetworkAccess string
+	Headers                        string
 
-	config Config
-}
-
-type PossibleErrorResponses struct {
-	Error        string `json:"error"`
-	ErrorMessage string `json:"errorMessage"`
+	config                 Config
+	httpClient             *http.Client
+	unrestrictedHTTPClient *http.Client
 }
 
 var _ Task = (*HTTPTask)(nil)
@@ -88,89 +51,79 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
-	return nil
-}
-
-func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result {
-	if len(inputs) > 0 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
-	}
-
-	var bodyReader io.Reader
-	if t.RequestData != nil {
-		bodyBytes, err := json.Marshal(t.RequestData)
-		if err != nil {
-			return Result{Error: errors.Wrap(err, "failed to encode request body as JSON")}
-		}
-		bodyReader = bytes.NewReader(bodyBytes)
-	}
-
-	request, err := http.NewRequest(t.Method, t.URL.String(), bodyReader)
+func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "failed to create http.Request")}
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	config := utils.HTTPRequestConfig{
-		Timeout:                        t.config.DefaultHTTPTimeout().Duration(),
-		MaxAttempts:                    t.config.DefaultMaxHTTPAttempts(),
-		SizeLimit:                      t.config.DefaultHTTPLimit(),
-		AllowUnrestrictedNetworkAccess: t.allowUnrestrictedNetworkAccess(),
+		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
-	httpRequest := utils.HTTPRequest{
-		Request: request,
-		Config:  config,
-	}
-
-	start := time.Now()
-	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
-	if err != nil {
-		if ctx.Err() != nil {
-			return Result{Error: errors.New("http request timed out or interrupted")}
-		}
-		return Result{Error: errors.Wrapf(err, "error making http request")}
-	}
-	elapsed := time.Since(start)
-	promHTTPFetchTime.WithLabelValues(fmt.Sprintf("%d", taskRun.PipelineTaskSpecID)).Set(float64(elapsed))
-	promHTTPResponseBodySize.WithLabelValues(fmt.Sprintf("%d", taskRun.PipelineTaskSpecID)).Set(float64(len(responseBytes)))
-
-	if statusCode >= 400 {
-		maybeErr := bestEffortExtractError(responseBytes)
-		return Result{Error: errors.Errorf("got error from %s: (status code %v) %s", t.URL.String(), statusCode, maybeErr)}
-	}
-
-	logger.Debugw("HTTP task got response",
-		"response", string(responseBytes),
-		"url", t.URL.String(),
-		"pipelineTaskSpecID", taskRun.PipelineTaskSpecID,
+	var (
+		method                         StringParam
+		url                            URLParam
+		requestData                    MapParam
+		allowUnrestrictedNetworkAccess BoolParam
+		reqHeaders                     StringSliceParam
 	)
+	err = multierr.Combine(
+		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
+		errors.Wrap(ResolveParam(&url, From(VarExpr(t.URL, vars), NonemptyString(t.URL))), "url"),
+		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
+		// Any hardcoded strings used for URL uses the unrestricted HTTP adapter
+		// Interpolated variable URLs use restricted HTTP adapter by default
+		// You must set allowUnrestrictedNetworkAccess=true on the task to enable variable-interpolated URLs to make restricted network requests
+		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), !variableRegexp.MatchString(t.URL))), "allowUnrestrictedNetworkAccess"),
+		errors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
+	)
+	if err != nil {
+		return Result{Error: err}, runInfo
+	}
+
+	if len(reqHeaders)%2 != 0 {
+		return Result{Error: errors.Errorf("headers must have an even number of elements")}, runInfo
+	}
+
+	requestDataJSON, err := json.Marshal(requestData)
+	if err != nil {
+		return Result{Error: err}, runInfo
+	}
+	lggr.Debugw("HTTP task: sending request",
+		"requestData", string(requestDataJSON),
+		"url", url.String(),
+		"method", method,
+		"reqHeaders", reqHeaders,
+		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
+	)
+
+	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
+	defer cancel()
+
+	var client *http.Client
+	if allowUnrestrictedNetworkAccess {
+		client = t.unrestrictedHTTPClient
+	} else {
+		client = t.httpClient
+	}
+	responseBytes, statusCode, respHeaders, elapsed, err := makeHTTPRequest(requestCtx, lggr, method, url, reqHeaders, requestData, client, t.config.DefaultHTTPLimit())
+	if err != nil {
+		if errors.Is(errors.Cause(err), clhttp.ErrDisallowedIP) {
+			err = errors.Wrap(err, `connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess="true" in the pipeline task spec, e.g. fetch [type="http" method=GET url="$(decode_cbor.url)" allowUnrestrictedNetworkAccess="true"]`)
+		}
+		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
+	}
+
+	lggr.Debugw("HTTP task got response",
+		"response", string(responseBytes),
+		"respHeaders", respHeaders,
+		"url", url.String(),
+		"dotID", t.DotID(),
+	)
+
+	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
+
 	// NOTE: We always stringify the response since this is required for all current jobs.
 	// If a binary response is required we might consider adding an adapter
 	// flag such as  "BinaryMode: true" which passes through raw binary as the
 	// value instead.
-	return Result{Value: string(responseBytes)}
-}
-
-func (t *HTTPTask) allowUnrestrictedNetworkAccess() bool {
-	b, isSet := t.AllowUnrestrictedNetworkAccess.Bool()
-	if isSet {
-		return b
-	}
-	return t.config.DefaultHTTPAllowUnrestrictedNetworkAccess()
-}
-
-func bestEffortExtractError(responseBytes []byte) string {
-	var resp PossibleErrorResponses
-	err := json.Unmarshal(responseBytes, &resp)
-	if err != nil {
-		return ""
-	}
-	if resp.Error != "" {
-		return resp.Error
-	} else if resp.ErrorMessage != "" {
-		return resp.ErrorMessage
-	}
-	return string(responseBytes)
+	return Result{Value: string(responseBytes)}, runInfo
 }

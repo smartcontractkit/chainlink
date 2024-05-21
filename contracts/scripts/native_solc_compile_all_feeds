@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │         Compiling Feeds contracts...         │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.6"
+OPTIMIZE_RUNS=1000000
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
+
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+
+compileContract () {
+  local contract
+  contract=$(basename "$1" ".sol")
+
+  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
+      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8\
+      "$ROOT"/contracts/src/v0.8/"$1"
+}
+
+# Aggregators
+compileContract shared/interfaces/AggregatorV2V3Interface.sol
+compileContract Chainlink.sol
+compileContract ChainlinkClient.sol

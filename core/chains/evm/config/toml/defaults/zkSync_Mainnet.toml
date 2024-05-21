@@ -1,0 +1,14 @@
+ChainID = '324'
+ChainType = 'zksync'
+FinalityDepth = 1
+LogPollInterval = '5s'
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '1m'
+
+[GasEstimator]
+LimitDefault = 100_000_000
+PriceMax = 18446744073709551615
+PriceMin = 0
+
+[HeadTracker]
+HistoryDepth = 5

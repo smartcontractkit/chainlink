@@ -1,0 +1,34 @@
+name: On Demand Log Poller Consistency Test
+on:
+  workflow_dispatch:
+    inputs:
+      base64Config:
+        description: base64-ed config
+        required: true
+        type: string
+
+jobs:
+  test:
+    env:
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+    runs-on: ubuntu22.04-8cores-32GB
+    steps:
+      - name: Add masks and export base64 config
+        run: |
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.REF_NAME }}
+      - name: Setup Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version-file: "integration-tests/go.mod"
+          cache: true
+      - name: Run tests
+        run: |
+          cd integration-tests
+          go mod download
+          go test -v -timeout 5h -v -count=1 -run ^TestLogPollerFewFiltersFixedDepth$ ./smoke/log_poller_test.go

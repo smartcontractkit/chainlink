@@ -1,0 +1,40 @@
+type Job {
+    id: ID!
+    name: String!
+    schemaVersion: Int!
+    gasLimit: Int
+    forwardingAllowed: Boolean
+    maxTaskDuration: String!
+    externalJobID: String!
+    type: String!
+    spec: JobSpec!
+    runs(offset: Int, limit: Int): JobRunsPayload!
+    observationSource: String!
+    errors: [JobError!]!
+    createdAt: Time!
+}
+
+# JobsPayload defines the response when fetching a page of jobs
+type JobsPayload implements PaginatedPayload {
+    results: [Job!]!
+    metadata: PaginationMetadata!
+}
+
+# JobPayload defines the response when a job
+union JobPayload = Job | NotFoundError
+
+input CreateJobInput {
+    TOML: String!
+}
+
+type CreateJobSuccess {
+    job: Job!
+}
+
+union CreateJobPayload = CreateJobSuccess | InputErrors
+
+type DeleteJobSuccess {
+    job: Job!
+}
+
+union DeleteJobPayload = DeleteJobSuccess | NotFoundError

@@ -1,0 +1,13 @@
+ChainID = '4002'
+LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
+LogPollInterval = '1s'
+MinIncomingConfirmations = 3
+# Fantom testnet only emits blocks when a new tx is received, so this method of liveness detection is not useful
+NoNewHeadsThreshold = '0'
+RPCBlockQueryDelay = 2
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+
+[OCR2.Automation]
+GasLimit = 3800000

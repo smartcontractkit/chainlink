@@ -1,0 +1,21 @@
+name: Setup Solana CLI
+description: Setup solana CLI
+runs:
+  using: composite
+  steps:
+      - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: cache
+        name: Cache solana CLI
+        with:
+          path: |
+            ~/.local/share/solana/install/active_release/bin
+          key: ${{ runner.os }}-solana-cli-${{ hashFiles('./tools/ci/install_solana') }}
+        
+      - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        name: Install solana cli
+        shell: bash
+        run: ./tools/ci/install_solana
+      
+      - name: Export solana path to env
+        shell: bash 
+        run: echo "PATH=$HOME/.local/share/solana/install/active_release/bin:$PATH" >> $GITHUB_ENV

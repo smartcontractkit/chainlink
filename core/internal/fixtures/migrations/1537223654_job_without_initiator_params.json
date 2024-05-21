@@ -1,5 +1,0 @@
-{
-  "id": "somethingGenerated",
-  "initiators": [ { "type": "cron", "schedule": "1 2 3 4 5 6" } ],
-  "tasks": [ { "type": "noOp" } ]
-}

@@ -1,6 +1,0 @@
-{
-  "initiators": [{ "type": "ethLog" }],
-  "tasks": [
-    {"type": "randomNumber"}
-  ]
-}
