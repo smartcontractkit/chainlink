@@ -103,9 +103,3 @@ override*.toml
 
 ocr_soak_report.csv
 
-# Keystone CRIB deployments
-core/scripts/keystone/*.sh
-!core/scripts/keystone/*-sample.sh
-core/scripts/keystone/keystone
-core/scripts/keystone/.cache/
-core/scripts/keystone/artefacts/
