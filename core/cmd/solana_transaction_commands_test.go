@@ -33,7 +33,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 	}
 	cfg := solcfg.TOMLConfig{
 		ChainID: &chainID,
-		Nodes:   solcfg.SolanaNodes{&node},
+		Nodes:   solcfg.Nodes{&node},
 		Enabled: ptr(true),
 	}
 	app := solanaStartNewApplication(t, &cfg)

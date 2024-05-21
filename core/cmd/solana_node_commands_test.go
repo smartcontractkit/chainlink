@@ -42,7 +42,7 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	}
 	chain := solcfg.TOMLConfig{
 		ChainID: &id,
-		Nodes:   solcfg.SolanaNodes{&node1, &node2},
+		Nodes:   solcfg.Nodes{&node1, &node2},
 	}
 	app := solanaStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()
