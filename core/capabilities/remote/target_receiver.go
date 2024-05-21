@@ -5,6 +5,7 @@ package remote
 // the chain write is waiting for f + 1 reports to be collected before it will execute the transmission
 
 import (
+	"context"
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -29,8 +30,22 @@ type remoteTargetReceiver struct {
 
 var _ types.Receiver = &remoteTargetReceiver{}
 
-func NewRemoteTargetReceiver(underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo *capabilities.DON,
+func NewRemoteTargetReceiver(ctx context.Context, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo *capabilities.DON,
 	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetReceiver {
+
+	go func() {
+		timer := time.NewTimer(60 * time.Second)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				// TODO Implement timeout handling and cleanup logic on the request cache
+			}
+		}
+	}()
+
 	return &remoteTargetReceiver{
 		underlying:   underlying,
 		capInfo:      capInfo,
@@ -45,13 +60,16 @@ func NewRemoteTargetReceiver(underlying commoncap.TargetCapability, capInfo comm
 }
 
 type requestCache struct {
-	fromPeers map[p2ptypes.PeerID]bool
-	response  *types.MessageBody
-	callingDonID string
+	fromPeers        map[p2ptypes.PeerID]bool
+	response         *types.MessageBody
+	callingDonID     string
 	firstRequestTime time.Time
 }
 
 func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
+	// TODO should the dispatcher be passing in a context?
+	ctx := context.Background()
+
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
 		return
@@ -71,8 +89,8 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 	rc, ok := r.executeRequests[messageId]
 	if !ok {
 		rc = requestCache{
-			fromPeers: map[p2ptypes.PeerID]bool{},
-			callingDonID: msg.CallerDonId,
+			fromPeers:        map[p2ptypes.PeerID]bool{},
+			callingDonID:     msg.CallerDonId,
 			firstRequestTime: time.Now(),
 		}
 		r.executeRequests[messageId] = rc
@@ -93,8 +111,6 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 	if len(rc.fromPeers) >= minRequiredRequests {
 		if rc.response == nil {
 
-
-
 			responseMsg := &types.MessageBody{
 				CapabilityId:    r.capInfo.ID,
 				CapabilityDonId: r.localDonInfo.ID,
@@ -104,23 +120,29 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 
 			capabilityRequest, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 			if err == nil {
-				
-			
-				r.lggr.Errorw("failed to unmarshal capability request", "err", err)
-				return
+				responseCh, err := r.underlying.Execute(ctx, capabilityRequest)
+				if err == nil {
+					// TODO handle the case where the capability returns a stream of responses
+					response := <-responseCh
+					responseMsg.Payload, err = pb.MarshalCapabilityResponse(response)
+				} else {
+					r.lggr.Errorw("failed to execute capability", "capabilityId", r.capInfo.ID, "err", err)
+					// TODO set correct error code
+					responseMsg.Error = types.Error_CAPABILITY_NOT_FOUND
+				}
 			} else {
+				r.lggr.Errorw("failed to unmarshal capability request", "capabilityId", r.capInfo.ID, "err", err)
+				// TODO set correct error code
 				responseMsg.Error = types.Error_CAPABILITY_NOT_FOUND
-
 			}
-		}
-			
 
-			r.underlying.Execute(msg.Payload, func(response []byte) {
-			
-				
-				
-			r.lggr.Warnw("received enough execute requests, but no response was provided")
-			return
+			rc.response = responseMsg
+
+			for peerID := range rc.fromPeers {
+				if err = r.dispatcher.Send(peerID, responseMsg); err != nil {
+					r.lggr.Errorw("failed to send response", "peer", peerID, "err", err)
+				}
+			}
 		} else {
 			if err := r.dispatcher.Send(sender, rc.response); err != nil {
 				r.lggr.Errorw("failed to send response", "peer", sender, "err", err)

@@ -88,17 +88,22 @@ func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.Ca
 
 	select {
 	case <-responseReceived:
+
 		response, loaded := c.messageIDToResponse.LoadAndDelete(messageID)
 		if !loaded {
 			return nil, fmt.Errorf("no response found for message ID %s", messageID)
 		}
 
-		payload, ok := response.([]byte)
+		msg, ok := response.(*types.MessageBody)
 		if !ok {
 			return nil, fmt.Errorf("unexpected response type %T for message ID %s", response, messageID)
 		}
 
-		capabilityResponse, err := pb.UnmarshalCapabilityResponse(payload)
+		if msg.Error != types.Error_OK {
+			return nil, fmt.Errorf("remote capability returned error: %s", msg.Error)
+		}
+
+		capabilityResponse, err := pb.UnmarshalCapabilityResponse(msg.Payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal capability response: %w", err)
 		}
@@ -169,7 +174,7 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 	wg, loaded := c.messageIDToWaitgroup.LoadAndDelete(messageId)
 	if loaded {
 		wg.(*sync.WaitGroup).Done()
-		c.messageIDToResponse.Store(messageId, msg.Payload)
+		c.messageIDToResponse.Store(messageId, msg)
 		return
 	}
 }

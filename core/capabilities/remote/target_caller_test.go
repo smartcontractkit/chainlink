@@ -153,6 +153,71 @@ func Test_TargetCallerExecute(t *testing.T) {
 
 }
 
+func Test_TargetCallerExecuteWithError(t *testing.T) {
+
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+
+	p1 := p2ptypes.PeerID{}
+	require.NoError(t, p1.UnmarshalText([]byte(PeerID1)))
+	p2 := p2ptypes.PeerID{}
+	require.NoError(t, p2.UnmarshalText([]byte(PeerID2)))
+	capDonInfo := &commoncap.DON{
+		ID:      "capability-don",
+		Members: []p2ptypes.PeerID{p1},
+		F:       0,
+	}
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Remote Target",
+		Version:        "0.0.1",
+		DON:            capDonInfo,
+	}
+
+	workflowDonInfo := commoncap.DON{
+		ID:      "workflow-don",
+		Members: []p2ptypes.PeerID{p2},
+		F:       0,
+	}
+
+	dispatcher := NewTestDispatcher()
+
+	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, workflowDonInfo, dispatcher)
+	require.NoError(t, err)
+
+	err = dispatcher.SetReceiver("cap_id", "workflow-don", caller)
+	require.NoError(t, err)
+
+	go func() {
+		sentMessage := <-dispatcher.sentMessagesCh
+
+		require.NoError(t, err)
+		executeResponse := &remotetypes.MessageBody{
+			Sender:    p1[:],
+			Method:    remotetypes.MethodExecute,
+			MessageId: sentMessage.MessageId,
+			Error:     remotetypes.Error_CAPABILITY_NOT_FOUND,
+		}
+
+		dispatcher.SendToReceiver(executeResponse)
+	}()
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "100ms",
+	})
+	require.NoError(t, err)
+
+	_, err = caller.Execute(ctx,
+		commoncap.CapabilityRequest{
+			Config: transmissionSchedule,
+		})
+
+	require.NotNil(t, err)
+}
+
 type TestDispatcher struct {
 	sentMessagesCh chan *remotetypes.MessageBody
 	receiver       remotetypes.Receiver
