@@ -291,7 +291,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 	})
-	t.Run("Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
+	t.Run("Direct Funding", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			testcontext.Get(t),
