@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-
+import {ICapabilityConfiguration} from "../interfaces/ICapabilityConfiguration.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateDONTest is BaseTest {
@@ -12,7 +12,8 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
   uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
   uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 1;
   bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
-  bytes private constant CONFIG = bytes("onchain-config");
+  bytes private constant BASIC_CAPABILITY_CONFIG = bytes("basic-capability-config");
+  bytes private constant CONFIG_CAPABILITY_CONFIG = bytes("config-capability-config");
 
   function setUp() public override {
     BaseTest.setUp();
@@ -55,7 +56,7 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
     s_capabilityRegistry.addDON(donNodes, capabilityConfigs, true);
   }
@@ -69,7 +70,7 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
 
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
     s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, true);
   }
@@ -81,7 +82,7 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_capabilityWithConfigurationContractId,
-      config: CONFIG
+      config: CONFIG_CAPABILITY_CONFIG
     });
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -100,7 +101,7 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.DONDoesNotExist.selector, nonExistentDONId));
     s_capabilityRegistry.updateDON(nonExistentDONId, nodes, capabilityConfigs, true);
@@ -112,7 +113,7 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_nonExistentHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
     vm.expectRevert(
       abi.encodeWithSelector(CapabilityRegistry.CapabilityDoesNotExist.selector, s_nonExistentHashedCapabilityId)
@@ -128,11 +129,11 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](2);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
     capabilityConfigs[1] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
 
     vm.expectRevert(
@@ -150,7 +151,10 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
 
     CapabilityRegistry.CapabilityConfiguration[]
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
-    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({capabilityId: capabilityId, config: CONFIG});
+    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
+      capabilityId: capabilityId,
+      config: BASIC_CAPABILITY_CONFIG
+    });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.CapabilityIsDeprecated.selector, capabilityId));
     s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, true);
@@ -165,7 +169,7 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.DuplicateDONNode.selector, 1, P2P_ID));
     s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, true);
@@ -179,11 +183,11 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](2);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
     capabilityConfigs[1] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_capabilityWithConfigurationContractId,
-      config: CONFIG
+      config: CONFIG_CAPABILITY_CONFIG
     });
 
     (, uint32 oldConfigCount, , , ) = s_capabilityRegistry.getDON(DON_ID);
@@ -193,6 +197,17 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
 
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
     emit ConfigSet(DON_ID, expectedConfigCount);
+    vm.expectCall(
+      address(s_capabilityConfigurationContract),
+      abi.encodeWithSelector(
+        ICapabilityConfiguration.beforeCapabilityConfigSet.selector,
+        nodes,
+        CONFIG_CAPABILITY_CONFIG,
+        expectedConfigCount,
+        DON_ID
+      ),
+      1
+    );
     s_capabilityRegistry.updateDON(DON_ID, nodes, capabilityConfigs, expectedDONIsPublic);
 
     (
@@ -207,7 +222,7 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
     assertEq(isPublic, false);
     assertEq(donCapabilityConfigs.length, capabilityConfigs.length);
     assertEq(donCapabilityConfigs[0].capabilityId, s_basicHashedCapabilityId);
-    assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), CONFIG);
+    assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), BASIC_CAPABILITY_CONFIG);
 
     assertEq(donNodes.length, nodes.length);
     assertEq(donNodes[0], P2P_ID);
