@@ -539,6 +539,14 @@ func integration_MercuryV2(t *testing.T) {
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
+	// Bury it with finality depth
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
 	// Set up n oracles
 	var (
 		oracles []confighelper.OracleIdentityExtra
@@ -670,14 +678,6 @@ func integration_MercuryV2(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, err)
-		backend.Commit()
-	}
-
-	// Bury it with finality depth
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
 	}
 
@@ -828,6 +828,14 @@ func integration_MercuryV3(t *testing.T) {
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
+	// Bury it with finality depth
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
 	// Set up n oracles
 	var (
 		oracles []confighelper.OracleIdentityExtra
@@ -962,14 +970,6 @@ func integration_MercuryV3(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, err)
-		backend.Commit()
-	}
-
-	// Bury it with finality depth
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
 	}
 
