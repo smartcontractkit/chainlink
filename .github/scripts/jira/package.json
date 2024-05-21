@@ -4,6 +4,7 @@
   "description": "Updates Jira issue with release information like the version and tags for a PR.",
   "main": "update-jira-issue.js",
   "type": "module",
+  "private": true,
   "keywords": [],
   "author": "",
   "license": "MIT",
