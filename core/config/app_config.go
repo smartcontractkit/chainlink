@@ -35,6 +35,7 @@ type AppConfig interface {
 
 	AuditLogger() AuditLogger
 	AutoPprof() AutoPprof
+	Capabilities() Capabilities
 	Database() Database
 	Feature() Feature
 	FluxMonitor() FluxMonitor

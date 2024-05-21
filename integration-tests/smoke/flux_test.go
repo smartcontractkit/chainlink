@@ -13,9 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -31,36 +33,40 @@ func TestFluxBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithGeth().
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodes(3).
 		WithStandardCleanup().
+		WithSeth().
 		Build()
 	require.NoError(t, err)
 
 	nodeAddresses, err := env.ClCluster.NodeAddresses()
 	require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
-	env.EVMClient.ParallelTransactions(true)
+
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	sethClient, err := env.GetSethClient(network.ChainID)
+	require.NoError(t, err, "Error getting seth client")
 
 	adapterUUID := uuid.NewString()
 	adapterPath := fmt.Sprintf("/variable-%s", adapterUUID)
 	err = env.MockAdapter.SetAdapterBasedIntValuePath(adapterPath, []string{http.MethodPost}, 1e5)
 	require.NoError(t, err, "Setting mock adapter value path shouldn't fail")
 
-	lt, err := actions.DeployLINKToken(env.ContractDeployer)
+	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	fluxInstance, err := env.ContractDeployer.DeployFluxAggregatorContract(lt.Address(), contracts.DefaultFluxAggregatorOptions())
+
+	fluxInstance, err := contracts.DeployFluxAggregatorContract(sethClient, lt.Address(), contracts.DefaultFluxAggregatorOptions())
 	require.NoError(t, err, "Deploying Flux Aggregator Contract shouldn't fail")
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for deployment of flux aggregator contract")
 
 	err = lt.Transfer(fluxInstance.Address(), big.NewInt(1e18))
 	require.NoError(t, err, "Funding Flux Aggregator Contract shouldn't fail")
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for funding of flux aggregator contract")
 
 	err = fluxInstance.UpdateAvailableFunds()
 	require.NoError(t, err, "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
@@ -79,8 +85,6 @@ func TestFluxBasic(t *testing.T) {
 		})
 	require.NoError(t, err, "Setting oracle options in the Flux Aggregator contract shouldn't fail")
 
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	oracles, err := fluxInstance.GetOracles(testcontext.Get(t))
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
@@ -98,7 +102,7 @@ func TestFluxBasic(t *testing.T) {
 		fluxSpec := &client.FluxMonitorJobSpec{
 			Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
 			ContractAddress:   fluxInstance.Address(),
-			EVMChainID:        env.EVMClient.GetChainID().String(),
+			EVMChainID:        fmt.Sprint(sethClient.ChainID),
 			Threshold:         0,
 			AbsoluteThreshold: 0,
 			PollTimerPeriod:   15 * time.Second, // min 15s
@@ -111,9 +115,7 @@ func TestFluxBasic(t *testing.T) {
 
 	// initial value set is performed before jobs creation
 	fluxRoundTimeout := 1 * time.Minute
-	fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout, l)
-	env.EVMClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-	err = env.EVMClient.WaitForEvents()
+	err = actions_seth.WatchNewFluxRound(l, sethClient, 1, fluxInstance, fluxRoundTimeout)
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err := fluxInstance.GetContractData(testcontext.Get(t))
 	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
@@ -128,11 +130,9 @@ func TestFluxBasic(t *testing.T) {
 	require.Equal(t, int64(3), data.AllocatedFunds.Int64(),
 		"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
-	fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout, l)
-	env.EVMClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 	err = env.MockAdapter.SetAdapterBasedIntValuePath(adapterPath, []string{http.MethodPost}, 1e10)
 	require.NoError(t, err, "Setting value path in mock server shouldn't fail")
-	err = env.EVMClient.WaitForEvents()
+	err = actions_seth.WatchNewFluxRound(l, sethClient, 2, fluxInstance, fluxRoundTimeout)
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err = fluxInstance.GetContractData(testcontext.Get(t))
 	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")

@@ -4,17 +4,17 @@ pragma solidity 0.8.19;
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
-import {AutomationRegistryLogicB2_3} from "./AutomationRegistryLogicB2_3.sol";
+import {AutomationRegistryLogicA2_3} from "./AutomationRegistryLogicA2_3.sol";
+import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
-import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
  * contracts. Clients must support the AutomationCompatibleInterface interface.
  */
-contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chainable, IERC677Receiver {
+contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -22,6 +22,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   /**
    * @notice versions:
    * AutomationRegistry 2.3.0: supports native and ERC20 billing
+   *                           changes flat fee to USD-denominated
+   *                           adds support for custom billing overrides
    * AutomationRegistry 2.2.0: moves chain-specific integration code into a separate module
    * KeeperRegistry 2.1.0:     introduces support for log triggers
    *                           removes the need for "wrapped perform data"
@@ -44,18 +46,21 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   string public constant override typeAndVersion = "AutomationRegistry 2.3.0";
 
   /**
-   * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions (via fallback)
+   * @param logicA the address of the first logic contract
+   * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
-    AutomationRegistryLogicB2_3 logicA
+    AutomationRegistryLogicA2_3 logicA
   )
     AutomationRegistryBase2_3(
-      logicA.getLinkAddress(),
-      logicA.getLinkUSDFeedAddress(),
-      logicA.getNativeUSDFeedAddress(),
-      logicA.getFastGasFeedAddress(),
-      logicA.getAutomationForwarderLogic(),
-      logicA.getAllowedReadOnlyAddress()
+      AutomationRegistryLogicC2_3(address(logicA)).getLinkAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getLinkUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getNativeUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
+      AutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getPayoutMode(),
+      AutomationRegistryLogicC2_3(address(logicA)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicA))
   {}
@@ -65,13 +70,13 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    */
   struct TransmitVars {
     uint16 numUpkeepsPassedChecks;
-    uint256 totalCalldataWeight;
     uint96 totalReimbursement;
     uint96 totalPremium;
+    uint256 totalCalldataWeight;
   }
 
   // ================================================================
-  // |                           ACTIONS                            |
+  // |                       HOT PATH ACTIONS                       |
   // ================================================================
 
   /**
@@ -107,6 +112,15 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     }
   }
 
+  /**
+   * @notice handles the report by performing the upkeeps and updating the state
+   * @param hotVars the hot variables of the registry
+   * @param report the report to be handled (already verified and decoded)
+   * @param gasOverhead the running tally of gas overhead to be split across the upkeeps
+   * @dev had to split this function from transmit() to avoid stack too deep errors
+   * @dev all other internal / private functions are generally defined in the Base contract
+   * we leave this here because it is essentially a continuation of the transmit() function,
+   */
   function _handleReport(HotVars memory hotVars, Report memory report, uint256 gasOverhead) private {
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
     TransmitVars memory transmitVars = TransmitVars({
@@ -152,7 +166,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
         (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
       transmitVars.totalCalldataWeight += upkeepTransmitInfo[i].calldataWeight;
 
-      // Deduct that gasUsed by upkeep from our running counter
+      // Deduct the gasUsed by upkeep from the overhead tally - upkeeps pay for their own gas individually
       gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
       // Store last perform block number / deduping key for upkeep
@@ -169,8 +183,13 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     {
+      BillingTokenPaymentParams memory billingTokenParams;
+      uint256 nativeUSD = _getNativeUSD(hotVars);
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
+          if (i == 0 || upkeepTransmitInfo[i].upkeep.billingToken != upkeepTransmitInfo[i - 1].upkeep.billingToken) {
+            billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken);
+          }
           PaymentReceipt memory receipt = _handlePayment(
             hotVars,
             PaymentParams({
@@ -179,18 +198,21 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
               l1CostWei: (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight,
               fastGasWei: report.fastGasWei,
               linkUSD: report.linkUSD,
-              nativeUSD: _getNativeUSD(hotVars),
+              nativeUSD: nativeUSD,
+              billingToken: upkeepTransmitInfo[i].upkeep.billingToken,
+              billingTokenParams: billingTokenParams,
               isTransaction: true
             }),
-            report.upkeepIds[i]
+            report.upkeepIds[i],
+            upkeepTransmitInfo[i].upkeep
           );
-          transmitVars.totalPremium += receipt.premium;
-          transmitVars.totalReimbursement += receipt.reimbursement;
+          transmitVars.totalPremium += receipt.premiumInJuels;
+          transmitVars.totalReimbursement += receipt.gasReimbursementInJuels;
 
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            receipt.reimbursement + receipt.premium,
+            receipt.gasChargeInBillingToken + receipt.premiumInBillingToken,
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
@@ -201,50 +223,17 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     // record payments
     s_transmitters[msg.sender].balance += transmitVars.totalReimbursement;
     s_hotVars.totalPremium += transmitVars.totalPremium;
-  }
-
-  /**
-   * @notice simulates the upkeep with the perform data returned from checkUpkeep
-   * @param id identifier of the upkeep to execute the data with.
-   * @param performData calldata parameter to be passed to the target upkeep.
-   * @return success whether the call reverted or not
-   * @return gasUsed the amount of gas the target contract consumed
-   */
-  function simulatePerformUpkeep(
-    uint256 id,
-    bytes calldata performData
-  ) external returns (bool success, uint256 gasUsed) {
-    _preventExecution();
-
-    if (s_hotVars.paused) revert RegistryPaused();
-    Upkeep memory upkeep = s_upkeep[id];
-    (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);
-    return (success, gasUsed);
-  }
-
-  /**
-   * @notice uses LINK's transferAndCall to LINK and add funding to an upkeep
-   * @dev safe to cast uint256 to uint96 as total LINK supply is under UINT96MAX
-   * @param sender the account which transferred the funds
-   * @param amount number of LINK transfer
-   */
-  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
-    if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
-    if (data.length != 32) revert InvalidDataLength();
-    uint256 id = abi.decode(data, (uint256));
-    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
-    emit FundsAdded(id, sender, uint96(amount));
+    s_reserveAmounts[IERC20(address(i_link))] += transmitVars.totalReimbursement + transmitVars.totalPremium;
   }
 
   // ================================================================
-  // |                           SETTERS                            |
+  // |                         OCR2ABSTRACT                         |
   // ================================================================
 
   /**
    * @inheritdoc OCR2Abstract
    * @dev prefer the type-safe version of setConfig (below) whenever possible. The OnchainConfig could differ between registry versions
+   * @dev this function takes up precious space on the root contract, but must be implemented to conform to the OCR2Abstract interface
    */
   function setConfig(
     address[] memory signers,
@@ -271,6 +260,17 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     );
   }
 
+  /**
+   * @notice sets the configuration for the registry
+   * @param signers the list of permitted signers
+   * @param transmitters the list of permitted transmitters
+   * @param f the maximum tolerance for faulty nodes
+   * @param onchainConfig configuration values that are used on-chain
+   * @param offchainConfigVersion the version of the offchainConfig
+   * @param offchainConfig configuration values that are used off-chain
+   * @param billingTokens the list of valid billing tokens
+   * @param billingConfigs the configurations for each billing token
+   */
   function setConfigTypeSafe(
     address[] memory signers,
     address[] memory transmitters,
@@ -288,56 +288,10 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     // set billing config for tokens
     _setBillingConfig(billingTokens, billingConfigs);
 
-    // move all pooled payments out of the pool to each transmitter's balance
-    for (uint256 i = 0; i < s_transmittersList.length; i++) {
-      _updateTransmitterBalanceFromPool(
-        s_transmittersList[i],
-        s_hotVars.totalPremium,
-        uint96(s_transmittersList.length)
-      );
-    }
-
-    // remove any old signer/transmitter addresses
-    address signerAddress;
-    address transmitterAddress;
-    for (uint256 i = 0; i < s_transmittersList.length; i++) {
-      signerAddress = s_signersList[i];
-      transmitterAddress = s_transmittersList[i];
-      delete s_signers[signerAddress];
-      // Do not delete the whole transmitter struct as it has balance information stored
-      s_transmitters[transmitterAddress].active = false;
-    }
-    delete s_signersList;
-    delete s_transmittersList;
-
-    // add new signer/transmitter addresses
-    {
-      Transmitter memory transmitter;
-      address temp;
-      for (uint256 i = 0; i < signers.length; i++) {
-        if (s_signers[signers[i]].active) revert RepeatedSigner();
-        if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
-        s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
-
-        temp = transmitters[i];
-        if (temp == ZERO_ADDRESS) revert InvalidTransmitter();
-        transmitter = s_transmitters[temp];
-        if (transmitter.active) revert RepeatedTransmitter();
-        transmitter.active = true;
-        transmitter.index = uint8(i);
-        // new transmitters start afresh from current totalPremium
-        // some spare change of premium from previous pool will be forfeited
-        transmitter.lastCollected = s_hotVars.totalPremium;
-        s_transmitters[temp] = transmitter;
-      }
-    }
-    s_signersList = signers;
-    s_transmittersList = transmitters;
+    _updateTransmitters(signers, transmitters);
 
     s_hotVars = HotVars({
       f: f,
-      paymentPremiumPPB: onchainConfig.paymentPremiumPPB,
-      flatFeeMicroLink: onchainConfig.flatFeeMicroLink,
       stalenessSeconds: onchainConfig.stalenessSeconds,
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       paused: s_hotVars.paused,
@@ -348,27 +302,26 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       chainModule: onchainConfig.chainModule
     });
 
+    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
+    uint32 newLatestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
+    uint32 newConfigCount = s_storage.configCount + 1;
+
     s_storage = Storage({
       checkGasLimit: onchainConfig.checkGasLimit,
-      minUpkeepSpend: onchainConfig.minUpkeepSpend,
       maxPerformGas: onchainConfig.maxPerformGas,
       transcoder: onchainConfig.transcoder,
       maxCheckDataSize: onchainConfig.maxCheckDataSize,
       maxPerformDataSize: onchainConfig.maxPerformDataSize,
       maxRevertDataSize: onchainConfig.maxRevertDataSize,
       upkeepPrivilegeManager: onchainConfig.upkeepPrivilegeManager,
+      financeAdmin: onchainConfig.financeAdmin,
       nonce: s_storage.nonce,
-      configCount: s_storage.configCount,
-      latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      ownerLinkBalance: s_storage.ownerLinkBalance
+      configCount: newConfigCount,
+      latestConfigBlockNumber: newLatestConfigBlockNumber
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
     s_fallbackNativePrice = onchainConfig.fallbackNativePrice;
-
-    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
-    s_storage.configCount += 1;
 
     bytes memory onchainConfigBytes = abi.encode(onchainConfig);
 
@@ -384,8 +337,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       offchainConfig
     );
 
-    for (uint256 idx = 0; idx < s_registrars.length(); idx++) {
-      s_registrars.remove(s_registrars.at(idx));
+    for (uint256 idx = s_registrars.length(); idx > 0; idx--) {
+      s_registrars.remove(s_registrars.at(idx - 1));
     }
 
     for (uint256 idx = 0; idx < onchainConfig.registrars.length; idx++) {
@@ -405,12 +358,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     );
   }
 
-  // ================================================================
-  // |                           GETTERS                            |
-  // ================================================================
-
   /**
    * @inheritdoc OCR2Abstract
+   * @dev this function takes up precious space on the root contract, but must be implemented to conform to the OCR2Abstract interface
    */
   function latestConfigDetails()
     external
@@ -423,6 +373,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
   /**
    * @inheritdoc OCR2Abstract
+   * @dev this function takes up precious space on the root contract, but must be implemented to conform to the OCR2Abstract interface
    */
   function latestConfigDigestAndEpoch()
     external

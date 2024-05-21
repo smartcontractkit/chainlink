@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 func NewPlugin(lggr logger.Logger) *Plugin {
@@ -28,6 +28,12 @@ type Plugin struct {
 	loop.Plugin
 	stop services.StopChan
 	reportingplugins.MedianProviderServer
+}
+
+func (p *Plugin) NewValidationService(ctx context.Context) (core.ValidationService, error) {
+	s := &reportingPluginValidationService{lggr: p.Logger}
+	p.SubService(s)
+	return s, nil
 }
 
 type pipelineSpec struct {
@@ -54,11 +60,13 @@ func (j jsonConfig) getPipeline(key string) (string, error) {
 
 func (p *Plugin) NewReportingPluginFactory(
 	ctx context.Context,
-	config types.ReportingPluginServiceConfig,
+	config core.ReportingPluginServiceConfig,
 	provider types.MedianProvider,
-	pipelineRunner types.PipelineRunnerService,
-	telemetry types.TelemetryClient,
-	errorLog types.ErrorLog,
+	pipelineRunner core.PipelineRunnerService,
+	telemetry core.TelemetryClient,
+	errorLog core.ErrorLog,
+	keyValueStore core.KeyValueStore,
+	relayerSet core.RelayerSet,
 ) (types.ReportingPluginFactory, error) {
 	f, err := p.newFactory(ctx, config, provider, pipelineRunner, telemetry, errorLog)
 	if err != nil {
@@ -69,7 +77,7 @@ func (p *Plugin) NewReportingPluginFactory(
 	return s, nil
 }
 
-func (p *Plugin) newFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner types.PipelineRunnerService, telemetry types.TelemetryClient, errorLog types.ErrorLog) (*median.NumericalMedianFactory, error) {
+func (p *Plugin) newFactory(ctx context.Context, config core.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner core.PipelineRunnerService, telemetry core.TelemetryClient, errorLog core.ErrorLog) (*median.NumericalMedianFactory, error) {
 	jc := &jsonConfig{}
 	err := json.Unmarshal([]byte(config.PluginConfig), jc)
 	if err != nil {
@@ -96,9 +104,11 @@ func (p *Plugin) newFactory(ctx context.Context, config types.ReportingPluginSer
 		lggr:           p.Logger,
 	}
 	factory := &median.NumericalMedianFactory{
-		ContractTransmitter:       provider.MedianContract(),
-		DataSource:                ds,
-		JuelsPerFeeCoinDataSource: jds,
+		ContractTransmitter:                  provider.MedianContract(),
+		DataSource:                           ds,
+		JuelsPerFeeCoinDataSource:            jds,
+		GasPriceSubunitsDataSource:           &ZeroDataSource{},
+		IncludeGasPriceSubunitsInObservation: false,
 		Logger: logger.NewOCRWrapper(
 			p.Logger,
 			true,
@@ -127,5 +137,39 @@ func (r *reportingPluginFactoryService) Close() error {
 }
 
 func (r *reportingPluginFactoryService) HealthReport() map[string]error {
+	return map[string]error{r.Name(): r.Healthy()}
+}
+
+type reportingPluginValidationService struct {
+	services.StateMachine
+	lggr logger.Logger
+}
+
+func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, config map[string]interface{}) error {
+	tt, ok := config["telemetryType"]
+	if !ok {
+		return fmt.Errorf("expected telemtry type")
+	}
+	telemetryType, ok := tt.(string)
+	if !ok {
+		return fmt.Errorf("expected telemtry type to be of type string but got %T", tt)
+	}
+	if telemetryType != "median" {
+		return fmt.Errorf("expected telemtry type to be median but got %q", telemetryType)
+	}
+
+	return nil
+}
+func (r *reportingPluginValidationService) Name() string { return r.lggr.Name() }
+
+func (r *reportingPluginValidationService) Start(ctx context.Context) error {
+	return r.StartOnce("ValidationService", func() error { return nil })
+}
+
+func (r *reportingPluginValidationService) Close() error {
+	return r.StopOnce("ValidationService", func() error { return nil })
+}
+
+func (r *reportingPluginValidationService) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.Healthy()}
 }

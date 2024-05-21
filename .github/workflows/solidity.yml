@@ -13,42 +13,43 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      changes: ${{ steps.changes.outputs.src }}
+      changes: ${{ steps.ch.outputs.changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
-        id: changes
-        with:
-          list-files: "csv"
-          filters: |
-            src:
-              - 'contracts/**/*'
-              - '.github/workflows/solidity.yml'
-              - '.github/workflows/solidity-foundry.yml'
-            old_sol:
-              - 'contracts/src/v0.4/**/*'
-              - 'contracts/src/v0.5/**/*'
-              - 'contracts/src/v0.6/**/*'
-              - 'contracts/src/v0.7/**/*'
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Detect changes
+        id: ch
+        uses: ./.github/actions/detect-solidity-file-changes
 
-      - name: Fail if read-only files have changed
-        if: ${{ steps.changes.outputs.old_sol == 'true' }}
-        run: |
-          echo "One or more read-only Solidity file(s) has changed."
-          for file in ${{ steps.changes.outputs.old_sol_files }}; do
-            echo "$file was changed"
-          done
-          exit 1
+  tag-check:
+    needs: [changes]
+    name: Tag Check
+    runs-on: ubuntu-latest
+    outputs:
+      is-release: ${{ steps.release-tag-check.outputs.is-release }}
+      is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
+      release-version: ${{ steps.release-tag-check.outputs.release-version }}
+      pre-release-version: ${{ steps.release-tag-check.outputs.pre-release-version }}
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Check release tag
+        id: release-tag-check
+        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
+        env:
+          # Match semver git tags with a "contracts-" prefix.
+          RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+$'
+          PRE_RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+-(.+)$'
+          # Get the version by stripping the "contracts-v" prefix. 
+          VERSION_PREFIX: 'contracts-v'
 
   prepublish-test:
-    needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
-    name: Prepublish Test ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    needs: [changes, tag-check]
+    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
+    name: Prepublish Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Run Prepublish test
@@ -56,8 +57,9 @@ jobs:
         run: pnpm prepublishOnly
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: solidity-prepublish-test
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -65,15 +67,15 @@ jobs:
         continue-on-error: true
 
   native-compile:
-    needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
-    name: Native Compilation ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    needs: [changes, tag-check]
+    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-release == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
+    name: Native Compilation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Checkout diff-so-fancy
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: so-fancy/diff-so-fancy
           ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
@@ -94,15 +96,11 @@ jobs:
       - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: git diff --minimal --color --exit-code | diff-so-fancy
-      - name: Comment on fix instructions
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        if: ${{ failure() }}
-        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make wrappers-all` command'
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: solidity-native-compile
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -116,29 +114,27 @@ jobs:
       run:
         working-directory: contracts
     needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
     name: Solidity Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
-        if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
-        if: needs.changes.outputs.changes == 'true'
         run: pnpm lint
       - name: Run solhint
-        if: needs.changes.outputs.changes == 'true'
         run: pnpm solhint
       - name: Collect Metrics
-        if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: solidity-lint
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Lint
+          this-job-name: Solidity Lint
         continue-on-error: true
 
   prettier:
@@ -146,24 +142,102 @@ jobs:
       run:
         working-directory: contracts
     needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
     name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
-        if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
       - name: Run prettier check
-        if: needs.changes.outputs.changes == 'true'
         run: pnpm prettier:check
       - name: Collect Metrics
-        if: needs.changes.outputs.changes == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-prettier
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Prettier Formatting
+        continue-on-error: true
+
+  publish-beta:
+    name: Publish Beta NPM
+    environment: publish-contracts
+    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
+    if: needs.tag-check.outputs.is-pre-release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Version package.json
+        working-directory: contracts
+        run: |
+          echo "Bumping version to ${{ needs.tag-check.outputs.pre-release-version }}"
+          pnpm version ${{ needs.tag-check.outputs.pre-release-version }} --no-git-tag-version --no-commit-hooks --no-git-checks
+
+      - name: Publish to NPM (beta)
+        uses: smartcontractkit/.github/actions/ci-publish-npm@4b0ab756abcb1760cb82e1e87b94ff431905bffc # ci-publish-npm@0.4.0
+        with:
+          npm-token: ${{ secrets.NPM_TOKEN }}
+          create-github-release: false
+          publish-command: "pnpm publish-beta --no-git-checks"
+          package-json-directory: contracts
+
+      - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Prettier Formatting
+          this-job-name: Publish Beta NPM
+        continue-on-error: true
+
+  publish-prod:
+    name: Publish Prod NPM
+    environment: publish-contracts
+    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
+    if: needs.tag-check.outputs.is-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Validate version
+        working-directory: contracts
+        run: |
+          PACKAGE_JSON_VERSION="$(cat package.json | jq -r '.version')"
+          if [ "$PACKAGE_JSON_VERSION" != "${{ needs.tag-check.outputs.release-version }}" ]; then
+            echo "::error version mismatch: package.json version ($PACKAGE_JSON_VERSION) does not match version computed from tag ${{ needs.tag-check.outputs.release-version }}"
+            exit 1
+          fi
+
+      - name: Publish to NPM (latest)
+        uses: smartcontractkit/.github/actions/ci-publish-npm@4b0ab756abcb1760cb82e1e87b94ff431905bffc # ci-publish-npm@0.4.0
+        with:
+          npm-token: ${{ secrets.NPM_TOKEN }}
+          create-github-release: false
+          publish-command: "pnpm publish-prod --no-git-checks"
+          package-json-directory: contracts
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Publish Prod NPM
         continue-on-error: true

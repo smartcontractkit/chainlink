@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -30,7 +29,7 @@ func (r *blockTimeResolver) BlockTime(ctx context.Context, blockSampleSize int64
 		blockSampleSize = defaultSampleSize
 	}
 
-	latest, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := r.poller.LatestBlock(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get latest block from poller: %w", err)
 	}

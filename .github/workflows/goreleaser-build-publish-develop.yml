@@ -8,7 +8,7 @@ on:
 jobs:
   push-chainlink-develop-goreleaser:
     runs-on:
-      labels: ubuntu20.04-16cores-64GB
+      labels: ubuntu22.04-16cores-64GB
     outputs:
       goreleaser-metadata: ${{ steps.build-sign-publish.outputs.goreleaser-metadata }}
       goreleaser-artifacts: ${{ steps.build-sign-publish.outputs.goreleaser-artifacts }}
@@ -18,13 +18,15 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
           role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: goreleaser-build-publish-chainlink.push-develop
       - name: Build, sign, and publish image
         id: build-sign-publish
         uses: ./.github/actions/goreleaser-build-sign-publish
@@ -39,8 +41,9 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: goreleaser-build-publish
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}

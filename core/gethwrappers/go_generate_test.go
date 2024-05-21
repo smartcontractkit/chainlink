@@ -4,6 +4,7 @@ package gethwrappers
 
 import (
 	"crypto/sha256"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 	"github.com/fatih/color"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +29,7 @@ const compileCommand = "../../contracts/scripts/native_solc_compile_all"
 // contract artifacts in contracts/solc with the abi and bytecode stored in the
 // contract wrapper
 func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
+	testutils.SkipShort(t, "requires compiled artifacts")
 	versions, err := ReadVersionsDB()
 	require.NoError(t, err)
 	require.NotEmpty(t, versions.GethVersion, `version DB should have a "GETH_VERSION:" line`)
@@ -63,19 +66,13 @@ func isVRFV2Contract(fullpath string) bool {
 	return strings.Contains(fullpath, "VRFCoordinatorV2")
 }
 
-// rootDir is the local chainlink root working directory
-var rootDir string
-
-func init() { // compute rootDir
-	var err error
-	thisDir, err := os.Getwd()
+// getRootDir returns the local chainlink root working directory
+func getRootDir() (string, error) { // compute rootDir
+	wd, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to get working directory: %w", err)
 	}
-	rootDir, err = filepath.Abs(filepath.Join(thisDir, "../.."))
-	if err != nil {
-		panic(err)
-	}
+	return filepath.Abs(filepath.Join(wd, "../.."))
 }
 
 // compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources checks that
@@ -95,6 +92,8 @@ func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 	t *testing.T, versionInfo ContractVersion,
 ) {
 	hash := VersionHash(versionInfo.AbiPath, versionInfo.BinaryPath)
+	rootDir, err := getRootDir()
+	require.NoError(t, err)
 	recompileCommand := fmt.Sprintf("(cd %s/contracts; make wrappers-all)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
 		utils.BoxOutput(`compiled %s and/or %s has changed; please rerun
@@ -102,9 +101,17 @@ func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 and commit the changes`, versionInfo.AbiPath, versionInfo.BinaryPath, recompileCommand))
 }
 
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Short() {
+		ensureArtifacts()
+	}
+	os.Exit(m.Run())
+}
+
 // Ensure that solidity compiler artifacts are present before running this test,
 // by compiling them if necessary.
-func init() {
+func ensureArtifacts() {
 	db, err := versionsDBLineReader()
 	if err != nil {
 		panic(err)

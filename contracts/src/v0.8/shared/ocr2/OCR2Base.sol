@@ -12,7 +12,7 @@ import {OCR2Abstract} from "./OCR2Abstract.sol";
 /// However, for actual production contracts, it is expected that most of the logic of this contract
 /// will be folded directly into the application contract. Inheritance prevents us from doing lots
 /// of juicy storage layout optimizations, leading to a substantial increase in gas cost.
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
   error ReportInvalid();
 
@@ -79,6 +79,7 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
     _;
   }
 
+  // solhint-disable-next-line gas-struct-packing
   struct SetConfigArgs {
     address[] signers;
     address[] transmitters;

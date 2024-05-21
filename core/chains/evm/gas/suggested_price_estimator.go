@@ -19,6 +19,7 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -31,8 +32,7 @@ type suggestedPriceConfig interface {
 	BumpMin() *assets.Wei
 }
 
-//go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
-type rpcClient interface {
+type suggestedPriceEstimatorClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
@@ -41,7 +41,7 @@ type SuggestedPriceEstimator struct {
 	services.StateMachine
 
 	cfg        suggestedPriceConfig
-	client     rpcClient
+	client     suggestedPriceEstimatorClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -52,10 +52,12 @@ type SuggestedPriceEstimator struct {
 	chInitialised  chan struct{}
 	chStop         services.StopChan
 	chDone         chan struct{}
+
+	l1Oracle rollups.L1Oracle
 }
 
 // NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
-func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient, cfg suggestedPriceConfig) EvmEstimator {
+func NewSuggestedPriceEstimator(lggr logger.Logger, client feeEstimatorClient, cfg suggestedPriceConfig, l1Oracle rollups.L1Oracle) EvmEstimator {
 	return &SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,
@@ -65,11 +67,16 @@ func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient, cfg sugges
 		chInitialised:  make(chan struct{}),
 		chStop:         make(chan struct{}),
 		chDone:         make(chan struct{}),
+		l1Oracle:       l1Oracle,
 	}
 }
 
 func (o *SuggestedPriceEstimator) Name() string {
 	return o.logger.Name()
+}
+
+func (o *SuggestedPriceEstimator) L1Oracle() rollups.L1Oracle {
+	return o.l1Oracle
 }
 
 func (o *SuggestedPriceEstimator) Start(context.Context) error {
@@ -154,12 +161,12 @@ func (o *SuggestedPriceEstimator) forceRefresh(ctx context.Context) (err error) 
 
 func (o *SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
-func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint64, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ *assets.Wei) (fee DynamicFee, err error) {
 	err = pkgerrors.New("dynamic fees are not implemented for this estimator")
 	return
 }
 
-func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint64, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
 	err = pkgerrors.New("dynamic fees are not implemented for this estimator")
 	return
 }
@@ -223,7 +230,6 @@ func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee
 	// If the new suggested price is less than or equal to the max and the buffer puts the new price over the max, return the max price instead
 	// The buffer is added on top of the suggested price during bumping as just a precaution. It is better to resubmit the transaction with the max gas price instead of erroring.
 	newGasPrice = assets.NewWei(bigmath.Min(bufferedPrice, maxGasPriceWei.ToInt()))
-
 	// Return the original price if the refreshed price with the buffer is lower to ensure the bumped gas price is always equal or higher to the previous attempt
 	if originalFee != nil && originalFee.Cmp(newGasPrice) > 0 {
 		return originalFee, chainSpecificGasLimit, nil

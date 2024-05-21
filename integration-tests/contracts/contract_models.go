@@ -4,6 +4,7 @@ package contracts
 import (
 	"context"
 	"math/big"
+	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -78,6 +79,7 @@ type LinkToken interface {
 	Transfer(to string, amount *big.Int) error
 	BalanceOf(ctx context.Context, addr string) (*big.Int, error)
 	TransferAndCall(to string, amount *big.Int, data []byte) (*types.Transaction, error)
+	TransferAndCallFromKey(to string, amount *big.Int, data []byte, keyNum int) (*types.Transaction, error)
 	Name(context.Context) (string, error)
 }
 
@@ -139,6 +141,12 @@ type ChainlinkNodeWithKeysAndAddress interface {
 	MustReadP2PKeys() (*client.P2PKeys, error)
 	ExportEVMKeysForChain(string) ([]*client.ExportedEVMKey, error)
 	PrimaryEthAddress() (string, error)
+	EthAddresses() ([]string, error)
+}
+
+type ChainlinkNodeWithForwarder interface {
+	TrackForwarder(chainID *big.Int, address common.Address) (*client.Forwarder, *http.Response, error)
+	GetConfig() client.ChainlinkConfig
 }
 
 type OffChainAggregatorWithRounds interface {
@@ -417,6 +425,10 @@ type LogEmitter interface {
 	EmitLogIntsIndexed(ints []int) (*types.Transaction, error)
 	EmitLogIntMultiIndexed(ints int, ints2 int, count int) (*types.Transaction, error)
 	EmitLogStrings(strings []string) (*types.Transaction, error)
+	EmitLogIntsFromKey(ints []int, keyNum int) (*types.Transaction, error)
+	EmitLogIntsIndexedFromKey(ints []int, keyNum int) (*types.Transaction, error)
+	EmitLogIntMultiIndexedFromKey(ints int, ints2 int, count int, keyNum int) (*types.Transaction, error)
+	EmitLogStringsFromKey(strings []string, keyNum int) (*types.Transaction, error)
 	EmitLogInt(payload int) (*types.Transaction, error)
 	EmitLogIntIndexed(payload int) (*types.Transaction, error)
 	EmitLogString(strings string) (*types.Transaction, error)

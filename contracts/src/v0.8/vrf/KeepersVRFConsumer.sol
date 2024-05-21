@@ -89,7 +89,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
     // Check that the request exists. If not, revert.
     RequestRecord memory record = s_requests[requestId];
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(record.requestId == requestId, "request ID not found in map");
 
     // Update the randomness in the record, and increment the response counter.

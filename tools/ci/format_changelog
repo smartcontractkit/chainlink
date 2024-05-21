@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+# This script will generate the next release using changeset.
+# However, since changeset has its own semvar versioning system
+# and we have our custom tags, this script rewrites the CHANGELOG.md
+# with each tag as its header and group respective changeset that has
+# the tag under it.
+#
+# The workflow is here:
+# https://github.com/smartcontractkit/chainlink/actions/workflows/changesets-preview-pr.yml
+
+set -euo pipefail
+
+if [[ -z "${GITHUB_OUTPUT:-}" ]]; then
+  echo "GITHUB_OUTPUT environment variable is not set."
+  exit 1
+fi
+
+create_changesets_json() {
+  echo "[[]]" > changesets.json
+}
+
+create_tags_json() {
+  json="{}"
+  for tag in "${tags_list[@]}"; do
+    tag=${tag:1}
+    json=$(jq --arg k "$tag" '.[$k] = []' <<< "$json")
+  done
+  echo "$json" > tags.json
+}
+
+append_changeset_content() {
+  if [[ $1 != "" ]]; then
+    jq --argjson idx "$changesets_index" --arg str "$1" \
+     '.[$idx] += [$str]' changesets.json > tmp.json && mv tmp.json changesets.json
+  fi
+}
+
+append_changelog_content() {
+  for tag in "${tags_list[@]}"; do
+    tag=${tag:1}
+    array_length=$(jq -r --arg key "$tag" '.[$key] | length' tags.json)
+    if [[ $array_length -eq 0 ]]; then
+      continue
+    fi
+    changesets=$(jq -r --arg key "$tag" '.[$key] | join("\n\n")' tags.json)
+    read -d '' changelog_content <<EOF || true
+${changelog_content}
+
+## ${tag}
+
+${changesets}
+EOF
+  done
+}
+
+set_pr_body() {
+  # GitHub Issues/PRs messages have a max size limit on the message body payload.
+  # This is the error: `body is too long (maximum is 65536 characters)`.
+  max_pr_desc_char_length=65000
+  read -d '' pr_header <<EOF || true
+This PR is a preview of the changes that will be included in the next release. Please do not merge this PR.
+---
+EOF
+  if [[ ${#changelog_content} -gt $max_pr_desc_char_length ]]; then
+    read -d '' pr_body <<EOF || true
+${pr_header}
+The changelog content is too long for the PR description. Please view the full changelog in the [CHANGELOG.md](https://github.com/smartcontractkit/chainlink/blob/changesets/release-preview/CHANGELOG.md)
+EOF
+  else
+    read -d '' pr_body <<EOF || true
+${pr_header}
+${changelog_content}
+EOF
+  fi
+  # for multi-line output
+  echo "pr_body<<EOF" >> $GITHUB_OUTPUT
+  echo "${pr_body}" >> $GITHUB_OUTPUT
+  echo "EOF" >> $GITHUB_OUTPUT
+}
+
+set_new_changelog_content() {
+  read -d '' new_changelog <<EOF || true
+${changelog_content}
+${current_changelog}
+EOF
+
+echo "$new_changelog" > CHANGELOG.md
+}
+
+# checks for tags in each changeset entry and append to tags.json
+match_tags() {
+  changesets_with_index=$(jq -r 'to_entries | .[] | "\(.key) \(.value | join(" "))"' changesets.json)
+
+  echo "$changesets_with_index" | while IFS= read -r line; do
+    index="${line%% *}"
+    changeset_content="${line#* }"
+    changeset_formatted=$(jq -r --argjson idx "$index" '.[$idx] | join("\n")' changesets.json)
+    found_tag=""
+    for tag in "${tags_list[@]}"; do
+      if [[ "$changeset_content" =~ $tag ]]; then
+        found_tag=${tag:1}
+        jq --arg key "$found_tag" --arg val "$changeset_formatted" \
+         '.[$key] += [$val]' tags.json > tmp.json && mv tmp.json tags.json
+      fi
+    done
+    if [[ $found_tag == "" ]] && [[ ! -z $changeset_content ]]; then
+      found_tag="untagged"
+      jq --arg key "$found_tag" --arg val "$changeset_formatted" \
+       '.[$key] += [$val]' tags.json > tmp.json && mv tmp.json tags.json
+    fi
+  done
+}
+
+cleanup() {
+  rm -f CHANGELOG.md.tmp
+  rm -f changesets.json
+  rm -f tags.json
+}
+
+### SCRIPT STARTS HERE ###
+
+tail -n +2 CHANGELOG.md > CHANGELOG.md.tmp
+
+pnpm changeset version
+
+version=$(jq -r '.version' package.json)
+echo "version=$version" >> $GITHUB_OUTPUT
+
+read -d '' changelog_content <<EOF || true
+# Changelog Chainlink Core
+
+## ${version} - PREVIEW
+
+EOF
+
+current_changelog=$(cat CHANGELOG.md.tmp)
+is_current_version=false
+changesets_index=0
+tags_list=( "#nops" "#added" "#changed" "#removed" "#updated" "#deprecation_notice" "#breaking_change" "#db_update" "#wip" "#bugfix" "#internal" "#untagged")
+
+create_changesets_json
+create_tags_json
+
+while IFS= read -r line; do
+  # break when hits the next version
+  if [[ $line == "## "* ]] && [[ $is_current_version = true ]]; then
+    break
+  fi
+
+  # look for the latest version
+  if [[ $line == "## "* ]]; then
+    is_current_version=true
+  fi
+
+  if [[ $is_current_version = true ]]; then
+    # saving each changeset to changeset.json
+    # check for start of changeset entry as it could be multi-lined entry
+    if [[ $line == "- ["* ]]; then
+      changesets_index=$((changesets_index+1))
+      append_changeset_content "$line"
+    elif [[ $line != "##"* ]]; then
+      append_changeset_content "$line"
+    fi
+  fi
+done < CHANGELOG.md
+
+match_tags
+append_changelog_content
+set_pr_body
+set_new_changelog_content
+cleanup

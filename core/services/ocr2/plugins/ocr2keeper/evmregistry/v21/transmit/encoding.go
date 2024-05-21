@@ -7,11 +7,11 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 )
 
 // defaultLogParser parses logs from the registry contract
-func defaultLogParser(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error) {
+func defaultLogParser(registry *ac.IAutomationV21PlusCommon, log logpoller.Log) (transmitEventLog, error) {
 	rawLog := log.ToGethLog()
 	abilog, err := registry.ParseLog(rawLog)
 	if err != nil {
@@ -19,7 +19,7 @@ func defaultLogParser(registry *iregistry21.IKeeperRegistryMaster, log logpoller
 	}
 
 	switch l := abilog.(type) {
-	case *iregistry21.IKeeperRegistryMasterUpkeepPerformed:
+	case *ac.IAutomationV21PlusCommonUpkeepPerformed:
 		if l == nil {
 			break
 		}
@@ -27,7 +27,7 @@ func defaultLogParser(registry *iregistry21.IKeeperRegistryMaster, log logpoller
 			Log:       log,
 			Performed: l,
 		}, nil
-	case *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport:
+	case *ac.IAutomationV21PlusCommonReorgedUpkeepReport:
 		if l == nil {
 			break
 		}
@@ -35,7 +35,7 @@ func defaultLogParser(registry *iregistry21.IKeeperRegistryMaster, log logpoller
 			Log:     log,
 			Reorged: l,
 		}, nil
-	case *iregistry21.IKeeperRegistryMasterStaleUpkeepReport:
+	case *ac.IAutomationV21PlusCommonStaleUpkeepReport:
 		if l == nil {
 			break
 		}
@@ -43,7 +43,7 @@ func defaultLogParser(registry *iregistry21.IKeeperRegistryMaster, log logpoller
 			Log:   log,
 			Stale: l,
 		}, nil
-	case *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport:
+	case *ac.IAutomationV21PlusCommonInsufficientFundsUpkeepReport:
 		if l == nil {
 			break
 		}
@@ -60,10 +60,10 @@ func defaultLogParser(registry *iregistry21.IKeeperRegistryMaster, log logpoller
 // transmitEventLog is a wrapper around logpoller.Log and the parsed log
 type transmitEventLog struct {
 	logpoller.Log
-	Performed         *iregistry21.IKeeperRegistryMasterUpkeepPerformed
-	Stale             *iregistry21.IKeeperRegistryMasterStaleUpkeepReport
-	Reorged           *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport
-	InsufficientFunds *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport
+	Performed         *ac.IAutomationV21PlusCommonUpkeepPerformed
+	Stale             *ac.IAutomationV21PlusCommonStaleUpkeepReport
+	Reorged           *ac.IAutomationV21PlusCommonReorgedUpkeepReport
+	InsufficientFunds *ac.IAutomationV21PlusCommonInsufficientFundsUpkeepReport
 }
 
 func (l transmitEventLog) Id() *big.Int {

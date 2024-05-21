@@ -6,7 +6,7 @@
 # With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
 # The mainnet default of 50 blocks is ok here
 ChainID = '100'
-ChainType = 'xdai'
+ChainType = 'gnosis'
 LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
 LogPollInterval = '5s'
 

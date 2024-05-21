@@ -6,6 +6,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var v1FeedId = [32]uint8{00, 01, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
@@ -31,6 +33,46 @@ func Test_PluginConfig(t *testing.T) {
 			err = ValidatePluginConfig(mc, v1FeedId)
 			require.NoError(t, err)
 		})
+		t.Run("with multiple server URLs", func(t *testing.T) {
+			t.Run("if no ServerURL/ServerPubKey is specified", func(t *testing.T) {
+				rawToml := `
+					Servers = { "example.com:80" = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93", "example2.invalid:1234" = "524ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93" }
+			`
+
+				var mc PluginConfig
+				err := toml.Unmarshal([]byte(rawToml), &mc)
+				require.NoError(t, err)
+
+				assert.Len(t, mc.Servers, 2)
+				assert.Equal(t, "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93", mc.Servers["example.com:80"].String())
+				assert.Equal(t, "524ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93", mc.Servers["example2.invalid:1234"].String())
+
+				err = ValidatePluginConfig(mc, v1FeedId)
+				require.NoError(t, err)
+			})
+			t.Run("if ServerURL or ServerPubKey is specified", func(t *testing.T) {
+				rawToml := `
+					Servers = { "example.com:80" = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93", "example2.invalid:1234" = "524ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93" }
+					ServerURL = "example.com:80"
+			`
+				var mc PluginConfig
+				err := toml.Unmarshal([]byte(rawToml), &mc)
+				require.NoError(t, err)
+
+				err = ValidatePluginConfig(mc, v1FeedId)
+				require.EqualError(t, err, "Mercury: Servers and RawServerURL/ServerPubKey may not be specified together")
+
+				rawToml = `
+					Servers = { "example.com:80" = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93", "example2.invalid:1234" = "524ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93" }
+					ServerPubKey = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93"
+			`
+				err = toml.Unmarshal([]byte(rawToml), &mc)
+				require.NoError(t, err)
+
+				err = ValidatePluginConfig(mc, v1FeedId)
+				require.EqualError(t, err, "Mercury: Servers and RawServerURL/ServerPubKey may not be specified together")
+			})
+		})
 
 		t.Run("with invalid values", func(t *testing.T) {
 			rawToml := `
@@ -53,7 +95,7 @@ func Test_PluginConfig(t *testing.T) {
 			err = ValidatePluginConfig(mc, v1FeedId)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), `Mercury: invalid scheme specified for MercuryServer, got: "http://example.com" (scheme: "http") but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`)
-			assert.Contains(t, err.Error(), `mercury: ServerPubKey is required and must be a 32-byte hex string`)
+			assert.Contains(t, err.Error(), `If RawServerURL is specified, ServerPubKey is also required and must be a 32-byte hex string`)
 		})
 
 		t.Run("with unnecessary values", func(t *testing.T) {
@@ -92,7 +134,6 @@ func Test_PluginConfig(t *testing.T) {
 			require.NotNil(t, mc.NativeFeedID)
 			assert.Equal(t, "0x00026b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472", (*mc.LinkFeedID).String())
 			assert.Equal(t, "0x00036b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472", (*mc.NativeFeedID).String())
-
 		})
 
 		t.Run("with invalid values", func(t *testing.T) {
@@ -135,13 +176,41 @@ func Test_PluginConfig(t *testing.T) {
 	})
 }
 
-func Test_PluginConfig_ServerURL(t *testing.T) {
-	pc := PluginConfig{RawServerURL: "example.com"}
-	assert.Equal(t, "example.com", pc.ServerURL())
-	pc = PluginConfig{RawServerURL: "wss://example.com"}
-	assert.Equal(t, "example.com", pc.ServerURL())
-	pc = PluginConfig{RawServerURL: "example.com:1234/foo"}
-	assert.Equal(t, "example.com:1234/foo", pc.ServerURL())
-	pc = PluginConfig{RawServerURL: "wss://example.com:1234/foo"}
-	assert.Equal(t, "example.com:1234/foo", pc.ServerURL())
+func Test_PluginConfig_GetServers(t *testing.T) {
+	t.Run("with single server", func(t *testing.T) {
+		pubKey := utils.PlainHexBytes([]byte{1, 2, 3})
+		pc := PluginConfig{RawServerURL: "example.com", ServerPubKey: pubKey}
+		require.Len(t, pc.GetServers(), 1)
+		assert.Equal(t, "example.com", pc.GetServers()[0].URL)
+		assert.Equal(t, pubKey, pc.GetServers()[0].PubKey)
+
+		pc = PluginConfig{RawServerURL: "wss://example.com", ServerPubKey: pubKey}
+		require.Len(t, pc.GetServers(), 1)
+		assert.Equal(t, "example.com", pc.GetServers()[0].URL)
+		assert.Equal(t, pubKey, pc.GetServers()[0].PubKey)
+
+		pc = PluginConfig{RawServerURL: "example.com:1234/foo", ServerPubKey: pubKey}
+		require.Len(t, pc.GetServers(), 1)
+		assert.Equal(t, "example.com:1234/foo", pc.GetServers()[0].URL)
+		assert.Equal(t, pubKey, pc.GetServers()[0].PubKey)
+
+		pc = PluginConfig{RawServerURL: "wss://example.com:1234/foo", ServerPubKey: pubKey}
+		require.Len(t, pc.GetServers(), 1)
+		assert.Equal(t, "example.com:1234/foo", pc.GetServers()[0].URL)
+		assert.Equal(t, pubKey, pc.GetServers()[0].PubKey)
+	})
+
+	t.Run("with multiple servers", func(t *testing.T) {
+		servers := map[string]utils.PlainHexBytes{
+			"example.com:80":                 utils.PlainHexBytes([]byte{1, 2, 3}),
+			"mercuryserver.invalid:1234/foo": utils.PlainHexBytes([]byte{4, 5, 6}),
+		}
+		pc := PluginConfig{Servers: servers}
+
+		require.Len(t, pc.GetServers(), 2)
+		assert.Equal(t, "example.com:80", pc.GetServers()[0].URL)
+		assert.Equal(t, utils.PlainHexBytes{1, 2, 3}, pc.GetServers()[0].PubKey)
+		assert.Equal(t, "mercuryserver.invalid:1234/foo", pc.GetServers()[1].URL)
+		assert.Equal(t, utils.PlainHexBytes{4, 5, 6}, pc.GetServers()[1].PubKey)
+	})
 }

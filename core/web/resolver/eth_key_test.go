@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -60,11 +61,11 @@ func TestResolver_ETHKeys(t *testing.T) {
 	keys := []ethkey.KeyV2{
 		{
 			Address:      address,
-			EIP55Address: ethkey.EIP55AddressFromAddress(address),
+			EIP55Address: evmtypes.EIP55AddressFromAddress(address),
 		},
 		{
 			Address:      secondAddress,
-			EIP55Address: ethkey.EIP55AddressFromAddress(secondAddress),
+			EIP55Address: evmtypes.EIP55AddressFromAddress(secondAddress),
 		},
 	}
 	gError := errors.New("error")
@@ -82,7 +83,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{
 					{
-						Address:    ethkey.MustEIP55Address(address.Hex()),
+						Address:    evmtypes.MustEIP55Address(address.Hex()),
 						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
@@ -149,7 +150,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{
 					{
-						Address:    ethkey.MustEIP55Address(address.Hex()),
+						Address:    evmtypes.MustEIP55Address(address.Hex()),
 						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
@@ -243,7 +244,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{
 					{
-						Address:    ethkey.MustEIP55Address(address.Hex()),
+						Address:    evmtypes.MustEIP55Address(address.Hex()),
 						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
@@ -275,7 +276,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{
 					{
-						Address:    ethkey.MustEIP55Address(address.Hex()),
+						Address:    evmtypes.MustEIP55Address(address.Hex()),
 						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
@@ -306,7 +307,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{
 					{
-						Address:    ethkey.MustEIP55Address(address.Hex()),
+						Address:    evmtypes.MustEIP55Address(address.Hex()),
 						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
@@ -368,7 +369,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{
 					{
-						Address:    ethkey.EIP55AddressFromAddress(address),
+						Address:    evmtypes.EIP55AddressFromAddress(address),
 						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),

@@ -51,9 +51,9 @@ endif
 	helm repo add bitnami https://charts.bitnami.com/bitnami
 	helm repo update
 
-.PHONY: install_gotestfmt
-install_gotestfmt:
-	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+.PHONY: install_gotestloghelper
+install_gotestloghelper:
+	go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.0.5
 	set -euo pipefail
 
 lint:
@@ -110,14 +110,14 @@ test_chaos_network_raw:
 	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'Test/.*network-chaos' ./chaos
 
 .PHONY: test_chaos_pods
-test_chaos_pods: install_gotestfmt ## Run all smoke tests
+test_chaos_pods: install_gotestloghelper ## Run all chaos pod tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*pod-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestfmt
+	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*pod-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -onlyerrors -tlogprefix -color -singlepackage
 
 .PHONY: test_chaos_network
-test_chaos_network: install_gotestfmt ## Run all smoke tests
+test_chaos_network: install_gotestloghelper ## Run all chaos network tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*network-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestfmt
+	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*network-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -onlyerrors -tlogprefix -color -singlepackage
 
 .PHONY: test_chaos_verbose
 test_chaos_verbose: ## Run all smoke tests with verbose logging
@@ -125,14 +125,14 @@ test_chaos_verbose: ## Run all smoke tests with verbose logging
 
 # Migrations
 .PHONY: test_node_migrations
-test_node_migrations: install_gotestfmt ## Run all node migration tests.
+test_node_migrations: install_gotestloghelper ## Run all node migration tests.
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -json -onlyerrors -tlogprefix -color -singlepackage
 
 .PHONY: test_node_migrations_simulated
-test_node_migrations_simulated: install_gotestfmt
+test_node_migrations_simulated: install_gotestloghelper
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -json -onlyerrors -tlogprefix -color -singlepackage
 
 .PHONY: test_node_migrations_verbose
 test_node_migrations_verbose:

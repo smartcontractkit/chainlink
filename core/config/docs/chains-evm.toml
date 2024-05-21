@@ -14,14 +14,16 @@ BlockBackfillDepth = 10 # Default
 # BlockBackfillSkip enables skipping of very long backfills.
 BlockBackfillSkip = false # Default
 # ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-# Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync, scroll
+# Available types: `arbitrum`, `celo`, `gnosis`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
+#
+# `xdai` has been deprecated and will be removed in v2.13.0, use `gnosis` instead.
 ChainType = 'arbitrum' # Example
-# FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID so it should not be necessary to change this under normal operation.
+# FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID, so it should not be necessary to change this under normal operation.
 # BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
 # There is not a large performance penalty to setting this relatively high (on the order of hundreds)
 # It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
 # If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
-# Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
+# Therefore, this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
 #
 # Special cases:
 # `FinalityDepth`=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
@@ -229,7 +231,7 @@ FeeCapDefault = '100 gwei' # Default
 TipCapDefault = '1 wei' # Default
 # TipCapMinimum is the minimum gas tip to use when submitting transactions to the blockchain.
 #
-# Only applies to EIP-1559 transactions)
+# (Only applies to EIP-1559 transactions)
 TipCapMin = '1 wei' # Default
 
 [EVM.GasEstimator.LimitJobType]
@@ -267,7 +269,7 @@ CheckInclusionPercentile = 90 # Default
 # **ADVANCED**
 # EIP1559FeeCapBufferBlocks controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used.
 #
-# Only applies to EIP-1559 transactions)
+# (Only applies to EIP-1559 transactions)
 EIP1559FeeCapBufferBlocks = 13 # Example
 # TransactionPercentile specifies gas price to choose. E.g. if the block history contains four transactions with gas prices `[100, 200, 300, 400]` then picking 25 for this number will give a value of 200. If the calculated gas price is higher than `GasPriceDefault` then the higher price will be used as the base price for new transactions.
 #
@@ -286,8 +288,8 @@ TransactionPercentile = 60 # Default
 #
 # In addition to these settings, it log warnings if `EVM.NoNewHeadsThreshold` is exceeded without any new blocks being emitted.
 [EVM.HeadTracker]
-# HistoryDepth tracks the top N block numbers to keep in the `heads` database table.
-# Note that this can easily result in MORE than N records since in the case of re-orgs we keep multiple heads for a particular block height.
+# HistoryDepth tracks the top N blocks on top of the latest finalized block to keep in the `heads` database table.
+# Note that this can easily result in MORE than `N + finality depth`  records since in the case of re-orgs we keep multiple heads for a particular block height.
 # This number should be at least as large as `FinalityDepth`.
 # There may be a small performance penalty to setting this to something very large (10,000+)
 HistoryDepth = 100 # Default
@@ -342,6 +344,46 @@ LeaseDuration = '0s' # Default
 #
 # Set true to enable this check
 NodeIsSyncingEnabled = false # Default
+# FinalizedBlockPollInterval controls how often to poll RPC for new finalized blocks.
+# The finalized block is only used to report to the `pool_rpc_node_highest_finalized_block` metric. We plan to use it
+# in RPCs health assessment in the future.
+# If `FinalityTagEnabled = false`, poll is not performed and `pool_rpc_node_highest_finalized_block` is
+# reported based on latest block and finality depth.
+#
+# Set to 0 to disable.
+FinalizedBlockPollInterval = '5s' # Default
+
+# **ADVANCED**
+# Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
+[EVM.NodePool.Errors]
+# NonceTooLow is a regex pattern to match against nonce too low errors.
+NonceTooLow = '(: |^)nonce too low' # Example
+# NonceTooHigh is a regex pattern to match against nonce too high errors.
+NonceTooHigh = '(: |^)nonce too high' # Example
+# ReplacementTransactionUnderpriced is a regex pattern to match against replacement transaction underpriced errors.
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Example
+# LimitReached is a regex pattern to match against limit reached errors.
+LimitReached = '(: |^)limit reached' # Example
+# TransactionAlreadyInMempool is a regex pattern to match against transaction already in mempool errors.
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
+# TerminallyUnderpriced is a regex pattern to match against terminally underpriced errors.
+TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
+# InsufficientEth is a regex pattern to match against insufficient eth errors.
+InsufficientEth = '(: |^)insufficeint eth' # Example
+# TxFeeExceedsCap is a regex pattern to match against tx fee exceeds cap errors.
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
+# L2FeeTooLow is a regex pattern to match against l2 fee too low errors.
+L2FeeTooLow = '(: |^)l2 fee too low' # Example
+# L2FeeTooHigh is a regex pattern to match against l2 fee too high errors.
+L2FeeTooHigh = '(: |^)l2 fee too high' # Example
+# L2Full is a regex pattern to match against l2 full errors.
+L2Full = '(: |^)l2 full' # Example
+# TransactionAlreadyMined is a regex pattern to match against transaction already mined errors.
+TransactionAlreadyMined = '(: |^)transaction already mined' # Example
+# Fatal is a regex pattern to match against fatal errors.
+Fatal = '(: |^)fatal' # Example
+# ServiceUnavailable is a regex pattern to match against service unavailable errors.
+ServiceUnavailable = '(: |^)service unavailable' # Example
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.

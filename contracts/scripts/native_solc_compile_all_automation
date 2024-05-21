@@ -96,6 +96,8 @@ compileContract automation/chains/ChainModuleBase.sol
 compileContract automation/chains/OptimismModule.sol
 compileContract automation/chains/ScrollModule.sol
 compileContract automation/interfaces/IChainModule.sol
+compileContract automation/interfaces/IAutomationV21PlusCommon.sol
+compileContract automation/AutomationCompatibleUtils.sol
 
 compileContract automation/dev/v2_3/AutomationRegistrar2_3.sol
 compileContract automation/dev/v2_3/AutomationRegistry2_3.sol

@@ -4,200 +4,66 @@ pragma solidity 0.8.19;
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
+import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {AutomationRegistryLogicB2_3} from "./AutomationRegistryLogicB2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {AutomationForwarder} from "../../AutomationForwarder.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {UpkeepTranscoderInterfaceV2} from "../../interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {MigratableKeeperRegistryInterfaceV2} from "../../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 
 /**
  * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
  */
-contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
+contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IERC677Receiver {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
+  using SafeERC20 for IERC20;
 
   /**
    * @param logicB the address of the second logic contract
+   * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
     AutomationRegistryLogicB2_3 logicB
   )
     AutomationRegistryBase2_3(
-      logicB.getLinkAddress(),
-      logicB.getLinkUSDFeedAddress(),
-      logicB.getNativeUSDFeedAddress(),
-      logicB.getFastGasFeedAddress(),
-      logicB.getAutomationForwarderLogic(),
-      logicB.getAllowedReadOnlyAddress()
+      AutomationRegistryLogicC2_3(address(logicB)).getLinkAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getLinkUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getNativeUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getFastGasFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getAutomationForwarderLogic(),
+      AutomationRegistryLogicC2_3(address(logicB)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getPayoutMode(),
+      AutomationRegistryLogicC2_3(address(logicB)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicB))
   {}
 
   /**
-   * @notice called by the automation DON to check if work is needed
-   * @param id the upkeep ID to check for work needed
-   * @param triggerData extra contextual data about the trigger (not used in all code paths)
-   * @dev this one of the core functions called in the hot path
-   * @dev there is a 2nd checkUpkeep function (below) that is being maintained for backwards compatibility
-   * @dev there is an incongruency on what gets returned during failure modes
-   * ex sometimes we include price data, sometimes we omit it depending on the failure
+   * @notice uses LINK's transferAndCall to LINK and add funding to an upkeep
+   * @dev safe to cast uint256 to uint96 as total LINK supply is under UINT96MAX
+   * @param sender the account which transferred the funds
+   * @param amount number of LINK transfer
    */
-  function checkUpkeep(
-    uint256 id,
-    bytes memory triggerData
-  )
-    public
-    returns (
-      bool upkeepNeeded,
-      bytes memory performData,
-      UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed,
-      uint256 gasLimit,
-      uint256 fastGasWei,
-      uint256 linkUSD
-    )
-  {
-    _preventExecution();
-
-    Trigger triggerType = _getTriggerType(id);
-    HotVars memory hotVars = s_hotVars;
-    Upkeep memory upkeep = s_upkeep[id];
-
-    {
-      uint256 nativeUSD;
-      uint96 maxLinkPayment;
-      if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0, 0);
-      if (upkeep.maxValidBlocknumber != UINT32_MAX)
-        return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0, 0);
-      if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
-      (fastGasWei, linkUSD, nativeUSD) = _getFeedData(hotVars);
-      maxLinkPayment = _getMaxLinkPayment(hotVars, triggerType, upkeep.performGas, fastGasWei, linkUSD, nativeUSD);
-      if (upkeep.balance < maxLinkPayment) {
-        return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
-      }
-    }
-
-    bytes memory callData = _checkPayload(id, triggerType, triggerData);
-
-    gasUsed = gasleft();
-    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(callData);
-    gasUsed = gasUsed - gasleft();
-
-    if (!success) {
-      // User's target check reverted. We capture the revert data here and pass it within performData
-      if (result.length > s_storage.maxRevertDataSize) {
-        return (
-          false,
-          bytes(""),
-          UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
-          gasUsed,
-          upkeep.performGas,
-          fastGasWei,
-          linkUSD
-        );
-      }
-      return (
-        upkeepNeeded,
-        result,
-        UpkeepFailureReason.TARGET_CHECK_REVERTED,
-        gasUsed,
-        upkeep.performGas,
-        fastGasWei,
-        linkUSD
-      );
-    }
-
-    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
-    if (!upkeepNeeded)
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, upkeep.performGas, fastGasWei, linkUSD);
-
-    if (performData.length > s_storage.maxPerformDataSize)
-      return (
-        false,
-        bytes(""),
-        UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
-        gasUsed,
-        upkeep.performGas,
-        fastGasWei,
-        linkUSD
-      );
-
-    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.performGas, fastGasWei, linkUSD);
+  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
+    if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
+    if (data.length != 32) revert InvalidDataLength();
+    uint256 id = abi.decode(data, (uint256));
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidToken();
+    s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
+    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] + amount;
+    emit FundsAdded(id, sender, uint96(amount));
   }
 
-  /**
-   * @notice see other checkUpkeep function for description
-   * @dev this function may be deprecated in a future version of chainlink automation
-   */
-  function checkUpkeep(
-    uint256 id
-  )
-    external
-    returns (
-      bool upkeepNeeded,
-      bytes memory performData,
-      UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed,
-      uint256 gasLimit,
-      uint256 fastGasWei,
-      uint256 linkUSD
-    )
-  {
-    return checkUpkeep(id, bytes(""));
-  }
-
-  /**
-   * @dev checkCallback is used specifically for automation data streams lookups (see StreamsLookupCompatibleInterface.sol)
-   * @param id the upkeepID to execute a callback for
-   * @param values the values returned from the data streams lookup
-   * @param extraData the user-provided extra context data
-   */
-  function checkCallback(
-    uint256 id,
-    bytes[] memory values,
-    bytes calldata extraData
-  )
-    external
-    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
-  {
-    bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
-    return executeCallback(id, payload);
-  }
-
-  /**
-   * @notice this is a generic callback executor that forwards a call to a user's contract with the configured
-   * gas limit
-   * @param id the upkeepID to execute a callback for
-   * @param payload the data (including function selector) to call on the upkeep target contract
-   */
-  function executeCallback(
-    uint256 id,
-    bytes memory payload
-  )
-    public
-    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
-  {
-    _preventExecution();
-
-    Upkeep memory upkeep = s_upkeep[id];
-    gasUsed = gasleft();
-    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
-    gasUsed = gasUsed - gasleft();
-    if (!success) {
-      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
-    }
-    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
-    if (!upkeepNeeded) {
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
-    }
-    if (performData.length > s_storage.maxPerformDataSize) {
-      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
-    }
-    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
-  }
+  // ================================================================
+  // |                      UPKEEP MANAGEMENT                       |
+  // ================================================================
 
   /**
    * @notice adds a new upkeep
@@ -206,6 +72,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
    * performing upkeep
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param triggerType the trigger for the upkeep
+   * @param billingToken the billing token for the upkeep
    * @param checkData data passed to the contract when checking for upkeep
    * @param triggerConfig the config for the trigger
    * @param offchainConfig arbitrary offchain config for the upkeep
@@ -215,6 +82,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     uint32 gasLimit,
     address admin,
     Trigger triggerType,
+    IERC20 billingToken,
     bytes calldata checkData,
     bytes memory triggerConfig,
     bytes memory offchainConfig
@@ -228,13 +96,15 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     _createUpkeep(
       id,
       Upkeep({
+        overridesEnabled: false,
         performGas: gasLimit,
         balance: 0,
         maxValidBlocknumber: UINT32_MAX,
         lastPerformedBlockNumber: 0,
         amountSpent: 0,
         paused: false,
-        forwarder: forwarder
+        forwarder: forwarder,
+        billingToken: billingToken
       }),
       admin,
       checkData,
@@ -250,20 +120,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   }
 
   /**
-   * @notice this function registers a conditional upkeep, using a backwards compatible function signature
-   * @dev this function is backwards compatible with versions <=2.0, but may be removed in a future version
-   */
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    bytes calldata checkData,
-    bytes calldata offchainConfig
-  ) external returns (uint256 id) {
-    return registerUpkeep(target, gasLimit, admin, Trigger.CONDITION, checkData, bytes(""), offchainConfig);
-  }
-
-  /**
    * @notice cancels an upkeep
    * @param id the upkeepID to cancel
    * @dev if a user cancels an upkeep, their funds are locked for CANCELLATION_DELAY blocks to
@@ -272,6 +128,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   function cancelUpkeep(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
     bool isOwner = msg.sender == owner();
+    uint96 minSpend = s_billingConfigs[upkeep.billingToken].minSpend;
 
     uint256 height = s_hotVars.chainModule.blockNumber();
     if (upkeep.maxValidBlocknumber == 0) revert CannotCancel();
@@ -284,34 +141,19 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     s_upkeep[id].maxValidBlocknumber = uint32(height);
     s_upkeepIDs.remove(id);
 
-    // charge the cancellation fee if the minUpkeepSpend is not met
-    uint96 minUpkeepSpend = s_storage.minUpkeepSpend;
+    // charge the cancellation fee if the minSpend is not met
     uint96 cancellationFee = 0;
-    // cancellationFee is supposed to be min(max(minUpkeepSpend - amountSpent,0), amountLeft)
-    if (upkeep.amountSpent < minUpkeepSpend) {
-      cancellationFee = minUpkeepSpend - upkeep.amountSpent;
+    // cancellationFee is min(max(minSpend - amountSpent, 0), amountLeft)
+    if (upkeep.amountSpent < minSpend) {
+      cancellationFee = minSpend - uint96(upkeep.amountSpent);
       if (cancellationFee > upkeep.balance) {
         cancellationFee = upkeep.balance;
       }
     }
     s_upkeep[id].balance = upkeep.balance - cancellationFee;
-    s_storage.ownerLinkBalance = s_storage.ownerLinkBalance + cancellationFee;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] - cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
-  }
-
-  /**
-   * @notice adds fund to an upkeep
-   * @param id the upkeepID
-   * @param amount the amount of LINK to fund, in jules (jules = "wei" of LINK)
-   */
-  function addFunds(uint256 id, uint96 amount) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    s_upkeep[id].balance = upkeep.balance + amount;
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
-    i_link.transferFrom(msg.sender, address(this), amount);
-    emit FundsAdded(id, msg.sender, amount);
   }
 
   /**
@@ -321,6 +163,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
    * @dev a transcoder must be set in order to enable migration
    * @dev migration permissions must be set on *both* sending and receiving registries
    * @dev only an upkeep admin can migrate their upkeeps
+   * @dev this function is most gas-efficient if upkeepIDs are sorted by billing token
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
@@ -329,35 +172,58 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     ) revert MigrationNotPermitted();
     if (s_storage.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
     if (ids.length == 0) revert ArrayHasNoEntries();
+
+    IERC20 billingToken;
+    uint256 balanceToTransfer;
     uint256 id;
     Upkeep memory upkeep;
-    uint256 totalBalanceRemaining;
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
     bytes[] memory checkDatas = new bytes[](ids.length);
     bytes[] memory triggerConfigs = new bytes[](ids.length);
     bytes[] memory offchainConfigs = new bytes[](ids.length);
+
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
+
+      if (idx == 0) {
+        billingToken = upkeep.billingToken;
+        balanceToTransfer = upkeep.balance;
+      }
+
+      // if we encounter a new billing token, send the sum from the last billing token to the destination registry
+      if (upkeep.billingToken != billingToken) {
+        s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
+        billingToken.safeTransfer(destination, balanceToTransfer);
+        billingToken = upkeep.billingToken;
+        balanceToTransfer = upkeep.balance;
+      } else if (idx != 0) {
+        balanceToTransfer += upkeep.balance;
+      }
+
       _requireAdminAndNotCancelled(id);
       upkeep.forwarder.updateRegistry(destination);
+
       upkeeps[idx] = upkeep;
       admins[idx] = s_upkeepAdmin[id];
       checkDatas[idx] = s_checkData[id];
       triggerConfigs[idx] = s_upkeepTriggerConfig[id];
       offchainConfigs[idx] = s_upkeepOffchainConfig[id];
-      totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
       delete s_upkeepTriggerConfig[id];
       delete s_upkeepOffchainConfig[id];
       // nullify existing proposed admin change if an upkeep is being migrated
       delete s_proposedAdmin[id];
+      delete s_upkeepAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
-    s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
+    // always transfer the rolling sum in the end
+    s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
+    billingToken.safeTransfer(destination, balanceToTransfer);
+
     bytes memory encodedUpkeeps = abi.encode(
       ids,
       upkeeps,
@@ -374,7 +240,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
         encodedUpkeeps
       )
     );
-    i_link.transfer(destination, totalBalanceRemaining);
   }
 
   /**
@@ -412,16 +277,5 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
-  }
-
-  /**
-   * @notice sets the upkeep trigger config
-   * @param id the upkeepID to change the trigger for
-   * @param triggerConfig the new trigger config
-   */
-  function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
-    _requireAdminAndNotCancelled(id);
-    s_upkeepTriggerConfig[id] = triggerConfig;
-    emit UpkeepTriggerConfigSet(id, triggerConfig);
   }
 }

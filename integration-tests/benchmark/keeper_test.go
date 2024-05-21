@@ -13,20 +13,19 @@ import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	env_client "github.com/smartcontractkit/chainlink-testing-framework/k8s/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -141,12 +140,14 @@ func TestAutomationBenchmark(t *testing.T) {
 	networkName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
 	testName := fmt.Sprintf("%s%s", networkName, *config.Keeper.Common.RegistryToTest)
 	l.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
-	benchmarkTestNetwork := getNetworkConfig(networkName, &config)
+	benchmarkTestNetwork := getNetworkConfig(&config)
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
+	testNetwork := utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
 
-	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment, l)
-	require.NoError(t, err, "Error connecting to blockchain")
+	chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
+	require.NoError(t, err, "Error getting Seth client")
+
 	registryVersions := addRegistry(&config)
 	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(t,
 		testsetups.KeeperBenchmarkTestInputs{
@@ -165,6 +166,7 @@ func TestAutomationBenchmark(t *testing.T) {
 				FallbackLinkPrice:    big.NewInt(2e18),
 				MaxCheckDataSize:     uint32(5_000),
 				MaxPerformDataSize:   uint32(5_000),
+				MaxRevertDataSize:    uint32(5_000),
 			},
 			Upkeeps: &testsetups.UpkeepConfig{
 				NumberOfUpkeeps:     *config.Keeper.Common.NumberOfUpkeeps,
@@ -191,7 +193,7 @@ func TestAutomationBenchmark(t *testing.T) {
 		},
 	)
 	t.Cleanup(func() {
-		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
+		if err = actions_seth.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
@@ -239,14 +241,15 @@ func repeatRegistries(registryVersion eth_contracts.KeeperRegistryVersion, numbe
 	return repeatedRegistries
 }
 
-func getNetworkConfig(networkName string, config *tc.TestConfig) NetworkConfig {
+func getNetworkConfig(config *tc.TestConfig) NetworkConfig {
+	evmNetwork := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
 	var nc NetworkConfig
 	var ok bool
-	if nc, ok = networkConfig[networkName]; !ok {
-		return defaultNetworkConfig
+	if nc, ok = networkConfig[evmNetwork.Name]; !ok {
+		nc = defaultNetworkConfig
 	}
 
-	if networkName == "SimulatedGeth" || networkName == "geth" {
+	if evmNetwork.Name == networks.SimulatedEVM.Name || evmNetwork.Name == networks.SimulatedEVMNonDev.Name {
 		return nc
 	}
 
@@ -256,61 +259,61 @@ func getNetworkConfig(networkName string, config *tc.TestConfig) NetworkConfig {
 }
 
 var networkConfig = map[string]NetworkConfig{
-	"SimulatedGeth": {
+	networks.SimulatedEVM.Name: {
 		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
-	"geth": {
+	networks.SimulatedEVMNonDev.Name: {
 		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
-	"GoerliTestnet": {
+	networks.GoerliTestnet.Name: {
 		upkeepSLA:  int64(4),
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
 	},
-	"ArbitrumGoerli": {
-		upkeepSLA:  int64(20),
-		blockTime:  time.Second,
-		deltaStage: time.Duration(0),
-	},
-	"OptimismGoerli": {
-		upkeepSLA:  int64(20),
-		blockTime:  time.Second,
-		deltaStage: time.Duration(0),
-	},
-	"SepoliaTestnet": {
+	networks.SepoliaTestnet.Name: {
 		upkeepSLA:  int64(4),
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
 	},
-	"PolygonMumbai": {
+	networks.PolygonMumbai.Name: {
 		upkeepSLA:  int64(4),
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
 	},
-	"BaseGoerli": {
+	networks.BaseSepolia.Name: {
 		upkeepSLA:  int64(60),
 		blockTime:  2 * time.Second,
 		deltaStage: 20 * time.Second,
 	},
-	"ArbitrumSepolia": {
+	networks.ArbitrumSepolia.Name: {
 		upkeepSLA:  int64(120),
 		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 	},
-	"LineaGoerli": {
+	networks.OptimismSepolia.Name: {
 		upkeepSLA:  int64(120),
 		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 	},
-	"GnosisChiado": {
+	networks.LineaGoerli.Name: {
+		upkeepSLA:  int64(120),
+		blockTime:  time.Second,
+		deltaStage: 20 * time.Second,
+	},
+	networks.GnosisChiado.Name: {
 		upkeepSLA:  int64(120),
 		blockTime:  6 * time.Second,
+		deltaStage: 20 * time.Second,
+	},
+	networks.PolygonZkEvmCardona.Name: {
+		upkeepSLA:  int64(120),
+		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 	},
 }
@@ -326,6 +329,10 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 	if strings.Contains(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest, "2_") {
 		numberOfNodes++
 	}
+
+	networkName := strings.ReplaceAll(testNetwork.Name, " ", "-")
+	networkName = strings.ReplaceAll(networkName, "_", "-")
+	testNetwork.Name = networkName
 
 	testEnvironment := environment.New(&environment.Config{
 		TTL: time.Hour * 720, // 30 days,
@@ -381,20 +388,24 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 						},
 					},
 					"geth": map[string]interface{}{
-						"blocktime": blockTime,
+						"blocktime":      blockTime,
+						"capacity":       "20Gi",
+						"startGaslimit":  "20000000",
+						"targetGasLimit": "30000000",
 					},
 				},
 			}))
 	}
 
+	// TODO we need to update the image in CTF, the old one is not available anymore
 	// deploy blockscout if running on simulated
-	if testNetwork.Simulated {
-		testEnvironment.
-			AddChart(blockscout.New(&blockscout.Props{
-				Name:    "geth-blockscout",
-				WsURL:   testNetwork.URLs[0],
-				HttpURL: testNetwork.HTTPURLs[0]}))
-	}
+	// if testNetwork.Simulated {
+	// 	testEnvironment.
+	// 		AddChart(blockscout.New(&blockscout.Props{
+	// 			Name:    "geth-blockscout",
+	// 			WsURL:   testNetwork.URLs[0],
+	// 			HttpURL: testNetwork.HTTPURLs[0]}))
+	// }
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 

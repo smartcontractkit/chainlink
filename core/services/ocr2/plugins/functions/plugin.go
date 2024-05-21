@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	s4_plugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
@@ -40,8 +39,7 @@ type FunctionsServicesConfig struct {
 	Job               job.Job
 	JobORM            job.ORM
 	BridgeORM         bridges.ORM
-	QConfig           pg.QConfig
-	DB                *sqlx.DB
+	DS                sqlutil.DataSource
 	Chain             legacyevm.Chain
 	ContractID        string
 	Logger            logger.Logger
@@ -57,12 +55,14 @@ const (
 	FunctionsS4Namespace                  string = "functions"
 	MaxAdapterResponseBytes               int64  = 1_000_000
 	DefaultOffchainTransmitterChannelSize uint32 = 1000
+	DefaultMaxAdapterRetry                int    = 3
+	DefaultExponentialBackoffBase                = 5 * time.Second
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
 func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOracleArgs, s4OracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
-	pluginORM := functions.NewORM(conf.DB, conf.Logger, conf.QConfig, common.HexToAddress(conf.ContractID))
-	s4ORM := s4.NewPostgresORM(conf.DB, conf.Logger, conf.QConfig, s4.SharedTableName, FunctionsS4Namespace)
+	pluginORM := functions.NewORM(conf.DS, common.HexToAddress(conf.ContractID))
+	s4ORM := s4.NewCachedORMWrapper(s4.NewPostgresORM(conf.DS, s4.SharedTableName, FunctionsS4Namespace), conf.Logger)
 
 	var pluginConfig config.PluginConfig
 	if err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig); err != nil {
@@ -106,7 +106,24 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 
 	offchainTransmitter := functions.NewOffchainTransmitter(DefaultOffchainTransmitterChannelSize)
 	listenerLogger := conf.Logger.Named("FunctionsListener")
-	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
+
+	var maxRetries int
+	if pluginConfig.ExternalAdapterMaxRetries != nil {
+		maxRetries = int(*pluginConfig.ExternalAdapterMaxRetries)
+	} else {
+		maxRetries = DefaultMaxAdapterRetry
+	}
+	conf.Logger.Debugf("external adapter maxRetries configured to: %d", maxRetries)
+
+	var exponentialBackoffBase time.Duration
+	if pluginConfig.ExternalAdapterExponentialBackoffBaseSec != nil {
+		exponentialBackoffBase = time.Duration(*pluginConfig.ExternalAdapterExponentialBackoffBaseSec) * time.Second
+	} else {
+		exponentialBackoffBase = DefaultExponentialBackoffBase
+	}
+	conf.Logger.Debugf("external adapter exponentialBackoffBase configured to: %g sec", exponentialBackoffBase.Seconds())
+
+	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes, maxRetries, exponentialBackoffBase)
 	functionsListener := functions.NewFunctionsListener(
 		conf.Job,
 		conf.Chain.Client(),
@@ -136,7 +153,7 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
 
 	if pluginConfig.GatewayConnectorConfig != nil && s4Storage != nil && pluginConfig.OnchainAllowlist != nil && pluginConfig.RateLimiter != nil && pluginConfig.OnchainSubscriptions != nil {
-		allowlistORM, err := gwAllowlist.NewORM(conf.DB, conf.Logger, conf.QConfig, pluginConfig.OnchainAllowlist.ContractAddress)
+		allowlistORM, err := gwAllowlist.NewORM(conf.DS, conf.Logger, pluginConfig.OnchainAllowlist.ContractAddress)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create allowlist ORM")
 		}
@@ -148,7 +165,7 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a RateLimiter")
 		}
-		subscriptionsORM, err := gwSubscriptions.NewORM(conf.DB, conf.Logger, conf.QConfig, pluginConfig.OnchainSubscriptions.ContractAddress)
+		subscriptionsORM, err := gwSubscriptions.NewORM(conf.DS, conf.Logger, pluginConfig.OnchainSubscriptions.ContractAddress)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create subscriptions ORM")
 		}

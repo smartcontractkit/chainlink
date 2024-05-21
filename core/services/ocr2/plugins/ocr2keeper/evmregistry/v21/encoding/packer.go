@@ -9,24 +9,24 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
 // triggerWrapper is a wrapper for the different trigger types (log and condition triggers).
 // NOTE: we use log trigger because it extends condition trigger,
-type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
+type triggerWrapper = ac.IAutomationV21PlusCommonLogTrigger
 
 type abiPacker struct {
-	registryABI abi.ABI
-	utilsABI    abi.ABI
-	streamsABI  abi.ABI
+	autoV2CommonABI abi.ABI
+	utilsABI        abi.ABI
+	streamsABI      abi.ABI
 }
 
 var _ Packer = (*abiPacker)(nil)
 
 func NewAbiPacker() *abiPacker {
-	return &abiPacker{registryABI: core.RegistryABI, utilsABI: core.UtilsABI, streamsABI: core.StreamsCompatibleABI}
+	return &abiPacker{autoV2CommonABI: core.AutoV2CommonABI, utilsABI: core.CompatibleUtilsABI, streamsABI: core.StreamsCompatibleABI}
 }
 
 func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
@@ -37,7 +37,7 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 			fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", payload.UpkeepID.String(), raw, err)
 	}
 
-	out, err := p.registryABI.Methods["checkUpkeep"].Outputs.UnpackValues(b)
+	out, err := p.autoV2CommonABI.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		// unpack failed, not retryable
 		return GetIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
@@ -72,7 +72,7 @@ func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, boo
 		return PackUnpackDecodeFailed, false, err
 	}
 
-	out, err := p.registryABI.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
+	out, err := p.autoV2CommonABI.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return PackUnpackDecodeFailed, false, err
 	}
@@ -81,15 +81,15 @@ func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, boo
 }
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
-func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
-	var cfg automation_utils_2_1.LogTriggerConfig
+func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV21PlusCommonLogTriggerConfig, error) {
+	var cfg ac.IAutomationV21PlusCommonLogTriggerConfig
 
-	out, err := core.UtilsABI.Methods["_logTriggerConfig"].Inputs.UnpackValues(raw)
+	out, err := core.CompatibleUtilsABI.Methods["_logTriggerConfig"].Inputs.UnpackValues(raw)
 	if err != nil {
 		return cfg, fmt.Errorf("%w: unpack _logTriggerConfig return: %s", err, raw)
 	}
 
-	converted, ok := abi.ConvertType(out[0], new(automation_utils_2_1.LogTriggerConfig)).(*automation_utils_2_1.LogTriggerConfig)
+	converted, ok := abi.ConvertType(out[0], new(ac.IAutomationV21PlusCommonLogTriggerConfig)).(*ac.IAutomationV21PlusCommonLogTriggerConfig)
 	if !ok {
 		return cfg, fmt.Errorf("failed to convert type during UnpackLogTriggerConfig")
 	}
@@ -97,7 +97,7 @@ func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.Log
 }
 
 // PackReport packs the report with abi definitions from the contract.
-func (p *abiPacker) PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error) {
+func (p *abiPacker) PackReport(report ac.IAutomationV21PlusCommonReport) ([]byte, error) {
 	bts, err := p.utilsABI.Methods["_report"].Inputs.Pack(&report)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to pack report", err)
@@ -106,16 +106,16 @@ func (p *abiPacker) PackReport(report automation_utils_2_1.KeeperRegistryBase21R
 }
 
 // UnpackReport unpacks the report from the given raw data.
-func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error) {
+func (p *abiPacker) UnpackReport(raw []byte) (ac.IAutomationV21PlusCommonReport, error) {
 	unpacked, err := p.utilsABI.Methods["_report"].Inputs.Unpack(raw)
 	if err != nil {
-		return automation_utils_2_1.KeeperRegistryBase21Report{}, fmt.Errorf("%w: failed to unpack report", err)
+		return ac.IAutomationV21PlusCommonReport{}, fmt.Errorf("%w: failed to unpack report", err)
 	}
-	converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21Report)).(*automation_utils_2_1.KeeperRegistryBase21Report)
+	converted, ok := abi.ConvertType(unpacked[0], new(ac.IAutomationV21PlusCommonReport)).(*ac.IAutomationV21PlusCommonReport)
 	if !ok {
-		return automation_utils_2_1.KeeperRegistryBase21Report{}, fmt.Errorf("failed to convert type")
+		return ac.IAutomationV21PlusCommonReport{}, fmt.Errorf("failed to convert type")
 	}
-	report := automation_utils_2_1.KeeperRegistryBase21Report{
+	report := ac.IAutomationV21PlusCommonReport{
 		FastGasWei:   converted.FastGasWei,
 		LinkNative:   converted.LinkNative,
 		UpkeepIds:    make([]*big.Int, len(converted.UpkeepIds)),

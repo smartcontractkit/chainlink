@@ -18,13 +18,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
 	v03 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v03"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -42,7 +43,7 @@ type latestBlockProvider interface {
 
 type streamRegistry interface {
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
-	CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error)
+	CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (autov2common.CheckCallback, error)
 	Address() common.Address
 }
 
@@ -83,7 +84,7 @@ func NewStreamsLookup(
 	return &streams{
 		packer:          packer,
 		mercuryConfig:   mercuryConfig,
-		abi:             core.RegistryABI,
+		abi:             core.AutoV2CommonABI,
 		blockSubscriber: blockSubscriber,
 		registry:        registry,
 		client:          client,
@@ -121,6 +122,7 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 	lookupLggr := s.lggr.With("where", "StreamsLookup")
 	if checkResult.IneligibilityReason != uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
 		// Streams Lookup only works when upkeep target check reverts
+		prommetrics.AutomationStreamsLookupError.WithLabelValues(prommetrics.StreamsLookupErrorReasonNotReverted).Inc()
 		return
 	}
 
@@ -134,11 +136,13 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 	if err != nil {
 		lookupLggr.Debugf("at block %d upkeep %s DecodeStreamsLookupRequest failed: %v", block, upkeepId, err)
 		// user contract did not revert with StreamsLookup error
+		prommetrics.AutomationStreamsLookupError.WithLabelValues(prommetrics.StreamsLookupErrorDecodeRequestFailed).Inc()
 		return
 	}
 	streamsLookupResponse := &mercury.StreamsLookup{StreamsLookupError: streamsLookupErr}
 	if s.mercuryConfig.Credentials() == nil {
 		lookupLggr.Errorf("at block %d upkeep %s tries to access mercury server but mercury credential is not configured", block, upkeepId)
+		prommetrics.AutomationStreamsLookupError.WithLabelValues(prommetrics.StreamsLookupErrorCredentialsNotConfigured).Inc()
 		return
 	}
 
@@ -179,6 +183,7 @@ func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *merc
 	values, errCode, err := s.DoMercuryRequest(ctx, lookup, checkResults, i)
 	if err != nil {
 		s.lggr.Errorf("at block %d upkeep %s requested time %s DoMercuryRequest err: %s", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error())
+		prommetrics.AutomationStreamsLookupError.WithLabelValues(prommetrics.StreamsLookupErrorDoMercuryRequest).Inc()
 		return
 	}
 
@@ -187,6 +192,7 @@ func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *merc
 		if err != nil {
 			s.lggr.Errorf("at block %d upkeep %s requested time %s CheckErrorHandler err: %s", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error())
 		}
+		prommetrics.AutomationStreamsLookupError.WithLabelValues(prommetrics.StreamsLookupErrorCodeNotNil).Inc()
 		return
 	}
 
@@ -194,10 +200,12 @@ func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *merc
 	err = s.CheckCallback(ctx, values, lookup, checkResults, i)
 	if err != nil {
 		s.lggr.Errorf("at block %d upkeep %s requested time %s CheckCallback err: %s", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error())
+		prommetrics.AutomationStreamsLookupError.WithLabelValues(prommetrics.StreamsLookupErrorCheckCallback).Inc()
 	}
 }
 
 func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
+	prommetrics.AutomationStreamsLookupStep.WithLabelValues(prommetrics.StreamsLookupStepCheckCallback).Inc()
 	payload, err := s.abi.Pack("checkCallback", lookup.UpkeepId, values, lookup.ExtraData)
 	if err != nil {
 		checkResults[i].Retryable = false
@@ -243,6 +251,7 @@ func (s *streams) makeCallbackEthCall(ctx context.Context, payload []byte, looku
 // Does the mercury request for the checkResult. Returns either the looked up values or an error code if something is wrong with mercury
 // In case of any pipeline processing issues, returns an error and also sets approriate state on the checkResult itself
 func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) ([][]byte, encoding.ErrCode, error) {
+	prommetrics.AutomationStreamsLookupStep.WithLabelValues(prommetrics.StreamsLookupStepDoMercuryRequest).Inc()
 	var state, values, errCode, retryable, retryInterval = encoding.NoPipelineError, [][]byte{}, encoding.ErrCodeNil, false, 0 * time.Second
 	var err error
 	pluginRetryKey := generatePluginRetryKey(checkResults[i].WorkID, lookup.Block)
@@ -276,11 +285,13 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 
 func (s *streams) CheckErrorHandler(ctx context.Context, errCode encoding.ErrCode, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
 	s.lggr.Debugf("at block %d upkeep %s requested time %s CheckErrorHandler error code: %d", lookup.Block, lookup.UpkeepId, lookup.Time, errCode)
+	prommetrics.AutomationStreamsLookupStep.WithLabelValues(prommetrics.StreamsLookupStepCheckErrorHandler).Inc()
 
 	userPayload, err := s.packer.PackUserCheckErrorHandler(errCode, lookup.ExtraData)
 	if err != nil {
 		checkResults[i].Retryable = false
 		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+		prommetrics.AutomationStreamsLookupError.WithLabelValues(prommetrics.StreamsLookupErrorPackUserCheckErrorHandler).Inc()
 		return err
 	}
 
@@ -288,6 +299,7 @@ func (s *streams) CheckErrorHandler(ctx context.Context, errCode encoding.ErrCod
 	if err != nil {
 		checkResults[i].Retryable = false
 		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+		prommetrics.AutomationStreamsLookupError.WithLabelValues(prommetrics.StreamsLookupErrorPackExecuteCallback).Inc()
 		return err
 	}
 

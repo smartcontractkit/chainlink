@@ -22,6 +22,10 @@ var (
 		Name: "pool_rpc_node_highest_seen_block",
 		Help: "The highest seen block for the given RPC node",
 	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeHighestFinalizedBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pool_rpc_node_highest_finalized_block",
+		Help: "The highest seen finalized block for the given RPC node",
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeNumSeenBlocks = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_seen_blocks",
 		Help: "The total number of new blocks seen by the given RPC node",
@@ -88,7 +92,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		}
 	}
 
-	noNewHeadsTimeoutThreshold := n.noNewHeadsThreshold
+	noNewHeadsTimeoutThreshold := n.chainCfg.NodeNoNewHeadsThreshold()
 	pollFailureThreshold := n.nodePoolCfg.PollFailureThreshold()
 	pollInterval := n.nodePoolCfg.PollInterval()
 
@@ -132,6 +136,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		}
 	} else {
 		lggr.Debug("Polling disabled")
+	}
+
+	var pollFinalizedHeadCh <-chan time.Time
+	if n.chainCfg.FinalityTagEnabled() && n.nodePoolCfg.FinalizedBlockPollInterval() > 0 {
+		lggr.Debugw("Finalized block polling enabled")
+		pollT := time.NewTicker(n.nodePoolCfg.FinalizedBlockPollInterval())
+		defer pollT.Stop()
+		pollFinalizedHeadCh = pollT.C
 	}
 
 	_, highestReceivedBlockNumber, _ := n.StateAndLatest()
@@ -201,6 +213,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
 			}
 			n.setLatestReceived(bh.BlockNumber(), bh.BlockDifficulty())
+			if !n.chainCfg.FinalityTagEnabled() {
+				latestFinalizedBN := max(bh.BlockNumber()-int64(n.chainCfg.FinalityDepth()), 0)
+				if latestFinalizedBN > n.stateLatestFinalizedBlockNumber {
+					promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
+					n.stateLatestFinalizedBlockNumber = latestFinalizedBN
+				}
+			}
 		case err := <-sub.Err():
 			lggr.Errorw("Subscription was terminated", "err", err, "nodeState", n.State())
 			n.declareUnreachable()
@@ -214,12 +233,31 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state
-					outOfSyncT.Reset(zombieNodeCheckInterval(n.noNewHeadsThreshold))
+					outOfSyncT.Reset(zombieNodeCheckInterval(noNewHeadsTimeoutThreshold))
 					continue
 				}
 			}
 			n.declareOutOfSync(func(num int64, td *big.Int) bool { return num < highestReceivedBlockNumber })
 			return
+		case <-pollFinalizedHeadCh:
+			ctx, cancel := context.WithTimeout(n.nodeCtx, n.nodePoolCfg.FinalizedBlockPollInterval())
+			latestFinalized, err := n.RPC().LatestFinalizedBlock(ctx)
+			cancel()
+			if err != nil {
+				lggr.Warnw("Failed to fetch latest finalized block", "err", err)
+				continue
+			}
+
+			if !latestFinalized.IsValid() {
+				lggr.Warn("Latest finalized block is not valid")
+				continue
+			}
+
+			latestFinalizedBN := latestFinalized.BlockNumber()
+			if latestFinalizedBN > n.stateLatestFinalizedBlockNumber {
+				promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
+				n.stateLatestFinalizedBlockNumber = latestFinalizedBN
+			}
 		}
 	}
 }
@@ -316,7 +354,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 				return
 			}
 			lggr.Debugw(msgReceivedBlock, "blockNumber", head.BlockNumber(), "blockDifficulty", head.BlockDifficulty(), "nodeState", n.State())
-		case <-time.After(zombieNodeCheckInterval(n.noNewHeadsThreshold)):
+		case <-time.After(zombieNodeCheckInterval(n.chainCfg.NodeNoNewHeadsThreshold())):
 			if n.nLiveNodes != nil {
 				if l, _, _ := n.nLiveNodes(); l < 1 {
 					lggr.Critical("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
@@ -485,6 +523,5 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 			n.declareAlive()
 			return
 		}
-
 	}
 }

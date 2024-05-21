@@ -33,7 +33,7 @@ func TestDelegate_JobType(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	delegate := blockhashstore.NewDelegate(lggr, nil, nil)
+	delegate := blockhashstore.NewDelegate(nil, lggr, nil, nil)
 
 	assert.Equal(t, job.BlockhashStore, delegate.JobType())
 }
@@ -55,11 +55,11 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 		c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 	})
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	kst := cltest.NewKeyStore(t, db).Eth()
 	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
 	lp := &mocklp.LogPoller{}
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 
 	relayExtenders := evmtest.NewChainRelayExtenders(
 		t,
@@ -72,7 +72,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 		},
 	)
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	return blockhashstore.NewDelegate(lggr, legacyChains, kst), &testData{
+	return blockhashstore.NewDelegate(cfg, lggr, legacyChains, kst), &testData{
 		ethClient:    ethClient,
 		ethKeyStore:  kst,
 		legacyChains: legacyChains,

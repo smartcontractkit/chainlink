@@ -12,22 +12,21 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	automation21Utils "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
 func TestPacker_PackReport(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
-		report     automation21Utils.KeeperRegistryBase21Report
+		report     ac.IAutomationV21PlusCommonReport
 		expectsErr bool
 		wantErr    error
 		wantBytes  int
 	}{
 		{
 			name: "all non-nil values get encoded to a byte array of a specific length",
-			report: automation21Utils.KeeperRegistryBase21Report{
+			report: ac.IAutomationV21PlusCommonReport{
 				FastGasWei: big.NewInt(0),
 				LinkNative: big.NewInt(0),
 				UpkeepIds:  []*big.Int{big.NewInt(3)},
@@ -43,7 +42,7 @@ func TestPacker_PackReport(t *testing.T) {
 		},
 		{
 			name: "if upkeep IDs are nil, the packed report is smaller",
-			report: automation21Utils.KeeperRegistryBase21Report{
+			report: ac.IAutomationV21PlusCommonReport{
 				FastGasWei: big.NewInt(1),
 				LinkNative: big.NewInt(2),
 				UpkeepIds:  nil,
@@ -59,7 +58,7 @@ func TestPacker_PackReport(t *testing.T) {
 		},
 		{
 			name: "if gas limits are nil, the packed report is smaller",
-			report: automation21Utils.KeeperRegistryBase21Report{
+			report: ac.IAutomationV21PlusCommonReport{
 				FastGasWei: big.NewInt(1),
 				LinkNative: big.NewInt(2),
 				UpkeepIds:  []*big.Int{big.NewInt(3)},
@@ -75,7 +74,7 @@ func TestPacker_PackReport(t *testing.T) {
 		},
 		{
 			name: "if perform datas are nil, the packed report is smaller",
-			report: automation21Utils.KeeperRegistryBase21Report{
+			report: ac.IAutomationV21PlusCommonReport{
 				FastGasWei: big.NewInt(1),
 				LinkNative: big.NewInt(2),
 				UpkeepIds:  []*big.Int{big.NewInt(3)},
@@ -89,7 +88,7 @@ func TestPacker_PackReport(t *testing.T) {
 		},
 		{
 			name: "if triggers are nil, the packed report is smaller",
-			report: automation21Utils.KeeperRegistryBase21Report{
+			report: ac.IAutomationV21PlusCommonReport{
 				FastGasWei: big.NewInt(1),
 				LinkNative: big.NewInt(2),
 				UpkeepIds:  []*big.Int{big.NewInt(3)},
@@ -232,7 +231,7 @@ func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		raw     []byte
-		res     automation21Utils.LogTriggerConfig
+		res     ac.IAutomationV21PlusCommonLogTriggerConfig
 		errored bool
 	}{
 		{
@@ -241,7 +240,7 @@ func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 				b, _ := hexutil.Decode("0x0000000000000000000000007456fadf415b7c34b1182bd20b0537977e945e3e00000000000000000000000000000000000000000000000000000000000000003d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 				return b
 			}(),
-			automation21Utils.LogTriggerConfig{
+			ac.IAutomationV21PlusCommonLogTriggerConfig{
 				ContractAddress: common.HexToAddress("0x7456FadF415b7c34B1182Bd20B0537977e945e3E"),
 				Topic0:          [32]uint8{0x3d, 0x53, 0xa3, 0x95, 0x50, 0xe0, 0x46, 0x88, 0x6, 0x58, 0x27, 0xf3, 0xbb, 0x86, 0x58, 0x4c, 0xb0, 0x7, 0xab, 0x9e, 0xbc, 0xa7, 0xeb, 0xd5, 0x28, 0xe7, 0x30, 0x1c, 0x9c, 0x31, 0xeb, 0x5d},
 			},
@@ -253,7 +252,7 @@ func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 				b, _ := hexutil.Decode("0x000000000000000000000000b1182bd20b0537977e945e3e00000000000000000000000000000000000000000000000000000000000000003d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 				return b
 			}(),
-			automation21Utils.LogTriggerConfig{},
+			ac.IAutomationV21PlusCommonLogTriggerConfig{},
 			true,
 		},
 	}
@@ -273,7 +272,7 @@ func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 }
 
 func TestPacker_PackReport_UnpackReport(t *testing.T) {
-	report := automation_utils_2_1.KeeperRegistryBase21Report{
+	report := ac.IAutomationV21PlusCommonReport{
 		FastGasWei:   big.NewInt(1),
 		LinkNative:   big.NewInt(1),
 		UpkeepIds:    []*big.Int{big.NewInt(1), big.NewInt(2)},

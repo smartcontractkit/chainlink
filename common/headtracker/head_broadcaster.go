@@ -16,17 +16,36 @@ import (
 
 const TrackableCallbackTimeout = 2 * time.Second
 
-type callbackSet[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] map[int]types.HeadTrackable[H, BLOCK_HASH]
+type callbackSet[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] map[int]HeadTrackable[H, BLOCK_HASH]
 
-func (set callbackSet[H, BLOCK_HASH]) values() []types.HeadTrackable[H, BLOCK_HASH] {
-	var values []types.HeadTrackable[H, BLOCK_HASH]
+func (set callbackSet[H, BLOCK_HASH]) values() []HeadTrackable[H, BLOCK_HASH] {
+	var values []HeadTrackable[H, BLOCK_HASH]
 	for _, callback := range set {
 		values = append(values, callback)
 	}
 	return values
 }
 
-type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+// HeadTrackable is implemented by the core txm to be able to receive head events from any chain.
+// Chain implementations should notify head events to the core txm via this interface.
+//
+//go:generate mockery --quiet --name HeadTrackable --output ./mocks/ --case=underscore
+type HeadTrackable[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+	// OnNewLongestChain sends a new head when it becomes available. Subscribers can recursively trace the parent
+	// of the head to the finalized block back.
+	OnNewLongestChain(ctx context.Context, head H)
+}
+
+// HeadBroadcaster relays new Heads to all subscribers.
+//
+//go:generate mockery --quiet --name HeadBroadcaster --output ./mocks/ --case=underscore
+type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+	services.Service
+	BroadcastNewLongestChain(H)
+	Subscribe(callback HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func())
+}
+
+type headBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
 	services.StateMachine
 	logger         logger.Logger
 	callbacks      callbackSet[H, BLOCK_HASH]
@@ -44,8 +63,8 @@ func NewHeadBroadcaster[
 	BLOCK_HASH types.Hashable,
 ](
 	lggr logger.Logger,
-) *HeadBroadcaster[H, BLOCK_HASH] {
-	return &HeadBroadcaster[H, BLOCK_HASH]{
+) HeadBroadcaster[H, BLOCK_HASH] {
+	return &headBroadcaster[H, BLOCK_HASH]{
 		logger:    logger.Named(lggr, "HeadBroadcaster"),
 		callbacks: make(callbackSet[H, BLOCK_HASH]),
 		mailbox:   mailbox.NewSingle[H](),
@@ -53,7 +72,7 @@ func NewHeadBroadcaster[
 	}
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) Start(context.Context) error {
+func (hb *headBroadcaster[H, BLOCK_HASH]) Start(context.Context) error {
 	return hb.StartOnce("HeadBroadcaster", func() error {
 		hb.wgDone.Add(1)
 		go hb.run()
@@ -61,7 +80,7 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) Start(context.Context) error {
 	})
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) Close() error {
+func (hb *headBroadcaster[H, BLOCK_HASH]) Close() error {
 	return hb.StopOnce("HeadBroadcaster", func() error {
 		hb.mutex.Lock()
 		// clear all callbacks
@@ -74,21 +93,21 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) Close() error {
 	})
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) Name() string {
+func (hb *headBroadcaster[H, BLOCK_HASH]) Name() string {
 	return hb.logger.Name()
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) HealthReport() map[string]error {
+func (hb *headBroadcaster[H, BLOCK_HASH]) HealthReport() map[string]error {
 	return map[string]error{hb.Name(): hb.Healthy()}
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) BroadcastNewLongestChain(head H) {
+func (hb *headBroadcaster[H, BLOCK_HASH]) BroadcastNewLongestChain(head H) {
 	hb.mailbox.Deliver(head)
 }
 
 // Subscribe subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) Subscribe(callback types.HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func()) {
+func (hb *headBroadcaster[H, BLOCK_HASH]) Subscribe(callback HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func()) {
 	hb.mutex.Lock()
 	defer hb.mutex.Unlock()
 
@@ -106,7 +125,7 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) Subscribe(callback types.HeadTrackable
 	return
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) run() {
+func (hb *headBroadcaster[H, BLOCK_HASH]) run() {
 	defer hb.wgDone.Done()
 
 	for {
@@ -122,7 +141,7 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) run() {
 // DEV: the head relayer makes no promises about head delivery! Subscribing
 // Jobs should expect to the relayer to skip heads if there is a large number of listeners
 // and all callbacks cannot be completed in the allotted time.
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
+func (hb *headBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
 	head, exists := hb.mailbox.Retrieve()
 	if !exists {
 		hb.logger.Info("No head to retrieve. It might have been skipped")
@@ -146,7 +165,7 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
 	defer cancel()
 
 	for _, callback := range callbacks {
-		go func(trackable types.HeadTrackable[H, BLOCK_HASH]) {
+		go func(trackable HeadTrackable[H, BLOCK_HASH]) {
 			defer wg.Done()
 			start := time.Now()
 			cctx, cancel := context.WithTimeout(ctx, TrackableCallbackTimeout)

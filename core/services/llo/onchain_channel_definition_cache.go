@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -89,7 +88,7 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 func (c *channelDefinitionCache) Start(ctx context.Context) error {
 	// Initial load from DB, then async poll from chain thereafter
 	return c.StartOnce("ChannelDefinitionCache", func() (err error) {
-		err = c.lp.RegisterFilter(logpoller.Filter{Name: c.filterName, EventSigs: allTopics, Addresses: []common.Address{c.addr}}, pg.WithParentCtx(ctx))
+		err = c.lp.RegisterFilter(ctx, logpoller.Filter{Name: c.filterName, EventSigs: allTopics, Addresses: []common.Address{c.addr}})
 		if err != nil {
 			return err
 		}
@@ -140,8 +139,10 @@ func (c *channelDefinitionCache) poll() {
 
 func (c *channelDefinitionCache) fetchFromChain() (nLogs int, err error) {
 	// TODO: Pass context
+	ctx, cancel := services.StopChan(c.chStop).NewCtx()
+	defer cancel()
 	// https://smartcontract-it.atlassian.net/browse/MERC-3653
-	latest, err := c.lp.LatestBlock()
+	latest, err := c.lp.LatestBlock(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		c.lggr.Debug("Logpoller has no logs yet, skipping poll")
 		return 0, nil
@@ -156,10 +157,8 @@ func (c *channelDefinitionCache) fetchFromChain() (nLogs int, err error) {
 		return 0, nil
 	}
 
-	ctx, cancel := services.StopChan(c.chStop).NewCtx()
-	defer cancel()
 	// NOTE: We assume that log poller returns logs in ascending order chronologically
-	logs, err := c.lp.LogsWithSigs(fromBlock, toBlock, allTopics, c.addr, pg.WithParentCtx(ctx))
+	logs, err := c.lp.LogsWithSigs(ctx, fromBlock, toBlock, allTopics, c.addr)
 	if err != nil {
 		// TODO: retry?
 		// https://smartcontract-it.atlassian.net/browse/MERC-3653

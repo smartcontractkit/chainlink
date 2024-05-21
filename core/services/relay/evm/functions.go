@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -115,7 +114,7 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 	if err != nil {
 		return nil, err
 	}
-	configWatcher, err := newFunctionsConfigProvider(pluginType, chain, rargs, relayConfig.FromBlock, logPollerWrapper, lggr)
+	configWatcher, err := newFunctionsConfigProvider(ctx, pluginType, chain, rargs, relayConfig.FromBlock, logPollerWrapper, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +134,7 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 	}, nil
 }
 
-func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
+func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
 	if !common.IsHexAddress(args.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
@@ -146,10 +145,10 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 	if err != nil {
 		return nil, err
 	}
-	logPollerWrapper.SubscribeToUpdates("FunctionsConfigPoller", cp)
+	logPollerWrapper.SubscribeToUpdates(ctx, "FunctionsConfigPoller", cp)
 
 	offchainConfigDigester := functionsRelay.NewFunctionsOffchainConfigDigester(pluginType, chain.ID().Uint64())
-	logPollerWrapper.SubscribeToUpdates("FunctionsOffchainConfigDigester", offchainConfigDigester)
+	logPollerWrapper.SubscribeToUpdates(ctx, "FunctionsOffchainConfigDigester", offchainConfigDigester)
 
 	return newConfigWatcher(lggr, routerContractAddress, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
@@ -183,11 +182,10 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
 
-	scoped := configWatcher.chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, relayConfig.DefaultTransactionQueueDepth)
 
 	var checker txm.TransmitCheckerSpec
-	if configWatcher.chain.Config().OCR2().SimulateTransactions() {
+	if relayConfig.SimulateTransactions {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
@@ -197,7 +195,12 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		gasLimit = uint64(*ocr2Limit)
 	}
 
-	transmitter, err := ocrcommon.NewTransmitter(
+	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(
+		configWatcher.chain.Client(),
+		OCR2AggregatorTransmissionContractABI,
+		configWatcher.chain.LogPoller(),
+		lggr,
+		contractVersion,
 		configWatcher.chain.TxManager(),
 		fromAddresses,
 		gasLimit,
@@ -207,23 +210,9 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		configWatcher.chain.ID(),
 		ethKeystore,
 	)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create transmitter")
-	}
-
-	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(
-		configWatcher.chain.Client(),
-		OCR2AggregatorTransmissionContractABI,
-		transmitter,
-		configWatcher.chain.LogPoller(),
-		lggr,
-		nil,
-		contractVersion,
-	)
 	if err != nil {
 		return nil, err
 	}
-	logPollerWrapper.SubscribeToUpdates("FunctionsConfigTransmitter", functionsTransmitter)
+	logPollerWrapper.SubscribeToUpdates(ctx, "FunctionsConfigTransmitter", functionsTransmitter)
 	return functionsTransmitter, err
 }

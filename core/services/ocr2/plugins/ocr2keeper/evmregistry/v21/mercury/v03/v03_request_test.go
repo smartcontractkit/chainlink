@@ -99,6 +99,7 @@ func setupClient(t *testing.T) *client {
 }
 
 func TestV03_DoMercuryRequestV03(t *testing.T) {
+	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 
 	tests := []struct {
@@ -179,6 +180,7 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 }
 
 func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
+	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
 
@@ -230,6 +232,7 @@ func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
 }
 
 func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
+	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
 
@@ -286,6 +289,7 @@ func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
 }
 
 func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T) {
+	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
 
@@ -342,6 +346,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T
 }
 
 func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
+	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
 
@@ -412,6 +417,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
 }
 
 func TestV03_MultiFeedRequest(t *testing.T) {
+	t.Parallel()
 	upkeepId := big.NewInt(123456789)
 	tests := []struct {
 		name           string

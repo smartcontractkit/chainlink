@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -279,7 +280,7 @@ func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (data webauthn
 	return
 }
 
-func AddCredentialToUser(ap AuthenticationProvider, email string, credential *webauthn.Credential) error {
+func AddCredentialToUser(ctx context.Context, ap AuthenticationProvider, email string, credential *webauthn.Credential) error {
 	credj, err := json.Marshal(credential)
 	if err != nil {
 		return err
@@ -289,5 +290,5 @@ func AddCredentialToUser(ap AuthenticationProvider, email string, credential *we
 		Email:         email,
 		PublicKeyData: sqlxTypes.JSONText(credj),
 	}
-	return ap.SaveWebAuthn(&token)
+	return ap.SaveWebAuthn(ctx, &token)
 }

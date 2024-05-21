@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 // GetUpkeepFailure implements the upkeepGetter interface with an induced error and nil
@@ -27,12 +27,13 @@ func (g *GetUpkeepFailure) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepC
 }
 
 func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
+	ctx := testutils.Context(t)
 	log, logObserver := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	synchronizer := &RegistrySynchronizer{
 		logger: log.(logger.SugaredLogger),
 	}
 
-	addr := ethkey.EIP55Address(testutils.NewAddress().Hex())
+	addr := types.EIP55Address(testutils.NewAddress().Hex())
 	registry := Registry{
 		ContractAddress: addr,
 	}
@@ -49,7 +50,7 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 	}
 
 	getter := &GetUpkeepFailure{}
-	synchronizer.syncUpkeepWithCallback(getter, registry, id, doneFunc)
+	synchronizer.syncUpkeepWithCallback(ctx, getter, registry, id, doneFunc)
 
 	// logs should have the upkeep identifier included in the error context properly formatted
 	require.Equal(t, 1, logObserver.Len())

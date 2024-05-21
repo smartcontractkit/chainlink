@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-func newMercuryConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (commontypes.ConfigProvider, error) {
+func newMercuryConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (commontypes.ConfigProvider, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, errors.New("invalid contractID, expected hex address")
 	}
@@ -29,6 +30,7 @@ func newMercuryConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *t
 		return nil, errors.New("feed ID is required for tracking config on mercury contracts")
 	}
 	cp, err := mercury.NewConfigPoller(
+		ctx,
 		lggr.Named(relayConfig.FeedID.String()),
 		chain.LogPoller(),
 		aggregatorAddress,

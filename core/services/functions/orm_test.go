@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 )
 
@@ -28,9 +27,8 @@ func setupORM(t *testing.T) functions.ORM {
 
 	var (
 		db       = pgtest.NewSqlxDB(t)
-		lggr     = logger.TestLogger(t)
 		contract = testutils.NewAddress()
-		orm      = functions.NewORM(db, lggr, pgtest.NewQConfig(true), contract)
+		orm      = functions.NewORM(db, contract)
 	)
 
 	return orm
@@ -47,6 +45,7 @@ func createRequest(t *testing.T, orm functions.ORM) (functions.RequestID, common
 }
 
 func createRequestWithTimestamp(t *testing.T, orm functions.ORM, ts time.Time) (functions.RequestID, common.Hash) {
+	ctx := testutils.Context(t)
 	id := newRequestID()
 	txHash := utils.RandomHash()
 	newReq := &functions.Request{
@@ -59,19 +58,20 @@ func createRequestWithTimestamp(t *testing.T, orm functions.ORM, ts time.Time) (
 		CoordinatorContractAddress: &defaultCoordinatorContract,
 		OnchainMetadata:            defaultMetadata,
 	}
-	err := orm.CreateRequest(newReq)
+	err := orm.CreateRequest(ctx, newReq)
 	require.NoError(t, err)
 	return id, txHash
 }
 
 func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	id1, txHash1, ts1 := createRequest(t, orm)
 	id2, txHash2, ts2 := createRequest(t, orm)
 
-	req1, err := orm.FindById(id1)
+	req1, err := orm.FindById(ctx, id1)
 	require.NoError(t, err)
 	require.Equal(t, id1, req1.RequestID)
 	require.Equal(t, &txHash1, req1.RequestTxHash)
@@ -83,7 +83,7 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	require.Equal(t, defaultCoordinatorContract, *req1.CoordinatorContractAddress)
 	require.Equal(t, defaultMetadata, req1.OnchainMetadata)
 
-	req2, err := orm.FindById(id2)
+	req2, err := orm.FindById(ctx, id2)
 	require.NoError(t, err)
 	require.Equal(t, id2, req2.RequestID)
 	require.Equal(t, &txHash2, req2.RequestTxHash)
@@ -91,14 +91,14 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	require.Equal(t, functions.IN_PROGRESS, req2.State)
 
 	t.Run("missing ID", func(t *testing.T) {
-		req, err := orm.FindById(newRequestID())
+		req, err := orm.FindById(testutils.Context(t), newRequestID())
 		require.Error(t, err)
 		require.Nil(t, req)
 	})
 
 	t.Run("duplicated", func(t *testing.T) {
 		newReq := &functions.Request{RequestID: id1, RequestTxHash: &txHash1, ReceivedAt: ts1}
-		err := orm.CreateRequest(newReq)
+		err := orm.CreateRequest(testutils.Context(t), newReq)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, functions.ErrDuplicateRequestID))
 	})
@@ -106,15 +106,16 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 
 func TestORM_SetResult(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err := orm.SetResult(id, []byte("result"), rdts)
+	err := orm.SetResult(ctx, id, []byte("result"), rdts)
 	require.NoError(t, err)
 
-	req, err := orm.FindById(id)
+	req, err := orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, id, req.RequestID)
 	require.Equal(t, ts, req.ReceivedAt)
@@ -126,15 +127,16 @@ func TestORM_SetResult(t *testing.T) {
 
 func TestORM_SetError(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err := orm.SetError(id, functions.USER_ERROR, []byte("error"), rdts, true)
+	err := orm.SetError(ctx, id, functions.USER_ERROR, []byte("error"), rdts, true)
 	require.NoError(t, err)
 
-	req, err := orm.FindById(id)
+	req, err := orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, id, req.RequestID)
 	require.Equal(t, ts, req.ReceivedAt)
@@ -148,15 +150,16 @@ func TestORM_SetError(t *testing.T) {
 
 func TestORM_SetError_Internal(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err := orm.SetError(id, functions.INTERNAL_ERROR, []byte("error"), rdts, false)
+	err := orm.SetError(ctx, id, functions.INTERNAL_ERROR, []byte("error"), rdts, false)
 	require.NoError(t, err)
 
-	req, err := orm.FindById(id)
+	req, err := orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, id, req.RequestID)
 	require.Equal(t, ts, req.ReceivedAt)
@@ -167,14 +170,15 @@ func TestORM_SetError_Internal(t *testing.T) {
 
 func TestORM_SetFinalized(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	id, _, _ := createRequest(t, orm)
 
-	err := orm.SetFinalized(id, []byte("result"), []byte("error"))
+	err := orm.SetFinalized(ctx, id, []byte("result"), []byte("error"))
 	require.NoError(t, err)
 
-	req, err := orm.FindById(id)
+	req, err := orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, []byte("result"), req.TransmittedResult)
 	require.Equal(t, []byte("error"), req.TransmittedError)
@@ -183,49 +187,51 @@ func TestORM_SetFinalized(t *testing.T) {
 
 func TestORM_SetConfirmed(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	id, _, _ := createRequest(t, orm)
 
-	err := orm.SetConfirmed(id)
+	err := orm.SetConfirmed(ctx, id)
 	require.NoError(t, err)
 
-	req, err := orm.FindById(id)
+	req, err := orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, functions.CONFIRMED, req.State)
 }
 
 func TestORM_StateTransitions(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	now := time.Now()
 	id, _ := createRequestWithTimestamp(t, orm, now)
-	req, err := orm.FindById(id)
+	req, err := orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, functions.IN_PROGRESS, req.State)
 
-	err = orm.SetResult(id, []byte{}, now)
+	err = orm.SetResult(ctx, id, []byte{}, now)
 	require.NoError(t, err)
-	req, err = orm.FindById(id)
+	req, err = orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, functions.RESULT_READY, req.State)
 
-	_, err = orm.TimeoutExpiredResults(now.Add(time.Minute), 1)
+	_, err = orm.TimeoutExpiredResults(ctx, now.Add(time.Minute), 1)
 	require.NoError(t, err)
-	req, err = orm.FindById(id)
+	req, err = orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, functions.TIMED_OUT, req.State)
 
-	err = orm.SetFinalized(id, nil, nil)
+	err = orm.SetFinalized(ctx, id, nil, nil)
 	require.Error(t, err)
-	req, err = orm.FindById(id)
+	req, err = orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, functions.TIMED_OUT, req.State)
 
-	err = orm.SetConfirmed(id)
+	err = orm.SetConfirmed(ctx, id)
 	require.NoError(t, err)
-	req, err = orm.FindById(id)
+	req, err = orm.FindById(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, functions.CONFIRMED, req.State)
 }
@@ -240,7 +246,8 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 	id1, _ := createRequestWithTimestamp(t, orm, now.Add(1*time.Minute))
 
 	t.Run("with limit", func(t *testing.T) {
-		result, err := orm.FindOldestEntriesByState(functions.IN_PROGRESS, 2)
+		ctx := testutils.Context(t)
+		result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(result), "incorrect results length")
 		require.Equal(t, id1, result[0].RequestID, "incorrect results order")
@@ -251,17 +258,18 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 		require.Equal(t, defaultGasLimit, *result[0].CallbackGasLimit)
 		require.Equal(t, defaultCoordinatorContract, *result[0].CoordinatorContractAddress)
 		require.Equal(t, defaultMetadata, result[0].OnchainMetadata)
-
 	})
 
 	t.Run("with no limit", func(t *testing.T) {
-		result, err := orm.FindOldestEntriesByState(functions.IN_PROGRESS, 20)
+		ctx := testutils.Context(t)
+		result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 20)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(result), "incorrect results length")
 	})
 
 	t.Run("no matching entries", func(t *testing.T) {
-		result, err := orm.FindOldestEntriesByState(functions.RESULT_READY, 10)
+		ctx := testutils.Context(t)
+		result, err := orm.FindOldestEntriesByState(ctx, functions.RESULT_READY, 10)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(result), "incorrect results length")
 	})
@@ -269,6 +277,7 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 
 func TestORM_TimeoutExpiredResults(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	now := time.Now()
@@ -278,26 +287,26 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 		ids = append(ids, id)
 	}
 	// can time out IN_PROGRESS, RESULT_READY or FINALIZED
-	err := orm.SetResult(ids[0], []byte("result"), now)
+	err := orm.SetResult(ctx, ids[0], []byte("result"), now)
 	require.NoError(t, err)
-	err = orm.SetFinalized(ids[1], []byte("result"), []byte(""))
+	err = orm.SetFinalized(ctx, ids[1], []byte("result"), []byte(""))
 	require.NoError(t, err)
 	// can't time out CONFIRMED
-	err = orm.SetConfirmed(ids[2])
+	err = orm.SetConfirmed(ctx, ids[2])
 	require.NoError(t, err)
 
-	results, err := orm.TimeoutExpiredResults(now.Add(-35*time.Minute), 1)
+	results, err := orm.TimeoutExpiredResults(ctx, now.Add(-35*time.Minute), 1)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(results), "not respecting limit")
 	require.Equal(t, ids[0], results[0], "incorrect results order")
 
-	results, err = orm.TimeoutExpiredResults(now.Add(-15*time.Minute), 10)
+	results, err = orm.TimeoutExpiredResults(ctx, now.Add(-15*time.Minute), 10)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(results), "incorrect results length")
 	require.Equal(t, ids[1], results[0], "incorrect results order")
 	require.Equal(t, ids[3], results[1], "incorrect results order")
 
-	results, err = orm.TimeoutExpiredResults(now.Add(-15*time.Minute), 10)
+	results, err = orm.TimeoutExpiredResults(ctx, now.Add(-15*time.Minute), 10)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(results), "not idempotent")
 
@@ -309,7 +318,7 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 		functions.IN_PROGRESS,
 	}
 	for i, expectedState := range expectedFinalStates {
-		req, err := orm.FindById(ids[i])
+		req, err := orm.FindById(ctx, ids[i])
 		require.NoError(t, err)
 		require.Equal(t, req.State, expectedState, "incorrect state")
 	}
@@ -317,6 +326,7 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 
 func TestORM_PruneOldestRequests(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	now := time.Now()
@@ -328,31 +338,31 @@ func TestORM_PruneOldestRequests(t *testing.T) {
 	}
 
 	// don't prune if max not hit
-	total, pruned, err := orm.PruneOldestRequests(6, 3)
+	total, pruned, err := orm.PruneOldestRequests(ctx, 6, 3)
 	require.NoError(t, err)
 	require.Equal(t, uint32(5), total)
 	require.Equal(t, uint32(0), pruned)
 
 	// prune up to max batch size
-	total, pruned, err = orm.PruneOldestRequests(1, 2)
+	total, pruned, err = orm.PruneOldestRequests(ctx, 1, 2)
 	require.NoError(t, err)
 	require.Equal(t, uint32(5), total)
 	require.Equal(t, uint32(2), pruned)
 
 	// prune all above the limit
-	total, pruned, err = orm.PruneOldestRequests(1, 20)
+	total, pruned, err = orm.PruneOldestRequests(ctx, 1, 20)
 	require.NoError(t, err)
 	require.Equal(t, uint32(3), total)
 	require.Equal(t, uint32(2), pruned)
 
 	// no pruning needed any more
-	total, pruned, err = orm.PruneOldestRequests(1, 20)
+	total, pruned, err = orm.PruneOldestRequests(ctx, 1, 20)
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), total)
 	require.Equal(t, uint32(0), pruned)
 
 	// verify only the newest one is left after pruning
-	result, err := orm.FindOldestEntriesByState(functions.IN_PROGRESS, 20)
+	result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 20)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(result), "incorrect results length")
 	require.Equal(t, ids[4], result[0].RequestID, "incorrect results order")
@@ -360,6 +370,7 @@ func TestORM_PruneOldestRequests(t *testing.T) {
 
 func TestORM_PruneOldestRequests_Large(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
 	now := time.Now()
@@ -369,13 +380,13 @@ func TestORM_PruneOldestRequests_Large(t *testing.T) {
 	}
 
 	// prune 900/1000
-	total, pruned, err := orm.PruneOldestRequests(100, 1000)
+	total, pruned, err := orm.PruneOldestRequests(ctx, 100, 1000)
 	require.NoError(t, err)
 	require.Equal(t, uint32(1000), total)
 	require.Equal(t, uint32(900), pruned)
 
 	// verify there's 100 left
-	result, err := orm.FindOldestEntriesByState(functions.IN_PROGRESS, 200)
+	result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 200)
 	require.NoError(t, err)
 	require.Equal(t, 100, len(result), "incorrect results length")
 }

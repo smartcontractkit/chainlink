@@ -45,3 +45,7 @@ func (j *jobPipelineConfig) ResultWriteQueueDepth() uint64 {
 func (j *jobPipelineConfig) ExternalInitiatorsEnabled() bool {
 	return *j.c.ExternalInitiatorsEnabled
 }
+
+func (j *jobPipelineConfig) VerboseLogging() bool {
+	return *j.c.VerboseLogging
+}

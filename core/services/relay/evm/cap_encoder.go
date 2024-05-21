@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -68,30 +69,47 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 		return nil, err
 	}
 	// prepend workflowID and workflowExecutionID to the encoded user data
-	workflowIDbytes, executionIDBytes, err := extractIDs(unwrappedMap)
+	workflowIDbytes, donIDBytes, executionIDBytes, workflowOwnerBytes, err := extractIDs(unwrappedMap)
 	if err != nil {
 		return nil, err
 	}
-	return append(append(workflowIDbytes, executionIDBytes...), userPayload...), nil
+	return append(append(append(append(workflowIDbytes, donIDBytes...), executionIDBytes...), workflowOwnerBytes...), userPayload...), nil
+}
+
+func decodeID(input map[string]any, key string, idLen int) ([]byte, error) {
+	id, ok := input[key].(string)
+	if !ok {
+		return nil, fmt.Errorf("expected %s to be a string", key)
+	}
+
+	b, err := hex.DecodeString(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(b) != idLen {
+		return nil, fmt.Errorf("incorrect length for id %s, expected %d bytes, got %d", id, idLen, len(b))
+	}
+
+	return b, nil
 }
 
 // extract workflowID and executionID from the input map, validate and align to 32 bytes
 // NOTE: consider requiring them to be exactly 32 bytes to avoid issues with padding
-func extractIDs(input map[string]any) ([]byte, []byte, error) {
-	workflowID, ok := input[consensustypes.WorkflowIDFieldName].(string)
-	if !ok {
-		return nil, nil, fmt.Errorf("expected %s to be a string", consensustypes.WorkflowIDFieldName)
+func extractIDs(input map[string]any) ([]byte, []byte, []byte, []byte, error) {
+	workflowID, err := decodeID(input, consensustypes.WorkflowIDFieldName, idLen)
+	if err != nil {
+		return nil, nil, nil, nil, err
 	}
-	executionID, ok := input[consensustypes.ExecutionIDFieldName].(string)
-	if !ok {
-		return nil, nil, fmt.Errorf("expected %s to be a string", consensustypes.ExecutionIDFieldName)
+
+	// TODO: source donID and workflowOwner from somewhere
+	donID := []byte{0, 1, 2, 3}
+	workflowOwner := make([]byte, 32)
+
+	executionID, err := decodeID(input, consensustypes.ExecutionIDFieldName, idLen)
+	if err != nil {
+		return nil, nil, nil, nil, err
 	}
-	if len(workflowID) > 32 || len(executionID) > 32 {
-		return nil, nil, fmt.Errorf("IDs too long: %d, %d", len(workflowID), len(executionID))
-	}
-	alignedWorkflowID := make([]byte, idLen)
-	copy(alignedWorkflowID, workflowID)
-	alignedExecutionID := make([]byte, idLen)
-	copy(alignedExecutionID, executionID)
-	return alignedWorkflowID, alignedExecutionID, nil
+
+	return workflowID, donID, executionID, workflowOwner, nil
 }

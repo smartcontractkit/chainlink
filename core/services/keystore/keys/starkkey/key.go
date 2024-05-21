@@ -6,8 +6,8 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/smartcontractkit/caigo"
-	caigotypes "github.com/smartcontractkit/caigo/types"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/starknet.go/curve"
 )
 
 // Raw represents the Stark private key
@@ -19,7 +19,7 @@ func (raw Raw) Key() Key {
 	var err error
 
 	k.priv = new(big.Int).SetBytes(raw)
-	k.pub.X, k.pub.Y, err = caigo.Curve.PrivateToPoint(k.priv)
+	k.pub.X, k.pub.Y, err = curve.Curve.PrivateToPoint(k.priv)
 	if err != nil {
 		panic(err) // key not generated
 	}
@@ -75,7 +75,7 @@ func (key Key) ID() string {
 // it is the X component of the ECDSA pubkey and used in the deployment of the account contract
 // this func is used in exporting it via CLI and API
 func (key Key) StarkKeyStr() string {
-	return caigotypes.BigToFelt(key.pub.X).String()
+	return new(felt.Felt).SetBytes(key.pub.X.Bytes()).String()
 }
 
 // Raw from private key

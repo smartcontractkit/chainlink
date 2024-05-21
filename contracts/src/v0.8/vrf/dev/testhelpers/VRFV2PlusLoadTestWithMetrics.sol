@@ -21,6 +21,8 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
 
   uint256 public s_lastRequestId;
 
+  uint32[] public s_requestBlockTimes;
+
   struct RequestStatus {
     bool fulfilled;
     uint256[] randomWords;
@@ -35,7 +37,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
   constructor(address _vrfCoordinator) VRFConsumerBaseV2Plus(_vrfCoordinator) {}
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
+  function fulfillRandomWords(uint256 _requestId, uint256[] calldata _randomWords) internal override {
     s_requests[_requestId].fulfilled = true;
     s_requests[_requestId].randomWords = _randomWords;
     s_requests[_requestId].fulfilmentTimestamp = block.timestamp;
@@ -70,6 +72,8 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
     );
 
     s_responseCount++;
+
+    s_requestBlockTimes.push(uint32(responseTimeInBlocks));
   }
 
   function requestRandomWords(
@@ -80,7 +84,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
     bool _nativePayment,
     uint32 _numWords,
     uint16 _requestCount
-  ) external onlyOwner {
+  ) external {
     for (uint16 i = 0; i < _requestCount; i++) {
       VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
         keyHash: _keyHash,
@@ -116,6 +120,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
     s_fastestResponseTimeInSeconds = 999;
     s_requestCount = 0;
     s_responseCount = 0;
+    delete s_requestBlockTimes;
   }
 
   function getRequestStatus(
@@ -160,5 +165,19 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
       : _requestDelayInMillions;
 
     return (_slowestResponseTime, _fastestResponseTime, averageInMillions);
+  }
+
+  function getRequestBlockTimes(uint256 offset, uint256 quantity) external view returns (uint32[] memory) {
+    uint256 end = offset + quantity;
+    if (end > s_requestBlockTimes.length) {
+      end = s_requestBlockTimes.length;
+    }
+
+    uint32[] memory blockTimes = new uint32[](end - offset);
+    for (uint256 i = offset; i < end; i++) {
+      blockTimes[i - offset] = s_requestBlockTimes[i];
+    }
+
+    return blockTimes;
   }
 }

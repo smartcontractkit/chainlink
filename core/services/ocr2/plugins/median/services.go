@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-feeds/median"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -56,6 +55,7 @@ func NewMedianServices(ctx context.Context,
 	jb job.Job,
 	isNewlyCreatedJob bool,
 	relayer loop.Relayer,
+	kvStore job.KVStore,
 	pipelineRunner pipeline.Runner,
 	lggr logger.Logger,
 	argsNoPlugin libocr.OCR2OracleArgs,
@@ -126,11 +126,14 @@ func NewMedianServices(ctx context.Context,
 		CreatedAt:    time.Now(),
 	}, lggr)
 
-	if !pluginConfig.JuelsPerFeeCoinCacheDisabled {
+	if pluginConfig.JuelsPerFeeCoinCache == nil || (pluginConfig.JuelsPerFeeCoinCache != nil && !pluginConfig.JuelsPerFeeCoinCache.Disable) {
 		lggr.Infof("juelsPerFeeCoin data source caching is enabled")
-		if juelsPerFeeCoinSource, err = ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, pluginConfig.JuelsPerFeeCoinCacheDuration.Duration()); err != nil {
-			return nil, err
+		juelsPerFeeCoinSourceCache, err2 := ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, kvStore, pluginConfig.JuelsPerFeeCoinCache)
+		if err2 != nil {
+			return nil, err2
 		}
+		juelsPerFeeCoinSource = juelsPerFeeCoinSourceCache
+		srvs = append(srvs, juelsPerFeeCoinSourceCache)
 	}
 
 	if cmdName := env.MedianPlugin.Cmd.Get(); cmdName != "" {

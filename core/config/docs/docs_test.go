@@ -17,10 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func TestDoc(t *testing.T) {
@@ -51,7 +51,7 @@ func TestDoc(t *testing.T) {
 
 		// clean up KeySpecific as a special case
 		require.Equal(t, 1, len(docDefaults.KeySpecific))
-		ks := evmcfg.KeySpecific{Key: new(ethkey.EIP55Address),
+		ks := evmcfg.KeySpecific{Key: new(types.EIP55Address),
 			GasEstimator: evmcfg.KeySpecificGasEstimator{PriceMax: new(assets.Wei)}}
 		require.Equal(t, ks, docDefaults.KeySpecific[0])
 		docDefaults.KeySpecific = nil
@@ -84,6 +84,7 @@ func TestDoc(t *testing.T) {
 		require.Empty(t, docDefaults.ChainWriter.ForwarderAddress)
 		docDefaults.ChainWriter.FromAddress = nil
 		docDefaults.ChainWriter.ForwarderAddress = nil
+		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

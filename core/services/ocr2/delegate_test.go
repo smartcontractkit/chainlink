@@ -27,6 +27,7 @@ import (
 )
 
 func TestGetEVMEffectiveTransmitterID(t *testing.T) {
+	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -39,8 +40,8 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		})
 	})
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config.Database())
-	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+	keyStore := cltest.NewKeyStore(t, db)
+	require.NoError(t, keyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key))
 	lggr := logger.TestLogger(t)
 
 	txManager := txmmocks.NewMockEvmTxManager(t)
@@ -66,10 +67,17 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = tc.sendingKeys
 		jb.ForwardingAllowed = tc.forwardingEnabled
 
+		args := []interface{}{tc.getForwarderForEOAArg}
+		getForwarderMethodName := "GetForwarderForEOA"
+		if tc.pluginType == types.Median {
+			getForwarderMethodName = "GetForwarderForEOAOCR2Feeds"
+			args = append(args, common.HexToAddress(jb.OCR2OracleSpec.ContractID))
+		}
+
 		if tc.forwardingEnabled && tc.getForwarderForEOAErr {
-			txManager.Mock.On("GetForwarderForEOA", tc.getForwarderForEOAArg).Return(common.HexToAddress("0x0"), errors.New("random error")).Once()
+			txManager.Mock.On(getForwarderMethodName, args...).Return(common.HexToAddress("0x0"), errors.New("random error")).Once()
 		} else if tc.forwardingEnabled {
-			txManager.Mock.On("GetForwarderForEOA", tc.getForwarderForEOAArg).Return(common.HexToAddress(tc.expectedTransmitterID), nil).Once()
+			txManager.Mock.On(getForwarderMethodName, args...).Return(common.HexToAddress(tc.expectedTransmitterID), nil).Once()
 		}
 	}
 
@@ -136,7 +144,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	}
 
 	t.Run("when sending keys are not defined, the first one should be set to transmitterID", func(t *testing.T) {
-		jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal())
+		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 		require.NoError(t, err)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("some transmitterID string")
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
@@ -150,7 +158,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal())
+			jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 			require.NoError(t, err)
 			setTestCase(&jb, tc, txManager)
 			chain, err := legacyChains.Get(customChainID.String())
@@ -168,12 +176,11 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			if !jb.ForwardingAllowed {
 				require.Equal(t, jb.OCR2OracleSpec.TransmitterID.String, effectiveTransmitterID)
 			}
-
 		})
 	}
 
 	t.Run("when forwarders are enabled and chain retrieval fails, error should be handled", func(t *testing.T) {
-		jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal())
+		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 		require.NoError(t, err)
 		jb.ForwardingAllowed = true
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("0x7e57000000000000000000000000000000000001")

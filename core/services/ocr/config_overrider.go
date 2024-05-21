@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -23,7 +23,7 @@ type ConfigOverriderImpl struct {
 	services.StateMachine
 	logger          logger.Logger
 	flags           *ContractFlags
-	contractAddress ethkey.EIP55Address
+	contractAddress types.EIP55Address
 
 	pollTicker               utils.TickerBase
 	lastStateChangeTimestamp time.Time
@@ -49,11 +49,10 @@ type DeltaCConfig interface {
 func NewConfigOverriderImpl(
 	logger logger.Logger,
 	cfg DeltaCConfig,
-	contractAddress ethkey.EIP55Address,
+	contractAddress types.EIP55Address,
 	flags *ContractFlags,
 	pollTicker utils.TickerBase,
 ) (*ConfigOverriderImpl, error) {
-
 	if !flags.ContractExists() {
 		return nil, errors.Errorf("OCRConfigOverrider: Flags contract instance is missing, the contract does not exist: %s. "+
 			"Please create the contract or remove the OCR.TransmitterAddress configuration variable", contractAddress.Address())

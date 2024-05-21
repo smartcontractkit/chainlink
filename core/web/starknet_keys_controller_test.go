@@ -75,12 +75,13 @@ func TestStarkNetKeysController_Delete_NonExistentStarkNetKeyID(t *testing.T) {
 
 func TestStarkNetKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	client, keyStore := setupStarkNetKeysControllerTests(t)
 
 	keys, _ := keyStore.StarkNet().GetAll()
 	initialLength := len(keys)
-	key, _ := keyStore.StarkNet().Create()
+	key, _ := keyStore.StarkNet().Create(ctx)
 
 	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/starknet/%s", key.ID()))
 	t.Cleanup(cleanup)
@@ -93,11 +94,12 @@ func TestStarkNetKeysController_Delete_HappyPath(t *testing.T) {
 
 func setupStarkNetKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.StarkNet().Add(cltest.DefaultStarkNetKey))
+	require.NoError(t, app.Start(ctx))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.StarkNet().Add(ctx, cltest.DefaultStarkNetKey))
 
 	client := app.NewHTTPClient(nil)
 

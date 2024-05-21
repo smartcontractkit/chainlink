@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -164,14 +164,11 @@ func TestOCRChaos(t *testing.T) {
 			require.NoError(t, err)
 
 			cfg := config.MustCopy().(tc.TestConfig)
-			readSethCfg := cfg.GetSethConfig()
-			require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
 			network := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())[0]
 			network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
 
-			sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, network, *readSethCfg)
-			seth, err := seth.NewClientWithConfig(&sethCfg)
+			seth, err := actions_seth.GetChainClient(&cfg, network)
 			require.NoError(t, err, "Error creating seth client")
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -185,13 +182,13 @@ func TestOCRChaos(t *testing.T) {
 			ms, err := ctfClient.ConnectMockServer(testEnvironment)
 			require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
-			linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
+			linkContract, err := contracts.DeployLinkTokenContract(l, seth)
 			require.NoError(t, err, "Error deploying link token contract")
 
 			err = actions_seth.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances, err := actions_seth.DeployOCRv1Contracts(l, seth, 1, linkDeploymentData.Address, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+			ocrInstances, err := actions_seth.DeployOCRv1Contracts(l, seth, 1, common.HexToAddress(linkContract.Address()), contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 			require.NoError(t, err)
 			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, fmt.Sprint(seth.ChainID))
 			require.NoError(t, err)

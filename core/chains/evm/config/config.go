@@ -10,8 +10,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 type EVM interface {
@@ -77,6 +76,23 @@ type BalanceMonitor interface {
 	Enabled() bool
 }
 
+type ClientErrors interface {
+	NonceTooLow() string
+	NonceTooHigh() string
+	ReplacementTransactionUnderpriced() string
+	LimitReached() string
+	TransactionAlreadyInMempool() string
+	TerminallyUnderpriced() string
+	InsufficientEth() string
+	TxFeeExceedsCap() string
+	L2FeeTooLow() string
+	L2FeeTooHigh() string
+	L2Full() string
+	TransactionAlreadyMined() string
+	Fatal() string
+	ServiceUnavailable() string
+}
+
 type Transactions interface {
 	ForwardersEnabled() bool
 	ReaperInterval() time.Duration
@@ -100,7 +116,7 @@ type GasEstimator interface {
 	LimitDefault() uint64
 	LimitMax() uint64
 	LimitMultiplier() float32
-	LimitTransfer() uint32
+	LimitTransfer() uint64
 	PriceDefault() *assets.Wei
 	TipCapDefault() *assets.Wei
 	TipCapMin() *assets.Wei
@@ -130,8 +146,8 @@ type BlockHistory interface {
 }
 
 type ChainWriter interface {
-	FromAddress() *ethkey.EIP55Address
-	ForwarderAddress() *ethkey.EIP55Address
+	FromAddress() *types.EIP55Address
+	ForwarderAddress() *types.EIP55Address
 }
 
 type NodePool interface {
@@ -141,14 +157,13 @@ type NodePool interface {
 	SyncThreshold() uint32
 	LeaseDuration() time.Duration
 	NodeIsSyncingEnabled() bool
+	FinalizedBlockPollInterval() time.Duration
+	Errors() ClientErrors
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?
 //
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	config.AppConfig
-	Validate() error
-
 	EVM() EVM
 }

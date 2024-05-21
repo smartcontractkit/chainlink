@@ -19,7 +19,7 @@ type TransactionsController struct {
 
 // Index returns paginated transactions
 func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
-	txs, count, err := tc.App.TxmStorageService().TransactionsWithAttempts(offset, size)
+	txs, count, err := tc.App.TxmStorageService().TransactionsWithAttempts(c, offset, size)
 	ptxs := make([]presenters.EthTxResource, len(txs))
 	for i, tx := range txs {
 		tx.TxAttempts[0].Tx = tx
@@ -35,7 +35,7 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 
-	ethTxAttempt, err := tc.App.TxmStorageService().FindTxAttempt(hash)
+	ethTxAttempt, err := tc.App.TxmStorageService().FindTxAttempt(c, hash)
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
 		return

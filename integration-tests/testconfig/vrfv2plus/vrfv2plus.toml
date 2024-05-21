@@ -1,6 +1,48 @@
 # default config
+
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '1m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+ListenAddresses = ['0.0.0.0:6690']
+"""
+
 [Common]
-chainlink_node_funding = 0.1
+chainlink_node_funding = 0.5
 
 [VRFv2Plus]
 [VRFv2Plus.General]
@@ -8,6 +50,9 @@ cancel_subs_after_test_run = true
 use_existing_env = false
 subscription_funding_amount_link = 5.0
 subscription_funding_amount_native=1
+
+subscription_refunding_amount_link = 5.0
+subscription_refunding_amount_native = 1
 
 cl_node_max_gas_price_gwei = 10
 link_native_feed_response = 1000000000000000000
@@ -17,29 +62,35 @@ subscription_billing_type = "LINK_AND_NATIVE"
 number_of_words = 3
 callback_gas_limit = 1000000
 max_gas_limit_coordinator_config = 2500000
-fallback_wei_per_unit_link = 60000000000000000
+fallback_wei_per_unit_link = "60000000000000000"
 staleness_seconds = 86400
 gas_after_payment_calculation = 33825
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
+wait_for_256_blocks_timeout = "280s"
+
+fulfillment_flat_fee_native_ppm=0
+fulfillment_flat_fee_link_discount_ppm=0
+native_premium_percentage=24
+link_premium_percentage=20
+
 wrapped_gas_overhead = 50000
-coordinator_gas_overhead = 52000
-wrapper_premium_percentage = 25
+coordinator_gas_overhead_native = 52000
+coordinator_gas_overhead_link = 74000
+coordinator_gas_overhead_per_word = 440
 wrapper_max_number_of_words = 10
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 10
-fulfillment_flat_fee_link_ppm=500
-fulfillment_flat_fee_native_ppm=500
-fulfillment_flat_fee_link_discount_ppm=100
-native_premium_percentage=1
-link_premium_percentage=1
+coordinator_native_premium_percentage=24
+coordinator_link_premium_percentage=20
 
 # VRF Job config
 vrf_job_forwarding_allowed = false
 vrf_job_estimate_gas_multiplier = 1.1
-vrf_job_batch_fulfillment_enabled = false
+vrf_job_batch_fulfillment_enabled = true
 vrf_job_batch_fulfillment_gas_multiplier = 1.15
 vrf_job_poll_period = "1s"
 vrf_job_request_timeout = "24h"
@@ -62,6 +113,22 @@ link_address = ""
 node_sending_key_funding_min = 1
 node_sending_keys = []
 
+[VRFv2Plus.Performance]
+test_duration = "10s"
+rate_limit_unit_duration = "3s"
+rps = 1
+bhs_test_duration = "10s"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
+
+[Smoke.VRFv2.Performance]
+test_duration = "10s"
+rate_limit_unit_duration = "3s"
+rps = 1
+bhs_test_duration = "10s"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
+
 #SOAK TEST CONFIG
 [Soak.Common]
 chainlink_node_funding = 0.1
@@ -70,6 +137,7 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 subscription_funding_amount_native=1
 
@@ -77,6 +145,9 @@ subscription_funding_amount_native=1
 test_duration = "2m"
 rate_limit_unit_duration = "3s"
 rps = 1
+bhs_test_duration = "1m"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
 
 # LOAD TEST CONFIG
 [Load.Common]
@@ -86,6 +157,7 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 subscription_funding_amount_native=1
 
@@ -93,7 +165,9 @@ subscription_funding_amount_native=1
 test_duration = "2m"
 rate_limit_unit_duration = "3s"
 rps = 1
-
+bhs_test_duration = "1m"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
 
 # STRESS TEST CONFIG
 [Stress.Common]
@@ -103,6 +177,7 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 subscription_funding_amount_native=1
 
@@ -110,3 +185,7 @@ subscription_funding_amount_native=1
 test_duration = "2m"
 rate_limit_unit_duration = "3s"
 rps = 1
+bhs_test_duration = "1m"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
+

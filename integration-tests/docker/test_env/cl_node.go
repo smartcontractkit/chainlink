@@ -43,6 +43,11 @@ var (
 	ErrStartCLNodeContainer = "failed to start CL node container"
 )
 
+const (
+	RestartContainer  = true
+	StartNewContainer = false
+)
+
 type ClNode struct {
 	test_env.EnvComponent
 	API                   *client.ChainlinkClient `json:"-"`
@@ -158,7 +163,7 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 		return err
 	}
 	n.NodeConfig = cfg
-	return n.StartContainer()
+	return n.RestartContainer()
 }
 
 // UpgradeVersion restarts the cl node with new image and version
@@ -275,6 +280,10 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	if err != nil {
 		return err
 	}
+	n.l.Debug().
+		Str("ChainId", evmClient.GetChainID().String()).
+		Str("Address", toAddress).
+		Msg("Funding Chainlink Node")
 	toAddr := common.HexToAddress(toAddress)
 	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
 		To: &toAddr,
@@ -285,8 +294,13 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
 
-func (n *ClNode) StartContainer() error {
-	err := n.PostgresDb.StartContainer()
+func (n *ClNode) containerStartOrRestart(restartDb bool) error {
+	var err error
+	if restartDb {
+		err = n.PostgresDb.RestartContainer()
+	} else {
+		err = n.PostgresDb.StartContainer()
+	}
 	if err != nil {
 		return err
 	}
@@ -294,7 +308,7 @@ func (n *ClNode) StartContainer() error {
 	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
 		PgDbName:      n.PostgresDb.DbName,
-		PgHost:        n.PostgresDb.ContainerName,
+		PgHost:        strings.Split(n.PostgresDb.InternalURL.Host, ":")[0],
 		PgPort:        n.PostgresDb.InternalPort,
 		PgPassword:    n.PostgresDb.Password,
 		CustomSecrets: n.NodeSecretsConfigTOML,
@@ -352,11 +366,19 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return fmt.Errorf("%s err: %w", ErrConnectNodeClient, err)
 	}
-	clClient.Config.InternalIP = n.ContainerName
+
 	n.Container = container
 	n.API = clClient
 
 	return nil
+}
+
+func (n *ClNode) RestartContainer() error {
+	return n.containerStartOrRestart(RestartContainer)
+}
+
+func (n *ClNode) StartContainer() error {
+	return n.containerStartOrRestart(StartNewContainer)
 }
 
 func (n *ClNode) ExecGetVersion() (string, error) {

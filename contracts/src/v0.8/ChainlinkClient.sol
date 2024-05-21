@@ -14,7 +14,7 @@ import {ENSResolver as ENSResolver_Chainlink} from "./vendor/ENSResolver.sol";
  * @notice Contract writers can inherit this contract in order to create requests for the
  * Chainlink network
  */
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 abstract contract ChainlinkClient {
   using Chainlink for Chainlink.Request;
 

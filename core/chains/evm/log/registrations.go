@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // 1. Each listener being registered can specify a custom NumConfirmations - number of block confirmations required for any log being sent to it.
@@ -62,7 +62,7 @@ type (
 
 	// The Listener responds to log events through HandleLog.
 	Listener interface {
-		HandleLog(b Broadcast)
+		HandleLog(ctx context.Context, b Broadcast)
 		JobID() int32
 	}
 
@@ -215,7 +215,7 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 	return false
 }
 
-func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead evmtypes.Head, broadcasts []LogBroadcast, bc broadcastCreator) {
+func (r *registrations) sendLogs(ctx context.Context, logsToSend []logsOnBlock, latestHead evmtypes.Head, broadcasts []LogBroadcast, bc broadcastCreator) {
 	broadcastsExisting := make(map[LogBroadcastAsKey]bool)
 	for _, b := range broadcasts {
 		broadcastsExisting[b.AsKey()] = b.Consumed
@@ -225,7 +225,6 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead evmtypes.H
 
 	for _, logsPerBlock := range logsToSend {
 		for numConfirmations, handlers := range r.handlersByConfs {
-
 			if numConfirmations != 0 && latestBlockNumber < uint64(numConfirmations) {
 				// Skipping send because the block is definitely too young
 				continue
@@ -239,7 +238,10 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead evmtypes.H
 			}
 
 			for _, log := range logsPerBlock.Logs {
-				handlers.sendLog(log, latestHead, broadcastsExisting, bc, r.logger)
+				handlers.sendLog(ctx, log, latestHead, broadcastsExisting, bc, r.logger)
+				if ctx.Err() != nil {
+					return
+				}
 			}
 		}
 	}
@@ -382,14 +384,13 @@ func (r *handler) isAddressRegistered(addr common.Address) bool {
 var _ broadcastCreator = &orm{}
 
 type broadcastCreator interface {
-	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, pqOpts ...pg.QOpt) error
+	CreateBroadcast(ctx context.Context, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32) error
 }
 
-func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
+func (r *handler) sendLog(ctx context.Context, log types.Log, latestHead evmtypes.Head,
 	broadcasts map[LogBroadcastAsKey]bool,
 	bc broadcastCreator,
 	logger logger.Logger) {
-
 	topic := log.Topics[0]
 
 	latestBlockNumber := uint64(latestHead.Number)
@@ -425,7 +426,7 @@ func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 		jobID := sub.listener.JobID()
 		if !exists {
 			// Create unconsumed broadcast
-			if err := bc.CreateBroadcast(log.BlockHash, log.BlockNumber, log.Index, jobID); err != nil {
+			if err := bc.CreateBroadcast(ctx, log.BlockHash, log.BlockNumber, log.Index, jobID); err != nil {
 				logger.Errorw("Could not create broadcast log", "blockNumber", log.BlockNumber,
 					"blockHash", log.BlockHash, "address", log.Address, "jobID", jobID, "err", err)
 				continue
@@ -442,7 +443,7 @@ func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			handleLog(&broadcast{
+			handleLog(ctx, &broadcast{
 				latestBlockNumber,
 				latestHead.Hash,
 				latestHead.ReceiptsRoot,

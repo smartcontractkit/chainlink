@@ -24,8 +24,8 @@ builds:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
-      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
-      - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu
+      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu -Wno-error=unused-command-line-argument
+      - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu -Wno-error=unused-command-line-argument
     flags:
       - -trimpath
       - -buildmode=pie
@@ -43,12 +43,17 @@ dockers:
     goarch: amd64
     extra_files:
       - tmp/linux_amd64/libs
+      - tmp/linux_amd64/plugins
       - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
       - "--build-arg=CHAINLINK_USER=chainlink"
       - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
+      - "--build-arg=CL_MEDIAN_CMD=chainlink-feeds"
+      - "--build-arg=CL_MERCURY_CMD=chainlink-mercury"
+      - "--build-arg=CL_SOLANA_CMD=chainlink-solana"
+      - "--build-arg=CL_STARKNET_CMD=chainlink-starknet"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
       - "--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}"

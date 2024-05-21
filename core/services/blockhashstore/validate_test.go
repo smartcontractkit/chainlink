@@ -6,15 +6,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func TestValidate(t *testing.T) {
-	v1Coordinator := ethkey.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
-	v2Coordinator := ethkey.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
-	fromAddresses := []ethkey.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
+	v1Coordinator := types.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
+	v2Coordinator := types.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
+	fromAddresses := []types.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
 
 	var tests = []struct {
 		name      string
@@ -45,7 +45,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 					os.BlockhashStoreSpec.CoordinatorV2Address)
 				require.Equal(t, int32(59), os.BlockhashStoreSpec.WaitBlocks)
 				require.Equal(t, int32(159), os.BlockhashStoreSpec.LookbackBlocks)
-				require.Equal(t, ethkey.EIP55Address("0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"),
+				require.Equal(t, types.EIP55Address("0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"),
 					os.BlockhashStoreSpec.BlockhashStoreAddress)
 				require.Equal(t, 23*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 7*time.Second, os.BlockhashStoreSpec.RunTimeout)

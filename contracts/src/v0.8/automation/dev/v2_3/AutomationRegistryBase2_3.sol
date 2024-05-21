@@ -10,15 +10,17 @@ import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
-import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
  * AutomationRegistry and AutomationRegistryLogic
  * @dev all errors, events, and internal functions should live here
  */
+// solhint-disable-next-line max-states-count
 abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -35,22 +37,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint32 internal constant UINT32_MAX = type(uint32).max;
-  uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
   // The first byte of the mask can be 0, because we only ever have 31 oracles
   uint256 internal constant ORACLE_MASK = 0x0001010101010101010101010101010101010101010101010101010101010101;
-  /**
-   * @dev UPKEEP_TRANSCODER_VERSION_BASE is temporary necessity for backwards compatibility with
-   * MigratableAutomationRegistryInterfaceV1 - it should be removed in future versions in favor of
-   * UPKEEP_VERSION_BASE and MigratableAutomationRegistryInterfaceV2
-   */
-  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
-  uint8 internal constant UPKEEP_VERSION_BASE = 3;
+  uint8 internal constant UPKEEP_VERSION_BASE = 4;
 
   // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
-  // These values are calibrated using hardhat tests which simulates various cases and verifies that
+  // These values are calibrated using hardhat tests which simulate various cases and verify that
   // the variables result in accurate estimation
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 60_000; // Fixed gas overhead for conditional upkeeps
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 85_000; // Fixed gas overhead for log upkeeps
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 97_700; // Fixed gas overhead for conditional upkeeps
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 122_000; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 5_600; // Value scales with f
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 24; // Per perform data byte overhead
 
@@ -64,8 +59,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
   // to account for gas used in payment processing. These values are calibrated using hardhat tests which simulates various cases and verifies that
   // the variables result in accurate estimation
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 22_000; // Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_000; // Overhead per upkeep performed in batch
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 51_200; // Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 13_200; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkUSDFeed;
@@ -73,6 +68,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   AggregatorV3Interface internal immutable i_fastGasFeed;
   address internal immutable i_automationForwarderLogic;
   address internal immutable i_allowedReadOnlyAddress;
+  IWrappedNative internal immutable i_wrappedNativeToken;
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -92,6 +88,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   mapping(address => Signer) internal s_signers;
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
+  EnumerableSet.AddressSet internal s_deactivatedTransmitters;
   mapping(address => address) internal s_transmitterPayees; // s_payees contains the mapping from transmitter to payee.
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
   bytes32 internal s_latestConfigDigest; // Read on transmit path in case of signature verification
@@ -100,15 +97,17 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_fallbackNativePrice;
-  uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
   mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
   // billing
+  mapping(IERC20 billingToken => uint256 reserveAmount) internal s_reserveAmounts; // unspent user deposits + unwithdrawn NOP payments
   mapping(IERC20 billingToken => BillingConfig billingConfig) internal s_billingConfigs; // billing configurations for different tokens
+  mapping(uint256 upkeepID => BillingOverrides billingOverrides) internal s_billingOverrides; // billing overrides for specific upkeeps
   IERC20[] internal s_billingTokens; // list of billing tokens
+  PayoutMode internal s_payoutMode;
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -122,6 +121,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
+  error InsufficientBalance(uint256 available, uint256 requested);
+  error InsufficientLinkLiquidity();
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -129,11 +130,12 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error InvalidRecipient();
   error InvalidReport();
   error InvalidSigner();
+  error InvalidToken();
   error InvalidTransmitter();
   error InvalidTriggerType();
-  error MaxCheckDataSizeCanOnlyIncrease();
-  error MaxPerformDataSizeCanOnlyIncrease();
   error MigrationNotPermitted();
+  error MustSettleOffchain();
+  error MustSettleOnchain();
   error NotAContract();
   error OnlyActiveSigners();
   error OnlyActiveTransmitters();
@@ -145,11 +147,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error OnlyCallableByProposedAdmin();
   error OnlyCallableByProposedPayee();
   error OnlyCallableByUpkeepPrivilegeManager();
+  error OnlyFinanceAdmin();
   error OnlyPausedUpkeep();
   error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
   error ParameterLengthError();
-  error PaymentGreaterThanAllLINK();
   error ReentrantCall();
   error RegistryPaused();
   error RepeatedSigner();
@@ -157,6 +159,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error TargetCheckReverted(bytes reason);
   error TooManyOracles();
   error TranscoderNotSet();
+  error TransferFailed();
   error UpkeepAlreadyExists();
   error UpkeepCancelled();
   error UpkeepNotCanceled();
@@ -189,62 +192,19 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     REGISTRY_PAUSED
   }
 
-  /**
-   * @notice OnchainConfigLegacy of the registry
-   * @dev only used in params and return values
-   * @member paymentPremiumPPB payment premium rate oracles receive on top of
-   * being reimbursed for gas, measured in parts per billion
-   * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
-   * priced in MicroLink; can be used in conjunction with or independently of
-   * paymentPremiumPPB
-   * @member checkGasLimit gas limit when checking for upkeep
-   * @member stalenessSeconds number of seconds that is allowed for feed data to
-   * be stale before switching to the fallback pricing
-   * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
-   * when calculating the payment ceiling for keepers
-   * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
-   * @member maxPerformGas max performGas allowed for an upkeep on this registry
-   * @member maxCheckDataSize max length of checkData bytes
-   * @member maxPerformDataSize max length of performData bytes
-   * @member maxRevertDataSize max length of revertData bytes
-   * @member fallbackGasPrice gas price used if the gas price feed is stale
-   * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
-   * @member transcoder address of the transcoder contract
-   * @member registrars addresses of the registrar contracts
-   * @member upkeepPrivilegeManager address which can set privilege for upkeeps
-   */
-  struct OnchainConfigLegacy {
-    uint32 paymentPremiumPPB;
-    uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
-    uint32 checkGasLimit;
-    uint24 stalenessSeconds;
-    uint16 gasCeilingMultiplier;
-    uint96 minUpkeepSpend;
-    uint32 maxPerformGas;
-    uint32 maxCheckDataSize;
-    uint32 maxPerformDataSize;
-    uint32 maxRevertDataSize;
-    uint256 fallbackGasPrice;
-    uint256 fallbackLinkPrice;
-    address transcoder;
-    address[] registrars;
-    address upkeepPrivilegeManager;
+  enum PayoutMode {
+    ON_CHAIN,
+    OFF_CHAIN
   }
 
   /**
    * @notice OnchainConfig of the registry
    * @dev used only in setConfig()
-   * @member paymentPremiumPPB payment premium rate oracles receive on top of
-   * being reimbursed for gas, measured in parts per billion
-   * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
-   * priced in MicroLink; can be used in conjunction with or independently of
-   * paymentPremiumPPB
    * @member checkGasLimit gas limit when checking for upkeep
    * @member stalenessSeconds number of seconds that is allowed for feed data to
    * be stale before switching to the fallback pricing
    * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
    * when calculating the payment ceiling for keepers
-   * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
    * @member maxPerformGas max performGas allowed for an upkeep on this registry
    * @member maxCheckDataSize max length of checkData bytes
    * @member maxPerformDataSize max length of performData bytes
@@ -258,137 +218,82 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member chainModule the chain specific module
    */
   struct OnchainConfig {
-    uint32 paymentPremiumPPB;
-    uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
     uint32 checkGasLimit;
-    uint24 stalenessSeconds;
-    uint16 gasCeilingMultiplier;
-    uint96 minUpkeepSpend;
     uint32 maxPerformGas;
     uint32 maxCheckDataSize;
+    address transcoder;
+    // 1 word full
+    bool reorgProtectionEnabled;
+    uint24 stalenessSeconds;
     uint32 maxPerformDataSize;
     uint32 maxRevertDataSize;
+    address upkeepPrivilegeManager;
+    // 2 words full
+    uint16 gasCeilingMultiplier;
+    address financeAdmin;
+    // 3 words
     uint256 fallbackGasPrice;
     uint256 fallbackLinkPrice;
     uint256 fallbackNativePrice;
-    address transcoder;
     address[] registrars;
-    address upkeepPrivilegeManager;
     IChainModule chainModule;
-    bool reorgProtectionEnabled;
-  }
-
-  /**
-   * @notice state of the registry
-   * @dev only used in params and return values
-   * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
-   * @member nonce used for ID generation
-   * @member ownerLinkBalance withdrawable balance of LINK by contract owner
-   * @member expectedLinkBalance the expected balance of LINK of the registry
-   * @member totalPremium the total premium collected on registry so far
-   * @member numUpkeeps total number of upkeeps on the registry
-   * @member configCount ordinal number of current config, out of all configs applied to this contract so far
-   * @member latestConfigBlockNumber last block at which this config was set
-   * @member latestConfigDigest domain-separation tag for current config
-   * @member latestEpoch for which a report was transmitted
-   * @member paused freeze on execution scoped to the entire registry
-   */
-  struct State {
-    uint32 nonce;
-    uint96 ownerLinkBalance;
-    uint256 expectedLinkBalance;
-    uint96 totalPremium;
-    uint256 numUpkeeps;
-    uint32 configCount;
-    uint32 latestConfigBlockNumber;
-    bytes32 latestConfigDigest;
-    uint32 latestEpoch;
-    bool paused;
   }
 
   /**
    * @notice relevant state of an upkeep which is used in transmit function
    * @member paused if this upkeep has been paused
+   * @member overridesEnabled if this upkeep has overrides enabled
    * @member performGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member forwarder the forwarder contract to use for this upkeep
-   * @member amountSpent the amount this upkeep has spent
+   * @member amountSpent the amount this upkeep has spent, in the upkeep's billing token
    * @member balance the balance of this upkeep
    * @member lastPerformedBlockNumber the last block number when this upkeep was performed
    */
   struct Upkeep {
     bool paused;
+    bool overridesEnabled;
     uint32 performGas;
     uint32 maxValidBlocknumber;
     IAutomationForwarder forwarder;
-    // 0 bytes left in 1st EVM word - not written to in transmit
-    uint96 amountSpent;
+    // 2 bytes left in 1st EVM word - read in transmit path
+    uint128 amountSpent;
     uint96 balance;
     uint32 lastPerformedBlockNumber;
-    // 2 bytes left in 2nd EVM word - written in transmit path
-  }
-
-  /**
-   * @notice all information about an upkeep
-   * @dev only used in return values
-   * @dev this will likely be deprecated in a future version of the registry
-   * @member target the contract which needs to be serviced
-   * @member performGas the gas limit of upkeep execution
-   * @member checkData the checkData bytes for this upkeep
-   * @member balance the balance of this upkeep
-   * @member admin for this upkeep
-   * @member maxValidBlocknumber until which block this upkeep is valid
-   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
-   * @member amountSpent the amount this upkeep has spent
-   * @member paused if this upkeep has been paused
-   * @member offchainConfig the off-chain config of this upkeep
-   */
-  struct UpkeepInfo {
-    address target;
-    uint32 performGas;
-    bytes checkData;
-    uint96 balance;
-    address admin;
-    uint64 maxValidBlocknumber;
-    uint32 lastPerformedBlockNumber;
-    uint96 amountSpent;
-    bool paused;
-    bytes offchainConfig;
+    // 0 bytes left in 2nd EVM word - written in transmit path
+    IERC20 billingToken;
+    // 12 bytes left in 3rd EVM word - read in transmit path
   }
 
   /// @dev Config + State storage struct which is on hot transmit path
   struct HotVars {
     uint96 totalPremium; // ─────────╮ total historical payment to oracles for premium
-    uint32 paymentPremiumPPB; //     │ premium percentage charged to user over tx cost
-    uint32 flatFeeMicroLink; //      │ flat fee charged to user for every perform
     uint32 latestEpoch; //           │ latest epoch for which a report was transmitted
     uint24 stalenessSeconds; //      │ Staleness tolerance for feeds
     uint16 gasCeilingMultiplier; //  │ multiplier on top of fast gas feed for upper bound
     uint8 f; //                      │ maximum number of faulty oracles
     bool paused; //                  │ pause switch for all upkeeps in the registry
-    bool reentrancyGuard; // ────────╯ guard against reentrancy
-    bool reorgProtectionEnabled; //    if this registry should enable re-org protection mechanism
+    bool reentrancyGuard; //         | guard against reentrancy
+    bool reorgProtectionEnabled; // ─╯ if this registry should enable the re-org protection mechanism
     IChainModule chainModule; //       the interface of chain specific module
   }
 
   /// @dev Config + State storage struct which is not on hot transmit path
   struct Storage {
-    uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
     address transcoder; // Address of transcoder contract used in migrations
-    // 1 EVM word full
-    uint96 ownerLinkBalance; // Balance of owner, accumulates minUpkeepSpend in case it is not spent
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
-    uint32 configCount; // incremented each time a new config is posted, The count
-    // is incorporated into the config digest to prevent replay attacks.
+    // 1 EVM word full
+    address upkeepPrivilegeManager; // address which can set privilege for upkeeps
+    uint32 configCount; // incremented each time a new config is posted, The count is incorporated into the config digest to prevent replay attacks.
     uint32 latestConfigBlockNumber; // makes it easier for offchain systems to extract config from logs
-    // 2 EVM word full
     uint32 maxCheckDataSize; // max length of checkData bytes
+    // 2 EVM word full
+    address financeAdmin; // address which can withdraw funds from the contract
     uint32 maxPerformDataSize; // max length of performData bytes
     uint32 maxRevertDataSize; // max length of revertData bytes
-    address upkeepPrivilegeManager; // address which can set privilege for upkeeps
-    // 3 EVM word full
+    // 4 bytes left in 3rd EVM word
   }
 
   /// @dev Report transmitted by OCR to transmit function
@@ -421,11 +326,24 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     bytes32 dedupID;
   }
 
+  /**
+   * @notice holds information about a transmiter / node in the DON
+   * @member active can this transmitter submit reports
+   * @member index of oracle in s_signersList/s_transmittersList
+   * @member balance a node's balance in LINK
+   * @member lastCollected the total balance at which the node last withdrew
+   * @dev uint96 is safe for balance / last collected because transmitters are only ever paid in LINK
+   */
   struct Transmitter {
     bool active;
-    uint8 index; // Index of oracle in s_signersList/s_transmittersList
+    uint8 index;
     uint96 balance;
     uint96 lastCollected;
+  }
+
+  struct TransmitterPayeeInfo {
+    address transmitterAddress;
+    address payeeAddress;
   }
 
   struct Signer {
@@ -457,11 +375,38 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
   /**
    * @notice the billing config of a token
+   * @dev this is a storage struct
    */
+  // solhint-disable-next-line gas-struct-packing
   struct BillingConfig {
     uint32 gasFeePPB;
-    uint24 flatFeeMicroLink;
-    address priceFeed;
+    uint24 flatFeeMilliCents; // min fee is $0.00001, max fee is $167
+    AggregatorV3Interface priceFeed;
+    uint8 decimals;
+    // 1st word, read in calculating BillingTokenPaymentParams
+    uint256 fallbackPrice;
+    // 2nd word only read if stale
+    uint96 minSpend;
+    // 3rd word only read during cancellation
+  }
+
+  /**
+   * @notice override-able billing params of a billing token
+   */
+  struct BillingOverrides {
+    uint32 gasFeePPB;
+    uint24 flatFeeMilliCents;
+  }
+
+  /**
+   * @notice pricing params for a billing token
+   * @dev this is a memory-only struct, so struct packing is less important
+   */
+  struct BillingTokenPaymentParams {
+    uint8 decimals;
+    uint32 gasFeePPB;
+    uint24 flatFeeMilliCents;
+    uint256 priceUSD;
   }
 
   /**
@@ -472,6 +417,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member fastGasWei the fast gas price
    * @member linkUSD the exchange ratio between LINK and USD
    * @member nativeUSD the exchange ratio between the chain's native token and USD
+   * @member billingToken the billing token
+   * @member billingTokenParams the payment params specific to a particular payment token
    * @member isTransaction is this an eth_call or a transaction
    */
   struct PaymentParams {
@@ -481,27 +428,46 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 fastGasWei;
     uint256 linkUSD;
     uint256 nativeUSD;
+    IERC20 billingToken;
+    BillingTokenPaymentParams billingTokenParams;
     bool isTransaction;
   }
 
   /**
-   * @notice struct containing receipt information after a payment is made
-   * @member reimbursement the amount to reimburse a node for gas spent
-   * @member premium the premium charged to the user, shared between all nodes
+   * @notice struct containing receipt information about a payment or cost estimation
+   * @member gasChargeInBillingToken the amount to charge a user for gas spent using the billing token's native decimals
+   * @member premiumInBillingToken the premium charged to the user, shared between all nodes, using the billing token's native decimals
+   * @member gasReimbursementInJuels the amount to reimburse a node for gas spent
+   * @member premiumInJuels the premium paid to NOPs, shared between all nodes
    */
+  // solhint-disable-next-line gas-struct-packing
   struct PaymentReceipt {
-    uint96 reimbursement;
-    uint96 premium;
+    uint96 gasChargeInBillingToken;
+    uint96 premiumInBillingToken;
+    // one word ends
+    uint96 gasReimbursementInJuels;
+    uint96 premiumInJuels;
+    // second word ends
+    IERC20 billingToken;
+    uint96 linkUSD;
+    // third word ends
+    uint96 nativeUSD;
+    uint96 billingUSD;
+    // fourth word ends
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
+  event BillingConfigOverridden(uint256 indexed id, BillingOverrides overrides);
+  event BillingConfigOverrideRemoved(uint256 indexed id);
+  event BillingConfigSet(IERC20 indexed token, BillingConfig config);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event ChainSpecificModuleUpdated(address newModule);
   event DedupKeyAdded(bytes32 indexed dedupKey);
+  event FeesWithdrawn(address indexed assetAddress, address indexed recipient, uint256 amount);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event OwnerFundsWithdrawn(uint96 amount);
+  event NOPsSettledOffchain(address[] payees, uint256[] payments);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
@@ -525,14 +491,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 gasOverhead,
     bytes trigger
   );
+  event UpkeepCharged(uint256 indexed id, PaymentReceipt receipt);
   event UpkeepPrivilegeConfigSet(uint256 indexed id, bytes privilegeConfig);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepRegistered(uint256 indexed id, uint32 performGas, address admin);
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
   event Unpaused(address account);
-  // Event to emit when a billing configuration is set
-  event BillingConfigSet(IERC20 indexed token, BillingConfig config);
 
   /**
    * @param link address of the LINK Token
@@ -541,6 +506,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @param fastGasFeed address of the Fast Gas price feed
    * @param automationForwarderLogic the address of automation forwarder logic
    * @param allowedReadOnlyAddress the address of the allowed read only address
+   * @param payoutMode the payout mode
    */
   constructor(
     address link,
@@ -548,7 +514,9 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
-    address allowedReadOnlyAddress
+    address allowedReadOnlyAddress,
+    PayoutMode payoutMode,
+    address wrappedNativeTokenAddress
   ) ConfirmedOwner(msg.sender) {
     i_link = LinkTokenInterface(link);
     i_linkUSDFeed = AggregatorV3Interface(linkUSDFeed);
@@ -556,6 +524,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
     i_allowedReadOnlyAddress = allowedReadOnlyAddress;
+    s_payoutMode = payoutMode;
+    i_wrappedNativeToken = IWrappedNative(wrappedNativeTokenAddress);
     if (i_linkUSDFeed.decimals() != i_nativeUSDFeed.decimals()) {
       revert InvalidFeed();
     }
@@ -587,10 +557,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
+    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidToken();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
-    s_expectedLinkBalance = s_expectedLinkBalance + upkeep.balance;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
@@ -650,7 +621,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     } else {
       linkUSD = uint256(feedValue);
     }
-    (, feedValue, , timestamp, ) = i_nativeUSDFeed.latestRoundData();
     return (gasWei, linkUSD, _getNativeUSD(hotVars));
   }
 
@@ -673,65 +643,130 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   /**
-   * @dev calculates LINK paid for gas spent plus a configure premium percentage
+   * @dev gets the price and billing params for a specific billing token
+   */
+  function _getBillingTokenPaymentParams(
+    HotVars memory hotVars,
+    IERC20 billingToken
+  ) internal view returns (BillingTokenPaymentParams memory paymentParams) {
+    BillingConfig storage config = s_billingConfigs[billingToken];
+    paymentParams.flatFeeMilliCents = config.flatFeeMilliCents;
+    paymentParams.gasFeePPB = config.gasFeePPB;
+    paymentParams.decimals = config.decimals;
+    (, int256 feedValue, , uint256 timestamp, ) = config.priceFeed.latestRoundData();
+    if (
+      feedValue <= 0 ||
+      block.timestamp < timestamp ||
+      (hotVars.stalenessSeconds > 0 && hotVars.stalenessSeconds < block.timestamp - timestamp)
+    ) {
+      paymentParams.priceUSD = config.fallbackPrice;
+    } else {
+      paymentParams.priceUSD = uint256(feedValue);
+    }
+    return paymentParams;
+  }
+
+  /**
    * @param hotVars the hot path variables
    * @param paymentParams the pricing data and gas usage data
-   * @dev use of PaymentParams is solely to avoid stack too deep errors
+   * @return receipt the receipt of payment with pricing breakdown
+   * @dev use of PaymentParams struct is necessary to avoid stack too deep errors
+   * @dev calculates LINK paid for gas spent plus a configure premium percentage
+   * @dev 1 USD = 1e18 attoUSD
+   * @dev 1 USD = 1e26 hexaicosaUSD (had to borrow this prefix from geometry because there is no metric prefix for 1e-26)
+   * @dev 1 millicent = 1e-5 USD = 1e13 attoUSD
    */
   function _calculatePaymentAmount(
     HotVars memory hotVars,
     PaymentParams memory paymentParams
-  ) internal view returns (uint96, uint96) {
+  ) internal view returns (PaymentReceipt memory receipt) {
+    uint256 decimals = paymentParams.billingTokenParams.decimals;
     uint256 gasWei = paymentParams.fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (paymentParams.isTransaction && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
-    uint256 gasPayment = ((gasWei * (paymentParams.gasLimit + paymentParams.gasOverhead) + paymentParams.l1CostWei) *
-      paymentParams.nativeUSD) / paymentParams.linkUSD;
-    uint256 premium = (((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
-      hotVars.paymentPremiumPPB *
-      paymentParams.nativeUSD) /
-      (paymentParams.linkUSD * 1e9) +
-      uint256(hotVars.flatFeeMicroLink) *
-      1e12;
-    // LINK_TOTAL_SUPPLY < UINT96_MAX
-    if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return (uint96(gasPayment), uint96(premium));
+
+    // scaling factor is based on decimals of billing token, and applies to premium and gasCharge
+    uint256 numeratorScalingFactor = decimals > 18 ? 10 ** (decimals - 18) : 1;
+    uint256 denominatorScalingFactor = decimals < 18 ? 10 ** (18 - decimals) : 1;
+
+    // gas calculation
+    uint256 gasPaymentHexaicosaUSD = (gasWei *
+      (paymentParams.gasLimit + paymentParams.gasOverhead) +
+      paymentParams.l1CostWei) * paymentParams.nativeUSD; // gasPaymentHexaicosaUSD has an extra 8 zeros because of decimals on nativeUSD feed
+    // gasChargeInBillingToken is scaled by the billing token's decimals
+    receipt.gasChargeInBillingToken = SafeCast.toUint96(
+      (gasPaymentHexaicosaUSD * numeratorScalingFactor) /
+        (paymentParams.billingTokenParams.priceUSD * denominatorScalingFactor)
+    );
+    receipt.gasReimbursementInJuels = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.linkUSD);
+
+    // premium calculation
+    uint256 flatFeeHexaicosaUSD = uint256(paymentParams.billingTokenParams.flatFeeMilliCents) * 1e21; // 1e13 for milliCents to attoUSD and 1e8 for attoUSD to hexaicosaUSD
+    uint256 premiumHexaicosaUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
+      paymentParams.billingTokenParams.gasFeePPB *
+      paymentParams.nativeUSD) / 1e9) + flatFeeHexaicosaUSD;
+    // premium is scaled by the billing token's decimals
+    receipt.premiumInBillingToken = SafeCast.toUint96(
+      (premiumHexaicosaUSD * numeratorScalingFactor) /
+        (paymentParams.billingTokenParams.priceUSD * denominatorScalingFactor)
+    );
+    receipt.premiumInJuels = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.linkUSD);
+
+    receipt.billingToken = paymentParams.billingToken;
+    receipt.linkUSD = SafeCast.toUint96(paymentParams.linkUSD);
+    receipt.nativeUSD = SafeCast.toUint96(paymentParams.nativeUSD);
+    receipt.billingUSD = SafeCast.toUint96(paymentParams.billingTokenParams.priceUSD);
+
+    return receipt;
   }
 
   /**
-   * @dev calculates the max LINK payment for an upkeep. Called during checkUpkeep simulation and assumes
+   * @dev calculates the max payment for an upkeep. Called during checkUpkeep simulation and assumes
    * maximum gas overhead, L1 fee
    */
-  function _getMaxLinkPayment(
+  function _getMaxPayment(
+    uint256 upkeepId,
     HotVars memory hotVars,
     Trigger triggerType,
     uint32 performGas,
     uint256 fastGasWei,
     uint256 linkUSD,
-    uint256 nativeUSD
+    uint256 nativeUSD,
+    IERC20 billingToken
   ) internal view returns (uint96) {
+    uint256 maxL1Fee;
     uint256 maxGasOverhead;
-    if (triggerType == Trigger.CONDITION) {
-      maxGasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
-    } else if (triggerType == Trigger.LOG) {
-      maxGasOverhead = REGISTRY_LOG_OVERHEAD;
-    } else {
-      revert InvalidTriggerType();
+
+    {
+      if (triggerType == Trigger.CONDITION) {
+        maxGasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
+      } else if (triggerType == Trigger.LOG) {
+        maxGasOverhead = REGISTRY_LOG_OVERHEAD;
+      } else {
+        revert InvalidTriggerType();
+      }
+      uint256 maxCalldataSize = s_storage.maxPerformDataSize +
+        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
+        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
+      (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
+      maxGasOverhead +=
+        (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
+        ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
+        chainModuleFixedOverhead;
+      maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
     }
-    uint256 maxCalldataSize = s_storage.maxPerformDataSize +
-      TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
-      (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
-    (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
-    maxGasOverhead +=
-      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
-      ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
-      chainModuleFixedOverhead;
 
-    uint256 maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
+    BillingTokenPaymentParams memory paymentParams = _getBillingTokenPaymentParams(hotVars, billingToken);
+    if (s_upkeep[upkeepId].overridesEnabled) {
+      BillingOverrides memory billingOverrides = s_billingOverrides[upkeepId];
+      // use the overridden configs
+      paymentParams.gasFeePPB = billingOverrides.gasFeePPB;
+      paymentParams.flatFeeMilliCents = billingOverrides.flatFeeMilliCents;
+    }
 
-    (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
+    PaymentReceipt memory receipt = _calculatePaymentAmount(
       hotVars,
       PaymentParams({
         gasLimit: performGas,
@@ -740,11 +775,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
         fastGasWei: fastGasWei,
         linkUSD: linkUSD,
         nativeUSD: nativeUSD,
+        billingToken: billingToken,
+        billingTokenParams: paymentParams,
         isTransaction: false
       })
     );
 
-    return reimbursement + premium;
+    return receipt.gasChargeInBillingToken + receipt.premiumInBillingToken;
   }
 
   /**
@@ -967,28 +1004,47 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _handlePayment(
     HotVars memory hotVars,
     PaymentParams memory paymentParams,
-    uint256 upkeepId
+    uint256 upkeepId,
+    Upkeep memory upkeep
   ) internal returns (PaymentReceipt memory) {
-    (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(hotVars, paymentParams);
+    if (upkeep.overridesEnabled) {
+      BillingOverrides memory billingOverrides = s_billingOverrides[upkeepId];
+      // use the overridden configs
+      paymentParams.billingTokenParams.gasFeePPB = billingOverrides.gasFeePPB;
+      paymentParams.billingTokenParams.flatFeeMilliCents = billingOverrides.flatFeeMilliCents;
+    }
 
-    uint96 balance = s_upkeep[upkeepId].balance;
-    uint96 payment = gasReimbursement + premium;
+    PaymentReceipt memory receipt = _calculatePaymentAmount(hotVars, paymentParams);
+
+    // balance is in the token's native decimals
+    uint96 balance = upkeep.balance;
+    // payment is in the token's native decimals
+    uint96 payment = receipt.gasChargeInBillingToken + receipt.premiumInBillingToken;
 
     // this shouldn't happen, but in rare edge cases, we charge the full balance in case the user
     // can't cover the amount owed
-    if (balance < gasReimbursement) {
+    if (balance < receipt.gasChargeInBillingToken) {
+      // if the user can't cover the gas fee, then direct all of the payment to the transmitter and distribute no premium to the DON
       payment = balance;
-      gasReimbursement = balance;
-      premium = 0;
+      receipt.gasReimbursementInJuels = SafeCast.toUint96(
+        (balance * paymentParams.billingTokenParams.priceUSD) / paymentParams.linkUSD
+      );
+      receipt.premiumInJuels = 0;
     } else if (balance < payment) {
+      // if the user can cover the gas fee, but not the premium, then reduce the premium
       payment = balance;
-      premium = payment - gasReimbursement;
+      receipt.premiumInJuels = SafeCast.toUint96(
+        ((balance * paymentParams.billingTokenParams.priceUSD) / paymentParams.linkUSD) -
+          receipt.gasReimbursementInJuels
+      );
     }
 
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
+    s_reserveAmounts[paymentParams.billingToken] -= payment;
 
-    return PaymentReceipt({reimbursement: gasReimbursement, premium: premium});
+    emit UpkeepCharged(upkeepId, receipt);
+    return receipt;
   }
 
   /**
@@ -1013,8 +1069,27 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @notice only allows a pre-configured address to initiate offchain read
    */
   function _preventExecution() internal view {
+    // solhint-disable-next-line avoid-tx-origin
     if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
+    }
+  }
+
+  /**
+   * @notice only allows finance admin to call the function
+   */
+  function _onlyFinanceAdminAllowed() internal view {
+    if (msg.sender != s_storage.financeAdmin) {
+      revert OnlyFinanceAdmin();
+    }
+  }
+
+  /**
+   * @notice only allows privilege manager to call the function
+   */
+  function _onlyPrivilegeManagerAllowed() internal view {
+    if (msg.sender != s_storage.upkeepPrivilegeManager) {
+      revert OnlyCallableByUpkeepPrivilegeManager();
     }
   }
 
@@ -1030,16 +1105,26 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     }
     delete s_billingTokens;
 
+    PayoutMode mode = s_payoutMode;
     for (uint256 i = 0; i < billingTokens.length; i++) {
       IERC20 token = billingTokens[i];
       BillingConfig memory config = billingConfigs[i];
 
-      if (address(token) == ZERO_ADDRESS || config.priceFeed == ZERO_ADDRESS) {
+      // most ERC20 tokens are 18 decimals, priceFeed must be 8 decimals
+      if (config.decimals != token.decimals() || config.priceFeed.decimals() != 8) {
+        revert InvalidToken();
+      }
+
+      // if LINK is a billing option, payout mode must be ON_CHAIN
+      if (address(token) == address(i_link) && mode == PayoutMode.OFF_CHAIN) {
+        revert InvalidToken();
+      }
+      if (address(token) == ZERO_ADDRESS || address(config.priceFeed) == ZERO_ADDRESS) {
         revert ZeroAddressNotAllowed();
       }
 
       // if this is a new token, add it to tokens list. Otherwise revert
-      if (s_billingConfigs[token].priceFeed != ZERO_ADDRESS) {
+      if (address(s_billingConfigs[token].priceFeed) != ZERO_ADDRESS) {
         revert DuplicateEntry();
       }
       s_billingTokens.push(token);
@@ -1049,5 +1134,66 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
       emit BillingConfigSet(token, config);
     }
+  }
+
+  /**
+   * @notice updates the signers and transmitters lists
+   */
+  function _updateTransmitters(address[] memory signers, address[] memory transmitters) internal {
+    uint96 transmittersListLength = uint96(s_transmittersList.length);
+    uint96 totalPremium = s_hotVars.totalPremium;
+
+    // move all pooled payments out of the pool to each transmitter's balance
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      _updateTransmitterBalanceFromPool(s_transmittersList[i], totalPremium, transmittersListLength);
+    }
+
+    // remove any old signer/transmitter addresses
+    address transmitterAddress;
+    PayoutMode mode = s_payoutMode;
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      transmitterAddress = s_transmittersList[i];
+      delete s_signers[s_signersList[i]];
+      // Do not delete the whole transmitter struct as it has balance information stored
+      s_transmitters[transmitterAddress].active = false;
+      if (mode == PayoutMode.OFF_CHAIN && s_transmitters[transmitterAddress].balance > 0) {
+        s_deactivatedTransmitters.add(transmitterAddress);
+      }
+    }
+    delete s_signersList;
+    delete s_transmittersList;
+
+    // add new signer/transmitter addresses
+    Transmitter memory transmitter;
+    for (uint256 i = 0; i < signers.length; i++) {
+      if (s_signers[signers[i]].active) revert RepeatedSigner();
+      if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
+      s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
+
+      transmitterAddress = transmitters[i];
+      if (transmitterAddress == ZERO_ADDRESS) revert InvalidTransmitter();
+      transmitter = s_transmitters[transmitterAddress];
+      if (transmitter.active) revert RepeatedTransmitter();
+      transmitter.active = true;
+      transmitter.index = uint8(i);
+      // new transmitters start afresh from current totalPremium
+      // some spare change of premium from previous pool will be forfeited
+      transmitter.lastCollected = s_hotVars.totalPremium;
+      s_transmitters[transmitterAddress] = transmitter;
+      if (mode == PayoutMode.OFF_CHAIN) {
+        s_deactivatedTransmitters.remove(transmitterAddress);
+      }
+    }
+
+    s_signersList = signers;
+    s_transmittersList = transmitters;
+  }
+
+  /**
+   * @notice returns the size of the LINK liquidity pool
+   # @dev LINK max supply < 2^96, so casting to int256 is safe
+   */
+  function _linkAvailableForPayment() internal view returns (int256) {
+    return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
   }
 }

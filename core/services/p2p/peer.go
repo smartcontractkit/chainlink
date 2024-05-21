@@ -102,6 +102,10 @@ func NewPeer(cfg PeerConfig, lggr logger.Logger) (*peer, error) {
 	}, nil
 }
 
+func (p *peer) ID() ragetypes.PeerID {
+	return p.myID
+}
+
 func (p *peer) UpdateConnections(peers map[ragetypes.PeerID]p2ptypes.StreamConfig) error {
 	p.lggr.Infow("updating peer addresses", "peers", peers)
 	if !p.isBootstrap {

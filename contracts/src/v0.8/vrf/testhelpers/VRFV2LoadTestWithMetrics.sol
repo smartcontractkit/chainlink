@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFConsumerBaseV2} from "../VRFConsumerBaseV2.sol";
-import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil_v0_8_6.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 
 /**

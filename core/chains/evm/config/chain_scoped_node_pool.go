@@ -6,30 +6,36 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
-type nodePoolConfig struct {
-	c toml.NodePool
+type NodePoolConfig struct {
+	C toml.NodePool
 }
 
-func (n *nodePoolConfig) PollFailureThreshold() uint32 {
-	return *n.c.PollFailureThreshold
+func (n *NodePoolConfig) PollFailureThreshold() uint32 {
+	return *n.C.PollFailureThreshold
 }
 
-func (n *nodePoolConfig) PollInterval() time.Duration {
-	return n.c.PollInterval.Duration()
+func (n *NodePoolConfig) PollInterval() time.Duration {
+	return n.C.PollInterval.Duration()
 }
 
-func (n *nodePoolConfig) SelectionMode() string {
-	return *n.c.SelectionMode
+func (n *NodePoolConfig) SelectionMode() string {
+	return *n.C.SelectionMode
 }
 
-func (n *nodePoolConfig) SyncThreshold() uint32 {
-	return *n.c.SyncThreshold
+func (n *NodePoolConfig) SyncThreshold() uint32 {
+	return *n.C.SyncThreshold
 }
 
-func (n *nodePoolConfig) LeaseDuration() time.Duration {
-	return n.c.LeaseDuration.Duration()
+func (n *NodePoolConfig) LeaseDuration() time.Duration {
+	return n.C.LeaseDuration.Duration()
 }
 
-func (n *nodePoolConfig) NodeIsSyncingEnabled() bool {
-	return *n.c.NodeIsSyncingEnabled
+func (n *NodePoolConfig) NodeIsSyncingEnabled() bool {
+	return *n.C.NodeIsSyncingEnabled
 }
+
+func (n *NodePoolConfig) FinalizedBlockPollInterval() time.Duration {
+	return n.C.FinalizedBlockPollInterval.Duration()
+}
+
+func (n *NodePoolConfig) Errors() ClientErrors { return &clientErrorsConfig{c: n.C.Errors} }

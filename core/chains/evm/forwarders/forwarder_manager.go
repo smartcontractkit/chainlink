@@ -2,6 +2,7 @@ package forwarders
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -9,11 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	pkgerrors "github.com/pkg/errors"
-
-	"github.com/jmoiron/sqlx"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI).Methods["forward"]
@@ -56,13 +56,13 @@ type FwdMgr struct {
 	wg      sync.WaitGroup
 }
 
-func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config, dbConfig pg.QConfig) *FwdMgr {
+func NewFwdMgr(ds sqlutil.DataSource, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config) *FwdMgr {
 	lggr := logger.Sugared(logger.Named(l, "EVMForwarderManager"))
 	fwdMgr := FwdMgr{
 		logger:       lggr,
 		cfg:          cfg,
 		evmClient:    client,
-		ORM:          NewORM(db, lggr, dbConfig),
+		ORM:          NewORM(ds),
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
 	}
@@ -80,7 +80,7 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 		f.logger.Debug("Initializing EVM forwarder manager")
 		chainId := f.evmClient.ConfiguredChainID()
 
-		fwdrs, err := f.ORM.FindForwardersByChain(big.Big(*chainId))
+		fwdrs, err := f.ORM.FindForwardersByChain(ctx, big.Big(*chainId))
 		if err != nil {
 			return pkgerrors.Wrapf(err, "Failed to retrieve forwarders for chain %d", chainId)
 		}
@@ -113,7 +113,7 @@ func FilterName(addr common.Address) string {
 
 func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
-	fwdrs, err := f.ORM.FindForwardersByChain(big.Big(*f.evmClient.ConfiguredChainID()))
+	fwdrs, err := f.ORM.FindForwardersByChain(f.ctx, big.Big(*f.evmClient.ConfiguredChainID()))
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -126,6 +126,42 @@ func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, er
 		}
 		for _, eoa := range eoas {
 			if eoa == addr {
+				return fwdr.Address, nil
+			}
+		}
+	}
+	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
+}
+
+func (f *FwdMgr) ForwarderForOCR2Feeds(eoa, ocr2Aggregator common.Address) (forwarder common.Address, err error) {
+	fwdrs, err := f.ORM.FindForwardersByChain(f.ctx, big.Big(*f.evmClient.ConfiguredChainID()))
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	offchainAggregator, err := ocr2aggregator.NewOCR2Aggregator(ocr2Aggregator, f.evmClient)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	transmitters, err := offchainAggregator.GetTransmitters(&bind.CallOpts{Context: f.ctx})
+	if err != nil {
+		return common.Address{}, pkgerrors.Errorf("failed to get ocr2 aggregator transmitters: %s", err.Error())
+	}
+
+	for _, fwdr := range fwdrs {
+		if !slices.Contains(transmitters, fwdr.Address) {
+			f.logger.Criticalw("Forwarder is not set as a transmitter", "forwarder", fwdr.Address, "ocr2Aggregator", ocr2Aggregator, "err", err)
+			continue
+		}
+
+		eoas, err := f.getContractSenders(fwdr.Address)
+		if err != nil {
+			f.logger.Errorw("Failed to get forwarder senders", "forwarder", fwdr.Address, "err", err)
+			continue
+		}
+		for _, addr := range eoas {
+			if addr == eoa {
 				return fwdr.Address, nil
 			}
 		}
@@ -191,7 +227,6 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 			continue
 		}
 		f.setCachedSenders(fwdr.Address, senders)
-
 	}
 }
 
@@ -211,6 +246,7 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 	}
 
 	err := f.logpoller.RegisterFilter(
+		f.ctx,
 		evmlogpoller.Filter{
 			Name:      FilterName(addr),
 			EventSigs: []common.Hash{authChangedTopic},
@@ -251,11 +287,11 @@ func (f *FwdMgr) runLoop() {
 			}
 
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(
+				f.ctx,
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
-				evmlogpoller.Confirmations(f.cfg.FinalityDepth()),
-				pg.WithParentCtx(f.ctx),
+				evmtypes.Confirmations(f.cfg.FinalityDepth()),
 			)
 			if err != nil {
 				f.logger.Errorw("Failed to retrieve latest log round", "err", err)

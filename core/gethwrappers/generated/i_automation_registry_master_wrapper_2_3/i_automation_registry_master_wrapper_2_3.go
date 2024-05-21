@@ -31,33 +31,81 @@ var (
 )
 
 type AutomationRegistryBase23BillingConfig struct {
-	GasFeePPB        uint32
-	FlatFeeMicroLink *big.Int
-	PriceFeed        common.Address
+	GasFeePPB         uint32
+	FlatFeeMilliCents *big.Int
+	PriceFeed         common.Address
+	Decimals          uint8
+	FallbackPrice     *big.Int
+	MinSpend          *big.Int
+}
+
+type AutomationRegistryBase23BillingOverrides struct {
+	GasFeePPB         uint32
+	FlatFeeMilliCents *big.Int
+}
+
+type AutomationRegistryBase23HotVars struct {
+	TotalPremium           *big.Int
+	LatestEpoch            uint32
+	StalenessSeconds       *big.Int
+	GasCeilingMultiplier   uint16
+	F                      uint8
+	Paused                 bool
+	ReentrancyGuard        bool
+	ReorgProtectionEnabled bool
+	ChainModule            common.Address
 }
 
 type AutomationRegistryBase23OnchainConfig struct {
-	PaymentPremiumPPB      uint32
-	FlatFeeMicroLink       uint32
 	CheckGasLimit          uint32
-	StalenessSeconds       *big.Int
-	GasCeilingMultiplier   uint16
-	MinUpkeepSpend         *big.Int
 	MaxPerformGas          uint32
 	MaxCheckDataSize       uint32
+	Transcoder             common.Address
+	ReorgProtectionEnabled bool
+	StalenessSeconds       *big.Int
 	MaxPerformDataSize     uint32
 	MaxRevertDataSize      uint32
+	UpkeepPrivilegeManager common.Address
+	GasCeilingMultiplier   uint16
+	FinanceAdmin           common.Address
 	FallbackGasPrice       *big.Int
 	FallbackLinkPrice      *big.Int
 	FallbackNativePrice    *big.Int
-	Transcoder             common.Address
 	Registrars             []common.Address
-	UpkeepPrivilegeManager common.Address
 	ChainModule            common.Address
-	ReorgProtectionEnabled bool
 }
 
-type AutomationRegistryBase23OnchainConfigLegacy struct {
+type AutomationRegistryBase23PaymentReceipt struct {
+	GasChargeInBillingToken *big.Int
+	PremiumInBillingToken   *big.Int
+	GasReimbursementInJuels *big.Int
+	PremiumInJuels          *big.Int
+	BillingToken            common.Address
+	LinkUSD                 *big.Int
+	NativeUSD               *big.Int
+	BillingUSD              *big.Int
+}
+
+type AutomationRegistryBase23Storage struct {
+	Transcoder              common.Address
+	CheckGasLimit           uint32
+	MaxPerformGas           uint32
+	Nonce                   uint32
+	UpkeepPrivilegeManager  common.Address
+	ConfigCount             uint32
+	LatestConfigBlockNumber uint32
+	MaxCheckDataSize        uint32
+	FinanceAdmin            common.Address
+	MaxPerformDataSize      uint32
+	MaxRevertDataSize       uint32
+}
+
+type AutomationRegistryBase23TransmitterPayeeInfo struct {
+	TransmitterAddress common.Address
+	PayeeAddress       common.Address
+}
+
+type IAutomationV21PlusCommonOnchainConfigLegacy struct {
 	PaymentPremiumPPB      uint32
 	FlatFeeMicroLink       uint32
 	CheckGasLimit          uint32
@@ -75,7 +123,7 @@ type AutomationRegistryBase23OnchainConfigLegacy struct {
 	UpkeepPrivilegeManager common.Address
 }
 
-type AutomationRegistryBase23State struct {
+type IAutomationV21PlusCommonStateLegacy struct {
 	Nonce                   uint32
 	OwnerLinkBalance        *big.Int
 	ExpectedLinkBalance     *big.Int
@@ -88,7 +136,7 @@ type AutomationRegistryBase23State struct {
 	Paused                  bool
 }
 
-type AutomationRegistryBase23UpkeepInfo struct {
+type IAutomationV21PlusCommonUpkeepInfoLegacy struct {
 	Target                   common.Address
 	PerformGas               uint32
 	CheckData                []byte
@@ -102,7 +150,7 @@ type AutomationRegistryBase23UpkeepInfo struct {
 }
 
 var IAutomationRegistryMaster23MetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"ArrayHasNoEntries\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CannotCancel\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CheckDataExceedsLimit\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ConfigDigestMismatch\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateEntry\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitOutsideRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfFaultyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSignatures\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IndexOutOfRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidDataLength\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidFeed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRecipient\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidReport\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTransmitter\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTrigger\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTriggerType\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxCheckDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxPerformDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MigrationNotPermitted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotAContract\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveTransmitters\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByLINKToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrRegistrar\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByUpkeepPrivilegeManager\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyPausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlySimulatedBackend\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyUnpausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ParameterLengthError\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PaymentGreaterThanAllLINK\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RegistryPaused\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedTransmitter\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"reason\",\"type\":\"bytes\"}],\"name\":\"TargetCheckReverted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TooManyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TranscoderNotSet\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepAlreadyExists\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepCancelled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotCanceled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotNeeded\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ValueNotChanged\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddressNotAllowed\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"privilegeConfig\",\"type\":\"bytes\"}],\"name\":\"AdminPrivilegeConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"}],\"indexed\":false,\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig\",\"name\":\"config\",\"type\":\"tuple\"}],\"name\":\"BillingConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"CancelledUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newModule\",\"type\":\"address\"}],\"name\":\"ChainSpecificModuleUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"dedupKey\",\"type\":\"bytes32\"}],\"name\":\"DedupKeyAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"FundsAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"FundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"InsufficientFundsUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"OwnerFundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"PayeesUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"name\":\"PaymentWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"ReorgedUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"StaleUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"name\":\"Transmitted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"atBlockHeight\",\"type\":\"uint64\"}],\"name\":\"UpkeepCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"UpkeepCheckDataSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"gasLimit\",\"type\":\"uint96\"}],\"name\":\"UpkeepGasLimitSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"remainingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"UpkeepMigrated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepOffchainConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"totalPayment\",\"type\":\"uint96\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasOverhead\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"UpkeepPerformed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"privilegeConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepPrivilegeConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"importedFrom\",\"type\":\"address\"}],\"name\":\"UpkeepReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"performGas\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"UpkeepRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepTriggerConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepUnpaused\",\"type\":\"event\"},{\"stateMutability\":\"nonpayable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"}],\"name\":\"acceptPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"acceptUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"addFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"cancelUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes[]\",\"name\":\"values\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"checkCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"triggerData\",\"type\":\"bytes\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fastGasWei\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"linkUSD\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fastGasWei\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"linkUSD\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"payload\",\"type\":\"bytes\"}],\"name\":\"executeCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"fallbackTo\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCount\",\"type\":\"uint256\"}],\"name\":\"getActiveUpkeepIDs\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"getAdminPrivilegeConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllowedReadOnlyAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAutomationForwarderLogic\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getBalance\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"getBillingTokenConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getBillingTokens\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCancellationDelay\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getChainModule\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConditionalGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFallbackNativePrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFastGasFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepID\",\"type\":\"uint256\"}],\"name\":\"getForwarder\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkUSDFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLogGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"triggerType\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"getMaxPaymentForGas\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"maxPayment\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalance\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalanceForUpkeep\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"minBalance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNativeUSDFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"}],\"name\":\"getPeerRegistryMigrationPermission\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPerPerformByteGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPerSignerGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getReorgProtectionEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getSignerInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"nonce\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"ownerLinkBalance\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"expectedLinkBalance\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"totalPremium\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"numUpkeeps\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"latestConfigBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"latestConfigDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"latestEpoch\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"}],\"internalType\":\"structAutomationRegistryBase2_3.State\",\"name\":\"state\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"paymentPremiumPPB\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint96\",\"name\":\"minUpkeepSpend\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.OnchainConfigLegacy\",\"name\":\"config\",\"type\":\"tuple\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTransmitCalldataFixedBytesOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTransmitCalldataPerSignerBytesOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getTransmitterInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"lastCollected\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getTriggerType\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getUpkeep\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"performGas\",\"type\":\"uint32\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"maxValidBlocknumber\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"lastPerformedBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"amountSpent\",\"type\":\"uint96\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structAutomationRegistryBase2_3.UpkeepInfo\",\"name\":\"upkeepInfo\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepPrivilegeConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepTriggerConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"dedupKey\",\"type\":\"bytes32\"}],\"name\":\"hasDedupKey\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestConfigDetails\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"blockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestConfigDigestAndEpoch\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"scanLogs\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256[]\",\"name\":\"ids\",\"type\":\"uint256[]\"},{\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"migrateUpkeeps\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"onTokenTransfer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"pauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"encodedUpkeeps\",\"type\":\"bytes\"}],\"name\":\"receiveUpkeeps\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"recoverFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"triggerType\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"registerUpkeep\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"registerUpkeep\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"newPrivilegeConfig\",\"type\":\"bytes\"}],\"name\":\"setAdminPrivilegeConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"onchainConfigBytes\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"paymentPremiumPPB\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint96\",\"name\":\"minUpkeepSpend\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackNativePrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"}],\"internalType\":\"structAutomationRegistryBase2_3.OnchainConfig\",\"name\":\"onchainConfig\",\"type\":\"tuple\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"},{\"internalType\":\"address[]\",\"name\":\"billingTokens\",\"type\":\"address[]\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig[]\",\"name\":\"billingConfigs\",\"type\":\"tuple[]\"}],\"name\":\"setConfigTypeSafe\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"setPayees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"permission\",\"type\":\"uint8\"}],\"name\":\"setPeerRegistryMigrationPermission\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"setUpkeepCheckData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"setUpkeepGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"name\":\"setUpkeepOffchainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newPrivilegeConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepPrivilegeConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepTriggerConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"name\":\"simulatePerformUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[3]\",\"name\":\"reportContext\",\"type\":\"bytes32[3]\"},{\"internalType\":\"bytes\",\"name\":\"rawReport\",\"type\":\"bytes\"},{\"internalType\":\"bytes32[]\",\"name\":\"rs\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"ss\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32\",\"name\":\"rawVs\",\"type\":\"bytes32\"}],\"name\":\"transmit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"unpauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"upkeepTranscoderVersion\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"upkeepVersion\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawOwnerFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawPayment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"ArrayHasNoEntries\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CannotCancel\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CheckDataExceedsLimit\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ConfigDigestMismatch\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateEntry\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitOutsideRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfFaultyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSignatures\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IndexOutOfRange\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"available\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"requested\",\"type\":\"uint256\"}],\"name\":\"InsufficientBalance\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientLinkLiquidity\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidDataLength\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidFeed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRecipient\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidReport\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTransmitter\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTrigger\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTriggerType\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MigrationNotPermitted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MustSettleOffchain\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MustSettleOnchain\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotAContract\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveTransmitters\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByLINKToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrRegistrar\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByUpkeepPrivilegeManager\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyFinanceAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyPausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlySimulatedBackend\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyUnpausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ParameterLengthError\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RegistryPaused\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedTransmitter\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"reason\",\"type\":\"bytes\"}],\"name\":\"TargetCheckReverted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TooManyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TranscoderNotSet\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepAlreadyExists\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepCancelled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotCanceled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotNeeded\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ValueNotChanged\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddressNotAllowed\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"privilegeConfig\",\"type\":\"bytes\"}],\"name\":\"AdminPrivilegeConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMilliCents\",\"type\":\"uint24\"}],\"indexed\":false,\"internalType\":\"structAutomationRegistryBase2_3.BillingOverrides\",\"name\":\"overrides\",\"type\":\"tuple\"}],\"name\":\"BillingConfigOverridden\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"BillingConfigOverrideRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMilliCents\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"fallbackPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"minSpend\",\"type\":\"uint96\"}],\"indexed\":false,\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig\",\"name\":\"config\",\"type\":\"tuple\"}],\"name\":\"BillingConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"CancelledUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newModule\",\"type\":\"address\"}],\"name\":\"ChainSpecificModuleUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"dedupKey\",\"type\":\"bytes32\"}],\"name\":\"DedupKeyAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"assetAddress\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"FeesWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"FundsAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"FundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"InsufficientFundsUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"payments\",\"type\":\"uint256[]\"}],\"name\":\"NOPsSettledOffchain\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"PayeesUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"name\":\"PaymentWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"ReorgedUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"StaleUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"name\":\"Transmitted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"atBlockHeight\",\"type\":\"uint64\"}],\"name\":\"UpkeepCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint96\",\"name\":\"gasChargeInBillingToken\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"premiumInBillingToken\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"gasReimbursementInJuels\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"premiumInJuels\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"billingToken\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"linkUSD\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"nativeUSD\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"billingUSD\",\"type\":\"uint96\"}],\"indexed\":false,\"internalType\":\"structAutomationRegistryBase2_3.PaymentReceipt\",\"name\":\"receipt\",\"type\":\"tuple\"}],\"name\":\"UpkeepCharged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"UpkeepCheckDataSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"gasLimit\",\"type\":\"uint96\"}],\"name\":\"UpkeepGasLimitSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"remainingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"UpkeepMigrated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepOffchainConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"totalPayment\",\"type\":\"uint96\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasOverhead\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"UpkeepPerformed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"privilegeConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepPrivilegeConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"importedFrom\",\"type\":\"address\"}],\"name\":\"UpkeepReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"performGas\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"UpkeepRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepTriggerConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepUnpaused\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"}],\"name\":\"acceptPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"acceptUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"addFunds\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"cancelUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes[]\",\"name\":\"values\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"checkCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"triggerData\",\"type\":\"bytes\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fastGasWei\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"linkUSD\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fastGasWei\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"linkUSD\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"disableOffchainPayments\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"payload\",\"type\":\"bytes\"}],\"name\":\"executeCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"fallbackTo\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCount\",\"type\":\"uint256\"}],\"name\":\"getActiveUpkeepIDs\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"getAdminPrivilegeConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllowedReadOnlyAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAutomationForwarderLogic\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"billingToken\",\"type\":\"address\"}],\"name\":\"getAvailableERC20ForPayment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getBalance\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"billingToken\",\"type\":\"address\"}],\"name\":\"getBillingConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMilliCents\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"fallbackPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"minSpend\",\"type\":\"uint96\"}],\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepID\",\"type\":\"uint256\"}],\"name\":\"getBillingOverrides\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMilliCents\",\"type\":\"uint24\"}],\"internalType\":\"structAutomationRegistryBase2_3.BillingOverrides\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepID\",\"type\":\"uint256\"}],\"name\":\"getBillingToken\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"getBillingTokenConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMilliCents\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"fallbackPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"minSpend\",\"type\":\"uint96\"}],\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getBillingTokens\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCancellationDelay\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getChainModule\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConditionalGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"address\",\"name\":\"financeAdmin\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackNativePrice\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.OnchainConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFallbackNativePrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFastGasFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepID\",\"type\":\"uint256\"}],\"name\":\"getForwarder\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getHotVars\",\"outputs\":[{\"components\":[{\"internalType\":\"uint96\",\"name\":\"totalPremium\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"latestEpoch\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"reentrancyGuard\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"},{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.HotVars\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkUSDFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLogGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"triggerType\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"billingToken\",\"type\":\"address\"}],\"name\":\"getMaxPaymentForGas\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"maxPayment\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalance\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalanceForUpkeep\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"minBalance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNativeUSDFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNumUpkeeps\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPayoutMode\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"}],\"name\":\"getPeerRegistryMigrationPermission\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPerPerformByteGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPerSignerGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getReorgProtectionEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"billingToken\",\"type\":\"address\"}],\"name\":\"getReserveAmount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getSignerInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"nonce\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"ownerLinkBalance\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"expectedLinkBalance\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"totalPremium\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"numUpkeeps\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"latestConfigBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"latestConfigDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"latestEpoch\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"}],\"internalType\":\"structIAutomationV21PlusCommon.StateLegacy\",\"name\":\"state\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"paymentPremiumPPB\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint96\",\"name\":\"minUpkeepSpend\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"}],\"internalType\":\"structIAutomationV21PlusCommon.OnchainConfigLegacy\",\"name\":\"config\",\"type\":\"tuple\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getStorage\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"nonce\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"latestConfigBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"financeAdmin\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"}],\"internalType\":\"structAutomationRegistryBase2_3.Storage\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTransmitCalldataFixedBytesOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTransmitCalldataPerSignerBytesOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getTransmitterInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"lastCollected\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTransmittersWithPayees\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"transmitterAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"payeeAddress\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.TransmitterPayeeInfo[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getTriggerType\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getUpkeep\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"performGas\",\"type\":\"uint32\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"maxValidBlocknumber\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"lastPerformedBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"amountSpent\",\"type\":\"uint96\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structIAutomationV21PlusCommon.UpkeepInfoLegacy\",\"name\":\"upkeepInfo\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepPrivilegeConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepTriggerConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getWrappedNativeTokenAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"dedupKey\",\"type\":\"bytes32\"}],\"name\":\"hasDedupKey\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestConfigDetails\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"blockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestConfigDigestAndEpoch\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"scanLogs\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"linkAvailableForPayment\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256[]\",\"name\":\"ids\",\"type\":\"uint256[]\"},{\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"migrateUpkeeps\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"onTokenTransfer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"pauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"encodedUpkeeps\",\"type\":\"bytes\"}],\"name\":\"receiveUpkeeps\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"triggerType\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"billingToken\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"registerUpkeep\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"removeBillingOverrides\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"newPrivilegeConfig\",\"type\":\"bytes\"}],\"name\":\"setAdminPrivilegeConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMilliCents\",\"type\":\"uint24\"}],\"internalType\":\"structAutomationRegistryBase2_3.BillingOverrides\",\"name\":\"billingOverrides\",\"type\":\"tuple\"}],\"name\":\"setBillingOverrides\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"onchainConfigBytes\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"address\",\"name\":\"financeAdmin\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackNativePrice\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.OnchainConfig\",\"name\":\"onchainConfig\",\"type\":\"tuple\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"},{\"internalType\":\"address[]\",\"name\":\"billingTokens\",\"type\":\"address[]\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMilliCents\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"fallbackPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"minSpend\",\"type\":\"uint96\"}],\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig[]\",\"name\":\"billingConfigs\",\"type\":\"tuple[]\"}],\"name\":\"setConfigTypeSafe\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"setPayees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"permission\",\"type\":\"uint8\"}],\"name\":\"setPeerRegistryMigrationPermission\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"setUpkeepCheckData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"setUpkeepGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"name\":\"setUpkeepOffchainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newPrivilegeConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepPrivilegeConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepTriggerConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"settleNOPsOffchain\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"name\":\"simulatePerformUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"supportsBillingToken\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[3]\",\"name\":\"reportContext\",\"type\":\"bytes32[3]\"},{\"internalType\":\"bytes\",\"name\":\"rawReport\",\"type\":\"bytes\"},{\"internalType\":\"bytes32[]\",\"name\":\"rs\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"ss\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32\",\"name\":\"rawVs\",\"type\":\"bytes32\"}],\"name\":\"transmit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"unpauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"upkeepVersion\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"withdrawERC20Fees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"withdrawLink\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawPayment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 var IAutomationRegistryMaster23ABI = IAutomationRegistryMaster23MetaData.ABI
@@ -435,6 +483,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) Ge
 	return _IAutomationRegistryMaster23.Contract.GetAutomationForwarderLogic(&_IAutomationRegistryMaster23.CallOpts)
 }
 
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetAvailableERC20ForPayment(opts *bind.CallOpts, billingToken common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getAvailableERC20ForPayment", billingToken)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetAvailableERC20ForPayment(billingToken common.Address) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetAvailableERC20ForPayment(&_IAutomationRegistryMaster23.CallOpts, billingToken)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetAvailableERC20ForPayment(billingToken common.Address) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetAvailableERC20ForPayment(&_IAutomationRegistryMaster23.CallOpts, billingToken)
+}
+
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getBalance", id)
@@ -455,6 +525,72 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetBalan
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetBalance(id *big.Int) (*big.Int, error) {
 	return _IAutomationRegistryMaster23.Contract.GetBalance(&_IAutomationRegistryMaster23.CallOpts, id)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetBillingConfig(opts *bind.CallOpts, billingToken common.Address) (AutomationRegistryBase23BillingConfig, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getBillingConfig", billingToken)
+
+	if err != nil {
+		return *new(AutomationRegistryBase23BillingConfig), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutomationRegistryBase23BillingConfig)).(*AutomationRegistryBase23BillingConfig)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetBillingConfig(billingToken common.Address) (AutomationRegistryBase23BillingConfig, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingConfig(&_IAutomationRegistryMaster23.CallOpts, billingToken)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetBillingConfig(billingToken common.Address) (AutomationRegistryBase23BillingConfig, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingConfig(&_IAutomationRegistryMaster23.CallOpts, billingToken)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetBillingOverrides(opts *bind.CallOpts, upkeepID *big.Int) (AutomationRegistryBase23BillingOverrides, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getBillingOverrides", upkeepID)
+
+	if err != nil {
+		return *new(AutomationRegistryBase23BillingOverrides), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutomationRegistryBase23BillingOverrides)).(*AutomationRegistryBase23BillingOverrides)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetBillingOverrides(upkeepID *big.Int) (AutomationRegistryBase23BillingOverrides, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingOverrides(&_IAutomationRegistryMaster23.CallOpts, upkeepID)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetBillingOverrides(upkeepID *big.Int) (AutomationRegistryBase23BillingOverrides, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingOverrides(&_IAutomationRegistryMaster23.CallOpts, upkeepID)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetBillingToken(opts *bind.CallOpts, upkeepID *big.Int) (common.Address, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getBillingToken", upkeepID)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetBillingToken(upkeepID *big.Int) (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingToken(&_IAutomationRegistryMaster23.CallOpts, upkeepID)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetBillingToken(upkeepID *big.Int) (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingToken(&_IAutomationRegistryMaster23.CallOpts, upkeepID)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetBillingTokenConfig(opts *bind.CallOpts, token common.Address) (AutomationRegistryBase23BillingConfig, error) {
@@ -567,6 +703,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) Ge
 	return _IAutomationRegistryMaster23.Contract.GetConditionalGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetConfig(opts *bind.CallOpts) (AutomationRegistryBase23OnchainConfig, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getConfig")
+
+	if err != nil {
+		return *new(AutomationRegistryBase23OnchainConfig), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutomationRegistryBase23OnchainConfig)).(*AutomationRegistryBase23OnchainConfig)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetConfig() (AutomationRegistryBase23OnchainConfig, error) {
+	return _IAutomationRegistryMaster23.Contract.GetConfig(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetConfig() (AutomationRegistryBase23OnchainConfig, error) {
+	return _IAutomationRegistryMaster23.Contract.GetConfig(&_IAutomationRegistryMaster23.CallOpts)
+}
+
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetFallbackNativePrice(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getFallbackNativePrice")
@@ -631,6 +789,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetForwa
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetForwarder(upkeepID *big.Int) (common.Address, error) {
 	return _IAutomationRegistryMaster23.Contract.GetForwarder(&_IAutomationRegistryMaster23.CallOpts, upkeepID)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetHotVars(opts *bind.CallOpts) (AutomationRegistryBase23HotVars, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getHotVars")
+
+	if err != nil {
+		return *new(AutomationRegistryBase23HotVars), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutomationRegistryBase23HotVars)).(*AutomationRegistryBase23HotVars)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetHotVars() (AutomationRegistryBase23HotVars, error) {
+	return _IAutomationRegistryMaster23.Contract.GetHotVars(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetHotVars() (AutomationRegistryBase23HotVars, error) {
+	return _IAutomationRegistryMaster23.Contract.GetHotVars(&_IAutomationRegistryMaster23.CallOpts)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetLinkAddress(opts *bind.CallOpts) (common.Address, error) {
@@ -699,9 +879,9 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) Ge
 	return _IAutomationRegistryMaster23.Contract.GetLogGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetMaxPaymentForGas(opts *bind.CallOpts, triggerType uint8, gasLimit uint32) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetMaxPaymentForGas(opts *bind.CallOpts, id *big.Int, triggerType uint8, gasLimit uint32, billingToken common.Address) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getMaxPaymentForGas", triggerType, gasLimit)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getMaxPaymentForGas", id, triggerType, gasLimit, billingToken)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -713,12 +893,12 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetMaxPay
 
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetMaxPaymentForGas(triggerType uint8, gasLimit uint32) (*big.Int, error) {
-	return _IAutomationRegistryMaster23.Contract.GetMaxPaymentForGas(&_IAutomationRegistryMaster23.CallOpts, triggerType, gasLimit)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetMaxPaymentForGas(id *big.Int, triggerType uint8, gasLimit uint32, billingToken common.Address) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetMaxPaymentForGas(&_IAutomationRegistryMaster23.CallOpts, id, triggerType, gasLimit, billingToken)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetMaxPaymentForGas(triggerType uint8, gasLimit uint32) (*big.Int, error) {
-	return _IAutomationRegistryMaster23.Contract.GetMaxPaymentForGas(&_IAutomationRegistryMaster23.CallOpts, triggerType, gasLimit)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetMaxPaymentForGas(id *big.Int, triggerType uint8, gasLimit uint32, billingToken common.Address) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetMaxPaymentForGas(&_IAutomationRegistryMaster23.CallOpts, id, triggerType, gasLimit, billingToken)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetMinBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error) {
@@ -785,6 +965,50 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetNativ
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetNativeUSDFeedAddress() (common.Address, error) {
 	return _IAutomationRegistryMaster23.Contract.GetNativeUSDFeedAddress(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetNumUpkeeps(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getNumUpkeeps")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetNumUpkeeps() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetNumUpkeeps(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetNumUpkeeps() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetNumUpkeeps(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetPayoutMode(opts *bind.CallOpts) (uint8, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getPayoutMode")
+
+	if err != nil {
+		return *new(uint8), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetPayoutMode() (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.GetPayoutMode(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetPayoutMode() (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.GetPayoutMode(&_IAutomationRegistryMaster23.CallOpts)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetPeerRegistryMigrationPermission(opts *bind.CallOpts, peer common.Address) (uint8, error) {
@@ -875,6 +1099,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) Ge
 	return _IAutomationRegistryMaster23.Contract.GetReorgProtectionEnabled(&_IAutomationRegistryMaster23.CallOpts)
 }
 
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetReserveAmount(opts *bind.CallOpts, billingToken common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getReserveAmount", billingToken)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetReserveAmount(billingToken common.Address) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetReserveAmount(&_IAutomationRegistryMaster23.CallOpts, billingToken)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetReserveAmount(billingToken common.Address) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetReserveAmount(&_IAutomationRegistryMaster23.CallOpts, billingToken)
+}
+
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetSignerInfo(opts *bind.CallOpts, query common.Address) (GetSignerInfo,
 
 	error) {
@@ -916,8 +1162,8 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetState(
 		return *outstruct, err
 	}
 
-	outstruct.State = *abi.ConvertType(out[0], new(AutomationRegistryBase23State)).(*AutomationRegistryBase23State)
-	outstruct.Config = *abi.ConvertType(out[1], new(AutomationRegistryBase23OnchainConfigLegacy)).(*AutomationRegistryBase23OnchainConfigLegacy)
+	outstruct.State = *abi.ConvertType(out[0], new(IAutomationV21PlusCommonStateLegacy)).(*IAutomationV21PlusCommonStateLegacy)
+	outstruct.Config = *abi.ConvertType(out[1], new(IAutomationV21PlusCommonOnchainConfigLegacy)).(*IAutomationV21PlusCommonOnchainConfigLegacy)
 	outstruct.Signers = *abi.ConvertType(out[2], new([]common.Address)).(*[]common.Address)
 	outstruct.Transmitters = *abi.ConvertType(out[3], new([]common.Address)).(*[]common.Address)
 	outstruct.F = *abi.ConvertType(out[4], new(uint8)).(*uint8)
@@ -936,6 +1182,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) Ge
 
 	error) {
 	return _IAutomationRegistryMaster23.Contract.GetState(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetStorage(opts *bind.CallOpts) (AutomationRegistryBase23Storage, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getStorage")
+
+	if err != nil {
+		return *new(AutomationRegistryBase23Storage), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutomationRegistryBase23Storage)).(*AutomationRegistryBase23Storage)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetStorage() (AutomationRegistryBase23Storage, error) {
+	return _IAutomationRegistryMaster23.Contract.GetStorage(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetStorage() (AutomationRegistryBase23Storage, error) {
+	return _IAutomationRegistryMaster23.Contract.GetStorage(&_IAutomationRegistryMaster23.CallOpts)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetTransmitCalldataFixedBytesOverhead(opts *bind.CallOpts) (*big.Int, error) {
@@ -1015,6 +1283,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) Ge
 	return _IAutomationRegistryMaster23.Contract.GetTransmitterInfo(&_IAutomationRegistryMaster23.CallOpts, query)
 }
 
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetTransmittersWithPayees(opts *bind.CallOpts) ([]AutomationRegistryBase23TransmitterPayeeInfo, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getTransmittersWithPayees")
+
+	if err != nil {
+		return *new([]AutomationRegistryBase23TransmitterPayeeInfo), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]AutomationRegistryBase23TransmitterPayeeInfo)).(*[]AutomationRegistryBase23TransmitterPayeeInfo)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetTransmittersWithPayees() ([]AutomationRegistryBase23TransmitterPayeeInfo, error) {
+	return _IAutomationRegistryMaster23.Contract.GetTransmittersWithPayees(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetTransmittersWithPayees() ([]AutomationRegistryBase23TransmitterPayeeInfo, error) {
+	return _IAutomationRegistryMaster23.Contract.GetTransmittersWithPayees(&_IAutomationRegistryMaster23.CallOpts)
+}
+
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetTriggerType(opts *bind.CallOpts, upkeepId *big.Int) (uint8, error) {
 	var out []interface{}
 	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getTriggerType", upkeepId)
@@ -1037,25 +1327,25 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) Ge
 	return _IAutomationRegistryMaster23.Contract.GetTriggerType(&_IAutomationRegistryMaster23.CallOpts, upkeepId)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetUpkeep(opts *bind.CallOpts, id *big.Int) (AutomationRegistryBase23UpkeepInfo, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetUpkeep(opts *bind.CallOpts, id *big.Int) (IAutomationV21PlusCommonUpkeepInfoLegacy, error) {
 	var out []interface{}
 	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getUpkeep", id)
 
 	if err != nil {
-		return *new(AutomationRegistryBase23UpkeepInfo), err
+		return *new(IAutomationV21PlusCommonUpkeepInfoLegacy), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(AutomationRegistryBase23UpkeepInfo)).(*AutomationRegistryBase23UpkeepInfo)
+	out0 := *abi.ConvertType(out[0], new(IAutomationV21PlusCommonUpkeepInfoLegacy)).(*IAutomationV21PlusCommonUpkeepInfoLegacy)
 
 	return out0, err
 
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetUpkeep(id *big.Int) (AutomationRegistryBase23UpkeepInfo, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetUpkeep(id *big.Int) (IAutomationV21PlusCommonUpkeepInfoLegacy, error) {
 	return _IAutomationRegistryMaster23.Contract.GetUpkeep(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetUpkeep(id *big.Int) (AutomationRegistryBase23UpkeepInfo, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetUpkeep(id *big.Int) (IAutomationV21PlusCommonUpkeepInfoLegacy, error) {
 	return _IAutomationRegistryMaster23.Contract.GetUpkeep(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
@@ -1101,6 +1391,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetUpkee
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetUpkeepTriggerConfig(upkeepId *big.Int) ([]byte, error) {
 	return _IAutomationRegistryMaster23.Contract.GetUpkeepTriggerConfig(&_IAutomationRegistryMaster23.CallOpts, upkeepId)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetWrappedNativeTokenAddress(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getWrappedNativeTokenAddress")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetWrappedNativeTokenAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetWrappedNativeTokenAddress(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetWrappedNativeTokenAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetWrappedNativeTokenAddress(&_IAutomationRegistryMaster23.CallOpts)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) HasDedupKey(opts *bind.CallOpts, dedupKey [32]byte) (bool, error) {
@@ -1187,6 +1499,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) La
 	return _IAutomationRegistryMaster23.Contract.LatestConfigDigestAndEpoch(&_IAutomationRegistryMaster23.CallOpts)
 }
 
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) LinkAvailableForPayment(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "linkAvailableForPayment")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) LinkAvailableForPayment() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.LinkAvailableForPayment(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) LinkAvailableForPayment() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.LinkAvailableForPayment(&_IAutomationRegistryMaster23.CallOpts)
+}
+
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) Owner(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "owner")
@@ -1239,6 +1573,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) Si
 	return _IAutomationRegistryMaster23.Contract.SimulatePerformUpkeep(&_IAutomationRegistryMaster23.CallOpts, id, performData)
 }
 
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) SupportsBillingToken(opts *bind.CallOpts, token common.Address) (bool, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "supportsBillingToken", token)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SupportsBillingToken(token common.Address) (bool, error) {
+	return _IAutomationRegistryMaster23.Contract.SupportsBillingToken(&_IAutomationRegistryMaster23.CallOpts, token)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) SupportsBillingToken(token common.Address) (bool, error) {
+	return _IAutomationRegistryMaster23.Contract.SupportsBillingToken(&_IAutomationRegistryMaster23.CallOpts, token)
+}
+
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) TypeAndVersion(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "typeAndVersion")
@@ -1259,28 +1615,6 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) TypeAndV
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) TypeAndVersion() (string, error) {
 	return _IAutomationRegistryMaster23.Contract.TypeAndVersion(&_IAutomationRegistryMaster23.CallOpts)
-}
-
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) UpkeepTranscoderVersion(opts *bind.CallOpts) (uint8, error) {
-	var out []interface{}
-	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "upkeepTranscoderVersion")
-
-	if err != nil {
-		return *new(uint8), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
-
-	return out0, err
-
-}
-
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) UpkeepTranscoderVersion() (uint8, error) {
-	return _IAutomationRegistryMaster23.Contract.UpkeepTranscoderVersion(&_IAutomationRegistryMaster23.CallOpts)
-}
-
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) UpkeepTranscoderVersion() (uint8, error) {
-	return _IAutomationRegistryMaster23.Contract.UpkeepTranscoderVersion(&_IAutomationRegistryMaster23.CallOpts)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) UpkeepVersion(opts *bind.CallOpts) (uint8, error) {
@@ -1365,6 +1699,18 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession
 	return _IAutomationRegistryMaster23.Contract.CancelUpkeep(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) DisableOffchainPayments(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "disableOffchainPayments")
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) DisableOffchainPayments() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.DisableOffchainPayments(&_IAutomationRegistryMaster23.TransactOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) DisableOffchainPayments() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.DisableOffchainPayments(&_IAutomationRegistryMaster23.TransactOpts)
+}
+
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) ExecuteCallback(opts *bind.TransactOpts, id *big.Int, payload []byte) (*types.Transaction, error) {
 	return _IAutomationRegistryMaster23.contract.Transact(opts, "executeCallback", id, payload)
 }
@@ -1437,40 +1783,28 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession
 	return _IAutomationRegistryMaster23.Contract.ReceiveUpkeeps(&_IAutomationRegistryMaster23.TransactOpts, encodedUpkeeps)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) RecoverFunds(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.contract.Transact(opts, "recoverFunds")
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, billingToken common.Address, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "registerUpkeep", target, gasLimit, admin, triggerType, billingToken, checkData, triggerConfig, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) RecoverFunds() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.Contract.RecoverFunds(&_IAutomationRegistryMaster23.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) RegisterUpkeep(target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, billingToken common.Address, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, triggerType, billingToken, checkData, triggerConfig, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) RecoverFunds() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.Contract.RecoverFunds(&_IAutomationRegistryMaster23.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) RegisterUpkeep(target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, billingToken common.Address, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, triggerType, billingToken, checkData, triggerConfig, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.contract.Transact(opts, "registerUpkeep", target, gasLimit, admin, triggerType, checkData, triggerConfig, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) RemoveBillingOverrides(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "removeBillingOverrides", id)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) RegisterUpkeep(target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, triggerType, checkData, triggerConfig, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) RemoveBillingOverrides(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.RemoveBillingOverrides(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) RegisterUpkeep(target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, triggerType, checkData, triggerConfig, offchainConfig)
-}
-
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) RegisterUpkeep0(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.contract.Transact(opts, "registerUpkeep0", target, gasLimit, admin, checkData, offchainConfig)
-}
-
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) RegisterUpkeep0(target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep0(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, checkData, offchainConfig)
-}
-
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) RegisterUpkeep0(target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep0(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, checkData, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) RemoveBillingOverrides(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.RemoveBillingOverrides(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetAdminPrivilegeConfig(opts *bind.TransactOpts, admin common.Address, newPrivilegeConfig []byte) (*types.Transaction, error) {
@@ -1483,6 +1817,18 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetAdmin
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetAdminPrivilegeConfig(admin common.Address, newPrivilegeConfig []byte) (*types.Transaction, error) {
 	return _IAutomationRegistryMaster23.Contract.SetAdminPrivilegeConfig(&_IAutomationRegistryMaster23.TransactOpts, admin, newPrivilegeConfig)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetBillingOverrides(opts *bind.TransactOpts, id *big.Int, billingOverrides AutomationRegistryBase23BillingOverrides) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setBillingOverrides", id, billingOverrides)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetBillingOverrides(id *big.Int, billingOverrides AutomationRegistryBase23BillingOverrides) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetBillingOverrides(&_IAutomationRegistryMaster23.TransactOpts, id, billingOverrides)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetBillingOverrides(id *big.Int, billingOverrides AutomationRegistryBase23BillingOverrides) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetBillingOverrides(&_IAutomationRegistryMaster23.TransactOpts, id, billingOverrides)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetConfig(opts *bind.TransactOpts, signers []common.Address, transmitters []common.Address, f uint8, onchainConfigBytes []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
@@ -1593,6 +1939,18 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession
 	return _IAutomationRegistryMaster23.Contract.SetUpkeepTriggerConfig(&_IAutomationRegistryMaster23.TransactOpts, id, triggerConfig)
 }
 
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SettleNOPsOffchain(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "settleNOPsOffchain")
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SettleNOPsOffchain() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SettleNOPsOffchain(&_IAutomationRegistryMaster23.TransactOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SettleNOPsOffchain() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SettleNOPsOffchain(&_IAutomationRegistryMaster23.TransactOpts)
+}
+
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
 	return _IAutomationRegistryMaster23.contract.Transact(opts, "transferOwnership", to)
 }
@@ -1665,6 +2023,18 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession
 	return _IAutomationRegistryMaster23.Contract.UnpauseUpkeep(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) WithdrawERC20Fees(opts *bind.TransactOpts, asset common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "withdrawERC20Fees", asset, to, amount)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) WithdrawERC20Fees(asset common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawERC20Fees(&_IAutomationRegistryMaster23.TransactOpts, asset, to, amount)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) WithdrawERC20Fees(asset common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawERC20Fees(&_IAutomationRegistryMaster23.TransactOpts, asset, to, amount)
+}
+
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error) {
 	return _IAutomationRegistryMaster23.contract.Transact(opts, "withdrawFunds", id, to)
 }
@@ -1677,16 +2047,16 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession
 	return _IAutomationRegistryMaster23.Contract.WithdrawFunds(&_IAutomationRegistryMaster23.TransactOpts, id, to)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) WithdrawOwnerFunds(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.contract.Transact(opts, "withdrawOwnerFunds")
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) WithdrawLink(opts *bind.TransactOpts, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "withdrawLink", to, amount)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) WithdrawOwnerFunds() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.Contract.WithdrawOwnerFunds(&_IAutomationRegistryMaster23.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) WithdrawLink(to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawLink(&_IAutomationRegistryMaster23.TransactOpts, to, amount)
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) WithdrawOwnerFunds() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster23.Contract.WithdrawOwnerFunds(&_IAutomationRegistryMaster23.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) WithdrawLink(to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawLink(&_IAutomationRegistryMaster23.TransactOpts, to, amount)
 }
 
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) WithdrawPayment(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error) {
@@ -1835,6 +2205,261 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchAd
 func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseAdminPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMaster23AdminPrivilegeConfigSet, error) {
 	event := new(IAutomationRegistryMaster23AdminPrivilegeConfigSet)
 	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "AdminPrivilegeConfigSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type IAutomationRegistryMaster23BillingConfigOverriddenIterator struct {
+	Event *IAutomationRegistryMaster23BillingConfigOverridden
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *IAutomationRegistryMaster23BillingConfigOverriddenIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAutomationRegistryMaster23BillingConfigOverridden)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAutomationRegistryMaster23BillingConfigOverridden)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *IAutomationRegistryMaster23BillingConfigOverriddenIterator) Error() error {
+	return it.fail
+}
+
+func (it *IAutomationRegistryMaster23BillingConfigOverriddenIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type IAutomationRegistryMaster23BillingConfigOverridden struct {
+	Id        *big.Int
+	Overrides AutomationRegistryBase23BillingOverrides
+	Raw       types.Log
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterBillingConfigOverridden(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23BillingConfigOverriddenIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "BillingConfigOverridden", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &IAutomationRegistryMaster23BillingConfigOverriddenIterator{contract: _IAutomationRegistryMaster23.contract, event: "BillingConfigOverridden", logs: logs, sub: sub}, nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchBillingConfigOverridden(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23BillingConfigOverridden, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "BillingConfigOverridden", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(IAutomationRegistryMaster23BillingConfigOverridden)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "BillingConfigOverridden", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseBillingConfigOverridden(log types.Log) (*IAutomationRegistryMaster23BillingConfigOverridden, error) {
+	event := new(IAutomationRegistryMaster23BillingConfigOverridden)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "BillingConfigOverridden", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type IAutomationRegistryMaster23BillingConfigOverrideRemovedIterator struct {
+	Event *IAutomationRegistryMaster23BillingConfigOverrideRemoved
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *IAutomationRegistryMaster23BillingConfigOverrideRemovedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAutomationRegistryMaster23BillingConfigOverrideRemoved)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAutomationRegistryMaster23BillingConfigOverrideRemoved)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *IAutomationRegistryMaster23BillingConfigOverrideRemovedIterator) Error() error {
+	return it.fail
+}
+
+func (it *IAutomationRegistryMaster23BillingConfigOverrideRemovedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type IAutomationRegistryMaster23BillingConfigOverrideRemoved struct {
+	Id  *big.Int
+	Raw types.Log
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterBillingConfigOverrideRemoved(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23BillingConfigOverrideRemovedIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "BillingConfigOverrideRemoved", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &IAutomationRegistryMaster23BillingConfigOverrideRemovedIterator{contract: _IAutomationRegistryMaster23.contract, event: "BillingConfigOverrideRemoved", logs: logs, sub: sub}, nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchBillingConfigOverrideRemoved(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23BillingConfigOverrideRemoved, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "BillingConfigOverrideRemoved", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(IAutomationRegistryMaster23BillingConfigOverrideRemoved)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "BillingConfigOverrideRemoved", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseBillingConfigOverrideRemoved(log types.Log) (*IAutomationRegistryMaster23BillingConfigOverrideRemoved, error) {
+	event := new(IAutomationRegistryMaster23BillingConfigOverrideRemoved)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "BillingConfigOverrideRemoved", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2466,6 +3091,143 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseDe
 	return event, nil
 }
 
+type IAutomationRegistryMaster23FeesWithdrawnIterator struct {
+	Event *IAutomationRegistryMaster23FeesWithdrawn
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *IAutomationRegistryMaster23FeesWithdrawnIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAutomationRegistryMaster23FeesWithdrawn)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAutomationRegistryMaster23FeesWithdrawn)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *IAutomationRegistryMaster23FeesWithdrawnIterator) Error() error {
+	return it.fail
+}
+
+func (it *IAutomationRegistryMaster23FeesWithdrawnIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type IAutomationRegistryMaster23FeesWithdrawn struct {
+	AssetAddress common.Address
+	Recipient    common.Address
+	Amount       *big.Int
+	Raw          types.Log
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterFeesWithdrawn(opts *bind.FilterOpts, assetAddress []common.Address, recipient []common.Address) (*IAutomationRegistryMaster23FeesWithdrawnIterator, error) {
+
+	var assetAddressRule []interface{}
+	for _, assetAddressItem := range assetAddress {
+		assetAddressRule = append(assetAddressRule, assetAddressItem)
+	}
+	var recipientRule []interface{}
+	for _, recipientItem := range recipient {
+		recipientRule = append(recipientRule, recipientItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "FeesWithdrawn", assetAddressRule, recipientRule)
+	if err != nil {
+		return nil, err
+	}
+	return &IAutomationRegistryMaster23FeesWithdrawnIterator{contract: _IAutomationRegistryMaster23.contract, event: "FeesWithdrawn", logs: logs, sub: sub}, nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchFeesWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23FeesWithdrawn, assetAddress []common.Address, recipient []common.Address) (event.Subscription, error) {
+
+	var assetAddressRule []interface{}
+	for _, assetAddressItem := range assetAddress {
+		assetAddressRule = append(assetAddressRule, assetAddressItem)
+	}
+	var recipientRule []interface{}
+	for _, recipientItem := range recipient {
+		recipientRule = append(recipientRule, recipientItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "FeesWithdrawn", assetAddressRule, recipientRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(IAutomationRegistryMaster23FeesWithdrawn)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "FeesWithdrawn", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseFeesWithdrawn(log types.Log) (*IAutomationRegistryMaster23FeesWithdrawn, error) {
+	event := new(IAutomationRegistryMaster23FeesWithdrawn)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "FeesWithdrawn", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type IAutomationRegistryMaster23FundsAddedIterator struct {
 	Event *IAutomationRegistryMaster23FundsAdded
 
@@ -2860,8 +3622,8 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseIn
 	return event, nil
 }
 
-type IAutomationRegistryMaster23OwnerFundsWithdrawnIterator struct {
-	Event *IAutomationRegistryMaster23OwnerFundsWithdrawn
+type IAutomationRegistryMaster23NOPsSettledOffchainIterator struct {
+	Event *IAutomationRegistryMaster23NOPsSettledOffchain
 
 	contract *bind.BoundContract
 	event    string
@@ -2872,7 +3634,7 @@ type IAutomationRegistryMaster23OwnerFundsWithdrawnIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMaster23OwnerFundsWithdrawnIterator) Next() bool {
+func (it *IAutomationRegistryMaster23NOPsSettledOffchainIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2881,7 +3643,7 @@ func (it *IAutomationRegistryMaster23OwnerFundsWithdrawnIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMaster23OwnerFundsWithdrawn)
+			it.Event = new(IAutomationRegistryMaster23NOPsSettledOffchain)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2896,7 +3658,7 @@ func (it *IAutomationRegistryMaster23OwnerFundsWithdrawnIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMaster23OwnerFundsWithdrawn)
+		it.Event = new(IAutomationRegistryMaster23NOPsSettledOffchain)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2911,32 +3673,33 @@ func (it *IAutomationRegistryMaster23OwnerFundsWithdrawnIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMaster23OwnerFundsWithdrawnIterator) Error() error {
+func (it *IAutomationRegistryMaster23NOPsSettledOffchainIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMaster23OwnerFundsWithdrawnIterator) Close() error {
+func (it *IAutomationRegistryMaster23NOPsSettledOffchainIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMaster23OwnerFundsWithdrawn struct {
-	Amount *big.Int
-	Raw    types.Log
+type IAutomationRegistryMaster23NOPsSettledOffchain struct {
+	Payees   []common.Address
+	Payments []*big.Int
+	Raw      types.Log
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterOwnerFundsWithdrawn(opts *bind.FilterOpts) (*IAutomationRegistryMaster23OwnerFundsWithdrawnIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterNOPsSettledOffchain(opts *bind.FilterOpts) (*IAutomationRegistryMaster23NOPsSettledOffchainIterator, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "OwnerFundsWithdrawn")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "NOPsSettledOffchain")
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMaster23OwnerFundsWithdrawnIterator{contract: _IAutomationRegistryMaster23.contract, event: "OwnerFundsWithdrawn", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23NOPsSettledOffchainIterator{contract: _IAutomationRegistryMaster23.contract, event: "NOPsSettledOffchain", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchOwnerFundsWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23OwnerFundsWithdrawn) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchNOPsSettledOffchain(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23NOPsSettledOffchain) (event.Subscription, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "OwnerFundsWithdrawn")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "NOPsSettledOffchain")
 	if err != nil {
 		return nil, err
 	}
@@ -2946,8 +3709,8 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchOw
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMaster23OwnerFundsWithdrawn)
-				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "OwnerFundsWithdrawn", log); err != nil {
+				event := new(IAutomationRegistryMaster23NOPsSettledOffchain)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "NOPsSettledOffchain", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2968,9 +3731,9 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchOw
 	}), nil
 }
 
-func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseOwnerFundsWithdrawn(log types.Log) (*IAutomationRegistryMaster23OwnerFundsWithdrawn, error) {
-	event := new(IAutomationRegistryMaster23OwnerFundsWithdrawn)
-	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "OwnerFundsWithdrawn", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseNOPsSettledOffchain(log types.Log) (*IAutomationRegistryMaster23NOPsSettledOffchain, error) {
+	event := new(IAutomationRegistryMaster23NOPsSettledOffchain)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "NOPsSettledOffchain", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -4837,6 +5600,134 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUp
 	return event, nil
 }
 
+type IAutomationRegistryMaster23UpkeepChargedIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepCharged
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *IAutomationRegistryMaster23UpkeepChargedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAutomationRegistryMaster23UpkeepCharged)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAutomationRegistryMaster23UpkeepCharged)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *IAutomationRegistryMaster23UpkeepChargedIterator) Error() error {
+	return it.fail
+}
+
+func (it *IAutomationRegistryMaster23UpkeepChargedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type IAutomationRegistryMaster23UpkeepCharged struct {
+	Id      *big.Int
+	Receipt AutomationRegistryBase23PaymentReceipt
+	Raw     types.Log
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepCharged(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepChargedIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepCharged", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &IAutomationRegistryMaster23UpkeepChargedIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepCharged", logs: logs, sub: sub}, nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepCharged(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepCharged, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepCharged", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(IAutomationRegistryMaster23UpkeepCharged)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepCharged", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepCharged(log types.Log) (*IAutomationRegistryMaster23UpkeepCharged, error) {
+	event := new(IAutomationRegistryMaster23UpkeepCharged)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepCharged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type IAutomationRegistryMaster23UpkeepCheckDataSetIterator struct {
 	Event *IAutomationRegistryMaster23UpkeepCheckDataSet
 
@@ -6287,8 +7178,8 @@ type GetSignerInfo struct {
 	Index  uint8
 }
 type GetState struct {
-	State        AutomationRegistryBase23State
-	Config       AutomationRegistryBase23OnchainConfigLegacy
+	State        IAutomationV21PlusCommonStateLegacy
+	Config       IAutomationV21PlusCommonOnchainConfigLegacy
 	Signers      []common.Address
 	Transmitters []common.Address
 	F            uint8
@@ -6319,6 +7210,10 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23) ParseLog(log ty
 	switch log.Topics[0] {
 	case _IAutomationRegistryMaster23.abi.Events["AdminPrivilegeConfigSet"].ID:
 		return _IAutomationRegistryMaster23.ParseAdminPrivilegeConfigSet(log)
+	case _IAutomationRegistryMaster23.abi.Events["BillingConfigOverridden"].ID:
+		return _IAutomationRegistryMaster23.ParseBillingConfigOverridden(log)
+	case _IAutomationRegistryMaster23.abi.Events["BillingConfigOverrideRemoved"].ID:
+		return _IAutomationRegistryMaster23.ParseBillingConfigOverrideRemoved(log)
 	case _IAutomationRegistryMaster23.abi.Events["BillingConfigSet"].ID:
 		return _IAutomationRegistryMaster23.ParseBillingConfigSet(log)
 	case _IAutomationRegistryMaster23.abi.Events["CancelledUpkeepReport"].ID:
@@ -6329,14 +7224,16 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23) ParseLog(log ty
 		return _IAutomationRegistryMaster23.ParseConfigSet(log)
 	case _IAutomationRegistryMaster23.abi.Events["DedupKeyAdded"].ID:
 		return _IAutomationRegistryMaster23.ParseDedupKeyAdded(log)
+	case _IAutomationRegistryMaster23.abi.Events["FeesWithdrawn"].ID:
+		return _IAutomationRegistryMaster23.ParseFeesWithdrawn(log)
 	case _IAutomationRegistryMaster23.abi.Events["FundsAdded"].ID:
 		return _IAutomationRegistryMaster23.ParseFundsAdded(log)
 	case _IAutomationRegistryMaster23.abi.Events["FundsWithdrawn"].ID:
 		return _IAutomationRegistryMaster23.ParseFundsWithdrawn(log)
 	case _IAutomationRegistryMaster23.abi.Events["InsufficientFundsUpkeepReport"].ID:
 		return _IAutomationRegistryMaster23.ParseInsufficientFundsUpkeepReport(log)
-	case _IAutomationRegistryMaster23.abi.Events["OwnerFundsWithdrawn"].ID:
-		return _IAutomationRegistryMaster23.ParseOwnerFundsWithdrawn(log)
+	case _IAutomationRegistryMaster23.abi.Events["NOPsSettledOffchain"].ID:
+		return _IAutomationRegistryMaster23.ParseNOPsSettledOffchain(log)
 	case _IAutomationRegistryMaster23.abi.Events["OwnershipTransferRequested"].ID:
 		return _IAutomationRegistryMaster23.ParseOwnershipTransferRequested(log)
 	case _IAutomationRegistryMaster23.abi.Events["OwnershipTransferred"].ID:
@@ -6365,6 +7262,8 @@ func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23) ParseLog(log ty
 		return _IAutomationRegistryMaster23.ParseUpkeepAdminTransferred(log)
 	case _IAutomationRegistryMaster23.abi.Events["UpkeepCanceled"].ID:
 		return _IAutomationRegistryMaster23.ParseUpkeepCanceled(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepCharged"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepCharged(log)
 	case _IAutomationRegistryMaster23.abi.Events["UpkeepCheckDataSet"].ID:
 		return _IAutomationRegistryMaster23.ParseUpkeepCheckDataSet(log)
 	case _IAutomationRegistryMaster23.abi.Events["UpkeepGasLimitSet"].ID:
@@ -6397,8 +7296,16 @@ func (IAutomationRegistryMaster23AdminPrivilegeConfigSet) Topic() common.Hash {
 	return common.HexToHash("0x7c44b4eb59ee7873514e7e43e7718c269d872965938b288aa143befca62f99d2")
 }
 
+func (IAutomationRegistryMaster23BillingConfigOverridden) Topic() common.Hash {
+	return common.HexToHash("0xd8a6d79d170a55968079d3a89b960d86b4442aef6aac1d01e644c32b9e38b340")
+}
+
+func (IAutomationRegistryMaster23BillingConfigOverrideRemoved) Topic() common.Hash {
+	return common.HexToHash("0x97d0ef3f46a56168af653f547bdb6f77ec2b1d7d9bc6ba0193c2b340ec68064a")
+}
+
 func (IAutomationRegistryMaster23BillingConfigSet) Topic() common.Hash {
-	return common.HexToHash("0x5ff767a3a5dbf1ef088ebf56e221e9cea40ad357c31ba060c2f31244cefab7c1")
+	return common.HexToHash("0xca93cbe727c73163ec538f71be6c0a64877d7f1f6dd35d5ca7cbaef3a3e34ba3")
 }
 
 func (IAutomationRegistryMaster23CancelledUpkeepReport) Topic() common.Hash {
@@ -6417,6 +7324,10 @@ func (IAutomationRegistryMaster23DedupKeyAdded) Topic() common.Hash {
 	return common.HexToHash("0xa4a4e334c0e330143f9437484fe516c13bc560b86b5b0daf58e7084aaac228f2")
 }
 
+func (IAutomationRegistryMaster23FeesWithdrawn) Topic() common.Hash {
+	return common.HexToHash("0x5e110f8bc8a20b65dcc87f224bdf1cc039346e267118bae2739847f07321ffa8")
+}
+
 func (IAutomationRegistryMaster23FundsAdded) Topic() common.Hash {
 	return common.HexToHash("0xafd24114486da8ebfc32f3626dada8863652e187461aa74d4bfa734891506203")
 }
@@ -6429,8 +7340,8 @@ func (IAutomationRegistryMaster23InsufficientFundsUpkeepReport) Topic() common.H
 	return common.HexToHash("0x377c8b0c126ae5248d27aca1c76fac4608aff85673ee3caf09747e1044549e02")
 }
 
-func (IAutomationRegistryMaster23OwnerFundsWithdrawn) Topic() common.Hash {
-	return common.HexToHash("0x1d07d0b0be43d3e5fee41a80b579af370affee03fa595bf56d5d4c19328162f1")
+func (IAutomationRegistryMaster23NOPsSettledOffchain) Topic() common.Hash {
+	return common.HexToHash("0x5af23b715253628d12b660b27a4f3fc626562ea8a55040aa99ab3dc178989fad")
 }
 
 func (IAutomationRegistryMaster23OwnershipTransferRequested) Topic() common.Hash {
@@ -6487,6 +7398,10 @@ func (IAutomationRegistryMaster23UpkeepAdminTransferred) Topic() common.Hash {
 
 func (IAutomationRegistryMaster23UpkeepCanceled) Topic() common.Hash {
 	return common.HexToHash("0x91cb3bb75cfbd718bbfccc56b7f53d92d7048ef4ca39a3b7b7c6d4af1f791181")
+}
+
+func (IAutomationRegistryMaster23UpkeepCharged) Topic() common.Hash {
+	return common.HexToHash("0x801ba6ed51146ffe3e99d1dbd9dd0f4de6292e78a9a34c39c0183de17b3f40fc")
 }
 
 func (IAutomationRegistryMaster23UpkeepCheckDataSet) Topic() common.Hash {
@@ -6560,7 +7475,15 @@ type IAutomationRegistryMaster23Interface interface {
 
 	GetAutomationForwarderLogic(opts *bind.CallOpts) (common.Address, error)
 
+	GetAvailableERC20ForPayment(opts *bind.CallOpts, billingToken common.Address) (*big.Int, error)
+
 	GetBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error)
+
+	GetBillingConfig(opts *bind.CallOpts, billingToken common.Address) (AutomationRegistryBase23BillingConfig, error)
+
+	GetBillingOverrides(opts *bind.CallOpts, upkeepID *big.Int) (AutomationRegistryBase23BillingOverrides, error)
+
+	GetBillingToken(opts *bind.CallOpts, upkeepID *big.Int) (common.Address, error)
 
 	GetBillingTokenConfig(opts *bind.CallOpts, token common.Address) (AutomationRegistryBase23BillingConfig, error)
 
@@ -6572,11 +7495,15 @@ type IAutomationRegistryMaster23Interface interface {
 
 	GetConditionalGasOverhead(opts *bind.CallOpts) (*big.Int, error)
 
+	GetConfig(opts *bind.CallOpts) (AutomationRegistryBase23OnchainConfig, error)
+
 	GetFallbackNativePrice(opts *bind.CallOpts) (*big.Int, error)
 
 	GetFastGasFeedAddress(opts *bind.CallOpts) (common.Address, error)
 
 	GetForwarder(opts *bind.CallOpts, upkeepID *big.Int) (common.Address, error)
+
+	GetHotVars(opts *bind.CallOpts) (AutomationRegistryBase23HotVars, error)
 
 	GetLinkAddress(opts *bind.CallOpts) (common.Address, error)
 
@@ -6584,13 +7511,17 @@ type IAutomationRegistryMaster23Interface interface {
 
 	GetLogGasOverhead(opts *bind.CallOpts) (*big.Int, error)
 
-	GetMaxPaymentForGas(opts *bind.CallOpts, triggerType uint8, gasLimit uint32) (*big.Int, error)
+	GetMaxPaymentForGas(opts *bind.CallOpts, id *big.Int, triggerType uint8, gasLimit uint32, billingToken common.Address) (*big.Int, error)
 
 	GetMinBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error)
 
 	GetMinBalanceForUpkeep(opts *bind.CallOpts, id *big.Int) (*big.Int, error)
 
 	GetNativeUSDFeedAddress(opts *bind.CallOpts) (common.Address, error)
+
+	GetNumUpkeeps(opts *bind.CallOpts) (*big.Int, error)
+
+	GetPayoutMode(opts *bind.CallOpts) (uint8, error)
 
 	GetPeerRegistryMigrationPermission(opts *bind.CallOpts, peer common.Address) (uint8, error)
 
@@ -6600,6 +7531,8 @@ type IAutomationRegistryMaster23Interface interface {
 
 	GetReorgProtectionEnabled(opts *bind.CallOpts) (bool, error)
 
+	GetReserveAmount(opts *bind.CallOpts, billingToken common.Address) (*big.Int, error)
+
 	GetSignerInfo(opts *bind.CallOpts, query common.Address) (GetSignerInfo,
 
 		error)
@@ -6607,6 +7540,8 @@ type IAutomationRegistryMaster23Interface interface {
 	GetState(opts *bind.CallOpts) (GetState,
 
 		error)
+
+	GetStorage(opts *bind.CallOpts) (AutomationRegistryBase23Storage, error)
 
 	GetTransmitCalldataFixedBytesOverhead(opts *bind.CallOpts) (*big.Int, error)
 
@@ -6616,13 +7551,17 @@ type IAutomationRegistryMaster23Interface interface {
 
 		error)
 
+	GetTransmittersWithPayees(opts *bind.CallOpts) ([]AutomationRegistryBase23TransmitterPayeeInfo, error)
+
 	GetTriggerType(opts *bind.CallOpts, upkeepId *big.Int) (uint8, error)
 
-	GetUpkeep(opts *bind.CallOpts, id *big.Int) (AutomationRegistryBase23UpkeepInfo, error)
+	GetUpkeep(opts *bind.CallOpts, id *big.Int) (IAutomationV21PlusCommonUpkeepInfoLegacy, error)
 
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 
 	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+
+	GetWrappedNativeTokenAddress(opts *bind.CallOpts) (common.Address, error)
 
 	HasDedupKey(opts *bind.CallOpts, dedupKey [32]byte) (bool, error)
 
@@ -6634,15 +7573,17 @@ type IAutomationRegistryMaster23Interface interface {
 
 		error)
 
+	LinkAvailableForPayment(opts *bind.CallOpts) (*big.Int, error)
+
 	Owner(opts *bind.CallOpts) (common.Address, error)
 
 	SimulatePerformUpkeep(opts *bind.CallOpts, id *big.Int, performData []byte) (SimulatePerformUpkeep,
 
 		error)
 
-	TypeAndVersion(opts *bind.CallOpts) (string, error)
+	SupportsBillingToken(opts *bind.CallOpts, token common.Address) (bool, error)
 
-	UpkeepTranscoderVersion(opts *bind.CallOpts) (uint8, error)
+	TypeAndVersion(opts *bind.CallOpts) (string, error)
 
 	UpkeepVersion(opts *bind.CallOpts) (uint8, error)
 
@@ -6656,6 +7597,8 @@ type IAutomationRegistryMaster23Interface interface {
 
 	CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error)
 
+	DisableOffchainPayments(opts *bind.TransactOpts) (*types.Transaction, error)
+
 	ExecuteCallback(opts *bind.TransactOpts, id *big.Int, payload []byte) (*types.Transaction, error)
 
 	MigrateUpkeeps(opts *bind.TransactOpts, ids []*big.Int, destination common.Address) (*types.Transaction, error)
@@ -6668,13 +7611,13 @@ type IAutomationRegistryMaster23Interface interface {
 
 	ReceiveUpkeeps(opts *bind.TransactOpts, encodedUpkeeps []byte) (*types.Transaction, error)
 
-	RecoverFunds(opts *bind.TransactOpts) (*types.Transaction, error)
+	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, billingToken common.Address, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error)
 
-	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error)
-
-	RegisterUpkeep0(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error)
+	RemoveBillingOverrides(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error)
 
 	SetAdminPrivilegeConfig(opts *bind.TransactOpts, admin common.Address, newPrivilegeConfig []byte) (*types.Transaction, error)
+
+	SetBillingOverrides(opts *bind.TransactOpts, id *big.Int, billingOverrides AutomationRegistryBase23BillingOverrides) (*types.Transaction, error)
 
 	SetConfig(opts *bind.TransactOpts, signers []common.Address, transmitters []common.Address, f uint8, onchainConfigBytes []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error)
 
@@ -6694,6 +7637,8 @@ type IAutomationRegistryMaster23Interface interface {
 
 	SetUpkeepTriggerConfig(opts *bind.TransactOpts, id *big.Int, triggerConfig []byte) (*types.Transaction, error)
 
+	SettleNOPsOffchain(opts *bind.TransactOpts) (*types.Transaction, error)
+
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 
 	TransferPayeeship(opts *bind.TransactOpts, transmitter common.Address, proposed common.Address) (*types.Transaction, error)
@@ -6706,9 +7651,11 @@ type IAutomationRegistryMaster23Interface interface {
 
 	UnpauseUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error)
 
+	WithdrawERC20Fees(opts *bind.TransactOpts, asset common.Address, to common.Address, amount *big.Int) (*types.Transaction, error)
+
 	WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error)
 
-	WithdrawOwnerFunds(opts *bind.TransactOpts) (*types.Transaction, error)
+	WithdrawLink(opts *bind.TransactOpts, to common.Address, amount *big.Int) (*types.Transaction, error)
 
 	WithdrawPayment(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error)
 
@@ -6719,6 +7666,18 @@ type IAutomationRegistryMaster23Interface interface {
 	WatchAdminPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23AdminPrivilegeConfigSet, admin []common.Address) (event.Subscription, error)
 
 	ParseAdminPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMaster23AdminPrivilegeConfigSet, error)
+
+	FilterBillingConfigOverridden(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23BillingConfigOverriddenIterator, error)
+
+	WatchBillingConfigOverridden(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23BillingConfigOverridden, id []*big.Int) (event.Subscription, error)
+
+	ParseBillingConfigOverridden(log types.Log) (*IAutomationRegistryMaster23BillingConfigOverridden, error)
+
+	FilterBillingConfigOverrideRemoved(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23BillingConfigOverrideRemovedIterator, error)
+
+	WatchBillingConfigOverrideRemoved(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23BillingConfigOverrideRemoved, id []*big.Int) (event.Subscription, error)
+
+	ParseBillingConfigOverrideRemoved(log types.Log) (*IAutomationRegistryMaster23BillingConfigOverrideRemoved, error)
 
 	FilterBillingConfigSet(opts *bind.FilterOpts, token []common.Address) (*IAutomationRegistryMaster23BillingConfigSetIterator, error)
 
@@ -6750,6 +7709,12 @@ type IAutomationRegistryMaster23Interface interface {
 
 	ParseDedupKeyAdded(log types.Log) (*IAutomationRegistryMaster23DedupKeyAdded, error)
 
+	FilterFeesWithdrawn(opts *bind.FilterOpts, assetAddress []common.Address, recipient []common.Address) (*IAutomationRegistryMaster23FeesWithdrawnIterator, error)
+
+	WatchFeesWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23FeesWithdrawn, assetAddress []common.Address, recipient []common.Address) (event.Subscription, error)
+
+	ParseFeesWithdrawn(log types.Log) (*IAutomationRegistryMaster23FeesWithdrawn, error)
+
 	FilterFundsAdded(opts *bind.FilterOpts, id []*big.Int, from []common.Address) (*IAutomationRegistryMaster23FundsAddedIterator, error)
 
 	WatchFundsAdded(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23FundsAdded, id []*big.Int, from []common.Address) (event.Subscription, error)
@@ -6768,11 +7733,11 @@ type IAutomationRegistryMaster23Interface interface {
 
 	ParseInsufficientFundsUpkeepReport(log types.Log) (*IAutomationRegistryMaster23InsufficientFundsUpkeepReport, error)
 
-	FilterOwnerFundsWithdrawn(opts *bind.FilterOpts) (*IAutomationRegistryMaster23OwnerFundsWithdrawnIterator, error)
+	FilterNOPsSettledOffchain(opts *bind.FilterOpts) (*IAutomationRegistryMaster23NOPsSettledOffchainIterator, error)
 
-	WatchOwnerFundsWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23OwnerFundsWithdrawn) (event.Subscription, error)
+	WatchNOPsSettledOffchain(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23NOPsSettledOffchain) (event.Subscription, error)
 
-	ParseOwnerFundsWithdrawn(log types.Log) (*IAutomationRegistryMaster23OwnerFundsWithdrawn, error)
+	ParseNOPsSettledOffchain(log types.Log) (*IAutomationRegistryMaster23NOPsSettledOffchain, error)
 
 	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23OwnershipTransferRequestedIterator, error)
 
@@ -6857,6 +7822,12 @@ type IAutomationRegistryMaster23Interface interface {
 	WatchUpkeepCanceled(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepCanceled, id []*big.Int, atBlockHeight []uint64) (event.Subscription, error)
 
 	ParseUpkeepCanceled(log types.Log) (*IAutomationRegistryMaster23UpkeepCanceled, error)
+
+	FilterUpkeepCharged(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepChargedIterator, error)
+
+	WatchUpkeepCharged(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepCharged, id []*big.Int) (event.Subscription, error)
+
+	ParseUpkeepCharged(log types.Log) (*IAutomationRegistryMaster23UpkeepCharged, error)
 
 	FilterUpkeepCheckDataSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepCheckDataSetIterator, error)
 
