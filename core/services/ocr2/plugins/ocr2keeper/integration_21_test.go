@@ -208,7 +208,6 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			}
 
 			backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-
 			stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 			defer stopMining()
 
