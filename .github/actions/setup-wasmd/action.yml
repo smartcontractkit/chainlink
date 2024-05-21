@@ -1,0 +1,22 @@
+name: Setup Cosmos wasmd
+description: Setup Cosmos wasmd, used for integration tests
+runs:
+  using: composite
+  steps:
+      - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: cache
+        name: Cache wasmd-build
+        with:
+          path: ~/wasmd-build
+          # this caching works without cloning the repo because the install_wasmd contains
+          # the commit hash.
+          key: ${{ runner.os }}-wasmd-cli-${{ hashFiles('./tools/ci/install_wasmd') }}
+
+      - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        name: Install wasmd
+        shell: bash
+        run: ./tools/ci/install_wasmd
+
+      - name: Export wasmd path to env
+        shell: bash
+        run: echo "PATH=$HOME/wasmd-build/bin:$PATH" >> $GITHUB_ENV

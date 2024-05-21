@@ -1,7 +1,0 @@
-{
-  "presets": ["react-app", "@babel/preset-env"],
-  "plugins": [
-    "@babel/plugin-proposal-optional-chaining",
-    "@babel/plugin-proposal-class-properties"
-  ]
-}

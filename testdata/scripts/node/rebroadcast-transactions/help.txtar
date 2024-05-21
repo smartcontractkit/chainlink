@@ -1,0 +1,19 @@
+exec chainlink node rebroadcast-transactions --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink node rebroadcast-transactions - Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
+
+USAGE:
+   chainlink node rebroadcast-transactions [command options] [arguments...]
+
+OPTIONS:
+   --beginningNonce value, --beginning-nonce value, -b value  beginning of nonce range to rebroadcast (default: 0)
+   --endingNonce value, --ending-nonce value, -e value        end of nonce range to rebroadcast (inclusive) (default: 0)
+   --gasPriceWei value, --gas-price-wei value, -g value       gas price (in Wei) to rebroadcast transactions at (default: 0)
+   --password value, -p value                                 text file holding the password for the node's account
+   --address value, -a value                                  The address (in hex format) for the key which we want to rebroadcast transactions
+   --evmChainID value, --evm-chain-id value                   Chain ID for which to rebroadcast transactions. If left blank, EVM.ChainID will be used.
+   --gasLimit value, --gas-limit value                        OPTIONAL: gas limit to use for each transaction  (default: 0)
+   

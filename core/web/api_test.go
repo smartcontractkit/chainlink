@@ -76,27 +76,27 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 		},
 		{
 			"a resource collection",
-			"/v2/index", 1, 0, 0, []TestResource{TestResource{Title: "Item 1"}, TestResource{Title: "Item 2"}},
+			"/v2/index", 1, 0, 0, []TestResource{{Title: "Item 1"}, {Title: "Item 2"}},
 			false, `{"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}},{"type":"testResources","id":"1","attributes":{"Title":"Item 2"}}],"meta":{"count":0}}`,
 		},
 		{
 			"first page of collection results",
-			"/v2/index", 5, 1, 7, []TestResource{TestResource{Title: "Item 1"}},
+			"/v2/index", 5, 1, 7, []TestResource{{Title: "Item 1"}},
 			false, `{"links":{"next":"/v2/index?page=2\u0026size=5"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}],"meta":{"count":7}}`,
 		},
 		{
 			"middle page of collection results",
-			"/v2/index", 5, 2, 13, []TestResource{TestResource{Title: "Item 2"}},
+			"/v2/index", 5, 2, 13, []TestResource{{Title: "Item 2"}},
 			false, `{"links":{"next":"/v2/index?page=3\u0026size=5","prev":"/v2/index?page=1\u0026size=5"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 2"}}],"meta":{"count":13}}`,
 		},
 		{
 			"end page of collection results",
-			"/v2/index", 5, 3, 13, []TestResource{TestResource{Title: "Item 3"}},
+			"/v2/index", 5, 3, 13, []TestResource{{Title: "Item 3"}},
 			false, `{"links":{"prev":"/v2/index?page=2\u0026size=5"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 3"}}],"meta":{"count":13}}`,
 		},
 		{
 			"path with existing query",
-			"/v2/index?authToken=3123", 1, 0, 2, []TestResource{TestResource{Title: "Item 1"}},
+			"/v2/index?authToken=3123", 1, 0, 2, []TestResource{{Title: "Item 1"}},
 			false, `{"links":{"next":"/v2/index?authToken=3123\u0026page=1\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}],"meta":{"count":2}}`,
 		},
 		{

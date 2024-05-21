@@ -1,0 +1,26 @@
+type VRFKey {
+    id: ID!
+    compressed: String!
+    uncompressed: String!
+    hash: String!
+}
+
+type VRFKeySuccess {
+    key: VRFKey!
+}
+
+union VRFKeyPayload = VRFKeySuccess | NotFoundError
+
+type VRFKeysPayload {
+    results: [VRFKey!]!
+}
+
+type CreateVRFKeyPayload {
+    key: VRFKey!
+}
+
+type DeleteVRFKeySuccess {
+    key: VRFKey!
+}
+
+union DeleteVRFKeyPayload = DeleteVRFKeySuccess | NotFoundError

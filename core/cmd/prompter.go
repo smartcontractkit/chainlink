@@ -8,10 +8,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
+
+//go:generate mockery --quiet --name Prompter --output ./mocks/ --case=underscore
 
 // Prompter implements the Prompt function to be used to display at
 // the console.
@@ -36,7 +36,8 @@ func (tp terminalPrompter) Prompt(prompt string) string {
 	fmt.Print(prompt)
 	line, err := reader.ReadString('\n')
 	if err != nil {
-		logger.Fatal(err)
+		fmt.Print(err)
+		os.Exit(1)
 	}
 	clearLine()
 	return strings.TrimSpace(line)
@@ -48,9 +49,10 @@ func (tp terminalPrompter) PasswordPrompt(prompt string) string {
 	var rval string
 	withTerminalResetter(func() {
 		fmt.Print(prompt)
-		bytePwd, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		bytePwd, err := term.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
-			logger.Fatal(err)
+			fmt.Print(err)
+			os.Exit(1)
 		}
 		clearLine()
 		rval = string(bytePwd)
@@ -61,7 +63,7 @@ func (tp terminalPrompter) PasswordPrompt(prompt string) string {
 // IsTerminal checks if the current process is executing in a terminal, this
 // should be used to decide when to use PasswordPrompt.
 func (tp terminalPrompter) IsTerminal() bool {
-	return terminal.IsTerminal(int(os.Stdout.Fd()))
+	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
 // Explicitly reset terminal state in the event of a signal (CTRL+C)
@@ -70,17 +72,20 @@ func (tp terminalPrompter) IsTerminal() bool {
 func withTerminalResetter(f func()) {
 	osSafeStdin := int(os.Stdin.Fd())
 
-	initialTermState, err := terminal.GetState(osSafeStdin)
+	initialTermState, err := term.GetState(osSafeStdin)
 	if err != nil {
-		logger.Fatal(err)
+		fmt.Print(err)
+		os.Exit(1)
 	}
 
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		err := terminal.Restore(osSafeStdin, initialTermState)
-		logger.ErrorIf(err, "failed when restore terminal")
+		err := term.Restore(osSafeStdin, initialTermState)
+		if err != nil {
+			fmt.Printf("Error restoring terminal: %v", err)
+		}
 		os.Exit(1)
 	}()
 

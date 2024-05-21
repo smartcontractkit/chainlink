@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+VERSION=v1.17.28
+SHASUM=97faa4d14becfccd3bc539dbc0aaf28c84cfe9d80d299ec70092fb5844403724
+
+echo "Installing solana@${VERSION}"
+curl -sSfL https://release.solana.com/$VERSION/install --output install_solana.sh \
+    && echo "Checking shasum of Solana install script." \
+    && echo "${SHASUM} install_solana.sh" | sha256sum --check
+chmod +x install_solana.sh
+sh -c ./install_solana.sh

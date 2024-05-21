@@ -1,0 +1,11 @@
+type EthTransactionAttempt {
+	gasPrice: String!
+	hash: String!
+	hex: String!
+	sentAt: String
+}
+
+type EthTransactionAttemptsPayload implements PaginatedPayload {
+    results: [EthTransactionAttempt!]!
+    metadata: PaginationMetadata!
+}

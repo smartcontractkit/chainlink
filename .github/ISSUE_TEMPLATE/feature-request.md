@@ -1,10 +1,9 @@
 ---
 name: Feature Request
 about: Request a feature. Help us make Chainlink better!
-title: "[FEAT] <replace with feature title>"
+title: '[FEAT] <replace with feature title>'
 labels: 'Feature Request'
 assignees: ''
-
 ---
 
 **Description**

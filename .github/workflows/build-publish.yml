@@ -1,0 +1,62 @@
+name: "Build Chainlink and Publish"
+
+on:
+  # Mimics old circleci behaviour
+  push:
+    tags:
+      - "v*"
+    branches:
+      - "release/**"
+
+jobs:
+  checks:
+    name: "Checks"
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Check for VERSION file bump on tags
+        # Avoids checking VERSION file bump on forks.
+        if: ${{ github.repository == 'smartcontractkit/chainlink' && startsWith(github.ref, 'refs/tags/v') }}
+        uses: ./.github/actions/version-file-bump
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-sign-publish-chainlink:
+    needs: [checks]
+    if: ${{ ! startsWith(github.ref_name, 'release/') }}
+    runs-on: ubuntu-20.04
+    environment: build-publish
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Build, sign and publish chainlink image
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+          publish: true
+          aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          sign-images: true
+          sign-method: "keypair"
+          cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
+          cosign-password: ${{ secrets.COSIGN_PASSWORD }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          verify-signature: true
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: build-chainlink-publish
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: build-sign-publish-chainlink
+        continue-on-error: true

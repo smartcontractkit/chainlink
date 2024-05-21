@@ -1,0 +1,80 @@
+[profile.default]
+auto_detect_solc = true
+optimizer = true
+optimizer_runs = 1_000_000
+
+src = 'src/v0.8'
+test = 'test/v0.8'
+out = 'foundry-artifacts'
+cache_path  = 'foundry-cache'
+libs = ['node_modules', 'foundry-lib']
+bytecode_hash = "none"
+ffi = false
+
+# default is zero, using a non-zero amount enables us to test e.g. billing based on gas prices.
+gas_price = 1
+block_timestamp = 1234567890
+block_number = 12345
+
+[profile.functions]
+solc_version = '0.8.19'
+src = 'src/v0.8/functions/dev/v1_X'
+test = 'src/v0.8/functions/tests/v1_X'
+gas_price = 3_000_000_000 # 3 gwei
+
+[profile.vrf]
+optimizer_runs = 1_000
+src = 'src/v0.8/vrf'
+test = 'src/v0.8/vrf/test'
+
+[profile.vrfv2plus_coordinator]
+optimizer_runs = 500
+src = 'src/v0.8/vrf'
+
+[profile.vrfv2plus]
+optimizer_runs = 1_000_000
+src = 'src/v0.8/vrf'
+
+[profile.automation]
+optimizer_runs = 10_000
+src = 'src/v0.8/automation'
+test = 'src/v0.8/automation/test'
+
+[profile.l2ep]
+optimizer_runs = 1_000_000
+src = 'src/v0.8/l2ep'
+test = 'src/v0.8/l2ep/test'
+solc_version = '0.8.19'
+
+[profile.llo-feeds]
+optimizer_runs = 1_000_000
+src = 'src/v0.8/llo-feeds'
+test = 'src/v0.8/llo-feeds/test'
+solc_version = '0.8.19'
+
+[profile.keystone]
+solc_version = '0.8.19'
+src = 'src/v0.8/keystone'
+test = 'src/v0.8/keystone/test'
+optimizer_runs = 10_000
+
+[profile.operatorforwarder]
+optimizer_runs = 1_000_000
+solc_version = '0.8.19'
+src = 'src/v0.8/operatorforwarder'
+test = 'src/v0.8/operatorforwarder/test'
+
+[profile.transmission]
+optimizer_runs = 1_000_000
+solc_version = '0.8.19'
+src = 'src/v0.8/transmission'
+test = 'src/v0.8/transmission/test'
+
+[profile.shared]
+optimizer_runs = 1_000_000
+src = 'src/v0.8/shared'
+test = 'src/v0.8/shared/test'
+solc_version = '0.8.19'
+
+
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config

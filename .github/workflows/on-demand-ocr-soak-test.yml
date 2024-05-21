@@ -1,0 +1,95 @@
+name: On Demand OCR Soak Test
+on:
+  workflow_dispatch:
+    inputs:
+      base64Config:
+        description: base64-ed config
+        required: true
+        type: string      
+      slackMemberID:
+        description: Slack Member ID (Not your @)
+        required: true
+        default: U01A2B2C3D4
+        type: string
+
+jobs:
+  ocr_soak_test:
+    name: OCR Soak Test
+    environment: integration
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
+      TEST_LOG_LEVEL: debug
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: on-demand-ocr-soak-test
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: ${{ inputs.network }} OCR Soak Test
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.REF_NAME }}
+      - name: Get Slack config and mask base64 config
+        run: |
+          SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$SLACK_USER
+          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
+
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Parse base64 config
+        uses: ./.github/actions/setup-parse-base64-config
+        with:
+          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}
+      - name: Setup Push Tag
+        shell: bash
+        run: |
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.CHAINLINK_IMAGE }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY          
+      - name: Build Image
+        uses: ./.github/actions/build-test-image
+        with:
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        env:
+          DETACH_RUNNER: true
+          TEST_SUITE: soak
+          TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
+          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+          # We can comment these out when we have a stable soak test and aren't worried about resource consumption
+          TEST_UPLOAD_CPU_PROFILE: true
+          TEST_UPLOAD_MEM_PROFILE: true
+        with:
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
+          test_download_vendor_packages_command: make gomod
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          should_cleanup: false
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}

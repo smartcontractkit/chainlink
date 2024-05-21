@@ -1,0 +1,16 @@
+**/node_modules/**
+**/generated/**
+core/
+**/dist/**
+**/artifacts/**
+**/public/**
+**/build/**
+**/fixtures/**
+**/lib/**
+truffle-config.js
+truffle.js
+gethload.js
+craco.config.js
+integration/apocalypse/**
+contracts/
+tools/ci-ts/tests/ethers/**

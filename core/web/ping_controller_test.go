@@ -5,22 +5,26 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/google/uuid"
 
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPingController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := cltest.NewApplicationEVMDisabled(t)
+	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Get("/v2/ping")
 	defer cleanup()
@@ -31,37 +35,37 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := cltest.NewApplicationEVMDisabled(t)
+	require.NoError(t, app.Start(ctx))
 
 	eia := &auth.Token{
 		AccessKey: "abracadabra",
 		Secret:    "opensesame",
 	}
 	eir_url := cltest.WebURL(t, "http://localhost:8888")
-	eir := &models.ExternalInitiatorRequest{
-		Name: "bitcoin",
+	eir := &bridges.ExternalInitiatorRequest{
+		Name: uuid.New().String(),
 		URL:  &eir_url,
 	}
 
-	ei, err := models.NewExternalInitiator(eia, eir)
+	ei, err := bridges.NewExternalInitiator(eia, eir)
 	require.NoError(t, err)
-	err = app.GetStore().CreateExternalInitiator(ei)
+	err = app.BridgeORM().CreateExternalInitiator(ctx, ei)
 	require.NoError(t, err)
 
-	url := app.Config.ClientNodeURL() + "/v2/ping"
-	request, err := http.NewRequest("GET", url, nil)
+	url := app.Server.URL + "/v2/ping"
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
 	request.Header.Set("X-Chainlink-EA-Secret", eia.Secret)
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	resp, err := client.Do(request)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { assert.NoError(t, resp.Body.Close()) }()
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := string(cltest.ParseResponseBody(t, resp))
@@ -71,13 +75,15 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 func TestPingController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	ctx := testutils.Context(t)
+	app := cltest.NewApplicationEVMDisabled(t)
+	require.NoError(t, app.Start(ctx))
 
-	client := http.Client{}
-	url := app.Config.ClientNodeURL() + "/v2/ping"
-	resp, err := client.Get(url)
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
+	url := app.Server.URL + "/v2/ping"
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }

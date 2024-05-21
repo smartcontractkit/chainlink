@@ -3,10 +3,10 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,63 +18,37 @@ type ConfigController struct {
 
 // Show returns the whitelist of config variables
 // Example:
-//  "<application>/config"
+//
+//	"<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
-	cw, err := presenters.NewConfigWhitelist(cc.App.GetStore())
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to build config whitelist: %+v", err))
-		return
+	cfg := cc.App.GetConfig()
+	var userOnly bool
+	if s, has := c.GetQuery("userOnly"); has {
+		var err error
+		userOnly, err = strconv.ParseBool(s)
+		if err != nil {
+			jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("invalid bool for userOnly: %v", err))
+			return
+		}
 	}
-
-	jsonAPIResponse(c, cw, "config")
+	var toml string
+	user, effective := cfg.ConfigTOML()
+	if userOnly {
+		toml = user
+	} else {
+		toml = effective
+	}
+	jsonAPIResponse(c, ConfigV2Resource{toml}, "config")
 }
 
-type configPatchRequest struct {
-	EthGasPriceDefault *utils.Big `json:"ethGasPriceDefault"`
+type ConfigV2Resource struct {
+	Config string `json:"config"`
 }
 
-// ConfigPatchResponse represents the change to the configuration made due to a
-// PATCH to the config endpoint
-type ConfigPatchResponse struct {
-	EthGasPriceDefault Change `json:"ethGasPriceDefault"`
+func (c ConfigV2Resource) GetID() string {
+	return utils.NewBytes32ID()
 }
 
-// Change represents the old value and the new value after a PATH request has
-// been made
-type Change struct {
-	From string `json:"old"`
-	To   string `json:"new"`
-}
-
-// GetID returns the jsonapi ID.
-func (c ConfigPatchResponse) GetID() string {
-	return "configuration"
-}
-
-// SetID is used to conform to the UnmarshallIdentifier interface for
-// deserializing from jsonapi documents.
-func (*ConfigPatchResponse) SetID(string) error {
+func (c *ConfigV2Resource) SetID(string) error {
 	return nil
-}
-
-// Patch updates one or more configuration options
-func (cc *ConfigController) Patch(c *gin.Context) {
-	request := &configPatchRequest{}
-	if err := c.ShouldBindJSON(request); err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	if err := cc.App.GetStore().SetConfigValue("EthGasPriceDefault", request.EthGasPriceDefault); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to set gas price default: %+v", err))
-		return
-	}
-
-	response := &ConfigPatchResponse{
-		EthGasPriceDefault: Change{
-			From: cc.App.GetStore().Config.EthGasPriceDefault().String(),
-			To:   request.EthGasPriceDefault.String(),
-		},
-	}
-	jsonAPIResponse(c, response, "config")
 }

@@ -1,0 +1,13 @@
+ChainID = '4'
+LinkContractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
+MinContractPayment = '0.1 link'
+
+[GasEstimator]
+# TODO: EIP1559 on rinkeby has not been adequately tested, see:
+# https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+EIP1559DynamicFees = false
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 4
+TransactionPercentile = 50

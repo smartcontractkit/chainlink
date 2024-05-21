@@ -1,0 +1,30 @@
+[UserServerConfig]
+Port = 8080
+Path = "/user"
+ContentTypeHeader = "application/jsonrpc"
+ReadTimeoutMillis = 1000
+WriteTimeoutMillis = 1000
+RequestTimeoutMillis = 1000
+MaxRequestBytes = 10_000
+
+[NodeServerConfig]
+Port = 8081
+Path = "/node"
+ReadTimeoutMillis = 1000
+WriteTimeoutMillis = 1000
+RequestTimeoutMillis = 1000
+MaxRequestBytes = 10_000
+HandshakeTimeoutMillis = 1000
+
+[ConnectionManagerConfig]
+AuthGatewayId = "example_gateway"
+AuthTimestampToleranceSec = 60
+AuthChallengeLen = 32
+
+[[Dons]]
+DonId = "example_don"
+HandlerName = "dummy"
+
+[[Dons.Members]]
+Name = "example_node"
+Address = "0x68902d681c28119f9b2531473a417088bf008e59"

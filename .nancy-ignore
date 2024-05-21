@@ -1,0 +1,67 @@
+# Introduced by golang/github.com/coreos/etcd@3.3.13, which is a dependency of a dependency for the latest version of 
+# Viper. Not much we can do until they update themselves.
+bba60acb-c7b5-4621-af69-f4085a8301d0
+d373dc3f-aa88-483b-b501-20fe5382cc80
+5def94e5-b89c-4a94-b9c6-ae0e120784c2
+
+# To get more detail locally run `go list -json -m all | nancy sleuth`
+# dcf6da03-f9dd-4a4e-b792-0262de36a0b1 is because of gogo/protobuf@1.3.1
+# which is used by go-libp2p-core, need them to upgrade to 1.3.2 before we can remove it.
+dcf6da03-f9dd-4a4e-b792-0262de36a0b1
+
+# Introduced by golang/k8s.io/kubernetes@1.13.0, which is a dependency of a dependency of HELM, that the chainlink-testing-framework
+# utilizes. It is not included in the binary. It is used solely to create and interact with ephemeral test environments.
+b4583f58-ba0b-49a6-9e68-389231015280
+ba07f410-6310-431b-a413-32735d54841c
+b187d3db-eedf-47dd-b446-8b07446c65ee
+cc851a2f-70e9-423c-b5cb-db88d3849ac8
+2ae7c596-34f7-4bbe-84e2-f61b36537a39
+3a0ce247-0b82-418a-b816-35b6438800ab
+69fe99cf-3318-4f35-a670-cf5ab2bd5775
+7b51402c-df4c-44b0-905c-8c66c96bdd74
+ed41942f-c3a9-4391-8a1a-ffb415b33d72
+61569cd3-36ef-43ac-b70b-9c2200fe05b8
+5e882795-abf5-44d8-8908-4283343e0050
+a4cc9e4c-2218-44c6-877f-8f19f3cee9fe
+dec168d7-4b8e-4a62-85d7-954b06bcc4d5
+7aa92d05-1ca5-4428-a683-ba3aee9daee6
+74215f7a-f5b5-4bea-b6a7-a20a6ee244d3
+2aaf7ae8-c181-453c-a53a-ad18f4b30a56
+7a182d40-9217-4391-85e9-6c44219efa7a
+3f9f4830-26e4-4acd-915b-448d38934e43
+abf9a6a0-789b-4817-b137-3e349568c992
+8817a9cb-1215-425f-909b-8074e7195789
+b73f09dd-3602-4a7a-ac38-063ef40b1a82
+42a87f3d-7d93-43a5-968c-9c077c44688c
+89d4f32c-efa6-4060-a367-169e3de199d4
+b0a2b826-c1ba-43a3-94c1-726880c1535d
+
+# Skip indirect/transitive dependencies where code path not hit, or affected library features are not utilized.
+CVE-2022-31030
+CVE-2022-29153 
+CVE-2022-24687
+CVE-2022-29153
+CVE-2022-24687
+sonatype-2019-0772
+sonatype-2021-0853 
+sonatype-2022-3945
+CVE-2021-42576
+CVE-2022-29162
+CVE-2022-21221
+sonatype-2021-0456
+CVE-2021-3127
+CVE-2022-24450
+CVE-2022-29946
+CVE-2022-26652 
+CVE-2022-28357
+CVE-2021-23772
+sonatype-2021-0598 
+sonatype-2021-1485
+CVE-2022-23328
+sonatype-2021-0076
+CVE-2022-37450
+sonatype-2021-4899
+sonatype-2020-0722
+CVE-2021-41803  # consul
+CVE-2022-44797
+CVE-2022-39389 # golang/github.com/btcsuite/btcd@v0.22.1

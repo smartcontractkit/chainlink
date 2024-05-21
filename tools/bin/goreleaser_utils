@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+set -xe
+
+
+# get machine / kernel name
+_get_platform() {
+  uname | tr '[:upper:]' '[:lower:]'
+}
+
+# get machine architecture name
+# See https://github.com/joschi/asdf-java/blob/aarch64-support/bin/functions#L33
+_get_arch() {
+  arch="$(uname -m)"
+  case "${arch}" in
+  x86_64 | amd64) echo "x86_64" ;;
+  aarch64 | arm64) echo "arm64" ;;
+  *)
+    echo "Unknown machine architecture: ${arch}"
+    exit 1
+    ;;
+  esac
+}
+
+# get lib wasmvm path
+_get_wasmvm_lib_path() {
+  local -r platform="$1"
+  local -r arch="$2"
+  wasmvm_dir=$(go list -json -m all | jq -r '. | select(.Path == "github.com/CosmWasm/wasmvm") | .Dir')
+  shared_lib_dir="$wasmvm_dir/internal/api"
+  lib_name="libwasmvm"
+  if [ "$platform" == "darwin" ]; then
+    lib_extension="dylib"
+  elif [ "$platform" == "linux" ]; then
+    case "${arch}" in
+    x86_64 | amd64) lib_extension="x86_64.so" ;;
+    aarch64 | arm64) lib_extension="aarch64.so" ;;
+    *) echo "Unsupported arch $arch" && exit 1 ;;
+    esac
+  else
+    echo "Unsupported platform $platform"
+    exit 1
+  fi
+  echo "$shared_lib_dir/${lib_name}.$lib_extension"
+}
+
+# global goreleaser before hook
+# moves native libraries to temp directories used by docker images / archives
+before_hook() {
+  local -r lib_path=tmp
+  # MOVE NATIVE LIBRARIES HERE
+  local -r wasmvm_lib_path_linux_amd64=$(_get_wasmvm_lib_path "linux" "amd64")
+  local -r wasmvm_lib_path_linux_arm64=$(_get_wasmvm_lib_path "linux" "arm64")
+  local -r wasmvm_lib_path_darwin_amd64=$(_get_wasmvm_lib_path "darwin" "amd64")
+  local -r wasmvm_lib_path_darwin_arm64=$(_get_wasmvm_lib_path "darwin" "arm64")
+  mkdir -p "$lib_path/linux_amd64/libs"
+  cp -f "$wasmvm_lib_path_linux_amd64" "$lib_path/linux_amd64/libs"
+  mkdir -p "$lib_path/linux_arm64/libs"
+  cp -f "$wasmvm_lib_path_linux_arm64" "$lib_path/linux_arm64/libs"
+  mkdir -p "$lib_path/darwin_amd64/libs"
+  cp -f "$wasmvm_lib_path_darwin_amd64" "$lib_path/darwin_amd64/libs"
+  mkdir -p "$lib_path/darwin_arm64/libs"
+  cp -f "$wasmvm_lib_path_darwin_arm64" "$lib_path/darwin_arm64/libs"
+
+  # MOVE PLUGINS HERE
+  gobin=$(go env GOPATH)/bin
+
+  install_local_plugins  "linux" "amd64" "$gobin"/linux_amd64/
+  install_remote_plugins "linux" "amd64" "$gobin"/linux_amd64/
+  mkdir -p "$lib_path/linux_amd64/plugins"
+  cp "$gobin"/linux_amd64/chainlink* "$lib_path/linux_amd64/plugins"
+
+  install_local_plugins  "linux" "arm64" "$gobin"/linux_arm64/
+  install_remote_plugins "linux" "arm64" "$gobin"/linux_arm64/
+  mkdir -p "$lib_path/linux_arm64/plugins"
+  cp "$gobin"/linux_arm64/chainlink* "$lib_path/linux_arm64/plugins"
+}
+
+install_local_plugins() {
+  local -r goos=$1
+  local -r goarch=$2
+  local -r gobin=$3
+  ldf="$(./tools/bin/ldflags)"
+  ldflags=(-ldflags "$ldf")
+  GOARCH=$goarch GOOS=$goos go build -o $gobin "${ldflags[@]}" ./plugins/cmd/chainlink-medianpoc 
+  GOARCH=$goarch GOOS=$goos go build -o $gobin "${ldflags[@]}" ./plugins/cmd/chainlink-ocr3-capability
+}
+
+get_remote_plugin_paths() {
+  plugins=(
+    "github.com/smartcontractkit/chainlink-solana|/pkg/solana/cmd/chainlink-solana"
+    "github.com/smartcontractkit/chainlink-starknet/relayer|/pkg/chainlink/cmd/chainlink-starknet"
+    "github.com/smartcontractkit/chainlink-feeds|/cmd/chainlink-feeds"
+    "github.com/smartcontractkit/chainlink-data-streams|/mercury/cmd/chainlink-mercury"
+  )
+
+  for plugin in "${plugins[@]}"; do
+   plugin_dep_name=$(echo "$plugin" | cut -d"|" -f1)
+   plugin_main=$(echo "$plugin" | cut -d"|" -f2)
+
+   full_plugin_path=$(go list -m -f "{{.Dir}}" "$plugin_dep_name")"$plugin_main"
+    echo "$full_plugin_path"
+  done
+}
+
+install_remote_plugins() {
+  local -r goos=$1
+  local -r goarch=$2
+  local -r gobin=$(go env GOPATH)/bin
+  ldflags=(-ldflags "$(./tools/bin/ldflags)")
+
+  for plugin in $(get_remote_plugin_paths); do
+    GOARCH=$goarch GOOS=$goos go build -o $gobin "${ldflags[@]}" "$plugin" 
+  done  
+
+}
+
+# binary build post hook
+# moves native libraries to binary libs directory
+build_post_hook() {
+  local -r dist_path=$1
+  local -r lib_dest_path=$dist_path/libs
+  local -r platform=$2
+  local -r arch=$3
+  local -r plugin_src_path=./tmp/${platform}_${arch}/plugins
+  local -r plugin_dest_path=$dist_path/plugins
+
+  # COPY NATIVE LIBRARIES HERE
+  local -r wasmvm_lib_path=$(_get_wasmvm_lib_path "$platform" "$arch")
+  mkdir -p "$lib_dest_path"
+  cp "$wasmvm_lib_path" "$lib_dest_path"
+
+  # COPY PLUGINS HERE
+  mkdir -p "$plugin_dest_path"
+  cp -r "$plugin_src_path/." "$plugin_dest_path"
+}
+
+"$@"

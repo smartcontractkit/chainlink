@@ -1,10 +1,9 @@
 ---
 name: Development Issue
 about: Report an issue encountered while working on code found in this repository.
-title: "[DEVEL] <replace with issue title>"
+title: '[DEVEL] <replace with issue title>'
 labels: 'Development'
 assignees: ''
-
 ---
 
 **Description**

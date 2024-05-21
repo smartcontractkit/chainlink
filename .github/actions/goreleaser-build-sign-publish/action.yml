@@ -1,0 +1,116 @@
+name: Build and Publish with Goreleaser
+description: A composite action that allows building and publishing signed chainlink artifacts (binaries + images)
+inputs:
+  goreleaser-version:
+    description: The goreleaser version
+    default: 1.23.0
+    required: false
+  goreleaser-key:
+    description: The goreleaser key
+    required: false
+  zig-version:
+    description: The zig version
+    default: 0.10.1
+    required: false
+  cosign-version:
+    description: The cosign version
+    default: v2.2.2
+    required: false
+  macos-sdk-dir:
+    description: The macos sdk directory
+    default: MacOSX12.3.sdk
+    required: false
+  # publishing inputs
+  enable-docker-publish:
+    description: Enable publishing of docker images / manifests
+    default: "true"
+    required: false
+  docker-registry:
+    description: The docker registry
+    default: localhost:5001
+    required: false
+  # snapshot inputs
+  enable-goreleaser-snapshot:
+    description: Enable goreleaser build / release snapshot
+    default: "false"
+    required: false
+  # goreleaser inputs
+  goreleaser-exec:
+    description: "The goreleaser executable, can invoke wrapper script"
+    default: "goreleaser"
+    required: false
+  goreleaser-config:
+    description: "The goreleaser configuration yaml"
+    default: ".goreleaser.yaml"
+    required: false
+  # signing inputs
+  enable-cosign:
+    description: Enable signing of docker images
+    default: "false"
+    required: false
+  cosign-private-key:
+    description: The private key to be used with cosign to sign the image
+    required: false
+  cosign-public-key:
+    description: The public key to be used with cosign for verification
+    required: false
+  cosign-password:
+    description: The password to decrypt the cosign private key needed to sign the image
+    required: false
+outputs:
+  goreleaser-metadata:
+    description: "Build result metadata"
+    value: ${{ steps.goreleaser.outputs.metadata }}
+  goreleaser-artifacts:
+    description: "Build result artifacts"
+    value: ${{ steps.goreleaser.outputs.artifacts }}
+runs:
+  using: composite
+  steps:
+    - name: Setup docker buildx
+      uses: docker/setup-buildx-action@2b51285047da1547ffb1b2203d8be4c0af6b1f20 # v3.2.0
+    - name: Set up qemu
+      uses: docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3 # v3.0.0
+    - name: Setup go
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version-file: "go.mod"
+    - name: Setup goreleaser
+      uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8 # v5.0.0
+      with:
+        distribution: goreleaser-pro
+        install-only: true
+        version: ${{ inputs.goreleaser-version }}
+      env:
+        GORELEASER_KEY: ${{ inputs.goreleaser-key }}
+    - name: Setup zig
+      uses: goto-bus-stop/setup-zig@7ab2955eb728f5440978d5824358023be3a2802d # v2.2.0
+      with:
+        version: ${{ inputs.zig-version }}
+    - name: Setup cosign
+      if: inputs.enable-cosign == 'true'
+      uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 # v3.4.0
+      with:
+        cosign-release: ${{ inputs.cosign-version }}
+    - name: Login to docker registry
+      if: inputs.enable-docker-publish == 'true'
+      uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+      with:
+        registry: ${{ inputs.docker-registry }}
+    - name: Goreleaser release
+      id: goreleaser
+      shell: bash
+      env:
+        ENABLE_COSIGN: ${{ inputs.enable-cosign }}
+        ENABLE_GORELEASER_SNAPSHOT: ${{ inputs.enable-goreleaser-snapshot }}
+        ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
+        IMAGE_PREFIX: ${{ inputs.docker-registry }}
+        GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
+        GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
+        COSIGN_PASSWORD: ${{ inputs.cosign-password }}
+        COSIGN_PUBLIC_KEY: ${{ inputs.cosign-public-key }}
+        COSIGN_PRIVATE_KEY: ${{ inputs.cosign-private-key }}
+        MACOS_SDK_DIR: ${{ inputs.macos-sdk-dir }}
+      run: |
+        # https://github.com/orgs/community/discussions/24950
+        ${GITHUB_ACTION_PATH}/action_utils goreleaser_release

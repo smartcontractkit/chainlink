@@ -1,7 +1,9 @@
 // Package ethschnorr implements a version of the Schnorr signature which is
-////////////////////////////////////////////////////////////////////////////////
-//       XXX: Do not use in production until this code has been audited.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
+//
+//	XXX: Do not use in production until this code has been audited.
+//
+// //////////////////////////////////////////////////////////////////////////////
 // cheap to verify on-chain.
 //
 // See https://en.wikipedia.org/wiki/Schnorr_signature For vanilla Schnorr.
@@ -19,7 +21,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 
 	"go.dedis.ch/kyber/v3"
 )

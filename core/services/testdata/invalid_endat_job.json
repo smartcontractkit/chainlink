@@ -1,6 +1,0 @@
-{
-  "initiators": [{ "type": "web" }],
-  "tasks": [{ "type": "noOp" }],
-  "startAt": "2018-03-07T00:35:08Z",
-  "endAt": "2018-03-07T00:35:07Z"
-}

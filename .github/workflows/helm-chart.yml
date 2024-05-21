@@ -1,0 +1,37 @@
+name: Helm Chart
+
+on:
+  pull_request:
+    paths:
+      - "charts/**"
+      - ".github/workflows/helm-chart.yml"
+
+jobs:
+  ci-lint-helm-charts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ci-lint-helm-charts
+        uses: smartcontractkit/.github/actions/ci-lint-charts@7fa39741b11e66ed59f8aad786d4b9356c389f3f # ci-lint-charts@0.2.0
+        with:
+          # chart testing inputs
+          chart-testing-extra-args: "--lint-conf=lintconf.yaml"
+          charts-dir: charts/chainlink-cluster
+          # grafana inputs
+          metrics-job-name: ci-lint-helm-charts
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+
+  ci-kubeconform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ci-kubeconform
+        uses: smartcontractkit/.github/actions/ci-kubeconform@1ae8a9a984814c4daf50aa96f03be2cba0ef3fec # ci-kubeconform@0.2.0
+        with:
+          # kubeform inputs
+          charts-dir: charts/chainlink-cluster
+          # grafana inputs
+          metrics-job-name: ci-kubeconform
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

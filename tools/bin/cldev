@@ -1,17 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 LDFLAGS="`tools/bin/ldflags`"
+export CL_DATABASE_URL="${CL_DATABASE_URL:=postgresql://localhost:5432/chainlink_dev?sslmode=disable}"
+export CL_CONFIG=${CL_CONFIG:"WebServer.TLS.HTTPSPort = 0"}
 
 case "$1" in
     node | core | n)
-        echo "** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
-        go run -ldflags "$LDFLAGS" ./core/main.go --  node import /run/secrets/keystore
-        echo "** Running node"
-        go run -ldflags "$LDFLAGS" ./core/main.go --  node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
-        ;;
+      key='0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
+      echo "** Running node"
+      go run -ldflags "$LDFLAGS" . --  node start -d -p tools/secrets/password.txt -a tools/secrets/apicredentials
+      ;;
     *)
-        echo "Building chainlink node..."
-        go run ./core/main.go -- $@
-        ;;
+      go run . -- "$@"
+      ;;
 esac

@@ -3,9 +3,13 @@ package logger
 import (
 	"fmt"
 	"math"
+	"net/url"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/fatih/color"
 	"github.com/tidwall/gjson"
@@ -18,8 +22,9 @@ var levelColors = map[string]func(...interface{}) string{
 	"info":    color.New(color.FgWhite).SprintFunc(),
 	"warn":    color.New(color.FgYellow).SprintFunc(),
 	"error":   color.New(color.FgRed).SprintFunc(),
-	"panic":   color.New(color.FgRed).SprintFunc(),
-	"fatal":   color.New(color.FgRed).SprintFunc(),
+	"panic":   color.New(color.FgHiRed).SprintFunc(),
+	"crit":    color.New(color.FgHiRed).SprintFunc(),
+	"fatal":   color.New(color.FgHiRed).SprintFunc(),
 }
 
 var blue = color.New(color.FgBlue).SprintFunc()
@@ -44,13 +49,32 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 	return pc.Sink.Write([]byte(fmt.Sprintln(headline, details)))
 }
 
+// Close is overridden to prevent accidental closure of stderr/stdout
+func (pc PrettyConsole) Close() error {
+	switch pc.Sink {
+	case os.Stderr, os.Stdout:
+		// Never close Stderr/Stdout because this will break any future go runtime logging from panics etc
+		return nil
+	default:
+		return pc.Sink.Close()
+	}
+}
+
 func generateHeadline(js gjson.Result) string {
-	sec, dec := math.Modf(js.Get("ts").Float())
+	ts := js.Get("ts")
+	var tsStr string
+	if f := ts.Float(); f > 1 {
+		sec, dec := math.Modf(f)
+		tsStr = iso8601UTC(time.Unix(int64(sec), int64(dec*(1e9))))
+	} else {
+		// assume already formatted
+		tsStr = ts.Str
+	}
 	headline := []interface{}{
-		iso8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
+		tsStr,
 		" ",
 		coloredLevel(js.Get("level")),
-		fmt.Sprintf("%-50s", js.Get("msg")),
+		fmt.Sprintf("%-50s", sanitized(js.Get("msg").String())),
 		" ",
 		fmt.Sprintf("%-32s", blue(js.Get("caller"))),
 	}
@@ -83,7 +107,7 @@ func generateDetails(js gjson.Result) string {
 	var details strings.Builder
 
 	for _, v := range keys {
-		details.WriteString(fmt.Sprintf("%s=%v ", green(v), data[v]))
+		details.WriteString(fmt.Sprintf("%s=%v ", green(sanitized(v)), sanitized(data[v].String())))
 	}
 
 	return details.String()
@@ -100,4 +124,33 @@ func coloredLevel(level gjson.Result) string {
 // iso8601UTC formats given time to ISO8601.
 func iso8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
+}
+
+func prettyConsoleSink(s zap.Sink) func(*url.URL) (zap.Sink, error) {
+	return func(*url.URL) (zap.Sink, error) {
+		return PrettyConsole{s}, nil
+	}
+}
+
+type sanitized string
+
+// String replaces control characters with Go escape sequences, except for newlines and tabs.
+// See strconv.QuoteRune.
+func (s sanitized) String() string {
+	var out string
+	for _, r := range s {
+		switch r {
+		case '\n', '\r', '\t':
+			// allowed
+		default:
+			// escape others
+			if unicode.IsControl(r) {
+				q := strconv.QuoteRune(r)
+				out += q[1 : len(q)-1] // trim quotes
+				continue
+			}
+		}
+		out += string(r)
+	}
+	return out
 }

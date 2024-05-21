@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │       Compiling Automation contracts...      │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.6"
+OPTIMIZE_RUNS=1000000
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
+
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+
+compileContract () {
+  local contract
+  contract=$(basename "$1" ".sol")
+
+  solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
+      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8,"$ROOT"/contracts/node_modules\
+      "$ROOT"/contracts/src/v0.8/"$1"
+}
+
+compileContract automation/upkeeps/CronUpkeepFactory.sol
+compileContract automation/v1_2/KeeperRegistrar1_2.sol
+compileContract automation/v1_2/KeeperRegistry1_2.sol
+compileContract automation/v1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
+compileContract automation/v1_3/KeeperRegistry1_3.sol
+compileContract automation/v1_3/KeeperRegistryLogic1_3.sol
+compileContract automation/v2_0/KeeperRegistrar2_0.sol
+compileContract automation/v2_0/KeeperRegistry2_0.sol
+compileContract automation/v2_0/KeeperRegistryLogic2_0.sol
+compileContract automation/UpkeepTranscoder.sol
+compileContract automation/mocks/MockAggregatorProxy.sol
+compileContract automation/testhelpers/LogUpkeepCounter.sol
+compileContract automation/testhelpers/SimpleLogUpkeepCounter.sol
+
+compileContract automation/mocks/KeeperRegistrar1_2Mock.sol
+compileContract automation/mocks/KeeperRegistryCheckUpkeepGasUsageWrapper1_2Mock.sol
+
+SOLC_VERSION="0.8.16"
+
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+# v0.8.16
+compileContract automation/v2_1/AutomationRegistrar2_1.sol
+compileContract automation/v2_1/KeeperRegistry2_1.sol
+compileContract automation/v2_1/KeeperRegistryLogicA2_1.sol
+compileContract automation/v2_1/KeeperRegistryLogicB2_1.sol
+compileContract automation/v2_1/AutomationUtils2_1.sol
+compileContract automation/interfaces/v2_1/IKeeperRegistryMaster.sol
+
+compileContract automation/interfaces/ILogAutomation.sol
+compileContract automation/AutomationForwarderLogic.sol
+compileContract automation/testhelpers/LogTriggeredStreamsLookup.sol
+compileContract automation/testhelpers/DummyProtocol.sol
+
+compileContract automation/testhelpers/KeeperConsumer.sol
+compileContract automation/testhelpers/KeeperConsumerPerformance.sol
+compileContract automation/testhelpers/PerformDataChecker.sol
+compileContract automation/testhelpers/UpkeepPerformCounterRestrictive.sol
+compileContract automation/testhelpers/UpkeepCounter.sol
+
+compileContract automation/interfaces/StreamsLookupCompatibleInterface.sol
+
+compileContract tests/VerifiableLoadUpkeep.sol
+compileContract tests/VerifiableLoadStreamsLookupUpkeep.sol
+compileContract tests/VerifiableLoadLogTriggerUpkeep.sol
+compileContract tests/AutomationConsumerBenchmark.sol
+compileContract tests/StreamsLookupUpkeep.sol
+
+SOLC_VERSION="0.8.19"
+
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+# v0.8.19
+compileContract automation/v2_2/AutomationRegistry2_2.sol
+compileContract automation/v2_2/AutomationRegistryLogicA2_2.sol
+compileContract automation/v2_2/AutomationRegistryLogicB2_2.sol
+compileContract automation/v2_2/AutomationUtils2_2.sol
+compileContract automation/interfaces/v2_2/IAutomationRegistryMaster.sol
+compileContract automation/chains/ArbitrumModule.sol
+compileContract automation/chains/ChainModuleBase.sol
+compileContract automation/chains/OptimismModule.sol
+compileContract automation/chains/ScrollModule.sol
+compileContract automation/interfaces/IChainModule.sol
+compileContract automation/interfaces/IAutomationV21PlusCommon.sol
+compileContract automation/AutomationCompatibleUtils.sol
+
+compileContract automation/dev/v2_3/AutomationRegistrar2_3.sol
+compileContract automation/dev/v2_3/AutomationRegistry2_3.sol
+compileContract automation/dev/v2_3/AutomationRegistryLogicA2_3.sol
+compileContract automation/dev/v2_3/AutomationRegistryLogicB2_3.sol
+compileContract automation/dev/v2_3/AutomationUtils2_3.sol
+compileContract automation/dev/interfaces/v2_3/IAutomationRegistryMaster2_3.sol

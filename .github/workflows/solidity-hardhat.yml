@@ -1,0 +1,119 @@
+name: Solidity-Hardhat
+
+on:
+  merge_group:
+  push:
+
+env:
+  NODE_OPTIONS: --max_old_space_size=8192
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          filters: |
+            src:
+              - 'contracts/src/!(v0.8/(llo-feeds|keystone|ccip|functions|transmission)/**)/**/*'
+              - 'contracts/test/**/*'
+              - 'contracts/package.json'
+              - 'contracts/pnpm-lock.yaml'
+              - 'contracts/hardhat.config.ts'
+              - 'contracts/ci.json'
+              - '.github/workflows/solidity-hardhat.yml'
+
+  split-tests:
+    name: Split Solidity Tests
+    runs-on: ubuntu-latest
+    outputs:
+      splits: ${{ steps.split.outputs.splits }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Generate splits
+        id: split
+        uses: ./.github/actions/split-tests
+        with:
+          config: ./contracts/ci.json
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-split-tests
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Split Solidity Tests
+        continue-on-error: true
+
+  solidity-splits:
+    needs: [changes, split-tests]
+    if: needs.changes.outputs.changes == 'true'
+    name: Solidity ${{ matrix.split.id }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        split: ${{ fromJson(needs.split-tests.outputs.splits) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Setup Hardhat
+        uses: ./.github/actions/setup-hardhat
+        with:
+          namespace: coverage
+      - name: Run tests
+        env:
+          SPLIT: ${{ matrix.split.tests }}
+        working-directory: contracts
+        run: pnpm test -- $SPLIT
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-splits
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Solidity ${{ matrix.split.id }}
+        continue-on-error: true
+
+  solidity:
+    needs: [changes, solidity-splits]
+    name: Solidity
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - run: echo 'Solidity tests finished!'
+      - name: Check test results
+        run: |
+          if [[ "${{ needs.changes.result }}" = "failure" || "${{ needs.solidity-splits.result }}" = "failure" ]]; then
+            echo "One or more changes / solidity-splits jobs failed"
+            exit 1
+          else
+            echo "All test jobs passed successfully"
+          fi
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-tests
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Solidity
+        continue-on-error: true
