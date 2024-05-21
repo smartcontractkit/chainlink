@@ -1046,19 +1046,17 @@ func (o *orm) FindJobIDsWithBridge(ctx context.Context, name string) (jids []int
 }
 
 func (o *orm) FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (jobID int32, err error) {
-	// NOTE: We want to explicitly match on NULL feed_id hence usage of `IS
-	// NOT DISTINCT FROM` instead of `=`
+	//	--WITH wf as (SELECT id FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2)
 	stmt := `
-SELECT jobs.id
-FROM jobs
-LEFT JOIN workflow_specs ws on ws.workflow_owner = $1 AND ws.workflow_name =$2
+SELECT jobs.id FROM jobs
+INNER JOIN workflow_specs ws on jobs.workflow_spec_id = ws.id AND ws.workflow_owner = $1 AND ws.workflow_name = $2 
 `
 	err = o.ds.GetContext(ctx, &jobID, stmt, spec.WorkflowOwner, spec.WorkflowName)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			err = fmt.Errorf("error searching for job by workflow (owner,name) ('%s','%s')", spec.WorkflowOwner, spec.WorkflowName)
+			err = fmt.Errorf("error searching for job by workflow (owner,name) ('%s','%s'): %w", spec.WorkflowOwner, spec.WorkflowName, err)
 		}
-		err = errors.Wrap(err, "FindOCR2JobIDByAddress failed")
+		err = fmt.Errorf("FindJobIDByWorkflow failed: %w", err)
 		return
 	}
 
