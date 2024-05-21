@@ -1,6 +1,48 @@
 # default config
+
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '1m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+ListenAddresses = ['0.0.0.0:6690']
+"""
+
 [Common]
-chainlink_node_funding = 0.1
+chainlink_node_funding = 0.5
 
 [VRFv2Plus]
 [VRFv2Plus.General]
@@ -28,7 +70,7 @@ number_of_sending_keys_to_create = 0
 randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
-wait_for_256_blocks_timeout = "10m"
+wait_for_256_blocks_timeout = "280s"
 
 fulfillment_flat_fee_native_ppm=0
 fulfillment_flat_fee_link_discount_ppm=0

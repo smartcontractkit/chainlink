@@ -68,6 +68,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @member autoApproveType the auto approval setting (see enum)
    * @member autoApproveMaxAllowed the max number of upkeeps that can be auto approved of this type
    */
+  // solhint-disable-next-line gas-struct-packing
   struct InitialTriggerConfig {
     uint8 triggerType;
     AutoApproveType autoApproveType;

@@ -91,6 +91,34 @@ func (_m *ForwarderManager[ADDR]) ForwarderFor(addr ADDR) (ADDR, error) {
 	return r0, r1
 }
 
+// ForwarderForOCR2Feeds provides a mock function with given fields: eoa, ocr2Aggregator
+func (_m *ForwarderManager[ADDR]) ForwarderForOCR2Feeds(eoa ADDR, ocr2Aggregator ADDR) (ADDR, error) {
+	ret := _m.Called(eoa, ocr2Aggregator)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ForwarderForOCR2Feeds")
+	}
+
+	var r0 ADDR
+	var r1 error
+	if rf, ok := ret.Get(0).(func(ADDR, ADDR) (ADDR, error)); ok {
+		return rf(eoa, ocr2Aggregator)
+	}
+	if rf, ok := ret.Get(0).(func(ADDR, ADDR) ADDR); ok {
+		r0 = rf(eoa, ocr2Aggregator)
+	} else {
+		r0 = ret.Get(0).(ADDR)
+	}
+
+	if rf, ok := ret.Get(1).(func(ADDR, ADDR) error); ok {
+		r1 = rf(eoa, ocr2Aggregator)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // HealthReport provides a mock function with given fields:
 func (_m *ForwarderManager[ADDR]) HealthReport() map[string]error {
 	ret := _m.Called()
