@@ -662,6 +662,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
     }
   }
 
+  // TODO: _beforeSetConfig is no longer used in OCR3 - replace this with an external onlyOwner function
   /// @notice Sets the dynamic config. This function is called during `setOCR2Config` flow
   function _beforeSetConfig(bytes memory onchainConfig) internal override {
     DynamicConfig memory dynamicConfig = abi.decode(onchainConfig, (DynamicConfig));
