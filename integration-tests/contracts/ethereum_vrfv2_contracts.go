@@ -637,6 +637,18 @@ func (v *EthereumVRFCoordinatorV2) FindSubscriptionID(subID uint64) (uint64, err
 	return subscriptionIterator.Event.SubId, nil
 }
 
+func (v *EthereumVRFCoordinatorV2) GetBlockHashStoreAddress(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	blockHashStoreAddress, err := v.coordinator.BLOCKHASHSTORE(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return blockHashStoreAddress, nil
+}
+
 func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error) {
 	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled)
 	subscription, err := v.coordinator.WatchRandomWordsFulfilled(nil, randomWordsFulfilledEventsChannel, filter.RequestIds)
