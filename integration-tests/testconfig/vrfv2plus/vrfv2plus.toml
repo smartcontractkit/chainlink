@@ -43,6 +43,19 @@ LimitDefault = 3500000
 BatchSize = 100
 """
 
+# BASE SEPOLIA
+84532 = """
+BlockBackfillDepth = 500
+LogBackfillBatchSize = 1000
+RPCDefaultBatchSize = 25
+
+[GasEstimator]
+LimitDefault = 3500000
+
+[GasEstimator.BlockHistory]
+BatchSize = 100
+"""
+
 [Common]
 chainlink_node_funding = 0.5
 
