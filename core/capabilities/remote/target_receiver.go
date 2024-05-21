@@ -73,7 +73,7 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 	// TODO should the dispatcher be passing in a context?
 	ctx := context.Background()
 
-	// TODO Confirm threading semantices of dispatcher receive
+	// TODO Confirm threading semantics of dispatcher receive
 	// TODO May want to have executor per message id to improve liveness
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()

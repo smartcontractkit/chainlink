@@ -13,5 +13,7 @@ func Test_TargetReceiverConsensus(t *testing.T) {
 	// Check request errors as expected and all error responses are received
 
 	//  Check that requests from an incorrect don are ignored?
+	
+	// Check that multiple requests from the same sender are ignored
 
 }
