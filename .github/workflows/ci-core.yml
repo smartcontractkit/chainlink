@@ -213,7 +213,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@2954caaadb1b194740b24fde41daf3f4e6d1eba7
         with:
           id: ${{ matrix.type.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -221,6 +221,7 @@ jobs:
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Core Tests (${{ matrix.type.cmd }})
           test-results-file: '{"testType":"go","filePath":"./output.txt"}'
+          test-results-batch-split-size: "524288" # 512KB
         continue-on-error: true
 
   detect-flakey-tests:
