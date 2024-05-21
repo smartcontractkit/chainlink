@@ -1,11 +1,13 @@
 # default config
-
 [NodeConfig]
 BaseConfigTOML = """
 [Feature]
-FeedsManager = true
 LogPoller = true
-UICSAKeys = true
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
 
 [Log]
 Level = 'debug'
@@ -18,27 +20,27 @@ MaxSize = '0b'
 AllowOrigins = '*'
 HTTPPort = 6688
 SecureCookies = false
-HTTPWriteTimeout = '1m'
-SessionTimeout = '999h0m0s'
 
 [WebServer.RateLimit]
 Authenticated = 2000
-Unauthenticated = 1000
+Unauthenticated = 100
 
 [WebServer.TLS]
 HTTPSPort = 0
+"""
 
-[Database]
-MaxIdleConns = 20
-MaxOpenConns = 40
-MigrateOnStartup = true
+[NodeConfig.ChainConfigTOMLByChainID]
+# OPTIMISM SEPOLIA
+11155420 = """
+BlockBackfillDepth = 500
+LogBackfillBatchSize = 1000
+RPCDefaultBatchSize = 25
 
-[OCR]
-Enabled = true
+[GasEstimator]
+LimitDefault = 3500000
 
-[P2P]
-[P2P.V2]
-ListenAddresses = ['0.0.0.0:6690']
+[GasEstimator.BlockHistory]
+BatchSize = 100
 """
 
 [Common]
