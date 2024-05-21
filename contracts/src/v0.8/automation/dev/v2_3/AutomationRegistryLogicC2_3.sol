@@ -69,7 +69,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice withdraws LINK received as payment for work performed
+   * @notice this is for NOPs to withdraw LINK received as payment for work performed
    */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
@@ -78,7 +78,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
     s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] - balance;
-    i_link.transfer(to, balance);
+    bool transferStatus = i_link.transfer(to, balance);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
