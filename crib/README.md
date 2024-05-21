@@ -20,7 +20,6 @@ nix develop
 # Copy the environment example file and fill in the necessary values
 cd crib/
 cp .env.example .env
-nix develop
 ```
 
 ## CRIB Initialization
