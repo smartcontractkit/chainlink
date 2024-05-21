@@ -6,6 +6,7 @@ package remote
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -25,23 +26,25 @@ type remoteTargetReceiver struct {
 	dispatcher   types.Dispatcher
 	lggr         logger.Logger
 
-	executeRequests map[[32]byte]requestCache
+	msgIDToExecuteRequest map[[32]byte]executeRequest
+
+	receiveLock sync.Mutex
 }
 
 var _ types.Receiver = &remoteTargetReceiver{}
 
 func NewRemoteTargetReceiver(ctx context.Context, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo *capabilities.DON,
-	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetReceiver {
+	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *remoteTargetReceiver {
 
 	go func() {
-		timer := time.NewTimer(60 * time.Second)
+		timer := time.NewTimer(requestTimeout)
 		defer timer.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				// TODO Implement timeout handling and cleanup logic on the request cache
+				// TODO Implement timeout handling and cleanup logic of the execute requests cache
 			}
 		}
 	}()
@@ -53,13 +56,13 @@ func NewRemoteTargetReceiver(ctx context.Context, underlying commoncap.TargetCap
 		workflowDONs: workflowDONs,
 		dispatcher:   dispatcher,
 
-		executeRequests: map[[32]byte]requestCache{},
+		msgIDToExecuteRequest: map[[32]byte]executeRequest{},
 
 		lggr: lggr,
 	}
 }
 
-type requestCache struct {
+type executeRequest struct {
 	fromPeers        map[p2ptypes.PeerID]bool
 	response         *types.MessageBody
 	callingDonID     string
@@ -69,6 +72,11 @@ type requestCache struct {
 func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 	// TODO should the dispatcher be passing in a context?
 	ctx := context.Background()
+
+	// TODO Confirm threading semantices of dispatcher receive
+	// TODO May want to have executor per message id to improve liveness
+	r.receiveLock.Lock()
+	defer r.receiveLock.Unlock()
 
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
@@ -83,33 +91,32 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 
 	sender := ToPeerID(msg.Sender)
 
-	var messageId [32]byte
-	copy(messageId[:], msg.MessageId)
+	messageId := getMessageID(msg)
 
-	rc, ok := r.executeRequests[messageId]
+	executeReq, ok := r.msgIDToExecuteRequest[messageId]
 	if !ok {
-		rc = requestCache{
+		executeReq = executeRequest{
 			fromPeers:        map[p2ptypes.PeerID]bool{},
 			callingDonID:     msg.CallerDonId,
 			firstRequestTime: time.Now(),
 		}
-		r.executeRequests[messageId] = rc
+		r.msgIDToExecuteRequest[messageId] = executeReq
 	}
 
-	if rc.callingDonID != msg.CallerDonId {
+	if executeReq.callingDonID != msg.CallerDonId {
 		r.lggr.Warnw("received duplicate execute request from different don, ignoring", "peer", sender)
 		return
 	}
 
-	if rc.fromPeers[sender] {
+	if executeReq.fromPeers[sender] {
 		r.lggr.Warnw("received duplicate execute request from peer, ignoring", "peer", sender)
 		return
 	}
 
-	rc.fromPeers[sender] = true
+	executeReq.fromPeers[sender] = true
 	minRequiredRequests := int(callerDon.F + 1)
-	if len(rc.fromPeers) >= minRequiredRequests {
-		if rc.response == nil {
+	if len(executeReq.fromPeers) >= minRequiredRequests {
+		if executeReq.response == nil {
 
 			responseMsg := &types.MessageBody{
 				CapabilityId:    r.capInfo.ID,
@@ -136,18 +143,24 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 				responseMsg.Error = types.Error_CAPABILITY_NOT_FOUND
 			}
 
-			rc.response = responseMsg
+			executeReq.response = responseMsg
 
-			for peerID := range rc.fromPeers {
+			for peerID := range executeReq.fromPeers {
 				if err = r.dispatcher.Send(peerID, responseMsg); err != nil {
 					r.lggr.Errorw("failed to send response", "peer", peerID, "err", err)
 				}
 			}
 		} else {
-			if err := r.dispatcher.Send(sender, rc.response); err != nil {
+			if err := r.dispatcher.Send(sender, executeReq.response); err != nil {
 				r.lggr.Errorw("failed to send response", "peer", sender, "err", err)
 			}
 		}
 	}
 
+}
+
+func getMessageID(msg *types.MessageBody) [32]byte {
+	var messageId [32]byte
+	copy(messageId[:], msg.MessageId)
+	return messageId
 }

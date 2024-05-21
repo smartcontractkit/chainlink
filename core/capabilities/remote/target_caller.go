@@ -168,13 +168,12 @@ func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, r
 func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 
 	// TODO handle the case where the capability returns a stream of responses
-	var messageId [32]byte
-	copy(messageId[:], msg.MessageId)
+	messageID := getMessageID(msg)
 
-	wg, loaded := c.messageIDToWaitgroup.LoadAndDelete(messageId)
+	wg, loaded := c.messageIDToWaitgroup.LoadAndDelete(messageID)
 	if loaded {
 		wg.(*sync.WaitGroup).Done()
-		c.messageIDToResponse.Store(messageId, msg)
+		c.messageIDToResponse.Store(messageID, msg)
 		return
 	}
 }
