@@ -15,6 +15,10 @@ type PriceRegistryReader interface {
 	// The returned updates are sorted by timestamp in ascending order.
 	GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confirmations int) ([]GasPriceUpdateWithTxMeta, error)
 
+	// GetAllGasPriceUpdatesCreatedAfter returns all the gas price updates that happened after the provided timestamp for all chain selectors.
+	// The returned updates are sorted by timestamp in ascending order.
+	GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confirmations int) ([]GasPriceUpdateWithTxMeta, error)
+
 	// Address returns the address of the price registry.
 	Address(ctx context.Context) (Address, error)
 

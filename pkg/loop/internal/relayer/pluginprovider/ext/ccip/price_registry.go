@@ -91,6 +91,19 @@ func (p *PriceRegistryGRPCClient) GetGasPriceUpdatesCreatedAfter(ctx context.Con
 	return gasPriceUpdateWithTxMetaSlice(resp.GasPriceUpdates), nil
 }
 
+// GetAllGasPriceUpdatesCreatedAfter implements ccip.PriceRegistryReader.
+func (p *PriceRegistryGRPCClient) GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confirmations int) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
+	req := &ccippb.GetAllGasPriceUpdatesCreatedAfterRequest{
+		CreatedAfter:  timestamppb.New(ts),
+		Confirmations: uint64(confirmations),
+	}
+	resp, err := p.grpc.GetAllGasPriceUpdatesCreatedAfter(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return gasPriceUpdateWithTxMetaSlice(resp.GasPriceUpdates), nil
+}
+
 // GetTokenPriceUpdatesCreatedAfter implements ccip.PriceRegistryReader.
 func (p *PriceRegistryGRPCClient) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confirmations int) ([]cciptypes.TokenPriceUpdateWithTxMeta, error) {
 	req := &ccippb.GetTokenPriceUpdatesCreatedAfterRequest{
@@ -164,6 +177,15 @@ func (p *PriceRegistryGRPCServer) GetGasPriceUpdatesCreatedAfter(ctx context.Con
 		return nil, err
 	}
 	return &ccippb.GetGasPriceUpdatesCreatedAfterResponse{GasPriceUpdates: gasPriceUpdateWithTxMetaSlicePB(updates)}, nil
+}
+
+// GetAllGasPriceUpdatesCreatedAfter implements ccippb.PriceRegistryReaderServer.
+func (p *PriceRegistryGRPCServer) GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, req *ccippb.GetAllGasPriceUpdatesCreatedAfterRequest) (*ccippb.GetAllGasPriceUpdatesCreatedAfterResponse, error) {
+	updates, err := p.impl.GetAllGasPriceUpdatesCreatedAfter(ctx, req.CreatedAfter.AsTime(), int(req.Confirmations))
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.GetAllGasPriceUpdatesCreatedAfterResponse{GasPriceUpdates: gasPriceUpdateWithTxMetaSlicePB(updates)}, nil
 }
 
 // GetTokenPriceUpdatesCreatedAfter implements ccippb.PriceRegistryReaderServer.

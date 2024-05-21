@@ -68,6 +68,44 @@ var PriceRegistryReader = staticPriceRegistryReader{
 			},
 		},
 
+		// GetAllGasPriceUpdatesCreatedAfter test data
+		getAllGasPriceUpdatesCreatedAfterRequest: getAllGasPriceUpdatesCreatedAfterRequest{
+			ts:            time.Unix(189, 15).UTC(),
+			confirmations: 3,
+		},
+		getAllGasPriceUpdatesCreatedAfterResponse: []ccip.GasPriceUpdateWithTxMeta{
+			{
+				TxMeta: ccip.TxMeta{
+					BlockTimestampUnixMilli: 10,
+					BlockNumber:             10,
+					TxHash:                  "gas update tx 10",
+					LogIndex:                10,
+				},
+				GasPriceUpdate: ccip.GasPriceUpdate{
+					GasPrice: ccip.GasPrice{
+						DestChainSelector: 10,
+						Value:             big.NewInt(10),
+					},
+					TimestampUnixSec: big.NewInt(10),
+				},
+			},
+			{
+				TxMeta: ccip.TxMeta{
+					BlockTimestampUnixMilli: 20,
+					BlockNumber:             20,
+					TxHash:                  "gas update 20",
+					LogIndex:                20,
+				},
+				GasPriceUpdate: ccip.GasPriceUpdate{
+					GasPrice: ccip.GasPrice{
+						DestChainSelector: 20,
+						Value:             big.NewInt(20),
+					},
+					TimestampUnixSec: big.NewInt(20),
+				},
+			},
+		},
+
 		// GetTokenPriceUpdatesCreatedAfter test data
 		getTokenPriceUpdatesCreatedAfterRequest: getTokenPriceUpdatesCreatedAfterRequest{
 			ts:            time.Unix(111111111, 17).UTC(),
@@ -128,9 +166,12 @@ var _ PriceRegistryReaderEvaluator = staticPriceRegistryReader{}
 type staticPriceRegistryReaderConfig struct {
 	addressResponse      ccip.Address
 	getFeeTokensResponse []ccip.Address
-	// handle GetPriceUpdatesCreatedAfter
+	// handle GetGasPriceUpdatesCreatedAfter
 	getGasPriceUpdatesCreatedAfterRequest  getGasPriceUpdatesCreatedAfterRequest
 	getGasPriceUpdatesCreatedAfterResponse []ccip.GasPriceUpdateWithTxMeta
+	// handle GetAllGasPriceUpdatesCreatedAfter
+	getAllGasPriceUpdatesCreatedAfterRequest  getAllGasPriceUpdatesCreatedAfterRequest
+	getAllGasPriceUpdatesCreatedAfterResponse []ccip.GasPriceUpdateWithTxMeta
 	// handle GetTokenPriceUpdatesCreatedAfter
 	getTokenPriceUpdatesCreatedAfterRequest  getTokenPriceUpdatesCreatedAfterRequest
 	getTokenPriceUpdatesCreatedAfterResponse []ccip.TokenPriceUpdateWithTxMeta
@@ -144,6 +185,11 @@ type staticPriceRegistryReaderConfig struct {
 
 type getGasPriceUpdatesCreatedAfterRequest struct {
 	chainSelector uint64
+	ts            time.Time
+	confirmations int
+}
+
+type getAllGasPriceUpdatesCreatedAfterRequest struct {
 	ts            time.Time
 	confirmations int
 }
@@ -184,6 +230,15 @@ func (s staticPriceRegistryReader) Evaluate(ctx context.Context, other ccip.Pric
 	}
 	if len(gotGasPriceUpdates) != len(s.getGasPriceUpdatesCreatedAfterResponse) {
 		return fmt.Errorf("unexpected number of gas price updates: want %d, got %d", len(s.getGasPriceUpdatesCreatedAfterResponse), len(gotGasPriceUpdates))
+	}
+
+	// GetAllGasPriceUpdatesCreatedAfter test case
+	gotAllGasPriceUpdates, err := other.GetAllGasPriceUpdatesCreatedAfter(ctx, s.getAllGasPriceUpdatesCreatedAfterRequest.ts, s.getAllGasPriceUpdatesCreatedAfterRequest.confirmations)
+	if err != nil {
+		return fmt.Errorf("got error on GetAllGasPriceUpdatesCreatedAfter: %w", err)
+	}
+	if len(gotAllGasPriceUpdates) != len(s.getAllGasPriceUpdatesCreatedAfterResponse) {
+		return fmt.Errorf("unexpected number of gas price updates: want %d, got %d", len(s.getAllGasPriceUpdatesCreatedAfterResponse), len(gotAllGasPriceUpdates))
 	}
 
 	// GetTokenPriceUpdatesCreatedAfter test case
@@ -245,6 +300,18 @@ func (s staticPriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Co
 	}
 
 	return s.getGasPriceUpdatesCreatedAfterResponse, nil
+}
+
+// GetAllGasPriceUpdatesCreatedAfter implements ccip.PriceRegistryReader.
+func (s staticPriceRegistryReader) GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confirmations int) ([]ccip.GasPriceUpdateWithTxMeta, error) {
+	if s.getAllGasPriceUpdatesCreatedAfterRequest.ts != ts {
+		return nil, fmt.Errorf("unexpected ts: want %s, got %s", s.getAllGasPriceUpdatesCreatedAfterRequest.ts, ts)
+	}
+	if s.getAllGasPriceUpdatesCreatedAfterRequest.confirmations != confirmations {
+		return nil, fmt.Errorf("unexpected confirmations: want %d, got %d", s.getAllGasPriceUpdatesCreatedAfterRequest.confirmations, confirmations)
+	}
+
+	return s.getAllGasPriceUpdatesCreatedAfterResponse, nil
 }
 
 // GetTokenPriceUpdatesCreatedAfter implements ccip.PriceRegistryReader.

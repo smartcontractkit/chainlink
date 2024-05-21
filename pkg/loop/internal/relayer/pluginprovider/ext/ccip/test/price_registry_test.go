@@ -70,6 +70,15 @@ func roundTripPriceRegistryTests(t *testing.T, client cciptypes.PriceRegistryRea
 		assert.Equal(t, PriceRegistryReader.getGasPriceUpdatesCreatedAfterResponse, price)
 	})
 
+	t.Run("GetAllGasPriceUpdatesCreatedAfter", func(t *testing.T) {
+		price, err := client.GetAllGasPriceUpdatesCreatedAfter(tests.Context(t),
+			PriceRegistryReader.getAllGasPriceUpdatesCreatedAfterRequest.ts,
+			PriceRegistryReader.getAllGasPriceUpdatesCreatedAfterRequest.confirmations,
+		)
+		require.NoError(t, err)
+		assert.Equal(t, PriceRegistryReader.getAllGasPriceUpdatesCreatedAfterResponse, price)
+	})
+
 	t.Run("GetTokenPriceUpdatesCreatedAfter", func(t *testing.T) {
 		price, err := client.GetTokenPriceUpdatesCreatedAfter(tests.Context(t),
 			PriceRegistryReader.getTokenPriceUpdatesCreatedAfterRequest.ts,

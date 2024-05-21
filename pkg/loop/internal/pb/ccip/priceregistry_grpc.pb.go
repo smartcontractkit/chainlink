@@ -20,13 +20,14 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_FullMethodName = "/loop.internal.pb.ccip.PriceRegistryReader/GetTokenPriceUpdatesCreatedAfter"
-	PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_FullMethodName   = "/loop.internal.pb.ccip.PriceRegistryReader/GetGasPriceUpdatesCreatedAfter"
-	PriceRegistryReader_GetAddress_FullMethodName                       = "/loop.internal.pb.ccip.PriceRegistryReader/GetAddress"
-	PriceRegistryReader_GetFeeTokens_FullMethodName                     = "/loop.internal.pb.ccip.PriceRegistryReader/GetFeeTokens"
-	PriceRegistryReader_GetTokenPrices_FullMethodName                   = "/loop.internal.pb.ccip.PriceRegistryReader/GetTokenPrices"
-	PriceRegistryReader_GetTokensDecimals_FullMethodName                = "/loop.internal.pb.ccip.PriceRegistryReader/GetTokensDecimals"
-	PriceRegistryReader_Close_FullMethodName                            = "/loop.internal.pb.ccip.PriceRegistryReader/Close"
+	PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_FullMethodName  = "/loop.internal.pb.ccip.PriceRegistryReader/GetTokenPriceUpdatesCreatedAfter"
+	PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_FullMethodName    = "/loop.internal.pb.ccip.PriceRegistryReader/GetGasPriceUpdatesCreatedAfter"
+	PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_FullMethodName = "/loop.internal.pb.ccip.PriceRegistryReader/GetAllGasPriceUpdatesCreatedAfter"
+	PriceRegistryReader_GetAddress_FullMethodName                        = "/loop.internal.pb.ccip.PriceRegistryReader/GetAddress"
+	PriceRegistryReader_GetFeeTokens_FullMethodName                      = "/loop.internal.pb.ccip.PriceRegistryReader/GetFeeTokens"
+	PriceRegistryReader_GetTokenPrices_FullMethodName                    = "/loop.internal.pb.ccip.PriceRegistryReader/GetTokenPrices"
+	PriceRegistryReader_GetTokensDecimals_FullMethodName                 = "/loop.internal.pb.ccip.PriceRegistryReader/GetTokensDecimals"
+	PriceRegistryReader_Close_FullMethodName                             = "/loop.internal.pb.ccip.PriceRegistryReader/Close"
 )
 
 // PriceRegistryReaderClient is the client API for PriceRegistryReader service.
@@ -35,6 +36,7 @@ const (
 type PriceRegistryReaderClient interface {
 	GetTokenPriceUpdatesCreatedAfter(ctx context.Context, in *GetTokenPriceUpdatesCreatedAfterRequest, opts ...grpc.CallOption) (*GetTokenPriceUpdatesCreatedAfterResponse, error)
 	GetGasPriceUpdatesCreatedAfter(ctx context.Context, in *GetGasPriceUpdatesCreatedAfterRequest, opts ...grpc.CallOption) (*GetGasPriceUpdatesCreatedAfterResponse, error)
+	GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, in *GetAllGasPriceUpdatesCreatedAfterRequest, opts ...grpc.CallOption) (*GetAllGasPriceUpdatesCreatedAfterResponse, error)
 	GetAddress(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetPriceRegistryAddressResponse, error)
 	GetFeeTokens(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetFeeTokensResponse, error)
 	GetTokenPrices(ctx context.Context, in *GetTokenPricesRequest, opts ...grpc.CallOption) (*GetTokenPricesResponse, error)
@@ -62,6 +64,15 @@ func (c *priceRegistryReaderClient) GetTokenPriceUpdatesCreatedAfter(ctx context
 func (c *priceRegistryReaderClient) GetGasPriceUpdatesCreatedAfter(ctx context.Context, in *GetGasPriceUpdatesCreatedAfterRequest, opts ...grpc.CallOption) (*GetGasPriceUpdatesCreatedAfterResponse, error) {
 	out := new(GetGasPriceUpdatesCreatedAfterResponse)
 	err := c.cc.Invoke(ctx, PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *priceRegistryReaderClient) GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, in *GetAllGasPriceUpdatesCreatedAfterRequest, opts ...grpc.CallOption) (*GetAllGasPriceUpdatesCreatedAfterResponse, error) {
+	out := new(GetAllGasPriceUpdatesCreatedAfterResponse)
+	err := c.cc.Invoke(ctx, PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +130,7 @@ func (c *priceRegistryReaderClient) Close(ctx context.Context, in *emptypb.Empty
 type PriceRegistryReaderServer interface {
 	GetTokenPriceUpdatesCreatedAfter(context.Context, *GetTokenPriceUpdatesCreatedAfterRequest) (*GetTokenPriceUpdatesCreatedAfterResponse, error)
 	GetGasPriceUpdatesCreatedAfter(context.Context, *GetGasPriceUpdatesCreatedAfterRequest) (*GetGasPriceUpdatesCreatedAfterResponse, error)
+	GetAllGasPriceUpdatesCreatedAfter(context.Context, *GetAllGasPriceUpdatesCreatedAfterRequest) (*GetAllGasPriceUpdatesCreatedAfterResponse, error)
 	GetAddress(context.Context, *emptypb.Empty) (*GetPriceRegistryAddressResponse, error)
 	GetFeeTokens(context.Context, *emptypb.Empty) (*GetFeeTokensResponse, error)
 	GetTokenPrices(context.Context, *GetTokenPricesRequest) (*GetTokenPricesResponse, error)
@@ -136,6 +148,9 @@ func (UnimplementedPriceRegistryReaderServer) GetTokenPriceUpdatesCreatedAfter(c
 }
 func (UnimplementedPriceRegistryReaderServer) GetGasPriceUpdatesCreatedAfter(context.Context, *GetGasPriceUpdatesCreatedAfterRequest) (*GetGasPriceUpdatesCreatedAfterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGasPriceUpdatesCreatedAfter not implemented")
+}
+func (UnimplementedPriceRegistryReaderServer) GetAllGasPriceUpdatesCreatedAfter(context.Context, *GetAllGasPriceUpdatesCreatedAfterRequest) (*GetAllGasPriceUpdatesCreatedAfterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAllGasPriceUpdatesCreatedAfter not implemented")
 }
 func (UnimplementedPriceRegistryReaderServer) GetAddress(context.Context, *emptypb.Empty) (*GetPriceRegistryAddressResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAddress not implemented")
@@ -197,6 +212,24 @@ func _PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Handler(srv interface{}
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PriceRegistryReaderServer).GetGasPriceUpdatesCreatedAfter(ctx, req.(*GetGasPriceUpdatesCreatedAfterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAllGasPriceUpdatesCreatedAfterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PriceRegistryReaderServer).GetAllGasPriceUpdatesCreatedAfter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PriceRegistryReaderServer).GetAllGasPriceUpdatesCreatedAfter(ctx, req.(*GetAllGasPriceUpdatesCreatedAfterRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -305,6 +338,10 @@ var PriceRegistryReader_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetGasPriceUpdatesCreatedAfter",
 			Handler:    _PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Handler,
+		},
+		{
+			MethodName: "GetAllGasPriceUpdatesCreatedAfter",
+			Handler:    _PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Handler,
 		},
 		{
 			MethodName: "GetAddress",

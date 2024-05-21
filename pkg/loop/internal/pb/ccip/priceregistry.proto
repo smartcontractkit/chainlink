@@ -14,6 +14,7 @@ import "models.proto";
 service PriceRegistryReader {
     rpc GetTokenPriceUpdatesCreatedAfter(GetTokenPriceUpdatesCreatedAfterRequest) returns (GetTokenPriceUpdatesCreatedAfterResponse) {}
     rpc GetGasPriceUpdatesCreatedAfter(GetGasPriceUpdatesCreatedAfterRequest) returns (GetGasPriceUpdatesCreatedAfterResponse) {}
+    rpc GetAllGasPriceUpdatesCreatedAfter(GetAllGasPriceUpdatesCreatedAfterRequest) returns (GetAllGasPriceUpdatesCreatedAfterResponse) {}
     rpc GetAddress (google.protobuf.Empty) returns (GetPriceRegistryAddressResponse) {}
     rpc GetFeeTokens (google.protobuf.Empty) returns (GetFeeTokensResponse) {}
     rpc GetTokenPrices(GetTokenPricesRequest) returns (GetTokenPricesResponse) {}
@@ -45,6 +46,19 @@ message GetGasPriceUpdatesCreatedAfterRequest {
 // GetGasPriceUpdatesCreatedAfterResponse is a gRPC adapter for the return values of
 // [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetGasPriceUpdatesCreatedAfter]
 message GetGasPriceUpdatesCreatedAfterResponse {
+    repeated GasPriceUpdateWithTxMeta gas_price_updates = 1;
+}
+
+// GetAllGasPriceUpdatesCreatedAfterRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetAllGasPriceUpdatesCreatedAfter]
+message GetAllGasPriceUpdatesCreatedAfterRequest {
+    google.protobuf.Timestamp created_after = 1;
+    uint64 confirmations = 2;
+}
+
+// GetAllGasPriceUpdatesCreatedAfterResponse is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetAllGasPriceUpdatesCreatedAfter]
+message GetAllGasPriceUpdatesCreatedAfterResponse {
     repeated GasPriceUpdateWithTxMeta gas_price_updates = 1;
 }
 
