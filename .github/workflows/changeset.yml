@@ -58,6 +58,51 @@ jobs:
             contracts-changeset:
               - added: 'contracts/.changeset/**'
 
+      - name: Check for changeset tags for core
+        id: changeset-tags
+        if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
+        shell: bash
+        run: bash ./.github/scripts/check-changeset-tags.sh ${{ steps.files-changed.outputs.core-changeset_files }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        with:
+          version: ^8.0.0
+
+      - name: Setup node
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: ./pnpm-lock.yaml
+
+      - name: Get next chainlink core version
+        id: chainlink-version
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        run: |
+          pnpm install && pnpm changeset version
+          echo "chainlink_version=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Jira ticket for core
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        shell: bash
+        working-directory: ./.github/scripts/jira
+        run: |
+          echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          pnpm install && node update-jira-issue.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_HOST: ${{ secrets.JIRA_HOST }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          CHAINLINK_VERSION: ${{ steps.chainlink-version.outputs.chainlink_version }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+
       - name: Make a comment
         uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
@@ -98,12 +143,6 @@ jobs:
         run: |
           echo "Please run pnpm changeset to add a changeset for contracts."
           exit 1
-
-      - name: Check for changeset tags for core
-        id: changeset-tags
-        if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
-        shell: bash
-        run: bash ./.github/scripts/check-changeset-tags.sh ${{ steps.files-changed.outputs.core-changeset_files }}
 
       - name: Make a comment
         uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
