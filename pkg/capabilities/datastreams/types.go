@@ -54,9 +54,10 @@ func FeedIDFromBytes(b [FeedIDBytesLen]byte) FeedID {
 }
 
 type FeedReport struct {
-	FeedID     string
-	FullReport []byte
-	Signatures [][]byte
+	FeedID        string
+	FullReport    []byte
+	ReportContext []byte
+	Signatures    [][]byte
 
 	// Fields below are derived from FullReport
 	// NOTE: BenchmarkPrice is a byte representation of big.Int. We can't use big.Int
@@ -65,11 +66,17 @@ type FeedReport struct {
 	ObservationTimestamp int64
 }
 
+// passed alongside Streams trigger events
+type SignersMetadata struct {
+	Signers               [][]byte
+	MinRequiredSignatures int
+}
+
 //go:generate mockery --quiet --name ReportCodec --output ./mocks/ --case=underscore
 type ReportCodec interface {
-	// validate each report and convert to a list of Mercury reports
-	Unwrap(raw values.Value) ([]FeedReport, error)
+	// unwrap and validate each report, then convert to a list of Feed reports
+	UnwrapValid(wrapped values.Value, allowedSigners [][]byte, minRequiredSignatures int) ([]FeedReport, error)
 
-	// validate each report and convert to Value
+	// convert back to Value
 	Wrap(reports []FeedReport) (values.Value, error)
 }

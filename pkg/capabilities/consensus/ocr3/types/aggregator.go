@@ -15,7 +15,7 @@ const (
 type Aggregator interface {
 	// Called by the Outcome() phase of OCR reporting.
 	// The inner array of observations corresponds to elements listed in "inputs.observations" section.
-	Aggregate(previousOutcome *AggregationOutcome, observations map[ocrcommon.OracleID][]values.Value) (*AggregationOutcome, error)
+	Aggregate(previousOutcome *AggregationOutcome, observations map[ocrcommon.OracleID][]values.Value, f int) (*AggregationOutcome, error)
 }
 
 func AppendWorkflowIDs(outcome *AggregationOutcome, workflowID string, workflowExecutionID string) (*AggregationOutcome, error) {

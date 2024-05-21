@@ -141,7 +141,7 @@ type aggregator struct {
 	outcome *pbtypes.AggregationOutcome
 }
 
-func (a *aggregator) Aggregate(pout *pbtypes.AggregationOutcome, observations map[commontypes.OracleID][]values.Value) (*pbtypes.AggregationOutcome, error) {
+func (a *aggregator) Aggregate(pout *pbtypes.AggregationOutcome, observations map[commontypes.OracleID][]values.Value, _ int) (*pbtypes.AggregationOutcome, error) {
 	a.gotObs = observations
 	nm, err := values.NewMap(
 		map[string]any{

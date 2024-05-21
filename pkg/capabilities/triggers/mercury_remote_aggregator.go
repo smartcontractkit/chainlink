@@ -11,17 +11,24 @@ import (
 )
 
 type mercuryRemoteAggregator struct {
-	codec datastreams.ReportCodec
-	lggr  logger.Logger
+	codec                 datastreams.ReportCodec
+	allowedSigners        [][]byte
+	minRequiredSignatures int
+	lggr                  logger.Logger
 }
 
 // This aggregator is used by TriggerSubscriber to aggregate trigger events from multiple remote nodes.
 // NOTE: Once Mercury supports parallel composition (and thus guarantee identical sets of reports),
 // this will be replaced by the default MODE aggregator.
-func NewMercuryRemoteAggregator(codec datastreams.ReportCodec, lggr logger.Logger) *mercuryRemoteAggregator {
+func NewMercuryRemoteAggregator(codec datastreams.ReportCodec, allowedSigners [][]byte, minRequiredSignatures int, lggr logger.Logger) *mercuryRemoteAggregator {
+	if allowedSigners == nil {
+		allowedSigners = [][]byte{}
+	}
 	return &mercuryRemoteAggregator{
-		codec: codec,
-		lggr:  lggr,
+		codec:                 codec,
+		allowedSigners:        allowedSigners,
+		minRequiredSignatures: minRequiredSignatures,
+		lggr:                  lggr,
 	}
 }
 
@@ -40,7 +47,7 @@ func (a *mercuryRemoteAggregator) Aggregate(triggerEventID string, responses [][
 			a.lggr.Errorw("could not unwrap one of trigger events", "error", err)
 			continue
 		}
-		feedReports, err := a.codec.Unwrap(triggerEvent.Payload)
+		feedReports, err := a.codec.UnwrapValid(triggerEvent.Payload, a.allowedSigners, a.minRequiredSignatures)
 		if err != nil {
 			a.lggr.Errorw("could not unwrap one of capability responses", "error", err)
 			continue
@@ -69,5 +76,9 @@ func (a *mercuryRemoteAggregator) Aggregate(triggerEventID string, responses [][
 	for _, feedID := range allIDs {
 		reportList = append(reportList, latestReports[datastreams.FeedID(feedID)])
 	}
-	return wrapReports(reportList, triggerEventID, latestGlobalTs)
+	meta := datastreams.SignersMetadata{
+		Signers:               a.allowedSigners,
+		MinRequiredSignatures: a.minRequiredSignatures,
+	}
+	return wrapReports(reportList, triggerEventID, latestGlobalTs, meta)
 }

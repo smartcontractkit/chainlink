@@ -188,7 +188,7 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 			continue
 		}
 
-		outcome, err2 := agg.Aggregate(workflowOutcome, obs)
+		outcome, err2 := agg.Aggregate(workflowOutcome, obs, r.config.F)
 		if err2 != nil {
 			r.lggr.Errorw("error aggregating outcome", "error", err, "workflowID", weid.WorkflowId)
 			return nil, err

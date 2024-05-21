@@ -8,6 +8,7 @@ outputs:
   TriggerType: "mercury"
   ID: "myid" 
   Timestamp:  ""
+  Metadata:
   Payload: 
 
 # yaml-language-server: $schema=./schema.json

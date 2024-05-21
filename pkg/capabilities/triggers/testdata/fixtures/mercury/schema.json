@@ -47,6 +47,7 @@
         "Timestamp": {
           "type": "string"
         },
+        "Metadata": true,
         "Payload": true
       },
       "additionalProperties": false,
@@ -55,6 +56,7 @@
         "TriggerType",
         "ID",
         "Timestamp",
+        "Metadata",
         "Payload"
       ]
     }

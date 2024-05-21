@@ -1,6 +1,7 @@
 package datafeeds_test
 
 import (
+	"crypto/rand"
 	"math/big"
 	"testing"
 
@@ -27,8 +28,20 @@ var (
 )
 
 func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
-	mockTriggerEvent, err := values.Wrap(capabilities.TriggerEvent{
-		Payload: &values.Map{},
+	meta := datastreams.SignersMetadata{
+		Signers:               [][]byte{newSigner(t), newSigner(t)},
+		MinRequiredSignatures: 1,
+	}
+	metaVal, err := values.Wrap(meta)
+	require.NoError(t, err)
+	mockTriggerEvent1, err := values.Wrap(capabilities.TriggerEvent{
+		Metadata: metaVal,
+		Payload:  &values.Map{},
+	})
+	require.NoError(t, err)
+	mockTriggerEvent2, err := values.Wrap(capabilities.TriggerEvent{
+		Metadata: metaVal,
+		Payload:  &values.Map{},
 	})
 	require.NoError(t, err)
 	config := getConfig(t, feedIDA.String(), deviationA, heartbeatA)
@@ -37,7 +50,7 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.NoError(t, err)
 
 	// first round, empty previous Outcome, empty observations
-	outcome, err := agg.Aggregate(nil, map[commontypes.OracleID][]values.Value{})
+	outcome, err := agg.Aggregate(nil, map[commontypes.OracleID][]values.Value{}, 1)
 	require.NoError(t, err)
 	require.False(t, outcome.ShouldReport)
 
@@ -59,8 +72,8 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 			FullReport:           mercuryFullReportA,
 		},
 	}
-	codec.On("Unwrap", mock.Anything).Return(latestMercuryReports, nil)
-	outcome, err = agg.Aggregate(outcome, map[commontypes.OracleID][]values.Value{1: {mockTriggerEvent}})
+	codec.On("UnwrapValid", mock.Anything, mock.Anything, mock.Anything).Return(latestMercuryReports, nil)
+	outcome, err = agg.Aggregate(outcome, map[commontypes.OracleID][]values.Value{1: {mockTriggerEvent1}, 2: {mockTriggerEvent2}}, 1)
 	require.NoError(t, err)
 	require.True(t, outcome.ShouldReport)
 
@@ -86,6 +99,29 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	reportBytes, ok := reportList[0].([]byte)
 	require.True(t, ok)
 	require.Equal(t, string(mercuryFullReportA), string(reportBytes))
+}
+
+func TestDataFeedsAggregator_Aggregate_Failures(t *testing.T) {
+	meta := datastreams.SignersMetadata{
+		Signers:               [][]byte{newSigner(t), newSigner(t)},
+		MinRequiredSignatures: 1,
+	}
+	metaVal, err := values.Wrap(meta)
+	require.NoError(t, err)
+	mockTriggerEvent, err := values.Wrap(capabilities.TriggerEvent{
+		Metadata: metaVal,
+		Payload:  &values.Map{},
+	})
+	require.NoError(t, err)
+
+	config := getConfig(t, feedIDA.String(), deviationA, heartbeatA)
+	codec := mocks.NewReportCodec(t)
+	agg, err := datafeeds.NewDataFeedsAggregator(*config, codec, logger.Nop())
+	require.NoError(t, err)
+
+	// no valid signers - each one should appear at least twice to be valid
+	_, err = agg.Aggregate(nil, map[commontypes.OracleID][]values.Value{1: {mockTriggerEvent}}, 1)
+	require.Error(t, err)
 }
 
 func TestDataFeedsAggregator_ParseConfig(t *testing.T) {
@@ -131,4 +167,11 @@ func getConfig(t *testing.T, feedID string, deviation decimal.Decimal, heartbeat
 	config, err := values.NewMap(unwrappedConfig)
 	require.NoError(t, err)
 	return config
+}
+
+func newSigner(t *testing.T) []byte {
+	buf := make([]byte, 20)
+	_, err := rand.Read(buf)
+	require.NoError(t, err)
+	return buf
 }

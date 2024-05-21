@@ -14,29 +14,29 @@ type ReportCodec struct {
 	mock.Mock
 }
 
-// Unwrap provides a mock function with given fields: raw
-func (_m *ReportCodec) Unwrap(raw values.Value) ([]datastreams.FeedReport, error) {
-	ret := _m.Called(raw)
+// UnwrapValid provides a mock function with given fields: wrapped, allowedSigners, minRequiredSignatures
+func (_m *ReportCodec) UnwrapValid(wrapped values.Value, allowedSigners [][]byte, minRequiredSignatures int) ([]datastreams.FeedReport, error) {
+	ret := _m.Called(wrapped, allowedSigners, minRequiredSignatures)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Unwrap")
+		panic("no return value specified for UnwrapValid")
 	}
 
 	var r0 []datastreams.FeedReport
 	var r1 error
-	if rf, ok := ret.Get(0).(func(values.Value) ([]datastreams.FeedReport, error)); ok {
-		return rf(raw)
+	if rf, ok := ret.Get(0).(func(values.Value, [][]byte, int) ([]datastreams.FeedReport, error)); ok {
+		return rf(wrapped, allowedSigners, minRequiredSignatures)
 	}
-	if rf, ok := ret.Get(0).(func(values.Value) []datastreams.FeedReport); ok {
-		r0 = rf(raw)
+	if rf, ok := ret.Get(0).(func(values.Value, [][]byte, int) []datastreams.FeedReport); ok {
+		r0 = rf(wrapped, allowedSigners, minRequiredSignatures)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]datastreams.FeedReport)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(values.Value) error); ok {
-		r1 = rf(raw)
+	if rf, ok := ret.Get(1).(func(values.Value, [][]byte, int) error); ok {
+		r1 = rf(wrapped, allowedSigners, minRequiredSignatures)
 	} else {
 		r1 = ret.Error(1)
 	}

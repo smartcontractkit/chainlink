@@ -80,8 +80,9 @@ type TriggerEvent struct {
 	TriggerType string
 	ID          string
 	Timestamp   string
-	// Trigger-specific payload
-	Payload values.Value
+	// Trigger-specific payload+metadata
+	Metadata values.Value
+	Payload  values.Value
 }
 
 type RegisterToWorkflowRequest struct {
