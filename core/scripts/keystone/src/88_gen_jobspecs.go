@@ -11,7 +11,6 @@ import (
 
 type spec []string
 
-// method that joins the spec lines into a single string
 func (s spec) ToString() string {
 	return strings.Join(s, "\n")
 }

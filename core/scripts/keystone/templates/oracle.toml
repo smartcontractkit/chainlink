@@ -3,7 +3,6 @@ schemaVersion = 1
 name = "Keystone"
 contractID = "{{ ocr_config_contract_address }}"
 ocrKeyBundleID = "{{ ocr_key_bundle_id }}"
-# Might need to do local address here rather than DNS 
 p2pv2Bootstrappers = [
   "{{ bootstrapper_p2p_id }}",
 ]

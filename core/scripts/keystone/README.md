@@ -6,13 +6,12 @@ This document outlines the steps to provision a CRIB keystone cluster for testin
 
 ## Usage
 
-### Deploying a Chainlink node Cluster
-First, we'll need to deploy a chainlink node cluster via CRIB. You'll want to follow the instructions in the [CRIB README](../../../crib/README.md) to set up your environment and deploy the cluster.
+Using devspace, we can deploy a cluster and provision it via the `keystone` devspace profile. You'll want to follow the instructions in the [CRIB README](../../../crib/README.md) to set up your environment and deploy the cluster.
 
- **NOTE**: You'll want to deploy the keystone template, not the default devspace file. To do this, execute the following when deploying the cluster:
-  
+ **NOTE**: You'll want to deploy using the `keystone` profile, not the default profile file. 
+
 ```bash
-DEVSPACE_CONFIG=devspace.keystone.template.yaml devspace deploy
+devspace deploy --profile keystone
 ```
 
 For convenience, setting the TTL to be a much longer value is helpful, otherwise the testnet native tokens that you send to nodes will be lost. Re-run this command every once in a while if you're still testing.
@@ -21,8 +20,13 @@ For convenience, setting the TTL to be a much longer value is helpful, otherwise
 devspace run ttl ${namespace} 7d 
 ```
 
+
+## What does Provisioning a CRIB keystone cluster do?
+Listed below are the various steps that are executed as part of provisioning a CRIB keystone cluster.
+You can use the scripts provided in the `scripts/keystone` directory to execute these steps. 
+
 ### Provision On-Chain Resources 
-Next, we'll provision on-chain resources, namely:
+This will provision on-chain resources, namely:
 1. Deploy the forwarder contract
 2. Deploy OCR3 config contract
 3. Setting the configuration for the OCR3 contract

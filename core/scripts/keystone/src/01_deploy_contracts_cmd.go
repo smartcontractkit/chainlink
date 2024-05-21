@@ -34,7 +34,7 @@ func (g *deployContracts) Name() string {
 	return "deploy-contracts"
 }
 
-// deploy expects the follow environment variables to be set:
+// Run expects the follow environment variables to be set:
 //
 //  1. Deploys the OCR3 contract
 //  2. Deploys the Forwarder contract
@@ -88,7 +88,6 @@ func deploy(
 		env.ChainID,
 		".cache/PublicKeys.json",
 	)
-	fmt.Printf("OCR3 config: %+v\n", ocrConfig)
 
 	if dryRun {
 		fmt.Println("Dry run, skipping deployment and funding")
@@ -206,9 +205,3 @@ func DeployKeystoneOCR3Capability(e helpers.Environment) *ocr3_capability.OCR3Ca
 	return contract
 }
 
-// PanicErr panics if error the given error is non-nil.
-func PanicErr(err error) {
-	if err != nil {
-		panic(err)
-	}
-}

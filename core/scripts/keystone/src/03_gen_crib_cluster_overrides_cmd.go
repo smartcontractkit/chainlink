@@ -51,11 +51,7 @@ func generateCribConfig(pubKeysPath string, chainID *int64, templatesDir string,
 
 	lines, err := readLines(filepath.Join(templatesDir, cribOverrideTemplate))
 	helpers.PanicErr(err)
-	lines = replaceCribPlaceholders(
-		lines,
-		forwarderAddress,
-		nodeAddresses,
-	)
+	lines = replaceCribPlaceholders(lines, forwarderAddress, nodeAddresses)
 	return lines
 }
 

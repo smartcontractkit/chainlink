@@ -58,8 +58,8 @@ func downloadNodeAPICredentials(nodeListPath string) []*node {
 	}
 
 	fmt.Println("Connecting to Kubernetes to fetch node credentials...")
-	k8sClient := MustNewK8sClient()
-	clNodesWithCreds, err := k8sClient.GetCLNodeCredentials()
+	crib := NewCribClient()
+	clNodesWithCreds, err := crib.GetCLNodeCredentials()
 
 	if err != nil {
 		panic(err)

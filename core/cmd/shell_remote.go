@@ -278,13 +278,7 @@ func (s *Shell) parseResponse(resp *http.Response) ([]byte, error) {
 		return nil, s.errorOut(multierr.Append(err, fmt.Errorf("this action requires %s privileges. The current user %s has '%s' role and cannot perform this action, login with a user that has '%s' role via 'chainlink admin login'", resp.Header.Get("forbidden-required-role"), resp.Header.Get("forbidden-provided-email"), resp.Header.Get("forbidden-provided-role"), resp.Header.Get("forbidden-required-role"))))
 	}
 	if err != nil {
-		// If the error is not unauthorized or forbidden, we still want to print the response body
-		// to give the user more context about what went wrong. But we dont want to do any parsing
-		// or error handling on the response body in this case.
-		b, _ = io.ReadAll(resp.Body)
-		bodyErr := fmt.Errorf("got HTTP status %d: %s", resp.StatusCode, b)
-
-		return nil, multierr.Append(err, bodyErr)
+		return nil, s.errorOut(err)
 	}
 	return b, err
 }

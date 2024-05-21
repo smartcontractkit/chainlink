@@ -72,7 +72,7 @@ func (g *deployJobSpecs) Run(args []string) {
 
 		if !*onlyReplay {
 			specToDeploy := flattenedSpecs[i].spec.ToString()
-			specFragment := flattenedSpecs[i].spec[0:2]
+			specFragment := flattenedSpecs[i].spec[0:1]
 			fmt.Printf("Deploying jobspec: %s\n... \n", specFragment)
 			fs := flag.NewFlagSet("test", flag.ExitOnError)
 			err = fs.Parse([]string{specToDeploy})
@@ -92,8 +92,8 @@ func (g *deployJobSpecs) Run(args []string) {
 		err = replayFs.Set("evm-chain-id", fmt.Sprint(*chainID))
 		helpers.PanicErr(err)
 
-		fmt.Println("Replaying from block:", deployedContracts.SetConfigTxBlock)
-		fmt.Println("EVM Chain ID:", *chainID)
+		fmt.Printf("Replaying from block: %d\n", deployedContracts.SetConfigTxBlock)
+		fmt.Printf("EVM Chain ID: %d\n\n", *chainID)
 		replayCtx := cli.NewContext(app, replayFs, nil)
 		err = client.ReplayFromBlock(replayCtx)
 		helpers.PanicErr(err)
@@ -101,7 +101,10 @@ func (g *deployJobSpecs) Run(args []string) {
 }
 
 // flagSetApplyFromAction applies the flags from action to the flagSet.
+//
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
+//
+// Taken from: https://github.com/smartcontractkit/chainlink/blob/develop/core/cmd/shell_test.go#L590 
 func flagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
 	cliApp := cmd.Shell{}
 	app := cmd.NewApp(&cliApp)

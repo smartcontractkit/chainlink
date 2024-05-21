@@ -16,7 +16,7 @@ observationSource  = """
 """
 
 [relayConfig]
-chainID = "{{chain_id}}"
+chainID = {{chain_id}}
 
 [pluginConfig]
 contractUpdateCheckFrequencySec = 300
