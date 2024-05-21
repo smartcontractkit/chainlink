@@ -479,7 +479,12 @@ func (r *RpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 }
 
 func (r *RpcClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	return r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+	head, err := r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+	if err != nil {
+		r.rpcLog.Warnw("Failed to fetch latest finalized block", "err", err)
+		return nil, err
+	}
+	return head, nil
 }
 
 func (r *RpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {

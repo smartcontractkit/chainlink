@@ -244,7 +244,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			n.declareOutOfSync(func(num int64, td *big.Int) bool { return num < highestReceivedBlockNumber })
 			return
-		case latestFinalized := <-finalizedHeadCh:
+		case latestFinalized, open := <-finalizedHeadCh:
+			if !open {
+				lggr.Errorw("Subscription channel unexpectedly closed", "NodeState", n.State())
+				n.declareUnreachable()
+				return
+			}
 			if !latestFinalized.IsValid() {
 				lggr.Warn("Latest finalized block is not valid")
 				continue
