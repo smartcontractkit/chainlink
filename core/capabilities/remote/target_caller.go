@@ -2,12 +2,11 @@ package remote
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -59,23 +58,15 @@ func (c *remoteTargetCaller) UnregisterFromWorkflow(ctx context.Context, request
 
 func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 
-	// TODO should the transmission config be passed into the constructor rather than pulled from the request?
-	tc, err := transmission.ExtractTransmissionConfig(req.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract transmission config from request config: %w", err)
-	}
+	// TODO Assuming here that the capability request is deterministically unique across the nodes, need to confirm this is reasonable assumption
+	// TODO also check pb marshalliing is by default deterministic in the version being used
 
 	rawRequest, err := pb.MarshalCapabilityRequest(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
 	}
 
-	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(c.remoteCapabilityInfo.DON.Members, c.localDONInfo.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
-	}
-
-	messageID := uuid.New().String()
+	messageID := sha256.Sum256(rawRequest)
 
 	responseWaitGroup := &sync.WaitGroup{}
 	responseWaitGroup.Add(1)
@@ -87,31 +78,12 @@ func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.Ca
 		close(responseReceived)
 	}()
 
-	// Once a response is returned from a remote capability any pending scheduled calls can be cancelled
+	// Once a response is received from a remote capability further transmission should be cancelled
 	ctx, cancelFn := context.WithCancel(parentCtx)
 	defer cancelFn()
 
-	for peerID, delay := range peerIDToDelay {
-		go func(peerID ragep2ptypes.PeerID, delay time.Duration) {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(delay):
-				c.lggr.Debugw("executing delayed execution for peer", "peerID", peerID)
-				m := &types.MessageBody{
-					CapabilityId:    c.remoteCapabilityInfo.ID,
-					CapabilityDonId: c.remoteCapabilityInfo.DON.ID,
-					CallerDonId:     c.localDONInfo.ID,
-					Method:          types.MethodExecute,
-					Payload:         rawRequest,
-					MessageId:       []byte(messageID),
-				}
-				err = c.dispatcher.Send(peerID, m)
-				if err != nil {
-					c.lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
-				}
-			}
-		}(peerID, delay)
+	if err := c.transmitRequestWithMessageID(ctx, req, messageID); err != nil {
+		return nil, fmt.Errorf("failed to transmit request: %w", err)
 	}
 
 	select {
@@ -143,13 +115,61 @@ func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.Ca
 
 }
 
+// transmitRequestWithMessageID transmits a capability request to remote capabilities according to the transmission configuration
+func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, req commoncap.CapabilityRequest, messageID [32]byte) error {
+	rawRequest, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+
+	// TODO should the transmission config be passed into the constructor rather than pulled from the request?
+	tc, err := transmission.ExtractTransmissionConfig(req.Config)
+	if err != nil {
+		return fmt.Errorf("failed to extract transmission config from request config: %w", err)
+	}
+
+	message := &types.MessageBody{
+		CapabilityId:    c.remoteCapabilityInfo.ID,
+		CapabilityDonId: c.remoteCapabilityInfo.DON.ID,
+		CallerDonId:     c.localDONInfo.ID,
+		Method:          types.MethodExecute,
+		Payload:         rawRequest,
+		MessageId:       messageID[:],
+	}
+
+	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(c.remoteCapabilityInfo.DON.Members, c.localDONInfo.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
+	if err != nil {
+		return fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
+	}
+
+	for peerID, delay := range peerIDToDelay {
+		go func(peerID ragep2ptypes.PeerID, delay time.Duration) {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(delay):
+				c.lggr.Debugw("executing delayed execution for peer", "peerID", peerID)
+				err = c.dispatcher.Send(peerID, message)
+				if err != nil {
+					c.lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
+				}
+			}
+		}(peerID, delay)
+	}
+
+	return nil
+}
+
 func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 
 	// TODO handle the case where the capability returns a stream of responses
-	wg, loaded := c.messageIDToWaitgroup.LoadAndDelete(string(msg.MessageId))
+	var messageId [32]byte
+	copy(messageId[:], msg.MessageId)
+
+	wg, loaded := c.messageIDToWaitgroup.LoadAndDelete(messageId)
 	if loaded {
 		wg.(*sync.WaitGroup).Done()
-		c.messageIDToResponse.Store(string(msg.MessageId), msg.Payload)
+		c.messageIDToResponse.Store(messageId, msg.Payload)
 		return
 	}
 }

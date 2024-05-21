@@ -13,6 +13,7 @@ import (
 )
 
 type remoteTargetReceiver struct {
+	underlying commoncap.TargetCapability
 	capInfo    commoncap.CapabilityInfo
 	donInfo    *capabilities.DON
 	dispatcher types.Dispatcher
@@ -21,8 +22,9 @@ type remoteTargetReceiver struct {
 
 var _ types.Receiver = &remoteTargetReceiver{}
 
-func NewRemoteTargetReceiver(capInfo commoncap.CapabilityInfo, donInfo *capabilities.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetReceiver {
+func NewRemoteTargetReceiver(underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, donInfo *capabilities.DON, dispatcher types.Dispatcher, lggr logger.Logger) *remoteTargetReceiver {
 	return &remoteTargetReceiver{
+		underlying: underlying,
 		capInfo:    capInfo,
 		donInfo:    donInfo,
 		dispatcher: dispatcher,
