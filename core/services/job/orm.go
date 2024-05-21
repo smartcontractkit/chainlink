@@ -1046,7 +1046,6 @@ func (o *orm) FindJobIDsWithBridge(ctx context.Context, name string) (jids []int
 }
 
 func (o *orm) FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (jobID int32, err error) {
-	//	--WITH wf as (SELECT id FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2)
 	stmt := `
 SELECT jobs.id FROM jobs
 INNER JOIN workflow_specs ws on jobs.workflow_spec_id = ws.id AND ws.workflow_owner = $1 AND ws.workflow_name = $2 
