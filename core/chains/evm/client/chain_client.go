@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"time"
 
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -14,6 +12,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
@@ -42,7 +41,7 @@ type chainClient struct {
 	]
 	logger       logger.SugaredLogger
 	chainType    config.ChainType
-	clientErrors evmconfig.ClientErrors
+	clientErrors commonconfig.ClientErrors
 }
 
 func NewChainClient(
@@ -54,7 +53,7 @@ func NewChainClient(
 	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
-	clientErrors evmconfig.ClientErrors,
+	clientErrors commonconfig.ClientErrors,
 ) Client {
 	multiNode := commonclient.NewMultiNode(
 		lggr,

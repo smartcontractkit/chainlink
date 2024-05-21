@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -27,10 +27,10 @@ var _ TxmClient = (*evmTxmClient)(nil)
 
 type evmTxmClient struct {
 	client       client.Client
-	clientErrors evmconfig.ClientErrors
+	clientErrors commonconfig.ClientErrors
 }
 
-func NewEvmTxmClient(c client.Client, clientErrors evmconfig.ClientErrors) *evmTxmClient {
+func NewEvmTxmClient(c client.Client, clientErrors commonconfig.ClientErrors) *evmTxmClient {
 	return &evmTxmClient{client: c, clientErrors: clientErrors}
 }
 

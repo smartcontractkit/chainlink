@@ -86,7 +86,7 @@ type TestNodePoolConfig struct {
 	NodeLeaseDuration              time.Duration
 	NodeIsSyncingEnabledVal        bool
 	NodeFinalizedBlockPollInterval time.Duration
-	NodeErrors                     config.ClientErrors
+	NodeErrors                     commonconfig.ClientErrors
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
@@ -105,7 +105,7 @@ func (tc TestNodePoolConfig) FinalizedBlockPollInterval() time.Duration {
 	return tc.NodeFinalizedBlockPollInterval
 }
 
-func (tc TestNodePoolConfig) Errors() config.ClientErrors {
+func (tc TestNodePoolConfig) Errors() commonconfig.ClientErrors {
 	return tc.NodeErrors
 }
 

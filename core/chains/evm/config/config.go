@@ -76,23 +76,6 @@ type BalanceMonitor interface {
 	Enabled() bool
 }
 
-type ClientErrors interface {
-	NonceTooLow() string
-	NonceTooHigh() string
-	ReplacementTransactionUnderpriced() string
-	LimitReached() string
-	TransactionAlreadyInMempool() string
-	TerminallyUnderpriced() string
-	InsufficientEth() string
-	TxFeeExceedsCap() string
-	L2FeeTooLow() string
-	L2FeeTooHigh() string
-	L2Full() string
-	TransactionAlreadyMined() string
-	Fatal() string
-	ServiceUnavailable() string
-}
-
 type Transactions interface {
 	ForwardersEnabled() bool
 	ReaperInterval() time.Duration
@@ -158,7 +141,7 @@ type NodePool interface {
 	LeaseDuration() time.Duration
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
-	Errors() ClientErrors
+	Errors() commonconfig.ClientErrors
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?
