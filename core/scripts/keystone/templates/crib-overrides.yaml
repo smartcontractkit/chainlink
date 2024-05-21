@@ -1,38 +1,41 @@
-          nodes:
-          -   name: node-1
-              image: ${runtime.images.app}
-              overridesToml: |-
-                [[EVM]]
-                ChainID = '11155111'
-          -   name: node-2 
-              image: ${runtime.images.app}
-              overridesToml: |-
-                [[EVM]]
-                ChainID = '11155111'
-                [EVM.ChainWriter]
-                FromAddress = '{{ node_2_address }}'
-                ForwarderAddress = '{{ forwarder_address }}'
-          -   name: node-3 
-              image: ${runtime.images.app}
-              overridesToml: |-
-                [[EVM]]
-                ChainID = '11155111'
-                [EVM.ChainWriter]
-                FromAddress = '{{ node_3_address }}'
-                ForwarderAddress = '{{ forwarder_address }}'
-          -   name: node-4 
-              image: ${runtime.images.app}
-              overridesToml: |-
-                [[EVM]]
-                ChainID = '11155111'
-                [EVM.ChainWriter]
-                FromAddress = '{{ node_4_address }}'
-                ForwarderAddress = '{{ forwarder_address }}'
-          -   name: node-5 
-              image: ${runtime.images.app}
-              overridesToml: |-
-                [[EVM]]
-                ChainID = '11155111'
-                [EVM.ChainWriter]
-                FromAddress = '{{ node_5_address }}'
-                ForwarderAddress = '{{ forwarder_address }}'
+helm:
+  values:
+    chainlink:
+      nodes:
+        - name: node-1
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+        - name: node-2
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.ChainWriter]
+            FromAddress = '{{ node_2_address }}'
+            ForwarderAddress = '{{ forwarder_address }}'
+        - name: node-3
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.ChainWriter]
+            FromAddress = '{{ node_3_address }}'
+            ForwarderAddress = '{{ forwarder_address }}'
+        - name: node-4
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.ChainWriter]
+            FromAddress = '{{ node_4_address }}'
+            ForwarderAddress = '{{ forwarder_address }}'
+        - name: node-5
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.ChainWriter]
+            FromAddress = '{{ node_5_address }}'
+            ForwarderAddress = '{{ forwarder_address }}'

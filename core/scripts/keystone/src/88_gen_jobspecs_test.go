@@ -27,7 +27,7 @@ func (d *donHostSpec) ToString() string {
 
 func TestGenSpecs(t *testing.T) {
 	pubkeysPath := "./testdata/PublicKeys.json"
-	nodeListPath := "./testdata/NodesList.json"
+	nodeListPath := "./testdata/NodeList.txt"
 	chainID := int64(11155111)
 	p2pPort := int64(6690)
 	contractAddress := "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"

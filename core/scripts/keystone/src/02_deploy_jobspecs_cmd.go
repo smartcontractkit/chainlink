@@ -48,7 +48,7 @@ func (g *deployJobSpecs) Run(args []string) {
 	PanicErr(err)
 
 	jobspecs := genSpecs(
-		".cache/PublicKeys.json", ".cache/NodesList.json", "templates",
+		".cache/PublicKeys.json", ".cache/NodeList.txt", "templates",
 		*chainID, *p2pPort, deployedContracts.OCRContract.Hex(),
 	)
 	flattenedSpecs := []hostSpec{jobspecs.bootstrap}

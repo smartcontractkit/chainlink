@@ -7,6 +7,10 @@ vars:
 pipelines:
   deploy:
     flags:
+      - name: clean
+        short: c
+        type: bool
+        description: "If specified, keystone caches will be cleaned before deploying"
       - name: override-image-tag
         short: o
         type: string
@@ -38,6 +42,34 @@ pipelines:
       echo
       kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} > /dev/null 2>&1 || true
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib > /dev/null 2>&1 || true
+
+      # check if profile is keystone
+      if [[  "${DEVSPACE_PROFILE}" == "keystone" ]]; then
+        echo "Keystone profile detected, provisioning Keystone"
+        pushd ../core/scripts/keystone
+        if [ $(get_flag "clean") == "true" ]; then 
+          echo "Cleaning keystone caches"
+          rm -f artefacts/deployed_contracts.json .cache/* 
+        fi 
+        go build -o keystone main.go
+        chainId=11155111
+        ./keystone deploy-contracts \
+          --ocrfile=ocr_config.json \
+          --chainid=$chainId \
+          --ethurl="${KEYSTONE_ETH_HTTP_URL}" \
+          --accountkey=${KEYSTONE_ACCOUNT_KEY}
+     
+        ./keystone deploy-jobspecs \
+          --chainid=$chainId \
+          --p2pport=6690
+
+        ./keystone generate-crib --chainid="$chainId" --outpath="${DEVSPACE_TMPDIR}"
+        popd
+
+        create_deployments app --from-file="${DEVSPACE_TMPDIR}/crib-cluster-overrides.yaml" 
+        kubectl delete pod -l "app=app" # restart pods to apply the new configuration changes
+        kubectl wait --for=condition=ready pod -l "app=app" --timeout=2m 
+      fi  
 
   purge:
     run: |-
@@ -424,3 +456,67 @@ profiles:
       - op: add
         path: deployments.app.helm.valuesFiles
         value: ["./values-profiles/values-dev.yaml"]
+  - name: keystone
+    patches:
+      - op: remove
+        path: deployments.app.helm.values.chainlink.global.overridesToml
+      - op: replace
+        path: deployments.app.helm.values.geth
+        value:
+          enabled: false
+      - op: replace
+        path: deployments.app.helm.values.chainlink.global.toml
+        value: |-
+              RootDir = './clroot'
+
+              [Log]
+              JSONConsole = true
+              Level = 'debug'
+              [Log.File]
+              MaxSize = '0b'
+
+              [WebServer]
+              AllowOrigins = '*'
+              SecureCookies = false
+              SessionTimeout = '999h0m0s'
+              HTTPPort = 6688
+              HTTPWriteTimeout = '1m'
+              [WebServer.RateLimit]
+              Authenticated = 2000
+              Unauthenticated = 1000
+
+              [Database]
+              MaxIdleConns = 50
+              MaxOpenConns = 50
+              MigrateOnStartup = true
+
+              [OCR2]
+              Enabled = true
+              DefaultTransactionQueueDepth = 0
+              [OCR]
+              Enabled = false
+              DefaultTransactionQueueDepth = 0
+
+              [WebServer.TLS]
+              HTTPSPort = 0
+
+              [Feature]
+              FeedsManager = true
+              LogPoller = true
+              UICSAKeys = true
+
+              [P2P]
+              [P2P.V2]
+              Enabled = true
+              ListenAddresses = ['0.0.0.0:6690']
+              AnnounceAddresses = ['0.0.0.0:6690']
+              DeltaDial = '500ms'
+              DeltaReconcile = '5s'
+
+              [[EVM]]
+              ChainID = '11155111'
+
+              [[EVM.Nodes]]
+              Name = 'primary'
+              WSURL = "${KEYSTONE_ETH_WS_URL}"
+              HTTPURL = "${KEYSTONE_ETH_HTTP_URL}"

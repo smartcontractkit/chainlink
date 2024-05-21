@@ -44,7 +44,7 @@ func downloadNodePubKeys(chainID int64, pubKeysPath string) []NodeKeys {
 //
 // The nodes are sorted by URL. In the case of crib, the bootstrap node is the first node in the list.
 func downloadNodeAPICredentialsDefault() []*node {
-	return downloadNodeAPICredentials(".cache/NodesList.json")
+	return downloadNodeAPICredentials(".cache/NodeList.txt")
 }
 
 // downloadNodeAPICredentials downloads the node API credentials, or loads them from disk if they already exist
