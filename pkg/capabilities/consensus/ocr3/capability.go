@@ -287,7 +287,7 @@ func (o *capability) expiryTimer(ctx context.Context, r *request) {
 				Value: nil,
 			},
 		}
-
+		o.lggr.Debugw("expiryTimer - expired request", "workflowExecutionID", r.WorkflowExecutionID)
 		o.transmitCh <- resp
 	}
 }
