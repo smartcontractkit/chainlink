@@ -55,6 +55,49 @@ jobs:
             echo "dependency_changed=false" >> $GITHUB_OUTPUT
           fi
 
+  # Check if images used as test dependencies exist in the ECR 
+  check-ecr-images-exist:
+    if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [check-dependency-bump]
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Check if ECR images used as test dependencies exist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout chainlink-testing-framework repository
+        uses: actions/checkout@v2
+        with:
+          repository: smartcontractkit/chainlink-testing-framework
+          path: chainlink-testing-framework
+                
+      - name: Set up Go
+        uses: actions/setup-go@v3
+  
+      - name: Run get-latest-ethereum-client-version ethereum/client-go:latest_stable command
+        id: get-latest-ethereum-client-version
+        run: |
+          version=$(go run chainlink-testing-framework/utils/cmd/main.go get-latest-ethereum-client-version ethereum/client-go:latest_stable)
+          echo "::set-output name=version::${version}"
+  
+      - name: Check if latest Ethereum client image exists in ECR
+        id: check-latest-ethereum-client-image-exists
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+        with:
+          repository: ethereum/client-go
+          tag: ${{ steps.get-latest-ethereum-client-version.outputs.version }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+      # TODO: Trigger update-internal-mirrors workflow in CTF if steps.check-latest-ethereum-client-image-exists.outputs.exists != 'true'
+
+      - name: Fail if latest Ethereum client image does not exist
+        if: steps.check-latest-ethereum-client-image-exists.outputs.exists != 'true'
+        run: |
+          echo "Image ethereum/client-go:${{ steps.get-latest-ethereum-client-version.outputs.version }} does not exist in ECR. The image download is scheduled, and you can rerun this workflow in a few minutes."
+          exit 1
+
   # Build Test Dependencies
 
   build-chainlink:
