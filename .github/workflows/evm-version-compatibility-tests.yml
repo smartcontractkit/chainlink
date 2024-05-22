@@ -20,6 +20,9 @@ env:
 jobs:
   # TODO: just for testing, remove this later
   trigger-update-internal-mirrors-workflow-in-ctf:
+    permissions:
+      id-token: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Setup GitHub Token
