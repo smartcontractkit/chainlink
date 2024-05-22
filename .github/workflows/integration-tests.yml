@@ -144,7 +144,7 @@ jobs:
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Build and Lint ${{ matrix.project.name }}
-        continue-on-error: true          
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
@@ -911,13 +911,13 @@ jobs:
         id: get_latest_version
         run: |
           untrimmed_ver=$(curl --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --request GET https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .name)
-          latest_version="${untrimmed_ver:1}"
-          # Check if latest_version is empty
-          if [ -z "$latest_version" ]; then
-              echo "Error: The latest_version is empty. The migration tests need a verison to run."
+          version="${untrimmed_ver:1}"
+          # Check if version is empty
+          if [ -z "$version" ]; then
+              echo "Error: The latest version variable is empty. The migration tests need a verison to run."
               exit 1
           fi
-          echo "latest_version=${latest_version}" >> "$GITHUB_OUTPUT"
+          echo "latest_version=$version" >> "$GITHUB_OUTPUT"
       - name: Name Versions
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ inputs.evm-ref || github.sha }}'"
