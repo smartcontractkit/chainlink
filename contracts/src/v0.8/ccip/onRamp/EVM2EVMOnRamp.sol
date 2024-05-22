@@ -56,6 +56,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   error SourceTokenDataTooLarge(address token);
   error InvalidChainSelector(uint64 chainSelector);
   error GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
+  error InvalidDestBytesOverhead(address token, uint32 destBytesOverhead);
 
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event NopPaid(address indexed nop, uint256 amount);
@@ -95,7 +96,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     // The following three properties are defaults, they can be overridden by setting the TokenTransferFeeConfig for a token
     uint16 defaultTokenFeeUSDCents; //           │ Default token fee charged per token transfer
     uint32 defaultTokenDestGasOverhead; //       │ Default gas charged to execute the token transfer on the destination chain
-    uint32 defaultTokenDestBytesOverhead; //     | Default extra data availability bytes charged per token transfer
+    //                                           │ Default data availability bytes that are returned from the source pool and sent
+    uint32 defaultTokenDestBytesOverhead; //     | to the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
     bool enforceOutOfOrder; // ──────────────────╯ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
   }
 
@@ -123,7 +125,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     uint32 maxFeeUSDCents; //           │ Maximum fee to charge per token transfer, multiples of 0.01 USD
     uint16 deciBps; //                  │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
     uint32 destGasOverhead; //          │ Gas charged to execute the token transfer on the destination chain
-    uint32 destBytesOverhead; //        │ Extra data availability bytes on top of fixed transfer data, including sourceTokenData and offchainData
+    //                                  │ Extra data availability bytes that are returned from the source pool and sent
+    uint32 destBytesOverhead; //        │ to the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
     bool aggregateRateLimitEnabled; //  │ Whether this transfer token is to be included in Aggregate Rate Limiting
     bool isEnabled; // ─────────────────╯ Whether this token has custom transfer fees
   }
@@ -136,7 +139,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     uint32 maxFeeUSDCents; //           │ Maximum fee to charge per token transfer, multiples of 0.01 USD
     uint16 deciBps; // ─────────────────╯ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
     uint32 destGasOverhead; // ─────────╮ Gas charged to execute the token transfer on the destination chain
-    uint32 destBytesOverhead; //        │ Extra data availability bytes on top of fixed transfer data, including sourceTokenData and offchainData
+    //                                  │ Extra data availability bytes that are returned from the source pool and sent
+    uint32 destBytesOverhead; //        │ to the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
     bool aggregateRateLimitEnabled; // ─╯ Whether this transfer token is to be included in Aggregate Rate Limiting
   }
 
@@ -342,11 +346,13 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
         })
       );
 
-      // Since the DON has to pay for the extraData to be included on the destination chain, we cap the length of the extraData.
-      // This prevents gas bomb attacks on the NOPs. We use destBytesOverhead as a proxy to cap the number of bytes we accept.
-      // As destBytesOverhead accounts for extraData + offchainData, this caps the worst case abuse to the number of bytes reserved for offchainData.
-      // It therefore fully mitigates gas bombs for most tokens, as most tokens don't use offchainData.
-      if (poolReturnData.destPoolData.length > s_tokenTransferFeeConfig[tokenAndAmount.token].destBytesOverhead) {
+      // Since the DON has to pay for the extraData to be included on the destination chain, we cap the length of the
+      // extraData. This prevents gas bomb attacks on the NOPs. As destBytesOverhead accounts for both
+      // extraData and offchainData, this caps the worst case abuse to the number of bytes reserved for offchainData.
+      if (
+        poolReturnData.destPoolData.length > Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
+          && poolReturnData.destPoolData.length > s_tokenTransferFeeConfig[tokenAndAmount.token].destBytesOverhead
+      ) {
         revert SourceTokenDataTooLarge(tokenAndAmount.token);
       }
       // We validate the pool address to ensure it is a valid EVM address
@@ -365,8 +371,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     newMessage.messageId = Internal._hash(newMessage, i_metadataHash);
 
     // Emit message request
-    // Note this must happen after pools, some tokens (eg USDC) emit events that we
-    // expect to directly precede this event.
+    // This must happen after any pool events as some tokens (e.g. USDC) emit events that we expect to precede this
+    // event in the offchain code.
     emit CCIPSendRequested(newMessage);
     return newMessage.messageId;
   }
@@ -445,6 +451,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   function _setDynamicConfig(DynamicConfig memory dynamicConfig) internal {
     // We permit router to be set to zero as a way to pause the contract.
     if (dynamicConfig.priceRegistry == address(0)) revert InvalidConfig();
+    if (dynamicConfig.defaultTokenDestBytesOverhead < Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES) {
+      revert InvalidDestBytesOverhead(address(0), dynamicConfig.defaultTokenDestBytesOverhead);
+    }
 
     s_dynamicConfig = dynamicConfig;
 
@@ -711,6 +720,10 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   ) internal {
     for (uint256 i = 0; i < tokenTransferFeeConfigArgs.length; ++i) {
       TokenTransferFeeConfigArgs memory configArg = tokenTransferFeeConfigArgs[i];
+
+      if (configArg.destBytesOverhead < Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES) {
+        revert InvalidDestBytesOverhead(configArg.token, configArg.destBytesOverhead);
+      }
 
       s_tokenTransferFeeConfig[configArg.token] = TokenTransferFeeConfig({
         minFeeUSDCents: configArg.minFeeUSDCents,

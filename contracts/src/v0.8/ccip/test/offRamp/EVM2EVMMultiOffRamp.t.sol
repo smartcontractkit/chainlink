@@ -2390,7 +2390,6 @@ contract EVM2EVMMultiOffRamp_releaseOrMintTokens is EVM2EVMMultiOffRampSetup {
 
   function test_releaseOrMintTokens_PoolDoesNotSupportDest_Reverts() public {
     Client.EVMTokenAmount[] memory srcTokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
-    IERC20 dstToken1 = IERC20(s_destFeeToken);
     uint256 amount1 = 100;
     srcTokenAmounts[0].amount = amount1;
 

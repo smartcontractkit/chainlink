@@ -355,7 +355,7 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 				MaxFeeUSDCents:    1_000_000_00, // $ 1 million
 				DeciBps:           5_0,          // 5 bps
 				DestGasOverhead:   34_000,
-				DestBytesOverhead: 0,
+				DestBytesOverhead: 32,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},
@@ -979,7 +979,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 				MaxFeeUSDCents:    1_000_000_00, // $ 1 million
 				DeciBps:           5_0,          // 5 bps
 				DestGasOverhead:   34_000,
-				DestBytesOverhead: 0,
+				DestBytesOverhead: 32,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},
