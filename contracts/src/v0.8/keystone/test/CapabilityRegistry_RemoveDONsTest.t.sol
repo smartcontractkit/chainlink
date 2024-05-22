@@ -21,12 +21,12 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     s_capabilityRegistry.addCapability(s_basicCapability);
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
 
-    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](2);
+    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](2);
     bytes32[] memory capabilityIds = new bytes32[](2);
     capabilityIds[0] = s_basicHashedCapabilityId;
     capabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodes[0] = CapabilityRegistry.NodeParams({
+    nodes[0] = CapabilityRegistry.NodeInfo({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
@@ -36,7 +36,7 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
     nodeTwoCapabilityIds[0] = s_basicHashedCapabilityId;
 
-    nodes[1] = CapabilityRegistry.NodeParams({
+    nodes[1] = CapabilityRegistry.NodeInfo({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
@@ -84,12 +84,12 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     emit ConfigSet(DON_ID, 0);
     s_capabilityRegistry.removeDONs(donIDs);
 
-    CapabilityRegistry.DONParams memory donParams = s_capabilityRegistry.getDON(DON_ID);
-    assertEq(donParams.id, 0);
-    assertEq(donParams.configCount, 0);
-    assertEq(donParams.isPublic, false);
-    assertEq(donParams.capabilityConfigurations.length, 0);
+    CapabilityRegistry.DONInfo memory DONInfo = s_capabilityRegistry.getDON(DON_ID);
+    assertEq(DONInfo.id, 0);
+    assertEq(DONInfo.configCount, 0);
+    assertEq(DONInfo.isPublic, false);
+    assertEq(DONInfo.capabilityConfigurations.length, 0);
     assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), bytes(""));
-    assertEq(donParams.nodeP2PIds.length, 0);
+    assertEq(DONInfo.nodeP2PIds.length, 0);
   }
 }

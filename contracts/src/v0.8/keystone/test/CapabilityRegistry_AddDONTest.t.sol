@@ -22,12 +22,12 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     s_capabilityRegistry.addCapability(s_basicCapability);
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
 
-    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](2);
+    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](2);
     bytes32[] memory capabilityIds = new bytes32[](2);
     capabilityIds[0] = s_basicHashedCapabilityId;
     capabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodes[0] = CapabilityRegistry.NodeParams({
+    nodes[0] = CapabilityRegistry.NodeInfo({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
@@ -37,7 +37,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
     nodeTwoCapabilityIds[0] = s_basicHashedCapabilityId;
 
-    nodes[1] = CapabilityRegistry.NodeParams({
+    nodes[1] = CapabilityRegistry.NodeInfo({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
@@ -181,15 +181,15 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     );
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
 
-    CapabilityRegistry.DONParams memory donParams = s_capabilityRegistry.getDON(DON_ID);
-    assertEq(donParams.id, DON_ID);
-    assertEq(donParams.configCount, 1);
-    assertEq(donParams.isPublic, true);
-    assertEq(donParams.capabilityConfigurations.length, capabilityConfigs.length);
-    assertEq(donParams.capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
+    CapabilityRegistry.DONInfo memory DONInfo = s_capabilityRegistry.getDON(DON_ID);
+    assertEq(DONInfo.id, DON_ID);
+    assertEq(DONInfo.configCount, 1);
+    assertEq(DONInfo.isPublic, true);
+    assertEq(DONInfo.capabilityConfigurations.length, capabilityConfigs.length);
+    assertEq(DONInfo.capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
     assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), BASIC_CAPABILITY_CONFIG);
 
-    assertEq(donParams.nodeP2PIds.length, nodes.length);
-    assertEq(donParams.nodeP2PIds[0], P2P_ID);
+    assertEq(DONInfo.nodeP2PIds.length, nodes.length);
+    assertEq(DONInfo.nodeP2PIds[0], P2P_ID);
   }
 }

@@ -23,12 +23,12 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
     s_capabilityRegistry.addCapability(s_basicCapability);
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
 
-    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](2);
+    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](2);
     bytes32[] memory capabilityIds = new bytes32[](2);
     capabilityIds[0] = s_basicHashedCapabilityId;
     capabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodes[0] = CapabilityRegistry.NodeParams({
+    nodes[0] = CapabilityRegistry.NodeInfo({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
@@ -38,7 +38,7 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
     bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
     nodeTwoCapabilityIds[0] = s_basicHashedCapabilityId;
 
-    nodes[1] = CapabilityRegistry.NodeParams({
+    nodes[1] = CapabilityRegistry.NodeInfo({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
@@ -62,7 +62,7 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
   }
 
   function test_CorrectlyFetchesDONs() public view {
-    CapabilityRegistry.DONParams[] memory dons = s_capabilityRegistry.getDONs();
+    CapabilityRegistry.DONInfo[] memory dons = s_capabilityRegistry.getDONs();
     assertEq(dons.length, 2);
     assertEq(dons[0].id, DON_ID_ONE);
     assertEq(dons[0].configCount, 1);
@@ -82,7 +82,7 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
     removedDONIDs[0] = DON_ID_ONE;
     s_capabilityRegistry.removeDONs(removedDONIDs);
 
-    CapabilityRegistry.DONParams[] memory dons = s_capabilityRegistry.getDONs();
+    CapabilityRegistry.DONInfo[] memory dons = s_capabilityRegistry.getDONs();
     assertEq(dons.length, 1);
     assertEq(dons[0].id, DON_ID_TWO);
     assertEq(dons[0].configCount, 1);
