@@ -220,7 +220,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     assertGt(gasUsed, 500);
   }
 
-  function test_CallWithExactGasSafeReturnData_ConsumeAllGas_Success(uint8 gasLimitMultiplier) external {
+  function testFuzz_CallWithExactGasSafeReturnData_ConsumeAllGas_Success(uint8 gasLimitMultiplier) external {
     vm.assume(gasLimitMultiplier > 0); // Assume not zero to avoid zero gas being passed to s_gasConsumer
     uint16 maxRetBytes = 0;
 
