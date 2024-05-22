@@ -273,9 +273,9 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) FindTx
 	return r0, r1
 }
 
-// GetForwarderForEOA provides a mock function with given fields: eoa
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetForwarderForEOA(eoa ADDR) (ADDR, error) {
-	ret := _m.Called(eoa)
+// GetForwarderForEOA provides a mock function with given fields: ctx, eoa
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetForwarderForEOA(ctx context.Context, eoa ADDR) (ADDR, error) {
+	ret := _m.Called(ctx, eoa)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetForwarderForEOA")
@@ -283,17 +283,45 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetFor
 
 	var r0 ADDR
 	var r1 error
-	if rf, ok := ret.Get(0).(func(ADDR) (ADDR, error)); ok {
-		return rf(eoa)
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR) (ADDR, error)); ok {
+		return rf(ctx, eoa)
 	}
-	if rf, ok := ret.Get(0).(func(ADDR) ADDR); ok {
-		r0 = rf(eoa)
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR) ADDR); ok {
+		r0 = rf(ctx, eoa)
 	} else {
 		r0 = ret.Get(0).(ADDR)
 	}
 
-	if rf, ok := ret.Get(1).(func(ADDR) error); ok {
-		r1 = rf(eoa)
+	if rf, ok := ret.Get(1).(func(context.Context, ADDR) error); ok {
+		r1 = rf(ctx, eoa)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetForwarderForEOAOCR2Feeds provides a mock function with given fields: ctx, eoa, ocr2AggregatorID
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetForwarderForEOAOCR2Feeds(ctx context.Context, eoa ADDR, ocr2AggregatorID ADDR) (ADDR, error) {
+	ret := _m.Called(ctx, eoa, ocr2AggregatorID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetForwarderForEOAOCR2Feeds")
+	}
+
+	var r0 ADDR
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, ADDR) (ADDR, error)); ok {
+		return rf(ctx, eoa, ocr2AggregatorID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, ADDR) ADDR); ok {
+		r0 = rf(ctx, eoa, ocr2AggregatorID)
+	} else {
+		r0 = ret.Get(0).(ADDR)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ADDR, ADDR) error); ok {
+		r1 = rf(ctx, eoa, ocr2AggregatorID)
 	} else {
 		r1 = ret.Error(1)
 	}

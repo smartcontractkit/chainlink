@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
@@ -56,8 +57,7 @@ type Resender[
 	logger              logger.SugaredLogger
 	lastAlertTimestamps map[string]time.Time
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	stopCh services.StopChan
 	chDone chan struct{}
 }
 
@@ -83,7 +83,6 @@ func NewResender[
 		panic("Resender requires a non-zero threshold")
 	}
 	// todo: add context to txStore https://smartcontract-it.atlassian.net/browse/BCI-1585
-	ctx, cancel := context.WithCancel(context.Background())
 	return &Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		txStore,
 		client,
@@ -95,8 +94,7 @@ func NewResender[
 		txConfig,
 		logger.Sugared(logger.Named(lggr, "Resender")),
 		make(map[string]time.Time),
-		ctx,
-		cancel,
+		make(chan struct{}),
 		make(chan struct{}),
 	}
 }
@@ -109,14 +107,16 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 
 // Stop is a comment which satisfies the linter
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Stop() {
-	er.cancel()
+	close(er.stopCh)
 	<-er.chDone
 }
 
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer close(er.chDone)
+	ctx, cancel := er.stopCh.NewCtx()
+	defer cancel()
 
-	if err := er.resendUnconfirmed(er.ctx); err != nil {
+	if err := er.resendUnconfirmed(ctx); err != nil {
 		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 	}
 
@@ -124,10 +124,10 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 	defer ticker.Stop()
 	for {
 		select {
-		case <-er.ctx.Done():
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := er.resendUnconfirmed(er.ctx); err != nil {
+			if err := er.resendUnconfirmed(ctx); err != nil {
 				er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 			}
 		}
@@ -135,6 +135,9 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 }
 
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnconfirmed(ctx context.Context) error {
+	var cancel func()
+	ctx, cancel = er.stopCh.Ctx(ctx)
+	defer cancel()
 	resendAddresses, err := er.ks.EnabledAddressesForChain(ctx, er.chainID)
 	if err != nil {
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
@@ -147,7 +150,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnco
 
 	for _, k := range resendAddresses {
 		var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-		attempts, err = er.txStore.FindTxAttemptsRequiringResend(er.ctx, olderThan, maxInFlightTransactions, er.chainID, k)
+		attempts, err = er.txStore.FindTxAttemptsRequiringResend(ctx, olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return fmt.Errorf("failed to FindTxAttemptsRequiringResend: %w", err)
 		}
@@ -165,13 +168,13 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnco
 	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(allAttempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(allAttempts))
 
 	batchSize := int(er.config.RPCDefaultBatchSize())
-	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
-	defer cancel()
-	txErrTypes, _, broadcastTime, txIDs, err := er.client.BatchSendTransactions(ctx, allAttempts, batchSize, er.logger)
+	batchCtx, batchCancel := context.WithTimeout(ctx, batchSendTransactionTimeout)
+	defer batchCancel()
+	txErrTypes, _, broadcastTime, txIDs, err := er.client.BatchSendTransactions(batchCtx, allAttempts, batchSize, er.logger)
 
 	// update broadcast times before checking additional errors
 	if len(txIDs) > 0 {
-		if updateErr := er.txStore.UpdateBroadcastAts(er.ctx, broadcastTime, txIDs); updateErr != nil {
+		if updateErr := er.txStore.UpdateBroadcastAts(ctx, broadcastTime, txIDs); updateErr != nil {
 			err = errors.Join(err, fmt.Errorf("failed to update broadcast time: %w", updateErr))
 		}
 	}
