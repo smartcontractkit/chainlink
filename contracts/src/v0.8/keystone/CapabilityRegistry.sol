@@ -469,7 +469,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (
         capability.configurationContract.code.length == 0 ||
         !IERC165(capability.configurationContract).supportsInterface(
-          ICapabilityConfiguration.getCapabilityConfiguration.selector
+          ICapabilityConfiguration.getCapabilityConfiguration.selector ^
+            ICapabilityConfiguration.beforeCapabilityConfigSet.selector
         )
       ) revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
     }
@@ -647,37 +648,61 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic
   ) internal {
-    s_dons[donId].isPublic = isPublic;
-
     DONCapabilityConfig storage donCapabilityConfig = s_dons[donId].config[configCount];
-    for (uint256 i; i < nodes.length; ++i) {
-      bytes32 nodeP2PId = nodes[i];
-      if (donCapabilityConfig.nodes.contains(nodeP2PId)) revert DuplicateDONNode(donId, nodeP2PId);
 
-      donCapabilityConfig.nodes.add(nodeP2PId);
+    for (uint256 i; i < nodes.length; ++i) {
+      if (donCapabilityConfig.nodes.contains(nodes[i])) revert DuplicateDONNode(donId, nodes[i]);
+      donCapabilityConfig.nodes.add(nodes[i]);
     }
 
     for (uint256 i; i < capabilityConfigurations.length; ++i) {
       CapabilityConfiguration calldata configuration = capabilityConfigurations[i];
-      bytes32 capabilityId = configuration.capabilityId;
 
-      if (!s_hashedCapabilityIds.contains(capabilityId)) revert CapabilityDoesNotExist(capabilityId);
-      if (s_deprecatedHashedCapabilityIds.contains(capabilityId)) revert CapabilityIsDeprecated(capabilityId);
+      if (!s_hashedCapabilityIds.contains(configuration.capabilityId))
+        revert CapabilityDoesNotExist(configuration.capabilityId);
+      if (s_deprecatedHashedCapabilityIds.contains(configuration.capabilityId))
+        revert CapabilityIsDeprecated(configuration.capabilityId);
 
-      if (donCapabilityConfig.capabilityConfigs[capabilityId].length > 0)
-        revert DuplicateDONCapability(donId, capabilityId);
+      if (donCapabilityConfig.capabilityConfigs[configuration.capabilityId].length > 0)
+        revert DuplicateDONCapability(donId, configuration.capabilityId);
 
       for (uint256 j; j < nodes.length; ++j) {
-        bytes32 nodeP2PId = nodes[j];
-        if (!s_nodes[nodeP2PId].supportedCapabilityIds[s_nodes[nodeP2PId].configCount].contains(capabilityId))
-          revert NodeDoesNotSupportCapability(nodeP2PId, capabilityId);
+        if (
+          !s_nodes[nodes[j]].supportedCapabilityIds[s_nodes[nodes[j]].configCount].contains(configuration.capabilityId)
+        ) revert NodeDoesNotSupportCapability(nodes[j], configuration.capabilityId);
       }
 
-      donCapabilityConfig.capabilityIds.push(capabilityId);
-      donCapabilityConfig.capabilityConfigs[capabilityId] = configuration.config;
-    }
+      donCapabilityConfig.capabilityIds.push(configuration.capabilityId);
+      donCapabilityConfig.capabilityConfigs[configuration.capabilityId] = configuration.config;
 
+      _setDONCapabilityConfig(donId, configCount, configuration.capabilityId, nodes, configuration.config);
+    }
+    s_dons[donId].isPublic = isPublic;
     s_dons[donId].configCount = configCount;
     emit ConfigSet(donId, configCount);
+  }
+
+  /// @notice Sets the capability's config on the config contract
+  /// @param donId The ID of the DON the capability is being configured for
+  /// @param configCount The number of times the DON has been configured
+  /// @param capabilityId The capability's ID
+  /// @param nodes The nodes in the DON
+  /// @param config The DON's capability config
+  /// @dev Helper function used to resolve stack too deep errors in _setDONConfig
+  function _setDONCapabilityConfig(
+    uint32 donId,
+    uint32 configCount,
+    bytes32 capabilityId,
+    bytes32[] calldata nodes,
+    bytes memory config
+  ) internal {
+    if (s_capabilities[capabilityId].configurationContract != address(0)) {
+      ICapabilityConfiguration(s_capabilities[capabilityId].configurationContract).beforeCapabilityConfigSet(
+        nodes,
+        config,
+        configCount,
+        donId
+      );
+    }
   }
 }
