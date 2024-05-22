@@ -1227,6 +1227,9 @@ jobs:
           [ChainlinkImage]
           image="${{ env.CHAINLINK_IMAGE }}"
           version="${{ inputs.evm-ref || github.sha }}"
+          [Common]
+          user="${{ github.actor }}"
+          internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
           EOF
           # shellcheck disable=SC2002
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1239,6 +1242,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639 # v2.3.11
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
+          download_contract_artifacts_path: ${{ env.CONTRACT_ARTIFACTS_PATH }} 
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ inputs.evm-ref || github.sha }}
           publish_check_name: Solana Smoke Test Results
