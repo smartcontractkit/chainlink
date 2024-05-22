@@ -32,6 +32,19 @@ type ResponseSlice struct {
 	Data []map[string]interface{}
 }
 
+// HealthResponse is the generic model for services health statuses
+type HealthResponse struct {
+	Data []struct {
+		Type       string `json:"type"`
+		ID         string `json:"id"`
+		Attributes struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+			Output string `json:"output"`
+		} `json:"attributes"`
+	} `json:"data"`
+}
+
 // Response is the generic model that can be used for all Chainlink API responses
 type Response struct {
 	Data map[string]interface{}

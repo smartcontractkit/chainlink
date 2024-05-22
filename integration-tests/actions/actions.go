@@ -28,6 +28,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
@@ -475,33 +477,9 @@ func GenerateWallet() (common.Address, error) {
 }
 
 // todo - move to CTF
-func FundAddress(client blockchain.EVMClient, sendingKey string, fundingToSendEth *big.Float) error {
-	address := common.HexToAddress(sendingKey)
-	gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
-		To: &address,
-	})
-	if err != nil {
-		return err
-	}
-	err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// todo - move to CTF
 func GetTxFromAddress(tx *types.Transaction) (string, error) {
 	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
 	return from.String(), err
-}
-
-// todo - move to CTF
-func GetTxByHash(ctx context.Context, client blockchain.EVMClient, hash common.Hash) (*types.Transaction, bool, error) {
-	return client.(*blockchain.EthereumMultinodeClient).
-		DefaultClient.(*blockchain.EthereumClient).
-		Client.
-		TransactionByHash(ctx, hash)
 }
 
 // todo - move to CTF
@@ -523,42 +501,50 @@ func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, e
 	return inputsMap, nil
 }
 
-// todo - move to EVMClient
+// todo - move to CTF
 func WaitForBlockNumberToBe(
 	waitForBlockNumberToBe uint64,
-	client blockchain.EVMClient,
+	client *seth.Client,
 	wg *sync.WaitGroup,
 	timeout time.Duration,
 	t testing.TB,
+	l zerolog.Logger,
 ) (uint64, error) {
 	blockNumberChannel := make(chan uint64)
 	errorChannel := make(chan error)
 	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
 	defer testCancel()
-
-	ticker := time.NewTicker(time.Second * 1)
-	var blockNumber uint64
+	ticker := time.NewTicker(time.Second * 5)
+	var latestBlockNumber uint64
 	for {
 		select {
 		case <-testContext.Done():
 			ticker.Stop()
 			wg.Done()
-			return blockNumber,
+			return latestBlockNumber,
 				fmt.Errorf("timeout waiting for Block Number to be: %d. Last recorded block number was: %d",
-					waitForBlockNumberToBe, blockNumber)
+					waitForBlockNumberToBe, latestBlockNumber)
 		case <-ticker.C:
 			go func() {
-				currentBlockNumber, err := client.LatestBlockNumber(testcontext.Get(t))
+				currentBlockNumber, err := client.Client.BlockNumber(testcontext.Get(t))
 				if err != nil {
 					errorChannel <- err
 				}
+				l.Info().
+					Uint64("Latest Block Number", currentBlockNumber).
+					Uint64("Desired Block Number", waitForBlockNumberToBe).
+					Msg("Waiting for Block Number to be")
 				blockNumberChannel <- currentBlockNumber
 			}()
-		case blockNumber = <-blockNumberChannel:
-			if blockNumber == waitForBlockNumberToBe {
+		case latestBlockNumber = <-blockNumberChannel:
+			if latestBlockNumber >= waitForBlockNumberToBe {
 				ticker.Stop()
 				wg.Done()
-				return blockNumber, nil
+				l.Info().
+					Uint64("Latest Block Number", latestBlockNumber).
+					Uint64("Desired Block Number", waitForBlockNumberToBe).
+					Msg("Desired Block Number reached!")
+				return latestBlockNumber, nil
 			}
 		case err := <-errorChannel:
 			ticker.Stop()
@@ -571,12 +557,12 @@ func WaitForBlockNumberToBe(
 // todo - move to EVMClient
 func RewindSimulatedChainToBlockNumber(
 	ctx context.Context,
-	evmClient blockchain.EVMClient,
+	client *seth.Client,
 	rpcURL string,
 	rewindChainToBlockNumber uint64,
 	l zerolog.Logger,
 ) (uint64, error) {
-	latestBlockNumberBeforeReorg, err := evmClient.LatestBlockNumber(ctx)
+	latestBlockNumberBeforeReorg, err := client.Client.BlockNumber(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("error getting latest block number: %w", err)
 	}
@@ -593,12 +579,7 @@ func RewindSimulatedChainToBlockNumber(
 		return 0, fmt.Errorf("error making reorg: %w", err)
 	}
 
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return 0, fmt.Errorf("error waiting for events: %w", err)
-	}
-
-	latestBlockNumberAfterReorg, err := evmClient.LatestBlockNumber(ctx)
+	latestBlockNumberAfterReorg, err := client.Client.BlockNumber(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("error getting latest block number: %w", err)
 	}

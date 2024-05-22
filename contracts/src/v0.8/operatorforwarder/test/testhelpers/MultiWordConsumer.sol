@@ -86,6 +86,7 @@ contract MultiWordConsumer is ChainlinkClient {
 
   function withdrawLink() public {
     LinkTokenInterface _link = LinkTokenInterface(_chainlinkTokenAddress());
+    // solhint-disable-next-line gas-custom-errors
     require(_link.transfer(msg.sender, _link.balanceOf(address(this))), "Unable to transfer");
   }
 

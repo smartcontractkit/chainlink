@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 )
@@ -119,20 +118,4 @@ func ParseRandomWordsFulfilledLogs(coordinator Coordinator, logs []*types.Log) (
 		}
 	}
 	return randomWordsFulfilledEventArr, nil
-}
-
-func RetrieveRequestRandomnessLogs(coordinator Coordinator, client blockchain.EVMClient, tx *types.Transaction) (*CoordinatorRandomWordsRequested, error) {
-	err := client.ProcessTransaction(tx)
-	if err != nil {
-		return nil, fmt.Errorf("ProcessTransaction failed, err: %w", err)
-	}
-	err = client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("WaitForEvents failed, err: %w", err)
-	}
-	receipt, err := client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
-	}
-	return parseRequestRandomnessLogs(coordinator, receipt.Logs)
 }
