@@ -64,11 +64,11 @@ func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.Ca
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
 	}
 
-	messageID := sha256.Sum256(rawRequest)
+	deterministicMessageID := sha256.Sum256(rawRequest)
 
 	responseWaitGroup := &sync.WaitGroup{}
 	responseWaitGroup.Add(1)
-	c.messageIDToWaitgroup.Store(messageID, responseWaitGroup)
+	c.messageIDToWaitgroup.Store(deterministicMessageID, responseWaitGroup)
 
 	responseReceived := make(chan struct{})
 	go func() {
@@ -80,21 +80,21 @@ func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.Ca
 	ctx, cancelFn := context.WithCancel(parentCtx)
 	defer cancelFn()
 
-	if err := c.transmitRequestWithMessageID(ctx, req, messageID); err != nil {
+	if err := c.transmitRequestWithMessageID(ctx, req, deterministicMessageID); err != nil {
 		return nil, fmt.Errorf("failed to transmit request: %w", err)
 	}
 
 	select {
 	case <-responseReceived:
 
-		response, loaded := c.messageIDToResponse.LoadAndDelete(messageID)
+		response, loaded := c.messageIDToResponse.LoadAndDelete(deterministicMessageID)
 		if !loaded {
-			return nil, fmt.Errorf("no response found for message ID %s", messageID)
+			return nil, fmt.Errorf("no response found for message ID %s", deterministicMessageID)
 		}
 
 		msg, ok := response.(*types.MessageBody)
 		if !ok {
-			return nil, fmt.Errorf("unexpected response type %T for message ID %s", response, messageID)
+			return nil, fmt.Errorf("unexpected response type %T for message ID %s", response, deterministicMessageID)
 		}
 
 		if msg.Error != types.Error_OK {

@@ -2,10 +2,13 @@ package remote_test
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,6 +21,223 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
+
+func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
+
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse) {
+		responseValue, err := response.Value.Unwrap()
+		require.NoError(t, err)
+		assert.Equal(t, "aValue1", responseValue.(string))
+	}
+
+	// Test scenarios where the number of submissions is greater than or equal to F + 1
+	testRemoteTargetConsensus(t, 4, 3, 10*time.Minute, responseTest)
+	testRemoteTargetConsensus(t, 10, 3, 10*time.Minute, responseTest)
+
+	errResponseTest := func(t *testing.T, response commoncap.CapabilityResponse) {
+		_, err := response.Value.Unwrap()
+		assert.NotNil(t, err)
+		//require.NoError(t, err)
+		//assert.Equal(t, "aValue1", responseValue.(string))
+	}
+
+	// Test scenario where number of submissions is less than F + 1
+	testRemoteTargetConsensus(t, 4, 6, 1*time.Second, errResponseTest)
+
+}
+
+func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF uint8,
+	consensusTimeout time.Duration, responseTest func(t *testing.T, response commoncap.CapabilityResponse)) {
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Remote Target",
+		Version:        "0.0.1",
+	}
+	capabilityPeerID := p2ptypes.PeerID{}
+	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(newPeerID())))
+
+	capDonInfo := commoncap.DON{
+		ID:      "capability-don",
+		Members: []p2ptypes.PeerID{capabilityPeerID},
+		F:       0,
+	}
+
+	// Define the number of workflow peers
+
+	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
+	for i := 0; i < numWorkflowPeers; i++ {
+		workflowPeerID := p2ptypes.PeerID{}
+		require.NoError(t, workflowPeerID.UnmarshalText([]byte(newPeerID())))
+		workflowPeers[i] = workflowPeerID
+	}
+
+	workflowDonInfo := commoncap.DON{
+		Members: workflowPeers,
+		ID:      "workflow-don",
+		F:       workflowDonF,
+	}
+
+	dispatcher := newTestTargetReceiverDispatcher(capabilityPeerID)
+
+	workflowDONs := map[string]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+	underlying := &testTargetReceiver{}
+
+	receiver := remote.NewRemoteTargetReceiver(ctx, lggr, underlying, capInfo, &capDonInfo, workflowDONs, dispatcher, consensusTimeout)
+	dispatcher.RegisterReceiver(receiver)
+
+	callers := make([]commoncap.TargetCapability, numWorkflowPeers)
+	for i := 0; i < numWorkflowPeers; i++ {
+		workflowPeerDispatcher := dispatcher.GetDispatcherForCaller(workflowPeers[i])
+		caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, workflowPeerDispatcher)
+		require.NoError(t, err)
+		dispatcher.RegisterCaller(workflowPeers[i], caller)
+		callers[i] = caller
+	}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "100ms",
+	})
+	require.NoError(t, err)
+
+	executeInputs, err := values.NewMap(
+		map[string]any{
+			"executeValue1": "aValue1",
+		},
+	)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(len(callers))
+
+	// Fire off all the requests
+	for _, caller := range callers {
+		go func(caller commoncap.TargetCapability) {
+			responseCh, err := caller.Execute(ctx,
+				commoncap.CapabilityRequest{
+					Metadata: commoncap.RequestMetadata{},
+					Config:   transmissionSchedule,
+					Inputs:   executeInputs,
+				})
+
+			require.NoError(t, err)
+
+			response := <-responseCh
+			responseTest(t, response)
+			wg.Done()
+		}(caller)
+	}
+
+	wg.Wait()
+}
+
+func Test_TargetReceiverConsensusWithMultipleCallers2(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Remote Target",
+		Version:        "0.0.1",
+	}
+	capabilityPeerID := p2ptypes.PeerID{}
+	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(newPeerID())))
+	workflowPeer1ID := p2ptypes.PeerID{}
+	require.NoError(t, workflowPeer1ID.UnmarshalText([]byte(newPeerID())))
+	workflowPeer2ID := p2ptypes.PeerID{}
+	require.NoError(t, workflowPeer1ID.UnmarshalText([]byte(newPeerID())))
+
+	capDonInfo := commoncap.DON{
+		ID:      "capability-don",
+		Members: []p2ptypes.PeerID{capabilityPeerID},
+		F:       0,
+	}
+
+	workflowPeers := []p2ptypes.PeerID{workflowPeer1ID, workflowPeer2ID}
+	workflowDonInfo := commoncap.DON{
+		Members: workflowPeers,
+		ID:      "workflow-don",
+		F:       1,
+	}
+
+	dispatcher := newTestTargetReceiverDispatcher(capabilityPeerID)
+
+	workflowDONs := map[string]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+	underlying := &testTargetReceiver{}
+
+	receiver := remote.NewRemoteTargetReceiver(ctx, lggr, underlying, capInfo, &capDonInfo, workflowDONs, dispatcher, 100)
+	dispatcher.RegisterReceiver(receiver)
+
+	workflowPeerDispatcher1 := dispatcher.GetDispatcherForCaller(workflowPeer1ID)
+
+	caller1, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, workflowPeerDispatcher1)
+	require.NoError(t, err)
+	dispatcher.RegisterCaller(workflowPeer1ID, caller1)
+
+	workflowPeerDispatcher2 := dispatcher.GetDispatcherForCaller(workflowPeer2ID)
+
+	caller2, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, workflowPeerDispatcher2)
+	require.NoError(t, err)
+	dispatcher.RegisterCaller(workflowPeer2ID, caller2)
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "100ms",
+	})
+	require.NoError(t, err)
+
+	executeInputs, err := values.NewMap(
+		map[string]any{
+			"executeValue1": "aValue1",
+		},
+	)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(len(workflowPeers))
+
+	go func() {
+		responseCh1, err := caller1.Execute(ctx,
+			commoncap.CapabilityRequest{
+				Metadata: commoncap.RequestMetadata{},
+				Config:   transmissionSchedule,
+				Inputs:   executeInputs,
+			})
+
+		require.NoError(t, err)
+
+		response1 := <-responseCh1
+		responseValue, err := response1.Value.Unwrap()
+		require.NoError(t, err)
+		assert.Equal(t, "aValue1", responseValue.(string))
+		wg.Done()
+	}()
+
+	go func() {
+		responseCh2, err := caller2.Execute(ctx,
+			commoncap.CapabilityRequest{
+				Metadata: commoncap.RequestMetadata{},
+				Config:   transmissionSchedule,
+				Inputs:   executeInputs,
+			})
+
+		require.NoError(t, err)
+
+		response2 := <-responseCh2
+		responseValue, err := response2.Value.Unwrap()
+		require.NoError(t, err)
+		assert.Equal(t, "aValue1", responseValue.(string))
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+}
 
 func Test_TargetReceiverConsensus(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -211,4 +431,20 @@ func (t testTargetReceiver) Execute(ctx context.Context, request commoncap.Capab
 	}
 
 	return ch, nil
+}
+
+func libp2pMagic() []byte {
+	return []byte{0x00, 0x24, 0x08, 0x01, 0x12, 0x20}
+}
+
+func newPeerID() string {
+	var privKey [32]byte
+	_, err := rand.Read(privKey[:])
+	if err != nil {
+		panic(err)
+	}
+
+	peerID := append(libp2pMagic(), privKey[:]...)
+
+	return base58.Encode(peerID[:])
 }
