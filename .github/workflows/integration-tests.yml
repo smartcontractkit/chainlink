@@ -381,6 +381,8 @@ jobs:
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
         with:
           name: cl-node-coverage-data-${{ matrix.product.name }}
           path: .covdata
@@ -498,6 +500,8 @@ jobs:
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
         with:
           name: cl-node-coverage-data-${{ matrix.product.name }}
           path: .covdata
@@ -724,6 +728,8 @@ jobs:
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
         with:
           name: cl-node-coverage-data-${{ matrix.product.name }}-${{ matrix.product.tag_suffix }}
           path: .covdata
@@ -962,6 +968,8 @@ jobs:
           should_tidy: "false"
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true          
         with:
           name: cl-node-coverage-data-migration-tests
           path: .covdata
@@ -1262,6 +1270,8 @@ jobs:
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
         with:
           name: cl-node-coverage-data-solana-tests
           path: .covdata

@@ -110,12 +110,6 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 				evmConfig.Chain = overriddenChainCfg
 			}
 		}
-		if evmConfig.Chain.FinalityDepth == nil && network.FinalityDepth > 0 {
-			evmConfig.Chain.FinalityDepth = ptr.Ptr(uint32(network.FinalityDepth))
-		}
-		if evmConfig.Chain.FinalityTagEnabled == nil && network.FinalityTag {
-			evmConfig.Chain.FinalityTagEnabled = ptr.Ptr(network.FinalityTag)
-		}
 		evmConfigs = append(evmConfigs, evmConfig)
 	}
 	return func(c *chainlink.Config) {
