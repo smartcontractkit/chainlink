@@ -89,7 +89,7 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 	defer d.Unlock()
 	// Open real db connection if its the first call
 	if d.db == nil {
-		db, err := sql.Open("pgx", d.dbURL)
+		db, err := sql.Open(string(dialects.Postgres), d.dbURL)
 		if err != nil {
 			return nil, err
 		}
