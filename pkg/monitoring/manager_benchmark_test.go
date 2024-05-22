@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
@@ -48,7 +50,8 @@ func BenchmarkManager(b *testing.B) {
 
 	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
 
-	producer := fakeProducer{make(chan producerMessage), ctx}
+	producer := fakeProducer{make(chan producerMessage), make(chan struct{})}
+	defer func() { assert.NoError(b, producer.Close()) }()
 	factory := &fakeRandomDataSourceFactory{make(chan interface{})}
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(

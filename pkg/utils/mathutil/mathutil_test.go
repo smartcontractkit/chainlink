@@ -1,7 +1,6 @@
 package mathutil
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -46,14 +45,14 @@ func TestAvg(t *testing.T) {
 	assert.Equal(t, int8(0), r)
 
 	// overflow addition
-	r, err = Avg(int8(math.MaxInt8), 1)
-	assert.ErrorContains(t, err, fmt.Sprintf("overflow: addition"))
-	r, err = Avg(int8(math.MinInt8), -1)
-	assert.ErrorContains(t, err, fmt.Sprintf("overflow: addition"))
+	_, err = Avg(int8(math.MaxInt8), 1)
+	assert.ErrorContains(t, err, "overflow: addition")
+	_, err = Avg(int8(math.MinInt8), -1)
+	assert.ErrorContains(t, err, "overflow: addition")
 
 	// overflow length
 	a := make([]int8, 256)
-	r, err = Avg(a...)
+	_, err = Avg(a...)
 	assert.ErrorContains(t, err, "overflow: array len")
 }
 

@@ -10,13 +10,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
 // Monitor is the entrypoint for an on-chain monitor integration.
 // Monitors should only be created via NewMonitor()
 type Monitor struct {
-	RootContext context.Context
+	StopCh services.StopRChan
 
 	ChainConfig ChainConfig
 	Config      config.Config
@@ -48,7 +49,7 @@ type Monitor struct {
 // adding a custom third party service to send data to - this method
 // should provide a good starting template to do that.
 func NewMonitor(
-	rootCtx context.Context,
+	stopCh services.StopRChan,
 	log Logger,
 	chainConfig ChainConfig,
 	envelopeSourceFactory SourceFactory,
@@ -66,7 +67,7 @@ func NewMonitor(
 
 	sourceFactories := []SourceFactory{envelopeSourceFactory, txResultsSourceFactory}
 
-	producer, err := NewProducer(rootCtx, logger.With(log, "component", "producer"), cfg.Kafka)
+	producer, err := NewProducer(stopCh, logger.With(log, "component", "producer"), cfg.Kafka)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
@@ -123,7 +124,7 @@ func NewMonitor(
 	)
 
 	// Configure HTTP server
-	httpServer := NewHTTPServer(rootCtx, cfg.HTTP.Address, logger.With(log, "component", "http-server"))
+	httpServer := NewHTTPServer(stopCh, cfg.HTTP.Address, logger.With(log, "component", "http-server"))
 	httpServer.Handle("/metrics", metrics.HTTPHandler())
 	httpServer.Handle("/debug", manager.HTTPHandler())
 	// Required for k8s.
@@ -132,7 +133,7 @@ func NewMonitor(
 	}))
 
 	return &Monitor{
-		RootContext:       rootCtx,
+		StopCh:            stopCh,
 		ChainConfig:       chainConfig,
 		Config:            cfg,
 		Log:               log,
@@ -152,7 +153,7 @@ func NewMonitor(
 // Run() starts all the goroutines needed by a Monitor. The lifecycle of these routines
 // is controlled by the context passed to the NewMonitor constructor.
 func (m Monitor) Run() {
-	rootCtx, cancel := context.WithCancel(m.RootContext)
+	rootCtx, cancel := m.StopCh.NewCtx()
 	defer cancel()
 	var subs utils.Subprocesses
 

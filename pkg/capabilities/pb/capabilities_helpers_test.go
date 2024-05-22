@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	testWorkflowId  = "test-id-1"
+	testWorkflowID  = "test-id-1"
 	testConfigKey   = "test-key"
 	testConfigValue = "test-value"
 	testInputsKey   = "input-key"
@@ -23,7 +23,7 @@ const (
 func TestMarshalUnmarshalRequest(t *testing.T) {
 	req := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowExecutionID: testWorkflowId,
+			WorkflowExecutionID: testWorkflowID,
 		},
 		Config: &values.Map{Underlying: map[string]values.Value{
 			testConfigKey: &values.String{Underlying: testConfigValue},

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -38,8 +39,7 @@ func TestTransmitter(t *testing.T) {
 		lggr,
 		10,
 	)
-	cp.Start(ctx)
-	defer cp.Close()
+	servicetest.Run(t, cp)
 
 	payload, err := values.NewMap(map[string]any{"observations": []string{"something happened"}})
 	require.NoError(t, err)
@@ -111,8 +111,7 @@ func TestTransmitter_ShouldReportFalse(t *testing.T) {
 		lggr,
 		10,
 	)
-	cp.Start(ctx)
-	defer cp.Close()
+	servicetest.Run(t, cp)
 
 	payload, err := values.NewMap(map[string]any{"observations": []string{"something happened"}})
 	require.NoError(t, err)

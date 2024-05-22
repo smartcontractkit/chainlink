@@ -666,7 +666,6 @@ func TestUint64(t *testing.T) {
 }
 
 func TestBuilderInt(t *testing.T) {
-
 	t.Run("Wraps encoding and decoding for 8 bytes", func(t *testing.T) {
 		codec, err := bi.Int(1)
 		require.NoError(t, err)
@@ -697,7 +696,6 @@ func TestBuilderInt(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, size, 1)
 	})
-
 	t.Run("Wraps encoding and decoding for 16 bytes", func(t *testing.T) {
 		codec, err := bi.Int(2)
 		require.NoError(t, err)
@@ -728,7 +726,6 @@ func TestBuilderInt(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, size, 2)
 	})
-
 	t.Run("Wraps encoding and decoding for 32 bytes", func(t *testing.T) {
 		codec, err := bi.Int(4)
 		require.NoError(t, err)
@@ -759,7 +756,6 @@ func TestBuilderInt(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, size, 4)
 	})
-
 	t.Run("Wraps encoding and decoding for 64 bytes", func(t *testing.T) {
 		codec, err := bi.Int(8)
 		require.NoError(t, err)
@@ -823,7 +819,6 @@ func TestBuilderInt(t *testing.T) {
 }
 
 func TestGetUintTypeCodecByByteSize(t *testing.T) {
-
 	t.Run("Wraps encoding and decoding for 8 bytes", func(t *testing.T) {
 		codec, err := bi.Uint(1)
 		require.NoError(t, err)
@@ -854,7 +849,6 @@ func TestGetUintTypeCodecByByteSize(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, size, 1)
 	})
-
 	t.Run("Wraps encoding and decoding for 16 bytes", func(t *testing.T) {
 		codec, err := bi.Uint(2)
 		require.NoError(t, err)
@@ -885,7 +879,6 @@ func TestGetUintTypeCodecByByteSize(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, size, 2)
 	})
-
 	t.Run("Wraps encoding and decoding for 32 bytes", func(t *testing.T) {
 		codec, err := bi.Uint(4)
 		require.NoError(t, err)
@@ -916,7 +909,6 @@ func TestGetUintTypeCodecByByteSize(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, size, 4)
 	})
-
 	t.Run("Wraps encoding and decoding for 64 bytes", func(t *testing.T) {
 		codec, err := bi.Uint(8)
 		require.NoError(t, err)

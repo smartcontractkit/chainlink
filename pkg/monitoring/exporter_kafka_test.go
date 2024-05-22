@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
@@ -17,7 +18,8 @@ func TestKafkaExporter(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 		defer cancel()
 		log := newNullLogger()
-		producer := fakeProducer{make(chan producerMessage), ctx}
+		producer := fakeProducer{make(chan producerMessage), make(chan struct{})}
+		defer func() { assert.NoError(t, producer.Close()) }()
 		cfg := config.Config{}
 		cfg.Kafka.TransmissionTopic = "transmissions"
 		cfg.Kafka.ConfigSetSimplifiedTopic = "config-set-simplified"

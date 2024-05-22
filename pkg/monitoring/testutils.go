@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // Sources
@@ -572,13 +573,15 @@ type producerMessage struct {
 
 type fakeProducer struct {
 	sendCh chan producerMessage
-	ctx    context.Context
+	stopCh services.StopChan
 }
+
+func (f fakeProducer) Close() error { close(f.stopCh); return nil }
 
 func (f fakeProducer) Produce(key, value []byte, topic string) error {
 	select {
 	case f.sendCh <- producerMessage{key, value, topic}:
-	case <-f.ctx.Done():
+	case <-f.stopCh:
 	}
 	return nil
 }

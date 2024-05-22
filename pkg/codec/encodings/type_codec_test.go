@@ -16,8 +16,9 @@ import (
 	encodingtestutils "github.com/smartcontractkit/chainlink-common/pkg/codec/encodings/testutils"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint
 )
 
 // TestCodecFromTypeCodecs tests all the codecs in packages under pkg/codec/encodings

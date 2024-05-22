@@ -61,8 +61,10 @@ func TestMonitor(t *testing.T) {
 		PollInterval: 100 * time.Millisecond,
 	}
 
+	stopCh := make(chan struct{})
+	context.AfterFunc(ctx, func() { close(stopCh) })
 	monitor, err := NewMonitor(
-		ctx,
+		stopCh,
 		newNullLogger(),
 		chainConfig,
 		&fakeRandomDataSourceFactory{make(chan interface{})},

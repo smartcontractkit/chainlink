@@ -1,12 +1,12 @@
 package monitoring
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // Producer is an abstraction on top of Kafka to aid with tests.
@@ -21,7 +21,7 @@ type producer struct {
 	cfg          config.Kafka
 }
 
-func NewProducer(ctx context.Context, log Logger, cfg config.Kafka) (Producer, error) {
+func NewProducer(stopCh services.StopRChan, log Logger, cfg config.Kafka) (Producer, error) {
 	backend, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": cfg.Brokers,
 		"client.id":         cfg.ClientID,
@@ -39,12 +39,14 @@ func NewProducer(ctx context.Context, log Logger, cfg config.Kafka) (Producer, e
 		make(chan kafka.Event),
 		cfg,
 	}
-	go p.drainDeliveryChan(ctx)
+	go p.drainDeliveryChan(stopCh)
 	return p, nil
 }
 
 // drainDeliveryChan should be executed as a goroutine.
-func (p *producer) drainDeliveryChan(ctx context.Context) {
+func (p *producer) drainDeliveryChan(stopCh services.StopRChan) {
+	ctx, cancel := stopCh.NewCtx()
+	defer cancel()
 	for {
 		select {
 		case event := <-p.deliveryChan:

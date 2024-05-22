@@ -15,6 +15,7 @@ linters:
     - noctx
     - whitespace
     - depguard
+    - containedctx
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true

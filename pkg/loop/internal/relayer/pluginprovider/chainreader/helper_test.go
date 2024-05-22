@@ -7,9 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint
 )
 
 var errorTypes = []error{

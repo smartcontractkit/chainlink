@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
@@ -17,13 +18,14 @@ type HTTPServer interface {
 	Run(ctx context.Context)
 }
 
-func NewHTTPServer(baseCtx context.Context, addr string, log Logger) HTTPServer {
+func NewHTTPServer(stopCh services.StopRChan, addr string, log Logger) HTTPServer {
 	mux := http.NewServeMux()
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: mux,
-		BaseContext: func(_ net.Listener) context.Context {
-			return baseCtx
+		BaseContext: func(_ net.Listener) (ctx context.Context) {
+			ctx, _ = stopCh.NewCtx()
+			return
 		},
 		ReadHeaderTimeout: 60 * time.Second,
 	}

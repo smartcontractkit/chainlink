@@ -20,9 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/chainreader"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/chainreader/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint
 )
 
 func TestVersionedBytesFunctions(t *testing.T) {

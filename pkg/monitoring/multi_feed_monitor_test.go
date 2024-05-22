@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
@@ -38,7 +39,8 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
 	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
-	producer := fakeProducer{make(chan producerMessage), ctx}
+	producer := fakeProducer{make(chan producerMessage), make(chan struct{})}
+	defer func() { assert.NoError(t, producer.Close()) }()
 	factory := &fakeRandomDataSourceFactory{make(chan interface{})}
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(
@@ -121,7 +123,8 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
 	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
-	producer := fakeProducer{make(chan producerMessage), ctx}
+	producer := fakeProducer{make(chan producerMessage), make(chan struct{})}
+	defer func() { assert.NoError(t, producer.Close()) }()
 	factory := &fakeRandomDataSourceFactory{make(chan interface{})}
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(

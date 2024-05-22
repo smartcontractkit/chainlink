@@ -216,8 +216,7 @@ func (o *capability) queueRequestForProcessing(
 	i *inputs) (<-chan capabilities.CapabilityResponse, error) {
 	callbackCh := make(chan capabilities.CapabilityResponse, o.callbackChannelBufferSize)
 	r := &request{
-		// TODO: set correct context
-		RequestCtx:          context.Background(),
+		StopCh:              make(chan struct{}),
 		CallbackCh:          callbackCh,
 		WorkflowExecutionID: metadata.WorkflowExecutionID,
 		WorkflowID:          metadata.WorkflowID,
@@ -263,7 +262,7 @@ func (o *capability) handleTransmitMsg(ctx context.Context, resp *outputs) {
 	select {
 	// This should only happen if the client has closed the upstream context.
 	// In this case, the request is cancelled and we shouldn't transmit.
-	case <-req.RequestCtx.Done():
+	case <-req.StopCh:
 	case req.CallbackCh <- resp.CapabilityResponse:
 		close(req.CallbackCh)
 	}

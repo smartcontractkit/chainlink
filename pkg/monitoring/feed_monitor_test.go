@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
@@ -60,7 +61,8 @@ func TestFeedMonitor(t *testing.T) {
 			poller2.Run(ctx)
 		})
 
-		producer := fakeProducer{make(chan producerMessage), ctx}
+		producer := fakeProducer{make(chan producerMessage), make(chan struct{})}
+		defer func() { assert.NoError(t, producer.Close()) }()
 
 		transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
 		configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}

@@ -187,7 +187,7 @@ func TestUint{{.}}(t *testing.T) {
 {{ end }}
 
 func TestBuilderInt(t *testing.T) {
-    {{ range . }}
+    {{ range . -}}
     t.Run("Wraps encoding and decoding for {{.}} bytes", func(t *testing.T) {
         codec, err := bi.Int({{div . 8}})
         require.NoError(t, err)
@@ -252,7 +252,7 @@ func TestBuilderInt(t *testing.T) {
 }
 
 func TestGetUintTypeCodecByByteSize(t *testing.T) {
-    {{ range . }}
+    {{ range . -}}
     t.Run("Wraps encoding and decoding for {{.}} bytes", func(t *testing.T) {
         codec, err := bi.Uint({{div . 8}})
         require.NoError(t, err)

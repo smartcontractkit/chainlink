@@ -23,5 +23,6 @@ func Test_StringUnwrapTo(t *testing.T) {
 
 	var varAny any
 	err = v.UnwrapTo(&varAny)
+	require.NoError(t, err)
 	assert.Equal(t, expected, varAny)
 }
