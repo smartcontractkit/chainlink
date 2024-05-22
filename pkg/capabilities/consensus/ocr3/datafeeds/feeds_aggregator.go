@@ -19,8 +19,17 @@ import (
 )
 
 const (
-	OutputFieldName = "mercury_reports"
-	addrLen         = 20
+	// Aggregator outputs reports in the following format:
+	//   []Reports{FeedID []byte, RawReport []byte, Price *big.Int, Timestamp int64}
+	// Example of a compatible EVM encoder ABI config:
+	//   (bytes32 FeedID, bytes RawReport, uint256 Price, uint64 Timestamp)[] Reports
+	TopLevelListOutputFieldName = "Reports"
+	FeedIDOutputFieldName       = "FeedID"
+	RawReportOutputFieldName    = "RawReport"
+	PriceOutputFieldName        = "Price"
+	TimestampOutputFieldName    = "Timestamp"
+
+	addrLen = 20
 )
 
 type aggregatorConfig struct {
@@ -98,7 +107,7 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		a.lggr.Debugw("removed obsolete feedID from state", "feedID", feedID)
 	}
 
-	reportsNeedingUpdate := []any{} // [][]byte
+	reportsNeedingUpdate := []datastreams.FeedReport{}
 	allIDs := []string{}
 	for feedID := range currentState.FeedInfo {
 		allIDs = append(allIDs, feedID)
@@ -118,11 +127,13 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 			continue
 		}
 		config := a.config.Feeds[feedID]
+		oldPrice := big.NewInt(0).SetBytes(previousReportInfo.BenchmarkPrice)
+		newPrice := big.NewInt(0).SetBytes(latestReport.BenchmarkPrice)
 		if latestReport.ObservationTimestamp-previousReportInfo.ObservationTimestamp > int64(config.Heartbeat) ||
-			deviation(previousReportInfo.BenchmarkPrice, latestReport.BenchmarkPrice) > config.Deviation.InexactFloat64() {
+			deviation(oldPrice, newPrice) > config.Deviation.InexactFloat64() {
 			previousReportInfo.ObservationTimestamp = latestReport.ObservationTimestamp
 			previousReportInfo.BenchmarkPrice = latestReport.BenchmarkPrice
-			reportsNeedingUpdate = append(reportsNeedingUpdate, latestReport.FullReport)
+			reportsNeedingUpdate = append(reportsNeedingUpdate, latestReport)
 		}
 	}
 
@@ -131,7 +142,21 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		return nil, err
 	}
 
-	wrappedReportsNeedingUpdates, err := values.NewMap(map[string]any{OutputFieldName: reportsNeedingUpdate})
+	toWrap := []any{}
+	for _, report := range reportsNeedingUpdate {
+		feedID := datastreams.FeedID(report.FeedID).Bytes()
+		toWrap = append(toWrap,
+			map[string]any{
+				FeedIDOutputFieldName:    feedID[:],
+				RawReportOutputFieldName: report.FullReport,
+				PriceOutputFieldName:     big.NewInt(0).SetBytes(report.BenchmarkPrice),
+				TimestampOutputFieldName: report.ObservationTimestamp,
+			})
+	}
+
+	wrappedReportsNeedingUpdates, err := values.NewMap(map[string]any{
+		TopLevelListOutputFieldName: toWrap,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -211,20 +236,18 @@ func extractUniqueSigners(signers [][]byte) (map[[addrLen]byte]struct{}, error) 
 	return uniqueSigners, nil
 }
 
-func deviation(oldBytes, newBytes []byte) float64 {
-	oldV := big.NewInt(0).SetBytes(oldBytes)
-	newV := big.NewInt(0).SetBytes(newBytes)
+func deviation(oldPrice, newPrice *big.Int) float64 {
 	diff := &big.Int{}
-	diff.Sub(oldV, newV)
+	diff.Sub(oldPrice, newPrice)
 	diff.Abs(diff)
-	if oldV.Cmp(big.NewInt(0)) == 0 {
+	if oldPrice.Cmp(big.NewInt(0)) == 0 {
 		if diff.Cmp(big.NewInt(0)) == 0 {
 			return 0.0
 		}
 		return math.MaxFloat64
 	}
 	diffFl, _ := diff.Float64()
-	oldFl, _ := oldV.Float64()
+	oldFl, _ := oldPrice.Float64()
 	return diffFl / oldFl
 }
 

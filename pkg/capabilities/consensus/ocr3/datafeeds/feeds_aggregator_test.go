@@ -92,13 +92,19 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.NoError(t, err)
 	mm, ok := topLevelMap.(map[string]any)
 	require.True(t, ok)
-	mercuryReports := mm[datafeeds.OutputFieldName]
-	reportList, ok := mercuryReports.([]any)
-	require.True(t, ok)
-	require.Equal(t, 1, len(reportList))
-	reportBytes, ok := reportList[0].([]byte)
-	require.True(t, ok)
-	require.Equal(t, string(mercuryFullReportA), string(reportBytes))
+
+	idBytes := feedIDA.Bytes()
+	expected := map[string]any{
+		datafeeds.TopLevelListOutputFieldName: []any{
+			map[string]any{
+				datafeeds.FeedIDOutputFieldName:    idBytes[:],
+				datafeeds.RawReportOutputFieldName: mercuryFullReportA,
+				datafeeds.TimestampOutputFieldName: int64(1),
+				datafeeds.PriceOutputFieldName:     big.NewInt(100),
+			},
+		},
+	}
+	require.Equal(t, expected, mm)
 }
 
 func TestDataFeedsAggregator_Aggregate_Failures(t *testing.T) {
