@@ -84,12 +84,12 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     emit ConfigSet(DON_ID, 0);
     s_capabilityRegistry.removeDONs(donIDs);
 
-    CapabilityRegistry.DONInfo memory DONInfo = s_capabilityRegistry.getDON(DON_ID);
-    assertEq(DONInfo.id, 0);
-    assertEq(DONInfo.configCount, 0);
-    assertEq(DONInfo.isPublic, false);
-    assertEq(DONInfo.capabilityConfigurations.length, 0);
+    CapabilityRegistry.DONInfo memory donInfo = s_capabilityRegistry.getDON(DON_ID);
+    assertEq(donInfo.id, 0);
+    assertEq(donInfo.configCount, 0);
+    assertEq(donInfo.isPublic, false);
+    assertEq(donInfo.capabilityConfigurations.length, 0);
     assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), bytes(""));
-    assertEq(DONInfo.nodeP2PIds.length, 0);
+    assertEq(donInfo.nodeP2PIds.length, 0);
   }
 }

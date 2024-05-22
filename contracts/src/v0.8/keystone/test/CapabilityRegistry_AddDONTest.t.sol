@@ -181,15 +181,15 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     );
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
 
-    CapabilityRegistry.DONInfo memory DONInfo = s_capabilityRegistry.getDON(DON_ID);
-    assertEq(DONInfo.id, DON_ID);
-    assertEq(DONInfo.configCount, 1);
-    assertEq(DONInfo.isPublic, true);
-    assertEq(DONInfo.capabilityConfigurations.length, capabilityConfigs.length);
-    assertEq(DONInfo.capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
+    CapabilityRegistry.DONInfo memory donInfo = s_capabilityRegistry.getDON(DON_ID);
+    assertEq(donInfo.id, DON_ID);
+    assertEq(donInfo.configCount, 1);
+    assertEq(donInfo.isPublic, true);
+    assertEq(donInfo.capabilityConfigurations.length, capabilityConfigs.length);
+    assertEq(donInfo.capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
     assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), BASIC_CAPABILITY_CONFIG);
 
-    assertEq(DONInfo.nodeP2PIds.length, nodes.length);
-    assertEq(DONInfo.nodeP2PIds[0], P2P_ID);
+    assertEq(donInfo.nodeP2PIds.length, nodes.length);
+    assertEq(donInfo.nodeP2PIds[0], P2P_ID);
   }
 }
