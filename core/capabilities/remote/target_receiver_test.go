@@ -44,6 +44,7 @@ func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
 
 	// Test scenario where number of submissions is less than F + 1
 	testRemoteTargetConsensus(t, 4, 6, 1*time.Second, errResponseTest)
+	testRemoteTargetConsensus(t, 10, 10, 1*time.Second, errResponseTest)
 
 }
 
