@@ -28,6 +28,8 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   uint16 public constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
   uint64 public constant DEFAULT_GAS_LIMIT = 200_000;
 
+  uint256 internal s_mockfeetokenamount; //use setFee() to change to non-zero to test fees
+
   function routeMessage(
     Client.Any2EVMMessage calldata message,
     uint16 gasForCallExactCheck,
@@ -67,13 +69,21 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   /// @dev Returns a mock message ID, which is not calculated from the message contents in the
   /// same way as the real message ID.
   function ccipSend(
-    uint64, // destinationChainSelector
+    uint64 destinationChainSelector,
     Client.EVM2AnyMessage calldata message
   ) external payable returns (bytes32) {
     if (message.receiver.length != 32) revert InvalidAddress(message.receiver);
     uint256 decodedReceiver = abi.decode(message.receiver, (uint256));
     // We want to disallow sending to address(0) and to precompiles, which exist on address(1) through address(9).
     if (decodedReceiver > type(uint160).max || decodedReceiver < 10) revert InvalidAddress(message.receiver);
+
+    uint256 feeTokenAmount = getFee(destinationChainSelector, message);
+    if (message.feeToken == address(0)) {
+      if (msg.value < feeTokenAmount) revert InsufficientFeeTokenAmount();
+    } else {
+      if (msg.value > 0) revert InvalidMsgValue();
+      IERC20(message.feeToken).safeTransferFrom(msg.sender, address(this), feeTokenAmount);
+    }
 
     address receiver = address(uint160(decodedReceiver));
     uint256 gasLimit = _fromBytes(message.extraArgs).gasLimit;
@@ -117,8 +127,13 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   }
 
   /// @notice Returns 0 as the fee is not supported in this mock contract.
-  function getFee(uint64, Client.EVM2AnyMessage memory) external pure returns (uint256 fee) {
-    return 0;
+  function getFee(uint64, Client.EVM2AnyMessage memory) public view returns (uint256) {
+    return s_mockfeetokenamount;
+  }
+
+  /// @notice Sets the fees returned by getFee but is only checked when using native fee tokens
+  function setFee(uint256 feeAmount) external {
+    s_mockfeetokenamount = feeAmount;
   }
 
   /// @notice Always returns address(1234567890)
