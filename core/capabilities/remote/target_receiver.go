@@ -33,8 +33,8 @@ type remoteTargetReceiver struct {
 
 var _ types.Receiver = &remoteTargetReceiver{}
 
-func NewRemoteTargetReceiver(ctx context.Context, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo *capabilities.DON,
-	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *remoteTargetReceiver {
+func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo *capabilities.DON,
+	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration) *remoteTargetReceiver {
 
 	go func() {
 		timer := time.NewTimer(requestTimeout)
@@ -123,6 +123,7 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 				CapabilityDonId: r.localDonInfo.ID,
 				CallerDonId:     msg.CallerDonId,
 				Method:          types.MethodExecute,
+				MessageId:       messageId[:],
 			}
 
 			capabilityRequest, err := pb.UnmarshalCapabilityRequest(msg.Payload)

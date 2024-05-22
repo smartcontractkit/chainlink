@@ -19,28 +19,26 @@ import (
 
 // remoteTargetCaller/Receiver are shims translating between capability API calls and network messages
 type remoteTargetCaller struct {
-	remoteCapabilityInfo commoncap.CapabilityInfo
-	localDONInfo         capabilities.DON
-	dispatcher           types.Dispatcher
-	lggr                 logger.Logger
-	messageIDToWaitgroup sync.Map
-	messageIDToResponse  sync.Map
+	remoteCapabilityInfo    commoncap.CapabilityInfo
+	remoteCapabilityDonInfo capabilities.DON
+	localDONInfo            capabilities.DON
+	dispatcher              types.Dispatcher
+	lggr                    logger.Logger
+	messageIDToWaitgroup    sync.Map
+	messageIDToResponse     sync.Map
 }
 
 var _ commoncap.TargetCapability = &remoteTargetCaller{}
 var _ types.Receiver = &remoteTargetCaller{}
 
-func NewRemoteTargetCaller(lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher) (*remoteTargetCaller, error) {
-
-	if remoteCapabilityInfo.DON == nil {
-		return nil, errors.New("missing remote capability DON info")
-	}
+func NewRemoteTargetCaller(lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, remoteCapabilityDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher) (*remoteTargetCaller, error) {
 
 	return &remoteTargetCaller{
-		remoteCapabilityInfo: remoteCapabilityInfo,
-		localDONInfo:         localDonInfo,
-		dispatcher:           dispatcher,
-		lggr:                 lggr,
+		remoteCapabilityInfo:    remoteCapabilityInfo,
+		remoteCapabilityDonInfo: remoteCapabilityDonInfo,
+		localDONInfo:            localDonInfo,
+		dispatcher:              dispatcher,
+		lggr:                    lggr,
 	}, nil
 }
 
@@ -135,14 +133,14 @@ func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, r
 
 	message := &types.MessageBody{
 		CapabilityId:    c.remoteCapabilityInfo.ID,
-		CapabilityDonId: c.remoteCapabilityInfo.DON.ID,
+		CapabilityDonId: c.remoteCapabilityDonInfo.ID,
 		CallerDonId:     c.localDONInfo.ID,
 		Method:          types.MethodExecute,
 		Payload:         rawRequest,
 		MessageId:       messageID[:],
 	}
 
-	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(c.remoteCapabilityInfo.DON.Members, c.localDONInfo.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
+	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(c.remoteCapabilityDonInfo.Members, c.localDONInfo.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
 	if err != nil {
 		return fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}

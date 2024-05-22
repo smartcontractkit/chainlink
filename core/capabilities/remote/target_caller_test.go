@@ -31,7 +31,7 @@ func Test_TargetCallerExecuteContextTimeout(t *testing.T) {
 	require.NoError(t, p1.UnmarshalText([]byte(PeerID1)))
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(PeerID2)))
-	capDonInfo := &commoncap.DON{
+	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
@@ -42,7 +42,6 @@ func Test_TargetCallerExecuteContextTimeout(t *testing.T) {
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
 		Version:        "0.0.1",
-		DON:            capDonInfo,
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -53,7 +52,7 @@ func Test_TargetCallerExecuteContextTimeout(t *testing.T) {
 
 	dispatcher := NewTestDispatcher()
 
-	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, workflowDonInfo, dispatcher)
+	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher)
 	require.NoError(t, err)
 
 	err = dispatcher.SetReceiver("cap_id", "workflow-don", caller)
@@ -84,7 +83,7 @@ func Test_TargetCallerExecute(t *testing.T) {
 	require.NoError(t, p1.UnmarshalText([]byte(PeerID1)))
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(PeerID2)))
-	capDonInfo := &commoncap.DON{
+	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
@@ -95,7 +94,6 @@ func Test_TargetCallerExecute(t *testing.T) {
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
 		Version:        "0.0.1",
-		DON:            capDonInfo,
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -106,7 +104,7 @@ func Test_TargetCallerExecute(t *testing.T) {
 
 	dispatcher := NewTestDispatcher()
 
-	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, workflowDonInfo, dispatcher)
+	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher)
 	require.NoError(t, err)
 
 	err = dispatcher.SetReceiver("cap_id", "workflow-don", caller)
@@ -162,7 +160,7 @@ func Test_TargetCallerExecuteWithError(t *testing.T) {
 	require.NoError(t, p1.UnmarshalText([]byte(PeerID1)))
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(PeerID2)))
-	capDonInfo := &commoncap.DON{
+	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
@@ -173,7 +171,6 @@ func Test_TargetCallerExecuteWithError(t *testing.T) {
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
 		Version:        "0.0.1",
-		DON:            capDonInfo,
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -184,7 +181,7 @@ func Test_TargetCallerExecuteWithError(t *testing.T) {
 
 	dispatcher := NewTestDispatcher()
 
-	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, workflowDonInfo, dispatcher)
+	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher)
 	require.NoError(t, err)
 
 	err = dispatcher.SetReceiver("cap_id", "workflow-don", caller)
