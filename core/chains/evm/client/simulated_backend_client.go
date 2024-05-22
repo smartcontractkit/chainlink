@@ -66,11 +66,12 @@ var (
 // SimulatedBackendClient is an Client implementation using a simulated
 // blockchain backend. Note that not all RPC methods are implemented here.
 type SimulatedBackendClient struct {
-	b            *simulated.Backend
-	client       simulated.Client
-	t            testing.TB
-	chainId      *big.Int
-	optimismMode bool
+	b                    evmtypes.Backend // *simulated.Backend, or something satisfying same interface
+	client               simulated.Client
+	t                    testing.TB
+	chainId              *big.Int
+	optimismMode         bool
+	headByNumberCallback func(ctx context.Context, c *SimulatedBackendClient, n *big.Int) error
 }
 
 // NewSimulatedBackendClient creates an eth client backed by a simulated backend.
@@ -88,7 +89,7 @@ func NewSimulatedBackendClient(t testing.TB, b *simulated.Backend, chainId *big.
 // where success rather than an error code is returned when a call to FilterLogs() fails to find the block hash
 // requested. This combined with a failover event can lead to the "eventual consistency" behavior that Backup LogPoller
 // and other solutions were designed to recover from.
-func (c *SimulatedBackendClient) SetBackend(backend *simulated.Backend, optimismMode bool) {
+func (c *SimulatedBackendClient) SetBackend(backend evmtypes.Backend, optimismMode bool) {
 	c.optimismMode = optimismMode
 	c.b = backend
 	c.client = backend.Client()
@@ -229,6 +230,10 @@ func (c *SimulatedBackendClient) blockNumber(ctx context.Context, number interfa
 	}
 }
 
+func (c *SimulatedBackendClient) RegisterHeadByNumberCallback(cb func(ctx context.Context, c *SimulatedBackendClient, n *big.Int) error) {
+	c.headByNumberCallback = cb
+}
+
 // HeadByNumber returns our own header type.
 func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 	if n == nil {
@@ -240,6 +245,14 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 	} else if header == nil {
 		return nil, ethereum.NotFound
 	}
+
+	if c.headByNumberCallback != nil {
+		err = c.headByNumberCallback(ctx, c, n)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &evmtypes.Head{
 		EVMChainID: ubig.NewI(c.chainId.Int64()),
 		Hash:       header.Hash(),
@@ -530,7 +543,7 @@ func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *
 	return c.client.SuggestGasTipCap(ctx)
 }
 
-func (c *SimulatedBackendClient) Backend() *simulated.Backend {
+func (c *SimulatedBackendClient) Backend() evmtypes.Backend {
 	return c.b
 }
 

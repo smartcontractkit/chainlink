@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -38,7 +39,7 @@ type TestHarness struct {
 	ORM, ORM2                        logpoller.ORM
 	LogPoller                        logpoller.LogPollerTest
 	Client                           *client.SimulatedBackendClient
-	Backend                          *simulated.Backend
+	Backend                          evmtypes.Backend
 	Owner                            *bind.TransactOpts
 	Emitter1, Emitter2               *log_emitter.LogEmitter
 	EmitterAddress1, EmitterAddress2 common.Address
@@ -117,7 +118,7 @@ func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 
 // Simulates an RPC failover event to an alternate rpc server. This can also be used to
 // simulate switching back to the primary rpc after it recovers.
-func (th *TestHarness) SetActiveClient(backend *simulated.Backend, optimismMode bool) {
+func (th *TestHarness) SetActiveClient(backend evmtypes.Backend, optimismMode bool) {
 	th.Backend = backend
 	th.Client.SetBackend(backend, optimismMode)
 }
