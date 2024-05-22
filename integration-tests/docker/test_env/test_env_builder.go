@@ -300,11 +300,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				}
 
 				// flush logs when test failed or when we are explicitly told to collect logs
-				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
-					if shutdownErr := flushLogStreamFn(); shutdownErr != nil {
-						return
-					}
-				}
+				flushLogStream := b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect
 
 				// run even if test has failed, as we might be able to catch additional problems without running the test again
 				if b.chainlinkNodeLogScannerSettings != nil {
@@ -329,12 +325,18 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 							b.l.Error().Err(err).Msg("Error processing logs")
 							return
 						} else if err != nil && (strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr)) {
-							// err return ignored on purpose since we are already failing the test
-							_ = flushLogStreamFn()
+							flushLogStream = true
 							b.t.Fatalf("Found a concerning log in Chainklink Node logs: %v", err)
 						}
 					}
 					b.l.Info().Msg("Finished scanning Chainlink Node logs for concerning errors")
+				}
+
+				if flushLogStream {
+					err := flushLogStreamFn()
+					if err != nil {
+						b.l.Err(err).Msg("Error flushing LogStream")
+					}
 				}
 			})
 		} else {
