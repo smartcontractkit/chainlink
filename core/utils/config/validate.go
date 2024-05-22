@@ -39,9 +39,7 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 		} else if v.CanAddr() {
 			i = v.Addr().Interface()
 			if vc, ok := i.(Validated); ok {
-				for _, e := range utils.UnwrapError(vc.ValidateConfig()) {
-					err = multierr.Append(err, e)
-				}
+				err = multierr.Append(err, vc.ValidateConfig())
 			}
 		}
 	}
@@ -76,9 +74,7 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 			// skip the interface if Anonymous, since the parent struct inherits the methods
 			if fe := validate(fv, !ft.Anonymous); fe != nil {
 				if ft.Anonymous {
-					for _, e := range utils.UnwrapError(fe) {
-						err = multierr.Append(err, e)
-					}
+					err = multierr.Append(err, fe)
 				} else {
 					err = multierr.Append(err, NamedMultiErrorList(fe, ft.Name))
 				}
