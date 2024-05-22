@@ -1374,6 +1374,8 @@ func (r *Router) GetFee(destChainSelector uint64, message router.ClientEVM2AnyMe
 type SendReqEventData struct {
 	MessageId      [32]byte
 	SequenceNumber uint64
+	DataLength     int
+	NoOfTokens     int
 	Raw            types.Log
 }
 

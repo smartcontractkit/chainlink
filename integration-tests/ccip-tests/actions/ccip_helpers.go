@@ -1587,7 +1587,13 @@ func (sourceCCIP *SourceCCIPModule) AssertEventCCIPSendRequested(
 					for i, sendRequestedEvent := range sendRequestedEvents {
 						seqNum := sendRequestedEvent.SequenceNumber
 						// prevEventAt is the time when the message was successful, this should be same as the time when the event was emitted
-						reqStat[i].UpdateState(lggr, seqNum, testreporters.CCIPSendRe, 0, testreporters.Success)
+						reqStat[i].UpdateState(lggr, seqNum, testreporters.CCIPSendRe, 0, testreporters.Success,
+							testreporters.TransactionStats{
+								MsgID:              fmt.Sprintf("0x%x", sendRequestedEvent.MessageId[:]),
+								TxHash:             "",
+								NoOfTokensSent:     sendRequestedEvent.NoOfTokens,
+								MessageBytesLength: int64(sendRequestedEvent.DataLength),
+							})
 					}
 					var err error
 					if len(sendRequestedEvents) == 0 {
@@ -2191,6 +2197,7 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 							testreporters.Success,
 							testreporters.TransactionStats{
 								TxHash:  vLogs.TxHash.Hex(),
+								MsgID:   fmt.Sprintf("0x%x", e.MessageId[:]),
 								GasUsed: gasUsed,
 							},
 						)
@@ -3069,6 +3076,8 @@ func (lane *CCIPLane) StartEventWatchers() error {
 						&contracts.SendReqEventData{
 							MessageId:      e.Message.MessageId,
 							SequenceNumber: e.Message.SequenceNumber,
+							DataLength:     len(e.Message.Data),
+							NoOfTokens:     len(e.Message.TokenAmounts),
 							Raw:            e.Raw,
 						}))
 				} else {
@@ -3076,6 +3085,8 @@ func (lane *CCIPLane) StartEventWatchers() error {
 						{
 							MessageId:      e.Message.MessageId,
 							SequenceNumber: e.Message.SequenceNumber,
+							DataLength:     len(e.Message.Data),
+							NoOfTokens:     len(e.Message.TokenAmounts),
 							Raw:            e.Raw,
 						},
 					})
