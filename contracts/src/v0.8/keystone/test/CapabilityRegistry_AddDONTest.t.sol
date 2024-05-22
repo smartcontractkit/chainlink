@@ -9,8 +9,8 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
   event ConfigSet(uint32 donId, uint32 configCount);
 
   uint32 private constant DON_ID = 1;
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
-  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 1;
+  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
+  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
   bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
   bytes private constant CONFIG = bytes("onchain-config");
 
@@ -162,21 +162,15 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     emit ConfigSet(DON_ID, 1);
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
 
-    (
-      uint32 id,
-      uint32 configCount,
-      bool isPublic,
-      bytes32[] memory donNodes,
-      CapabilityRegistry.CapabilityConfiguration[] memory donCapabilityConfigs
-    ) = s_capabilityRegistry.getDON(DON_ID);
-    assertEq(id, DON_ID);
-    assertEq(configCount, 1);
-    assertEq(isPublic, true);
-    assertEq(donCapabilityConfigs.length, capabilityConfigs.length);
-    assertEq(donCapabilityConfigs[0].capabilityId, s_basicHashedCapabilityId);
+    CapabilityRegistry.DONParams memory donParams = s_capabilityRegistry.getDON(DON_ID);
+    assertEq(donParams.id, DON_ID);
+    assertEq(donParams.configCount, 1);
+    assertEq(donParams.isPublic, true);
+    assertEq(donParams.capabilityConfigurations.length, capabilityConfigs.length);
+    assertEq(donParams.capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
     assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), CONFIG);
 
-    assertEq(donNodes.length, nodes.length);
-    assertEq(donNodes[0], P2P_ID);
+    assertEq(donParams.nodeP2PIds.length, nodes.length);
+    assertEq(donParams.nodeP2PIds[0], P2P_ID);
   }
 }

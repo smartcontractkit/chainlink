@@ -13,6 +13,7 @@ import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.so
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
+  using EnumerableSet for EnumerableSet.UintSet;
 
   struct NodeOperator {
     /// @notice The address of the admin that can manage a node
@@ -135,6 +136,20 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bool isPublic;
     /// @notice Mapping of config counts to configurations
     mapping(uint32 configCount => DONCapabilityConfig donConfig) config;
+  }
+
+  struct DONParams {
+    /// @notice Computed. Auto-increment.
+    uint32 id;
+    /// @notice The number of times the DON was configured
+    uint32 configCount;
+    /// @notice True if the DON is public.  A public DON means that it accepts
+    /// external capability requests
+    bool isPublic;
+    /// @notice List of member node P2P Ids
+    bytes32[] nodeP2PIds;
+    /// @notice List of capability configurations
+    CapabilityConfiguration[] capabilityConfigurations;
   }
 
   /// @notice This error is thrown when a caller is not allowed
@@ -264,8 +279,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// Deprecated capabilities are skipped by the `getCapabilities` function.
   EnumerableSet.Bytes32Set private s_deprecatedHashedCapabilityIds;
 
+  /// @notice Set of removed Node Operator IDs
+  EnumerableSet.UintSet private s_removedNodeOperatorIds;
+
+  /// @notice Set of removed DON IDs
+  EnumerableSet.UintSet private s_removedDONIds;
+
   /// @notice Encoded node signer addresses
   EnumerableSet.Bytes32Set private s_nodeSigners;
+
+  /// @notice Set of node P2P IDs
+  EnumerableSet.Bytes32Set private s_nodeP2PIds;
 
   /// @notice Mapping of node operators
   mapping(uint256 nodeOperatorId => NodeOperator nodeOperator) private s_nodeOperators;
@@ -277,10 +301,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   mapping(uint32 donId => DON don) private s_dons;
 
   /// @notice The latest node operator ID
+  // @dev Starting with 1 to avoid confusion with the zero value
   /// @dev No getter for this as this is an implementation detail
-  uint256 private s_nodeOperatorId;
+  uint32 private s_nodeOperatorId = 1;
 
-  /// @notice Starting with 1 to avoid confusion with the zero value.
+  /// @notice The latest DON ID
+  /// @dev Starting with 1 to avoid confusion with the zero value
   /// @dev No getter for this as this is an implementation detail
   uint32 private s_donId = 1;
 
@@ -307,6 +333,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < nodeOperatorIds.length; ++i) {
       uint256 nodeOperatorId = nodeOperatorIds[i];
       delete s_nodeOperators[nodeOperatorId];
+      s_removedNodeOperatorIds.add(nodeOperatorId);
       emit NodeOperatorRemoved(nodeOperatorId);
     }
   }
@@ -342,6 +369,22 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     return s_nodeOperators[nodeOperatorId];
   }
 
+  /// @notice Gets all node operators
+  /// @return NodeOperator[] All node operators
+  function getNodeOperators() external view returns (NodeOperator[] memory) {
+    uint32 nodeOperatorId = s_nodeOperatorId;
+    /// Minus one to account for s_nodeOperatorId starting at index 1
+    NodeOperator[] memory nodeOperators = new NodeOperator[](s_nodeOperatorId - s_removedNodeOperatorIds.length() - 1);
+    uint256 idx;
+    for (uint256 i = 1; i < nodeOperatorId; ++i) {
+      if (!s_removedNodeOperatorIds.contains(i)) {
+        nodeOperators[idx] = s_nodeOperators[i];
+        ++idx;
+      }
+    }
+    return nodeOperators;
+  }
+
   /// @notice Adds nodes. Nodes can be added with deprecated capabilities to
   /// avoid breaking changes when deprecating capabilities.
   /// @param nodes The nodes to add
@@ -374,6 +417,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       s_nodes[node.p2pId].p2pId = node.p2pId;
       s_nodes[node.p2pId].signer = node.signer;
       s_nodeSigners.add(node.signer);
+      s_nodeP2PIds.add(node.p2pId);
       emit NodeAdded(node.p2pId, node.nodeOperatorId, node.signer);
     }
   }
@@ -393,6 +437,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
       s_nodeSigners.remove(s_nodes[p2pId].signer);
+      s_nodeP2PIds.remove(s_nodes[p2pId].p2pId);
       delete s_nodes[p2pId];
       emit NodeRemoved(p2pId);
     }
@@ -447,7 +492,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node to query for
   /// @return NodeParams The node data
   /// @return configCount The number of times the node has been configured
-  function getNode(bytes32 p2pId) external view returns (NodeParams memory, uint32 configCount) {
+  function getNode(bytes32 p2pId) public view returns (NodeParams memory, uint32 configCount) {
     return (
       NodeParams({
         nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
@@ -457,6 +502,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       }),
       s_nodes[p2pId].configCount
     );
+  }
+
+  /// @notice Gets all nodes
+  /// @return NodeParams[] All nodes in the capability registry
+  /// @return uint32[] All the config counts for the nodes in the capability registry
+  function getNodes() external view returns (NodeParams[] memory, uint32[] memory) {
+    bytes32[] memory p2pIds = s_nodeP2PIds.values();
+    NodeParams[] memory nodeParams = new NodeParams[](p2pIds.length);
+    uint32[] memory configCounts = new uint32[](p2pIds.length);
+
+    for (uint256 i; i < p2pIds.length; ++i) {
+      bytes32 p2pId = p2pIds[i];
+      (NodeParams memory node, uint32 configCount) = getNode(p2pId);
+      nodeParams[i] = node;
+      configCounts[i] = configCount;
+    }
+    return (nodeParams, configCounts);
   }
 
   /// @notice Adds a new capability to the capability registry
@@ -587,20 +649,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       // DON config count starts at index 1
       if (don.configCount == 0) revert DONDoesNotExist(donId);
       delete s_dons[donId];
+      s_removedDONIds.add(donId);
       emit ConfigSet(donId, 0);
     }
   }
 
   /// @notice Gets DON's data
   /// @param donId The DON ID
-  /// @return uint32 The DON ID
-  /// @return uint32 The DON's config count
-  /// @return bool True if the DON is public
-  /// @return bytes32[] The list of node P2P IDs that are in the DON
-  /// @return CapabilityConfiguration[] The list of capability configurations supported by the DON
-  function getDON(
-    uint32 donId
-  ) external view returns (uint32, uint32, bool, bytes32[] memory, CapabilityConfiguration[] memory) {
+  /// @return DONParams The DON's parameters
+  function getDON(uint32 donId) public view returns (DONParams memory) {
     uint32 configCount = s_dons[donId].configCount;
 
     DONCapabilityConfig storage donCapabilityConfig = s_dons[donId].config[configCount];
@@ -615,13 +672,31 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       });
     }
 
-    return (
-      s_dons[donId].id,
-      configCount,
-      s_dons[donId].isPublic,
-      donCapabilityConfig.nodes.values(),
-      capabilityConfigurations
-    );
+    return
+      DONParams({
+        id: s_dons[donId].id,
+        configCount: configCount,
+        isPublic: s_dons[donId].isPublic,
+        nodeP2PIds: donCapabilityConfig.nodes.values(),
+        capabilityConfigurations: capabilityConfigurations
+      });
+  }
+
+  /// @notice Returns the list of configured DONs
+  /// @return DONParams[] The list of configured DONs
+  function getDONs() external view returns (DONParams[] memory) {
+    /// Minus one to account for s_nodeOperatorId starting at index 1
+    uint256 donId = s_donId;
+    DONParams[] memory dons = new DONParams[](s_donId - s_removedDONIds.length() - 1);
+    uint256 idx;
+    ///
+    for (uint32 i = 1; i < donId; ++i) {
+      if (!s_removedDONIds.contains(i)) {
+        dons[idx] = getDON(i);
+        ++idx;
+      }
+    }
+    return dons;
   }
 
   /// @notice Returns the DON specific configuration for a capability
