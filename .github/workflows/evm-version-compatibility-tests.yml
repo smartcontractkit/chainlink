@@ -21,6 +21,7 @@ jobs:
   # TODO: just for testing, remove this later
   trigger-update-internal-mirrors-workflow-in-ctf:
     permissions:
+      actions: read
       id-token: write
       contents: read
     runs-on: ubuntu-latest
