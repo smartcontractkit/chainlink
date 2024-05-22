@@ -475,14 +475,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub.On("Err").Return(nil)
 		sub.On("Unsubscribe")
 		ch := make(chan Head, 1)
-		// TODO: Should the head subscription even update the finalized block metric?
-		// TODO: Or only the finalized head subscription??
-		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Run(func(args mock.Arguments) {
-			// ensure that "calculated" finalized head is larger than actual, to ensure we are correctly setting
-			// the metric
-			go writeHeads(t, ch, head{BlockNumber: expectedBlock*2 + finalityDepth})
-		}).Return((<-chan Head)(ch), sub, nil).Once()
-
+		// I think it has to in case finality tag doesn't exist?
+		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Run(func(args mock.Arguments) {
 			go writeHeads(t, ch, head{BlockNumber: expectedBlock - 1}, head{BlockNumber: expectedBlock})
 		}).Return((<-chan Head)(ch), sub, nil).Once()
