@@ -504,46 +504,6 @@ func (v *EthereumVRFCoordinatorV2_5) FilterRandomWordsFulfilledEvent(opts *bind.
 	}, nil
 }
 
-func (v *EthereumVRFCoordinatorV2_5) WaitForSubscriptionCreatedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated)
-	subscription, err := v.coordinator.WatchSubscriptionCreated(nil, eventsChannel, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for SubscriptionCreated event")
-		case sub := <-eventsChannel:
-			return sub, nil
-		}
-	}
-}
-
-func (v *EthereumVRFCoordinatorV2_5) WaitForSubscriptionCanceledEvent(subID *big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled)
-	subscription, err := v.coordinator.WatchSubscriptionCanceled(nil, eventsChannel, []*big.Int{subID})
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for SubscriptionCanceled event")
-		case sub := <-eventsChannel:
-			return sub, nil
-		}
-	}
-}
-
 func (v *EthereumVRFCoordinatorV2_5) WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error) {
 	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled)
 	subscription, err := v.coordinator.WatchRandomWordsFulfilled(nil, randomWordsFulfilledEventsChannel, filter.RequestIds, filter.SubIDs)
