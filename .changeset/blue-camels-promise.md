@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#changed Move ClientErrors interface to common
+#changed Remove ClientErrors interface from common
