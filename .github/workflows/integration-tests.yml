@@ -320,9 +320,15 @@ jobs:
           - name: ccip-smoke-self-serve-offramp-arl
             nodes: 1
             dir: ccip-tests/smoke
-            os: ubuntu20.04-16cores-64GB
+            os: ubuntu-latest
             file: ccip
             run: -run ^TestSmokeCCIPSelfServeRateLimitOffRamp$
+          - name: ccip-smoke-self-serve-onramp-arl
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPSelfServeRateLimitOnRamp$
           - name: runlog
             id: runlog
             nodes: 2
