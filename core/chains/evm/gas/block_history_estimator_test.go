@@ -2835,21 +2835,21 @@ func TestBlockHistoryEstimator_CheckInclusionPercentile_Calculation(t *testing.T
 
 		b0 := evmtypes.Block{
 			BaseFeePerGas: assets.NewWeiI(1),
-			Number:       0,
-			Hash:         utils.NewHash(),
-			Transactions: dynamicFeeTransactionsFromTipCaps(1, 2, 3),
+			Number:        0,
+			Hash:          utils.NewHash(),
+			Transactions:  dynamicFeeTransactionsFromTipCaps(1, 2, 3),
 		}
 		b1 := evmtypes.Block{
 			BaseFeePerGas: assets.NewWeiI(2),
-			Number:       1,
-			Hash:         utils.NewHash(),
-			Transactions: dynamicFeeTransactionsFromTipCaps(4, 5, 6),
+			Number:        1,
+			Hash:          utils.NewHash(),
+			Transactions:  dynamicFeeTransactionsFromTipCaps(4, 5, 6),
 		}
 		b2 := evmtypes.Block{
 			BaseFeePerGas: assets.NewWeiI(3),
-			Number:       2,
-			Hash:         utils.NewHash(),
-			Transactions: dynamicFeeTransactionsFromTipCaps(7, 8, 9),
+			Number:        2,
+			Hash:          utils.NewHash(),
+			Transactions:  dynamicFeeTransactionsFromTipCaps(7, 8, 9),
 		}
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
