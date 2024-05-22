@@ -139,6 +139,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
+		"prometheus": true,
 	}, ocrTestConfig.GetChainlinkImageConfig(), overrideFn)
 
 	testEnvironment := environment.New(baseEnvironmentConfig).
