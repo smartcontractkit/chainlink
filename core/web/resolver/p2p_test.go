@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -53,7 +54,7 @@ func TestResolver_GetP2PKeys(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.p2p.On("GetAll").Return(fakeKeys, nil)
 				f.Mocks.keystore.On("P2P").Return(f.Mocks.p2p)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -102,7 +103,7 @@ func TestResolver_CreateP2PKey(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.p2p.On("Create", mock.Anything).Return(fakeKey, nil)
 				f.Mocks.keystore.On("P2P").Return(f.Mocks.p2p)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -163,7 +164,7 @@ func TestResolver_DeleteP2PKey(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.p2p.On("Delete", mock.Anything, peerID).Return(fakeKey, nil)
 				f.Mocks.keystore.On("P2P").Return(f.Mocks.p2p)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -175,7 +176,7 @@ func TestResolver_DeleteP2PKey(t *testing.T) {
 		{
 			name:          "not found error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.p2p.
 					On("Delete", mock.Anything, peerID).
 					Return(
