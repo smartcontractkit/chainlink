@@ -731,7 +731,7 @@ func (e *CCIPContractsDeployer) NewPriceRegistry(addr common.Address) (
 	*PriceRegistry,
 	error,
 ) {
-	var wrapper *PriceRegistryWrappers
+	var wrapper *PriceRegistryWrapper
 	version := VersionMap[PriceRegistryContract]
 	e.logger.Info().Str("version", string(version)).Msg("New PriceRegistry")
 	switch version {
@@ -740,7 +740,7 @@ func (e *CCIPContractsDeployer) NewPriceRegistry(addr common.Address) (
 		if err != nil {
 			return nil, fmt.Errorf("error in creating price registry instance: %w", err)
 		}
-		wrapper = &PriceRegistryWrappers{
+		wrapper = &PriceRegistryWrapper{
 			Latest: ins,
 		}
 	case V1_2_0:
@@ -748,7 +748,7 @@ func (e *CCIPContractsDeployer) NewPriceRegistry(addr common.Address) (
 		if err != nil {
 			return nil, fmt.Errorf("error in creating price registry instance: %w", err)
 		}
-		wrapper = &PriceRegistryWrappers{
+		wrapper = &PriceRegistryWrapper{
 			V1_2_0: ins,
 		}
 	default:
@@ -770,7 +770,7 @@ func (e *CCIPContractsDeployer) NewPriceRegistry(addr common.Address) (
 
 func (e *CCIPContractsDeployer) DeployPriceRegistry(tokens []common.Address) (*PriceRegistry, error) {
 	var address *common.Address
-	var wrapper *PriceRegistryWrappers
+	var wrapper *PriceRegistryWrapper
 	var err error
 	var instance interface{}
 	version := VersionMap[PriceRegistryContract]
@@ -786,7 +786,7 @@ func (e *CCIPContractsDeployer) DeployPriceRegistry(tokens []common.Address) (*P
 		if err != nil {
 			return nil, err
 		}
-		wrapper = &PriceRegistryWrappers{
+		wrapper = &PriceRegistryWrapper{
 			Latest: instance.(*price_registry.PriceRegistry),
 		}
 	case V1_2_0:
@@ -799,7 +799,7 @@ func (e *CCIPContractsDeployer) DeployPriceRegistry(tokens []common.Address) (*P
 		if err != nil {
 			return nil, err
 		}
-		wrapper = &PriceRegistryWrappers{
+		wrapper = &PriceRegistryWrapper{
 			V1_2_0: instance.(*price_registry_1_2_0.PriceRegistry),
 		}
 	default:

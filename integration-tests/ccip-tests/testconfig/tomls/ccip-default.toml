@@ -17,34 +17,37 @@ TTL = '5h'
 # then lanes will be set up between SIMULATED_1 and SIMULATED_2, SIMULATED_1 and SIMULATED_3, SIMULATED_2 and SIMULATED_3
 # default value is ['SIMULATED_1', 'SIMULATED_2'] which means that test will create two private geth networks from scratch and set up lanes between them
 [CCIP.Env.Network]
-selected_networks= ['SIMULATED_1', 'SIMULATED_2']
+selected_networks = ['SIMULATED_1', 'SIMULATED_2']
 
 # PrivateEthereumNetworks.NETWORK_NAME contains the configuration of private ethereum network that includes ethereum version, evm node client, chain id,
 # certain chain configurations, addresses to fund or custom docker images to be used. These are non-dev networks, but they all run just a single node.
 [CCIP.Env.PrivateEthereumNetworks.SIMULATED_1]
 # either eth1 or eth2 (for post-Merge); for eth2 Prysm is used for consensus layer.
-ethereum_version="eth1"
+ethereum_version = "eth1"
 # geth, besu, erigon or nethermind
-execution_layer="geth"
+execution_layer = "geth"
 # eth2-only, if set to true environment startup will wait until at least 1 epoch has been finalised
 #wait_for_finalization=false
 
 [CCIP.Env.PrivateEthereumNetworks.SIMULATED_1.EthereumChainConfig]
 # eth2-only, the lower the value the faster the block production (3 is minimum)
-seconds_per_slot=3
+seconds_per_slot = 3
 # eth2-only, the lower the value the faster the epoch finalisation (2 is minimum)
-slots_per_epoch=2
+slots_per_epoch = 2
 # eht2-only, the lower tha value the faster the chain starts (10 is minimum)
-genesis_delay=15
+genesis_delay = 15
 # eth2-only, number of validators
-validator_count=4
-chain_id=1337
+validator_count = 4
+chain_id = 1337
 # address that should be founded in genesis wih ETH
-addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"]
+addresses_to_fund = [
+    "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+]
 
 [CCIP.Env.PrivateEthereumNetworks.SIMULATED_1.EthereumChainConfig.HardForkEpochs]
 # eth2-only, epoch at which chain will upgrade do Dencun or Deneb/Cancun (1 is minimum)
-Deneb=500
+Deneb = 500
 
 # [PrivateEthereumNetwork.CustomDockerImages]
 # custom docker image that will be used for execution layer client. It has to be one of: hyperledger/besu, nethermind/nethermind, thorax/erigon or ethereum/client-go.
@@ -53,30 +56,33 @@ Deneb=500
 # execution_layer="hyperledger/besu:24.2.0-RC2"
 
 [CCIP.Env.PrivateEthereumNetworks.SIMULATED_2]
-ethereum_version="eth1"
-execution_layer="geth"
+ethereum_version = "eth1"
+execution_layer = "geth"
 
 [CCIP.Env.PrivateEthereumNetworks.SIMULATED_2.EthereumChainConfig]
-seconds_per_slot=3
-slots_per_epoch=2
-genesis_delay=15
-validator_count=4
-chain_id=2337
-addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"]
+seconds_per_slot = 3
+slots_per_epoch = 2
+genesis_delay = 15
+validator_count = 4
+chain_id = 2337
+addresses_to_fund = [
+    "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+]
 
 [CCIP.Env.PrivateEthereumNetworks.SIMULATED_2.EthereumChainConfig.HardForkEpochs]
-Deneb=500
+Deneb = 500
 
 [CCIP.Env.Logging]
-test_log_collect=false # if set to true will save logs even if test did not fail
+test_log_collect = false # if set to true will save logs even if test did not fail
 
 [CCIP.Env.Logging.LogStream]
 # supported targets: file, loki, in-memory. if empty no logs will be persistet
-log_targets=["file"]
+log_targets = ["file"]
 # context timeout for starting log producer and also time-frame for requesting logs
-log_producer_timeout="10s"
+log_producer_timeout = "10s"
 # number of retries before log producer gives up and stops listening to logs
-log_producer_retry_limit=10
+log_producer_retry_limit = 10
 
 # these values will be used to set up chainlink DON
 # along with these values, the secrets needs to be specified as part of .env variables
@@ -92,13 +98,17 @@ DBMemory = '4Gi' # memory to be allocated to postgresql database ; only used if 
 DBCPU = '2' # cpu to be allocated to postgresql database ; only used if tests are in k8s
 DBCapacity = '10Gi' # disk space to be allocated to postgresql database ; only used if tests are in k8s in stateful deployment
 IsStateful = true # if true, chainlink nodes and postgresql database will be deployed as stateful set in k8s
-DBArgs = ['shared_buffers=1536MB', 'effective_cache_size=4096MB', 'work_mem=64MB'] # postgresql database arguments ; only used if tests are in k8s
+DBArgs = [
+    'shared_buffers=1536MB',
+    'effective_cache_size=4096MB',
+    'work_mem=64MB',
+] # postgresql database arguments ; only used if tests are in k8s
 
 # these values will be used to set up chainlink DON, if all the chainlink nodes are deployed with same configuration
 [CCIP.Env.NewCLCluster.Common]
-Name = 'node1' # name of the chainlink node, used as prefix for all the chainlink node names , used for k8s deployment
+Name = 'node1'       # name of the chainlink node, used as prefix for all the chainlink node names , used for k8s deployment
 DBImage = 'postgres' # postgresql database image to be used for k8s deployment
-DBTag = '13.12' # postgresql database image tag to be used for k8s deployment
+DBTag = '13.12'      # postgresql database image tag to be used for k8s deployment
 # override config toml file for chainlink nodes
 BaseConfigTOML = """
 [Feature]
@@ -227,41 +237,41 @@ EIP1559FeeCapBufferBlocks = 0
 # if specified, CCIP.Groups.<test_type>.NetworkPairs takes precedence over CCIP.Env.NetworkPairs and CCIP.Groups.<test_type>.NoOfNetworks
 #NetworkPairs =  ['SEPOLIA,OPTIMISM_GOERLI','SEPOLIA,POLYGON_MUMBAI','AVALANCHE_FUJI,SEPOLIA','SEPOLIA,BASE_GOERLI','SEPOLIA,BSC_TESTNET','SEPOLIA,WEMIX_TESTNET','AVALANCHE_FUJI,OPTIMISM_GOERLI','AVALANCHE_FUJI,POLYGON_MUMBAI','AVALANCHE_FUJI,BSC_TESTNET','AVALANCHE_FUJI,BASE_GOERLI','OPTIMISM_GOERLI,BASE_GOERLI','OPTIMISM_GOERLI,POLYGON_MUMBAI','BSC_TESTNET,POLYGON_MUMBAI','BSC_TESTNET,BASE_GOERLI','WEMIX_TESTNET,KROMA_SEPOLIA']
 
-KeepEnvAlive = false                # if true, the test will not tear down the test environment after the test is finished
-CommitAndExecuteOnSameDON = true    # if true, and the test is building the env from scratch, same chainlink nodes will be used for Commit and Execution jobs.
+KeepEnvAlive = false             # if true, the test will not tear down the test environment after the test is finished
+CommitAndExecuteOnSameDON = true # if true, and the test is building the env from scratch, same chainlink nodes will be used for Commit and Execution jobs.
 # Otherwise Commit and execution jobs will be set up in different nodes based on the number of nodes specified in NoOfCommitNodes and CCIP.Env.NewCLCluster.NoOfNodes
-BiDirectionalLane = true            # True uses both the lanes. If bidirectional is false only one way lane is set up.
-NoOfCommitNodes = 5                 # no of chainlink nodes with Commit job
-PhaseTimeout = '10m'                # Duration to wait for the each phase validation(SendRequested, Commit, RMN Blessing, Execution) to time-out.
-LocalCluster = true                 # if true, the test will use the local docker container, otherwise it will use the k8s cluster
-ExistingDeployment = false          # true if the tests are run on existing environment with already set-up jobs, smart contracts, etc...
+BiDirectionalLane = true   # True uses both the lanes. If bidirectional is false only one way lane is set up.
+NoOfCommitNodes = 5        # no of chainlink nodes with Commit job
+PhaseTimeout = '10m'       # Duration to wait for the each phase validation(SendRequested, Commit, RMN Blessing, Execution) to time-out.
+LocalCluster = true        # if true, the test will use the local docker container, otherwise it will use the k8s cluster
+ExistingDeployment = false # true if the tests are run on existing environment with already set-up jobs, smart contracts, etc...
 # In this case the test will only be used to send and verify ccip requests considering that lanes are already functioning.
 # In case of ExistingDeployment = false, the test will deploy it's own contracts and spin up new chainlink nodes with ccip jobs. It will then use
 # the newly deployed contracts to send and verify ccip requests.
 
-ReuseContracts = true               # Whether to reuse the contracts deployed in the previous run. Default value is true unless specified
-NodeFunding = 1.0                   # Amount of native currency to fund the chainlink node with for each network. Default value is 1 for smoke and 20 for load unless specified
-NoOfRoutersPerPair = 1              # denotes the number of routers to be deployed per network. mostly required for scalability tests.
-MulticallInOneTx = false            #  if set to true, multiple ccip-send is grouped under one blockchain transaction
-NoOfSendsInMulticall = 5            # if MulticallInOneTx=true , this denotes the number of ccip-sends to group in one transaction
+ReuseContracts = true    # Whether to reuse the contracts deployed in the previous run. Default value is true unless specified
+NodeFunding = 1.0        # Amount of native currency to fund the chainlink node with for each network. Default value is 1 for smoke and 20 for load unless specified
+NoOfRoutersPerPair = 1   # denotes the number of routers to be deployed per network. mostly required for scalability tests.
+MulticallInOneTx = false #  if set to true, multiple ccip-send is grouped under one blockchain transaction
+NoOfSendsInMulticall = 5 # if MulticallInOneTx=true , this denotes the number of ccip-sends to group in one transaction
 
-NoOfNetworks = 2                    # this is used with Networks in `CCIP.Env`, `NoOfNetworks < len(CCIP.Env.Networks)` test only uses first NoOfNetworks from` CCIP.Env.Networks`.
+NoOfNetworks = 2 # this is used with Networks in `CCIP.Env`, `NoOfNetworks < len(CCIP.Env.Networks)` test only uses first NoOfNetworks from` CCIP.Env.Networks`.
 # This value is ignored if CCIP.Groups.<TestGroup>.NetworkPairs is provided
 
 
 [CCIP.Groups.smoke.MsgDetails]
 MsgType = 'DataWithToken' # type of message to be sent, either 'Token' or 'DataWithToken' Or 'Data'
-DestGasLimit = 100000               # change this to 0 gas limit if you are doing ccip-send to an EOA
-DataLength = 1000                 # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
-NoOfTokens = 2                    # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
-AmountPerToken = 1                 # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
+DestGasLimit = 100000     # change this to 0 gas limit if you are doing ccip-send to an EOA
+DataLength = 1000         # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
+NoOfTokens = 2            # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
+AmountPerToken = 1        # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
 
 [CCIP.Groups.smoke.TokenConfig]
-TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update to time-out.
+TimeoutForPriceUpdate = '15m' # Duration to wait for the price update to time-out.
 # Now testing only with dynamic price getter (no pipeline).
 # Could be removed once the pipeline is completely removed.
 WithPipeline = false
-NoOfTokensPerChain = 2              # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
+NoOfTokensPerChain = 2 # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
@@ -276,28 +286,28 @@ NoOfTokensPerChain = 2              # number of bridge tokens to be deployed per
 # if specified, CCIP.Groups.<test_type>.NetworkPairs takes precedence over CCIP.Env.NetworkPairs and CCIP.Groups.<test_type>.NoOfNetworks
 #NetworkPairs =  ['SEPOLIA,OPTIMISM_GOERLI','SEPOLIA,POLYGON_MUMBAI','AVALANCHE_FUJI,SEPOLIA','SEPOLIA,BASE_GOERLI','SEPOLIA,BSC_TESTNET','SEPOLIA,WEMIX_TESTNET','AVALANCHE_FUJI,OPTIMISM_GOERLI','AVALANCHE_FUJI,POLYGON_MUMBAI','AVALANCHE_FUJI,BSC_TESTNET','AVALANCHE_FUJI,BASE_GOERLI','OPTIMISM_GOERLI,BASE_GOERLI','OPTIMISM_GOERLI,POLYGON_MUMBAI','BSC_TESTNET,POLYGON_MUMBAI','BSC_TESTNET,BASE_GOERLI','WEMIX_TESTNET,KROMA_SEPOLIA']
 
-KeepEnvAlive = false # same as above
+KeepEnvAlive = false             # same as above
 CommitAndExecuteOnSameDON = true # same as above
-BiDirectionalLane = true # same as above
-NoOfCommitNodes = 5 # same as above
-PhaseTimeout = '10m' # same as above
-LocalCluster = false # same as above
-ExistingDeployment = false # same as above
+BiDirectionalLane = true         # same as above
+NoOfCommitNodes = 5              # same as above
+PhaseTimeout = '10m'             # same as above
+LocalCluster = false             # same as above
+ExistingDeployment = false       # same as above
 ReuseContracts = true            # same as above
-NodeFunding = 20.0 # same as above
-NoOfRoutersPerPair = 1  # same as above
-MulticallInOneTx = false # same as above
-NoOfSendsInMulticall = 5    # same as above
-NoOfNetworks = 2   # same as above
+NodeFunding = 20.0               # same as above
+NoOfRoutersPerPair = 1           # same as above
+MulticallInOneTx = false         # same as above
+NoOfSendsInMulticall = 5         # same as above
+NoOfNetworks = 2                 # same as above
 
 [CCIP.Groups.load.OffRampConfig]
 BatchGasLimit = 11000000
 
 [CCIP.Groups.load.LoadProfile]
-RequestPerUnitTime = [1] # number of ccip requests to be sent per unit time
-TimeUnit = '10s' # unit of time for RequestPerUnitTime
-TestDuration = '10m'                # load test duration, not used for smoke tests
-WaitBetweenChaosDuringLoad = '2m'   # Duration to wait between each chaos injection during load test; only valid for chaos tests
+RequestPerUnitTime = [1]          # number of ccip requests to be sent per unit time
+TimeUnit = '10s'                  # unit of time for RequestPerUnitTime
+TestDuration = '10m'              # load test duration, not used for smoke tests
+WaitBetweenChaosDuringLoad = '2m' # Duration to wait between each chaos injection during load test; only valid for chaos tests
 
 # uncomment the following if you want your test results to be reflected under CCIP test grafana dashboard with namespace label same as the value of the following variable
 # TestRunName = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta
@@ -324,18 +334,18 @@ Frequencies = [1] # frequency of each message type in the MsgDetails
 
 [[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
 MsgType = 'DataWithToken' # type of message to be sent, either 'Token' or 'DataWithToken' Or 'Data'
-DestGasLimit = 100000               # change this to 0 gas limit if you are doing ccip-send to an EOA
-DataLength = 1000                 # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
-NoOfTokens = 2                    # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
-AmountPerToken = 1                 # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
+DestGasLimit = 100000     # change this to 0 gas limit if you are doing ccip-send to an EOA
+DataLength = 1000         # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
+NoOfTokens = 2            # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
+AmountPerToken = 1        # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
 
 
 [CCIP.Groups.load.TokenConfig]
-TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update to time-out.
+TimeoutForPriceUpdate = '15m' # Duration to wait for the price update to time-out.
 # Now testing only with dynamic price getter (no pipeline).
 # Could be removed once the pipeline is completely removed.
 WithPipeline = false
-NoOfTokensPerChain = 2              # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
+NoOfTokensPerChain = 2 # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
@@ -393,23 +403,22 @@ MulticallInOneTx = false
 NoOfSendsInMulticall = 5
 NoOfNetworks = 2
 # chaos test settings
-ChaosDuration = '10m'               # Duration for whichever chaos will be injected; only valid for chaos tests
-
+ChaosDuration = '10m' # Duration for whichever chaos will be injected; only valid for chaos tests
 
 
 [CCIP.Groups.chaos.MsgDetails]
 MsgType = 'DataWithToken' # type of message to be sent, either 'Token' or 'DataWithToken' Or 'Data'
-DestGasLimit = 100000               # change this to 0 gas limit if you are doing ccip-send to an EOA
-DataLength = 1000                 # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
-NoOfTokens = 2                    # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
-AmountPerToken = 1                 # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
+DestGasLimit = 100000     # change this to 0 gas limit if you are doing ccip-send to an EOA
+DataLength = 1000         # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
+NoOfTokens = 2            # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
+AmountPerToken = 1        # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
 
 [CCIP.Groups.chaos.TokenConfig]
-TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update to time-out.
+TimeoutForPriceUpdate = '15m' # Duration to wait for the price update to time-out.
 # Now testing only with dynamic price getter (no pipeline).
 # Could be removed once the pipeline is completely removed.
 WithPipeline = false
-NoOfTokensPerChain = 2              # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
+NoOfTokensPerChain = 2 # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
