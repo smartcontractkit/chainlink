@@ -272,6 +272,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 			if err := r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err != nil {
 				return nil, err
 			}
+			lggr.Infow("successfully added trigger service to the Registry")
 		}
 	}
 
