@@ -1055,8 +1055,11 @@ func TestVRFV2NodeReorg(t *testing.T) {
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
-
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	if !network.Simulated {
+		t.Skip("Skipped since Reorg test could only be run on Simulated chain.")
+	}
+	chainID := network.ChainID
 	cleanupFn := func() {
 		sethClient, err := env.GetSethClient(chainID)
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
@@ -1236,8 +1239,8 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
-
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	chainID := network.ChainID
 	cleanupFn := func() {
 		sethClient, err := env.GetSethClient(chainID)
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
@@ -1395,14 +1398,16 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		// verify that VRF node sends fulfillments via BatchCoordinator contract
 		require.Equal(t, vrfContracts.BatchCoordinatorV2.Address(), fulfillmentTXToAddress, "Fulfillment Tx To Address should be the BatchCoordinatorV2 Address when batch fulfillment is enabled")
 
-		fulfillmentTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), fulfillmentTx.Hash())
-		require.NoError(t, err)
-
-		randomWordsFulfilledLogs, err := contracts.ParseRandomWordsFulfilledLogs(vrfContracts.CoordinatorV2, fulfillmentTxReceipt.Logs)
-		require.NoError(t, err)
-
 		// verify that all fulfillments should be inside one tx
-		require.Equal(t, int(randRequestCount), len(randomWordsFulfilledLogs))
+		// This check is disabled for live testnets since each testnet has different gas usage for similar tx
+		if network.Simulated {
+			fulfillmentTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), fulfillmentTx.Hash())
+			require.NoError(t, err)
+			randomWordsFulfilledLogs, err := contracts.ParseRandomWordsFulfilledLogs(vrfContracts.CoordinatorV2, fulfillmentTxReceipt.Logs)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(batchFulfillmentTxs))
+			require.Equal(t, int(randRequestCount), len(randomWordsFulfilledLogs))
+		}
 	})
 	t.Run("Batch Fulfillment Disabled", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
