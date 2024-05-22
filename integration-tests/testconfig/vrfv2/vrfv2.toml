@@ -2,9 +2,12 @@
 [NodeConfig]
 BaseConfigTOML = """
 [Feature]
-FeedsManager = true
 LogPoller = true
-UICSAKeys = true
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
 
 [Log]
 Level = 'debug'
@@ -17,28 +20,30 @@ MaxSize = '0b'
 AllowOrigins = '*'
 HTTPPort = 6688
 SecureCookies = false
-HTTPWriteTimeout = '1m'
-SessionTimeout = '999h0m0s'
 
 [WebServer.RateLimit]
 Authenticated = 2000
-Unauthenticated = 1000
+Unauthenticated = 100
 
 [WebServer.TLS]
 HTTPSPort = 0
-
-[Database]
-MaxIdleConns = 20
-MaxOpenConns = 40
-MigrateOnStartup = true
-
-[OCR]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-ListenAddresses = ['0.0.0.0:6690']
 """
+
+[NodeConfig.ChainConfigTOMLByChainID]
+# OPTIMISM SEPOLIA
+11155420 = """
+BlockBackfillDepth = 500
+LogBackfillBatchSize = 1000
+RPCDefaultBatchSize = 25
+
+[GasEstimator]
+LimitDefault = 3500000
+
+[GasEstimator.BlockHistory]
+BatchSize = 100
+"""
+
+
 
 [Common]
 chainlink_node_funding = 0.5
@@ -84,7 +89,7 @@ wrapper_consumer_funding_amount_link = 10
 
 # VRF Job config
 vrf_job_forwarding_allowed = false
-vrf_job_estimate_gas_multiplier = 1.0
+vrf_job_estimate_gas_multiplier = 1.1
 vrf_job_batch_fulfillment_enabled = true
 vrf_job_batch_fulfillment_gas_multiplier = 1.15
 vrf_job_poll_period = "1s"
