@@ -3,6 +3,7 @@ package smoke
 import (
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -72,14 +73,19 @@ func TestVRFv2Basic(t *testing.T) {
 			}
 		}
 	}
-	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
-		NumberOfTxKeysToCreate: 0,
-		UseVRFOwner:            false,
-		UseTestCoordinator:     false,
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: config,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
 	}
-
-	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate:          0,
+		UseVRFOwner:                     false,
+		UseTestCoordinator:              false,
+		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
+	}
+	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
 
 	sethClient, err := testEnv.GetSethClient(chainID)
@@ -232,7 +238,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 	})
-	t.Run("Direct Funding (VRFV2Wrapper)", func(t *testing.T) {
+	t.Run("Direct Funding", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		wrapperContracts, wrapperSubID, err := vrfv2.SetupVRFV2WrapperEnvironment(
 			testcontext.Get(t),
@@ -597,14 +603,19 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			}
 		}
 	}
-	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
-		NumberOfTxKeysToCreate: 2,
-		UseVRFOwner:            false,
-		UseTestCoordinator:     false,
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: config,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
 	}
-
-	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate:          2,
+		UseVRFOwner:                     false,
+		UseTestCoordinator:              false,
+		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
+	}
+	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
@@ -702,14 +713,19 @@ func TestVRFOwner(t *testing.T) {
 			}
 		}
 	}
-	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
-		NumberOfTxKeysToCreate: 0,
-		UseVRFOwner:            true,
-		UseTestCoordinator:     true,
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: config,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
 	}
-
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate:          0,
+		UseVRFOwner:                     true,
+		UseTestCoordinator:              true,
+		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
+	}
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
 
 	t.Run("Request Randomness With Force-Fulfill", func(t *testing.T) {
@@ -839,19 +855,24 @@ func TestVRFV2WithBHS(t *testing.T) {
 	//decrease default span for checking blockhashes for unfulfilled requests
 	vrfv2Config.General.BHSJobWaitBlocks = ptr.Ptr(2)
 	vrfv2Config.General.BHSJobLookBackBlocks = ptr.Ptr(20)
-
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: config,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
+	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
 		NumberOfTxKeysToCreate: 0,
 		UseVRFOwner:            false,
 		UseTestCoordinator:     false,
 	}
-
-	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
+	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
 
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
-		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
+		if os.Getenv("TEST_UNSKIP") != "true" {
+			t.Skip("Skipped due to long execution time. Should be run on-demand on live testnet with TEST_UNSKIP=\"true\".")
+		}
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
 
@@ -900,7 +921,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			randRequestBlockNumber+uint64(257),
 			sethClient,
 			&wg,
-			time.Second*260,
+			configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration,
 			t,
 			l,
 		)
@@ -1034,8 +1055,11 @@ func TestVRFV2NodeReorg(t *testing.T) {
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
-
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	if !network.Simulated {
+		t.Skip("Skipped since Reorg test could only be run on Simulated chain.")
+	}
+	chainID := network.ChainID
 	cleanupFn := func() {
 		sethClient, err := env.GetSethClient(chainID)
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
@@ -1055,12 +1079,6 @@ func TestVRFV2NodeReorg(t *testing.T) {
 			}
 		}
 	}
-	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
-		NumberOfTxKeysToCreate: 0,
-		UseVRFOwner:            false,
-		UseTestCoordinator:     false,
-	}
 
 	chainlinkNodeLogScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(
 		testreporters.NewAllowedLogMessage(
@@ -1074,8 +1092,19 @@ func TestVRFV2NodeReorg(t *testing.T) {
 			zapcore.DPanicLevel,
 			testreporters.WarnAboutAllowedMsgs_No),
 	)
-
-	env, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, chainlinkNodeLogScannerSettings)
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: config,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
+	}
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate:          0,
+		UseVRFOwner:                     false,
+		UseTestCoordinator:              false,
+		ChainlinkNodeLogScannerSettings: chainlinkNodeLogScannerSettings,
+	}
+	env, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFv2 universe")
 
 	sethClient, err := env.GetSethClient(chainID)
@@ -1139,6 +1168,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		_, err = vrfv2.WaitRandomWordsFulfilledEvent(
 			vrfContracts.CoordinatorV2,
 			randomWordsRequestedEvent.RequestId,
+			randomWordsRequestedEvent.Raw.BlockNumber,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
@@ -1209,8 +1239,8 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
-
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	chainID := network.ChainID
 	cleanupFn := func() {
 		sethClient, err := env.GetSethClient(chainID)
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
@@ -1230,14 +1260,18 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 			}
 		}
 	}
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: config,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
+	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: 0,
 		UseVRFOwner:            false,
 		UseTestCoordinator:     false,
 	}
-
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l, test_env.DefaultChainlinkNodeLogScannerSettings)
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFv2 universe")
 
 	sethClient, err := env.GetSethClient(chainID)
@@ -1364,14 +1398,16 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		// verify that VRF node sends fulfillments via BatchCoordinator contract
 		require.Equal(t, vrfContracts.BatchCoordinatorV2.Address(), fulfillmentTXToAddress, "Fulfillment Tx To Address should be the BatchCoordinatorV2 Address when batch fulfillment is enabled")
 
-		fulfillmentTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), fulfillmentTx.Hash())
-		require.NoError(t, err)
-
-		randomWordsFulfilledLogs, err := contracts.ParseRandomWordsFulfilledLogs(vrfContracts.CoordinatorV2, fulfillmentTxReceipt.Logs)
-		require.NoError(t, err)
-
 		// verify that all fulfillments should be inside one tx
-		require.Equal(t, int(randRequestCount), len(randomWordsFulfilledLogs))
+		// This check is disabled for live testnets since each testnet has different gas usage for similar tx
+		if network.Simulated {
+			fulfillmentTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), fulfillmentTx.Hash())
+			require.NoError(t, err)
+			randomWordsFulfilledLogs, err := contracts.ParseRandomWordsFulfilledLogs(vrfContracts.CoordinatorV2, fulfillmentTxReceipt.Logs)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(batchFulfillmentTxs))
+			require.Equal(t, int(randRequestCount), len(randomWordsFulfilledLogs))
+		}
 	})
 	t.Run("Batch Fulfillment Disabled", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)

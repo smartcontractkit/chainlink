@@ -1,6 +1,63 @@
 # default config
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+LogPoller = true
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 100
+
+[WebServer.TLS]
+HTTPSPort = 0
+"""
+
+[NodeConfig.ChainConfigTOMLByChainID]
+# OPTIMISM SEPOLIA
+11155420 = """
+BlockBackfillDepth = 500
+LogBackfillBatchSize = 1000
+RPCDefaultBatchSize = 25
+
+[GasEstimator]
+LimitDefault = 3500000
+
+[GasEstimator.BlockHistory]
+BatchSize = 100
+"""
+
+# BASE SEPOLIA
+84532 = """
+BlockBackfillDepth = 500
+LogBackfillBatchSize = 1000
+RPCDefaultBatchSize = 25
+
+[GasEstimator]
+LimitDefault = 3500000
+
+[GasEstimator.BlockHistory]
+BatchSize = 100
+"""
+
 [Common]
-chainlink_node_funding = 0.1
+chainlink_node_funding = 0.5
 
 [VRFv2Plus]
 [VRFv2Plus.General]
@@ -28,7 +85,7 @@ number_of_sending_keys_to_create = 0
 randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
-wait_for_256_blocks_timeout = "10m"
+wait_for_256_blocks_timeout = "280s"
 
 fulfillment_flat_fee_native_ppm=0
 fulfillment_flat_fee_link_discount_ppm=0
