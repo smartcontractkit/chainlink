@@ -85,6 +85,10 @@ func (e *CCIPContractsDeployer) DeployLiquidityManager(
 	}, err
 }
 
+func (v *LiquidityManager) GetLiquidity() (*big.Int, error) {
+	return v.Instance.GetLiquidity(nil)
+}
+
 func (v *LiquidityManager) SetCrossChainRebalancer(
 	crossChainRebalancerArgs liquiditymanager.ILiquidityManagerCrossChainRebalancerArgs,
 ) error {
