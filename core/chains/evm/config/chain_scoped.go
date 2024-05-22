@@ -126,10 +126,9 @@ func (e *EVMConfig) BlockEmissionIdleWarningThreshold() time.Duration {
 
 func (e *EVMConfig) ChainType() commonconfig.ChainType {
 	if e.C.ChainType == nil {
-		return commonconfig.ChainTypeNone
+		return ""
 	}
-	chainType, _ := commonconfig.ChainTypeFromSlug(*e.C.ChainType)
-	return chainType
+	return e.C.ChainType.ChainType()
 }
 
 func (e *EVMConfig) ChainID() *big.Int {

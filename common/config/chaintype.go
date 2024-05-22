@@ -5,91 +5,20 @@ import (
 	"strings"
 )
 
-// ChainType denotes the chain or network to work with
-type ChainType int
+type ChainType string
 
 const (
-	ChainTypeNone ChainType = iota
-	ChainArbitrum
-	ChainCelo
-	ChainGnosis
-	ChainKroma
-	ChainMetis
-	ChainOptimismBedrock
-	ChainScroll
-	ChainWeMix
-	ChainXLayer
-	ChainZkSync
+	ChainArbitrum        ChainType = "arbitrum"
+	ChainCelo            ChainType = "celo"
+	ChainGnosis          ChainType = "gnosis"
+	ChainKroma           ChainType = "kroma"
+	ChainMetis           ChainType = "metis"
+	ChainOptimismBedrock ChainType = "optimismBedrock"
+	ChainScroll          ChainType = "scroll"
+	ChainWeMix           ChainType = "wemix"
+	ChainXLayer          ChainType = "xlayer"
+	ChainZkSync          ChainType = "zksync"
 )
-
-func ChainTypeFromSlug(slug string) (ChainType, error) {
-	switch slug {
-	case "":
-		return ChainTypeNone, nil
-	case "arbitrum":
-		return ChainArbitrum, nil
-	case "celo":
-		return ChainCelo, nil
-	case "gnosis", "xdai":
-		return ChainGnosis, nil
-	case "kroma":
-		return ChainKroma, nil
-	case "metis":
-		return ChainMetis, nil
-	case "optimismBedrock":
-		return ChainOptimismBedrock, nil
-	case "scroll":
-		return ChainScroll, nil
-	case "wemix":
-		return ChainWeMix, nil
-	case "xlayer":
-		return ChainXLayer, nil
-	case "zksync":
-		return ChainZkSync, nil
-	default:
-		return ChainTypeNone, ErrInvalidChainType
-	}
-}
-
-func (c ChainType) String() string {
-	switch c {
-	case ChainArbitrum:
-		return "arbitrum"
-	case ChainCelo:
-		return "celo"
-	case ChainGnosis:
-		return "gnosis"
-	case ChainKroma:
-		return "kroma"
-	case ChainMetis:
-		return "metis"
-	case ChainOptimismBedrock:
-		return "optimismBedrock"
-	case ChainScroll:
-		return "scroll"
-	case ChainWeMix:
-		return "wemix"
-	case ChainXLayer:
-		return "xlayer"
-	case ChainZkSync:
-		return "zksync"
-	default:
-		return ""
-	}
-}
-
-var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Join([]string{
-	ChainArbitrum.String(),
-	ChainCelo.String(),
-	ChainGnosis.String(),
-	ChainKroma.String(),
-	ChainMetis.String(),
-	ChainOptimismBedrock.String(),
-	ChainScroll.String(),
-	ChainWeMix.String(),
-	ChainXLayer.String(),
-	ChainZkSync.String(),
-}, ", "))
 
 // IsL2 returns true if this chain is a Layer 2 chain. Notably:
 //   - the block numbers used for log searching are different from calling block.number
@@ -102,3 +31,97 @@ func (c ChainType) IsL2() bool {
 		return false
 	}
 }
+
+func (c ChainType) IsValid() bool {
+	switch c {
+	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkSync:
+		return true
+	}
+	return false
+}
+
+func ChainTypeFromSlug(slug string) ChainType {
+	switch slug {
+	case "arbitrum":
+		return ChainArbitrum
+	case "celo":
+		return ChainCelo
+	case "gnosis", "xdai":
+		return ChainGnosis
+	case "kroma":
+		return ChainKroma
+	case "metis":
+		return ChainMetis
+	case "optimismBedrock":
+		return ChainOptimismBedrock
+	case "scroll":
+		return ChainScroll
+	case "wemix":
+		return ChainWeMix
+	case "xlayer":
+		return ChainXLayer
+	case "zksync":
+		return ChainZkSync
+	default:
+		return ""
+	}
+}
+
+type ChainTypeConfig struct {
+	value ChainType
+	slug  string
+}
+
+func NewChainTypeConfig(slug string) *ChainTypeConfig {
+	return &ChainTypeConfig{
+		value: ChainTypeFromSlug(slug),
+		slug:  slug,
+	}
+}
+
+func (c *ChainTypeConfig) MarshalText() ([]byte, error) {
+	if c == nil {
+		return nil, nil
+	}
+	return []byte(c.slug), nil
+}
+
+func (c *ChainTypeConfig) UnmarshalText(b []byte) error {
+	c.slug = string(b)
+	c.value = ChainTypeFromSlug(c.slug)
+	return nil
+}
+
+func (c *ChainTypeConfig) Slug() string {
+	if c == nil {
+		return ""
+	}
+	return c.slug
+}
+
+func (c *ChainTypeConfig) ChainType() ChainType {
+	if c == nil {
+		return ""
+	}
+	return c.value
+}
+
+func (c *ChainTypeConfig) String() string {
+	if c == nil {
+		return ""
+	}
+	return string(c.value)
+}
+
+var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Join([]string{
+	string(ChainArbitrum),
+	string(ChainCelo),
+	string(ChainGnosis),
+	string(ChainKroma),
+	string(ChainMetis),
+	string(ChainOptimismBedrock),
+	string(ChainScroll),
+	string(ChainWeMix),
+	string(ChainXLayer),
+	string(ChainZkSync),
+}, ", "))

@@ -78,7 +78,7 @@ func (c *Config) valueWarnings() (err error) {
 func (c *Config) deprecationWarnings() (err error) {
 	// ChainType xdai is deprecated and has been renamed to gnosis
 	for _, evm := range c.EVM {
-		if evm.ChainType != nil && *evm.ChainType == "xdai" {
+		if evm.ChainType != nil && evm.ChainType.Slug() == "xdai" {
 			err = multierr.Append(err, config.ErrInvalid{
 				Name:  "EVM.ChainType",
 				Value: *evm.ChainType,

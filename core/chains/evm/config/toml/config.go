@@ -294,17 +294,10 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	} else if c.ChainID.String() == "" {
 		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	} else if must, ok := ChainTypeForID(c.ChainID); ok { // known chain id
-		is := config.ChainTypeNone
-		var parseErr error
-		if c.ChainType != nil {
-			is, parseErr = config.ChainTypeFromSlug(*c.ChainType)
-		}
-
 		// Check if the parsed value matched the expected value
-		// Also, check if there was an error parsing the value. If there was it means the value was set to an invalid
-		// string and we want to add a warning stating the value it should be set to.
-		if is != must || parseErr != nil {
-			if must == config.ChainTypeNone {
+		is := c.ChainType.ChainType()
+		if is != must {
+			if must == "" {
 				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: "must not be set with this chain id"})
 			} else {
@@ -348,7 +341,7 @@ type Chain struct {
 	AutoCreateKey             *bool
 	BlockBackfillDepth        *uint32
 	BlockBackfillSkip         *bool
-	ChainType                 *string
+	ChainType                 *config.ChainTypeConfig
 	FinalityDepth             *uint32
 	FinalityTagEnabled        *bool
 	FlagsContractAddress      *types.EIP55Address
@@ -378,11 +371,13 @@ type Chain struct {
 }
 
 func (c *Chain) ValidateConfig() (err error) {
+	var chainType config.ChainType
 	if c.ChainType != nil {
-		if _, chainTypeErr := config.ChainTypeFromSlug(*c.ChainType); chainTypeErr != nil {
-			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
-				Msg: chainTypeErr.Error()})
-		}
+		chainType = c.ChainType.ChainType()
+	}
+	if !chainType.IsValid() {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+			Msg: config.ErrInvalidChainType.Error()})
 	}
 
 	if c.GasEstimator.BumpTxDepth != nil && *c.GasEstimator.BumpTxDepth > *c.Transactions.MaxInFlight {

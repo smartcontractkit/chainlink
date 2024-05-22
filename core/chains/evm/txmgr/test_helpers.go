@@ -137,7 +137,7 @@ func (c *MockConfig) EVM() evmconfig.EVM {
 }
 
 func (c *MockConfig) NonceAutoSync() bool               { return true }
-func (c *MockConfig) ChainType() commonconfig.ChainType { return commonconfig.ChainTypeNone }
+func (c *MockConfig) ChainType() commonconfig.ChainType { return "" }
 func (c *MockConfig) FinalityDepth() uint32             { return c.finalityDepth }
 func (c *MockConfig) SetFinalityDepth(fd uint32)        { c.finalityDepth = fd }
 func (c *MockConfig) FinalityTagEnabled() bool          { return c.finalityTagEnabled }
