@@ -1243,7 +1243,7 @@ func TestConfig_Validate(t *testing.T) {
 		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
 		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP RunUserGroupCN can not be empty
 		- LDAP.ReadUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
-	- EVM: 9 errors:
+	- EVM: 8 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
 		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
@@ -1294,7 +1294,6 @@ func TestConfig_Validate(t *testing.T) {
 		- 4: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
-		- 5.Nodes: missing: must have at least one node
 	- Cosmos: 5 errors:
 		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique

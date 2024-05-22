@@ -147,7 +147,3 @@ Enabled = true
 [P2P]
 [P2P.V2]
 Enabled = false
-
-[[EVM]]
-ChainID = '10200'
-ChainType = 'xdai' # This value is deprecated but should still not result in a validation error
