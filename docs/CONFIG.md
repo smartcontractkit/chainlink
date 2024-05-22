@@ -7155,7 +7155,7 @@ ResendAfterThreshold controls how long to wait before re-broadcasting a transact
 ```toml
 [EVM.Transactions.AutoPurge]
 Enabled = false # Default
-DetectionApiUrl = 'https://venus.scroll.io' # Example
+DetectionApiUrl = 'https://example.api.io' # Example
 Threshold = 5 # Example
 MinAttempts = 3 # Example
 ```
@@ -7169,7 +7169,7 @@ Enabled enables or disables automatically purging transactions that have been id
 
 ### DetectionApiUrl
 ```toml
-DetectionApiUrl = 'https://venus.scroll.io' # Example
+DetectionApiUrl = 'https://example.api.io' # Example
 ```
 DetectionApiUrl configures the base url of a custom endpoint used to identify terminally stuck transactions.
 
