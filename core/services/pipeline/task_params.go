@@ -510,7 +510,6 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 			*m = v.MapValue
 			return nil
 		}
-
 	}
 
 	return errors.Wrapf(ErrBadInput, "expected map, got %T", val)

@@ -46,7 +46,6 @@ func NewTransmitter(
 	chainID *big.Int,
 	keystore roundRobinKeystore,
 ) (Transmitter, error) {
-
 	// Ensure that a keystore is provided.
 	if keystore == nil {
 		return nil, errors.New("nil keystore provided to transmitter")
@@ -65,7 +64,6 @@ func NewTransmitter(
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-
 	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.fromAddresses...)
 	if err != nil {
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")

@@ -35,12 +35,14 @@ contract MaliciousMultiWordConsumer is ChainlinkClient {
 
   function stealEthCall(bytes32 _requestId, bytes memory) public recordChainlinkFulfillment(_requestId) {
     (bool success, ) = address(this).call{value: 100}(""); // solhint-disable-line avoid-call-value
+    // solhint-disable-next-line gas-custom-errors
     require(success, "Call failed");
   }
 
   function stealEthSend(bytes32 _requestId, bytes memory) public recordChainlinkFulfillment(_requestId) {
     // solhint-disable-next-line check-send-result
     bool success = payable(address(this)).send(100); // solhint-disable-line multiple-sends
+    // solhint-disable-next-line gas-custom-errors
     require(success, "Send failed");
   }
 

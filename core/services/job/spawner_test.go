@@ -294,8 +294,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
 		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
-			DS:             db,
-			CSAETHKeystore: keyStore,
+			DS:                   db,
+			CSAETHKeystore:       keyStore,
+			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 		})
 		assert.NoError(t, err)
 

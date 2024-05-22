@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -474,7 +475,6 @@ func mockAction() (*mockCapability, values.Value) {
 			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-
 			return capabilities.CapabilityResponse{
 				Value: outputs,
 			}, nil
@@ -548,13 +548,13 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
-			keywordTrigger: {
+			workflows.KeywordTrigger: {
 				Outputs: &store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: "<execution-ID>",
-				Ref:         keywordTrigger,
+				Ref:         workflows.KeywordTrigger,
 			},
 		},
 		WorkflowID:  "",
@@ -603,13 +603,13 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
-			keywordTrigger: {
+			workflows.KeywordTrigger: {
 				Outputs: &store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: "<execution-ID>",
-				Ref:         keywordTrigger,
+				Ref:         workflows.KeywordTrigger,
 			},
 		},
 		WorkflowID:  "",

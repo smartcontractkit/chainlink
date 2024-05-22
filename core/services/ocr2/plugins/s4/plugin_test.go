@@ -219,7 +219,6 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		assert.False(t, should)
 		assert.Equal(t, 10, len(ormRows))
 		compareRows(t, rows, ormRows)
-
 	})
 
 	t.Run("error", func(t *testing.T) {

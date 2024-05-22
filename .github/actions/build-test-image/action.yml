@@ -34,7 +34,7 @@ runs:
     # Base Test Image Logic
     - name: Get CTF Version
       id: version
-      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
       with:
         go-project-path: ./integration-tests
         module-name: github.com/smartcontractkit/chainlink-testing-framework
@@ -71,7 +71,7 @@ runs:
     - name: Check if test base image exists
       if: steps.version.outputs.is_semantic == 'false'
       id: check-base-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
       with:
         repository: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
         tag: ${{ steps.long_sha.outputs.long_sha }}
@@ -79,7 +79,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Build Base Image
       if: steps.version.outputs.is_semantic == 'false' && steps.check-base-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/docker/build-push@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
       env:
         BASE_IMAGE_NAME: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image:${{ steps.long_sha.outputs.long_sha }}
       with:
@@ -92,7 +92,7 @@ runs:
     # Test Runner Logic
     - name: Check if image exists
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
       with:
         repository: ${{ inputs.repository }}
         tag: ${{ inputs.tag }}
@@ -100,7 +100,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Build and Publish Test Runner
       if: steps.check-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/docker/build-push@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
       with:
         tags: |
           ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag }}

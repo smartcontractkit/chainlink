@@ -20,6 +20,7 @@ import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
  * AutomationRegistry and AutomationRegistryLogic
  * @dev all errors, events, and internal functions should live here
  */
+// solhint-disable-next-line max-states-count
 abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -43,8 +44,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
   // These values are calibrated using hardhat tests which simulate various cases and verify that
   // the variables result in accurate estimation
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 93_000; // Fixed gas overhead for conditional upkeeps
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 118_000; // Fixed gas overhead for log upkeeps
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 97_700; // Fixed gas overhead for conditional upkeeps
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 122_000; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 5_600; // Value scales with f
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 24; // Per perform data byte overhead
 
@@ -59,7 +60,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   // to account for gas used in payment processing. These values are calibrated using hardhat tests which simulates various cases and verifies that
   // the variables result in accurate estimation
   uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 51_200; // Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 9_200; // Overhead per upkeep performed in batch
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 13_200; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkUSDFeed;
@@ -376,6 +377,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @notice the billing config of a token
    * @dev this is a storage struct
    */
+  // solhint-disable-next-line gas-struct-packing
   struct BillingConfig {
     uint32 gasFeePPB;
     uint24 flatFeeMilliCents; // min fee is $0.00001, max fee is $167
@@ -438,11 +440,20 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member gasReimbursementInJuels the amount to reimburse a node for gas spent
    * @member premiumInJuels the premium paid to NOPs, shared between all nodes
    */
+  // solhint-disable-next-line gas-struct-packing
   struct PaymentReceipt {
     uint96 gasChargeInBillingToken;
     uint96 premiumInBillingToken;
+    // one word ends
     uint96 gasReimbursementInJuels;
     uint96 premiumInJuels;
+    // second word ends
+    IERC20 billingToken;
+    uint96 linkUSD;
+    // third word ends
+    uint96 nativeUSD;
+    uint96 billingUSD;
+    // fourth word ends
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
@@ -480,6 +491,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 gasOverhead,
     bytes trigger
   );
+  event UpkeepCharged(uint256 indexed id, PaymentReceipt receipt);
   event UpkeepPrivilegeConfigSet(uint256 indexed id, bytes privilegeConfig);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepRegistered(uint256 indexed id, uint32 performGas, address admin);
@@ -655,11 +667,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   /**
-   * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param hotVars the hot path variables
    * @param paymentParams the pricing data and gas usage data
    * @return receipt the receipt of payment with pricing breakdown
    * @dev use of PaymentParams struct is necessary to avoid stack too deep errors
+   * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @dev 1 USD = 1e18 attoUSD
    * @dev 1 USD = 1e26 hexaicosaUSD (had to borrow this prefix from geometry because there is no metric prefix for 1e-26)
    * @dev 1 millicent = 1e-5 USD = 1e13 attoUSD
@@ -701,6 +713,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
         (paymentParams.billingTokenParams.priceUSD * denominatorScalingFactor)
     );
     receipt.premiumInJuels = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.linkUSD);
+
+    receipt.billingToken = paymentParams.billingToken;
+    receipt.linkUSD = SafeCast.toUint96(paymentParams.linkUSD);
+    receipt.nativeUSD = SafeCast.toUint96(paymentParams.nativeUSD);
+    receipt.billingUSD = SafeCast.toUint96(paymentParams.billingTokenParams.priceUSD);
 
     return receipt;
   }
@@ -1026,6 +1043,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     s_upkeep[upkeepId].amountSpent += payment;
     s_reserveAmounts[paymentParams.billingToken] -= payment;
 
+    emit UpkeepCharged(upkeepId, receipt);
     return receipt;
   }
 
@@ -1051,6 +1069,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @notice only allows a pre-configured address to initiate offchain read
    */
   function _preventExecution() internal view {
+    // solhint-disable-next-line avoid-tx-origin
     if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
     }

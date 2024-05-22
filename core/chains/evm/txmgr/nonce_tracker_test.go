@@ -72,7 +72,6 @@ func TestNonceTracker_LoadSequenceMap(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, types.Nonce(randNonce2), seq)
 	})
-
 }
 
 func TestNonceTracker_syncOnChain(t *testing.T) {
@@ -129,7 +128,6 @@ func TestNonceTracker_syncOnChain(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, types.Nonce(nonce), seq)
 	})
-
 }
 
 func TestNonceTracker_SyncSequence(t *testing.T) {
@@ -196,7 +194,6 @@ func TestNonceTracker_GetNextSequence(t *testing.T) {
 	t.Run("fails to get sequence if address doesn't exist in map", func(t *testing.T) {
 		_, err := nonceTracker.GetNextSequence(ctx, addr)
 		require.Error(t, err)
-
 	})
 
 	t.Run("fails to get sequence if address doesn't exist in map and is disabled", func(t *testing.T) {
@@ -227,7 +224,6 @@ func TestNonceTracker_GetNextSequence(t *testing.T) {
 		seq, err := nonceTracker.GetNextSequence(ctx, addr)
 		require.NoError(t, err)
 		require.Equal(t, types.Nonce(txStoreNonce+1), seq)
-
 	})
 }
 

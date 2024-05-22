@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -48,6 +49,21 @@ var (
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
 		Help: "Metric to track job proposal requests",
+	})
+
+	promWorkflowRequests = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_workflow_requests",
+		Help: "Metric to track workflow requests",
+	})
+
+	promWorkflowApprovals = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_workflow_approvals",
+		Help: "Metric to track workflow successful auto approvals",
+	})
+
+	promWorkflowFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_workflow_rejections",
+		Help: "Metric to track workflow failed auto approvals",
 	})
 
 	promJobProposalCounts = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -553,6 +569,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		}
 
 		if exists {
+			// note: CLO auto-increments the version number on re-proposal, so this should never happen
 			return 0, errors.New("proposed job spec version already exists")
 		}
 	}
@@ -596,15 +613,37 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	if err != nil {
 		return 0, err
 	}
-
-	// Track the given job proposal request
-	promJobProposalRequest.Inc()
+	// auto approve workflow specs
+	if isWFSpec(logger, args.Spec) {
+		promWorkflowRequests.Inc()
+		err = s.ApproveSpec(ctx, id, true)
+		if err != nil {
+			promWorkflowFailures.Inc()
+			logger.Errorw("Failed to auto approve workflow spec", "id", id, "err", err)
+			return 0, fmt.Errorf("failed to approve workflow spec %d: %w", id, err)
+		}
+		logger.Infow("Successful workflow spec auto approval", "id", id)
+		promWorkflowApprovals.Inc()
+	} else {
+		// Track the given job proposal request
+		promJobProposalRequest.Inc()
+	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
 		logger.Errorw("Failed to push metrics for propose job", err)
 	}
 
 	return id, nil
+}
+
+func isWFSpec(lggr logger.Logger, spec string) bool {
+	jobType, err := job.ValidateSpec(spec)
+	if err != nil {
+		// this should not happen in practice
+		lggr.Errorw("Failed to validate spec while checking for workflow", "err", err)
+		return false
+	}
+	return jobType == job.Workflow
 }
 
 // GetJobProposal gets a job proposal by id.
@@ -759,6 +798,15 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 					// error we want to continue with approving the job.
 					if !errors.Is(txerr, sql.ErrNoRows) {
 						return errors.Wrap(txerr, "FindOCR2JobIDByAddress failed")
+					}
+				}
+			case job.Workflow:
+				existingJobID, txerr = findExistingWorkflowJob(ctx, *j.WorkflowSpec, tx.jobORM)
+				if txerr != nil {
+					// Return an error if the repository errors. If there is a not found
+					// error we want to continue with approving the job.
+					if !errors.Is(txerr, sql.ErrNoRows) {
+						return fmt.Errorf("failed while checking for existing workflow job: %w", txerr)
 					}
 				}
 			default:
@@ -1050,13 +1098,17 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	// Set the prometheus gauge metrics.
 	for _, status := range []JobProposalStatus{JobProposalStatusPending, JobProposalStatusApproved,
 		JobProposalStatusCancelled, JobProposalStatusRejected, JobProposalStatusDeleted, JobProposalStatusRevoked} {
-
 		status := status
 
 		promJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
 	}
 
 	return nil
+}
+
+// TODO KS-205 implement this. Need to figure out how exactly how we want to handle this.
+func findExistingWorkflowJob(ctx context.Context, wfSpec job.WorkflowSpec, tx job.ORM) (int32, error) {
+	return 0, nil
 }
 
 // findExistingJobForOCR2 looks for existing job for OCR2
@@ -1074,7 +1126,7 @@ func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32,
 			feedID = j.BootstrapSpec.FeedID
 		}
 	case job.FluxMonitor, job.OffchainReporting:
-		return 0, errors.Errorf("contradID and feedID not applicable for job type: %s", j.Type)
+		return 0, errors.Errorf("contractID and feedID not applicable for job type: %s", j.Type)
 	default:
 		return 0, errors.Errorf("unsupported job type: %s", j.Type)
 	}
@@ -1107,7 +1159,7 @@ func findExistingJobForOCRFlux(ctx context.Context, j *job.Job, tx job.ORM) (int
 func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error) {
 	jobType, err := job.ValidateSpec(spec)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse job spec TOML")
+		return nil, fmt.Errorf("failed to parse job spec TOML'%s': %w", spec, err)
 	}
 
 	var js job.Job
@@ -1129,9 +1181,10 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
+	case job.Workflow:
+		js, err = workflows.ValidatedWorkflowSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
-
 	}
 	if err != nil {
 		return nil, err

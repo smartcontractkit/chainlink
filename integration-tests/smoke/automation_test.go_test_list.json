@@ -70,6 +70,10 @@
     {
       "name": "TestUpdateCheckData",
       "nodes": 3
+    },
+    {
+      "name": "TestSetOffchainConfigWithMaxGasPrice",
+      "nodes": 2
     }
   ]
 }

@@ -37,15 +37,12 @@ func TestForwarderOCRBasic(t *testing.T) {
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
-		WithForwarders().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
 		WithSeth().
 		Build()
 	require.NoError(t, err)
-
-	env.ParallelTransactions(true)
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
@@ -68,6 +65,9 @@ func TestForwarderOCRBasic(t *testing.T) {
 	operators, authorizedForwarders, _ := actions_seth.DeployForwarderContracts(
 		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
 	)
+
+	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
+
 	for i := range workerNodes {
 		actions_seth.AcceptAuthorizedReceiversOperator(
 			t, l, sethClient, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]},
