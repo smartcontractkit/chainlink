@@ -1168,6 +1168,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		_, err = vrfv2.WaitRandomWordsFulfilledEvent(
 			vrfContracts.CoordinatorV2,
 			randomWordsRequestedEvent.RequestId,
+			randomWordsRequestedEvent.Raw.BlockNumber,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
