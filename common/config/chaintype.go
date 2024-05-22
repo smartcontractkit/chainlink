@@ -63,7 +63,7 @@ func ChainTypeFromSlug(slug string) ChainType {
 	case "zksync":
 		return ChainZkSync
 	default:
-		return ""
+		return ChainType(slug)
 	}
 }
 

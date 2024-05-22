@@ -150,4 +150,4 @@ Enabled = false
 
 [[EVM]]
 ChainID = '10200'
-ChainType = 'xdai'
+ChainType = 'xdai' # This value is deprecated but should still not result in a validation error

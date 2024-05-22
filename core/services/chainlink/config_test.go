@@ -1294,9 +1294,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 4: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
-		- 5: 2 errors:
-			- ChainType: invalid value (xdai): only "gnosis" can be used with this chain id
-			- Nodes: missing: must have at least one node
+		- 5.Nodes: missing: must have at least one node
 	- Cosmos: 5 errors:
 		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique

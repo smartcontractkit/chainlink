@@ -298,10 +298,10 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 		is := c.ChainType.ChainType()
 		if is != must {
 			if must == "" {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 					Msg: "must not be set with this chain id"})
 			} else {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
 			}
 		}
@@ -371,12 +371,8 @@ type Chain struct {
 }
 
 func (c *Chain) ValidateConfig() (err error) {
-	var chainType config.ChainType
-	if c.ChainType != nil {
-		chainType = c.ChainType.ChainType()
-	}
-	if !chainType.IsValid() {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+	if !c.ChainType.ChainType().IsValid() {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 			Msg: config.ErrInvalidChainType.Error()})
 	}
 

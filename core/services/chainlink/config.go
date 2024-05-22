@@ -81,7 +81,7 @@ func (c *Config) deprecationWarnings() (err error) {
 		if evm.ChainType != nil && evm.ChainType.Slug() == "xdai" {
 			err = multierr.Append(err, config.ErrInvalid{
 				Name:  "EVM.ChainType",
-				Value: *evm.ChainType,
+				Value: evm.ChainType.Slug(),
 				Msg:   "deprecated and will be removed in v2.13.0, use 'gnosis' instead",
 			})
 		}
