@@ -1402,7 +1402,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		if network.Simulated {
 			fulfillmentTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), fulfillmentTx.Hash())
 			require.NoError(t, err)
-			randomWordsFulfilledLogs, err := contracts.ParseRandomWordsFulfilledLogs(vrfContracts.CoordinatorV2Plus, fulfillmentTxReceipt.Logs)
+			randomWordsFulfilledLogs, err := contracts.ParseRandomWordsFulfilledLogs(vrfContracts.CoordinatorV2, fulfillmentTxReceipt.Logs)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(batchFulfillmentTxs))
 			require.Equal(t, int(randRequestCount), len(randomWordsFulfilledLogs))
