@@ -378,7 +378,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertEventually(t, func() bool {
 			state, chainInfo := node.StateAndLatest()
-			// TODO: nil pointer dereference... block difficulty is nil?
 			return state == nodeStateAlive && chainInfo.BlockNumber == expectedBlockNumber
 		})
 	})
@@ -413,20 +412,16 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return float64(expectedBlock) == m.Gauge.GetValue()
 		})
 	})
-	t.Run("Logs warning if failed to get finalized block", func(t *testing.T) {
+	t.Run("Logs warning if failed to subscrive to latest finalized blocks", func(t *testing.T) {
 		t.Parallel()
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("LatestFinalizedBlock", mock.Anything).Return(newMockHead(t), errors.New("failed to get finalized block"))
 		sub := mocks.NewSubscription(t)
-		sub.On("Err").Return(nil)
+		sub.On("Err").Return(nil).Maybe()
 		sub.On("Unsubscribe")
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
-		ch := make(chan Head)
-		head := newMockHead(t)
-		head.On("IsValid").Return(false)
-		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Run(func(args mock.Arguments) {
-			ch <- head
-		}).Return((<-chan Head)(ch), sub, nil).Once()
+		expectedError := errors.New("failed to subscribe to finalized heads")
+		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return(nil, sub, expectedError).Once()
+		rpc.On("UnsubscribeAllExcept", mock.Anything).Maybe()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			config: testNodeConfig{
@@ -440,7 +435,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		node.declareAlive()
-		tests.AssertLogEventually(t, observedLogs, "Failed to fetch latest finalized block")
+		tests.AssertLogEventually(t, observedLogs, "Failed to subscribe to finalized heads")
 	})
 	t.Run("Logs warning if latest finalized block is not valid", func(t *testing.T) {
 		t.Parallel()
@@ -476,23 +471,20 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc := NewMockRPCClient[types.ID, Head](t)
 		const expectedBlock = 1101
 		const finalityDepth = 10
-		rpc.On("LatestFinalizedBlock", mock.Anything).Return(head{BlockNumber: expectedBlock - 1}.ToMockHead(t), nil).Once()
-		rpc.On("LatestFinalizedBlock", mock.Anything).Return(head{BlockNumber: expectedBlock}.ToMockHead(t), nil)
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return(nil)
 		sub.On("Unsubscribe")
 		ch := make(chan Head, 1)
-		// TODO: Fix this test
+		// TODO: Should the head subscription even update the finalized block metric?
+		// TODO: Or only the finalized head subscription??
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Run(func(args mock.Arguments) {
 			// ensure that "calculated" finalized head is larger than actual, to ensure we are correctly setting
 			// the metric
-			//go writeHeads(t, ch, head{BlockNumber: expectedBlock*2 + finalityDepth})
+			go writeHeads(t, ch, head{BlockNumber: expectedBlock*2 + finalityDepth})
 		}).Return((<-chan Head)(ch), sub, nil).Once()
 
 		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Run(func(args mock.Arguments) {
-			// ensure that "calculated" finalized head is larger than actual, to ensure we are correctly setting
-			// the metric
-			go writeHeads(t, ch, head{BlockNumber: expectedBlock*2 + finalityDepth})
+			go writeHeads(t, ch, head{BlockNumber: expectedBlock - 1}, head{BlockNumber: expectedBlock})
 		}).Return((<-chan Head)(ch), sub, nil).Once()
 
 		name := "node-" + rand.Str(5)
@@ -515,6 +507,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			require.NoError(t, err)
 			var m = &prom.Metric{}
 			require.NoError(t, metric.Write(m))
+			fmt.Println("Val:", m.Gauge.GetValue())
 			return float64(expectedBlock) == m.Gauge.GetValue()
 		})
 	})
@@ -547,9 +540,9 @@ func writeHeads(t *testing.T, ch chan<- Head, heads ...head) {
 func setupRPCForAliveLoop(t *testing.T, rpc *MockRPCClient[types.ID, Head]) {
 	rpc.On("Dial", mock.Anything).Return(nil).Maybe()
 	aliveSubscription := mocks.NewSubscription(t)
-	aliveSubscription.On("Err").Return((<-chan error)(nil)).Maybe()
+	aliveSubscription.On("Err").Return(nil).Maybe()
 	aliveSubscription.On("Unsubscribe").Maybe()
-	rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(aliveSubscription, nil).Maybe()
+	rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), aliveSubscription, nil).Maybe()
 	rpc.On("UnsubscribeAllExcept", nil).Maybe()
 	rpc.On("SetAliveLoopSub", mock.Anything).Maybe()
 }
@@ -596,10 +589,11 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		heads := []head{{BlockNumber: 7}, {BlockNumber: 11}, {BlockNumber: 13}}
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
-			ch := args.Get(1).(chan<- Head)
+		ch := make(chan Head)
+		rpc.On("SubscribeToHeads", mock.Anything).Run(func(args mock.Arguments) {
 			go writeHeads(t, ch, heads...)
-		}).Return(outOfSyncSubscription, nil).Once()
+		}).Return((<-chan Head)(ch), outOfSyncSubscription, nil).Once()
+
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 
 		node.declareOutOfSync(func(num int64, td *big.Int) bool {
@@ -720,7 +714,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 		expectedError := errors.New("failed to subscribe")
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(nil, expectedError)
+		rpc.On("SubscribeToHeads", mock.Anything).Return(nil, nil, expectedError).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertEventually(t, func() bool {
@@ -747,7 +741,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		errChan <- errors.New("subscription was terminate")
 		sub.On("Err").Return((<-chan error)(errChan))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertLogEventually(t, observedLogs, "Subscription was terminated")
@@ -773,10 +767,10 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
-			ch := args.Get(1).(chan<- Head)
+		ch := make(chan Head)
+		rpc.On("SubscribeToHeads", mock.Anything).Run(func(args mock.Arguments) {
 			close(ch)
-		}).Return(sub, nil).Once()
+		}).Return((<-chan Head)(ch), sub, nil).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertLogEventually(t, observedLogs, "Subscription channel unexpectedly closed")
@@ -804,11 +798,10 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		const highestBlock = 1000
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
-			ch := args.Get(1).(chan<- Head)
+		ch := make(chan Head)
+		rpc.On("SubscribeToHeads", mock.Anything).Run(func(args mock.Arguments) {
 			go writeHeads(t, ch, head{BlockNumber: highestBlock - 1}, head{BlockNumber: highestBlock})
-		}).Return(outOfSyncSubscription, nil).Once()
-
+		}).Return((<-chan Head)(ch), outOfSyncSubscription, nil).Once()
 		setupRPCForAliveLoop(t, rpc)
 
 		node.declareOutOfSync(func(num int64, td *big.Int) bool {
@@ -844,8 +837,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription := mocks.NewSubscription(t)
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(outOfSyncSubscription, nil).Once()
-
+		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), outOfSyncSubscription, nil).Once()
 		setupRPCForAliveLoop(t, rpc)
 
 		node.declareOutOfSync(stubIsOutOfSync)
