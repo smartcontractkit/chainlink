@@ -3,7 +3,6 @@ package config
 import (
 	"time"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
@@ -39,6 +38,6 @@ func (n *NodePoolConfig) FinalizedBlockPollInterval() time.Duration {
 	return n.C.FinalizedBlockPollInterval.Duration()
 }
 
-func (n *NodePoolConfig) Errors() commonconfig.ClientErrors {
+func (n *NodePoolConfig) Errors() ClientErrors {
 	return &clientErrorsConfig{c: n.C.Errors}
 }

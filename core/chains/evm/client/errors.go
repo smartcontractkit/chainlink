@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"regexp"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -252,7 +252,7 @@ var zkEvm = ClientErrors{
 var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
-func ClientErrorRegexes(errsRegex commonconfig.ClientErrors) *ClientErrors {
+func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
 	if errsRegex == nil {
 		return &ClientErrors{}
 	}
@@ -483,7 +483,7 @@ func ExtractRPCError(baseErr error) (*JsonError, error) {
 	return &jErr, nil
 }
 
-func ClassifySendError(err error, clientErrors commonconfig.ClientErrors, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
+func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
 	sendError := NewSendError(err)
 	if sendError == nil {
 		return commonclient.Successful

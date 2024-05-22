@@ -45,7 +45,6 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
-	Errors() commonconfig.ClientErrors
 }
 
 type ChainConfig interface {
