@@ -205,7 +205,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
-	if cfg.Capabilities().Peering().Enabled() {
+	if cfg.Capabilities().Enabled() {
 		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
 		signer := externalPeer
 		externalPeerWrapper = externalPeer
@@ -213,11 +213,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		srvcs = append(srvcs, externalPeerWrapper)
 
 		onchainCapabilityRegistryAddress := evmtypes.MustEIP55Address(cfg.Capabilities().OnchainCapabilityRegistryAddress()).Address()
-		onchainRegistry := capabilities.NewOnchainCapabilityRegistry(onchainCapabilityRegistryAddress, globalLogger)
+		remoteRegistry := capabilities.NewRemoteRegistry(onchainCapabilityRegistryAddress, globalLogger)
 
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
 		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, onchainRegistry)
+		r := relayerChainInterops[cfg.Capabilities().RelayerID()]
+		// Config needs to be json.marshaled to be used in the chain reader
+		// Over the wire: RelayConfig        []byte
+		registryChainReader := r.NewChainReaderService(ctx /* *chainReaderConfig, codecConfig */)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, remoteRegistry, registryChainReader)
 		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 

@@ -43,13 +43,13 @@ const (
 )
 
 type registrySyncer struct {
-	peerWrapper     p2ptypes.PeerWrapper
-	registry        core.CapabilitiesRegistry
-	onchainRegistry *remoteRegistry
-	dispatcher      remotetypes.Dispatcher
-	subServices     []services.Service
-	lggr            logger.Logger
-	client          evmclient.Client
+	peerWrapper    p2ptypes.PeerWrapper
+	registry       core.CapabilitiesRegistry
+	remoteRegistry *remoteRegistry
+	dispatcher     remotetypes.Dispatcher
+	subServices    []services.Service
+	lggr           logger.Logger
+	client         evmclient.Client
 }
 
 var _ services.Service = &registrySyncer{}
@@ -74,16 +74,19 @@ var CALLER_ADDRESS = types.MustEIP55Address("0x000000000000000000000000000000000
 // RegistrySyncer updates local Registry to match its onchain counterpart
 func NewRegistrySyncer(
 	peerWrapper p2ptypes.PeerWrapper,
-	registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger, onchainRegistry *remoteRegistry,
+	registry core.CapabilitiesRegistry,
+	dispatcher remotetypes.Dispatcher,
+	lggr logger.Logger,
+	remoteRegistry *remoteRegistry,
 	client evmclient.Client,
 ) *registrySyncer {
 	return &registrySyncer{
-		peerWrapper:     peerWrapper,
-		registry:        registry,
-		dispatcher:      dispatcher,
-		lggr:            lggr,
-		onchainRegistry: onchainRegistry,
-		client:          client,
+		peerWrapper:    peerWrapper,
+		registry:       registry,
+		dispatcher:     dispatcher,
+		lggr:           lggr,
+		remoteRegistry: remoteRegistry,
+		client:         client,
 	}
 }
 
@@ -201,7 +204,7 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		}
 	}
 
-	capabilityRegistry, err := kcr.NewCapabilityRegistry(s.onchainRegistry.address, s.client)
+	capabilityRegistry, err := kcr.NewCapabilityRegistry(s.remoteRegistry.address, s.client)
 	if err != nil {
 		s.lggr.Errorw("failed to create capability registry", "error", err)
 		return err
@@ -229,7 +232,7 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		}
 		s.lggr.Infof("capability struct %v", capabilityStruct)
 
-		s.onchainRegistry.capabilities = append(s.onchainRegistry.capabilities, capabilityStruct)
+		s.remoteRegistry.capabilities = append(s.remoteRegistry.capabilities, capabilityStruct)
 	}
 
 	s.lggr.Infof("capabilities, %v", capabilities)

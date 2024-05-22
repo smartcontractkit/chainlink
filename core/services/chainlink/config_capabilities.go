@@ -14,3 +14,11 @@ type capabilitiesConfig struct {
 func (c *capabilitiesConfig) Peering() config.P2P {
 	return &p2p{c: c.c.Peering}
 }
+
+func (c *capabilitiesConfig) Enabled() bool {
+	return c.Enabled()
+}
+
+func (c *capabilitiesConfig) OnchainCapabilityRegistryAddress() string {
+	return c.OnchainCapabilityRegistryAddress()
+}

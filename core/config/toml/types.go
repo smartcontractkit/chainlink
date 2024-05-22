@@ -1407,12 +1407,15 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 }
 
 type Capabilities struct {
+	Enabled                          bool   `toml:",omitempty"`
 	Peering                          P2P    `toml:",omitempty"`
 	OnchainCapabilityRegistryAddress string `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
+	c.Enabled = f.Enabled
 	c.Peering.setFrom(&f.Peering)
+	c.OnchainCapabilityRegistryAddress = f.OnchainCapabilityRegistryAddress
 }
 
 type ThresholdKeyShareSecrets struct {
