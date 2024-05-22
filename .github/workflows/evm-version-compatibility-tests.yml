@@ -18,6 +18,21 @@ env:
   MOD_CACHE_VERSION: 2
 
 jobs:
+  # TODO: just for testing, remove this later
+  trigger-update-internal-mirrors-workflow-in-ctf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup GitHub Token
+        id: setup-github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@9e7cc0779934cae4a9028b8588c9adb64d8ce68c # setup-github-token@0.1.2
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_INVOKE_CTF_WORKFLOWS_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.GATI_QA_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Run Image Dispatcher
+        run: gh workflow run --repo smartcontractkit/chainlink-testing-framework update-internal-mirrors.yaml
+        env:
+          GITHUB_TOKEN: ${{ steps.setup-github-token.outputs.access-token }}
 
   # Check if go.mod has changed
   check-dependency-bump:
