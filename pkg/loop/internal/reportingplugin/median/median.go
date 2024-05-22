@@ -34,7 +34,7 @@ func NewPluginMedianClient(broker net.Broker, brokerCfg net.BrokerConfig, conn *
 	return &PluginMedianClient{PluginClient: pc, median: pb.NewPluginMedianClient(pc), ServiceClient: goplugin.NewServiceClient(pc.BrokerExt, pc)}
 }
 
-func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog core.ErrorLog) (types.ReportingPluginFactory, error) {
+func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin, gasPriceSubunits median.DataSource, errorLog core.ErrorLog) (types.ReportingPluginFactory, error) {
 	cc := m.NewClientConn("MedianPluginFactory", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		dataSourceID, dsRes, err := m.ServeNew("DataSource", func(s *grpc.Server) {
 			pb.RegisterDataSourceServer(s, newDataSourceServer(dataSource))
@@ -51,6 +51,14 @@ func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider type
 			return 0, nil, err
 		}
 		deps.Add(juelsPerFeeCoinDataSourceRes)
+
+		gasPriceSubunitsDataSourceID, gasPriceSubunitsDataSourceRes, err := m.ServeNew("GasPriceSubunitsDataSource", func(s *grpc.Server) {
+			pb.RegisterDataSourceServer(s, newDataSourceServer(gasPriceSubunits))
+		})
+		if err != nil {
+			return 0, nil, err
+		}
+		deps.Add(gasPriceSubunitsDataSourceRes)
 
 		var (
 			providerID  uint32
@@ -77,10 +85,11 @@ func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider type
 		deps.Add(errorLogRes)
 
 		reply, err := m.median.NewMedianFactory(ctx, &pb.NewMedianFactoryRequest{
-			MedianProviderID:            providerID,
-			DataSourceID:                dataSourceID,
-			JuelsPerFeeCoinDataSourceID: juelsPerFeeCoinDataSourceID,
-			ErrorLogID:                  errorLogID,
+			MedianProviderID:             providerID,
+			DataSourceID:                 dataSourceID,
+			JuelsPerFeeCoinDataSourceID:  juelsPerFeeCoinDataSourceID,
+			GasPriceSubunitsDataSourceID: gasPriceSubunitsDataSourceID,
+			ErrorLogID:                   errorLogID,
 		})
 		if err != nil {
 			return 0, nil, err
@@ -124,9 +133,17 @@ func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.N
 	juelsRes := net.Resource{Closer: juelsConn, Name: "JuelsPerFeeCoinDataSource"}
 	juelsPerFeeCoin := newDataSourceClient(juelsConn)
 
-	providerConn, err := m.Dial(request.MedianProviderID)
+	gasPriceSubunitsConn, err := m.Dial(request.GasPriceSubunitsDataSourceID)
 	if err != nil {
 		m.CloseAll(dsRes, juelsRes)
+		return nil, net.ErrConnDial{Name: "GasPriceSubunitsDataSource", ID: request.GasPriceSubunitsDataSourceID, Err: err}
+	}
+	gasPriceSubunitsRes := net.Resource{Closer: gasPriceSubunitsConn, Name: "GasPriceSubunitsDataSource"}
+	gasPriceSubunits := newDataSourceClient(gasPriceSubunitsConn)
+
+	providerConn, err := m.Dial(request.MedianProviderID)
+	if err != nil {
+		m.CloseAll(dsRes, juelsRes, gasPriceSubunitsRes)
 		return nil, net.ErrConnDial{Name: "MedianProvider", ID: request.MedianProviderID, Err: err}
 	}
 	providerRes := net.Resource{Closer: providerConn, Name: "MedianProvider"}
@@ -134,22 +151,22 @@ func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.N
 
 	errorLogConn, err := m.Dial(request.ErrorLogID)
 	if err != nil {
-		m.CloseAll(dsRes, juelsRes, providerRes)
+		m.CloseAll(dsRes, juelsRes, gasPriceSubunitsRes, providerRes)
 		return nil, net.ErrConnDial{Name: "ErrorLog", ID: request.ErrorLogID, Err: err}
 	}
 	errorLogRes := net.Resource{Closer: errorLogConn, Name: "ErrorLog"}
 	errorLog := errorlog.NewClient(errorLogConn)
 
-	factory, err := m.impl.NewMedianFactory(ctx, provider, dataSource, juelsPerFeeCoin, errorLog)
+	factory, err := m.impl.NewMedianFactory(ctx, provider, dataSource, juelsPerFeeCoin, gasPriceSubunits, errorLog)
 	if err != nil {
-		m.CloseAll(dsRes, juelsRes, providerRes, errorLogRes)
+		m.CloseAll(dsRes, juelsRes, gasPriceSubunitsRes, providerRes, errorLogRes)
 		return nil, err
 	}
 
 	id, _, err := m.ServeNew("ReportingPluginProvider", func(s *grpc.Server) {
 		pb.RegisterServiceServer(s, &goplugin.ServiceServer{Srv: factory})
 		pb.RegisterReportingPluginFactoryServer(s, ocr2.NewReportingPluginFactoryServer(factory, m.BrokerExt))
-	}, dsRes, juelsRes, providerRes, errorLogRes)
+	}, dsRes, juelsRes, gasPriceSubunitsRes, providerRes, errorLogRes)
 	if err != nil {
 		return nil, err
 	}

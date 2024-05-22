@@ -26,10 +26,11 @@ const (
 var (
 	MedianFactoryServer = staticMedianFactoryServer{
 		staticPluginMedianConfig: staticPluginMedianConfig{
-			provider:                  MedianProvider,
-			dataSource:                DataSource,
-			juelsPerFeeCoinDataSource: JuelsPerFeeCoinDataSource,
-			errorLog:                  errorlogtest.ErrorLog,
+			provider:                   MedianProvider,
+			dataSource:                 DataSource,
+			juelsPerFeeCoinDataSource:  JuelsPerFeeCoinDataSource,
+			gasPriceSubunitsDataSource: GasPriceSubunitsDataSource,
+			errorLog:                   errorlogtest.ErrorLog,
 		},
 	}
 
@@ -58,10 +59,11 @@ var (
 var (
 	encodedOnchainConfig = []byte{5: 11}
 	juelsPerFeeCoin      = big.NewInt(1234)
+	gasPriceSubunits     = big.NewInt(777)
 	onchainConfig        = median.OnchainConfig{Min: big.NewInt(-12), Max: big.NewInt(1234567890987654321)}
 	medianValue          = big.NewInt(-1042)
 
-	pobs = []median.ParsedAttributedObservation{{Timestamp: 123, Value: big.NewInt(31), JuelsPerFeeCoin: big.NewInt(54), Observer: commontypes.OracleID(99)}}
+	pobs = []median.ParsedAttributedObservation{{Timestamp: 123, Value: big.NewInt(31), JuelsPerFeeCoin: big.NewInt(54), GasPriceSubunits: big.NewInt(77), Observer: commontypes.OracleID(99)}}
 
 	report        = libocr.Report{42: 101}
 	reportContext = libocr.ReportContext{

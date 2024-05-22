@@ -18,6 +18,7 @@ message NewMedianFactoryRequest {
   uint32 dataSourceID = 2;
   uint32 juelsPerFeeCoinDataSourceID = 3;
   uint32 errorLogID = 4;
+  uint32 gasPriceSubunitsDataSourceID = 5;
 }
 
 // NewMedianFactoryRequest has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewMedianFactory].
@@ -47,6 +48,7 @@ message ParsedAttributedObservation {
   BigInt value = 2;
   BigInt julesPerFeeCoin = 3;
   uint32  observer = 4; // uint8
+  BigInt gasPriceSubunits = 5;
 }
 
 // BuildReportRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median.ReportCodec.BuildReport].

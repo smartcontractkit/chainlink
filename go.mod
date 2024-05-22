@@ -25,7 +25,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/riferrei/srclient v0.5.4
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/libocr v0.0.0-20240326191951-2bbe9382d052
+	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.45.0
 	go.opentelemetry.io/otel v1.19.0

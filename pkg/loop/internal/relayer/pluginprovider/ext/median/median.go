@@ -93,10 +93,11 @@ func (r *reportCodecClient) BuildReport(observations []median.ParsedAttributedOb
 	var req pb.BuildReportRequest
 	for _, o := range observations {
 		req.Observations = append(req.Observations, &pb.ParsedAttributedObservation{
-			Timestamp:       o.Timestamp,
-			Value:           pb.NewBigIntFromInt(o.Value),
-			JulesPerFeeCoin: pb.NewBigIntFromInt(o.JuelsPerFeeCoin),
-			Observer:        uint32(o.Observer),
+			Timestamp:        o.Timestamp,
+			Value:            pb.NewBigIntFromInt(o.Value),
+			JulesPerFeeCoin:  pb.NewBigIntFromInt(o.JuelsPerFeeCoin),
+			GasPriceSubunits: pb.NewBigIntFromInt(o.GasPriceSubunits),
+			Observer:         uint32(o.Observer),
 		})
 	}
 	var reply *pb.BuildReportReply
@@ -138,15 +139,16 @@ type reportCodecServer struct {
 func (r *reportCodecServer) BuildReport(ctx context.Context, request *pb.BuildReportRequest) (*pb.BuildReportReply, error) {
 	var obs []median.ParsedAttributedObservation
 	for _, o := range request.Observations {
-		val, jpfc := o.Value.Int(), o.JulesPerFeeCoin.Int()
+		val, jpfc, gpsu := o.Value.Int(), o.JulesPerFeeCoin.Int(), o.GasPriceSubunits.Int()
 		if o.Observer > math.MaxUint8 {
 			return nil, fmt.Errorf("expected uint8 Observer (max %d) but got %d", math.MaxUint8, o.Observer)
 		}
 		obs = append(obs, median.ParsedAttributedObservation{
-			Timestamp:       o.Timestamp,
-			Value:           val,
-			JuelsPerFeeCoin: jpfc,
-			Observer:        commontypes.OracleID(o.Observer),
+			Timestamp:        o.Timestamp,
+			Value:            val,
+			JuelsPerFeeCoin:  jpfc,
+			GasPriceSubunits: gpsu,
+			Observer:         commontypes.OracleID(o.Observer),
 		})
 	}
 	report, err := r.impl.BuildReport(obs)

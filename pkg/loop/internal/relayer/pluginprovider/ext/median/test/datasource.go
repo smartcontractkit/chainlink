@@ -37,6 +37,13 @@ var (
 			Value:         juelsPerFeeCoin,
 		},
 	}
+
+	GasPriceSubunitsDataSource = staticDataSource{
+		staticDataSourceConfig{
+			ReportContext: reportContext,
+			Value:         gasPriceSubunits,
+		},
+	}
 )
 
 func (s staticDataSource) Observe(ctx context.Context, timestamp types.ReportTimestamp) (*big.Int, error) {
@@ -46,13 +53,34 @@ func (s staticDataSource) Observe(ctx context.Context, timestamp types.ReportTim
 	return s.Value, nil
 }
 
+type CompareError struct {
+	Got      *big.Int
+	Expected *big.Int
+}
+
+func (e *CompareError) Error() string {
+	return fmt.Sprintf("expected Value %s but got %s", e.Expected, e.Got)
+}
+
+func (e *CompareError) GotZero() bool {
+	return e.Got.Uint64() == 0
+}
+
 func (s staticDataSource) Evaluate(ctx context.Context, ds median.DataSource) error {
 	gotVal, err := ds.Observe(ctx, s.ReportContext.ReportTimestamp)
 	if err != nil {
 		return fmt.Errorf("failed to observe dataSource: %w", err)
 	}
 	if gotVal.Cmp(s.Value) != 0 {
-		return fmt.Errorf("expected Value %s but got %s", value, gotVal)
+		return &CompareError{Got: gotVal, Expected: s.Value}
 	}
 	return nil
+}
+
+// Only to be used for testing
+type ZeroDataSource struct {
+}
+
+func (s *ZeroDataSource) Observe(ctx context.Context, _ types.ReportTimestamp) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
