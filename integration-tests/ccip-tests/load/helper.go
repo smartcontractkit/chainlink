@@ -261,8 +261,8 @@ func (l *LoadArgs) TriggerLoadByLane() {
 		for k, v := range l.Labels {
 			labels[k] = v
 		}
-		labels["source_chain"] = lane.SourceNetworkName
-		labels["dest_chain"] = lane.DestNetworkName
+		labels["source_chain"] = fmt.Sprintf("%s-%s", lane.SourceNetworkName, lane.Source.Common.ChainClient.GetChainID().String())
+		labels["dest_chain"] = fmt.Sprintf("%s-%s", lane.DestNetworkName, lane.Dest.Common.ChainClient.GetChainID().String())
 		waspCfg := &wasp.Config{
 			T:                     l.TestCfg.Test,
 			GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),
