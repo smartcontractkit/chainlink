@@ -62,8 +62,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
   struct RemoteChainConfig {
     RateLimiter.TokenBucket outboundRateLimiterConfig; // Outbound rate limited config, meaning the rate limits for all of the onRamps for the given chain
     RateLimiter.TokenBucket inboundRateLimiterConfig; // Inbound rate limited config, meaning the rate limits for all of the offRamps for the given chain
-    bytes remotePoolAddress; // ────╮ Address of the remote pool
-    bool allowed; // ───────────────╯ Whether the chain is allowed
+    bytes remotePoolAddress; // Address of the remote pool
   }
 
   /// @dev The bridgeable token that is managed by this pool.
@@ -86,7 +85,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
   mapping(uint64 remoteChainSelector => RemoteChainConfig) internal s_remoteChainConfigs;
 
   constructor(IERC20 token, address[] memory allowlist, address rmnProxy, address router) {
-    if (address(token) == address(0) || router == address(0)) revert ZeroAddressNotAllowed();
+    if (address(token) == address(0) || router == address(0) || rmnProxy == address(0)) revert ZeroAddressNotAllowed();
     i_token = token;
     i_rmnProxy = rmnProxy;
     s_router = IRouter(router);
@@ -195,6 +194,10 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
           revert ChainAlreadyExists(update.remoteChainSelector);
         }
 
+        if (update.remotePoolAddress.length == 0) {
+          revert ZeroAddressNotAllowed();
+        }
+
         s_remoteChainConfigs[update.remoteChainSelector] = RemoteChainConfig({
           outboundRateLimiterConfig: RateLimiter.TokenBucket({
             rate: update.outboundRateLimiterConfig.rate,
@@ -210,8 +213,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
             lastUpdated: uint32(block.timestamp),
             isEnabled: update.inboundRateLimiterConfig.isEnabled
           }),
-          remotePoolAddress: update.remotePoolAddress,
-          allowed: update.allowed
+          remotePoolAddress: update.remotePoolAddress
         });
 
         emit ChainAdded(update.remoteChainSelector, update.outboundRateLimiterConfig, update.inboundRateLimiterConfig);

@@ -446,7 +446,6 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 	networkCfg blockchain.EVMNetwork,
 	noOfTokens int,
 	tokenDeployerFns []blockchain.ContractDeployer,
-	selectors []uint64,
 ) error {
 	var k8Env *environment.Environment
 	ccipEnv := o.Env
@@ -474,7 +473,7 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create ccip common module for %s: %w", networkCfg.Name, err))
 	}
-	ccipCommon.RemoteChains = selectors
+
 	cfg := o.LaneConfig.ReadLaneConfig(networkCfg.Name)
 
 	err = ccipCommon.DeployContracts(noOfTokens, tokenDeployerFns, cfg)
@@ -643,6 +642,14 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		err = o.LaneConfig.WriteLaneConfig(networkB.Name, ccipLaneA2B.DstNetworkLaneCfg)
 		if err != nil {
 			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, errors.WithStack(err))))
+			return err
+		}
+		// we need to set the remote chains on the pool after the lane is deployed
+		// it's sufficient to do this only for the forward lane, as the destination pools will also be updated with source pool updates
+		// The reverse lane will have the same pools as the forward lane but in reverse order of source and destination
+		err = ccipLaneA2B.SetRemoteChainsOnPool()
+		if err != nil {
+			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("error setting remote chains; err - %w", errors.WithStack(err))))
 			return err
 		}
 		lggr.Info().Msgf("done setting up lane %s to %s", networkA.Name, networkB.Name)
@@ -866,30 +873,17 @@ func CCIPDefaultTestSetUp(
 	// deploy all chain specific common contracts
 	chainAddGrp, _ := errgroup.WithContext(setUpArgs.SetUpContext)
 	lggr.Info().Msg("Deploying common contracts")
-	chainSelectors := make(map[int64]uint64)
-	for _, net := range testConfig.AllNetworks {
-		if _, exists := chainSelectors[net.ChainID]; !exists {
-			chainSelectors[net.ChainID], err = chainselectors.SelectorFromChainId(uint64(net.ChainID))
-			require.NoError(t, err)
-		}
-	}
+
 	for _, net := range testConfig.AllNetworks {
 		chain := chainByChainID[net.ChainID]
 		net := net
 		net.HTTPURLs = chain.GetNetworkConfig().HTTPURLs
 		net.URLs = chain.GetNetworkConfig().URLs
-		var selectors []uint64
-		for chainId, selector := range chainSelectors {
-			if chainId != net.ChainID {
-				selectors = append(selectors, selector)
-			}
-		}
 		chainAddGrp.Go(func() error {
 			return setUpArgs.DeployChainContracts(
 				lggr, chain, net,
 				pointer.GetInt(testConfig.TestGroupInput.TokenConfig.NoOfTokensPerChain),
-				tokenDeployerFns, selectors,
-			)
+				tokenDeployerFns)
 		})
 	}
 	require.NoError(t, chainAddGrp.Wait(), "Deploying common contracts shouldn't fail")

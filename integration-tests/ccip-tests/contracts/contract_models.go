@@ -382,13 +382,6 @@ func (w TokenPoolWrapper) ProvideLiquidity(opts *bind.TransactOpts, amount *big.
 	return nil, fmt.Errorf("no pool found to provide liquidity")
 }
 
-func (w TokenPoolWrapper) SetRemotePool(opts *bind.TransactOpts, selector uint64, pool []byte) (*types.Transaction, error) {
-	if w.Latest != nil && w.Latest.PoolInterface != nil {
-		return w.Latest.PoolInterface.SetRemotePool(opts, selector, pool)
-	}
-	return nil, fmt.Errorf("no pool found to set remote pool")
-}
-
 func (w TokenPoolWrapper) IsSupportedChain(opts *bind.CallOpts, remoteChainSelector uint64) (bool, error) {
 	if w.Latest != nil && w.Latest.PoolInterface != nil {
 		return w.Latest.PoolInterface.IsSupportedChain(opts, remoteChainSelector)
@@ -688,75 +681,45 @@ func (pool *TokenPool) AddLiquidity(approveFn tokenApproveFn, tokenAddr string, 
 	return pool.client.ProcessTransaction(tx)
 }
 
-func (pool *TokenPool) SetRemotePool(remoteChainSelector uint64, remotePool common.Address) error {
-	// if pool is of version 1.4.0, no need to set remote pool
-	if pool.Instance.V1_4_0 != nil {
-		return nil
-	}
-	pool.logger.Info().
-		Str("Token Pool", pool.Address()).
-		Str("Dest Pool", remotePool.Hex()).
-		Uint64("RemoteChain", remoteChainSelector).
-		Msg("Setting remote pool")
-	abiEncodedRemotePool, err := abihelpers.EncodeAddress(remotePool)
-	if err != nil {
-		return fmt.Errorf("error getting abiEncodedRemotePool %s : %w", remotePool.Hex(), err)
-	}
-	opts, err := pool.client.TransactionOpts(pool.client.GetDefaultWallet())
-	if err != nil {
-		return fmt.Errorf("failed to get transaction opts: %w", err)
-	}
-	tx, err := pool.Instance.SetRemotePool(opts, remoteChainSelector, abiEncodedRemotePool)
-
-	if err != nil {
-		return fmt.Errorf("failed to set remote pool %s on token pool: %w", remotePool.Hex(), err)
-	}
-	pool.logger.Info().
-		Str("Token Pool", pool.Address()).
-		Str("Dest Pool", remotePool.Hex()).
-		Uint64("RemoteChain", remoteChainSelector).
-		Msg("Done setting remote pool")
-	return pool.client.ProcessTransaction(tx)
-}
-
-func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelectors []uint64) error {
+func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelector uint64, remotePoolAddresses common.Address) error {
 	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Msg("Setting remote chain on pool")
 	var selectorsToUpdate []token_pool.TokenPoolChainUpdate
-	for _, remoteChainSelector := range remoteChainSelectors {
-		isSupported, err := pool.Instance.IsSupportedChain(nil, remoteChainSelector)
-		if err != nil {
-			return fmt.Errorf("failed to get if chain is supported: %w", err)
-		}
-		// Check if remote chain is already supported , if yes continue
-		if isSupported {
-			pool.logger.Info().
-				Str("Token Pool", pool.Address()).
-				Str(Network, pool.client.GetNetworkName()).
-				Uint64("Remote Chain Selector", remoteChainSelector).
-				Msg("Remote chain is already supported")
-			continue
-		}
-		selectorsToUpdate = append(selectorsToUpdate, token_pool.TokenPoolChainUpdate{
-			RemoteChainSelector: remoteChainSelector,
-			Allowed:             true,
-			InboundRateLimiterConfig: token_pool.RateLimiterConfig{
-				IsEnabled: true,
-				Capacity:  new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)),
-				Rate:      new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e5)),
-			},
-			OutboundRateLimiterConfig: token_pool.RateLimiterConfig{
-				IsEnabled: true,
-				Capacity:  new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)),
-				Rate:      new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e5)),
-			},
-		})
+
+	isSupported, err := pool.Instance.IsSupportedChain(nil, remoteChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to get if chain is supported: %w", err)
 	}
-	// if none to update return
-	if len(selectorsToUpdate) == 0 {
+	// Check if remote chain is already supported , if yes return
+	if isSupported {
+		pool.logger.Info().
+			Str("Token Pool", pool.Address()).
+			Str(Network, pool.client.GetNetworkName()).
+			Uint64("Remote Chain Selector", remoteChainSelector).
+			Msg("Remote chain is already supported")
 		return nil
 	}
+	encodedAddress, err := abihelpers.EncodeAddress(remotePoolAddresses)
+	if err != nil {
+		return fmt.Errorf("failed to encode address: %w", err)
+	}
+
+	selectorsToUpdate = append(selectorsToUpdate, token_pool.TokenPoolChainUpdate{
+		RemoteChainSelector: remoteChainSelector,
+		RemotePoolAddress:   encodedAddress,
+		Allowed:             true,
+		InboundRateLimiterConfig: token_pool.RateLimiterConfig{
+			IsEnabled: true,
+			Capacity:  new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)),
+			Rate:      new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e5)),
+		},
+		OutboundRateLimiterConfig: token_pool.RateLimiterConfig{
+			IsEnabled: true,
+			Capacity:  new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)),
+			Rate:      new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e5)),
+		},
+	})
 	// If remote chain is not supported , add it
 	opts, err := pool.client.TransactionOpts(pool.client.GetDefaultWallet())
 	if err != nil {
@@ -770,7 +733,7 @@ func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelectors []uint64) error
 
 	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
-		Uints64("Chain selectors", remoteChainSelectors).
+		Uint64("Chain selector", remoteChainSelector).
 		Str(Network, pool.client.GetNetworkConfig().Name).
 		Msg("Remote chains set on token pool")
 	return pool.client.ProcessTransaction(tx)
@@ -1772,7 +1735,7 @@ func (offRamp *OffRamp) SetOCR2Config(
 			offchainConfig,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to set OCR2 config: %w", err)
+			return fmt.Errorf("failed to set latest OCR2 config: %w", err)
 		}
 		return offRamp.client.ProcessTransaction(tx)
 	}
@@ -1787,7 +1750,7 @@ func (offRamp *OffRamp) SetOCR2Config(
 			offchainConfig,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to set OCR2 config: %w", err)
+			return fmt.Errorf("failed to set 1.2 OCR2 config: %w", err)
 		}
 		return offRamp.client.ProcessTransaction(tx)
 	}

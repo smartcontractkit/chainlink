@@ -191,7 +191,8 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
     }
     TokenConfig storage config = s_tokenConfig[localToken];
 
-    if (config.disableReRegistration && config.isRegistered) {
+    // disableReRegistration can only be true if the token is already registered
+    if (config.disableReRegistration) {
       revert AlreadyRegistered(localToken);
     }
 
