@@ -46,6 +46,14 @@ func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
 	testRemoteTargetConsensus(t, 4, 6, 1*time.Second, errResponseTest)
 	testRemoteTargetConsensus(t, 10, 10, 1*time.Second, errResponseTest)
 
+	// Check request errors as expected and all error responses are received
+
+	//  Check that requests from an incorrect don are ignored?
+
+	// Check that multiple requests from the same sender are ignored
+
+	// Test with different transmission schedules ?
+
 }
 
 func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF uint8,
@@ -66,8 +74,6 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 		Members: []p2ptypes.PeerID{capabilityPeerID},
 		F:       0,
 	}
-
-	// Define the number of workflow peers
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
@@ -133,18 +139,6 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 
 	wg.Wait()
 }
-
-// Confirm that the target receiver return a response only when sufficient requests have been received
-
-// Also confirm that any request received after the first response is replied to
-
-// Check request times out if insufficient requests are received in a timely manner
-
-// Check request errors as expected and all error responses are received
-
-//  Check that requests from an incorrect don are ignored?
-
-// Check that multiple requests from the same sender are ignored
 
 type testTargetReceiverDispatcher struct {
 	abstractDispatcher

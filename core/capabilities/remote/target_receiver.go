@@ -71,7 +71,6 @@ type executeRequest struct {
 	response         *types.MessageBody
 	callingDonID     string
 	firstRequestTime time.Time
-	cancelContext    func()
 }
 
 func (r *remoteTargetReceiver) ExpireRequests(ctx context.Context) {
@@ -80,6 +79,7 @@ func (r *remoteTargetReceiver) ExpireRequests(ctx context.Context) {
 
 	for messageId, executeReq := range r.msgIDToExecuteRequest {
 		if time.Since(executeReq.firstRequestTime) > r.requestTimeout {
+
 			if executeReq.response == nil {
 				responseMsg := &types.MessageBody{
 					CapabilityId:    r.capInfo.ID,
@@ -164,7 +164,9 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 
 			capabilityRequest, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 			if err == nil {
-				responseCh, err := r.underlying.Execute(ctx, capabilityRequest)
+				ctxWithTimeout, cancel := context.WithTimeout(ctx, r.requestTimeout)
+				defer cancel()
+				responseCh, err := r.underlying.Execute(ctxWithTimeout, capabilityRequest)
 				if err == nil {
 					// TODO handle the case where the capability returns a stream of responses
 					response := <-responseCh
