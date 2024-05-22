@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -88,10 +89,6 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 	cap.lggr.Debugw("Execute", "request", request)
 	// TODO: idempotency
 
-	txm := cap.chain.TxManager()
-
-	config := cap.chain.Config().EVM().ChainWriter()
-
 	reqConfig, err := parseConfig(request.Config)
 	if err != nil {
 		return nil, err
@@ -122,36 +119,14 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
-	// construct forwarder payload
-	calldata, err := forwardABI.Pack("report", common.HexToAddress(reqConfig.Address), inputs.Report, inputs.Signatures)
+	txMeta := make(map[string]string)
+	txMeta["WorkflowExecutionID"] = request.Metadata.WorkflowExecutionID
+
+	err = cap.submitTransaction(ctx, cap.chain.Config().EVM().ChainWriter(), inputs.Report, inputs.Signatures, reqConfig.Address, txMeta)
 	if err != nil {
 		return nil, err
 	}
-
-	txMeta := &txmgr.TxMeta{
-		// FwdrDestAddress could also be set for better logging but it's used for various purposes around Operator Forwarders
-		WorkflowExecutionID: &request.Metadata.WorkflowExecutionID,
-	}
-	strategy := txmgrcommon.NewSendEveryStrategy()
-
-	checker := txmgr.TransmitCheckerSpec{
-		CheckerType: txmgr.TransmitCheckerTypeSimulate,
-	}
-	req := txmgr.TxRequest{
-		FromAddress:    config.FromAddress().Address(),
-		ToAddress:      config.ForwarderAddress().Address(),
-		EncodedPayload: calldata,
-		FeeLimit:       uint64(defaultGasLimit),
-		Meta:           txMeta,
-		Strategy:       strategy,
-		Checker:        checker,
-		// SignalCallback:   true, TODO: add code that checks if a workflow id is present, if so, route callback to chainwriter rather than pipeline
-	}
-	tx, err := txm.CreateTransaction(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", tx)
+	//cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", tx)
 
 	callback := make(chan capabilities.CapabilityResponse)
 	go func() {
@@ -163,6 +138,43 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 		close(callback)
 	}()
 	return callback, nil
+}
+
+func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig config.ChainWriter, report []byte, signatures [][]byte, toAddress string, txMeta map[string]string) error {
+	// construct forwarder payload
+	// TODO: we can't assume we have the ABI locally here, we need to get it from the chain
+	calldata, err := forwardABI.Pack("report", common.HexToAddress(toAddress), report, signatures)
+	if err != nil {
+		return err
+	}
+
+	workflowExecutionID := txMeta["WorkflowExecutionID"]
+
+	txMetaStruct := &txmgr.TxMeta{
+		WorkflowExecutionID: &workflowExecutionID,
+	}
+	// TODO: Turn this into config
+	strategy := txmgrcommon.NewSendEveryStrategy()
+
+	// TODO: Turn this into config
+	checker := txmgr.TransmitCheckerSpec{
+		CheckerType: txmgr.TransmitCheckerTypeSimulate,
+	}
+	req := txmgr.TxRequest{
+		FromAddress:    chainWriterConfig.FromAddress().Address(),
+		ToAddress:      chainWriterConfig.ForwarderAddress().Address(),
+		EncodedPayload: calldata,
+		FeeLimit:       chainWriterConfig.GasLimit(),
+		Meta:           txMetaStruct,
+		Strategy:       strategy,
+		Checker:        checker,
+	}
+	tx, err := cap.chain.TxManager().CreateTransaction(ctx, req)
+	if err != nil {
+		return err
+	}
+	cap.lggr.Debugw("Transaction submitted", "transaction", tx)
+	return nil
 }
 
 func (cap *EvmWrite) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {

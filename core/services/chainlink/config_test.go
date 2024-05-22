@@ -1206,6 +1206,9 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].ChainWriter.ForwarderAddress == nil {
 			got.EVM[c].ChainWriter.ForwarderAddress = &addr
 		}
+		if got.EVM[c].ChainWriter.GasLimit == nil {
+			got.EVM[c].ChainWriter.GasLimit = ptr(uint64(200000))
+		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
 				got.EVM[c].Nodes[n].WSURL = new(commoncfg.URL)

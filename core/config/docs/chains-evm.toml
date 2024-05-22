@@ -424,3 +424,5 @@ GasLimit = 5400000 # Default
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 # ForwarderAddress is the keystone forwarder contract address on chain.
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+# GasLimit controls the gas limit to be used for transactions sent via ChainWriter
+GasLimit = 200000 # Default

@@ -455,6 +455,7 @@ func (a *Automation) setFrom(f *Automation) {
 type ChainWriter struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
+	GasLimit         *uint64             `toml:",omitempty"`
 }
 
 func (m *ChainWriter) setFrom(f *ChainWriter) {
@@ -463,6 +464,9 @@ func (m *ChainWriter) setFrom(f *ChainWriter) {
 	}
 	if v := f.ForwarderAddress; v != nil {
 		m.ForwarderAddress = v
+	}
+	if v := f.GasLimit; v != nil {
+		m.GasLimit = v
 	}
 }
 

@@ -82,8 +82,10 @@ func TestDoc(t *testing.T) {
 		docDefaults.OperatorFactoryAddress = nil
 		require.Empty(t, docDefaults.ChainWriter.FromAddress)
 		require.Empty(t, docDefaults.ChainWriter.ForwarderAddress)
+		require.Zero(t, docDefaults.ChainWriter.GasLimit)
 		docDefaults.ChainWriter.FromAddress = nil
 		docDefaults.ChainWriter.ForwarderAddress = nil
+		docDefaults.ChainWriter.GasLimit = nil
 		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
 
 		assertTOML(t, fallbackDefaults, docDefaults)

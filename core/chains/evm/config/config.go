@@ -148,6 +148,7 @@ type BlockHistory interface {
 type ChainWriter interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
+	GasLimit() uint64
 }
 
 type NodePool interface {
