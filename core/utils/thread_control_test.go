@@ -49,7 +49,8 @@ func TestThreadControl_GoCtx(t *testing.T) {
 
 	start := time.Now()
 	wg.Wait()
-	require.True(t, time.Since(start) > timeout-1)
-	require.True(t, time.Since(start) < 2*timeout)
+	end := time.Since(start)
+	require.True(t, end > timeout-1)
+	require.True(t, end < 2*timeout)
 	require.Equal(t, int32(1), finished.Load())
 }
