@@ -287,18 +287,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
 				}
 
-				var flushLogStreamFn = func() error {
-					// we can't do much if this fails, so we just log the error in LogStream
-					if flushErr := b.te.LogStream.FlushAndShutdown(); flushErr != nil {
-						b.l.Error().Err(flushErr).Msg("Error flushing and shutting down LogStream")
-						return flushErr
-					}
-					b.te.LogStream.PrintLogTargetsLocations()
-					b.te.LogStream.SaveLogLocationInTestSummary()
-
-					return nil
-				}
-
 				// flush logs when test failed or when we are explicitly told to collect logs
 				flushLogStream := b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect
 
@@ -333,10 +321,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				}
 
 				if flushLogStream {
-					err := flushLogStreamFn()
-					if err != nil {
-						b.l.Err(err).Msg("Error flushing LogStream")
+					// we can't do much if this fails, so we just log the error in LogStream
+					if err := b.te.LogStream.FlushAndShutdown(); err != nil {
+						b.l.Error().Err(err).Msg("Error flushing and shutting down LogStream")
 					}
+					b.te.LogStream.PrintLogTargetsLocations()
+					b.te.LogStream.SaveLogLocationInTestSummary()
 				}
 			})
 		} else {
