@@ -24,7 +24,10 @@ import (
 
 func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
 
-	responseTest := func(t *testing.T, response commoncap.CapabilityResponse) {
+	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+
+		require.NoError(t, responseError)
+		response := <-responseCh
 		responseValue, err := response.Value.Unwrap()
 		require.NoError(t, err)
 		assert.Equal(t, "aValue1", responseValue.(string))
@@ -35,23 +38,17 @@ func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
 	testRemoteTargetConsensus(t, 4, 3, 10*time.Minute, responseTest)
 	testRemoteTargetConsensus(t, 10, 3, 10*time.Minute, responseTest)
 
-	/*
-		errResponseTest := func(t *testing.T, response commoncap.CapabilityResponse) {
-			_, err := response.Value.Unwrap()
-			assert.NotNil(t, err)
-			//require.NoError(t, err)
-			//assert.Equal(t, "aValue1", responseValue.(string))
-		}
+	errResponseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+		assert.NotNil(t, responseError)
+	}
 
-		// Test scenario where number of submissions is less than F + 1
-		// TODO implement the timeout handling and cleanup logic of the execute requests cache
-		testRemoteTargetConsensus(t, 4, 6, 1*time.Second, errResponseTest)
+	// Test scenario where number of submissions is less than F + 1
+	testRemoteTargetConsensus(t, 4, 6, 1*time.Second, errResponseTest)
 
-	*/
 }
 
 func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF uint8,
-	consensusTimeout time.Duration, responseTest func(t *testing.T, response commoncap.CapabilityResponse)) {
+	consensusTimeout time.Duration, responseTest func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error)) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	capInfo := commoncap.CapabilityInfo{
@@ -128,10 +125,7 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 					Inputs:   executeInputs,
 				})
 
-			require.NoError(t, err)
-
-			response := <-responseCh
-			responseTest(t, response)
+			responseTest(t, responseCh, err)
 			wg.Done()
 		}(caller)
 	}

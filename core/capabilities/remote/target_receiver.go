@@ -75,22 +75,34 @@ type executeRequest struct {
 }
 
 func (r *remoteTargetReceiver) ExpireRequests(ctx context.Context) {
-	/*r.receiveLock.Lock()
+	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
 	for messageId, executeReq := range r.msgIDToExecuteRequest {
 		if time.Since(executeReq.firstRequestTime) > r.requestTimeout {
 			if executeReq.response == nil {
-				//
+				responseMsg := &types.MessageBody{
+					CapabilityId:    r.capInfo.ID,
+					CapabilityDonId: r.localDonInfo.ID,
+					CallerDonId:     executeReq.callingDonID,
+					Method:          types.MethodExecute,
+					MessageId:       messageId[:],
+					// TODO sort out error codes - this should be a timeout error
+					Error: types.Error_CAPABILITY_NOT_FOUND,
+				}
 
-			} else {
-				delete(r.msgIDToExecuteRequest, messageId)
+				for peerID := range executeReq.fromPeers {
+					if err := r.dispatcher.Send(peerID, responseMsg); err != nil {
+						r.lggr.Errorw("failed to send time out response", "peer", peerID, "err", err)
+					}
+				}
 			}
 
+			delete(r.msgIDToExecuteRequest, messageId)
 		}
 
 	}
-	*/
+
 }
 
 func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
