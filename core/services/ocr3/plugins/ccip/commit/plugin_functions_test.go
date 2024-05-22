@@ -257,6 +257,40 @@ func Test_observeTokenPrices(t *testing.T) {
 
 }
 
+func Test_observeGasPrices(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("happy path", func(t *testing.T) {
+		mockReader := mocks.NewCCIPReader()
+		chains := []model.ChainSelector{1, 2, 3}
+		mockGasPrices := []model.BigInt{
+			{Int: big.NewInt(10)},
+			{Int: big.NewInt(20)},
+			{Int: big.NewInt(30)},
+		}
+		mockReader.On("GasPrices", ctx, chains).Return(mockGasPrices, nil)
+		gasPrices, err := observeGasPrices(ctx, mockReader, chains)
+		assert.NoError(t, err)
+		assert.Equal(t, []model.GasPriceChain{
+			model.NewGasPriceChain(mockGasPrices[0].Int, chains[0]),
+			model.NewGasPriceChain(mockGasPrices[1].Int, chains[1]),
+			model.NewGasPriceChain(mockGasPrices[2].Int, chains[2]),
+		}, gasPrices)
+	})
+
+	t.Run("gas reader internal issue", func(t *testing.T) {
+		mockReader := mocks.NewCCIPReader()
+		chains := []model.ChainSelector{1, 2, 3}
+		mockGasPrices := []model.BigInt{
+			{Int: big.NewInt(10)},
+			{Int: big.NewInt(20)},
+		} // return 2 prices for 3 chains
+		mockReader.On("GasPrices", ctx, chains).Return(mockGasPrices, nil)
+		_, err := observeGasPrices(ctx, mockReader, chains)
+		assert.Error(t, err)
+	})
+}
+
 func Test_validateObservedSequenceNumbers(t *testing.T) {
 	testCases := []struct {
 		name       string
@@ -482,6 +516,58 @@ func Test_validateObservedTokenPrices(t *testing.T) {
 			assert.NoError(t, err)
 		})
 
+	}
+}
+
+func Test_validateObservedGasPrices(t *testing.T) {
+	testCases := []struct {
+		name      string
+		gasPrices []model.GasPriceChain
+		expErr    bool
+	}{
+		{
+			name:      "empty is valid",
+			gasPrices: []model.GasPriceChain{},
+			expErr:    false,
+		},
+		{
+			name: "all valid",
+			gasPrices: []model.GasPriceChain{
+				model.NewGasPriceChain(big.NewInt(10), 1),
+				model.NewGasPriceChain(big.NewInt(20), 2),
+				model.NewGasPriceChain(big.NewInt(1312), 3),
+			},
+			expErr: false,
+		},
+		{
+			name: "duplicate gas price",
+			gasPrices: []model.GasPriceChain{
+				model.NewGasPriceChain(big.NewInt(10), 1),
+				model.NewGasPriceChain(big.NewInt(20), 2),
+				model.NewGasPriceChain(big.NewInt(1312), 1), // notice we already have a gas price for chain 1
+			},
+			expErr: true,
+		},
+		{
+			name: "empty gas price",
+			gasPrices: []model.GasPriceChain{
+				model.NewGasPriceChain(big.NewInt(10), 1),
+				model.NewGasPriceChain(big.NewInt(20), 2),
+				model.NewGasPriceChain(nil, 3), // nil
+			},
+			expErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateObservedGasPrices(tc.gasPrices)
+			if tc.expErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+		})
 	}
 }
 
@@ -921,6 +1007,87 @@ func Test_tokenPricesConsensus(t *testing.T) {
 				assert.Error(t, err)
 				return
 			}
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expPrices, prices)
+		})
+	}
+}
+
+func Test_gasPricesConsensus(t *testing.T) {
+	testCases := []struct {
+		name         string
+		observations []model.CommitPluginObservation
+		fChain       int
+		expPrices    []model.GasPriceChain
+		expErr       bool
+	}{
+		{
+			name:         "empty",
+			observations: make([]model.CommitPluginObservation, 0),
+			fChain:       2,
+			expPrices:    make([]model.GasPriceChain, 0),
+			expErr:       false,
+		},
+		{
+			name: "one chain happy path",
+			observations: []model.CommitPluginObservation{
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(20), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(11), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+			},
+			fChain: 2,
+			expPrices: []model.GasPriceChain{
+				model.NewGasPriceChain(big.NewInt(10), 1),
+			},
+			expErr: false,
+		},
+		{
+			name: "one chain no consensus",
+			observations: []model.CommitPluginObservation{
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(20), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(11), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+			},
+			fChain:    3, // notice fChain is 3, means we need at least 2*3+1=7 observations
+			expPrices: []model.GasPriceChain{},
+			expErr:    false,
+		},
+		{
+			name: "two chains determinism check",
+			observations: []model.CommitPluginObservation{
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(20), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(11), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(200), 10)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(100), 10)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(100), 10)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(110), 10)}},
+				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(100), 10)}},
+			},
+			fChain: 2,
+			expPrices: []model.GasPriceChain{
+				model.NewGasPriceChain(big.NewInt(10), 1),
+				model.NewGasPriceChain(big.NewInt(100), 10),
+			},
+			expErr: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			lggr := logger.Test(t)
+			prices, err := gasPricesConsensus(lggr, tc.observations, tc.fChain)
+			if tc.expErr {
+				assert.Error(t, err)
+				return
+			}
+
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expPrices, prices)
 		})

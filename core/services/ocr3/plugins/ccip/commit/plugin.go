@@ -85,7 +85,7 @@ func (p *Plugin) Query(_ context.Context, _ ocr3types.OutcomeContext) (types.Que
 //
 // Gas Prices:
 //
-//	TODO
+//	We discover the gas prices for each readable source chain.
 //
 // Token Prices:
 //
@@ -129,27 +129,13 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 		}
 	}
 
-	// TODO: The code below is related to gas prices and should be cleaned up in relevant PRs...
-	knownSourceChainsSlice := p.knownSourceChains.ToSlice()
-	sort.Slice(knownSourceChainsSlice, func(i, j int) bool { return knownSourceChainsSlice[i] < knownSourceChainsSlice[j] })
-
-	// Find the gas prices for each chain.
-	gasPricesVals, err := p.ccipReader.GasPrices(ctx, knownSourceChainsSlice)
+	// Find the gas prices for each source chain.
+	var gasPrices []model.GasPriceChain
+	gasPrices, err = observeGasPrices(ctx, p.ccipReader, p.knownSourceChainsSlice())
 	if err != nil {
-		return nil, fmt.Errorf("get gas prices: %w", err)
-	}
-	p.lggr.Debugw("reading gas prices", "chains",
-		len(knownSourceChainsSlice), "gasPrices", len(gasPricesVals))
-	gasPrices := make([]model.GasPriceChain, 0, len(knownSourceChainsSlice))
-	for i, ch := range knownSourceChainsSlice {
-		p.lggr.Debugw("gas price", "chain", ch, "price", gasPricesVals[i])
-		gasPrices = append(gasPrices, model.NewGasPriceChain(gasPricesVals[i], ch))
+		return types.Observation{}, fmt.Errorf("observe gas prices: %w", err)
 	}
 
-	p.lggr.Infow("submitting observation",
-		"observedNewMsgs", len(newMsgs),
-		"gasPrices", len(gasPrices),
-		"tokenPrices", len(tokenPrices))
 	return model.NewCommitPluginObservation(newMsgs, gasPrices, tokenPrices, maxSeqNumsPerChain).Encode()
 }
 
@@ -169,6 +155,10 @@ func (p *Plugin) ValidateObservation(_ ocr3types.OutcomeContext, _ types.Query, 
 
 	if err := validateObservedTokenPrices(obs.TokenPrices); err != nil {
 		return fmt.Errorf("validate token prices: %w", err)
+	}
+
+	if err := validateObservedGasPrices(obs.GasPrices); err != nil {
+		return fmt.Errorf("validate gas prices: %w", err)
 	}
 
 	return nil
@@ -221,7 +211,12 @@ func (p *Plugin) Outcome(_ ocr3types.OutcomeContext, _ types.Query, aos []types.
 		return ocr3types.Outcome{}, fmt.Errorf("token prices consensus: %w", err)
 	}
 
-	return model.NewCommitPluginOutcome(maxSeqNums, merkleRoots, tokenPrices).Encode()
+	gasPrices, err := gasPricesConsensus(p.lggr, decodedObservations, p.cfg.FChain[p.cfg.DestChain])
+	if err != nil {
+		return ocr3types.Outcome{}, fmt.Errorf("gas prices consensus: %w", err)
+	}
+
+	return model.NewCommitPluginOutcome(maxSeqNums, merkleRoots, tokenPrices, gasPrices).Encode()
 }
 
 func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportWithInfo[[]byte], error) {
@@ -237,7 +232,7 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 		and only create a report if outc.MerkleRoots is non-empty OR gas/token price timer has expired
 	*/
 
-	rep := model.NewCommitPluginReport(outc.MerkleRoots, outc.TokenPrices)
+	rep := model.NewCommitPluginReport(outc.MerkleRoots, outc.TokenPrices, outc.GasPrices)
 
 	encodedReport, err := p.reportCodec.Encode(context.Background(), rep)
 	if err != nil {
@@ -275,7 +270,9 @@ func (p *Plugin) ShouldTransmitAcceptedReport(ctx context.Context, u uint64, r o
 
 	p.lggr.Debugw("transmitting report",
 		"roots", len(decodedReport.MerkleRoots),
-		"tokenPriceUpdates", len(decodedReport.TokenPriceUpdates))
+		"tokenPriceUpdates", len(decodedReport.PriceUpdates.TokenPriceUpdates),
+		"gasPriceUpdates", len(decodedReport.PriceUpdates.GasPriceUpdates),
+	)
 
 	// todo: if report is stale -> do not transmit
 	return true, nil

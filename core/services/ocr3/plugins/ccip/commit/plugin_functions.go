@@ -138,6 +138,25 @@ func observeTokenPrices(
 	return tokenPricesUSD, nil
 }
 
+func observeGasPrices(ctx context.Context, ccipReader reader.CCIP, chains []model.ChainSelector) ([]model.GasPriceChain, error) {
+	gasPrices, err := ccipReader.GasPrices(ctx, chains)
+	if err != nil {
+		return nil, fmt.Errorf("get gas prices: %w", err)
+	}
+
+	if len(gasPrices) != len(chains) {
+		return nil, fmt.Errorf("internal critical error gas prices length mismatch: got %d, want %d",
+			len(gasPrices), len(chains))
+	}
+
+	gasPricesGwei := make([]model.GasPriceChain, 0, len(chains))
+	for i, chain := range chains {
+		gasPricesGwei = append(gasPricesGwei, model.NewGasPriceChain(gasPrices[i].Int, chain))
+	}
+
+	return gasPricesGwei, nil
+}
+
 // newMsgsConsensus comes in consensus on the observed messages for each source chain. Generates one merkle root
 // for each source chain based on the consensus on the messages.
 func newMsgsConsensus(
@@ -349,6 +368,40 @@ func tokenPricesConsensus(
 	return consensusPrices, nil
 }
 
+func gasPricesConsensus(lggr logger.Logger, observations []model.CommitPluginObservation, fChain int) ([]model.GasPriceChain, error) {
+	// Group the observed gas prices by chain.
+	gasPricePerChain := make(map[model.ChainSelector][]model.BigInt)
+	for _, obs := range observations {
+		for _, gasPrice := range obs.GasPrices {
+			if _, exists := gasPricePerChain[gasPrice.ChainSel]; !exists {
+				gasPricePerChain[gasPrice.ChainSel] = make([]model.BigInt, 0)
+			}
+			gasPricePerChain[gasPrice.ChainSel] = append(gasPricePerChain[gasPrice.ChainSel], gasPrice.GasPrice)
+		}
+	}
+
+	// Keep the median
+	consensusGasPrices := make([]model.GasPriceChain, 0)
+	for chain, gasPrices := range gasPricePerChain {
+		if len(gasPrices) < 2*fChain+1 {
+			lggr.Warnw("not enough gas price observations", "chain", chain, "gasPrices", gasPrices)
+			continue
+		}
+
+		values := make([]model.BigInt, 0, len(gasPrices))
+		for _, gasPrice := range gasPrices {
+			values = append(values, gasPrice)
+		}
+		consensusGasPrices = append(
+			consensusGasPrices,
+			model.NewGasPriceChain(slicelib.BigIntSortedMiddle(values).Int, chain),
+		)
+	}
+
+	sort.Slice(consensusGasPrices, func(i, j int) bool { return consensusGasPrices[i].ChainSel < consensusGasPrices[j].ChainSel })
+	return consensusGasPrices, nil
+}
+
 // validateObservedSequenceNumbers checks if the sequence numbers of the provided messages are unique for each chain and
 // that they match the observed max sequence numbers.
 func validateObservedSequenceNumbers(msgs []model.CCIPMsgBaseDetails, maxSeqNums []model.SeqNumChain) error {
@@ -431,7 +484,7 @@ func validateObservedTokenPrices(tokenPrices []model.TokenPrice) error {
 	return nil
 }
 
-func validateObservedGasPrices(gasPrices []model.GasPriceChain, tokenPrices []model.TokenPrice) error {
+func validateObservedGasPrices(gasPrices []model.GasPriceChain) error {
 	// Duplicate gas prices must not appear for the same chain and must not be empty.
 	gasPriceChains := mapset.NewSet[model.ChainSelector]()
 	for _, g := range gasPrices {
@@ -439,8 +492,8 @@ func validateObservedGasPrices(gasPrices []model.GasPriceChain, tokenPrices []mo
 			return fmt.Errorf("duplicate gas price for chain %d", g.ChainSel)
 		}
 		gasPriceChains.Add(g.ChainSel)
-		if g.GasPrice == nil {
-			return fmt.Errorf("gas price must not be nil")
+		if g.GasPrice.IsEmpty() {
+			return fmt.Errorf("gas price must not be empty")
 		}
 	}
 

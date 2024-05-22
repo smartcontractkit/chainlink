@@ -84,7 +84,7 @@ func TestNewTokenPrice(t *testing.T) {
 func TestNewGasPriceChain(t *testing.T) {
 	t.Run("base", func(t *testing.T) {
 		gpc := NewGasPriceChain(big.NewInt(1000), ChainSelector(1))
-		assert.Equal(t, uint64(1000), (*big.Int)(gpc.GasPrice).Uint64())
+		assert.Equal(t, uint64(1000), (gpc.GasPrice).Uint64())
 		assert.Equal(t, ChainSelector(1), gpc.ChainSel)
 	})
 }

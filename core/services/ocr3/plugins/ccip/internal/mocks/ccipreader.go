@@ -34,9 +34,9 @@ func (r CCIPReader) NextSeqNum(ctx context.Context, chains []model.ChainSelector
 	return args.Get(0).([]model.SeqNum), args.Error(1)
 }
 
-func (r CCIPReader) GasPrices(ctx context.Context, chains []model.ChainSelector) ([]model.GasPrice, error) {
+func (r CCIPReader) GasPrices(ctx context.Context, chains []model.ChainSelector) ([]model.BigInt, error) {
 	args := r.Called(ctx, chains)
-	return args.Get(0).([]model.GasPrice), args.Error(1)
+	return args.Get(0).([]model.BigInt), args.Error(1)
 }
 
 func (r CCIPReader) Close(ctx context.Context) error {
