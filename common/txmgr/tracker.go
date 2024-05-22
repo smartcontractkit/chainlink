@@ -91,11 +91,11 @@ func NewTracker[
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context) (err error) {
 	tr.lggr.Info("Abandoned transaction tracking enabled")
 	return tr.StartOnce("Tracker", func() error {
-		return tr.startInternal(ctx)
+		return tr.StartInternal(ctx)
 	})
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal(ctx context.Context) (err error) {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) StartInternal(ctx context.Context) (err error) {
 	tr.initSync.Lock()
 	defer tr.initSync.Unlock()
 
@@ -113,11 +113,11 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() error {
 	return tr.StopOnce("Tracker", func() error {
-		return tr.closeInternal()
+		return tr.CloseInternal()
 	})
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeInternal() error {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CloseInternal() error {
 	tr.initSync.Lock()
 	defer tr.initSync.Unlock()
 
@@ -130,6 +130,10 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeIntern
 	tr.wg.Wait()
 	tr.isStarted = false
 	return nil
+}
+
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Deliver(blockNumber int64) {
+	tr.mb.Deliver(blockNumber)
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx context.Context, cancel context.CancelFunc) {

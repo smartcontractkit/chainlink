@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -42,12 +43,11 @@ func NewTxm(
 		lggr.Info("EvmForwarderManager: Disabled")
 	}
 	checker := &CheckerFactory{Client: client}
-	// create tx attempt builder
 	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
 	txStore := NewTxStore(ds, lggr)
-	txmCfg := NewEvmTxmConfig(chainConfig)             // wrap Evm specific config
-	feeCfg := NewEvmTxmFeeConfig(fCfg)                 // wrap Evm specific config
-	txmClient := NewEvmTxmClient(client, clientErrors) // wrap Evm specific client
+	txmCfg := NewEvmTxmConfig(chainConfig)
+	feeCfg := NewEvmTxmFeeConfig(fCfg)
+	txmClient := NewEvmTxmClient(client, clientErrors)
 	chainID := txmClient.ConfiguredChainID()
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
@@ -56,27 +56,7 @@ func NewTxm(
 	if txConfig.ResendAfterThreshold() > 0 {
 		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
-	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker)
-	return txm, nil
-}
-
-// NewEvmTxm creates a new concrete EvmTxm
-func NewEvmTxm(
-	chainId *big.Int,
-	cfg txmgrtypes.TransactionManagerChainConfig,
-	txCfg txmgrtypes.TransactionManagerTransactionsConfig,
-	keyStore KeyStore,
-	lggr logger.Logger,
-	checkerFactory TransmitCheckerFactory,
-	fwdMgr FwdMgr,
-	txAttemptBuilder TxAttemptBuilder,
-	txStore TxStore,
-	broadcaster *Broadcaster,
-	confirmer *Confirmer,
-	resender *Resender,
-	tracker *Tracker,
-) *Txm {
-	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker)
+	return NewTxmgr(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker), nil
 }
 
 // NewEvmResender creates a new concrete EvmResender

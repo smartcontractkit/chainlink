@@ -123,14 +123,14 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	require.Error(t, err)
 
 	// Can't closeInternal unstarted instance
-	require.Error(t, eb.XXXTestCloseInternal())
+	require.Error(t, eb.CloseInternal())
 
 	// Can successfully startInternal a previously closed instance
-	require.NoError(t, eb.XXXTestStartInternal(ctx))
+	require.NoError(t, eb.StartInternal(ctx))
 	// Can't startInternal already started instance
-	require.Error(t, eb.XXXTestStartInternal(ctx))
+	require.Error(t, eb.StartInternal(ctx))
 	// Can successfully closeInternal again
-	require.NoError(t, eb.XXXTestCloseInternal())
+	require.NoError(t, eb.CloseInternal())
 }
 
 // Failure to load next sequnce map should not fail Broadcaster startup
