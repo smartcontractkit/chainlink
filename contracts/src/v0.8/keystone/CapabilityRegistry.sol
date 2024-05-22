@@ -575,7 +575,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32 configCount = s_dons[donId].configCount;
     if (configCount == 0) revert DONDoesNotExist(donId);
     _setDONConfig(donId, ++configCount, nodes, capabilityConfigurations, isPublic);
-    ++s_donId;
   }
 
   /// @notice Removes DONs from the Capability Registry
