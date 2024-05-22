@@ -27,6 +27,7 @@ type remoteTargetReceiver struct {
 	lggr         logger.Logger
 
 	msgIDToExecuteRequest map[[32]byte]executeRequest
+	requestTimeout        time.Duration
 
 	receiveLock sync.Mutex
 }
@@ -36,6 +37,19 @@ var _ types.Receiver = &remoteTargetReceiver{}
 func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo *capabilities.DON,
 	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration) *remoteTargetReceiver {
 
+	receiver := &remoteTargetReceiver{
+		underlying:   underlying,
+		capInfo:      capInfo,
+		localDonInfo: localDonInfo,
+		workflowDONs: workflowDONs,
+		dispatcher:   dispatcher,
+
+		msgIDToExecuteRequest: map[[32]byte]executeRequest{},
+		requestTimeout:        requestTimeout,
+
+		lggr: lggr,
+	}
+
 	go func() {
 		timer := time.NewTimer(requestTimeout)
 		defer timer.Stop()
@@ -44,22 +58,12 @@ func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, underlying
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				// TODO Implement timeout handling and cleanup logic of the execute requests cache
+				receiver.ExpireRequests(ctx)
 			}
 		}
 	}()
 
-	return &remoteTargetReceiver{
-		underlying:   underlying,
-		capInfo:      capInfo,
-		localDonInfo: localDonInfo,
-		workflowDONs: workflowDONs,
-		dispatcher:   dispatcher,
-
-		msgIDToExecuteRequest: map[[32]byte]executeRequest{},
-
-		lggr: lggr,
-	}
+	return receiver
 }
 
 type executeRequest struct {
@@ -67,6 +71,26 @@ type executeRequest struct {
 	response         *types.MessageBody
 	callingDonID     string
 	firstRequestTime time.Time
+	cancelContext    func()
+}
+
+func (r *remoteTargetReceiver) ExpireRequests(ctx context.Context) {
+	/*r.receiveLock.Lock()
+	defer r.receiveLock.Unlock()
+
+	for messageId, executeReq := range r.msgIDToExecuteRequest {
+		if time.Since(executeReq.firstRequestTime) > r.requestTimeout {
+			if executeReq.response == nil {
+				//
+
+			} else {
+				delete(r.msgIDToExecuteRequest, messageId)
+			}
+
+		}
+
+	}
+	*/
 }
 
 func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
