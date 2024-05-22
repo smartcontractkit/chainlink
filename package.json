@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/smartcontractkit/chainlink#readme",
   "devDependencies": {
-    "@changesets/changelog-github": "^0.4.8",
+    "@changesets/changelog-github": "^0.5.0",
     "@changesets/cli": "~2.26.2",
     "semver": "^7.5.4"
   }
