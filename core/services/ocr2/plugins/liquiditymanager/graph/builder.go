@@ -43,7 +43,7 @@ func NewGraphWithData(ctx context.Context, start Vertex, dataGetter DataGetter) 
 
 		val, neighbors, err := dataGetter(ctx, v)
 		if err != nil {
-			return nil, fmt.Errorf("could not get value for vertex %+v: %w", v, err)
+			return nil, fmt.Errorf("could not get value for vertex(selector=%d;addr:%s): %w", v.NetworkSelector, v.LiquidityManager.String(), err)
 		}
 		g.addNetwork(v.NetworkSelector, val)
 
@@ -51,7 +51,7 @@ func NewGraphWithData(ctx context.Context, start Vertex, dataGetter DataGetter) 
 			if !g.hasNetwork(neighbor.NetworkSelector) {
 				val2, _, err := dataGetter(ctx, neighbor)
 				if err != nil {
-					return nil, fmt.Errorf("could not get value for vertex %+v: %w", v, err)
+					return nil, fmt.Errorf("could not get value for neighbor vertex(selector=%d;addr:%s): %w", v.NetworkSelector, v.LiquidityManager.String(), err)
 				}
 				g.addNetwork(neighbor.NetworkSelector, val2)
 			}

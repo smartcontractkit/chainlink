@@ -11,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/liquiditymanager"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/graph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 )
@@ -22,18 +23,38 @@ const (
 type evmLiquidityGetter func(ctx context.Context, selector models.NetworkSelector, lmAddress common.Address) (*big.Int, error)
 
 type evmDiscoverer struct {
-	lock             sync.RWMutex
-	evmClients       map[models.NetworkSelector]evmDep
-	masterRebalancer models.Address
-	masterSelector   models.NetworkSelector
-	liquidityGetter  evmLiquidityGetter
+	lggr                   logger.Logger
+	lock                   sync.RWMutex
+	evmClients             map[models.NetworkSelector]evmDep
+	masterLiquidityManager models.Address
+	masterSelector         models.NetworkSelector
+	liquidityGetter        evmLiquidityGetter
+}
+
+func newEvmDiscoverer(lggr logger.Logger, evmDeps map[models.NetworkSelector]evmDep, lmAddress models.Address, selector models.NetworkSelector) *evmDiscoverer {
+	masterLmAddr := models.Address{}
+	copy(masterLmAddr[:], lmAddress[:])
+	return &evmDiscoverer{
+		lggr:                   lggr.With("where", "evmDiscoverer"),
+		evmClients:             evmDeps,
+		masterLiquidityManager: masterLmAddr,
+		masterSelector:         selector,
+	}
 }
 
 func (e *evmDiscoverer) Discover(ctx context.Context) (graph.Graph, error) {
 	return graph.NewGraphWithData(ctx, graph.Vertex{
 		NetworkSelector:  e.masterSelector,
-		LiquidityManager: e.masterRebalancer,
-	}, e.getVertexData)
+		LiquidityManager: e.masterLiquidityManager,
+	}, func(ctx context.Context, v graph.Vertex) (graph.Data, []graph.Vertex, error) {
+		d, n, err := e.getVertexData(ctx, v)
+		if err != nil {
+			e.lggr.Warnw("failed to get vertex data", "selector", v.NetworkSelector, "addr", v.LiquidityManager, "error", err)
+		} else {
+			e.lggr.Debugw("Got vertex data", "selector", v.NetworkSelector, "addr", v.LiquidityManager, "data", d)
+		}
+		return d, n, err
+	})
 }
 
 // DiscoverBalances discovers the balances of all networks in the graph.
@@ -53,7 +74,7 @@ func (e *evmDiscoverer) DiscoverBalances(ctx context.Context, g graph.Graph) err
 				defer func() { <-running }()
 				err := e.updateLiquidity(c, selector, g, liquidityGetter)
 				if err != nil {
-					err = fmt.Errorf("get liquidity: %w", err)
+					err = fmt.Errorf("update liquidity: %w", err)
 				}
 				results <- err
 			}(ctx, selector)
@@ -78,23 +99,24 @@ func (e *evmDiscoverer) getVertexData(ctx context.Context, v graph.Vertex) (grap
 	if !ok {
 		return graph.Data{}, nil, fmt.Errorf("no client for master chain %+v", selector)
 	}
-	rebal, err := liquiditymanager.NewLiquidityManager(common.Address(lmAddress), dep.ethClient)
+	lm, err := liquiditymanager.NewLiquidityManager(common.Address(lmAddress), dep.ethClient)
 	if err != nil {
 		return graph.Data{}, nil, fmt.Errorf("new liquiditymanager: %w", err)
 	}
-	liquidity, err := rebal.GetLiquidity(&bind.CallOpts{
+	liquidity, err := lm.GetLiquidity(&bind.CallOpts{
 		Context: ctx,
 	})
 	if err != nil {
 		return graph.Data{}, nil, fmt.Errorf("get liquidity: %w", err)
 	}
-	token, err := rebal.ILocalToken(&bind.CallOpts{
+	e.lggr.Debugw("Got liquidity", "liquidity", liquidity, "selector", selector, "lmAddress", lmAddress)
+	token, err := lm.ILocalToken(&bind.CallOpts{
 		Context: ctx,
 	})
 	if err != nil {
 		return graph.Data{}, nil, fmt.Errorf("get token: %w", err)
 	}
-	xchainRebalancers, err := rebal.GetAllCrossChainRebalancers(&bind.CallOpts{
+	xchainRebalancers, err := lm.GetAllCrossChainRebalancers(&bind.CallOpts{
 		Context: ctx,
 	})
 	if err != nil {
@@ -105,6 +127,7 @@ func (e *evmDiscoverer) getVertexData(ctx context.Context, v graph.Vertex) (grap
 		xchainRebalancerData = make(map[models.NetworkSelector]graph.XChainLiquidityManagerData)
 	)
 	for _, v := range xchainRebalancers {
+		e.lggr.Debugw("Found cross chain rebalancer", "remoteChain", v.RemoteChainSelector, "remoteRebalancer", v.RemoteRebalancer, "localBridge", v.LocalBridge, "remoteToken", v.RemoteToken)
 		neighbors = append(neighbors, graph.Vertex{
 			NetworkSelector:  models.NetworkSelector(v.RemoteChainSelector),
 			LiquidityManager: models.Address(v.RemoteRebalancer),
@@ -116,17 +139,17 @@ func (e *evmDiscoverer) getVertexData(ctx context.Context, v graph.Vertex) (grap
 		}
 	}
 
-	configDigestAndEpoch, err := rebal.LatestConfigDigestAndEpoch(&bind.CallOpts{Context: ctx})
+	configDigestAndEpoch, err := lm.LatestConfigDigestAndEpoch(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return graph.Data{}, nil, fmt.Errorf("latest config digest and epoch: %w", err)
 	}
 
-	minimumLiquidity, err := rebal.GetMinimumLiquidity(&bind.CallOpts{Context: ctx})
+	minimumLiquidity, err := lm.GetMinimumLiquidity(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return graph.Data{}, nil, fmt.Errorf("get target balance: %w", err)
 	}
 
-	return graph.Data{
+	data := graph.Data{
 		Liquidity:               liquidity,
 		TokenAddress:            models.Address(token),
 		LiquidityManagerAddress: lmAddress,
@@ -134,7 +157,9 @@ func (e *evmDiscoverer) getVertexData(ctx context.Context, v graph.Vertex) (grap
 		ConfigDigest:            models.ConfigDigest{ConfigDigest: configDigestAndEpoch.ConfigDigest},
 		NetworkSelector:         selector,
 		MinimumLiquidity:        minimumLiquidity,
-	}, neighbors, nil
+	}
+
+	return data, neighbors, nil
 }
 
 func (e *evmDiscoverer) updateLiquidity(ctx context.Context, selector models.NetworkSelector, g graph.Graph, liquidityGetter evmLiquidityGetter) error {
@@ -146,6 +171,7 @@ func (e *evmDiscoverer) updateLiquidity(ctx context.Context, selector models.Net
 	if err != nil {
 		return fmt.Errorf("get liquidity: %w", err)
 	}
+	e.lggr.Debugw("Updating liquidity", "liquidity", liquidity, "selector", selector, "lmAddress", lmAddress)
 	_ = g.SetLiquidity(selector, liquidity) // TODO: handle non-existing network
 	return nil
 }

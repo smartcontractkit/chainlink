@@ -242,15 +242,15 @@ func newRebalancerConfigProvider(
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	rebalancerGraph, err := discoverer.Discover(ctx)
+	liquidityGraph, err := discoverer.Discover(ctx)
 	cancel()
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("failed to discover rebalancer graph: %w", err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to discover liquidity graph for chain-id %d address %s: %w", masterSelector.EvmChainID, contractAddress, err)
 	}
 
 	// at this point we can instantiate the bridges
 	var bridgeOpts []bridge.Opt
-	for _, networkID := range rebalancerGraph.GetNetworks() {
+	for _, networkID := range liquidityGraph.GetNetworks() {
 		chain, ok := chainsel.ChainBySelector(uint64(networkID))
 		if !ok {
 			return nil, nil, nil, nil, nil, fmt.Errorf("chain selector for network %d not found", networkID)
@@ -259,11 +259,11 @@ func newRebalancerConfigProvider(
 		if err2 != nil {
 			return nil, nil, nil, nil, nil, fmt.Errorf("failed to get legacy chain chain %d: %w", chain.EvmChainID, err2)
 		}
-		rebalancerAddress, err2 := rebalancerGraph.GetLiquidityManagerAddress(networkID)
+		lmAddress, err2 := liquidityGraph.GetLiquidityManagerAddress(networkID)
 		if err2 != nil {
 			return nil, nil, nil, nil, nil, fmt.Errorf("failed to get rebalancer address for network %d: %w", networkID, err2)
 		}
-		xchainRebalData, err2 := rebalancerGraph.GetXChainLiquidityManagerData(networkID)
+		xchainRebalData, err2 := liquidityGraph.GetXChainLiquidityManagerData(networkID)
 		if err2 != nil {
 			return nil, nil, nil, nil, nil, fmt.Errorf("failed to get xchain rebalancer data for network %d: %w", networkID, err2)
 		}
@@ -275,7 +275,7 @@ func newRebalancerConfigProvider(
 			networkID,
 			legacyChain.LogPoller(),
 			legacyChain.Client(),
-			rebalancerAddress,
+			lmAddress,
 			bridgeAdapters,
 		))
 	}

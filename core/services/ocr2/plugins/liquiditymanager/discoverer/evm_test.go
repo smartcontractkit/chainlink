@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/graph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 )
@@ -108,6 +109,7 @@ func Test_EvmDiscoverer_DiscoverBalances(t *testing.T) {
 				g.(graph.GraphTest).AddNetwork(network, graph.Data{Liquidity: liq})
 			}
 			d := &evmDiscoverer{
+				lggr:            logger.TestLogger(t),
 				liquidityGetter: tc.liquidityGetter,
 			}
 			err := d.DiscoverBalances(testutils.Context(t), g)
