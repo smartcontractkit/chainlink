@@ -10,10 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
@@ -1801,6 +1803,187 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 		require.NoError(t, err2)
 		require.Equal(t, int32(1), count)
 	})
+}
+
+func Test_ORM_FindJobByWorkflow(t *testing.T) {
+	type fields struct {
+		ds sqlutil.DataSource
+	}
+	type args struct {
+		spec   job.WorkflowSpec
+		before func(t *testing.T, o job.ORM, s job.WorkflowSpec) int32
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "wf not job found",
+			fields: fields{
+				ds: pgtest.NewSqlxDB(t),
+			},
+			args: args{
+				// before is nil, so no job is inserted
+				spec: job.WorkflowSpec{
+					ID:            1,
+					WorkflowID:    "workflow 1",
+					Workflow:      "abcd",
+					WorkflowOwner: "me",
+					WorkflowName:  "myworkflow",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "wf job found",
+			fields: fields{
+				ds: pgtest.NewSqlxDB(t),
+			},
+			args: args{
+				spec: job.WorkflowSpec{
+					ID:            1,
+					WorkflowID:    "workflow 2",
+					Workflow:      "anything",
+					WorkflowOwner: "me",
+					WorkflowName:  "myworkflow",
+				},
+				before: mustInsertWFJob,
+			},
+			wantErr: false,
+		},
+
+		{
+			name: "wf wrong name",
+			fields: fields{
+				ds: pgtest.NewSqlxDB(t),
+			},
+			args: args{
+				spec: job.WorkflowSpec{
+					ID:            1,
+					WorkflowID:    "workflow 3",
+					Workflow:      "anything",
+					WorkflowOwner: "me",
+					WorkflowName:  "wf3",
+				},
+				before: func(t *testing.T, o job.ORM, s job.WorkflowSpec) int32 {
+					s.WorkflowName = "notmyworkflow"
+					return mustInsertWFJob(t, o, s)
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "wf wrong owner",
+			fields: fields{
+				ds: pgtest.NewSqlxDB(t),
+			},
+			args: args{
+				spec: job.WorkflowSpec{
+					ID:            1,
+					WorkflowID:    "workflow 4",
+					Workflow:      "anything",
+					WorkflowOwner: "me",
+					WorkflowName:  "wf4",
+				},
+				before: func(t *testing.T, o job.ORM, s job.WorkflowSpec) int32 {
+					s.WorkflowOwner = "not me"
+					return mustInsertWFJob(t, o, s)
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ks := cltest.NewKeyStore(t, tt.fields.ds)
+			pipelineORM := pipeline.NewORM(tt.fields.ds, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns())
+			bridgesORM := bridges.NewORM(tt.fields.ds)
+			o := NewTestORM(t, tt.fields.ds, pipelineORM, bridgesORM, ks)
+			var wantJobID int32
+			if tt.args.before != nil {
+				wantJobID = tt.args.before(t, o, tt.args.spec)
+			}
+			ctx := testutils.Context(t)
+			gotJ, err := o.FindJobIDByWorkflow(ctx, tt.args.spec)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("orm.FindJobByWorkflow() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				assert.Equal(t, wantJobID, gotJ, "mismatch job id")
+			}
+		})
+	}
+
+	t.Run("multiple jobs", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		o := NewTestORM(t,
+			db,
+			pipeline.NewORM(db,
+				logger.TestLogger(t),
+				configtest.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
+			bridges.NewORM(db),
+			cltest.NewKeyStore(t, db))
+		ctx := testutils.Context(t)
+		s1 := job.WorkflowSpec{
+			WorkflowID:    "workflowid",
+			Workflow:      "anything",
+			WorkflowOwner: "me",
+			WorkflowName:  "a_common_name",
+		}
+		wantJobID1 := mustInsertWFJob(t, o, s1)
+
+		s2 := job.WorkflowSpec{
+			WorkflowID:    "another workflowid",
+			Workflow:      "anything",
+			WorkflowOwner: "me",
+			WorkflowName:  "another workflow name",
+		}
+		wantJobID2 := mustInsertWFJob(t, o, s2)
+
+		s3 := job.WorkflowSpec{
+			WorkflowID:    "xworkflowid",
+			Workflow:      "anything",
+			WorkflowOwner: "someone else",
+			WorkflowName:  "a_common_name",
+		}
+		wantJobID3 := mustInsertWFJob(t, o, s3)
+
+		expectedIDs := []int32{wantJobID1, wantJobID2, wantJobID3}
+		for i, s := range []job.WorkflowSpec{s1, s2, s3} {
+			gotJ, err := o.FindJobIDByWorkflow(ctx, s)
+			require.NoError(t, err)
+			assert.Equal(t, expectedIDs[i], gotJ, "mismatch job id case %d, spec %v", i, s)
+			j, err := o.FindJob(ctx, expectedIDs[i])
+			require.NoError(t, err)
+			assert.NotNil(t, j)
+			t.Logf("found job %v", j)
+			assert.EqualValues(t, j.WorkflowSpec.Workflow, s.Workflow)
+			assert.EqualValues(t, j.WorkflowSpec.WorkflowID, s.WorkflowID)
+			assert.EqualValues(t, j.WorkflowSpec.WorkflowOwner, s.WorkflowOwner)
+			assert.EqualValues(t, j.WorkflowSpec.WorkflowName, s.WorkflowName)
+		}
+	})
+}
+
+func mustInsertWFJob(t *testing.T, orm job.ORM, s job.WorkflowSpec) int32 {
+	t.Helper()
+	ctx := testutils.Context(t)
+	_, err := toml.Marshal(s.Workflow)
+	require.NoError(t, err)
+	j := job.Job{
+		Type:          job.Workflow,
+		WorkflowSpec:  &s,
+		ExternalJobID: uuid.New(),
+		Name:          null.StringFrom(s.WorkflowOwner + "_" + s.WorkflowName),
+		SchemaVersion: 1,
+	}
+	err = orm.CreateJob(ctx, &j)
+	require.NoError(t, err)
+	return j.ID
 }
 
 func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.Run {

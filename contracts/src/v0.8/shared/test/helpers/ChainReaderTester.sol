@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// solhint-disable-next-line gas-struct-packing
 struct TestStruct {
   int32 Field;
   string DifferentField;

@@ -69,7 +69,7 @@ func (pm *PersistenceManager) Close() error {
 }
 
 func (pm *PersistenceManager) Insert(ctx context.Context, req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) error {
-	return pm.orm.InsertTransmitRequest(ctx, pm.serverURL, req, pm.jobID, reportCtx)
+	return pm.orm.InsertTransmitRequest(ctx, []string{pm.serverURL}, req, pm.jobID, reportCtx)
 }
 
 func (pm *PersistenceManager) Delete(ctx context.Context, req *pb.TransmitRequest) error {

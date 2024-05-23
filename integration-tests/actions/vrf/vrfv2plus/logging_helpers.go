@@ -19,8 +19,11 @@ func LogRandRequest(
 	subID *big.Int,
 	isNativeBilling bool,
 	keyHash [32]byte,
-	config *vrfv2plus_config.General) {
+	config *vrfv2plus_config.General,
+	keyNum int,
+) {
 	l.Info().
+		Int("KeyNum", keyNum).
 		Str("Consumer", consumer).
 		Str("Coordinator", coordinator).
 		Str("SubID", subID.String()).

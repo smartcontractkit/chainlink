@@ -3,6 +3,7 @@ package pipeline_test
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -10,7 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	bridgesMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -192,4 +196,40 @@ func TestDivideTask_Overflow(t *testing.T) {
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.Equal(t, pipeline.ErrDivisionOverlow, errors.Cause(result.Error))
+}
+
+func TestDivide_Example(t *testing.T) {
+	t.Parallel()
+
+	dag := `
+ds1 [type=memo value=10000.1234];
+ds2 [type=memo value=100];
+
+div_by_ds2 [type=divide divisor="$(ds2)"];
+multiply [type=multiply times=10000 index=0];
+
+ds1 -> div_by_ds2 -> multiply;
+
+`
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
+
+	spec := pipeline.Spec{DotDagSource: dag}
+	vars := pipeline.NewVarsFrom(nil)
+
+	lggr := logger.TestLogger(t)
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+
+	require.NoError(t, err)
+	require.Len(t, trrs, 4)
+
+	finalResult := trrs[3]
+
+	require.NoError(t, finalResult.Result.Error)
+	require.Equal(t, reflect.TypeOf(decimal.Decimal{}), reflect.TypeOf(finalResult.Result.Value))
+
+	assert.Equal(t, "1000012.34", finalResult.Result.Value.(decimal.Decimal).String())
 }
