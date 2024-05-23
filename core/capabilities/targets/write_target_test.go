@@ -41,6 +41,9 @@ func TestEvmWrite(t *testing.T) {
 		forwarderAddr, err := types.NewEIP55Address(forwarderA.Hex())
 		require.NoError(t, err)
 		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
+
+		gasLimit := uint64(200000)
+		c.EVM[0].ChainWriter.GasLimit = &gasLimit
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chain.On("Config").Return(evmcfg)
@@ -99,6 +102,9 @@ func TestEvmWrite_EmptyReport(t *testing.T) {
 		forwarderAddr, err := types.NewEIP55Address(forwarderA.Hex())
 		require.NoError(t, err)
 		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
+
+		gasLimit := uint64(200000)
+		c.EVM[0].ChainWriter.GasLimit = &gasLimit
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chain.On("Config").Return(evmcfg)

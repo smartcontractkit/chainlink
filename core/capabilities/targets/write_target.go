@@ -2,7 +2,9 @@ package targets
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
@@ -141,6 +143,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 }
 
 func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig config.ChainWriter, report []byte, signatures [][]byte, toAddress string, txMeta map[string]string) error {
+	cap.lggr.Debugw("submitTransaction", "chainWriterConfig", chainWriterConfig, "report", report, "signatures", signatures, "toAddress", toAddress, "txMeta", txMeta)
 	// construct forwarder payload
 	// TODO: we can't assume we have the ABI locally here, we need to get it from the chain
 	calldata, err := forwardABI.Pack("report", common.HexToAddress(toAddress), report, signatures)
@@ -148,11 +151,29 @@ func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig co
 		return err
 	}
 
-	workflowExecutionID := txMeta["WorkflowExecutionID"]
-
-	txMetaStruct := &txmgr.TxMeta{
-		WorkflowExecutionID: &workflowExecutionID,
+	// TODO: dynamically check all the fields in txMeta and try to map them to the struct
+	txMetaStruct := &txmgr.TxMeta{}
+	//txMetaStruct, err := mapToStruct(txMeta)
+	//if err != nil {
+	//	return err
+	//}
+	for k, v := range txMeta {
+		switch k {
+		case "WorkflowExecutionID":
+			txMetaStruct.WorkflowExecutionID = &v
+		case "JobID":
+			jobId, err := strconv.Atoi(v)
+			if err != nil {
+				cap.lggr.Warnw("Failed to parse JobID", "value", v, "error", err)
+			} else {
+				jobId32 := int32(jobId)
+				txMetaStruct.JobID = &jobId32
+			}
+		default:
+			cap.lggr.Warnw("Unknown txMeta field", "field", k, "value", v)
+		}
 	}
+
 	// TODO: Turn this into config
 	strategy := txmgrcommon.NewSendEveryStrategy()
 
@@ -175,6 +196,28 @@ func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig co
 	}
 	cap.lggr.Debugw("Transaction submitted", "transaction", tx)
 	return nil
+}
+
+func mapToStruct(m map[string]string) (*txmgr.TxMeta, error) {
+	// Convert map[string]string to map[string]interface{}
+	interfaceMap := make(map[string]interface{})
+	for key, value := range m {
+		interfaceMap[key] = value
+	}
+
+	// Marshal the map to JSON
+	data, err := json.Marshal(interfaceMap)
+	if err != nil {
+		return &txmgr.TxMeta{}, err
+	}
+
+	// Unmarshal the JSON to the struct
+	var result txmgr.TxMeta
+	if err := json.Unmarshal(data, &result); err != nil {
+		return &txmgr.TxMeta{}, err
+	}
+
+	return &result, nil
 }
 
 func (cap *EvmWrite) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
