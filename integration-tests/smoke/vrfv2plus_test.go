@@ -970,6 +970,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			BatchFulfillmentGasMultiplier: *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
 			PollPeriod:                    configCopy.VRFv2Plus.General.VRFJobPollPeriod.Duration,
 			RequestTimeout:                configCopy.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
+			SimulationBlock:               configCopy.VRFv2Plus.General.VRFJobSimulationBlock,
 		}
 
 		_, err = vrfv2plus.CreateVRFV2PlusJob(
@@ -1141,6 +1142,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			BatchFulfillmentGasMultiplier: *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
 			PollPeriod:                    configCopy.VRFv2Plus.General.VRFJobPollPeriod.Duration,
 			RequestTimeout:                configCopy.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
+			SimulationBlock:               configCopy.VRFv2Plus.General.VRFJobSimulationBlock,
 		}
 
 		_, err = vrfv2plus.CreateVRFV2PlusJob(
