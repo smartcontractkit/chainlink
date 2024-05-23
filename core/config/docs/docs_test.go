@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -103,7 +103,7 @@ func TestDoc(t *testing.T) {
 	})
 
 	t.Run("Solana", func(t *testing.T) {
-		var fallbackDefaults solana.TOMLConfig
+		var fallbackDefaults solcfg.TOMLConfig
 		fallbackDefaults.SetDefaults()
 
 		assertTOML(t, fallbackDefaults.Chain, defaults.Solana[0].Chain)

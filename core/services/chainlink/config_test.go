@@ -22,7 +22,6 @@ import (
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
@@ -160,7 +159,7 @@ var (
 					{Name: ptr("secondary"), TendermintURL: commoncfg.MustParseURL("http://bombay.cosmos.com")},
 				}},
 		},
-		Solana: []*solana.TOMLConfig{
+		Solana: []*solcfg.TOMLConfig{
 			{
 				ChainID: ptr("mainnet"),
 				Chain: solcfg.Chain{
@@ -632,7 +631,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = []*solana.TOMLConfig{
+	full.Solana = []*solcfg.TOMLConfig{
 		{
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
@@ -1557,7 +1556,7 @@ func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: ubig.NewI(99999133712345)}}
 	c.Cosmos = coscfg.TOMLConfigs{{ChainID: ptr("unknown cosmos chain")}}
-	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
+	c.Solana = solcfg.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {

@@ -643,6 +643,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		// variables for workflow spec
 		wfID     = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 		wfOwner  = "00000000000000000000000000000000000000aa"
+		wfName   = "my-workflow"
 		specYaml = `
 triggers:
   - id: "a-trigger"
@@ -666,7 +667,7 @@ targets:
     inputs: 
       consensus_output: $(a-consensus.outputs)
 `
-		wfSpec       = testspecs.GenerateWorkflowSpec(wfID, wfOwner, specYaml).Toml()
+		wfSpec       = testspecs.GenerateWorkflowSpec(wfID, wfOwner, wfName, specYaml).Toml()
 		proposalIDWF = int64(11)
 		remoteUUIDWF = uuid.New()
 		argsWF       = &feeds.ProposeJobArgs{
