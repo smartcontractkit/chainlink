@@ -1736,42 +1736,12 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for requested event")
 
-		// 3. create new request in a subscription with balance and wait for fulfilment
-		fundingLinkAmt := big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink)
-		fundingNativeAmt := big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative)
-		l.Info().
-			Str("Coordinator", vrfContracts.CoordinatorV2Plus.Address()).
-			Int("Number of Subs to create", 1).
-			Msg("Creating and funding subscriptions, adding consumers")
-		fundedSubIDs, err := vrfv2plus.CreateFundSubsAndAddConsumers(
-			testcontext.Get(t),
-			env,
-			chainID,
-			fundingLinkAmt,
-			fundingNativeAmt,
-			vrfContracts.LinkToken,
-			vrfContracts.CoordinatorV2Plus,
-			[]contracts.VRFv2PlusLoadTestConsumer{consumers[1]},
-			1,
-		)
-		require.NoError(t, err, "error creating funded sub in replay test")
-		_, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
-			consumers[1],
-			vrfContracts.CoordinatorV2Plus,
-			vrfKey,
-			fundedSubIDs[0],
-			isNativeBilling,
-			configCopy.VRFv2Plus.General,
-			l,
-			0,
-		)
-		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-		require.True(t, randomWordsFulfilledEvent.Success, "RandomWordsFulfilled Event's `Success` field should be true")
-
-		// 4. wait for the request timeout (1s more) duration
+		// 3. wait for the request timeout (1s more) duration
 		time.Sleep(timeout + 1*time.Second)
 
-		// 5. fund sub so that node can fulfill request
+		fundingLinkAmt := big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink)
+		fundingNativeAmt := big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative)
+		// 4. fund sub so that node can fulfill request
 		err = vrfv2plus.FundSubscriptions(
 			fundingLinkAmt,
 			fundingNativeAmt,
@@ -1781,12 +1751,12 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		)
 		require.NoError(t, err, "error funding subs after request timeout")
 
-		// 6. no fulfilment should happen since timeout+1 seconds passed in the job
+		// 5. no fulfilment should happen since timeout+1 seconds passed in the job
 		pendingReqExists, err := vrfContracts.CoordinatorV2Plus.PendingRequestsExist(testcontext.Get(t), subID)
 		require.NoError(t, err, "error fetching PendingRequestsExist from coordinator")
 		require.True(t, pendingReqExists, "pendingRequest must exist since subID was underfunded till request timeout")
 
-		// 7. remove job and add new job with requestTimeout = 1 hour
+		// 6. remove job and add new job with requestTimeout = 1 hour
 		vrfNode, exists := nodeTypeToNodeMap[vrfcommon.VRF]
 		require.True(t, exists, "VRF Node does not exist")
 		resp, err := vrfNode.CLNode.API.DeleteJob(vrfNode.Job.Data.ID)
@@ -1821,7 +1791,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			vrfNode.Job = job
 		}()
 
-		// 8. Check if initial req in underfunded sub is fulfilled now, since it has been topped up and timeout increased
+		// 7. Check if initial req in underfunded sub is fulfilled now, since it has been topped up and timeout increased
 		l.Info().Str("reqID", initialReqRandomWordsRequestedEvent.RequestId.String()).
 			Str("subID", subID.String()).
 			Msg("Waiting for initalReqRandomWordsFulfilledEvent")
