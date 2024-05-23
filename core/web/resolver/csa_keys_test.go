@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -58,7 +59,7 @@ func Test_CSAKeysQuery(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.csa.On("GetAll").Return(fakeKeys, nil)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -109,7 +110,7 @@ func Test_CreateCSAKey(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.csa.On("Create", mock.Anything).Return(fakeKey, nil)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -120,7 +121,7 @@ func Test_CreateCSAKey(t *testing.T) {
 		{
 			name:          "csa key exists error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.csa.On("Create", mock.Anything).Return(csakey.KeyV2{}, keystore.ErrCSAKeyExists)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -178,7 +179,7 @@ func Test_DeleteCSAKey(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
 				f.Mocks.csa.On("Delete", mock.Anything, fakeKey.ID()).Return(fakeKey, nil)
@@ -190,7 +191,7 @@ func Test_DeleteCSAKey(t *testing.T) {
 		{
 			name:          "not found error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
 				f.Mocks.csa.

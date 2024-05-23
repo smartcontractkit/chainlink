@@ -23,6 +23,7 @@ type = "workflow"
 schemaVersion = 1
 workflowId = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 workflowOwner = "00000000000000000000000000000000000000aa"
+workflowName = "test"
 `,
 			true,
 		},
@@ -38,6 +39,16 @@ invalid syntax{{{{
 			`
 type = "work flows"
 schemaVersion = 1
+`,
+			false,
+		},
+		{
+			"missing name",
+			`
+type = "workflow"
+schemaVersion = 1
+workflowId = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+workflowOwner = "00000000000000000000000000000000000000aa"
 `,
 			false,
 		},

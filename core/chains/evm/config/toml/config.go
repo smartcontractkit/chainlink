@@ -294,18 +294,14 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	} else if c.ChainID.String() == "" {
 		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	} else if must, ok := ChainTypeForID(c.ChainID); ok { // known chain id
-		if c.ChainType == nil && must != "" {
-			err = multierr.Append(err, commonconfig.ErrMissing{Name: "ChainType",
-				Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
-		} else if c.ChainType != nil && *c.ChainType != string(must) {
-			if *c.ChainType == "" {
-				err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainType",
-					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
-			} else if must == "" {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+		// Check if the parsed value matched the expected value
+		is := c.ChainType.ChainType()
+		if is != must {
+			if must == "" {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 					Msg: "must not be set with this chain id"})
 			} else {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
 			}
 		}
@@ -345,7 +341,7 @@ type Chain struct {
 	AutoCreateKey             *bool
 	BlockBackfillDepth        *uint32
 	BlockBackfillSkip         *bool
-	ChainType                 *string
+	ChainType                 *config.ChainTypeConfig
 	FinalityDepth             *uint32
 	FinalityTagEnabled        *bool
 	FlagsContractAddress      *types.EIP55Address
@@ -375,12 +371,8 @@ type Chain struct {
 }
 
 func (c *Chain) ValidateConfig() (err error) {
-	var chainType config.ChainType
-	if c.ChainType != nil {
-		chainType = config.ChainType(*c.ChainType)
-	}
-	if !chainType.IsValid() {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+	if !c.ChainType.ChainType().IsValid() {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 			Msg: config.ErrInvalidChainType.Error()})
 	}
 

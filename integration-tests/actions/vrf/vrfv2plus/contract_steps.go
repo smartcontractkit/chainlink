@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
@@ -356,6 +357,7 @@ func RequestRandomnessAndWaitForFulfillment(
 		coordinator,
 		randomWordsRequestedEvent.RequestId,
 		subID,
+		randomWordsRequestedEvent.Raw.BlockNumber,
 		isNativeBilling,
 		config.RandomWordsFulfilledEventTimeout.Duration,
 		l,
@@ -449,6 +451,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 		coordinator,
 		randomWordsRequestedEvent.RequestId,
 		subID,
+		randomWordsRequestedEvent.Raw.BlockNumber,
 		isNativeBilling,
 		config.RandomWordsFulfilledEventTimeout.Duration,
 		l,
@@ -460,6 +463,7 @@ func WaitRandomWordsFulfilledEvent(
 	coordinator contracts.Coordinator,
 	requestId *big.Int,
 	subID *big.Int,
+	randomWordsRequestedEventBlockNumber uint64,
 	isNativeBilling bool,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
@@ -473,7 +477,18 @@ func WaitRandomWordsFulfilledEvent(
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitRandomWordsFulfilledEvent, err)
+		l.Warn().
+			Str("requestID", requestId.String()).
+			Err(err).Msg("Error waiting for random words fulfilled event, trying to filter for the event")
+		randomWordsFulfilledEvent, err = coordinator.FilterRandomWordsFulfilledEvent(
+			&bind.FilterOpts{
+				Start: randomWordsRequestedEventBlockNumber,
+			},
+			requestId,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFilterRandomWordsFulfilledEvent, err)
+		}
 	}
 
 	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, isNativeBilling, keyNum)
