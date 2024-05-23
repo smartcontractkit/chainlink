@@ -4,13 +4,69 @@ pragma solidity ^0.8.19;
 import {IReceiver} from "../../interfaces/IReceiver.sol";
 
 contract Receiver is IReceiver {
-  event MessageReceived(bytes32 indexed workflowId, address indexed workflowOwner, bytes[] mercuryReports);
+  error Unauthorized(
+    address forwarderAddress,
+    bytes32 workflowId,
+    bytes32 workflowOwner,
+    bytes32 workflowName,
+    bytes32 reportName
+  );
 
-  constructor() {}
+  event MessageReceived(
+    bytes32 workflowId,
+    bytes32 workflowOwner,
+    bytes32 workflowName,
+    bytes32 reportName,
+    bytes rawReport
+  );
 
-  function onReport(bytes32 workflowId, address workflowOwner, bytes calldata rawReport) external {
-    // parse actual report
-    bytes[] memory mercuryReports = abi.decode(rawReport, (bytes[]));
-    emit MessageReceived(workflowId, workflowOwner, mercuryReports);
+  bytes32 internal s_allowedWorkflowReport;
+  bytes32 internal s_allowedOwnerReport;
+
+  function _getWorkflowReportHash(
+    address forwarderAddress,
+    bytes32 workflowId,
+    bytes32 reportName
+  ) internal pure returns (bytes32) {
+    return keccak256(abi.encode(forwarderAddress, workflowId, reportName));
+  }
+
+  function setAllowedWorkflowReport(address forwarderAddress, bytes32 workflowId, bytes32 reportName) external {
+    s_allowedWorkflowReport = _getWorkflowReportHash(forwarderAddress, workflowId, reportName);
+  }
+
+  function _getOwnerReportHash(
+    address forwarderAddress,
+    bytes32 workflowOwner,
+    bytes32 workflowName,
+    bytes32 reportName
+  ) internal pure returns (bytes32) {
+    return keccak256(abi.encode(forwarderAddress, workflowOwner, workflowName, reportName));
+  }
+
+  function setAllowedOwnerReport(
+    address forwarderAddress,
+    bytes32 workflowOwner,
+    bytes32 workflowName,
+    bytes32 reportName
+  ) external {
+    s_allowedOwnerReport = _getOwnerReportHash(forwarderAddress, workflowOwner, workflowName, reportName);
+  }
+
+  function onReport(
+    bytes32 workflowId,
+    bytes32 workflowOwner,
+    bytes32 workflowName,
+    bytes32 reportName,
+    bytes calldata rawReport
+  ) external {
+    // if (
+    //   _getWorkflowReportHash(msg.sender, workflowId, reportName) != s_allowedWorkflowReport &&
+    //   _getOwnerReportHash(msg.sender, workflowOwner, workflowName, reportName) != s_allowedOwnerReport
+    // ) {
+    //   revert Unauthorized(msg.sender, workflowId, workflowOwner, workflowName, reportName);
+    // }
+
+    emit MessageReceived(workflowId, workflowOwner, workflowName, reportName, rawReport);
   }
 }

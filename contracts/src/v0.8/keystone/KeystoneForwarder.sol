@@ -83,13 +83,17 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @notice Emitted when a report is processed
   /// @param receiver The address of the receiver contract
-  /// @param workflowOwner The address of the workflow owner
   /// @param workflowExecutionId The ID of the workflow execution
+  /// @param reportName The name of the report
+  /// @param workflowOwner The address of the workflow owner
+  /// @param workflowName The name of the workflow
   /// @param result The result of the attempted delivery. True if successful.
   event ReportProcessed(
     address indexed receiver,
-    address indexed workflowOwner,
     bytes32 indexed workflowExecutionId,
+    bytes32 indexed reportName,
+    bytes32 workflowOwner,
+    bytes32 workflowName,
     bool result
   );
 
@@ -97,8 +101,9 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
   uint256 internal constant MAX_ORACLES = 31;
   // 32 bytes for workflowId, 4 bytes for donId, 32 bytes for
-  // workflowExecutionId, 20 bytes for workflowOwner
-  uint256 internal constant REPORT_METADATA_LENGTH = 88;
+  // workflowExecutionId, 32 bytes for workflowOwner, 32 bytes for
+  // workflowName, 32 bytes for reportName
+  uint256 internal constant REPORT_METADATA_LENGTH = 164;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
   function setConfig(uint32 donId, uint8 f, address[] calldata signers) external nonReentrant {
@@ -136,27 +141,32 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       revert InvalidReport();
     }
 
-    (bytes32 workflowId, uint32 donId, bytes32 workflowExecutionId, address workflowOwner) = _getMetadata(rawReport);
+    (
+      bytes32 workflowId,
+      uint32 donId,
+      bytes32 workflowExecutionId,
+      bytes32 workflowOwner,
+      bytes32 workflowName,
+      bytes32 reportName
+    ) = _getMetadata(rawReport);
 
     // f can never be 0, so this means the config doesn't actually exist
     if (s_configs[donId].f == 0) revert InvalidDonId(donId);
 
-    bytes32 reportId = _reportId(receiverAddress, workflowExecutionId);
-    if (s_reports[reportId].transmitter != address(0)) revert ReportAlreadyProcessed(reportId);
+    if (s_reports[_reportId(receiverAddress, workflowExecutionId, reportName)].transmitter != address(0))
+      revert ReportAlreadyProcessed(_reportId(receiverAddress, workflowExecutionId, reportName));
 
     if (s_configs[donId].f + 1 != signatures.length)
       revert InvalidSignatureCount(s_configs[donId].f + 1, signatures.length);
 
     // validate signatures
     {
-      bytes32 hash = keccak256(rawReport);
-
+      bytes32 reportHash = keccak256(rawReport);
       address[MAX_ORACLES] memory signed;
       uint8 index;
       for (uint256 i; i < signatures.length; ++i) {
         // TODO: is libocr-style multiple bytes32 arrays more optimal, gas-wise?
-        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
-        address signer = ecrecover(hash, v, r, s);
+        address signer = _getSigner(reportHash, signatures[i]);
 
         // validate signer is trusted and signature is unique
         index = uint8(s_configs[donId]._positions[signer]);
@@ -167,32 +177,48 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       }
     }
 
-    IReceiver receiver = IReceiver(receiverAddress);
-    bool success;
-    try receiver.onReport(workflowId, workflowOwner, rawReport[REPORT_METADATA_LENGTH:]) {
-      success = true;
+    try
+      IReceiver(receiverAddress).onReport(
+        workflowId,
+        workflowOwner,
+        workflowName,
+        reportName,
+        rawReport[REPORT_METADATA_LENGTH:]
+      )
+    {
+      s_reports[_reportId(receiverAddress, workflowExecutionId, reportName)] = DeliveryStatus(msg.sender, true);
+      emit ReportProcessed(receiverAddress, workflowExecutionId, reportName, workflowOwner, workflowName, true);
     } catch {
-      // Do nothing, success is already false
+      s_reports[_reportId(receiverAddress, workflowExecutionId, reportName)] = DeliveryStatus(msg.sender, false);
+      emit ReportProcessed(receiverAddress, workflowExecutionId, reportName, workflowOwner, workflowName, false);
     }
-
-    s_reports[reportId] = DeliveryStatus(msg.sender, success);
-
-    emit ReportProcessed(receiverAddress, workflowOwner, workflowExecutionId, success);
   }
 
-  function _reportId(address receiver, bytes32 workflowExecutionId) internal pure returns (bytes32) {
-    // TODO: gas savings: could we just use a bytes key and avoid another keccak256 call
-    return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId));
+  function _reportId(
+    // Allows reports to have multiple receivers on the same chain
+    address receiver,
+    // Allows new report(s) for each trigger execution
+    bytes32 workflowExecutionId,
+    // Allows multiple reports per workflow
+    bytes32 reportName
+  ) internal pure returns (bytes32) {
+    return keccak256(abi.encode(receiver, workflowExecutionId, reportName));
   }
 
   // get transmitter of a given report or 0x0 if it wasn't transmitted yet
-  function getTransmitter(address receiver, bytes32 workflowExecutionId) external view returns (address) {
-    bytes32 reportId = _reportId(receiver, workflowExecutionId);
-    return s_reports[reportId].transmitter;
+  function getTransmitter(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes32 reportName
+  ) external view returns (address) {
+    return s_reports[_reportId(receiver, workflowExecutionId, reportName)].transmitter;
   }
 
-  function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
+  function _getSigner(bytes32 reportHash, bytes memory sig) internal pure returns (address) {
     if (sig.length != SIGNATURE_LENGTH) revert InvalidSignature(sig);
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
 
     assembly {
       /*
@@ -211,11 +237,24 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       // final byte (first byte of the next 32 bytes)
       v := byte(0, mload(add(sig, 96)))
     }
+
+    return ecrecover(reportHash, v, r, s);
   }
 
   function _getMetadata(
     bytes memory rawReport
-  ) internal pure returns (bytes32 workflowId, uint32 donId, bytes32 workflowExecutionId, address workflowOwner) {
+  )
+    internal
+    pure
+    returns (
+      bytes32 workflowId,
+      uint32 donId,
+      bytes32 workflowExecutionId,
+      bytes32 workflowOwner,
+      bytes32 workflowName,
+      bytes32 reportName
+    )
+  {
     assembly {
       // skip first 32 bytes, contains length of the report
       // first 32 bytes is the workflowId
@@ -224,9 +263,12 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       donId := shr(mul(28, 8), mload(add(rawReport, 64)))
       // next 32 bytes is the workflowExecutionId
       workflowExecutionId := mload(add(rawReport, 68))
-      // next 20 bytes is the workflowOwner. We shift right by 12 bytes to get
-      // the actual value
-      workflowOwner := shr(mul(12, 8), mload(add(rawReport, 100)))
+      // next 32 bytes is the workflowOwner.
+      workflowOwner := mload(add(rawReport, 100))
+      // next 32 bytes is the workflowName.
+      workflowName := mload(add(rawReport, 132))
+      // next 32 bytes is the reportName.
+      reportName := mload(add(rawReport, 164))
     }
   }
 

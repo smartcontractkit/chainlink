@@ -5,17 +5,28 @@ import {BaseTest} from "./KeystoneForwarderBaseTest.t.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneForwarder_ReportTest is BaseTest {
-  event MessageReceived(bytes32 indexed workflowId, address indexed workflowOwner, bytes[] mercuryReports);
+  event MessageReceived(
+    bytes32 workflowId,
+    bytes32 workflowOwner,
+    bytes32 workflowName,
+    bytes32 reportName,
+    bytes rawReport
+  );
+
   event ReportProcessed(
     address indexed receiver,
-    address indexed workflowOwner,
     bytes32 indexed workflowExecutionId,
+    bytes32 indexed reportName,
+    bytes32 workflowOwner,
+    bytes32 workflowName,
     bool result
   );
 
+  bytes32 internal EXECUTION_ID = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000000";
   bytes32 internal workflowId = hex"6d795f6964000000000000000000000000000000000000000000000000000000";
-  address internal workflowOwner = address(51);
-  bytes32 internal executionId = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000000";
+  bytes32 internal WORKFLOW_OWNER = bytes32(abi.encodePacked(address(51)));
+  bytes32 internal WORKFLOW_NAME = bytes32(bytes("my_workflow"));
+  bytes32 internal REPORT_NAME = bytes32(bytes("my_report"));
   bytes[] internal mercuryReports = new bytes[](2);
   bytes internal rawReports;
   bytes internal report;
@@ -31,7 +42,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     mercuryReports[1] = hex"aabbccdd";
 
     rawReports = abi.encode(mercuryReports);
-    report = abi.encodePacked(workflowId, DON_ID, executionId, workflowOwner, rawReports);
+    report = abi.encodePacked(workflowId, DON_ID, EXECUTION_ID, WORKFLOW_OWNER, WORKFLOW_NAME, REPORT_NAME, rawReports);
 
     for (uint256 i = 0; i < requiredSignaturesNum; i++) {
       (uint8 v, bytes32 r, bytes32 s) = vm.sign(s_signers[i].mockPrivateKey, keccak256(report));
@@ -46,8 +57,8 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     bytes memory reportWithInvalidDONId = abi.encodePacked(
       workflowId,
       invalidDONId,
-      executionId,
-      workflowOwner,
+      EXECUTION_ID,
+      WORKFLOW_OWNER,
       rawReports
     );
 
@@ -106,27 +117,27 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   }
 
   function test_RevertWhen_ReportAlreadyProcessed() public {
+    // First report should go through
     s_forwarder.report(address(s_receiver), report, signatures);
-    bytes32 reportId = keccak256(bytes.concat(bytes20(uint160(address(s_receiver))), executionId));
 
+    bytes32 reportId = keccak256(abi.encode(address(s_receiver), EXECUTION_ID, REPORT_NAME));
     vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.ReportAlreadyProcessed.selector, reportId));
     s_forwarder.report(address(s_receiver), report, signatures);
   }
 
   function test_Report_SuccessfulDelivery() public {
-    // taken from https://github.com/smartcontractkit/chainlink/blob/2390ec7f3c56de783ef4e15477e99729f188c524/core/services/relay/evm/cap_encoder_test.go#L42-L55
-    // bytes memory report = hex"6d795f6964000000000000000000000000000000000000000000000000000000010203046d795f657865637574696f6e5f696400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000301020300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004aabbccdd00000000000000000000000000000000000000000000000000000000";
+    // s_receiver.setAllowedOwnerReport(address(s_forwarder), WORKFLOW_OWNER, WORKFLOW_NAME, REPORT_NAME);
 
     vm.expectEmit(address(s_receiver));
-    emit MessageReceived(workflowId, workflowOwner, mercuryReports);
+    emit MessageReceived(workflowId, WORKFLOW_OWNER, WORKFLOW_NAME, REPORT_NAME, rawReports);
 
     vm.expectEmit(address(s_forwarder));
-    emit ReportProcessed(address(s_receiver), workflowOwner, executionId, true);
+    emit ReportProcessed(address(s_receiver), EXECUTION_ID, REPORT_NAME, WORKFLOW_OWNER, WORKFLOW_NAME, true);
 
     s_forwarder.report(address(s_receiver), report, signatures);
 
     // validate transmitter was recorded
-    address transmitter = s_forwarder.getTransmitter(address(s_receiver), executionId);
+    address transmitter = s_forwarder.getTransmitter(address(s_receiver), EXECUTION_ID, REPORT_NAME);
     assertEq(transmitter, TRANSMITTER, "transmitter mismatch");
   }
 }
