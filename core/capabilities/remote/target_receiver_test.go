@@ -90,7 +90,7 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 		F:       workflowDonF,
 	}
 
-	dispatcher := newTestTargetReceiverDispatcher(capabilityPeerID)
+	dispatcher := newTestRemoteTargetDispatcher(capabilityPeerID)
 
 	workflowDONs := map[string]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
@@ -103,8 +103,7 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 	callers := make([]commoncap.TargetCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := dispatcher.GetDispatcherForCaller(workflowPeers[i])
-		caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, workflowPeerDispatcher)
-		require.NoError(t, err)
+		caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, workflowPeerDispatcher, 1*time.Minute)
 		dispatcher.RegisterCaller(workflowPeers[i], caller)
 		callers[i] = caller
 	}
@@ -145,21 +144,21 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 	wg.Wait()
 }
 
-type testTargetReceiverDispatcher struct {
+type testRemoteTargetDispatcher struct {
 	abstractDispatcher
 	receiver       remotetypes.Receiver
 	callers        map[p2ptypes.PeerID]remotetypes.Receiver
 	receiverPeerID p2ptypes.PeerID
 }
 
-func newTestTargetReceiverDispatcher(receiverPeerID p2ptypes.PeerID) *testTargetReceiverDispatcher {
-	return &testTargetReceiverDispatcher{
+func newTestRemoteTargetDispatcher(receiverPeerID p2ptypes.PeerID) *testRemoteTargetDispatcher {
+	return &testRemoteTargetDispatcher{
 		receiverPeerID: receiverPeerID,
 		callers:        make(map[p2ptypes.PeerID]remotetypes.Receiver),
 	}
 }
 
-func (r *testTargetReceiverDispatcher) RegisterReceiver(receiver remotetypes.Receiver) {
+func (r *testRemoteTargetDispatcher) GetDispatcherReceiver(receiverPeerID p2ptypes.PeerID, receiver remotetypes.Receiver) {
 	if r.receiver != nil {
 		panic("receiver already registered")
 	}
@@ -167,7 +166,7 @@ func (r *testTargetReceiverDispatcher) RegisterReceiver(receiver remotetypes.Rec
 	r.receiver = receiver
 }
 
-func (r *testTargetReceiverDispatcher) GetDispatcherForCaller(callerPeerID p2ptypes.PeerID) remotetypes.Dispatcher {
+func (r *testRemoteTargetDispatcher) GetDispatcherForCaller(callerPeerID p2ptypes.PeerID) remotetypes.Dispatcher {
 	dispatcher := &callerDispatcher{
 		callerPeerID: callerPeerID,
 		broker:       r,
@@ -175,7 +174,7 @@ func (r *testTargetReceiverDispatcher) GetDispatcherForCaller(callerPeerID p2pty
 	return dispatcher
 }
 
-func (r *testTargetReceiverDispatcher) RegisterCaller(callerPeerID p2ptypes.PeerID, caller remotetypes.Receiver) {
+func (r *testRemoteTargetDispatcher) RegisterCaller(callerPeerID p2ptypes.PeerID, caller remotetypes.Receiver) {
 	if _, ok := r.callers[callerPeerID]; ok {
 		panic("caller already registered")
 	}
@@ -183,7 +182,7 @@ func (r *testTargetReceiverDispatcher) RegisterCaller(callerPeerID p2ptypes.Peer
 	r.callers[callerPeerID] = caller
 }
 
-func (r *testTargetReceiverDispatcher) SendToReceiver(peerID p2ptypes.PeerID, msg *remotetypes.MessageBody) {
+func (r *testRemoteTargetDispatcher) SendToReceiver(peerID p2ptypes.PeerID, msg *remotetypes.MessageBody) {
 	if peerID != r.receiverPeerID {
 		panic("receiver peer id mismatch")
 	}
@@ -193,7 +192,7 @@ func (r *testTargetReceiverDispatcher) SendToReceiver(peerID p2ptypes.PeerID, ms
 	r.receiver.Receive(msg)
 }
 
-func (r *testTargetReceiverDispatcher) Send(callerPeerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
+func (r *testRemoteTargetDispatcher) Send(callerPeerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
 
 	msgBody.Version = 1
 	msgBody.Sender = r.receiverPeerID[:]
@@ -212,7 +211,7 @@ func (r *testTargetReceiverDispatcher) Send(callerPeerID p2ptypes.PeerID, msgBod
 type callerDispatcher struct {
 	abstractDispatcher
 	callerPeerID p2ptypes.PeerID
-	broker       *testTargetReceiverDispatcher
+	broker       *testRemoteTargetDispatcher
 }
 
 func (t *callerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {

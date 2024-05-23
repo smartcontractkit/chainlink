@@ -24,6 +24,7 @@ type remoteTargetCaller struct {
 	remoteCapabilityDonInfo capabilities.DON
 	localDONInfo            capabilities.DON
 	dispatcher              types.Dispatcher
+	requestTimeout          time.Duration
 
 	messageIDToExecuteRequest map[string]*callerExecuteRequest
 	mutex                     sync.Mutex
@@ -32,16 +33,46 @@ type remoteTargetCaller struct {
 var _ commoncap.TargetCapability = &remoteTargetCaller{}
 var _ types.Receiver = &remoteTargetCaller{}
 
-func NewRemoteTargetCaller(lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, remoteCapabilityDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher) (*remoteTargetCaller, error) {
+func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, remoteCapabilityDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
+	requestTimeout time.Duration) *remoteTargetCaller {
 
-	return &remoteTargetCaller{
+	caller := &remoteTargetCaller{
 		lggr:                      lggr,
 		remoteCapabilityInfo:      remoteCapabilityInfo,
 		remoteCapabilityDonInfo:   remoteCapabilityDonInfo,
 		localDONInfo:              localDonInfo,
 		dispatcher:                dispatcher,
+		requestTimeout:            requestTimeout,
 		messageIDToExecuteRequest: make(map[string]*callerExecuteRequest),
-	}, nil
+	}
+
+	go func() {
+		timer := time.NewTimer(requestTimeout)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				caller.ExpireRequests(ctx)
+			}
+		}
+	}()
+
+	return caller
+}
+
+func (c *remoteTargetCaller) ExpireRequests(ctx context.Context) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for messageID, req := range c.messageIDToExecuteRequest {
+		if time.Since(req.creationTime) > c.requestTimeout {
+			delete(c.messageIDToExecuteRequest, messageID)
+			req.responseCh <- commoncap.CapabilityResponse{Err: errors.New("request timed out")}
+			close(req.responseCh)
+		}
+	}
 }
 
 func (c *remoteTargetCaller) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
@@ -140,6 +171,11 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 	defer c.mutex.Unlock()
 
 	messageID := getMessageID(msg)
+
+	if msg.Error != types.Error_OK {
+		c.lggr.Warnw("received error response", "messageID", messageID, "error", msg.Error)
+		return
+	}
 
 	req := c.messageIDToExecuteRequest[messageID]
 	if req == nil {

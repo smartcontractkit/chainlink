@@ -1,7 +1,6 @@
 package remote_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -23,7 +22,7 @@ const (
 	executeValue1 = "triggerEvent1"
 )
 
-func Test_TargetCallerExecuteContextTimeout(t *testing.T) {
+func Test_TargetCallerExecuteTimeout(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 
@@ -52,10 +51,9 @@ func Test_TargetCallerExecuteContextTimeout(t *testing.T) {
 
 	dispatcher := NewTestDispatcher()
 
-	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher)
-	require.NoError(t, err)
+	caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher, 1*time.Second)
 
-	err = dispatcher.SetReceiver("cap_id", "workflow-don", caller)
+	err := dispatcher.SetReceiver("cap_id", "workflow-don", caller)
 	require.NoError(t, err)
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -64,10 +62,7 @@ func Test_TargetCallerExecuteContextTimeout(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
-	defer cancel()
-
-	_, err = caller.Execute(ctxWithTimeout,
+	responseCh, err := caller.Execute(ctx,
 		commoncap.CapabilityRequest{
 			Metadata: commoncap.RequestMetadata{
 				WorkflowID:          "workflowID",
@@ -76,7 +71,9 @@ func Test_TargetCallerExecuteContextTimeout(t *testing.T) {
 			Config: transmissionSchedule,
 		})
 
-	assert.NotNil(t, err)
+	response := <-responseCh
+	assert.NotNil(t, response.Err)
+
 }
 
 func Test_TargetCallerExecute(t *testing.T) {
@@ -109,10 +106,9 @@ func Test_TargetCallerExecute(t *testing.T) {
 
 	dispatcher := NewTestDispatcher()
 
-	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher)
-	require.NoError(t, err)
+	caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher, 1*time.Minute)
 
-	err = dispatcher.SetReceiver("cap_id", "workflow-don", caller)
+	err := dispatcher.SetReceiver("cap_id", "workflow-don", caller)
 	require.NoError(t, err)
 
 	go func() {
@@ -160,7 +156,7 @@ func Test_TargetCallerExecute(t *testing.T) {
 
 }
 
-func Test_TargetCallerExecuteWithError(t *testing.T) {
+func Test_TargetCallerExecuteWithErrorTimesOut(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
@@ -190,10 +186,9 @@ func Test_TargetCallerExecuteWithError(t *testing.T) {
 
 	dispatcher := NewTestDispatcher()
 
-	caller, err := remote.NewRemoteTargetCaller(lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher)
-	require.NoError(t, err)
+	caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher, 1*time.Second)
 
-	err = dispatcher.SetReceiver("cap_id", "workflow-don", caller)
+	err := dispatcher.SetReceiver("cap_id", "workflow-don", caller)
 	require.NoError(t, err)
 
 	go func() {
@@ -216,7 +211,7 @@ func Test_TargetCallerExecuteWithError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = caller.Execute(ctx,
+	responseCh, err := caller.Execute(ctx,
 		commoncap.CapabilityRequest{
 			Metadata: commoncap.RequestMetadata{
 				WorkflowID:          "workflowID",
@@ -225,7 +220,9 @@ func Test_TargetCallerExecuteWithError(t *testing.T) {
 			Config: transmissionSchedule,
 		})
 
-	require.NotNil(t, err)
+	response := <-responseCh
+
+	require.NotNil(t, response.Err)
 }
 
 type TestDispatcher struct {
