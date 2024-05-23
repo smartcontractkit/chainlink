@@ -55,12 +55,9 @@ contract LockReleaseTokenPoolAndProxy is LegacyPoolWrapper, ILiquidityContainer,
     external
     virtual
     override
-    whenNotCursed(lockOrBurnIn.remoteChainSelector)
     returns (Pool.LockOrBurnOutV1 memory)
   {
-    _checkAllowList(lockOrBurnIn.originalSender);
-    _onlyOnRamp(lockOrBurnIn.remoteChainSelector);
-    _consumeOutboundRateLimit(lockOrBurnIn.remoteChainSelector, lockOrBurnIn.amount);
+    _validateLockOrBurn(lockOrBurnIn);
 
     if (_hasLegacyPool()) {
       _lockOrBurnLegacy(lockOrBurnIn);
@@ -78,12 +75,9 @@ contract LockReleaseTokenPoolAndProxy is LegacyPoolWrapper, ILiquidityContainer,
     external
     virtual
     override
-    whenNotCursed(releaseOrMintIn.remoteChainSelector)
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
-    _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
-    _validateSourceCaller(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.sourcePoolAddress);
-    _consumeInboundRateLimit(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.amount);
+    _validateReleaseOrMint(releaseOrMintIn);
 
     if (!_hasLegacyPool()) {
       getToken().safeTransfer(releaseOrMintIn.receiver, releaseOrMintIn.amount);

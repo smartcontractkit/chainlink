@@ -21,6 +21,7 @@ library Pool {
     uint64 remoteChainSelector; // ─╮ The chain ID of the destination chain
     address originalSender; // ─────╯ The original sender of the tx on the source chain
     uint256 amount; //  The amount of tokens to lock or burn, denominated in the source token's decimals
+    address localToken; //  The address on this chain of the token to lock or burn
   }
 
   struct LockOrBurnOutV1 {

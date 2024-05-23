@@ -21,6 +21,7 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   error OnlyPendingAdministrator(address sender, address token);
   error AlreadyRegistered(address token);
   error ZeroAddress();
+  error InvalidTokenPoolToken(address token);
 
   event AdministratorRegistered(address indexed token, address indexed administrator);
   event PoolSet(address indexed token, address indexed previousPool, address indexed newPool);
@@ -127,6 +128,12 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   /// @param localToken The token to set the pool for.
   /// @param pool The pool to set for the token.
   function setPool(address localToken, address pool) external onlyTokenAdmin(localToken) {
+    // The pool has to support the token, but we want to allow removing the pool, so we only check
+    // if the pool supports the token if it is not address(0).
+    if (pool != address(0) && !IPool(pool).isSupportedToken(localToken)) {
+      revert InvalidTokenPoolToken(localToken);
+    }
+
     TokenConfig storage config = s_tokenConfig[localToken];
 
     address previousPool = config.tokenPool;

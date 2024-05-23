@@ -55,7 +55,8 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
         originalSender: OWNER,
         receiver: bytes(""),
         amount: burnAmount,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_burnMintERC677)
       })
     );
 
@@ -74,7 +75,8 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
         originalSender: OWNER,
         receiver: bytes(""),
         amount: 1e5,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_burnMintERC677)
       })
     );
 

@@ -173,7 +173,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
         originalSender: OWNER,
         receiver: abi.encodePacked(receiver),
         amount: amount,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
 
@@ -212,7 +213,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
         originalSender: OWNER,
         receiver: abi.encodePacked(destinationReceiver),
         amount: amount,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
 
@@ -250,7 +252,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
         originalSender: s_allowedList[0],
         receiver: abi.encodePacked(destinationReceiver),
         amount: amount,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
     uint64 nonce = abi.decode(poolReturnDataV1.destPoolData, (uint64));
@@ -289,7 +292,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
         originalSender: OWNER,
         receiver: abi.encodePacked(address(0)),
         amount: amount,
-        remoteChainSelector: wrongDomain
+        remoteChainSelector: wrongDomain,
+        localToken: address(s_token)
       })
     );
   }
@@ -302,7 +306,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
         originalSender: OWNER,
         receiver: abi.encodePacked(address(0)),
         amount: 0,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
   }
@@ -317,7 +322,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
         originalSender: STRANGER,
         receiver: abi.encodePacked(address(0)),
         amount: 1000,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
   }
@@ -334,7 +340,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
         originalSender: OWNER,
         receiver: receiver,
         amount: 1,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
   }

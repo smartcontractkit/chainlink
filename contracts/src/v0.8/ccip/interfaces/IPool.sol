@@ -27,4 +27,9 @@ interface IPool is IERC165 {
   /// @param remoteChainSelector The selector of the remote chain.
   /// @return true if the given chain is a permissioned remote chain.
   function isSupportedChain(uint64 remoteChainSelector) external view returns (bool);
+
+  /// @notice Returns if the token pool supports the given token.
+  /// @param token The address of the token.
+  /// @return true if the token is supported by the pool.
+  function isSupportedToken(address token) external view returns (bool);
 }

@@ -339,10 +339,11 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
       Pool.LockOrBurnOutV1 memory poolReturnData = sourcePool.lockOrBurn(
         Pool.LockOrBurnInV1({
-          originalSender: originalSender,
           receiver: message.receiver,
+          remoteChainSelector: i_destChainSelector,
+          originalSender: originalSender,
           amount: tokenAndAmount.amount,
-          remoteChainSelector: i_destChainSelector
+          localToken: tokenAndAmount.token
         })
       );
 

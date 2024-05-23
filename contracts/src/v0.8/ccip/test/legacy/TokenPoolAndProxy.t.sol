@@ -413,7 +413,8 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
         receiver: abi.encode(OWNER),
         remoteChainSelector: DEST_CHAIN_SELECTOR,
         originalSender: OWNER,
-        amount: amount
+        amount: amount,
+        localToken: address(s_token)
       })
     );
 
@@ -435,7 +436,8 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
         receiver: abi.encode(OWNER),
         remoteChainSelector: DEST_CHAIN_SELECTOR,
         originalSender: OWNER,
-        amount: amount
+        amount: amount,
+        localToken: address(s_token)
       })
     );
   }

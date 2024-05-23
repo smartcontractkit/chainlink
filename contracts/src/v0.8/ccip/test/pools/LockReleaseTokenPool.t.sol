@@ -97,7 +97,8 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
         originalSender: STRANGER,
         receiver: bytes(""),
         amount: amount,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
   }
@@ -116,7 +117,8 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
         originalSender: s_allowedList[0],
         receiver: bytes(""),
         amount: amount,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
 
@@ -128,7 +130,8 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
         originalSender: s_allowedList[1],
         receiver: bytes(""),
         amount: amount,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
   }
@@ -143,7 +146,8 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
         originalSender: STRANGER,
         receiver: bytes(""),
         amount: 100,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
   }
@@ -161,7 +165,8 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
         originalSender: s_allowedList[0],
         receiver: bytes(""),
         amount: 1e5,
-        remoteChainSelector: DEST_CHAIN_SELECTOR
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
       })
     );
 

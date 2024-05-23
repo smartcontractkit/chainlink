@@ -29,12 +29,9 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     external
     virtual
     override
-    whenNotCursed(lockOrBurnIn.remoteChainSelector)
     returns (Pool.LockOrBurnOutV1 memory)
   {
-    _checkAllowList(lockOrBurnIn.originalSender);
-    _onlyOnRamp(lockOrBurnIn.remoteChainSelector);
-    _consumeOutboundRateLimit(lockOrBurnIn.remoteChainSelector, lockOrBurnIn.amount);
+    _validateLockOrBurn(lockOrBurnIn);
 
     bytes memory revertReason = s_revertReason;
     if (revertReason.length != 0) {
@@ -56,18 +53,16 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     external
     virtual
     override
-    whenNotCursed(releaseOrMintIn.remoteChainSelector)
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
-    _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
-    _validateSourceCaller(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.sourcePoolAddress);
+    _validateReleaseOrMint(releaseOrMintIn);
+
     bytes memory revertReason = s_revertReason;
     if (revertReason.length != 0) {
       assembly {
         revert(add(32, revertReason), mload(revertReason))
       }
     }
-    _consumeInboundRateLimit(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.amount);
     IBurnMintERC20(address(i_token)).mint(releaseOrMintIn.receiver, releaseOrMintIn.amount);
     emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
     return Pool.ReleaseOrMintOutV1({localToken: address(i_token), destinationAmount: releaseOrMintIn.amount});

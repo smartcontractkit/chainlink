@@ -17,10 +17,10 @@ contract CustomTokenPool is TokenPool {
     external
     virtual
     override
-    whenNotCursed(lockOrBurnIn.remoteChainSelector)
     returns (Pool.LockOrBurnOutV1 memory)
   {
-    _onlyOnRamp(lockOrBurnIn.remoteChainSelector);
+    _validateLockOrBurn(lockOrBurnIn);
+
     emit SynthBurned(lockOrBurnIn.amount);
     return Pool.LockOrBurnOutV1({destPoolAddress: getRemotePool(lockOrBurnIn.remoteChainSelector), destPoolData: ""});
   }
@@ -29,10 +29,10 @@ contract CustomTokenPool is TokenPool {
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
     override
-    whenNotCursed(releaseOrMintIn.remoteChainSelector)
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
-    _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
+    _validateReleaseOrMint(releaseOrMintIn);
+
     emit SynthMinted(releaseOrMintIn.amount);
     return Pool.ReleaseOrMintOutV1({localToken: address(i_token), destinationAmount: releaseOrMintIn.amount});
   }
