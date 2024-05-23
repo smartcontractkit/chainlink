@@ -56,7 +56,7 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 
 func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) (ids []int64, err error) {
 	// NOTE: We prune one less than the queue size to prevent the queue from exceeding the max queue size. Which could occur if a new transaction is added to the queue right after we prune.
-	ids, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize-1, s.subject)
+	ids, err = pruneService.PruneUnstartedTxQueue(ctx, max(s.queueSize-1, 0), s.subject)
 	if err != nil {
 		return ids, fmt.Errorf("DropOldestStrategy#PruneQueue failed: %w", err)
 	}
