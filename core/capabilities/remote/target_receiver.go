@@ -165,7 +165,7 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 				defer cancel()
 				responseCh, err := r.underlying.Execute(ctxWithTimeout, capabilityRequest)
 				if err == nil {
-					// TODO handle the case where the capability returns a stream of responses
+					// TODO working on the assumption that the capability will only ever return one response from its channel (for now at least)
 					response := <-responseCh
 					responseMsg.Payload, err = pb.MarshalCapabilityResponse(response)
 				} else {

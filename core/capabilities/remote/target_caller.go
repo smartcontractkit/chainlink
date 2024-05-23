@@ -68,10 +68,12 @@ func (c *remoteTargetCaller) ExpireRequests(ctx context.Context) {
 
 	for messageID, req := range c.messageIDToExecuteRequest {
 		if time.Since(req.creationTime) > c.requestTimeout {
-			delete(c.messageIDToExecuteRequest, messageID)
-			req.responseCh <- commoncap.CapabilityResponse{Err: errors.New("request timed out")}
-			close(req.responseCh)
+			if !req.responseSent() {
+				req.sendResponse(commoncap.CapabilityResponse{Err: errors.New("request timed out")})
+			}
 		}
+
+		delete(c.messageIDToExecuteRequest, messageID)
 	}
 }
 
@@ -154,7 +156,7 @@ func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, r
 			case <-ctx.Done():
 				return
 			case <-time.After(delay):
-				c.lggr.Debugw("executing delayed execution for peer", "peerID", peerID)
+				c.lggr.Debugw("executing delayed execution for peer", "peerID", peerID, "delay", delay)
 				err = c.dispatcher.Send(peerID, message)
 				if err != nil {
 					c.lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
@@ -172,14 +174,14 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 
 	messageID := getMessageID(msg)
 
-	if msg.Error != types.Error_OK {
-		c.lggr.Warnw("received error response", "messageID", messageID, "error", msg.Error)
-		return
-	}
-
 	req := c.messageIDToExecuteRequest[messageID]
 	if req == nil {
 		c.lggr.Warnw("received response for unknown message ID", "messageID", messageID, "sender", msg.Sender)
+		return
+	}
+
+	if msg.Error != types.Error_OK {
+		c.lggr.Warnw("received error response for pending request", "messageID", messageID, "sender", msg.Sender, "receiver", msg.Receiver, "error", msg.Error)
 		return
 	}
 
@@ -193,6 +195,7 @@ type callerExecuteRequest struct {
 	responseIDCount      map[[32]byte]int
 
 	requiredIdenticalResponses int
+	respSent                   bool
 }
 
 func newCallerExecuteRequest(transmissionCancelFn context.CancelFunc, requiredIdenticalResponses int) *callerExecuteRequest {
@@ -205,8 +208,8 @@ func newCallerExecuteRequest(transmissionCancelFn context.CancelFunc, requiredId
 	}
 }
 
-func (c *callerExecuteRequest) complete() bool {
-	return len(c.responseIDCount) >= c.requiredIdenticalResponses
+func (c *callerExecuteRequest) responseSent() bool {
+	return c.respSent
 }
 
 // TODO addResponse assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated
@@ -215,14 +218,18 @@ func (c *callerExecuteRequest) addResponse(response []byte) {
 	c.responseIDCount[payloadId]++
 
 	if c.responseIDCount[payloadId] == c.requiredIdenticalResponses {
-		defer close(c.responseCh)
-		c.transmissionCancelFn()
-
 		capabilityResponse, err := pb.UnmarshalCapabilityResponse(response)
 		if err != nil {
-			c.responseCh <- commoncap.CapabilityResponse{Err: fmt.Errorf("failed to unmarshal capability response: %w", err)}
+			c.sendResponse(commoncap.CapabilityResponse{Err: fmt.Errorf("failed to unmarshal capability response: %w", err)})
 		} else {
-			c.responseCh <- commoncap.CapabilityResponse{Value: capabilityResponse.Value}
+			c.sendResponse(commoncap.CapabilityResponse{Value: capabilityResponse.Value})
 		}
 	}
+}
+
+func (c *callerExecuteRequest) sendResponse(response commoncap.CapabilityResponse) {
+	c.responseCh <- response
+	close(c.responseCh)
+	c.transmissionCancelFn()
+	c.respSent = true
 }
