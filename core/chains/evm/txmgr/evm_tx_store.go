@@ -1804,23 +1804,32 @@ RETURNING "txes".*
 	return etx, err
 }
 
-func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (ids []int64, err error) {
+func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) ([]int64, error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	err = o.Transact(ctx, false, func(orm *evmTxStore) error {
-		err := orm.q.SelectContext(ctx, &ids, `
-DELETE FROM evm.txes
-WHERE state = 'unstarted' AND subject = $1 AND
-id < (
-	SELECT min(id) FROM (
-		SELECT id
-		FROM evm.txes
-		WHERE state = 'unstarted' AND subject = $2
-		ORDER BY id DESC
-		LIMIT $3
-	) numbers
-) RETURNING id`, subject, subject, queueSize)
+
+	q := `
+		WITH filtered_txes AS (
+			SELECT id
+			FROM evm.txes
+			WHERE (subject = $1 OR (subject IS NULL AND $1 IS NULL))
+			ORDER BY id DESC
+			LIMIT $2
+		), pruned_txes AS (
+			SELECT id
+			FROM evm.txes
+			WHERE (subject = $1 OR (subject IS NULL AND $1 IS NULL))
+			AND id NOT IN (SELECT id FROM filtered_txes)
+		)
+		DELETE FROM evm.txes
+		WHERE id IN (SELECT id FROM pruned_txes)
+		RETURNING id;
+	`
+
+	var ids []int64
+	err := o.Transact(ctx, false, func(orm *evmTxStore) error {
+		err := orm.q.SelectContext(ctx, &ids, q, subject, queueSize)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil
@@ -1829,7 +1838,8 @@ id < (
 		}
 		return err
 	})
-	return
+
+	return ids, err
 }
 
 func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {

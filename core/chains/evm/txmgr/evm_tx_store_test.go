@@ -1840,6 +1840,24 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 		}
 		AssertCountPerSubject(t, txStore, int64(2), subject2)
 	})
+
+	t.Run("prunes if queue with empty subject", func(t *testing.T) {
+		subject3 := uuid.Nil
+		strategy3 := txmgrcommon.NewDropOldestStrategy(subject3, uint32(3))
+		for i := 0; i < 5; i++ {
+			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy3))
+		}
+		AssertCountPerSubject(t, txStore, int64(2), subject3)
+	})
+
+	t.Run("prunes if target queue size is zero", func(t *testing.T) {
+		subject4 := uuid.New()
+		strategy4 := txmgrcommon.NewDropOldestStrategy(subject4, uint32(1))
+		for i := 0; i < 5; i++ {
+			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy4))
+		}
+		AssertCountPerSubject(t, txStore, int64(0), subject4)
+	})
 }
 
 func TestORM_FindTxesWithAttemptsAndReceiptsByIdsAndState(t *testing.T) {
