@@ -100,7 +100,7 @@ core/scripts/gateway @smartcontractkit/functions
 /integration-tests/**/*ccip* @smartcontractkit/test-tooling-team @jasonmci @mateusz-sekara @emate
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
-/integration-tests/**/*lm_* @anirudhwarrier @infiloop2 @RyanRHall @amirylm @ogtownsend @cmalec @makramkd #TODO: replace with LM team tag when ready
+/integration-tests/**/*lm_* @smartcontractkit/liquidity-manager
 
 # CI/CD
 /.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @jasonmci
@@ -144,7 +144,10 @@ flake.lock @smartcontractkit/prodsec-public
 # CCIP override
 /core/ @smartcontractkit/ccip
 /contracts/ @rensr @matyang @makramkd
-/core/services/ocr2/plugins/liquiditymanager @amirylm @ryanrhall @infiloop2 @makramkd
+
+# CCIP LM
+/core/services/ocr2/plugins/liquiditymanager/ @smartcontractkit/liquidity-manager
+/core/services/relay/evm/liquidity_manager.go @smartcontractkit/liquidity-manager
 
 # CCIP ARM
 /contracts/src/v0.8/ccip/RMN.sol @gtklocker @kaleofduty
