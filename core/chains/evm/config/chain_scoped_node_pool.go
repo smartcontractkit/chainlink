@@ -38,4 +38,6 @@ func (n *NodePoolConfig) FinalizedBlockPollInterval() time.Duration {
 	return n.C.FinalizedBlockPollInterval.Duration()
 }
 
-func (n *NodePoolConfig) Errors() ClientErrors { return &clientErrorsConfig{c: n.C.Errors} }
+func (n *NodePoolConfig) Errors() ClientErrors {
+	return &clientErrorsConfig{c: n.C.Errors}
+}
