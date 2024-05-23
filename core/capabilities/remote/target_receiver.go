@@ -1,9 +1,5 @@
 package remote
 
-// here the only executes when it recieves a report from f + 1 nodes, can use the message cache to collect up these reports
-
-// the chain write is waiting for f + 1 reports to be collected before it will execute the transmission
-
 import (
 	"context"
 	"sync"
@@ -26,7 +22,7 @@ type remoteTargetReceiver struct {
 	dispatcher   types.Dispatcher
 	lggr         logger.Logger
 
-	msgIDToExecuteRequest map[[32]byte]executeRequest
+	msgIDToExecuteRequest map[string]executeRequest
 	requestTimeout        time.Duration
 
 	receiveLock sync.Mutex
@@ -44,7 +40,7 @@ func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, underlying
 		workflowDONs: workflowDONs,
 		dispatcher:   dispatcher,
 
-		msgIDToExecuteRequest: map[[32]byte]executeRequest{},
+		msgIDToExecuteRequest: map[string]executeRequest{},
 		requestTimeout:        requestTimeout,
 
 		lggr: lggr,
@@ -86,7 +82,7 @@ func (r *remoteTargetReceiver) ExpireRequests(ctx context.Context) {
 					CapabilityDonId: r.localDonInfo.ID,
 					CallerDonId:     executeReq.callingDonID,
 					Method:          types.MethodExecute,
-					MessageId:       messageId[:],
+					MessageId:       []byte(messageId),
 					// TODO sort out error codes - this should be a timeout error
 					Error: types.Error_CAPABILITY_NOT_FOUND,
 				}
@@ -113,6 +109,8 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 	// TODO May want to have executor per message id to improve liveness
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
+
+	// TODO multithread this
 
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
@@ -159,7 +157,7 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 				CapabilityDonId: r.localDonInfo.ID,
 				CallerDonId:     msg.CallerDonId,
 				Method:          types.MethodExecute,
-				MessageId:       messageId[:],
+				MessageId:       []byte(messageId),
 			}
 
 			capabilityRequest, err := pb.UnmarshalCapabilityRequest(msg.Payload)
@@ -198,8 +196,6 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 
 }
 
-func getMessageID(msg *types.MessageBody) [32]byte {
-	var messageId [32]byte
-	copy(messageId[:], msg.MessageId)
-	return messageId
+func getMessageID(msg *types.MessageBody) string {
+	return string(msg.MessageId)
 }

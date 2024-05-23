@@ -46,6 +46,8 @@ func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
 	testRemoteTargetConsensus(t, 4, 6, 1*time.Second, errResponseTest)
 	testRemoteTargetConsensus(t, 10, 10, 1*time.Second, errResponseTest)
 
+	// Context cancellation test - use an underlying capability that blocks until the context is cancelled
+
 	// Check request errors as expected and all error responses are received
 
 	//  Check that requests from an incorrect don are ignored?
@@ -127,9 +129,12 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 		go func(caller commoncap.TargetCapability) {
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
-					Metadata: commoncap.RequestMetadata{},
-					Config:   transmissionSchedule,
-					Inputs:   executeInputs,
+					Metadata: commoncap.RequestMetadata{
+						WorkflowID:          "workflowID",
+						WorkflowExecutionID: "workflowExecutionID",
+					},
+					Config: transmissionSchedule,
+					Inputs: executeInputs,
 				})
 
 			responseTest(t, responseCh, err)

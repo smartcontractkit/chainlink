@@ -2,7 +2,6 @@ package remote
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
@@ -59,12 +58,11 @@ func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.Ca
 	// TODO Assuming here that the capability request is deterministically unique across the nodes, need to confirm this is reasonable assumption
 	// TODO also check pb marshalliing is by default deterministic in the version being used
 
-	rawRequest, err := pb.MarshalCapabilityRequest(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
+	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
+		return nil, errors.New("workflow ID and execution ID must be set in request metadata")
 	}
 
-	deterministicMessageID := sha256.Sum256(rawRequest)
+	deterministicMessageID := req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID
 
 	responseWaitGroup := &sync.WaitGroup{}
 	responseWaitGroup.Add(1)
@@ -119,7 +117,7 @@ func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.Ca
 }
 
 // transmitRequestWithMessageID transmits a capability request to remote capabilities according to the transmission configuration
-func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, req commoncap.CapabilityRequest, messageID [32]byte) error {
+func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, req commoncap.CapabilityRequest, messageID string) error {
 	rawRequest, err := pb.MarshalCapabilityRequest(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal capability request: %w", err)
@@ -137,7 +135,7 @@ func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, r
 		CallerDonId:     c.localDONInfo.ID,
 		Method:          types.MethodExecute,
 		Payload:         rawRequest,
-		MessageId:       messageID[:],
+		MessageId:       []byte(messageID),
 	}
 
 	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(c.remoteCapabilityDonInfo.Members, c.localDONInfo.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
@@ -167,6 +165,14 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 
 	// TODO handle the case where the capability returns a stream of responses
 	messageID := getMessageID(msg)
+
+	/*
+
+		what aggregation of result f + 1 ?  hash it ?
+
+		failure - 2f + 1  and a timeout
+
+	*/
 
 	wg, loaded := c.messageIDToWaitgroup.LoadAndDelete(messageID)
 	if loaded {

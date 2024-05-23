@@ -68,6 +68,10 @@ func Test_TargetCallerExecuteContextTimeout(t *testing.T) {
 
 	_, err = caller.Execute(ctxWithTimeout,
 		commoncap.CapabilityRequest{
+			Metadata: commoncap.RequestMetadata{
+				WorkflowID:          "workflowID",
+				WorkflowExecutionID: "workflowExecutionID",
+			},
 			Config: transmissionSchedule,
 		})
 
@@ -139,6 +143,10 @@ func Test_TargetCallerExecute(t *testing.T) {
 
 	resultCh, err := caller.Execute(ctx,
 		commoncap.CapabilityRequest{
+			Metadata: commoncap.RequestMetadata{
+				WorkflowID:          "workflowID",
+				WorkflowExecutionID: "workflowExecutionID",
+			},
 			Config: transmissionSchedule,
 		})
 
@@ -209,6 +217,10 @@ func Test_TargetCallerExecuteWithError(t *testing.T) {
 
 	_, err = caller.Execute(ctx,
 		commoncap.CapabilityRequest{
+			Metadata: commoncap.RequestMetadata{
+				WorkflowID:          "workflowID",
+				WorkflowExecutionID: "workflowExecutionID",
+			},
 			Config: transmissionSchedule,
 		})
 
