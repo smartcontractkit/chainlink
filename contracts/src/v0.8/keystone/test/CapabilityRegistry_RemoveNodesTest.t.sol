@@ -7,8 +7,8 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_RemoveNodesTest is BaseTest {
   event NodeRemoved(bytes32 p2pId);
 
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
-  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 1;
+  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
+  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
   bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
 
   function setUp() public override {
@@ -18,12 +18,12 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     s_capabilityRegistry.addCapability(s_basicCapability);
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
 
-    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](1);
+    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](1);
     bytes32[] memory hashedCapabilityIds = new bytes32[](2);
     hashedCapabilityIds[0] = s_basicHashedCapabilityId;
     hashedCapabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodes[0] = CapabilityRegistry.NodeParams({
+    nodes[0] = CapabilityRegistry.NodeInfo({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
@@ -72,7 +72,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     emit NodeRemoved(P2P_ID);
     s_capabilityRegistry.removeNodes(nodes);
 
-    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
+    (CapabilityRegistry.NodeInfo memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, 0);
     assertEq(node.p2pId, bytes32(""));
     assertEq(node.signer, bytes32(""));
@@ -88,21 +88,21 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
 
     s_capabilityRegistry.removeNodes(nodes);
 
-    CapabilityRegistry.NodeParams[] memory nodeParams = new CapabilityRegistry.NodeParams[](1);
+    CapabilityRegistry.NodeInfo[] memory NodeInfo = new CapabilityRegistry.NodeInfo[](1);
     bytes32[] memory hashedCapabilityIds = new bytes32[](2);
     hashedCapabilityIds[0] = s_basicHashedCapabilityId;
     hashedCapabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodeParams[0] = CapabilityRegistry.NodeParams({
+    NodeInfo[0] = CapabilityRegistry.NodeInfo({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    s_capabilityRegistry.addNodes(nodeParams);
+    s_capabilityRegistry.addNodes(NodeInfo);
 
-    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
+    (CapabilityRegistry.NodeInfo memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
     assertEq(node.p2pId, P2P_ID);
     assertEq(node.hashedCapabilityIds.length, 2);
@@ -121,7 +121,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     emit NodeRemoved(P2P_ID);
     s_capabilityRegistry.removeNodes(nodes);
 
-    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
+    (CapabilityRegistry.NodeInfo memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, 0);
     assertEq(node.p2pId, bytes32(""));
     assertEq(node.signer, bytes32(""));
