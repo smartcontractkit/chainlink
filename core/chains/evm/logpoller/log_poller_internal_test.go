@@ -286,7 +286,6 @@ func TestLogPoller_Replay(t *testing.T) {
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
-	ctx := testutils.Context(t)
 
 	head := evmtypes.Head{Number: 4}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
@@ -325,18 +324,21 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 	lp := NewLogPoller(orm, ec, lggr, headTracker, lpOpts)
 
-	// process 1 log in block 3
-	lp.PollAndSaveLogs(ctx, 4)
-	latest, err := lp.LatestBlock(ctx)
-	require.NoError(t, err)
-	require.Equal(t, int64(4), latest.BlockNumber)
-	require.Equal(t, int64(1), latest.FinalizedBlockNumber)
+	{
+		ctx := testutils.Context(t)
+		// process 1 log in block 3
+		lp.PollAndSaveLogs(ctx, 4)
+		latest, err := lp.LatestBlock(ctx)
+		require.NoError(t, err)
+		require.Equal(t, int64(4), latest.BlockNumber)
+		require.Equal(t, int64(1), latest.FinalizedBlockNumber)
+	}
 
 	t.Run("abort before replayStart received", func(t *testing.T) {
 		// Replay() should abort immediately if caller's context is cancelled before request signal is read
 		cancelCtx, cancel := context.WithCancel(testutils.Context(t))
 		cancel()
-		err = lp.Replay(cancelCtx, 3)
+		err := lp.Replay(cancelCtx, 3)
 		assert.ErrorIs(t, err, ErrReplayRequestAborted)
 	})
 
@@ -351,6 +353,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// Replay() should return error code received from replayComplete
 	t.Run("returns error code on replay complete", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
 		mockBatchCallContext(t, ec)
 		anyErr := pkgerrors.New("any error")
@@ -381,6 +384,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// Main lp.run() loop shouldn't get stuck if client aborts
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		lp.backupPollerNextBlock = 0
 
 		pass := make(chan struct{})
@@ -433,6 +437,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// run() should abort if log poller shuts down while replay is in progress
 	t.Run("shutdown during replay", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		lp.backupPollerNextBlock = 0
 
 		pass := make(chan struct{})
@@ -451,8 +456,15 @@ func TestLogPoller_Replay(t *testing.T) {
 			}()
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
-			lp.cancel()
-			close(pass)
+			go func() {
+				assert.NoError(t, lp.Close())
+
+				// prevent double close
+				lp.reset()
+				assert.NoError(t, lp.Start(ctx))
+
+				close(pass)
+			}()
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 
@@ -481,6 +493,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 
 	t.Run("ReplayAsync error", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		t.Cleanup(lp.reset)
 		servicetest.Run(t, lp)
 		head = evmtypes.Head{Number: 4}
@@ -494,7 +507,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		select {
 		case lp.replayComplete <- anyErr:
 			time.Sleep(2 * time.Second)
-		case <-lp.ctx.Done():
+		case <-ctx.Done():
 			t.Error("timed out waiting to send replaceComplete")
 		}
 		require.Equal(t, 1, observedLogs.Len())
@@ -502,6 +515,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 
 	t.Run("run regular replay when there are not blocks in db", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		err := lp.orm.DeleteLogsAndBlocksAfter(ctx, 0)
 		require.NoError(t, err)
 
@@ -510,6 +524,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 
 	t.Run("run only backfill when everything is finalized", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		err := lp.orm.DeleteLogsAndBlocksAfter(ctx, 0)
 		require.NoError(t, err)
 
@@ -526,7 +541,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 func (lp *logPoller) reset() {
 	lp.StateMachine = services.StateMachine{}
-	lp.ctx, lp.cancel = context.WithCancel(context.Background())
+	lp.stopCh = make(chan struct{})
 }
 
 func Test_latestBlockAndFinalityDepth(t *testing.T) {

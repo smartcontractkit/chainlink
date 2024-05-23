@@ -138,7 +138,7 @@ gas_fee_cap = 15_000_000_000
 gas_tip_cap = 5_000_000_000
 
 [[Seth.networks]]
-name = "Fuji"
+name = "AVALANCHE_FUJI"
 chain_id = "43113"
 transaction_timeout = "3m"
 eip_1559_dynamic_fees = true
@@ -204,8 +204,41 @@ gas_fee_cap = 45_000_000_000
 gas_tip_cap = 10_000_000_000
 
 [[Seth.networks]]
-name = "Mumbai"
+name = "POLYGON_MUMBAI"
 chain_id = "80001"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+
+# automated gas estimation for live networks
+# if set to true we will dynamically estimate gas for every transaction (based on suggested values, priority and congestion rate for last X blocks)
+# gas_price_estimation_enabled = true
+# number of blocks to use for congestion rate estimation (it will determine buffer added on top of suggested values)
+# gas_price_estimation_blocks = 100
+# transaction priority, which determines adjustment factor multiplier applied to suggested values (fast - 1.2x, standard - 1x, slow - 0.8x)
+# gas_price_estimation_tx_priority = "standard"
+
+# URLs
+# if set they will overwrite URLs from EVMNetwork that Seth uses, can be either WS(S) or HTTP(S)
+# urls_secret = ["ws://your-ws-url:8546"]
+
+# gas_limits
+# gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
+# gas_limit = 6_000_000
+# transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
+# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 1_800_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 3_800_000_000
+gas_tip_cap = 1_800_000_000
+
+[[Seth.networks]]
+name = "POLYGON_AMOY"
+chain_id = "80002"
 transaction_timeout = "3m"
 eip_1559_dynamic_fees = true
 
@@ -323,3 +356,59 @@ gas_tip_cap = 2_000_000_000
 gas_price_estimation_blocks = 100
 # priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
 gas_price_estimation_tx_priority = "standard"
+
+[[Seth.networks]]
+name = "OPTIMISM_SEPOLIA"
+chain_id = "11155420"
+transaction_timeout = "3m"
+
+# if set to true we will estimate gas for every transaction
+gas_price_estimation_enabled = true
+
+# transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
+# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
+transfer_gas_fee = 21_000
+# gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
+# gas_limit = 100_000_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = true
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_000_000_000
+
+# how many last blocks to use, when estimating gas for a transaction
+gas_price_estimation_blocks = 30
+# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
+gas_price_estimation_tx_priority = "standard"
+
+
+[[Seth.networks]]
+name = "BASE_SEPOLIA"
+chain_id = "84532"
+transaction_timeout = "3m"
+
+# if set to true we will estimate gas for every transaction
+gas_price_estimation_enabled = true
+
+# transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
+# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
+transfer_gas_fee = 21_000
+# gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
+# gas_limit = 100_000_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = true
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_000_000_000
+
+# how many last blocks to use, when estimating gas for a transaction
+gas_price_estimation_blocks = 50
+# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
+gas_price_estimation_tx_priority = "standard"
+

@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -46,7 +44,6 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
-	Errors() config.ClientErrors
 	EnforceRepeatableRead() bool
 }
 
@@ -108,10 +105,7 @@ type node[
 
 	poolInfoProvider PoolChainInfoProvider
 
-	// nodeCtx is the node lifetime's context
-	nodeCtx context.Context
-	// cancelNodeCtx cancels nodeCtx when stopping the node
-	cancelNodeCtx context.CancelFunc
+	stopCh services.StopChan
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 }
@@ -144,7 +138,7 @@ func NewNode[
 	if httpuri != nil {
 		n.http = httpuri
 	}
-	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
+	n.stopCh = make(services.StopChan)
 	lggr = logger.Named(lggr, "Node")
 	lggr = logger.With(lggr,
 		"nodeTier", Primary.String(),
@@ -200,7 +194,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 
-	n.cancelNodeCtx()
+	close(n.stopCh)
 	n.state = nodeStateClosed
 	return nil
 }

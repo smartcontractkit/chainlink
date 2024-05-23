@@ -1,19 +1,19 @@
 package test_env
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/seth"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -28,7 +28,6 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 type CleanUpType string
@@ -85,8 +84,8 @@ var DefaultChainlinkNodeLogScannerSettings = ChainlinkNodeLogScannerSettings{
 func GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(extraAllowedMessages ...testreporters.AllowedLogMessage) ChainlinkNodeLogScannerSettings {
 	allowedMessages := append(DefaultAllowedMessages, extraAllowedMessages...)
 	return ChainlinkNodeLogScannerSettings{
-		FailingLogLevel: zapcore.DPanicLevel,
-		Threshold:       1,
+		FailingLogLevel: DefaultChainlinkNodeLogScannerSettings.FailingLogLevel,
+		Threshold:       DefaultChainlinkNodeLogScannerSettings.Threshold,
 		AllowedMessages: allowedMessages,
 	}
 }
@@ -288,55 +287,46 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
 				}
 
-				var scanClNodeLogs = func() {
-					//filter out non-cl logs
-					logLocation := b.te.LogStream.GetLogLocation()
-					logFiles, err := testreporters.FindAllLogFilesToScan(logLocation, "cl-node")
-					if err != nil {
-						b.l.Warn().Err(err).Msg("Error looking for Chainlink Node log files to scan")
-					} else {
-						// we ignore the context returned by errgroup here, since we have no way of interrupting ongoing scanning of logs
-						verifyLogsGroup, _ := errgroup.WithContext(context.Background())
-						for _, f := range logFiles {
-							file := f
-							verifyLogsGroup.Go(func() error {
-								logErr := testreporters.VerifyLogFile(file, b.chainlinkNodeLogScannerSettings.FailingLogLevel, b.chainlinkNodeLogScannerSettings.Threshold, b.chainlinkNodeLogScannerSettings.AllowedMessages...)
-								if logErr != nil {
-									return errors.Wrapf(logErr, "Found a concerning log in %s", file.Name())
-								}
-								return nil
-							})
+				// flush logs when test failed or when we are explicitly told to collect logs
+				flushLogStream := b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect
+
+				// run even if test has failed, as we might be able to catch additional problems without running the test again
+				if b.chainlinkNodeLogScannerSettings != nil {
+					logProcessor := logstream.NewLogProcessor[int](b.te.LogStream)
+
+					processFn := func(log logstream.LogContent, count *int) error {
+						countSoFar := count
+						newCount, err := testreporters.ScanLogLine(b.l, string(log.Content), b.chainlinkNodeLogScannerSettings.FailingLogLevel, uint(*countSoFar), b.chainlinkNodeLogScannerSettings.Threshold, b.chainlinkNodeLogScannerSettings.AllowedMessages)
+						if err != nil {
+							return err
 						}
-						if err := verifyLogsGroup.Wait(); err != nil {
-							b.l.Error().Err(err).Msg("Found a concerning log. Failing test.")
+						*count = int(newCount)
+						return nil
+					}
+
+					// we cannot do parallel processing here, because ProcessContainerLogs() locks a mutex that controls whether
+					// new logs can be added to the log stream, so parallel processing would get stuck on waiting for it to be unlocked
+					for i := 0; i < b.clNodesCount; i++ {
+						// ignore count return, because we are only interested in the error
+						_, err := logProcessor.ProcessContainerLogs(b.te.ClCluster.Nodes[i].ContainerName, processFn)
+						if err != nil && !strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) && !strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr) {
+							b.l.Error().Err(err).Msg("Error processing logs")
+							return
+						} else if err != nil && (strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr)) {
+							flushLogStream = true
 							b.t.Fatalf("Found a concerning log in Chainklink Node logs: %v", err)
 						}
 					}
 					b.l.Info().Msg("Finished scanning Chainlink Node logs for concerning errors")
 				}
 
-				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
-					// we can't do much if this fails, so we just log the error in logstream
-					flushErr := b.te.LogStream.FlushAndShutdown()
-					if flushErr != nil {
-						b.l.Error().Err(flushErr).Msg("Error flushing and shutting down LogStream")
-						return
+				if flushLogStream {
+					// we can't do much if this fails, so we just log the error in LogStream
+					if err := b.te.LogStream.FlushAndShutdown(); err != nil {
+						b.l.Error().Err(err).Msg("Error flushing and shutting down LogStream")
 					}
 					b.te.LogStream.PrintLogTargetsLocations()
 					b.te.LogStream.SaveLogLocationInTestSummary()
-
-					// if test hasn't failed, but we have chainlinkNodeLogScannerSettings, we should check the logs
-					if !b.t.Failed() && b.chainlinkNodeLogScannerSettings != nil {
-						scanClNodeLogs()
-					}
-				} else if b.chainlinkNodeLogScannerSettings != nil {
-					flushErr := b.te.LogStream.FlushAndShutdown()
-					if flushErr != nil {
-						b.l.Error().Err(flushErr).Msg("Error flushing and shutting down LogStream")
-						return
-					}
-
-					scanClNodeLogs()
 				}
 			})
 		} else {
@@ -377,22 +367,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		return b.te, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("explicit cleanup type must be set when building test environment"))
 	}
 
-	if b.te.LogStream != nil {
-		// this is not the cleanest way to do this, but when we originally build ethereum networks, we don't have the logstream reference,
-		// so we need to rebuild them here and pass logstream to them
-		for i := range b.privateEthereumNetworks {
-			builder := test_env.NewEthereumNetworkBuilder()
-			netWithLs, err := builder.
-				WithExistingConfig(*b.privateEthereumNetworks[i]).
-				WithLogStream(b.te.LogStream).
-				Build()
-			if err != nil {
-				return nil, err
-			}
-			b.privateEthereumNetworks[i] = &netWithLs.EthereumNetworkConfig
-		}
-	}
-
 	if b.te.LogStream == nil && b.chainlinkNodeLogScannerSettings != nil {
 		log.Warn().Msg("Chainlink node log scanner settings provided, but LogStream is not enabled. Ignoring Chainlink node log scanner settings, as no logs will be available.")
 	}
@@ -418,12 +392,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 			if b.hasSeth {
-				seth, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
+				sethClient, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
 				if err != nil {
 					return nil, err
 				}
 
-				b.te.sethClients[networkConfig.ChainID] = seth
+				b.te.sethClients[networkConfig.ChainID] = sethClient
 			}
 
 			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
@@ -529,15 +503,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 		if b.hasSeth {
 			b.te.sethClients = make(map[int64]*seth.Client)
-			readSethCfg := b.testConfig.GetSethConfig()
-			sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
-			if err != nil {
-				return nil, err
-			}
-			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-			if err != nil {
-				return nil, err
-			}
 			sethClient, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
 			if err != nil {
 				return nil, err
