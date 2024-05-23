@@ -100,7 +100,7 @@ deployments:
       releaseName: "app"
       chart:
         name: ${CHAINLINK_CLUSTER_HELM_CHART_URI}
-        version: "1.0.0"
+        version: "1.1.0"
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
@@ -158,7 +158,7 @@ deployments:
           # extraEnvVars:
           # "CL_MEDIAN_CMD": "chainlink-feeds"
           nodes:
-            node-1:
+            node1:
               image: ${runtime.images.app}
               # default resources are 300m/1Gi
               # first node need more resources to build faster inside container
@@ -209,13 +209,13 @@ deployments:
               #   CollectorTarget = 'app-opentelemetry-collector:4317'
               #   TLSCertPath = ''
               #   Mode = 'unencrypted'
-            node-2:
+            node2:
               image: ${runtime.images.app}
-            node-3:
+            node3:
               image: ${runtime.images.app}
-            node-4:
+            node4:
               image: ${runtime.images.app}
-            node-5:
+            node5:
               image: ${runtime.images.app}
 
         # each CL node have a dedicated PostgreSQL 11.15
@@ -307,7 +307,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-1
+                        name: app-node1
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
@@ -316,7 +316,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-2
+                        name: app-node2
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
@@ -325,7 +325,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-3
+                        name: app-node3
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
@@ -334,7 +334,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-4
+                        name: app-node4
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node5.${DEVSPACE_INGRESS_BASE_DOMAIN}
@@ -343,7 +343,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-5
+                        name: app-node5
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-geth-1337-http.${DEVSPACE_INGRESS_BASE_DOMAIN}
