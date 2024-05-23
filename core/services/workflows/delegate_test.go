@@ -49,7 +49,7 @@ targets: []
 `
 				return testspecs.GenerateWorkflowSpec(id, owner, "", wf).Toml()
 			},
-			true,
+			false,
 		},
 
 		{
