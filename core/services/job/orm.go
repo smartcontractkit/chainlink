@@ -78,6 +78,8 @@ type ORM interface {
 
 	DataSource() sqlutil.DataSource
 	WithDataSource(source sqlutil.DataSource) ORM
+
+	FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (int32, error)
 }
 
 type ORMConfig interface {
@@ -407,8 +409,8 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 		case Stream:
 			// 'stream' type has no associated spec, nothing to do here
 		case Workflow:
-			sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, created_at, updated_at)
-			VALUES (:workflow, :workflow_id, :workflow_owner, NOW(), NOW())
+			sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, created_at, updated_at)
+			VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, NOW(), NOW())
 			RETURNING id;`
 			specID, err := tx.prepareQuerySpecID(ctx, sql, jb.WorkflowSpec)
 			if err != nil {
@@ -1050,6 +1052,23 @@ func (o *orm) FindJobIDsWithBridge(ctx context.Context, name string) (jids []int
 				}
 			}
 		}
+	}
+
+	return
+}
+
+func (o *orm) FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (jobID int32, err error) {
+	stmt := `
+SELECT jobs.id FROM jobs
+INNER JOIN workflow_specs ws on jobs.workflow_spec_id = ws.id AND ws.workflow_owner = $1 AND ws.workflow_name = $2 
+`
+	err = o.ds.GetContext(ctx, &jobID, stmt, spec.WorkflowOwner, spec.WorkflowName)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			err = fmt.Errorf("error searching for job by workflow (owner,name) ('%s','%s'): %w", spec.WorkflowOwner, spec.WorkflowName, err)
+		}
+		err = fmt.Errorf("FindJobIDByWorkflow failed: %w", err)
+		return
 	}
 
 	return
