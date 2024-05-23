@@ -64,7 +64,8 @@ func Test_TargetCallerExecuteContextTimeout(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ctxWithTimeout, _ := context.WithTimeout(ctx, 10*time.Millisecond)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+	defer cancel()
 
 	_, err = caller.Execute(ctxWithTimeout,
 		commoncap.CapabilityRequest{
