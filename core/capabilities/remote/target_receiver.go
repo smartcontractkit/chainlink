@@ -83,8 +83,7 @@ func (r *remoteTargetReceiver) ExpireRequests(ctx context.Context) {
 					CallerDonId:     executeReq.callingDonID,
 					Method:          types.MethodExecute,
 					MessageId:       []byte(messageId),
-					// TODO sort out error codes - this should be a timeout error
-					Error: types.Error_CAPABILITY_NOT_FOUND,
+					Error:           types.Error_TIMEOUT,
 				}
 
 				for peerID := range executeReq.fromPeers {
@@ -171,13 +170,11 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 					responseMsg.Payload, err = pb.MarshalCapabilityResponse(response)
 				} else {
 					r.lggr.Errorw("failed to execute capability", "capabilityId", r.capInfo.ID, "err", err)
-					// TODO set correct error code
-					responseMsg.Error = types.Error_CAPABILITY_NOT_FOUND
+					responseMsg.Error = types.Error_INTERNAL_ERROR
 				}
 			} else {
 				r.lggr.Errorw("failed to unmarshal capability request", "capabilityId", r.capInfo.ID, "err", err)
-				// TODO set correct error code
-				responseMsg.Error = types.Error_CAPABILITY_NOT_FOUND
+				responseMsg.Error = types.Error_INVALID_REQUEST
 			}
 
 			executeReq.response = responseMsg

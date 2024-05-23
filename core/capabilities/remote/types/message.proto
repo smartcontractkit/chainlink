@@ -9,6 +9,8 @@ enum Error {
   VALIDATION_FAILED = 1;
   CAPABILITY_NOT_FOUND = 2;
   INVALID_REQUEST = 3;
+  TIMEOUT = 4;
+  INTERNAL_ERROR = 5;
 }
 
 message Message {
