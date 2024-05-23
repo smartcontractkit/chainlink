@@ -124,6 +124,13 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+gasPriceSubunitsSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "1m"
 `
@@ -974,6 +981,7 @@ ds1_parse    [type=jsonparse path="one,two"];
 ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
+# omit gasPriceSubunitsSource intentionally 
 """
 `
 
@@ -2289,6 +2297,13 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+gasPriceSubunitsSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "30s"
 `
@@ -2320,6 +2335,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+# intentionally do not set gasPriceSubunitsSource for this pipeline example to cover case when none is set
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "20m"
 `
