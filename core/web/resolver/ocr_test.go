@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"encoding/json"
 	"math/big"
 	"testing"
@@ -54,7 +55,7 @@ func TestResolver_GetOCRKeyBundles(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.ocr.On("GetAll").Return(fakeKeys, nil)
 				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -105,7 +106,7 @@ func TestResolver_OCRCreateBundle(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.ocr.On("Create", mock.Anything).Return(fakeKey, nil)
 				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -163,7 +164,7 @@ func TestResolver_OCRDeleteBundle(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.ocr.On("Delete", mock.Anything, fakeKey.ID()).Return(fakeKey, nil)
 				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -175,7 +176,7 @@ func TestResolver_OCRDeleteBundle(t *testing.T) {
 		{
 			name:          "not found error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.ocr.
 					On("Delete", mock.Anything, fakeKey.ID()).
 					Return(ocrkey.KeyV2{}, keystore.KeyNotFoundError{ID: "helloWorld", KeyType: "OCR"})

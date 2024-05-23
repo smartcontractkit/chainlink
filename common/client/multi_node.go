@@ -92,19 +92,20 @@ type multiNode[
 	BATCH_ELEM any,
 ] struct {
 	services.StateMachine
-	nodes               []Node[CHAIN_ID, HEAD, RPC_CLIENT]
-	sendonlys           []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
-	chainID             CHAIN_ID
-	chainType           config.ChainType
-	lggr                logger.SugaredLogger
-	selectionMode       string
-	noNewHeadsThreshold time.Duration
-	nodeSelector        NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
-	leaseDuration       time.Duration
-	leaseTicker         *time.Ticker
-	chainFamily         string
-	reportInterval      time.Duration
-	sendTxSoftTimeout   time.Duration // defines max waiting time from first response til responses evaluation
+	nodes                 []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	sendonlys             []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
+	chainID               CHAIN_ID
+	chainType             config.ChainType
+	lggr                  logger.SugaredLogger
+	selectionMode         string
+	noNewHeadsThreshold   time.Duration
+	nodeSelector          NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
+	leaseDuration         time.Duration
+	leaseTicker           *time.Ticker
+	chainFamily           string
+	reportInterval        time.Duration
+	deathDeclarationDelay time.Duration
+	sendTxSoftTimeout     time.Duration // defines max waiting time from first response til responses evaluation
 
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
@@ -150,20 +151,21 @@ func NewMultiNode[
 		sendTxSoftTimeout = QueryTimeout / 2
 	}
 	c := &multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]{
-		nodes:               nodes,
-		sendonlys:           sendonlys,
-		chainID:             chainID,
-		chainType:           chainType,
-		lggr:                logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
-		selectionMode:       selectionMode,
-		noNewHeadsThreshold: noNewHeadsThreshold,
-		nodeSelector:        nodeSelector,
-		chStop:              make(services.StopChan),
-		leaseDuration:       leaseDuration,
-		chainFamily:         chainFamily,
-		classifySendTxError: classifySendTxError,
-		reportInterval:      reportInterval,
-		sendTxSoftTimeout:   sendTxSoftTimeout,
+		nodes:                 nodes,
+		sendonlys:             sendonlys,
+		chainID:               chainID,
+		chainType:             chainType,
+		lggr:                  logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
+		selectionMode:         selectionMode,
+		noNewHeadsThreshold:   noNewHeadsThreshold,
+		nodeSelector:          nodeSelector,
+		chStop:                make(services.StopChan),
+		leaseDuration:         leaseDuration,
+		chainFamily:           chainFamily,
+		classifySendTxError:   classifySendTxError,
+		reportInterval:        reportInterval,
+		deathDeclarationDelay: reportInterval,
+		sendTxSoftTimeout:     sendTxSoftTimeout,
 	}
 
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
@@ -251,6 +253,9 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return // another goroutine beat us here
 	}
 
+	if c.activeNode != nil {
+		c.activeNode.UnsubscribeAllExceptAliveLoop()
+	}
 	c.activeNode = c.nodeSelector.Select()
 
 	if c.activeNode == nil {
@@ -308,10 +313,13 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 
 	c.activeMu.Lock()
+	defer c.activeMu.Unlock()
 	if bestNode != c.activeNode {
+		if c.activeNode != nil {
+			c.activeNode.UnsubscribeAllExceptAliveLoop()
+		}
 		c.activeNode = bestNode
 	}
-	c.activeMu.Unlock()
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) checkLeaseLoop() {
@@ -332,7 +340,16 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) runLoop() {
 	defer c.wg.Done()
 
-	c.report()
+	nodeStates := make([]nodeWithState, len(c.nodes))
+	for i, n := range c.nodes {
+		nodeStates[i] = nodeWithState{
+			Node:      n.String(),
+			State:     n.State().String(),
+			DeadSince: nil,
+		}
+	}
+
+	c.report(nodeStates)
 
 	monitor := time.NewTicker(utils.WithJitter(c.reportInterval))
 	defer monitor.Stop()
@@ -340,44 +357,54 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	for {
 		select {
 		case <-monitor.C:
-			c.report()
+			c.report(nodeStates)
 		case <-c.chStop:
 			return
 		}
 	}
 }
 
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) report() {
-	type nodeWithState struct {
-		Node  string
-		State string
-	}
+type nodeWithState struct {
+	Node      string
+	State     string
+	DeadSince *time.Time
+}
 
-	var total, dead int
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) report(nodesStateInfo []nodeWithState) {
+	start := time.Now()
+	var dead int
 	counts := make(map[nodeState]int)
-	nodeStates := make([]nodeWithState, len(c.nodes))
 	for i, n := range c.nodes {
 		state := n.State()
-		nodeStates[i] = nodeWithState{n.String(), state.String()}
-		total++
-		if state != nodeStateAlive {
+		counts[state]++
+		nodesStateInfo[i].State = state.String()
+		if state == nodeStateAlive {
+			nodesStateInfo[i].DeadSince = nil
+			continue
+		}
+
+		if nodesStateInfo[i].DeadSince == nil {
+			nodesStateInfo[i].DeadSince = &start
+		}
+
+		if start.Sub(*nodesStateInfo[i].DeadSince) >= c.deathDeclarationDelay {
 			dead++
 		}
-		counts[state]++
 	}
 	for _, state := range allNodeStates {
 		count := counts[state]
 		PromMultiNodeRPCNodeStates.WithLabelValues(c.chainFamily, c.chainID.String(), state.String()).Set(float64(count))
 	}
 
+	total := len(c.nodes)
 	live := total - dead
-	c.lggr.Tracew(fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	c.lggr.Tracew(fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodesStateInfo)
 	if total == dead {
 		rerr := fmt.Errorf("no primary nodes available: 0/%d nodes are alive", total)
-		c.lggr.Criticalw(rerr.Error(), "nodeStates", nodeStates)
+		c.lggr.Criticalw(rerr.Error(), "nodeStates", nodesStateInfo)
 		c.SvcErrBuffer.Append(rerr)
 	} else if dead > 0 {
-		c.lggr.Errorw(fmt.Sprintf("At least one primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+		c.lggr.Errorw(fmt.Sprintf("At least one primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodesStateInfo)
 	}
 }
 

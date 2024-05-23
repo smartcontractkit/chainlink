@@ -1568,7 +1568,7 @@ func TestTooManyLogResults(t *testing.T) {
 	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
 	call1 := ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
 		if blockNumber == nil {
-			panic("unexpected call to get current head")
+			require.FailNow(t, "unexpected call to get current head")
 		}
 		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
 	})
@@ -1615,7 +1615,7 @@ func TestTooManyLogResults(t *testing.T) {
 	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
 	call1.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
 		if blockNumber == nil {
-			panic("unexpected call to get current head")
+			require.FailNow(t, "unexpected call to get current head")
 		}
 		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
 	})

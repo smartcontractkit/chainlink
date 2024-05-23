@@ -69,11 +69,16 @@ func newHealthyNode(t *testing.T, chainID types.ID) *mockNode[types.ID, types.He
 }
 
 func newNodeWithState(t *testing.T, chainID types.ID, state nodeState) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {
+	node := newDialableNode(t, chainID)
+	node.On("State").Return(state).Maybe()
+	return node
+}
+
+func newDialableNode(t *testing.T, chainID types.ID) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {
 	node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 	node.On("ConfiguredChainID").Return(chainID).Once()
 	node.On("Start", mock.Anything).Return(nil).Once()
 	node.On("Close").Return(nil).Once()
-	node.On("State").Return(state).Maybe()
 	node.On("String").Return(fmt.Sprintf("healthy_node_%d", rand.Int())).Maybe()
 	node.On("SetPoolChainInfoProvider", mock.Anything).Once()
 	return node
@@ -225,6 +230,7 @@ func TestMultiNode_Report(t *testing.T) {
 			logger:        lggr,
 		})
 		mn.reportInterval = tests.TestInterval
+		mn.deathDeclarationDelay = tests.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
@@ -242,6 +248,7 @@ func TestMultiNode_Report(t *testing.T) {
 			logger:        lggr,
 		})
 		mn.reportInterval = tests.TestInterval
+		mn.deathDeclarationDelay = tests.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
@@ -383,6 +390,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 		chainID := types.RandomID()
 		oldBest := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		oldBest.On("String").Return("oldBest").Maybe()
+		oldBest.On("UnsubscribeAllExceptAliveLoop").Once()
 		newBest := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		newBest.On("String").Return("newBest").Maybe()
 		mn := newTestMultiNode(t, multiNodeOpts{

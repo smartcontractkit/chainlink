@@ -133,8 +133,7 @@ type Confirmer[
 	enabledAddresses []ADDR
 
 	mb        *mailbox.Mailbox[HEAD]
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	stopCh    services.StopChan
 	wg        sync.WaitGroup
 	initSync  sync.Mutex
 	isStarted bool
@@ -207,7 +206,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sta
 		return fmt.Errorf("Confirmer: failed to load EnabledAddressesForChain: %w", err)
 	}
 
-	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
+	ec.stopCh = make(chan struct{})
 	ec.wg = sync.WaitGroup{}
 	ec.wg.Add(1)
 	go ec.runLoop()
@@ -228,7 +227,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) clo
 	if !ec.isStarted {
 		return fmt.Errorf("Confirmer is not started: %w", services.ErrAlreadyStopped)
 	}
-	ec.ctxCancel()
+	close(ec.stopCh)
 	ec.wg.Wait()
 	ec.isStarted = false
 	return nil
@@ -248,23 +247,25 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Hea
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer ec.wg.Done()
+	ctx, cancel := ec.stopCh.NewCtx()
+	defer cancel()
 	for {
 		select {
 		case <-ec.mb.Notify():
 			for {
-				if ec.ctx.Err() != nil {
+				if ctx.Err() != nil {
 					return
 				}
 				head, exists := ec.mb.Retrieve()
 				if !exists {
 					break
 				}
-				if err := ec.ProcessHead(ec.ctx, head); err != nil {
+				if err := ec.ProcessHead(ctx, head); err != nil {
 					ec.lggr.Errorw("Error processing head", "err", err)
 					continue
 				}
 			}
-		case <-ec.ctx.Done():
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -940,7 +941,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 
 	for _, etx := range etxs {
 		if !hasReceiptInLongestChain(*etx, head) {
-			if err := ec.markForRebroadcast(*etx, head); err != nil {
+			if err := ec.markForRebroadcast(ctx, *etx, head); err != nil {
 				return fmt.Errorf("markForRebroadcast failed for etx %v: %w", etx.ID, err)
 			}
 		}
@@ -992,7 +993,7 @@ func hasReceiptInLongestChain[
 	}
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {
 	if len(etx.TxAttempts) == 0 {
 		return fmt.Errorf("invariant violation: expected tx %v to have at least one attempt", etx.ID)
 	}
@@ -1027,7 +1028,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 	ec.lggr.Infow(fmt.Sprintf("Re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.String()), logValues...)
 
 	// Put it back in progress and delete all receipts (they do not apply to the new chain)
-	if err := ec.txStore.UpdateTxForRebroadcast(ec.ctx, etx, attempt); err != nil {
+	if err := ec.txStore.UpdateTxForRebroadcast(ctx, etx, attempt); err != nil {
 		return fmt.Errorf("markForRebroadcast failed: %w", err)
 	}
 
