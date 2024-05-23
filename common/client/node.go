@@ -61,7 +61,9 @@ type Node[
 	HEAD Head,
 	RPC NodeClient[CHAIN_ID, HEAD],
 ] interface {
-	// State returns nodeState
+	// State returns most accurate state of the Node on the moment of call.
+	// While some of the checks may be performed in the background and State may return cached value, critical, like
+	// `FinalizedBlockOutOfSync`, must be executed upon every call.
 	State() nodeState
 	// StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
 	StateAndLatest() (nodeState, ChainInfo)
