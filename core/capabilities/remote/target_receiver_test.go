@@ -33,20 +33,20 @@ func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
 	}
 
 	// Test scenarios where the number of submissions is greater than or equal to F + 1
-	testRemoteTargetConsensus(t, 1, 0, 10*time.Minute, responseTest)
-	testRemoteTargetConsensus(t, 4, 3, 10*time.Minute, responseTest)
-	testRemoteTargetConsensus(t, 10, 3, 10*time.Minute, responseTest)
+	testRemoteTargetConsensus(t, 1, 0, 10*time.Minute, 10*time.Minute, responseTest)
+	testRemoteTargetConsensus(t, 4, 3, 10*time.Minute, 10*time.Minute, responseTest)
+	testRemoteTargetConsensus(t, 10, 3, 10*time.Minute, 10*time.Minute, responseTest)
 
-	/*
+	errResponseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		response := <-responseCh
+		assert.NotNil(t, response.Err)
+	}
 
-		errResponseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
-			assert.NotNil(t, responseError)
-		}
+	// Test scenario where number of submissions is less than F + 1
+	testRemoteTargetConsensus(t, 4, 6, 1*time.Second, 1*time.Second, errResponseTest)
+	testRemoteTargetConsensus(t, 10, 10, 1*time.Second, 1*time.Second, errResponseTest)
 
-		// Test scenario where number of submissions is less than F + 1
-		testRemoteTargetConsensus(t, 4, 6, 1*time.Second, errResponseTest)
-		testRemoteTargetConsensus(t, 10, 10, 1*time.Second, errResponseTest)
-	*/
 	// Context cancellation test - use an underlying capability that blocks until the context is cancelled
 
 	// Check request errors as expected and all error responses are received
@@ -60,9 +60,11 @@ func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
 }
 
 func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF uint8,
-	consensusTimeout time.Duration, responseTest func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error)) {
+	receiverRequestTimeout time.Duration, callerRequestTimeout time.Duration, responseTest func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error)) {
 	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
 	capInfo := commoncap.CapabilityInfo{
 		ID:             "cap_id",
 		CapabilityType: commoncap.CapabilityTypeTarget,
@@ -99,13 +101,13 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 	underlying := &testTargetReceiver{}
 
 	capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeerID)
-	receiver := remote.NewRemoteTargetReceiver(ctx, lggr, underlying, capInfo, &capDonInfo, workflowDONs, capabilityDispatcher, consensusTimeout)
+	receiver := remote.NewRemoteTargetReceiver(ctx, lggr, underlying, capInfo, &capDonInfo, workflowDONs, capabilityDispatcher, receiverRequestTimeout)
 	broker.RegisterReceiverNode(capabilityPeerID, receiver)
 
 	callers := make([]commoncap.TargetCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, workflowPeerDispatcher, 1*time.Minute)
+		caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, workflowPeerDispatcher, callerRequestTimeout)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
 		callers[i] = caller
 	}
