@@ -148,7 +148,7 @@ func TestIntegration_LLO(t *testing.T) {
 		})
 	}
 
-	// Bury everything with finality depth
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
 	ch, err := nodes[0].App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()

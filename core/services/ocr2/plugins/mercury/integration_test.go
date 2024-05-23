@@ -184,7 +184,7 @@ func integration_MercuryV1(t *testing.T) {
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
-	// Bury it with finality depth
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
 	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
@@ -192,7 +192,7 @@ func integration_MercuryV1(t *testing.T) {
 		backend.Commit()
 	}
 
-	fromBlock := int(finalityDepth) // cannot use zero, start from block 1
+	fromBlock := int(finalityDepth) // cannot use zero, start from finality depth
 
 	// Set up n oracles
 	var (
@@ -540,7 +540,7 @@ func integration_MercuryV2(t *testing.T) {
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
-	// Bury it with finality depth
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
 	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
@@ -830,7 +830,7 @@ func integration_MercuryV3(t *testing.T) {
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
-	// Bury it with finality depth
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
 	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()

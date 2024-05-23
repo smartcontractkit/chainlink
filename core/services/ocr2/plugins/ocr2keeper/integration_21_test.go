@@ -656,7 +656,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
 
-	// Bury it with finality depth
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
 	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
