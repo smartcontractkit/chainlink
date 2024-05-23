@@ -3,6 +3,7 @@ package medianpoc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -115,12 +116,13 @@ func (p *Plugin) newFactory(ctx context.Context, config core.ReportingPluginServ
 	var gds median.DataSource
 	gp, err := jc.getPipeline("gasPriceSubunitsPipeline")
 
-	_, pipelineNotFound := err.(*PipelineNotFoundError)
+	var pnf *PipelineNotFoundError
+	pipelineNotFound := errors.As(err, &pnf)
 	if !pipelineNotFound && err != nil {
 		return nil, err
 	}
 
-	// We omit gas price in observation to maintain backwards compability in libocr (with older nodes).
+	// We omit gas price in observation to maintain backwards compatibility in libocr (with older nodes).
 	// Once all chainlink nodes have updated to libocr version >= fd3cab206b2c
 	// the IncludeGasPriceSubunitsInObservation field can be removed
 

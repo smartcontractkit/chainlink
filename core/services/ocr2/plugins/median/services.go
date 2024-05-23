@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-feeds/median"
@@ -21,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 	libocr_median "github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 )
 
 type MedianConfig interface {

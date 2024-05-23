@@ -301,7 +301,6 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 						return errGasPipeline
 					}
 				}
-
 			}
 
 			specID, err := tx.insertOCR2OracleSpec(ctx, jb.OCR2OracleSpec)
