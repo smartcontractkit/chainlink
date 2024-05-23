@@ -395,6 +395,7 @@ func (c *Chain) ValidateConfig() (err error) {
 
 	// AutoPurge configs depend on ChainType so handling validation on per chain basis
 	if c.Transactions.AutoPurge.Enabled != nil && *c.Transactions.AutoPurge.Enabled {
+		chainType := c.ChainType.ChainType()
 		switch chainType {
 		case config.ChainScroll:
 			if c.Transactions.AutoPurge.DetectionApiUrl == nil {

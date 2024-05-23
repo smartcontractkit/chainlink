@@ -830,7 +830,7 @@ ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas
 // Loads attempt and receipts in the transactions
 func (o *evmTxStore) FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state txmgrtypes.TxState, chainID *big.Int) (txs []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	enabledAddrsBytea := make([][]byte, len(addresses))
 	for i, addr := range addresses {

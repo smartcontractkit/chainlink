@@ -35,7 +35,7 @@ func (c ChainType) IsL2() bool {
 
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkSync:
+	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync:
 		return true
 	}
 	return false
@@ -61,6 +61,8 @@ func ChainTypeFromSlug(slug string) ChainType {
 		return ChainWeMix
 	case "xlayer":
 		return ChainXLayer
+	case "zkevm":
+		return ChainZkEvm
 	case "zksync":
 		return ChainZkSync
 	default:
