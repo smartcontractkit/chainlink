@@ -43,6 +43,7 @@ library ChainSpecificUtil {
   /// @dev Base is a OP stack based rollup and follows the same L1 pricing logic as Optimism.
   uint256 private constant BASE_MAINNET_CHAIN_ID = 8453;
   uint256 private constant BASE_GOERLI_CHAIN_ID = 84531;
+  uint256 private constant BASE_SEPOLIA_CHAIN_ID = 84532;
 
   // ------------ End Optimism Constants ------------
 
@@ -125,7 +126,7 @@ library ChainSpecificUtil {
 
   /**
    * @notice Return true if and only if the provided chain ID is an Optimism chain ID.
-   * @notice Note that optimism chain id's are also OP stack chain id's.
+   * @notice Note that optimism chain id's are also OP stack chain id's (e.g. Base).
    */
   function _isOptimismChainId(uint256 chainId) internal pure returns (bool) {
     return
@@ -133,7 +134,8 @@ library ChainSpecificUtil {
       chainId == OP_GOERLI_CHAIN_ID ||
       chainId == OP_SEPOLIA_CHAIN_ID ||
       chainId == BASE_MAINNET_CHAIN_ID ||
-      chainId == BASE_GOERLI_CHAIN_ID;
+      chainId == BASE_GOERLI_CHAIN_ID ||
+      chainId == BASE_SEPOLIA_CHAIN_ID;
   }
 
   function _calculateOptimismL1DataFee(uint256 calldataSizeBytes) internal view returns (uint256) {

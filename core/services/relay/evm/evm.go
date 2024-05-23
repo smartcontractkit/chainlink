@@ -272,6 +272,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 			if err := r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err != nil {
 				return nil, err
 			}
+			lggr.Infow("successfully added trigger service to the Registry")
 		}
 	}
 
@@ -438,8 +439,7 @@ type configWatcher struct {
 	chain            legacyevm.Chain
 	runReplay        bool
 	fromBlock        uint64
-	replayCtx        context.Context
-	replayCancel     context.CancelFunc
+	stopCh           services.StopChan
 	wg               sync.WaitGroup
 }
 
@@ -451,7 +451,6 @@ func newConfigWatcher(lggr logger.Logger,
 	fromBlock uint64,
 	runReplay bool,
 ) *configWatcher {
-	replayCtx, replayCancel := context.WithCancel(context.Background())
 	return &configWatcher{
 		lggr:             lggr.Named("ConfigWatcher").Named(contractAddress.String()),
 		contractAddress:  contractAddress,
@@ -460,8 +459,7 @@ func newConfigWatcher(lggr logger.Logger,
 		chain:            chain,
 		runReplay:        runReplay,
 		fromBlock:        fromBlock,
-		replayCtx:        replayCtx,
-		replayCancel:     replayCancel,
+		stopCh:           make(chan struct{}),
 	}
 }
 
@@ -476,8 +474,10 @@ func (c *configWatcher) Start(ctx context.Context) error {
 			c.wg.Add(1)
 			go func() {
 				defer c.wg.Done()
+				ctx, cancel := c.stopCh.NewCtx()
+				defer cancel()
 				c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
-				if err := c.configPoller.Replay(c.replayCtx, int64(c.fromBlock)); err != nil {
+				if err := c.configPoller.Replay(ctx, int64(c.fromBlock)); err != nil {
 					c.lggr.Errorf("error replaying for config", "err", err)
 				} else {
 					c.lggr.Infow("completed replaying for config", "fromBlock", c.fromBlock)
@@ -491,7 +491,7 @@ func (c *configWatcher) Start(ctx context.Context) error {
 
 func (c *configWatcher) Close() error {
 	return c.StopOnce(fmt.Sprintf("configWatcher %x", c.contractAddress), func() error {
-		c.replayCancel()
+		close(c.stopCh)
 		c.wg.Wait()
 		return c.configPoller.Close()
 	})

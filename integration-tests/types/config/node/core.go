@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
-	"os"
+	"strconv"
 	"time"
 
 	"github.com/segmentio/ksuid"
 	"go.uber.org/zap/zapcore"
 
-	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
+	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -73,16 +74,9 @@ func NewConfig(baseConf *chainlink.Config, opts ...NodeConfigOpt) *chainlink.Con
 	return baseConf
 }
 
-func NewConfigFromToml(tomlFile string, opts ...NodeConfigOpt) (*chainlink.Config, error) {
-	readFile, err := os.ReadFile(tomlFile)
-	if err != nil {
-		return nil, err
-	}
+func NewConfigFromToml(tomlConfig []byte, opts ...NodeConfigOpt) (*chainlink.Config, error) {
 	var cfg chainlink.Config
-	if err != nil {
-		return nil, err
-	}
-	err = config.DecodeTOML(bytes.NewReader(readFile), &cfg)
+	err := config.DecodeTOML(bytes.NewReader(tomlConfig), &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -92,125 +86,39 @@ func NewConfigFromToml(tomlFile string, opts ...NodeConfigOpt) (*chainlink.Confi
 	return &cfg, nil
 }
 
-func WithOCR1() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.OCR = toml.OCR{
-			Enabled: ptr.Ptr(true),
-		}
-	}
-}
-
-func WithOCR2() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.OCR2 = toml.OCR2{
-			Enabled: ptr.Ptr(true),
-		}
-	}
-}
-
-func WithP2Pv2() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.P2P.V2 = toml.P2PV2{
-			ListenAddresses: &[]string{"0.0.0.0:6690"},
-		}
-	}
-}
-
-func WithTracing() NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.Tracing = toml.Tracing{
-			Enabled:         ptr.Ptr(true),
-			CollectorTarget: ptr.Ptr("otel-collector:4317"),
-			// ksortable unique id
-			NodeID:        ptr.Ptr(ksuid.New().String()),
-			SamplingRatio: ptr.Ptr(1.0),
-			Mode:          ptr.Ptr("unencrypted"),
-			Attributes: map[string]string{
-				"env": "smoke",
-			},
-		}
-	}
-}
-
-func SetChainConfig(
-	cfg *chainlink.Config,
-	wsUrls,
-	httpUrls []string,
-	chain blockchain.EVMNetwork,
-	forwarders bool,
-) {
-	if cfg.EVM == nil {
-		var nodes []*evmcfg.Node
-		for i := range wsUrls {
-			node := evmcfg.Node{
-				Name:     ptr.Ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
-				WSURL:    it_utils.MustURL(wsUrls[i]),
-				HTTPURL:  it_utils.MustURL(httpUrls[i]),
-				SendOnly: ptr.Ptr(false),
-			}
-
-			nodes = append(nodes, &node)
-		}
-		var chainConfig evmcfg.Chain
-		if chain.Simulated {
-			chainConfig = evmcfg.Chain{
-				AutoCreateKey:      ptr.Ptr(true),
-				FinalityDepth:      ptr.Ptr[uint32](1),
-				MinContractPayment: commonassets.NewLinkFromJuels(0),
-			}
-		}
-		cfg.EVM = evmcfg.EVMConfigs{
-			{
-				ChainID: ubig.New(big.NewInt(chain.ChainID)),
-				Chain:   chainConfig,
-				Nodes:   nodes,
-			},
-		}
-		if forwarders {
-			cfg.EVM[0].Transactions = evmcfg.Transactions{
-				ForwardersEnabled: ptr.Ptr(true),
-			}
-		}
-	}
-}
-
-func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
+func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg.Chain, chainSpecificConfig map[int64]evmcfg.Chain) NodeConfigOpt {
 	var evmConfigs []*evmcfg.EVMConfig
 	for _, network := range networks {
-		evmConfigs = append(evmConfigs, &evmcfg.EVMConfig{
+		var evmNodes []*evmcfg.Node
+		for i := range network.URLs {
+			evmNodes = append(evmNodes, &evmcfg.Node{
+				Name:    ptr.Ptr(fmt.Sprintf("%s-%d", network.Name, i)),
+				WSURL:   itutils.MustURL(network.URLs[i]),
+				HTTPURL: itutils.MustURL(network.HTTPURLs[i]),
+			})
+		}
+		evmConfig := &evmcfg.EVMConfig{
 			ChainID: ubig.New(big.NewInt(network.ChainID)),
-			Chain: evmcfg.Chain{
-				AutoCreateKey:      ptr.Ptr(true),
-				FinalityDepth:      ptr.Ptr[uint32](50),
-				MinContractPayment: commonassets.NewLinkFromJuels(0),
-				LogPollInterval:    commonconfig.MustNewDuration(1 * time.Second),
-				HeadTracker: evmcfg.HeadTracker{
-					HistoryDepth: ptr.Ptr(uint32(100)),
-				},
-				GasEstimator: evmcfg.GasEstimator{
-					LimitDefault:  ptr.Ptr(uint64(6000000)),
-					PriceMax:      assets.GWei(200),
-					FeeCapDefault: assets.GWei(200),
-				},
-			},
-			Nodes: []*evmcfg.Node{
-				{
-					Name:     ptr.Ptr(network.Name),
-					WSURL:    it_utils.MustURL(network.URLs[0]),
-					HTTPURL:  it_utils.MustURL(network.HTTPURLs[0]),
-					SendOnly: ptr.Ptr(false),
-				},
-			},
-		})
+			Nodes:   evmNodes,
+			Chain:   evmcfg.Chain{},
+		}
+		if commonChainConfig != nil {
+			evmConfig.Chain = *commonChainConfig
+		}
+		if chainSpecificConfig != nil {
+			if overriddenChainCfg, ok := chainSpecificConfig[network.ChainID]; ok {
+				evmConfig.Chain = overriddenChainCfg
+			}
+		}
+		evmConfigs = append(evmConfigs, evmConfig)
 	}
 	return func(c *chainlink.Config) {
 		c.EVM = evmConfigs
 	}
 }
 
-func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfigOpt {
+func WithKeySpecificMaxGasPrice(addresses []string, maxGasPriceGWei int64) NodeConfigOpt {
 	est := assets.GWei(maxGasPriceGWei)
-
 	var keySpecicifArr []evmcfg.KeySpecific
 	for _, addr := range addresses {
 		keySpecicifArr = append(keySpecicifArr, evmcfg.KeySpecific{
@@ -222,13 +130,6 @@ func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfig
 	}
 	return func(c *chainlink.Config) {
 		c.EVM[0].KeySpecific = keySpecicifArr
-		c.EVM[0].Chain.GasEstimator = evmcfg.GasEstimator{
-			LimitDefault: ptr.Ptr[uint64](3500000),
-		}
-		c.EVM[0].Chain.Transactions = evmcfg.Transactions{
-			MaxQueued: ptr.Ptr[uint32](10000),
-		}
-
 	}
 }
 
@@ -236,4 +137,47 @@ func WithLogPollInterval(interval time.Duration) NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.EVM[0].Chain.LogPollInterval = commonconfig.MustNewDuration(interval)
 	}
+}
+
+func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
+	var tomlCfg *corechainlink.Config
+	var err error
+	var commonChainConfig *evmcfg.Chain
+	if commonChain != "" {
+		err = config.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	configByChainMap := make(map[int64]evmcfg.Chain)
+	for k, v := range configByChain {
+		var chain evmcfg.Chain
+		err = config.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
+		if err != nil {
+			return nil, "", err
+		}
+		chainId, err := strconv.ParseInt(k, 10, 64)
+		if err != nil {
+			return nil, "", err
+		}
+		configByChainMap[chainId] = chain
+	}
+	if nodeConfig == "" {
+		tomlCfg = NewConfig(
+			NewBaseConfig(),
+			WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+	} else {
+		tomlCfg, err = NewConfigFromToml([]byte(nodeConfig), WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+		if err != nil {
+			return nil, "", err
+		}
+	}
+
+	// we need unique id for each node for OTEL tracing
+	if tomlCfg.Tracing.Enabled != nil && *tomlCfg.Tracing.Enabled {
+		tomlCfg.Tracing.NodeID = ptr.Ptr(ksuid.New().String())
+	}
+
+	tomlStr, err := tomlCfg.TOMLString()
+	return tomlCfg, tomlStr, err
 }

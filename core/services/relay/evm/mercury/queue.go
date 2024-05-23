@@ -25,7 +25,7 @@ type asyncDeleter interface {
 	AsyncDelete(req *pb.TransmitRequest)
 }
 
-var _ services.Service = (*TransmitQueue)(nil)
+var _ services.Service = (*transmitQueue)(nil)
 
 var transmitQueueLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "mercury_transmit_queue_load",
@@ -40,7 +40,7 @@ const promInterval = 6500 * time.Millisecond
 
 // TransmitQueue is the high-level package that everything outside of this file should be using
 // It stores pending transmissions, yielding the latest (highest priority) first to the caller
-type TransmitQueue struct {
+type transmitQueue struct {
 	services.StateMachine
 
 	cond         sync.Cond
@@ -62,11 +62,20 @@ type Transmission struct {
 	ReportCtx ocrtypes.ReportContext // contains priority information (latest epoch/round wins)
 }
 
+type TransmitQueue interface {
+	services.Service
+
+	BlockingPop() (t *Transmission)
+	Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool)
+	Init(transmissions []*Transmission)
+	IsEmpty() bool
+}
+
 // maxlen controls how many items will be stored in the queue
 // 0 means unlimited - be careful, this can cause memory leaks
-func NewTransmitQueue(lggr logger.Logger, serverURL, feedID string, maxlen int, asyncDeleter asyncDeleter) *TransmitQueue {
+func NewTransmitQueue(lggr logger.Logger, serverURL, feedID string, maxlen int, asyncDeleter asyncDeleter) TransmitQueue {
 	mu := new(sync.RWMutex)
-	return &TransmitQueue{
+	return &transmitQueue{
 		services.StateMachine{},
 		sync.Cond{L: mu},
 		lggr.Named("TransmitQueue"),
@@ -80,13 +89,13 @@ func NewTransmitQueue(lggr logger.Logger, serverURL, feedID string, maxlen int, 
 	}
 }
 
-func (tq *TransmitQueue) Init(transmissions []*Transmission) {
+func (tq *transmitQueue) Init(transmissions []*Transmission) {
 	pq := priorityQueue(transmissions)
 	heap.Init(&pq) // ensure the heap is ordered
 	tq.pq = &pq
 }
 
-func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {
+func (tq *transmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {
 	tq.cond.L.Lock()
 	defer tq.cond.L.Unlock()
 
@@ -111,7 +120,7 @@ func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.Report
 
 // BlockingPop will block until at least one item is in the heap, and then return it
 // If the queue is closed, it will immediately return nil
-func (tq *TransmitQueue) BlockingPop() (t *Transmission) {
+func (tq *transmitQueue) BlockingPop() (t *Transmission) {
 	tq.cond.L.Lock()
 	defer tq.cond.L.Unlock()
 	if tq.closed {
@@ -126,13 +135,13 @@ func (tq *TransmitQueue) BlockingPop() (t *Transmission) {
 	return t
 }
 
-func (tq *TransmitQueue) IsEmpty() bool {
+func (tq *transmitQueue) IsEmpty() bool {
 	tq.mu.RLock()
 	defer tq.mu.RUnlock()
 	return tq.pq.Len() == 0
 }
 
-func (tq *TransmitQueue) Start(context.Context) error {
+func (tq *transmitQueue) Start(context.Context) error {
 	return tq.StartOnce("TransmitQueue", func() error {
 		t := time.NewTicker(utils.WithJitter(promInterval))
 		wg := new(sync.WaitGroup)
@@ -148,7 +157,7 @@ func (tq *TransmitQueue) Start(context.Context) error {
 	})
 }
 
-func (tq *TransmitQueue) Close() error {
+func (tq *transmitQueue) Close() error {
 	return tq.StopOnce("TransmitQueue", func() error {
 		tq.cond.L.Lock()
 		tq.closed = true
@@ -159,7 +168,7 @@ func (tq *TransmitQueue) Close() error {
 	})
 }
 
-func (tq *TransmitQueue) monitorLoop(c <-chan time.Time, chStop <-chan struct{}, wg *sync.WaitGroup) {
+func (tq *transmitQueue) monitorLoop(c <-chan time.Time, chStop <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -172,25 +181,25 @@ func (tq *TransmitQueue) monitorLoop(c <-chan time.Time, chStop <-chan struct{},
 	}
 }
 
-func (tq *TransmitQueue) report() {
+func (tq *transmitQueue) report() {
 	tq.mu.RLock()
 	length := tq.pq.Len()
 	tq.mu.RUnlock()
 	tq.transmitQueueLoad.Set(float64(length))
 }
 
-func (tq *TransmitQueue) Ready() error {
+func (tq *transmitQueue) Ready() error {
 	return nil
 }
-func (tq *TransmitQueue) Name() string { return tq.lggr.Name() }
-func (tq *TransmitQueue) HealthReport() map[string]error {
+func (tq *transmitQueue) Name() string { return tq.lggr.Name() }
+func (tq *transmitQueue) HealthReport() map[string]error {
 	report := map[string]error{tq.Name(): errors.Join(
 		tq.status(),
 	)}
 	return report
 }
 
-func (tq *TransmitQueue) status() (merr error) {
+func (tq *transmitQueue) status() (merr error) {
 	tq.mu.RLock()
 	length := tq.pq.Len()
 	closed := tq.closed
@@ -206,7 +215,7 @@ func (tq *TransmitQueue) status() (merr error) {
 
 // pop latest Transmission from the heap
 // Not thread-safe
-func (tq *TransmitQueue) pop() *Transmission {
+func (tq *transmitQueue) pop() *Transmission {
 	if tq.pq.Len() == 0 {
 		return nil
 	}

@@ -46,12 +46,12 @@ const (
 	triggerWithAllTopics    = "TriggeredWithFourTopics"
 )
 
-func TestChainReaderGetLatestValue(t *testing.T) {
+func TestChainReaderInterfaceTests(t *testing.T) {
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
 
-	RunChainReaderGetLatestValueInterfaceTests(t, it)
-	RunChainReaderGetLatestValueInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
+	RunChainReaderInterfaceTests(t, it)
+	RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t *testing.T) {
 		it.Setup(t)
@@ -108,14 +108,6 @@ func TestChainReaderGetLatestValue(t *testing.T) {
 		assert.Equal(t, int32(2), latest.Field2)
 		assert.Equal(t, int32(3), latest.Field3)
 	})
-}
-
-func TestChainReaderQueryKey(t *testing.T) {
-	t.Parallel()
-	it := &chainReaderInterfaceTester{}
-
-	RunQueryKeyInterfaceTests(t, it)
-	RunQueryKeyInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
 }
 
 func triggerFourTopics(t *testing.T, it *chainReaderInterfaceTester, i1, i2, i3 int32) {
