@@ -93,3 +93,60 @@ chainlink:
       AnnounceAddresses = ['0.0.0.0:6690']
       DeltaDial = '500ms'
       DeltaReconcile = '5s'
+tags:
+  # Enable BlockScout Stack.
+  blockscout: false
+blockscout-stack1: &default_blockscout_stack_config
+  blockscout:
+    env:
+      DATABASE_URL: "postgres://postgres:verylongdatabasepassword@app-blockscout-stack1-db:5432/blockscout"
+      DATABASE_HOST: "app-blockscout-stack1-db"
+      ETHEREUM_JSONRPC_HTTP_URL: "http://geth-1337:8544"
+      ETHEREUM_JSONRPC_WS_URL: "ws://geth-1337:8546"
+      ETHEREUM_JSONRPC_HTTP_INSECURE: "true"
+      BLOCKSCOUT_PROTOCOL: "HTTPS"
+      SECRET_KEY_BASE: "knilniahc"
+    init:
+      enabled: true
+      command:
+        - /bin/sh
+      args:
+        - -c
+        - |
+          until nc -z $DATABASE_HOST 5432; do
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 2
+          done;
+          echo "PostgreSQL is ready, starting BlockScout migrations...";
+          bin/blockscout eval "Elixir.Explorer.ReleaseTasks.create_and_migrate()"
+  frontend:
+    env:
+      NEXT_PUBLIC_API_HOST: "app-blockscout-stack1-blockscout-svc:80"
+blockscout-stack2:
+  <<: *default_blockscout_stack_config
+  blockscout:
+    env:
+      DATABASE_URL: "postgres://postgres:verylongdatabasepassword@app-blockscout-stack2-db:5432/blockscout"
+      DATABASE_HOST: "app-blockscout-stack2-db"
+      ETHEREUM_JSONRPC_HTTP_URL: "http://geth-2337:8544"
+      ETHEREUM_JSONRPC_WS_URL: "ws://geth-2337:8546"
+  frontend:
+    env:
+      NEXT_PUBLIC_API_HOST: "app-blockscout-stack2-blockscout-svc:80"
+blockscout-stack1-db: &default_blockscout_db_config
+  auth:
+    # For the `postgres` user.
+    postgresPassword: verylongdatabasepassword
+    database: blockscout
+  primary:
+    resources:
+      requests:
+        cpu: 2
+        memory: 512Mi
+      limits:
+        cpu: 3
+        memory: 1024Mi
+    extendedConfiguration: |
+      max_connections = 500
+blockscout-stack2-db:
+  <<: *default_blockscout_db_config
