@@ -17,7 +17,7 @@ import (
 type remoteTargetReceiver struct {
 	underlying   commoncap.TargetCapability
 	capInfo      commoncap.CapabilityInfo
-	localDonInfo *capabilities.DON
+	localDonInfo capabilities.DON
 	workflowDONs map[string]commoncap.DON
 	dispatcher   types.Dispatcher
 	lggr         logger.Logger
@@ -30,7 +30,7 @@ type remoteTargetReceiver struct {
 
 var _ types.Receiver = &remoteTargetReceiver{}
 
-func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo *capabilities.DON,
+func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON,
 	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration) *remoteTargetReceiver {
 
 	receiver := &remoteTargetReceiver{
