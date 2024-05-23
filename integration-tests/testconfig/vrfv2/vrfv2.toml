@@ -57,6 +57,7 @@ subscription_refunding_amount_link = 5.0
 
 cl_node_max_gas_price_gwei = 10
 link_native_feed_response = 1000000000000000000
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
 minimum_confirmations = 3
 
 number_of_words = 3
