@@ -19,11 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
 func InitializeWrite(registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, lggr logger.Logger) error {
 	for _, chain := range legacyEVMChains.Slice() {
@@ -38,8 +35,6 @@ func InitializeWrite(registry core.CapabilitiesRegistry, legacyEVMChains legacye
 var (
 	_ capabilities.ActionCapability = &EvmWrite{}
 )
-
-const defaultGasLimit = 200000
 
 type EvmWrite struct {
 	chain legacyevm.Chain
@@ -121,13 +116,14 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
-	txMeta := make(map[string]interface{})
+	txMeta := make(map[string]interface{}) // TODO: Consider just using the TxMeta struct here and pass it to submitTransaction
 	txMeta["WorkflowExecutionID"] = request.Metadata.WorkflowExecutionID
 
-	err = cap.submitTransaction(ctx, cap.chain.Config().EVM().ChainWriter(), inputs.Report, inputs.Signatures, reqConfig.Address, txMeta)
+	err = cap.submitSignedTransaction(ctx, cap.chain.Config().EVM().ChainWriter(), inputs.Report, inputs.Signatures, reqConfig.Address, txMeta)
 	if err != nil {
 		return nil, err
 	}
+	// TODO: Do we want to log something here about whether the transaction was submitted successfully?
 	//cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", tx)
 
 	callback := make(chan capabilities.CapabilityResponse)
@@ -142,10 +138,9 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 	return callback, nil
 }
 
-func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig config.ChainWriter, report []byte, signatures [][]byte, toAddress string, txMeta map[string]interface{}) error {
-	cap.lggr.Debugw("submitTransaction", "chainWriterConfig", chainWriterConfig, "report", report, "signatures", signatures, "toAddress", toAddress, "txMeta", txMeta)
+func (cap *EvmWrite) submitSignedTransaction(ctx context.Context, chainWriterConfig config.ChainWriter, report []byte, signatures [][]byte, toAddress string, txMeta map[string]interface{}) error {
 	// construct forwarder payload
-	// TODO: we can't assume we have the ABI locally here, we need to get it from the chain
+	forwardABI := evmtypes.MustGetABI(chainWriterConfig.ABI())
 	calldata, err := forwardABI.Pack("report", common.HexToAddress(toAddress), report, signatures)
 	if err != nil {
 		return err
@@ -159,6 +154,7 @@ func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig co
 	// TODO: Turn this into config
 	strategy := txmgrcommon.NewSendEveryStrategy()
 
+	// TODO: validate the config's checker string to ensure it's a valid checker
 	var checker txmgr.TransmitCheckerSpec
 	if chainWriterConfig.Checker() != "" {
 		checker.CheckerType = types.TransmitCheckerType(chainWriterConfig.Checker())

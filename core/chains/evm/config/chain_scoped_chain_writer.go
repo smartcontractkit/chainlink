@@ -20,3 +20,11 @@ func (b *chainWriterConfig) ForwarderAddress() *types.EIP55Address {
 func (b *chainWriterConfig) GasLimit() uint64 {
 	return *b.c.GasLimit
 }
+
+func (b *chainWriterConfig) Checker() string {
+	return *b.c.Checker
+}
+
+func (b *chainWriterConfig) ABI() string {
+	return *b.c.ABI
+}

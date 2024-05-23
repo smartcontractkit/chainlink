@@ -48,6 +48,8 @@ func TestEvmWrite(t *testing.T) {
 
 		checker := "simulate"
 		c.EVM[0].ChainWriter.Checker = &checker
+
+		c.EVM[0].ChainWriter.ABI = &forwarder.KeystoneForwarderMetaData.ABI
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chain.On("Config").Return(evmcfg)

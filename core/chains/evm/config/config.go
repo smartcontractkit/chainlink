@@ -149,6 +149,8 @@ type ChainWriter interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
 	GasLimit() uint64
+	Checker() string
+	ABI() string
 }
 
 type NodePool interface {

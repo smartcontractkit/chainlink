@@ -456,6 +456,8 @@ type ChainWriter struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
 	GasLimit         *uint64             `toml:",omitempty"`
+	Checker          *string             `toml:",omitempty"`
+	ABI              *string             `toml:",omitempty"`
 }
 
 func (m *ChainWriter) setFrom(f *ChainWriter) {
@@ -467,6 +469,12 @@ func (m *ChainWriter) setFrom(f *ChainWriter) {
 	}
 	if v := f.GasLimit; v != nil {
 		m.GasLimit = v
+	}
+	if v := f.Checker; v != nil {
+		m.Checker = v
+	}
+	if v := f.ABI; v != nil {
+		m.ABI = v
 	}
 }
 
