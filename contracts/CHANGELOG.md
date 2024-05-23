@@ -1,6 +1,6 @@
 # @chainlink/contracts
 
-## 1.1.1
+## 1.1.1 - 2024-05-23
 
 ### Patch Changes
 
