@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type ChainWriter interface {
@@ -61,7 +61,7 @@ type ChainWriterService interface {
 // Compile-time assertion that chainWriter implements the ChainWriterService interface.
 var _ ChainWriterService = (*chainWriter)(nil)
 
-func NewChainWriterService(config evm.ChainWrtier, logger logger.Logger, client evmclient.Client) ChainWriterService {
+func NewChainWriterService(config config.ChainWriter, logger logger.Logger, client evmclient.Client) ChainWriterService {
 	return &chainWriter{logger: logger, client: client, config: config}
 }
 
@@ -70,7 +70,7 @@ type chainWriter struct {
 
 	logger logger.Logger
 	client evmclient.Client
-	config evm.ChainWriter
+	config config.ChainWriter
 }
 
 func (writer *chainWriter) SubmitSignedTransaction(ctx context.Context, payload []byte, signature map[string]any, transactionID uuid.UUID, toAddress string, meta *TxMeta, value big.Int) (int64, error) {
