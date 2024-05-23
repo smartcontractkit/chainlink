@@ -1,10 +1,14 @@
 package web_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -128,4 +132,169 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	resp, cleanup := client.Get("/v2/transactions/" + (attempt.Hash.String() + "1"))
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+}
+
+func TestTransactionsController_Purge(t *testing.T) {
+	t.Parallel()
+
+	app := cltest.NewApplicationWithKey(t)
+	ctx := testutils.Context(t)
+	require.NoError(t, app.Start(ctx))
+
+	app.TxmStorageService()
+
+	txStore := cltest.NewTestTxStore(t, app.GetDB())
+	client := app.NewHTTPClient(nil)
+
+	t.Run("empty queue, empty subject", func(t *testing.T) {
+		count, err := txStore.CountTxesByStateAndSubject(ctx, txmgr.TxUnstarted, uuid.Nil)
+		require.NoError(t, err)
+		require.Equal(t, count, 0)
+
+		req := web.PurgeUnstartedQueueRequest{}
+		payload, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		res, cleanup := client.Post("/v2/transactions/purge", bytes.NewBuffer(payload))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, res, http.StatusOK)
+	})
+
+	t.Run("empty queue, non-empty uuid subject", func(t *testing.T) {
+		count, err := txStore.CountTxesByStateAndSubject(ctx, txmgr.TxUnstarted, uuid.Nil)
+		require.NoError(t, err)
+		require.Equal(t, count, 0)
+
+		req := web.PurgeUnstartedQueueRequest{
+			Subject: uuid.NewString(),
+		}
+
+		payload, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		res, cleanup := client.Post("/v2/transactions/purge", bytes.NewBuffer(payload))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, res, http.StatusOK)
+	})
+
+	t.Run("empty queue, non-empty malformed subject", func(t *testing.T) {
+		count, err := txStore.CountTxesByStateAndSubject(ctx, txmgr.TxUnstarted, uuid.Nil)
+		require.NoError(t, err)
+		require.Equal(t, count, 0)
+
+		req := web.PurgeUnstartedQueueRequest{
+			Subject: "bad-subject",
+		}
+
+		payload, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		res, cleanup := client.Post("/v2/transactions/purge", bytes.NewBuffer(payload))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, res, http.StatusBadRequest)
+	})
+
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
+	subjectA := uuid.NullUUID{
+		UUID:  uuid.New(),
+		Valid: true,
+	}
+
+	subjectB := uuid.NullUUID{
+		UUID:  uuid.New(),
+		Valid: true,
+	}
+
+	subjectC := uuid.NullUUID{
+		UUID:  uuid.Nil,
+		Valid: false,
+	}
+
+	const totalTx = 15
+	var txCount = totalTx
+	seedTxs := make(map[uuid.NullUUID]int)
+
+	for i := 0; i < totalTx; i++ {
+		tx := cltest.NewEthTx(from)
+		tx.ChainID = testutils.FixtureChainID
+		tx.State = txmgr.TxUnstarted
+
+		switch i % 3 {
+		case 0:
+			tx.Subject = subjectA // valid.
+		case 1:
+			tx.Subject = subjectB // valid.
+		case 2:
+			tx.Subject = subjectC // empty.
+		}
+
+		err := txStore.InsertTx(ctx, &tx)
+		require.NoError(t, err)
+
+		seedTxs[tx.Subject]++
+	}
+
+	t.Run("non-empty queue, empty subject", func(t *testing.T) {
+		txs, err := txStore.GetAllTxes(ctx)
+		require.NoError(t, err)
+		require.Len(t, txs, totalTx)
+
+		req := web.PurgeUnstartedQueueRequest{}
+
+		payload, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		res, cleanup := client.Post("/v2/transactions/purge", bytes.NewBuffer(payload))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, res, http.StatusOK)
+
+		txs, err = txStore.GetAllTxes(ctx)
+		require.NoError(t, err)
+
+		for _, tx := range txs {
+			println(tx.Subject.UUID.String(), tx.Subject.Valid)
+		}
+
+		require.Len(t, txs, txCount-seedTxs[subjectC])
+		seedTxs[subjectC] = 0
+
+		for _, tx := range txs {
+			require.NotEqual(t, subjectC, tx.Subject)
+		}
+
+		txCount = len(txs) // update for the next sub-test.
+	})
+
+	t.Run("non-empty queue, non-empty subject", func(t *testing.T) {
+		txs, err := txStore.GetAllTxes(ctx)
+		require.NoError(t, err)
+		require.Len(t, txs, totalTx)
+
+		req := web.PurgeUnstartedQueueRequest{
+			Subject: subjectA.UUID.String(),
+		}
+
+		payload, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		res, cleanup := client.Post("/v2/transactions/purge", bytes.NewBuffer(payload))
+		t.Cleanup(cleanup)
+
+		cltest.AssertServerResponse(t, res, http.StatusOK)
+
+		txs, err = txStore.GetAllTxes(ctx)
+		require.NoError(t, err)
+		require.Len(t, txs, txCount-seedTxs[subjectA])
+		seedTxs[subjectA] = 0
+
+		for _, tx := range txs {
+			require.NotEqual(t, subjectA, tx.Subject)
+		}
+
+		txCount = len(txs) // update for the next sub-test.
+	})
 }

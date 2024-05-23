@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -46,4 +47,45 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 	}
 
 	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(*ethTxAttempt), "transaction")
+}
+
+// PurgeUntartedQueueRequest is a JSONAPI request to purge the unstarted transcation queue in the TXM.
+type PurgeUnstartedQueueRequest struct {
+	Subject string `json:"subject"`
+}
+
+// PurgeUnstartedQueueResponse is the JSONAPI response body returned after purging the unstarted transactions queue in the TXM.
+type PurgeUnstartedQueueResponse struct {
+	IDs []uint64 `json:"ids"`
+}
+
+// Purge clears the queue of unstarted transactions.
+// Example:
+//
+// "<application/transactions/purge"
+func (tc *TransactionsController) PurgeUnstartedQueue(c *gin.Context) {
+	var req PurgeUnstartedQueueRequest
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	subject := uuid.Nil
+	if len(req.Subject) > 0 {
+		subject, err = uuid.Parse(req.Subject)
+		if err != nil {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
+	}
+
+	println("XXXXXXXXXXX pruning unstarted tx queue with subject", subject.String())
+
+	if _, err = tc.App.TxmStorageService().PruneUnstartedTxQueue(c, 0, subject); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	c.Status(http.StatusOK)
 }

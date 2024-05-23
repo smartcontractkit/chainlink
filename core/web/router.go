@@ -288,6 +288,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/transactions/evm/:TxHash", txs.Show)
 		authv2.GET("/transactions", paginatedRequest(txs.Index))
 		authv2.GET("/transactions/:TxHash", txs.Show)
+		authv2.POST("transactions/purge", txs.PurgeUnstartedQueue)
 
 		rc := ReplayController{app}
 		authv2.POST("/replay_from_block/:number", auth.RequiresRunRole(rc.ReplayFromBlock))
