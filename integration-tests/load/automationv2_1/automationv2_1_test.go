@@ -101,7 +101,7 @@ Password = '%s'`
 			},
 		},
 		"stateful": true,
-		"capacity": "10Gi",
+		"capacity": "20Gi",
 	}
 
 	recNodeSpec = map[string]interface{}{
