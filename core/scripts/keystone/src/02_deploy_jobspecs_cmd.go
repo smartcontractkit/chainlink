@@ -104,7 +104,7 @@ func (g *deployJobSpecs) Run(args []string) {
 //
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
 //
-// Taken from: https://github.com/smartcontractkit/chainlink/blob/develop/core/cmd/shell_test.go#L590 
+// Taken from: https://github.com/smartcontractkit/chainlink/blob/develop/core/cmd/shell_test.go#L590
 func flagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
 	cliApp := cmd.Shell{}
 	app := cmd.NewApp(&cliApp)

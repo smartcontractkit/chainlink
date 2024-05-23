@@ -204,4 +204,3 @@ func DeployKeystoneOCR3Capability(e helpers.Environment) *ocr3_capability.OCR3Ca
 
 	return contract
 }
-

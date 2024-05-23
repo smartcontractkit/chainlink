@@ -19,7 +19,6 @@ schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 ocrKeyBundleID = "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed"
-# Might need to do local address here rather than DNS 
 p2pv2Bootstrappers = [
   "12D3KooWNmhKZL1XW4Vv3rNjLXzJ6mqcVerihdijjGYuexPrFUFZ@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
 ]
@@ -50,7 +49,6 @@ schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 ocrKeyBundleID = "38459ae37f29f2c1fde0f25972a973322be8cada82acf43f464756836725be97"
-# Might need to do local address here rather than DNS 
 p2pv2Bootstrappers = [
   "12D3KooWNmhKZL1XW4Vv3rNjLXzJ6mqcVerihdijjGYuexPrFUFZ@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
 ]
@@ -81,7 +79,6 @@ schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 ocrKeyBundleID = "b5dbc4c9da983cddde2e3226b85807eb7beaf818694a22576af4d80f352702ed"
-# Might need to do local address here rather than DNS 
 p2pv2Bootstrappers = [
   "12D3KooWNmhKZL1XW4Vv3rNjLXzJ6mqcVerihdijjGYuexPrFUFZ@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
 ]
@@ -112,7 +109,6 @@ schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 ocrKeyBundleID = "260d5c1a618cdf5324509d7db95f5a117511864ebb9e1f709e8969339eb225af"
-# Might need to do local address here rather than DNS 
 p2pv2Bootstrappers = [
   "12D3KooWNmhKZL1XW4Vv3rNjLXzJ6mqcVerihdijjGYuexPrFUFZ@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
 ]
