@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
@@ -15,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -121,7 +121,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
-	txMeta := make(map[string]string)
+	txMeta := make(map[string]interface{})
 	txMeta["WorkflowExecutionID"] = request.Metadata.WorkflowExecutionID
 
 	err = cap.submitTransaction(ctx, cap.chain.Config().EVM().ChainWriter(), inputs.Report, inputs.Signatures, reqConfig.Address, txMeta)
@@ -142,7 +142,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 	return callback, nil
 }
 
-func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig config.ChainWriter, report []byte, signatures [][]byte, toAddress string, txMeta map[string]string) error {
+func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig config.ChainWriter, report []byte, signatures [][]byte, toAddress string, txMeta map[string]interface{}) error {
 	cap.lggr.Debugw("submitTransaction", "chainWriterConfig", chainWriterConfig, "report", report, "signatures", signatures, "toAddress", toAddress, "txMeta", txMeta)
 	// construct forwarder payload
 	// TODO: we can't assume we have the ABI locally here, we need to get it from the chain
@@ -151,36 +151,19 @@ func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig co
 		return err
 	}
 
-	// TODO: dynamically check all the fields in txMeta and try to map them to the struct
-	txMetaStruct := &txmgr.TxMeta{}
-	//txMetaStruct, err := mapToStruct(txMeta)
-	//if err != nil {
-	//	return err
-	//}
-	for k, v := range txMeta {
-		switch k {
-		case "WorkflowExecutionID":
-			txMetaStruct.WorkflowExecutionID = &v
-		case "JobID":
-			jobId, err := strconv.Atoi(v)
-			if err != nil {
-				cap.lggr.Warnw("Failed to parse JobID", "value", v, "error", err)
-			} else {
-				jobId32 := int32(jobId)
-				txMetaStruct.JobID = &jobId32
-			}
-		default:
-			cap.lggr.Warnw("Unknown txMeta field", "field", k, "value", v)
-		}
+	txMetaStruct, err := mapToStruct(txMeta)
+	if err != nil {
+		return err
 	}
 
 	// TODO: Turn this into config
 	strategy := txmgrcommon.NewSendEveryStrategy()
 
-	// TODO: Turn this into config
-	checker := txmgr.TransmitCheckerSpec{
-		CheckerType: txmgr.TransmitCheckerTypeSimulate,
+	var checker txmgr.TransmitCheckerSpec
+	if chainWriterConfig.Checker() != "" {
+		checker.CheckerType = types.TransmitCheckerType(chainWriterConfig.Checker())
 	}
+
 	req := txmgr.TxRequest{
 		FromAddress:    chainWriterConfig.FromAddress().Address(),
 		ToAddress:      chainWriterConfig.ForwarderAddress().Address(),
@@ -198,15 +181,9 @@ func (cap *EvmWrite) submitTransaction(ctx context.Context, chainWriterConfig co
 	return nil
 }
 
-func mapToStruct(m map[string]string) (*txmgr.TxMeta, error) {
-	// Convert map[string]string to map[string]interface{}
-	interfaceMap := make(map[string]interface{})
-	for key, value := range m {
-		interfaceMap[key] = value
-	}
-
+func mapToStruct(m map[string]interface{}) (*txmgr.TxMeta, error) {
 	// Marshal the map to JSON
-	data, err := json.Marshal(interfaceMap)
+	data, err := json.Marshal(m)
 	if err != nil {
 		return &txmgr.TxMeta{}, err
 	}

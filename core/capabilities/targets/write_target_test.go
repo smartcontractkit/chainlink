@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -44,6 +45,9 @@ func TestEvmWrite(t *testing.T) {
 
 		gasLimit := uint64(200000)
 		c.EVM[0].ChainWriter.GasLimit = &gasLimit
+
+		checker := "simulate"
+		c.EVM[0].ChainWriter.Checker = &checker
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chain.On("Config").Return(evmcfg)
@@ -62,7 +66,8 @@ func TestEvmWrite(t *testing.T) {
 
 	req := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: "hello",
+			WorkflowID:          "hello",
+			WorkflowExecutionID: "11155111",
 		},
 		Config: config,
 		Inputs: inputs,
@@ -76,6 +81,16 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte{0x1, 0x2, 0x3}, payload["rawReport"])
 		require.Equal(t, [][]byte{}, payload["signatures"])
+		require.Equal(t, evmcfg.EVM().ChainWriter().FromAddress().Address(), req.FromAddress)
+		require.Equal(t, evmcfg.EVM().ChainWriter().ForwarderAddress().Address(), req.ToAddress)
+		require.Equal(t, evmcfg.EVM().ChainWriter().GasLimit(), req.FeeLimit)
+		require.Equal(t, txmgrcommon.NewSendEveryStrategy(), req.Strategy)
+		checker := txmgr.TransmitCheckerSpec{
+			CheckerType: txmgr.TransmitCheckerTypeSimulate,
+		}
+
+		require.Equal(t, checker, req.Checker)
+		require.Equal(t, "11155111", *req.Meta.WorkflowExecutionID)
 	})
 
 	ch, err := capability.Execute(ctx, req)
@@ -88,26 +103,7 @@ func TestEvmWrite(t *testing.T) {
 func TestEvmWrite_EmptyReport(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 
-	txManager := txmmocks.NewMockEvmTxManager(t)
 	chain.On("ID").Return(big.NewInt(11155111))
-	chain.On("TxManager").Return(txManager)
-
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		a := testutils.NewAddress()
-		addr, err := types.NewEIP55Address(a.Hex())
-		require.NoError(t, err)
-		c.EVM[0].ChainWriter.FromAddress = &addr
-
-		forwarderA := testutils.NewAddress()
-		forwarderAddr, err := types.NewEIP55Address(forwarderA.Hex())
-		require.NoError(t, err)
-		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
-
-		gasLimit := uint64(200000)
-		c.EVM[0].ChainWriter.GasLimit = &gasLimit
-	})
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	chain.On("Config").Return(evmcfg)
 
 	capability := targets.NewEvmWrite(chain, logger.TestLogger(t))
 	ctx := testutils.Context(t)
