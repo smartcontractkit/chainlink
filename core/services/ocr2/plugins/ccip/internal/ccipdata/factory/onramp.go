@@ -80,6 +80,8 @@ func initOrCloseOnRampReader(lggr logger.Logger, versionFinder VersionFinder, so
 			return nil, onRamp.Close()
 		}
 		return onRamp, onRamp.RegisterFilters()
+	// Adding a new version?
+	// Please update the public factory function in leafer.go if the new version updates the leaf hash function.
 	default:
 		return nil, errors.Errorf("unsupported onramp version %v", version.String())
 	}
