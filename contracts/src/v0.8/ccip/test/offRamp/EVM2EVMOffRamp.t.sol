@@ -622,6 +622,33 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
     );
     s_offRamp.execute(executionReport, new uint256[](0));
   }
+
+  function test_RetryFailedMessageWithoutManualExecution_Revert() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages();
+
+    bytes memory realError1 = new bytes(2);
+    realError1[0] = 0xbe;
+    realError1[1] = 0xef;
+    s_reverting_receiver.setErr(realError1);
+
+    messages[0].receiver = address(s_reverting_receiver);
+    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
+
+    vm.expectEmit();
+    emit ExecutionStateChanged(
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.FAILURE,
+      abi.encodeWithSelector(
+        EVM2EVMOffRamp.ReceiverError.selector,
+        abi.encodeWithSelector(MaybeRevertMessageReceiver.CustomError.selector, realError1)
+      )
+    );
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+
+    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.AlreadyAttempted.selector, messages[0].sequenceNumber));
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+  }
 }
 
 contract EVM2EVMOffRamp_execute_upgrade is EVM2EVMOffRampSetup {

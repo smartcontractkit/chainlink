@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
+import {IMultiCommitStore} from "../../interfaces/IMultiCommitStore.sol";
 
 import {Router} from "../../Router.sol";
 import {IAny2EVMOffRamp} from "../../interfaces/IAny2EVMOffRamp.sol";
@@ -18,6 +19,7 @@ import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {MockCommitStore} from "../mocks/MockCommitStore.sol";
+import {MockMultiCommitStore} from "../mocks/MockMultiCommitStore.sol";
 import {OCR2BaseSetup} from "../ocr/OCR2Base.t.sol";
 import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 
@@ -32,7 +34,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
   address internal constant ON_RAMP_ADDRESS_2 = 0xaA3f843Cf8E33B1F02dd28303b6bD87B1aBF8AE4;
   address internal constant ON_RAMP_ADDRESS_3 = 0x71830C37Cb193e820de488Da111cfbFcC680a1b9;
 
-  MockCommitStore internal s_mockCommitStore;
+  MockMultiCommitStore internal s_mockCommitStore;
   IAny2EVMMessageReceiver internal s_receiver;
   IAny2EVMMessageReceiver internal s_secondary_receiver;
   MaybeRevertMessageReceiver internal s_reverting_receiver;
@@ -49,15 +51,13 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     Internal.MessageExecutionState state,
     bytes returnData
   );
-  event SkippedIncorrectNonce(uint64 sourceChainSelector, uint64 nonce, address indexed sender);
-  event SkippedAlreadyExecutedMessage(uint64 indexed sequenceNumber);
 
   function setUp() public virtual override(TokenSetup, PriceRegistrySetup, OCR2BaseSetup) {
     TokenSetup.setUp();
     PriceRegistrySetup.setUp();
     OCR2BaseSetup.setUp();
 
-    s_mockCommitStore = new MockCommitStore();
+    s_mockCommitStore = new MockMultiCommitStore();
     s_receiver = new MaybeRevertMessageReceiver(false);
     s_secondary_receiver = new MaybeRevertMessageReceiver(false);
     s_reverting_receiver = new MaybeRevertMessageReceiver(true);
@@ -67,7 +67,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     deployOffRamp(s_mockCommitStore, s_destRouter);
   }
 
-  function deployOffRamp(ICommitStore commitStore, Router router) internal {
+  function deployOffRamp(IMultiCommitStore commitStore, Router router) internal {
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0);
 
@@ -160,6 +160,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
       prevOffRamp: address(0),
       onRamp: ON_RAMP_ADDRESS_3
     });
+    _setupMultiCommitStoreFromOffRampConfigs(sourceChainConfigs);
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
   }
 
@@ -182,6 +183,19 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     }
 
     s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
+  }
+
+  function _setupMultiCommitStoreFromOffRampConfigs(
+    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs
+  ) internal {
+    for (uint256 i; i < sourceChainConfigs.length; ++i) {
+      EVM2EVMMultiOffRamp.SourceChainConfigArgs memory sourceChainConfig = sourceChainConfigs[i];
+      s_mockCommitStore.setSourceChainConfig(
+        sourceChainConfig.sourceChainSelector,
+        IMultiCommitStore.SourceChainConfig({isEnabled: true, minSeqNr: 0, onRamp: sourceChainConfig.onRamp})
+      );
+      s_mockCommitStore.setVerifyResult(sourceChainConfig.sourceChainSelector, true);
+    }
   }
 
   function generateDynamicOffRampConfig(

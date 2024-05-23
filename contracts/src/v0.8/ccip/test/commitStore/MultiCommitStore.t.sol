@@ -771,6 +771,32 @@ contract MultiCommitStore_verify is MultiCommitStoreRealRMNSetup {
     uint256 timestamp = s_multiCommitStore.verify(SOURCE_CHAIN_SELECTOR, leaves, proofs, 0);
     assertEq(BLOCK_TIME, timestamp);
   }
+
+  function test_NotBlessedWrongChainSelector_Success() public {
+    bytes32[] memory leaves = new bytes32[](1);
+    leaves[0] = "root";
+    MultiCommitStore.MerkleRoot[] memory roots = new MultiCommitStore.MerkleRoot[](1);
+    roots[0] = MultiCommitStore.MerkleRoot({
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
+      interval: MultiCommitStore.Interval(1, 2),
+      merkleRoot: leaves[0]
+    });
+
+    MultiCommitStore.CommitReport memory report =
+      MultiCommitStore.CommitReport({priceUpdates: getEmptyPriceUpdates(), merkleRoots: roots});
+    s_multiCommitStore.report(abi.encode(report), ++s_latestEpochAndRound);
+
+    // Bless that root.
+    IRMN.TaggedRoot[] memory taggedRoots = new IRMN.TaggedRoot[](1);
+    taggedRoots[0] = IRMN.TaggedRoot({commitStore: address(s_multiCommitStore), root: leaves[0]});
+    vm.startPrank(BLESS_VOTE_ADDR);
+    s_rmn.voteToBless(taggedRoots);
+
+    bytes32[] memory proofs = new bytes32[](0);
+    uint256 timestamp = s_multiCommitStore.verify(SOURCE_CHAIN_SELECTOR + 1, leaves, proofs, 0);
+    assertEq(uint256(0), timestamp);
+  }
+
   // Reverts
 
   function test_Paused_Revert() public {

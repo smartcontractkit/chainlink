@@ -6,7 +6,7 @@ import {IAny2EVMMessageReceiver} from "../interfaces/IAny2EVMMessageReceiver.sol
 
 import {IAny2EVMMultiOffRamp} from "../interfaces/IAny2EVMMultiOffRamp.sol";
 import {IAny2EVMOffRamp} from "../interfaces/IAny2EVMOffRamp.sol";
-import {ICommitStore} from "../interfaces/ICommitStore.sol";
+import {IMultiCommitStore} from "../interfaces/IMultiCommitStore.sol";
 import {IPool} from "../interfaces/IPool.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
@@ -37,7 +37,6 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
   error AlreadyAttempted(uint64 sourceChainSelector, uint64 sequenceNumber);
   error AlreadyExecuted(uint64 sourceChainSelector, uint64 sequenceNumber);
   error ZeroAddressNotAllowed();
-  error CommitStoreAlreadyInUse(uint64 sourceChainSelector);
   error ExecutionError(bytes32 messageId, bytes error);
   error SourceChainNotEnabled(uint64 sourceChainSelector);
   error MessageTooLarge(bytes32 messageId, uint256 maxSize, uint256 actualSize);
@@ -52,21 +51,18 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
   error ReceiverError(bytes error);
   error TokenHandlingError(bytes error);
   error EmptyReport();
-  error CursedByRMN();
+  error CursedByRMN(uint64 sourceChainSelector);
   error InvalidMessageId(bytes32 messageId);
   error NotACompatiblePool(address notPool);
   error InvalidDataLength(uint256 expected, uint256 got);
   error InvalidNewState(uint64 sourceChainSelector, uint64 sequenceNumber, Internal.MessageExecutionState newState);
   error IndexOutOfRange();
-  error StaticConfigCannotBeUpdated();
+  error InvalidStaticConfig(uint64 sourceChainSelector);
 
   /// @dev Atlas depends on this event, if changing, please notify Atlas.
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
-  // TODO: revisit if fields have to be indexed for skip events
-  event SkippedIncorrectNonce(uint64 sourceChainSelector, uint64 nonce, address indexed sender);
-  event SkippedSenderWithPreviousRampMessageInflight(
-    uint64 indexed sourceChainSelector, uint64 nonce, address indexed sender
-  );
+  event SkippedIncorrectNonce(uint64 sourceChainSelector, uint64 nonce, address sender);
+  event SkippedSenderWithPreviousRampMessageInflight(uint64 sourceChainSelector, uint64 nonce, address sender);
   /// @dev RMN depends on this event, if changing, please notify the RMN maintainers.
   event ExecutionStateChanged(
     uint64 indexed sourceChainSelector,
@@ -79,8 +75,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
   event TokenAggregateRateLimitRemoved(address sourceToken, address destToken);
   event SourceChainSelectorAdded(uint64 sourceChainSelector);
   event SourceChainConfigSet(uint64 indexed sourceChainSelector, SourceChainConfig sourceConfig);
-  // TODO: index with source chain selector
-  event SkippedAlreadyExecutedMessage(uint64 indexed sequenceNumber);
+  event SkippedAlreadyExecutedMessage(uint64 sourceChainSelector, uint64 sequenceNumber);
 
   /// @notice Static offRamp config
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -93,7 +88,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
   /// @notice Per-chain source config (defining a lane from a Source Chain -> Dest OffRamp)
   struct SourceChainConfig {
     // TODO: re-evaluate on removing this (can be controlled by CommitStore)
-    // TODO: if used - pack together with onRamp to localise storage slot reads
+    //       if used - pack together with onRamp to localise storage slot reads
     bool isEnabled; // ─────────╮  Flag whether the source chain is enabled or not
     address prevOffRamp; // ────╯  Address of previous-version per-lane OffRamp. Used to be able to provide seequencing continuity during a zero downtime upgrade.
     address onRamp; //             OnRamp address on the source chain
@@ -101,6 +96,14 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
     /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in
     /// the commitStore and i_metadataHash in the onRamp.
     bytes32 metadataHash; //      Source-chain specific message hash preimage to ensure global uniqueness
+  }
+
+  /// @notice SourceChainConfig update args scoped to one source chain
+  struct SourceChainConfigArgs {
+    uint64 sourceChainSelector; //  ───╮  Source chain selector of the config to update
+    bool isEnabled; //                 │  Flag whether the source chain is enabled or not
+    address prevOffRamp; // ───────────╯  Address of previous-version per-lane OffRamp. Used to be able to provide seequencing continuity during a zero downtime upgrade.
+    address onRamp; //                    OnRamp address on the source chain
   }
 
   /// @notice Dynamic offRamp config
@@ -125,14 +128,6 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
     bytes sender; //                    Message sender
     uint64 sourceChainSelector; // ───╮ Source chain that the message originates from
     address receiver; // ─────────────╯ Address that receives the message
-  }
-
-  /// @notice SourceChainConfig update args scoped to one source chain
-  struct SourceChainConfigArgs {
-    uint64 sourceChainSelector; //  ───╮  Source chain selector of the config to update
-    bool isEnabled; //                 │  Flag whether the source chain is enabled or not
-    address prevOffRamp; // ───────────╯  Address of previous-version per-lane OffRamp. Used to be able to provide seequencing continuity during a zero downtime upgrade.
-    address onRamp; //                    OnRamp address on the source chain
   }
 
   // STATIC CONFIG
@@ -173,7 +168,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
   constructor(
     StaticConfig memory staticConfig,
     SourceChainConfigArgs[] memory sourceChainConfigs,
-    // TODO: convert to array to support per-chain config once multi-ARL is ready
+    // TODO: remove and convert to generic hook on message sending
     RateLimiter.Config memory rateLimiterConfig
   ) OCR2BaseNoChecks() AggregateRateLimiter(rateLimiterConfig) {
     if (staticConfig.commitStore == address(0)) revert ZeroAddressNotAllowed();
@@ -335,14 +330,13 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
   /// @dev If called from the DON, this array is always empty.
   /// @dev If called from manual execution, this array is always same length as messages.
   function _execute(Internal.ExecutionReportSingleChain memory report, uint256[] memory manualExecGasLimits) internal {
-    // TODO pass in source chain selector to check for cursed source chain
-    if (IRMN(i_rmnProxy).isCursed()) revert CursedByRMN();
+    uint64 sourceChainSelector = report.sourceChainSelector;
+    if (IRMN(i_rmnProxy).isCursed(bytes32(uint256(sourceChainSelector)))) revert CursedByRMN(sourceChainSelector);
 
     uint256 numMsgs = report.messages.length;
     if (numMsgs == 0) revert EmptyReport();
     if (numMsgs != report.offchainTokenData.length) revert UnexpectedTokenData();
 
-    uint64 sourceChainSelector = report.sourceChainSelector;
     SourceChainConfig storage sourceChainConfig = s_sourceChainConfigs[sourceChainSelector];
     if (!sourceChainConfig.isEnabled) {
       revert SourceChainNotEnabled(sourceChainSelector);
@@ -363,22 +357,21 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
 
     // SECURITY CRITICAL CHECK
     // NOTE: This check also verifies that all messages match the report's sourceChainSelector
-    // TODO: revisit after MultiCommitStore implementation
-    uint256 timestampCommitted = ICommitStore(i_commitStore).verify(hashedLeaves, report.proofs, report.proofFlagBits);
+    uint256 timestampCommitted =
+      IMultiCommitStore(i_commitStore).verify(sourceChainSelector, hashedLeaves, report.proofs, report.proofFlagBits);
     if (timestampCommitted == 0) revert RootNotCommitted(sourceChainSelector);
 
     // Execute messages
     bool manualExecution = manualExecGasLimits.length != 0;
     for (uint256 i = 0; i < numMsgs; ++i) {
       Internal.EVM2EVMMessage memory message = report.messages[i];
-      uint64 sequenceNumber = message.sequenceNumber;
 
-      Internal.MessageExecutionState originalState = getExecutionState(sourceChainSelector, sequenceNumber);
+      Internal.MessageExecutionState originalState = getExecutionState(sourceChainSelector, message.sequenceNumber);
       if (originalState == Internal.MessageExecutionState.SUCCESS) {
         // If the message has already been executed, we skip it.  We want to not revert on race conditions between
         // executing parties. This will allow us to open up manual exec while also attempting with the DON, without
         // reverting an entire DON batch when a user manually executes while the tx is inflight.
-        emit SkippedAlreadyExecutedMessage(message.sequenceNumber);
+        emit SkippedAlreadyExecutedMessage(sourceChainSelector, message.sequenceNumber);
         continue;
       }
       // Two valid cases here, we either have never touched this message before, or we tried to execute
@@ -389,7 +382,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
           originalState == Internal.MessageExecutionState.UNTOUCHED
             || originalState == Internal.MessageExecutionState.FAILURE
         )
-      ) revert AlreadyExecuted(sourceChainSelector, sequenceNumber);
+      ) revert AlreadyExecuted(sourceChainSelector, message.sequenceNumber);
 
       if (manualExecution) {
         bool isOldCommitReport =
@@ -408,7 +401,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
         // DON can only execute a message once
         // Acceptable state transitions: UNTOUCHED->SUCCESS, UNTOUCHED->FAILURE
         if (originalState != Internal.MessageExecutionState.UNTOUCHED) {
-          revert AlreadyAttempted(sourceChainSelector, sequenceNumber);
+          revert AlreadyAttempted(sourceChainSelector, message.sequenceNumber);
         }
       }
 
@@ -443,19 +436,20 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
 
       // Although we expect only valid messages will be committed, we check again
       // when executing as a defense in depth measure.
+      // TODO: GAS GOLF - evaluate caching sequenceNumber instead of offchainTokenData
       bytes[] memory offchainTokenData = report.offchainTokenData[i];
       _isWellFormed(
         message.messageId,
         sourceChainSelector,
-        sequenceNumber,
+        message.sequenceNumber,
         message.tokenAmounts.length,
         message.data.length,
         offchainTokenData.length
       );
 
-      _setExecutionState(sourceChainSelector, sequenceNumber, Internal.MessageExecutionState.IN_PROGRESS);
+      _setExecutionState(sourceChainSelector, message.sequenceNumber, Internal.MessageExecutionState.IN_PROGRESS);
       (Internal.MessageExecutionState newState, bytes memory returnData) = _trialExecute(message, offchainTokenData);
-      _setExecutionState(sourceChainSelector, sequenceNumber, newState);
+      _setExecutionState(sourceChainSelector, message.sequenceNumber, newState);
 
       // Since it's hard to estimate whether manual execution will succeed, we
       // revert the entire transaction if it fails. This will show the user if
@@ -468,7 +462,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
       // The only valid prior states are UNTOUCHED and FAILURE (checked above)
       // The only valid post states are FAILURE and SUCCESS (checked below)
       if (newState != Internal.MessageExecutionState.FAILURE && newState != Internal.MessageExecutionState.SUCCESS) {
-        revert InvalidNewState(sourceChainSelector, sequenceNumber, newState);
+        revert InvalidNewState(sourceChainSelector, message.sequenceNumber, newState);
       }
 
       // Nonce changes per state transition
@@ -480,7 +474,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
         s_senderNonce[sourceChainSelector][message.sender]++;
       }
 
-      emit ExecutionStateChanged(sourceChainSelector, sequenceNumber, message.messageId, newState, returnData);
+      emit ExecutionStateChanged(sourceChainSelector, message.sequenceNumber, message.messageId, newState, returnData);
     }
   }
 
@@ -630,6 +624,10 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
       SourceChainConfigArgs memory sourceConfigUpdate = sourceChainConfigUpdates[i];
       uint64 sourceChainSelector = sourceConfigUpdate.sourceChainSelector;
 
+      if (sourceChainSelector == 0) {
+        revert InvalidStaticConfig(sourceChainSelector);
+      }
+
       if (sourceConfigUpdate.onRamp == address(0)) {
         revert ZeroAddressNotAllowed();
       }
@@ -638,6 +636,16 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
 
       // OnRamp can never be zero - if it is, then the source chain has been added for the first time
       if (currentConfig.onRamp == address(0)) {
+        IMultiCommitStore.SourceChainConfig memory commitStoreConfig =
+          IMultiCommitStore(i_commitStore).getSourceChainConfig(sourceChainSelector);
+
+        // Ensures we can never deploy a new offRamp that points to a commitStore that
+        // already has roots committed for the target source chain. Also ensures that the onRamps are in sync.
+        // TODO: revisit this on commit store / ramp merge
+        if (commitStoreConfig.onRamp != sourceConfigUpdate.onRamp || commitStoreConfig.minSeqNr != 0) {
+          revert InvalidStaticConfig(sourceChainSelector);
+        }
+
         currentConfig.metadataHash =
           _metadataHash(sourceChainSelector, sourceConfigUpdate.onRamp, Internal.EVM_2_EVM_MESSAGE_HASH);
         currentConfig.onRamp = sourceConfigUpdate.onRamp;
@@ -648,13 +656,8 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
       } else if (
         currentConfig.onRamp != sourceConfigUpdate.onRamp || currentConfig.prevOffRamp != sourceConfigUpdate.prevOffRamp
       ) {
-        revert StaticConfigCannotBeUpdated();
+        revert InvalidStaticConfig(sourceChainSelector);
       }
-
-      // TODO: re-introduce check when MultiCommitStore is ready
-      // Ensures we can never deploy a new offRamp that points to a commitStore that
-      // already has roots committed.
-      // if (ICommitStore(staticConfig.commitStore).getExpectedNextSequenceNumber() != 1) revert CommitStoreAlreadyInUse();
 
       // The only dynamic config is the isEnabled flag
       currentConfig.isEnabled = sourceConfigUpdate.isEnabled;
@@ -676,6 +679,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, AggregateRateLimiter, ITyp
     );
   }
 
+  // TODO: move the 2 rate limit functions to the ARL hook contract
   /// @notice Get all tokens which are included in Aggregate Rate Limiting.
   /// @return sourceTokens The source representation of the tokens that are rate limited.
   /// @return destTokens The destination representation of the tokens that are rate limited.
