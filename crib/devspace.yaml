@@ -459,7 +459,7 @@ profiles:
         path: deployments.app.helm.values.chainlink-cluster.chainlink.global.overridesToml
       - op: add
         path: deployments.app.helm.valuesFiles
-        value: ["../charts/chainlink-cluster/values-profiles/values-dev.yaml"]
+        value: ["./values-profiles/values-dev.yaml"]
       - op: replace
         path: deployments.app.helm.values.ccipScriptsDeployment.enabled
         value: false
