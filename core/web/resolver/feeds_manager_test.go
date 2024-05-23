@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -40,7 +41,7 @@ func Test_FeedsManagers(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("ListJobProposalsByManagersIDs", mock.Anything, []int64{1}).Return([]feeds.JobProposal{
 					{
@@ -113,7 +114,7 @@ func Test_FeedsManager(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
 					ID:                 mgrID,
@@ -140,7 +141,7 @@ func Test_FeedsManager(t *testing.T) {
 		{
 			name:          "not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(nil, sql.ErrNoRows)
 			},
@@ -212,7 +213,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("RegisterManager", mock.Anything, feeds.RegisterManagerParams{
 					Name:      name,
@@ -247,7 +248,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 		{
 			name:          "single feeds manager error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.
 					On("RegisterManager", mock.Anything, mock.IsType(feeds.RegisterManagerParams{})).
@@ -266,7 +267,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 		{
 			name:          "not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("RegisterManager", mock.Anything, mock.IsType(feeds.RegisterManagerParams{})).Return(mgrID, nil)
 				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(nil, sql.ErrNoRows)
@@ -358,7 +359,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, feeds.FeedsManager{
 					ID:        mgrID,
@@ -394,7 +395,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 		{
 			name:          "not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, mock.IsType(feeds.FeedsManager{})).Return(nil)
 				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(nil, sql.ErrNoRows)

@@ -229,24 +229,25 @@ type service struct {
 	pollPeriod time.Duration
 	runTimeout time.Duration
 	logger     logger.Logger
-	parentCtx  context.Context
-	cancel     context.CancelFunc
+	stopCh     services.StopChan
 }
 
 // Start the BHS feeder service, satisfying the job.Service interface.
 func (s *service) Start(context.Context) error {
 	return s.StartOnce("Block Header Feeder Service", func() error {
 		s.logger.Infow("Starting BlockHeaderFeeder")
-		ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
-		s.parentCtx, s.cancel = context.WithCancel(context.Background())
+		s.stopCh = make(chan struct{})
 		go func() {
 			defer close(s.done)
+			ctx, cancel := s.stopCh.NewCtx()
+			defer cancel()
+			ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
 			defer ticker.Stop()
 			for {
 				select {
 				case <-ticker.C:
-					s.runFeeder()
-				case <-s.parentCtx.Done():
+					s.runFeeder(ctx)
+				case <-ctx.Done():
 					return
 				}
 			}
@@ -259,15 +260,15 @@ func (s *service) Start(context.Context) error {
 func (s *service) Close() error {
 	return s.StopOnce("Block Header Feeder Service", func() error {
 		s.logger.Infow("Stopping BlockHeaderFeeder")
-		s.cancel()
+		close(s.stopCh)
 		<-s.done
 		return nil
 	})
 }
 
-func (s *service) runFeeder() {
+func (s *service) runFeeder(ctx context.Context) {
 	s.logger.Debugw("Running BlockHeaderFeeder")
-	ctx, cancel := context.WithTimeout(s.parentCtx, s.runTimeout)
+	ctx, cancel := context.WithTimeout(ctx, s.runTimeout)
 	defer cancel()
 	err := s.feeder.Run(ctx)
 	if err == nil {
