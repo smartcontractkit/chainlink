@@ -135,8 +135,9 @@ func TestHeadTracker_Get(t *testing.T) {
 		{"nil no initial", nil, nil, big.NewInt(0)},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for i := range tests {
+		t.Run(tests[i].name, func(t *testing.T) {
+			test := tests[i]
 			db := pgtest.NewSqlxDB(t)
 			config := cltest.NewTestChainScopedConfig(t)
 			orm := headtracker.NewORM(cltest.FixtureChainID, db)
