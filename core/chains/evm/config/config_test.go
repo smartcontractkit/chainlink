@@ -406,7 +406,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	t.Run("arbitrum-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChains(t, 0, &toml.Chain{
-				ChainType: ptr(string(commonconfig.ChainArbitrum)),
+				ChainType: commonconfig.NewChainTypeConfig(string(commonconfig.ChainArbitrum)),
 				GasEstimator: toml.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
@@ -437,7 +437,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	t.Run("optimism-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChains(t, 0, &toml.Chain{
-				ChainType: ptr(string(commonconfig.ChainOptimismBedrock)),
+				ChainType: commonconfig.NewChainTypeConfig(string(commonconfig.ChainOptimismBedrock)),
 				GasEstimator: toml.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},

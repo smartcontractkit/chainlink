@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/seth"
 
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -349,4 +351,21 @@ func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config
 		}
 	}
 	return nil
+}
+
+func BuildNewCLEnvForVRF(t *testing.T, envConfig VRFEnvConfig, newEnvConfig NewEnvConfig, network ctf_test_env.EthereumNetwork) (*test_env.CLClusterTestEnv, error) {
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&envConfig.TestConfig).
+		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
+		WithCLNodes(len(newEnvConfig.NodesToCreate)).
+		WithFunding(big.NewFloat(*envConfig.TestConfig.Common.ChainlinkNodeFunding)).
+		WithChainlinkNodeLogScanner(newEnvConfig.ChainlinkNodeLogScannerSettings).
+		WithCustomCleanup(envConfig.CleanupFn).
+		WithSeth().
+		Build()
+	if err != nil {
+		return nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
+	}
+	return env, nil
 }

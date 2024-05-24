@@ -114,22 +114,19 @@ jobs:
       run:
         working-directory: contracts
     needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
     name: Solidity Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
-        if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
-        if: needs.changes.outputs.changes == 'true'
         run: pnpm lint
       - name: Run solhint
-        if: needs.changes.outputs.changes == 'true'
         run: pnpm solhint
       - name: Collect Metrics
-        if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
@@ -145,19 +142,17 @@ jobs:
       run:
         working-directory: contracts
     needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
     name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
-        if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
       - name: Run prettier check
-        if: needs.changes.outputs.changes == 'true'
         run: pnpm prettier:check
       - name: Collect Metrics
-        if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
@@ -172,8 +167,8 @@ jobs:
     name: Publish Beta NPM
     environment: publish-contracts
     needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
-    runs-on: ubuntu-latest
     if: needs.tag-check.outputs.is-pre-release == 'true'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -209,10 +204,10 @@ jobs:
     name: Publish Prod NPM
     environment: publish-contracts
     needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
+    if: needs.tag-check.outputs.is-release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: needs.tag-check.outputs.is-release == 'true'
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1

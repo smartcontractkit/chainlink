@@ -3,6 +3,7 @@ package pipeline_test
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -201,15 +202,14 @@ func TestDivide_Example(t *testing.T) {
 	t.Parallel()
 
 	dag := `
-ds1 [type=memo value=10000.1234]
+ds1 [type=memo value=10000.1234];
+ds2 [type=memo value=100];
 
-ds2 [type=memo value=100]
+div_by_ds2 [type=divide divisor="$(ds2)"];
+multiply [type=multiply times=10000 index=0];
 
-div_by_ds2 [type=divide divisor="$(ds2)"]
+ds1 -> div_by_ds2 -> multiply;
 
-multiply [type=multiply times=10000 index=0]
-
-ds1->div_by_ds2->multiply;
 `
 
 	db := pgtest.NewSqlxDB(t)
@@ -222,12 +222,14 @@ ds1->div_by_ds2->multiply;
 
 	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
-	require.NoError(t, err)
 
+	require.NoError(t, err)
 	require.Len(t, trrs, 4)
 
 	finalResult := trrs[3]
 
-	assert.Nil(t, finalResult.Result.Error)
+	require.NoError(t, finalResult.Result.Error)
+	require.Equal(t, reflect.TypeOf(decimal.Decimal{}), reflect.TypeOf(finalResult.Result.Value))
+
 	assert.Equal(t, "1000012.34", finalResult.Result.Value.(decimal.Decimal).String())
 }

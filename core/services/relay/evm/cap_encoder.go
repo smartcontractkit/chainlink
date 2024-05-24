@@ -35,7 +35,7 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	if !ok {
 		return nil, fmt.Errorf("expected %s to be a string", abiConfigFieldName)
 	}
-	selector, err := abiutil.ParseSignature("inner(" + selectorStr + ")")
+	selector, err := abiutil.ParseSelector("inner(" + selectorStr + ")")
 	if err != nil {
 		return nil, err
 	}
