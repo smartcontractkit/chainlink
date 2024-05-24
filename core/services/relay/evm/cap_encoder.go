@@ -102,11 +102,17 @@ func extractIDs(input map[string]any) ([]byte, []byte, []byte, []byte, error) {
 		return nil, nil, nil, nil, err
 	}
 
-	// TODO: source donID and workflowOwner from somewhere
-	donID := []byte{0, 1, 2, 3}
-	workflowOwner := make([]byte, 32)
+	donID, err := decodeID(input, consensustypes.DonIDFieldName, 4)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 
 	executionID, err := decodeID(input, consensustypes.ExecutionIDFieldName, idLen)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	workflowOwner, err := decodeID(input, consensustypes.WorkflowOwnerFieldName, idLen)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

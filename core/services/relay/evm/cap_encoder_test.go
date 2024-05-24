@@ -39,9 +39,11 @@ func TestEVMEncoder_SingleField(t *testing.T) {
 
 	// output of a DF2.0 aggregator + metadata fields appended by OCR
 	input := map[string]any{
-		"Full_reports":                      []any{reportA, reportB},
-		consensustypes.WorkflowIDFieldName:  workflowID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Full_reports":                        []any{reportA, reportB},
+		consensustypes.WorkflowIDFieldName:    workflowID,
+		consensustypes.DonIDFieldName:         donID,
+		consensustypes.ExecutionIDFieldName:   executionID,
+		consensustypes.WorkflowOwnerFieldName: workflowOwnerID,
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -208,9 +210,11 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 	// output of a DF2.0 aggregator + metadata fields appended by OCR
 	// using an invalid ID
 	input := map[string]any{
-		"Full_reports":                      []any{reportA, reportB},
-		consensustypes.WorkflowIDFieldName:  invalidID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Full_reports":                        []any{reportA, reportB},
+		consensustypes.WorkflowIDFieldName:    invalidID,
+		consensustypes.DonIDFieldName:         donID,
+		consensustypes.ExecutionIDFieldName:   executionID,
+		consensustypes.WorkflowOwnerFieldName: workflowOwnerID,
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -219,9 +223,11 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 
 	// using valid hex string of wrong length
 	input = map[string]any{
-		"full_reports":                      []any{reportA, reportB},
-		consensustypes.WorkflowIDFieldName:  wrongLength,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"full_reports":                        []any{reportA, reportB},
+		consensustypes.WorkflowIDFieldName:    wrongLength,
+		consensustypes.DonIDFieldName:         donID,
+		consensustypes.ExecutionIDFieldName:   executionID,
+		consensustypes.WorkflowOwnerFieldName: workflowOwnerID,
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
