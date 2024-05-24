@@ -129,6 +129,7 @@ func (entry *codecEntry) Init() error {
 			return fmt.Errorf("%w: empty field names are not supported for multiple returns", commontypes.ErrInvalidType)
 		}
 
+		fmt.Printf("h")
 		name := strings.ToUpper(arg.Name[:1]) + arg.Name[1:]
 		if seenNames[name] {
 			return fmt.Errorf("%w: duplicate field name %s, after ToCamelCase", commontypes.ErrInvalidConfig, name)
