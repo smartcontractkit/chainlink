@@ -24,7 +24,7 @@ import (
 
 const hardcodedWorkflow = `
 triggers:
-  - id: "mercury-trigger@1"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
@@ -32,7 +32,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
 
 consensus:
-  - id: "offchain_reporting@1"
+  - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -54,14 +54,14 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai@1"
+  - id: "write_polygon-testnet-mumbai@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-  - id: "write_ethereum-testnet-sepolia@1"
+  - id: "write_ethereum-testnet-sepolia@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -208,7 +208,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 			target2 := newMockCapability(
 				capabilities.MustNewCapabilityInfo(
-					"write_ethereum-testnet-sepolia@1",
+					"write_ethereum-testnet-sepolia@1.0.0",
 					capabilities.CapabilityTypeTarget,
 					"a write capability targeting ethereum sepolia testnet",
 					nil,
@@ -248,7 +248,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 const (
 	simpleWorkflow = `
 triggers:
-  - id: "mercury-trigger@1"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -256,7 +256,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
         
 consensus:
-  - id: "offchain_reporting@1"
+  - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -278,7 +278,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai@1"
+  - id: "write_polygon-testnet-mumbai@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -291,7 +291,7 @@ targets:
 func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.CapabilityResponse) {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"mercury-trigger@1",
+			"mercury-trigger@1.0.0",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			nil,
@@ -314,7 +314,7 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"mercury-trigger@1",
+			"mercury-trigger@1.0.0",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			nil,
@@ -327,7 +327,7 @@ func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 func mockFailingConsensus() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"offchain_reporting@1",
+			"offchain_reporting@1.0.0",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			nil,
@@ -341,7 +341,7 @@ func mockFailingConsensus() *mockCapability {
 func mockConsensus() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"offchain_reporting@1",
+			"offchain_reporting@1.0.0",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			nil,
@@ -367,7 +367,7 @@ func mockConsensus() *mockCapability {
 func mockTarget() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"write_polygon-testnet-mumbai@1",
+			"write_polygon-testnet-mumbai@1.0.0",
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
 			nil,
@@ -410,7 +410,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 const (
 	multiStepWorkflow = `
 triggers:
-  - id: "mercury-trigger@1"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -418,7 +418,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
 
 actions:
-  - id: "read_chain_action@1"
+  - id: "read_chain_action@1.0.0"
     ref: "read_chain_action"
     config: {}
     inputs:
@@ -426,7 +426,7 @@ actions:
         - "$(trigger.outputs)"
         
 consensus:
-  - id: "offchain_reporting@1"
+  - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -449,7 +449,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai@1"
+  - id: "write_polygon-testnet-mumbai@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -463,7 +463,7 @@ func mockAction() (*mockCapability, values.Value) {
 	outputs := values.NewString("output")
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"read_chain_action@1",
+			"read_chain_action@1.0.0",
 			capabilities.CapabilityTypeAction,
 			"a read chain action",
 			nil,
