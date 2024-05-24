@@ -231,7 +231,6 @@ type Product string
 const (
 	Automation    Product = "automation"
 	Cron          Product = "cron"
-	DirectRequest Product = "direct_request"
 	Flux          Product = "flux"
 	ForwarderOcr  Product = "forwarder_ocr"
 	ForwarderOcr2 Product = "forwarder_ocr2"
@@ -247,8 +246,6 @@ const (
 	VRFv2         Product = "vrfv2"
 	VRFv2Plus     Product = "vrfv2plus"
 )
-
-var TestTypesWithLoki = []string{"Load", "Soak", "Stress", "Spike", "Volume"}
 
 const TestTypeEnvVarName = "TEST_TYPE"
 

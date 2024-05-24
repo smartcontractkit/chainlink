@@ -19,6 +19,7 @@ import (
 	nullv4 "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 
@@ -76,10 +77,9 @@ type TestEvmTxStore interface {
 }
 
 type evmTxStore struct {
-	q         sqlutil.DataSource
-	logger    logger.SugaredLogger
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	q      sqlutil.DataSource
+	logger logger.SugaredLogger
+	stopCh services.StopChan
 }
 
 var _ EvmTxStore = (*evmTxStore)(nil)
@@ -345,12 +345,10 @@ func NewTxStore(
 	lggr logger.Logger,
 ) *evmTxStore {
 	namedLogger := logger.Named(lggr, "TxmStore")
-	ctx, cancel := context.WithCancel(context.Background())
 	return &evmTxStore{
-		q:         db,
-		logger:    logger.Sugared(namedLogger),
-		ctx:       ctx,
-		ctxCancel: cancel,
+		q:      db,
+		logger: logger.Sugared(namedLogger),
+		stopCh: make(chan struct{}),
 	}
 }
 
@@ -361,7 +359,7 @@ RETURNING *;
 `
 
 func (o *evmTxStore) Close() {
-	o.ctxCancel()
+	close(o.stopCh)
 }
 
 func (o *evmTxStore) preloadTxAttempts(ctx context.Context, txs []Tx) error {
@@ -398,7 +396,7 @@ func (o *evmTxStore) preloadTxAttempts(ctx context.Context, txs []Tx) error {
 
 func (o *evmTxStore) PreloadTxes(ctx context.Context, attempts []TxAttempt) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	return o.preloadTxesAtomic(ctx, attempts)
 }
@@ -573,7 +571,7 @@ func (o *evmTxStore) InsertReceipt(ctx context.Context, receipt *evmtypes.Receip
 
 func (o *evmTxStore) GetFatalTransactions(ctx context.Context) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		stmt := `SELECT * FROM evm.txes WHERE state = 'fatal_error'`
@@ -651,7 +649,7 @@ func (o *evmTxStore) LoadTxesAttempts(ctx context.Context, etxs []*Tx) error {
 
 func (o *evmTxStore) LoadTxAttempts(ctx context.Context, etx *Tx) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	return o.loadTxAttemptsAtomic(ctx, etx)
 }
@@ -716,7 +714,7 @@ func loadConfirmedAttemptsReceipts(ctx context.Context, q sqlutil.DataSource, at
 // eth_tx that was last sent before or at the given time (up to limit)
 func (o *evmTxStore) FindTxAttemptsRequiringResend(ctx context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID *big.Int, address common.Address) (attempts []TxAttempt, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var limit null.Uint32
 	if maxInFlightTransactions > 0 {
@@ -740,7 +738,7 @@ LIMIT $4
 
 func (o *evmTxStore) UpdateBroadcastAts(ctx context.Context, now time.Time, etxIDs []int64) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	// Deliberately do nothing on NULL broadcast_at because that indicates the
 	// tx has been moved into a state where broadcast_at is not relevant, e.g.
@@ -758,7 +756,7 @@ func (o *evmTxStore) UpdateBroadcastAts(ctx context.Context, now time.Time, etxI
 // the attempt is already broadcast it _must_ have been before this head.
 func (o *evmTxStore) SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID *big.Int) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	_, err := o.q.ExecContext(ctx,
 		`UPDATE evm.tx_attempts
@@ -773,7 +771,7 @@ AND evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.txes.evm_chain_id = $2`,
 
 func (o *evmTxStore) FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) (attempts []TxAttempt, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbAttempts []DbEthTxAttempt
 	err = o.q.SelectContext(ctx, &dbAttempts,
@@ -792,7 +790,7 @@ func (o *evmTxStore) FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, 
 
 func (o *evmTxStore) UpdateTxsUnconfirmed(ctx context.Context, ids []int64) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	_, err := o.q.ExecContext(ctx, `UPDATE evm.txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ids))
 
@@ -804,7 +802,7 @@ func (o *evmTxStore) UpdateTxsUnconfirmed(ctx context.Context, ids []int64) erro
 
 func (o *evmTxStore) FindTxAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) (attempts []TxAttempt, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		var dbAttempts []DbEthTxAttempt
@@ -826,7 +824,7 @@ ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas
 
 func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	receipts := toOnchainReceipt(r)
 	if len(receipts) == 0 {
@@ -930,7 +928,7 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 // attempts are below the finality depth from current head.
 func (o *evmTxStore) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) (err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	res, err := o.q.ExecContext(ctx, `
 UPDATE evm.txes
@@ -961,7 +959,7 @@ WHERE state = 'unconfirmed'
 
 func (o *evmTxStore) GetInProgressTxAttempts(ctx context.Context, address common.Address, chainID *big.Int) (attempts []TxAttempt, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		var dbAttempts []DbEthTxAttempt
@@ -985,7 +983,7 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64
 	var rs []dbReceiptPlus
 
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.q.SelectContext(ctx, &rs, `
 	SELECT evm.txes.pipeline_task_run_id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM evm.txes
@@ -1004,7 +1002,7 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64
 // Update tx to mark that its callback has been signaled
 func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunId uuid.UUID, chainId *big.Int) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	_, err := o.q.ExecContext(ctx, `UPDATE evm.txes SET callback_completed = TRUE WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, pipelineTaskRunId, chainId.String())
 	if err != nil {
@@ -1015,7 +1013,7 @@ func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTask
 
 func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (nonce evmtypes.Nonce, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	sql := `SELECT nonce FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 AND nonce IS NOT NULL ORDER BY nonce DESC LIMIT 1`
 	err = o.q.GetContext(ctx, &nonce, sql, fromAddress, chainId.String())
@@ -1025,7 +1023,7 @@ func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.
 // FindTxWithIdempotencyKey returns any broadcast ethtx with the given idempotencyKey and chainID
 func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID *big.Int) (etx *Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbEtx DbEthTx
 	err = o.q.GetContext(ctx, &dbEtx, `SELECT * FROM evm.txes WHERE idempotency_key = $1 and evm_chain_id = $2`, idempotencyKey, chainID.String())
@@ -1043,7 +1041,7 @@ func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKe
 // FindTxWithSequence returns any broadcast ethtx with the given nonce
 func (o *evmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce) (etx *Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	etx = new(Tx)
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
@@ -1092,7 +1090,7 @@ AND evm.tx_attempts.eth_tx_id = $1
 
 func (o *evmTxStore) UpdateTxForRebroadcast(ctx context.Context, etx Tx, etxAttempt TxAttempt) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	return o.Transact(ctx, false, func(orm *evmTxStore) error {
 		if err := deleteEthReceipts(ctx, orm, etx.ID); err != nil {
@@ -1107,7 +1105,7 @@ func (o *evmTxStore) UpdateTxForRebroadcast(ctx context.Context, etx Tx, etxAtte
 
 func (o *evmTxStore) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber, lowBlockNumber int64, chainID *big.Int) (etxs []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		var dbEtxs []DbEthTx
@@ -1134,7 +1132,7 @@ ORDER BY nonce ASC
 
 func (o *evmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (broadcastAt nullv4.Time, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		if err = orm.q.QueryRowxContext(ctx, `SELECT min(initial_broadcast_at) FROM evm.txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, chainID.String()).Scan(&broadcastAt); err != nil {
@@ -1147,7 +1145,7 @@ func (o *evmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, c
 
 func (o *evmTxStore) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID *big.Int) (earliestUnconfirmedTxBlock nullv4.Int, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		err = orm.q.QueryRowxContext(ctx, `
@@ -1165,7 +1163,7 @@ AND evm_chain_id = $1`, chainID.String()).Scan(&earliestUnconfirmedTxBlock)
 
 func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (finalized bool, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 
 	var count int32
@@ -1198,7 +1196,7 @@ func (o *evmTxStore) saveAttemptWithNewState(ctx context.Context, attempt TxAtte
 
 func (o *evmTxStore) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientFunds) {
 		return errors.New("expected state to be either in_progress or insufficient_eth")
@@ -1221,14 +1219,14 @@ func (o *evmTxStore) saveSentAttempt(ctx context.Context, timeout time.Duration,
 
 func (o *evmTxStore) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	return o.saveSentAttempt(ctx, timeout, attempt, broadcastAt)
 }
 
 func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err := o.Transact(ctx, false, func(orm *evmTxStore) error {
 		if err := orm.saveSentAttempt(ctx, timeout, attempt, broadcastAt); err != nil {
@@ -1244,7 +1242,7 @@ func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, tim
 
 func (o *evmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt TxAttempt) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("DeleteInProgressAttempt: expected attempt state to be in_progress")
@@ -1259,7 +1257,7 @@ func (o *evmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt TxAtte
 // SaveInProgressAttempt inserts or updates an attempt
 func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttempt) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("SaveInProgressAttempt failed: attempt state must be in_progress")
@@ -1293,7 +1291,7 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 
 func (o *evmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainID *big.Int, enabledAddrs []common.Address, offset, limit uint) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 
 	var enabledAddrsBytea [][]byte
@@ -1317,7 +1315,7 @@ func (o *evmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainI
 
 func (o *evmTxStore) GetTxByID(ctx context.Context, id int64) (txe *Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
@@ -1352,7 +1350,7 @@ func (o *evmTxStore) FindTxsRequiringGasBump(ctx context.Context, address common
 		return
 	}
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		stmt := `
@@ -1379,7 +1377,7 @@ ORDER BY nonce ASC
 // block
 func (o *evmTxStore) FindTxsRequiringResubmissionDueToInsufficientFunds(ctx context.Context, address common.Address, chainID *big.Int) (etxs []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		var dbEtxs []DbEthTx
@@ -1409,7 +1407,7 @@ ORDER BY nonce ASC
 // receipt and thus cannot pass on any transaction hash
 func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	// cutoffBlockNum is a block height
 	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
@@ -1502,7 +1500,7 @@ GROUP BY e.id
 
 func (o *evmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldAttempt TxAttempt, replacementAttempt *TxAttempt) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
@@ -1529,7 +1527,7 @@ func (o *evmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldAt
 // Finds earliest saved transaction that has yet to be broadcast from the given address
 func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, fromAddress common.Address, chainID *big.Int) (*Tx, error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbEtx DbEthTx
 	err := o.q.GetContext(ctx, &dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
@@ -1544,7 +1542,7 @@ func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context
 
 func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	if etx.State != txmgr.TxInProgress && etx.State != txmgr.TxUnstarted {
 		return pkgerrors.Errorf("can only transition to fatal_error from in_progress or unstarted, transaction is currently %s", etx.State)
@@ -1571,7 +1569,7 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	if etx.BroadcastAt == nil {
 		return errors.New("unconfirmed transaction must have broadcast_at time")
@@ -1609,7 +1607,7 @@ func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, e
 // Updates eth tx from unstarted to in_progress and inserts in_progress eth attempt
 func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx, attempt *TxAttempt) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	if etx.Sequence == nil {
 		return errors.New("in_progress transaction must have nonce")
@@ -1681,7 +1679,7 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 // It may or may not have been broadcast to an eth node.
 func (o *evmTxStore) GetTxInProgress(ctx context.Context, fromAddress common.Address) (etx *Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	etx = new(Tx)
 	if err != nil {
@@ -1712,7 +1710,7 @@ func (o *evmTxStore) GetTxInProgress(ctx context.Context, fromAddress common.Add
 
 func (o *evmTxStore) HasInProgressTransaction(ctx context.Context, account common.Address, chainID *big.Int) (exists bool, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.q.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM evm.txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account, chainID.String())
 	return exists, pkgerrors.Wrap(err, "hasInProgressTransaction failed")
@@ -1720,7 +1718,7 @@ func (o *evmTxStore) HasInProgressTransaction(ctx context.Context, account commo
 
 func (o *evmTxStore) countTransactionsWithState(ctx context.Context, fromAddress common.Address, state txmgrtypes.TxState, chainID *big.Int) (count uint32, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.q.GetContext(ctx, &count, `SELECT count(*) FROM evm.txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
 		fromAddress, state, chainID.String())
@@ -1735,7 +1733,7 @@ func (o *evmTxStore) CountUnconfirmedTransactions(ctx context.Context, fromAddre
 // CountTransactionsByState returns the number of transactions with any fromAddress in the given state
 func (o *evmTxStore) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID *big.Int) (count uint32, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.q.GetContext(ctx, &count, `SELECT count(*) FROM evm.txes WHERE state = $1 AND evm_chain_id = $2`,
 		state, chainID.String())
@@ -1752,7 +1750,7 @@ func (o *evmTxStore) CountUnstartedTransactions(ctx context.Context, fromAddress
 
 func (o *evmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress common.Address, maxQueuedTransactions uint64, chainID *big.Int) (err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	if maxQueuedTransactions == 0 {
 		return nil
@@ -1772,7 +1770,7 @@ func (o *evmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress commo
 
 func (o *evmTxStore) CreateTransaction(ctx context.Context, txRequest TxRequest, chainID *big.Int) (tx Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbEtx DbEthTx
 	err = o.Transact(ctx, false, func(orm *evmTxStore) error {
@@ -1806,7 +1804,7 @@ RETURNING "txes".*
 
 func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (ids []int64, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, false, func(orm *evmTxStore) error {
 		err := orm.q.SelectContext(ctx, &ids, `
@@ -1834,7 +1832,7 @@ id < (
 
 func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 
 	// Delete old confirmed evm.txes
@@ -1893,7 +1891,7 @@ AND evm_chain_id = $2`, timeThreshold, chainID.String())
 
 func (o *evmTxStore) Abandon(ctx context.Context, chainID *big.Int, addr common.Address) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	_, err := o.q.ExecContext(ctx, `UPDATE evm.txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, chainID.String(), addr)
 	return err
@@ -1902,7 +1900,7 @@ func (o *evmTxStore) Abandon(ctx context.Context, chainID *big.Int, addr common.
 // Find transactions by a field in the TxMeta blob and transaction states
 func (o *evmTxStore) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) ([]*Tx, error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbEtxs []DbEthTx
 	sql := fmt.Sprintf("SELECT * FROM evm.txes WHERE evm_chain_id = $1 AND meta->>'%s' = $2 AND state = ANY($3)", metaField)
@@ -1915,7 +1913,7 @@ func (o *evmTxStore) FindTxesByMetaFieldAndStates(ctx context.Context, metaField
 // Find transactions with a non-null TxMeta field that was provided by transaction states
 func (o *evmTxStore) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbEtxs []DbEthTx
 	sql := fmt.Sprintf("SELECT * FROM evm.txes WHERE meta->'%s' IS NOT NULL AND state = ANY($1) AND evm_chain_id = $2", metaField)
@@ -1928,7 +1926,7 @@ func (o *evmTxStore) FindTxesWithMetaFieldByStates(ctx context.Context, metaFiel
 // Find transactions with a non-null TxMeta field that was provided and a receipt block number greater than or equal to the one provided
 func (o *evmTxStore) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbEtxs []DbEthTx
 	sql := fmt.Sprintf("SELECT et.* FROM evm.txes et JOIN evm.tx_attempts eta on et.id = eta.eth_tx_id JOIN evm.receipts er on eta.hash = er.tx_hash WHERE et.meta->'%s' IS NOT NULL AND er.block_number >= $1 AND et.evm_chain_id = $2", metaField)
@@ -1941,7 +1939,7 @@ func (o *evmTxStore) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context,
 // Find transactions loaded with transaction attempts and receipts by transaction IDs and states
 func (o *evmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []txmgrtypes.TxState, chainID *big.Int) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		var dbEtxs []DbEthTx
@@ -1964,7 +1962,7 @@ func (o *evmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Co
 // For testing only, get all txes in the DB
 func (o *evmTxStore) GetAllTxes(ctx context.Context) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbEtxs []DbEthTx
 	sql := "SELECT * FROM evm.txes"
@@ -1977,7 +1975,7 @@ func (o *evmTxStore) GetAllTxes(ctx context.Context) (txes []*Tx, err error) {
 // For testing only, get all tx attempts in the DB
 func (o *evmTxStore) GetAllTxAttempts(ctx context.Context) (attempts []TxAttempt, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbAttempts []DbEthTxAttempt
 	sql := "SELECT * FROM evm.tx_attempts"
@@ -1988,7 +1986,7 @@ func (o *evmTxStore) GetAllTxAttempts(ctx context.Context) (attempts []TxAttempt
 
 func (o *evmTxStore) CountTxesByStateAndSubject(ctx context.Context, state txmgrtypes.TxState, subject uuid.UUID) (count int, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	sql := "SELECT COUNT(*) FROM evm.txes WHERE state = $1 AND subject = $2"
 	err = o.q.GetContext(ctx, &count, sql, state, subject)
@@ -1997,7 +1995,7 @@ func (o *evmTxStore) CountTxesByStateAndSubject(ctx context.Context, state txmgr
 
 func (o *evmTxStore) FindTxesByFromAddressAndState(ctx context.Context, fromAddress common.Address, state string) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	sql := "SELECT * FROM evm.txes WHERE from_address = $1 AND state = $2"
 	var dbEtxs []DbEthTx
@@ -2009,23 +2007,9 @@ func (o *evmTxStore) FindTxesByFromAddressAndState(ctx context.Context, fromAddr
 
 func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context, id int64, blockNum uint) error {
 	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
+	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	sql := "UPDATE evm.tx_attempts SET broadcast_before_block_num = $1 WHERE eth_tx_id = $2"
 	_, err := o.q.ExecContext(ctx, sql, blockNum, id)
 	return err
-}
-
-// Returns a context that contains the values of the provided context,
-// and which is canceled when either the provided context or TxStore parent context is canceled.
-func (o *evmTxStore) mergeContexts(ctx context.Context) (context.Context, context.CancelFunc) {
-	var cancel context.CancelCauseFunc
-	ctx, cancel = context.WithCancelCause(ctx)
-	stop := context.AfterFunc(o.ctx, func() {
-		cancel(context.Cause(o.ctx))
-	})
-	return ctx, func() {
-		stop()
-		cancel(context.Canceled)
-	}
 }

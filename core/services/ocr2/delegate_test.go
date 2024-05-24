@@ -5,10 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -27,7 +29,6 @@ import (
 )
 
 func TestGetEVMEffectiveTransmitterID(t *testing.T) {
-	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -41,7 +42,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	})
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
-	require.NoError(t, keyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key))
+	require.NoError(t, keyStore.OCR2().Add(testutils.Context(t), cltest.DefaultOCR2Key))
 	lggr := logger.TestLogger(t)
 
 	txManager := txmmocks.NewMockEvmTxManager(t)
@@ -67,7 +68,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = tc.sendingKeys
 		jb.ForwardingAllowed = tc.forwardingEnabled
 
-		args := []interface{}{tc.getForwarderForEOAArg}
+		args := []interface{}{mock.Anything, tc.getForwarderForEOAArg}
 		getForwarderMethodName := "GetForwarderForEOA"
 		if tc.pluginType == types.Median {
 			getForwarderMethodName = "GetForwarderForEOAOCR2Feeds"
@@ -144,13 +145,14 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	}
 
 	t.Run("when sending keys are not defined, the first one should be set to transmitterID", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 		require.NoError(t, err)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("some transmitterID string")
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
 		chain, err := legacyChains.Get(customChainID.String())
 		require.NoError(t, err)
-		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, chain, lggr)
+		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
 		require.NoError(t, err)
 		require.Equal(t, "some transmitterID string", effectiveTransmitterID)
 		require.Equal(t, []string{"some transmitterID string"}, jb.OCR2OracleSpec.RelayConfig["sendingKeys"].([]string))
@@ -158,13 +160,14 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 			require.NoError(t, err)
 			setTestCase(&jb, tc, txManager)
 			chain, err := legacyChains.Get(customChainID.String())
 			require.NoError(t, err)
 
-			effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, chain, lggr)
+			effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
 			if tc.expectedError {
 				require.Error(t, err)
 			} else {
@@ -180,13 +183,14 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	}
 
 	t.Run("when forwarders are enabled and chain retrieval fails, error should be handled", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 		require.NoError(t, err)
 		jb.ForwardingAllowed = true
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("0x7e57000000000000000000000000000000000001")
 		chain, err := legacyChains.Get("not an id")
 		require.Error(t, err)
-		_, err = ocr2.GetEVMEffectiveTransmitterID(&jb, chain, lggr)
+		_, err = ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
 		require.Error(t, err)
 	})
 }
