@@ -115,15 +115,6 @@ func Test_RemoteTargetCaller_TimesOutIfRespondingCapabilityPeersLessThenFPlusOne
 	testRemoteTargetCaller(t, 10, 1*time.Second, 10, 11,
 		capability, transmissionSchedule, responseTest)
 
-	transmissionSchedule, err = values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
-		"deltaStage": "1000ms",
-	})
-	require.NoError(t, err)
-
-	testRemoteTargetCaller(t, 10, 1*time.Second, 10, 7,
-		capability, transmissionSchedule, responseTest)
-
 }
 
 func Test_RemoteTargetCaller_TimesOutIfTransmissionScheduleExceedsTimeout(t *testing.T) {

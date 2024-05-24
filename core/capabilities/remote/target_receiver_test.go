@@ -51,6 +51,8 @@ func Test_TargetRemoteTarget(t *testing.T) {
 	testRemoteTarget(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, transmissionSchedule, responseTest)
 	testRemoteTarget(t, 10, 3, 10*time.Minute, 10, 3, 10*time.Minute, transmissionSchedule, responseTest)
 
+	here - below tests plus additional tests for the remoteTargetCapability test
+
 	// test capability don F handling
 
 	/*

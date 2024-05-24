@@ -68,6 +68,7 @@ func (c *remoteTargetCaller) ExpireRequests(ctx context.Context) {
 
 	for messageID, req := range c.messageIDToExecuteRequest {
 		if time.Since(req.creationTime) > c.requestTimeout {
+			req.transmissionCancelFn()
 			if !req.responseSent() {
 				req.sendResponse(commoncap.CapabilityResponse{Err: errors.New("request timed out")})
 			}
@@ -155,7 +156,6 @@ func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, r
 			case <-ctx.Done():
 				return
 			case <-time.After(delay):
-				c.lggr.Debugw("executing delayed execution for peer", "peerID", peerID, "delay", delay)
 				err = c.dispatcher.Send(peerID, message)
 				if err != nil {
 					c.lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
@@ -196,6 +196,8 @@ type callerExecuteRequest struct {
 	requiredIdenticalResponses int
 	respSent                   bool
 }
+
+should refactor this, move the tranmission logic onto it to better encapsulate the cancellation logic
 
 func newCallerExecuteRequest(transmissionCancelFn context.CancelFunc, requiredIdenticalResponses int) *callerExecuteRequest {
 	return &callerExecuteRequest{
