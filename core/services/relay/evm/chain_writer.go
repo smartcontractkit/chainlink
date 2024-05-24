@@ -73,20 +73,20 @@ type chainWriter struct {
 	config config.ChainWriter
 }
 
-func (writer *chainWriter) SubmitSignedTransaction(ctx context.Context, payload []byte, signature map[string]any, transactionID uuid.UUID, toAddress string, meta *TxMeta, value big.Int) (int64, error) {
+func (w *chainWriter) SubmitSignedTransaction(ctx context.Context, payload []byte, signature map[string]any, transactionID uuid.UUID, toAddress string, meta *TxMeta, value big.Int) (int64, error) {
 	return 0, fmt.Errorf("not implemented")
 }
 
-func (writer *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (TransactionStatus, error) {
+func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (TransactionStatus, error) {
 	return Unknown, fmt.Errorf("not implemented")
 }
 
-func (writer *chainWriter) GetFeeComponents(ctx context.Context) (ChainFeeComponents, error) {
+func (w *chainWriter) GetFeeComponents(ctx context.Context) (ChainFeeComponents, error) {
 	return ChainFeeComponents{}, fmt.Errorf("not implemented")
 }
 
-func (writer *chainWriter) Close() error {
-	return writer.StopOnce(writer.Name(), func() error {
+func (w *chainWriter) Close() error {
+	return w.StopOnce(w.Name(), func() error {
 		_, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
@@ -95,23 +95,23 @@ func (writer *chainWriter) Close() error {
 	})
 }
 
-func (writer *chainWriter) HealthReport() map[string]error {
+func (w *chainWriter) HealthReport() map[string]error {
 	return map[string]error{
-		writer.Name(): nil,
+		w.Name(): nil,
 	}
 }
 
-func (writer *chainWriter) Name() string {
+func (w *chainWriter) Name() string {
 	return "chain-writer"
 }
 
-func (writer *chainWriter) Ready() error {
+func (w *chainWriter) Ready() error {
 	// TODO(nickcorin): Return nil here once the implementation is done.
 	return fmt.Errorf("not fully implemented")
 }
 
-func (writer *chainWriter) Start(ctx context.Context) error {
-	return writer.StartOnce(writer.Name(), func() error {
+func (w *chainWriter) Start(ctx context.Context) error {
+	return w.StartOnce(w.Name(), func() error {
 		// TODO(nickcorin): Add startup steps here.
 		return nil
 	})
