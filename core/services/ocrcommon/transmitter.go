@@ -70,6 +70,7 @@ type txManagerOCR2 interface {
 }
 
 type ocr2FeedsTransmitter struct {
+	ocr2Aggregator common.Address
 	txManagerOCR2
 	transmitter
 }
@@ -79,6 +80,7 @@ type ocr2FeedsTransmitter struct {
 func NewOCR2FeedsTransmitter(
 	txm txManagerOCR2,
 	fromAddresses []common.Address,
+	ocr2Aggregator common.Address,
 	gasLimit uint64,
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
@@ -92,7 +94,8 @@ func NewOCR2FeedsTransmitter(
 	}
 
 	return &ocr2FeedsTransmitter{
-		txManagerOCR2: txm,
+		ocr2Aggregator: ocr2Aggregator,
+		txManagerOCR2:  txm,
 		transmitter: transmitter{
 			txm:                         txm,
 			fromAddresses:               fromAddresses,
@@ -161,6 +164,21 @@ func (t *ocr2FeedsTransmitter) CreateEthTransaction(ctx context.Context, toAddre
 	})
 
 	return errors.Wrap(err, "skipped OCR transmission")
+}
+
+// FromAddress for ocr2FeedsTransmitter returns valid forwarder or effectiveTransmitterAddress if forwarders are not set.
+func (t *ocr2FeedsTransmitter) FromAddress() common.Address {
+	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(context.Background(), t.chainID, t.fromAddresses...)
+	if err != nil {
+		return t.effectiveTransmitterAddress
+	}
+
+	forwarderAddress, err := t.forwarderAddress(context.Background(), roundRobinFromAddress, t.ocr2Aggregator)
+	if err != nil || forwarderAddress == (common.Address{}) {
+		return t.effectiveTransmitterAddress
+	}
+
+	return forwarderAddress
 }
 
 func (t *ocr2FeedsTransmitter) forwarderAddress(ctx context.Context, eoa, ocr2Aggregator common.Address) (common.Address, error) {

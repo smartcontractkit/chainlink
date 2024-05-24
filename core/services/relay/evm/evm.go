@@ -574,6 +574,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		transmitter, err = ocrcommon.NewOCR2FeedsTransmitter(
 			configWatcher.chain.TxManager(),
 			fromAddresses,
+			common.HexToAddress(rargs.ContractID),
 			gasLimit,
 			effectiveTransmitterAddress,
 			strategy,
