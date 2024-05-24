@@ -366,7 +366,6 @@ func testOffRampReader(t *testing.T, th offRampReaderTH) {
 	require.Empty(t, sourceToDestTokens)
 
 	require.NoError(t, err)
-	require.Empty(t, tokens.DestinationPool)
 }
 
 func TestNewOffRampReader(t *testing.T) {

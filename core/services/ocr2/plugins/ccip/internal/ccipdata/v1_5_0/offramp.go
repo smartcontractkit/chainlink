@@ -39,18 +39,21 @@ type OffRamp struct {
 
 // GetTokens Returns no data as the offRamps no longer have this information.
 func (o *OffRamp) GetTokens(ctx context.Context) (cciptypes.OffRampTokens, error) {
+	sourceTokens, destTokens, err := o.GetSourceAndDestRateLimitTokens(ctx)
+	if err != nil {
+		return cciptypes.OffRampTokens{}, err
+	}
 	return cciptypes.OffRampTokens{
-		SourceTokens:      []cciptypes.Address{},
-		DestinationTokens: []cciptypes.Address{},
-		DestinationPool:   make(map[cciptypes.Address]cciptypes.Address),
+		SourceTokens:      sourceTokens,
+		DestinationTokens: destTokens,
 	}, nil
 }
 
-func (o *OffRamp) GetSourceToDestTokensMapping(ctx context.Context) (map[cciptypes.Address]cciptypes.Address, error) {
+func (o *OffRamp) GetSourceAndDestRateLimitTokens(ctx context.Context) (sourceTokens []cciptypes.Address, destTokens []cciptypes.Address, err error) {
 	cachedTokens, err := o.cachedRateLimitTokens.Get(ctx, func(ctx context.Context) (cciptypes.OffRampTokens, error) {
-		tokens, err := o.offRampV150.GetAllRateLimitTokens(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return cciptypes.OffRampTokens{}, err
+		tokens, err2 := o.offRampV150.GetAllRateLimitTokens(&bind.CallOpts{Context: ctx})
+		if err2 != nil {
+			return cciptypes.OffRampTokens{}, err2
 		}
 
 		if len(tokens.SourceTokens) != len(tokens.DestTokens) {
@@ -58,21 +61,29 @@ func (o *OffRamp) GetSourceToDestTokensMapping(ctx context.Context) (map[cciptyp
 		}
 
 		return cciptypes.OffRampTokens{
-			DestinationTokens: ccipcalc.EvmAddrsToGeneric(tokens.SourceTokens...),
-			SourceTokens:      ccipcalc.EvmAddrsToGeneric(tokens.DestTokens...),
+			DestinationTokens: ccipcalc.EvmAddrsToGeneric(tokens.DestTokens...),
+			SourceTokens:      ccipcalc.EvmAddrsToGeneric(tokens.SourceTokens...),
 		}, nil
 	})
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to get rate limit tokens, if token set is large (~400k) batching may be needed")
+	}
+	return cachedTokens.SourceTokens, cachedTokens.DestinationTokens, nil
+}
+
+func (o *OffRamp) GetSourceToDestTokensMapping(ctx context.Context) (map[cciptypes.Address]cciptypes.Address, error) {
+	sourceTokens, destTokens, err := o.GetSourceAndDestRateLimitTokens(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get rate limit tokens, if token set is large (~400k) batching may be needed")
 	}
 
-	if cachedTokens.SourceTokens == nil || cachedTokens.DestinationTokens == nil {
+	if sourceTokens == nil || destTokens == nil {
 		return nil, errors.New("source or destination tokens are nil")
 	}
 
 	mapping := make(map[cciptypes.Address]cciptypes.Address)
-	for i, sourceToken := range cachedTokens.SourceTokens {
-		mapping[sourceToken] = cachedTokens.DestinationTokens[i]
+	for i, sourceToken := range sourceTokens {
+		mapping[sourceToken] = destTokens[i]
 	}
 	return mapping, nil
 }

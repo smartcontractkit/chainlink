@@ -99,7 +99,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 
 func TestCachedOffRampTokens(t *testing.T) {
 	// Test data.
-	srcTks, dstTks, outputs := generateTokensAndOutputs(3)
+	srcTks, dstTks, _ := generateTokensAndOutputs(3)
 
 	// Mock contract wrapper.
 	mockOffRamp := mock_contracts.NewEVM2EVMOffRampInterface(t)
@@ -110,17 +110,12 @@ func TestCachedOffRampTokens(t *testing.T) {
 	lp := mocks.NewLogPoller(t)
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: rand.Int63()}, nil)
 
-	ec := evmclimocks.NewClient(t)
-
-	batchCaller := rpclibmocks.NewEvmBatchCaller(t)
-	batchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).Return(outputs, nil)
-
 	offRamp := OffRamp{
 		offRampV100:    mockOffRamp,
 		lp:             lp,
 		Logger:         logger.TestLogger(t),
-		Client:         ec,
-		evmBatchCaller: batchCaller,
+		Client:         evmclimocks.NewClient(t),
+		evmBatchCaller: rpclibmocks.NewEvmBatchCaller(t),
 		cachedOffRampTokens: cache.NewLogpollerEventsBased[cciptypes.OffRampTokens](
 			lp,
 			offRamp_poolAddedPoolRemovedEvents,
@@ -140,7 +135,6 @@ func TestCachedOffRampTokens(t *testing.T) {
 	require.Equal(t, cciptypes.OffRampTokens{
 		DestinationTokens: ccipcalc.EvmAddrsToGeneric(dstTks...),
 		SourceTokens:      ccipcalc.EvmAddrsToGeneric(srcTks...),
-		DestinationPool:   expectedPools,
 	}, tokens)
 }
 
