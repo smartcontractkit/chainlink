@@ -13,7 +13,7 @@ import (
 func NewAggregator(name string, config values.Map, lggr logger.Logger) (types.Aggregator, error) {
 	switch name {
 	case "data_feeds":
-		mc := streams.NewCodec()
+		mc := streams.NewCodec(lggr)
 		return datafeeds.NewDataFeedsAggregator(config, mc, lggr)
 	default:
 		return nil, fmt.Errorf("aggregator %s not supported", name)

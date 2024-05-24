@@ -110,12 +110,6 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 				evmConfig.Chain = overriddenChainCfg
 			}
 		}
-		if evmConfig.Chain.FinalityDepth == nil && network.FinalityDepth > 0 {
-			evmConfig.Chain.FinalityDepth = ptr.Ptr(uint32(network.FinalityDepth))
-		}
-		if evmConfig.Chain.FinalityTagEnabled == nil && network.FinalityTag {
-			evmConfig.Chain.FinalityTagEnabled = ptr.Ptr(network.FinalityTag)
-		}
 		evmConfigs = append(evmConfigs, evmConfig)
 	}
 	return func(c *chainlink.Config) {
@@ -123,9 +117,8 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 	}
 }
 
-func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfigOpt {
+func WithKeySpecificMaxGasPrice(addresses []string, maxGasPriceGWei int64) NodeConfigOpt {
 	est := assets.GWei(maxGasPriceGWei)
-
 	var keySpecicifArr []evmcfg.KeySpecific
 	for _, addr := range addresses {
 		keySpecicifArr = append(keySpecicifArr, evmcfg.KeySpecific{
@@ -137,13 +130,6 @@ func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfig
 	}
 	return func(c *chainlink.Config) {
 		c.EVM[0].KeySpecific = keySpecicifArr
-		c.EVM[0].Chain.GasEstimator = evmcfg.GasEstimator{
-			LimitDefault: ptr.Ptr[uint64](3500000),
-		}
-		c.EVM[0].Chain.Transactions = evmcfg.Transactions{
-			MaxQueued: ptr.Ptr[uint32](10000),
-		}
-
 	}
 }
 

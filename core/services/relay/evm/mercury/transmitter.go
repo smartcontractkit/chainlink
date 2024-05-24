@@ -388,15 +388,22 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	return report
 }
 
-func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
+func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, rawReportCtx [3][32]byte, signatures []ocrtypes.AttributedOnchainSignature) error {
 	rawSignatures := [][]byte{}
 	for _, sig := range signatures {
 		rawSignatures = append(rawSignatures, sig.Signature)
 	}
+
+	reportContextFlat := []byte{}
+	reportContextFlat = append(reportContextFlat, rawReportCtx[0][:]...)
+	reportContextFlat = append(reportContextFlat, rawReportCtx[1][:]...)
+	reportContextFlat = append(reportContextFlat, rawReportCtx[2][:]...)
+
 	converted := capStreams.FeedReport{
-		FeedID:     mt.feedID.Hex(),
-		FullReport: report,
-		Signatures: rawSignatures,
+		FeedID:        mt.feedID.Hex(),
+		FullReport:    report,
+		ReportContext: reportContextFlat,
+		Signatures:    rawSignatures,
 		// NOTE: Skipping fields derived from FullReport, they will be filled out at a later stage
 		// after decoding and validating signatures.
 	}
@@ -405,9 +412,10 @@ func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, signatures [
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
 func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
+	rawReportCtx := evmutil.RawReportContext(reportCtx)
 	if mt.triggerCapability != nil {
 		// Acting as a Capability - send report to trigger service and exit.
-		return mt.sendToTrigger(report, signatures)
+		return mt.sendToTrigger(report, rawReportCtx, signatures)
 	}
 
 	var rs [][32]byte
@@ -422,7 +430,6 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		ss = append(ss, s)
 		vs[i] = v
 	}
-	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
 	payload, err := PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
