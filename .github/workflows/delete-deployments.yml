@@ -1,0 +1,34 @@
+name: Cleanup integration deployments
+on:
+  workflow_dispatch:
+  schedule:
+    # every 10 mins
+    - cron: "*/10 * * * *"
+
+jobs:
+  cleanup:
+    name: Clean up integration environment deployments
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Clean up integration environment
+        uses: ./.github/actions/delete-deployments
+        with:
+          environment: integration
+          # Delete 300 deployments at a time
+          num-of-pages: 3
+          # We start with page 2 because usually the first 200 deployments are still active, so we cannot delete them
+          starting-page: 2
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: chainlink-delete-deployments
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Clean up integration environment deployments
+        continue-on-error: true

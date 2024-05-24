@@ -2,30 +2,24 @@
 .DS_Store
 .envrc
 *.log
-explorer/**/*.test.*
-operator_ui/**/*.test.*
-feeds/**/*.test.*
-
 node_modules/
 **/node_modules/
 vendor/
 tmp/
 
-evm-contracts/node_modules
-evm-test-helpers/node_modules
+contracts/node_modules
 examples/
-integration/node_modules
+
+integration/
+integration-scripts/
+integration-tests/
 
 tools/gethnet/datadir/geth
 tools/clroot/db.bolt
-tools/clroot/*.jsonl
+tools/clroot/*.log
 tools/clroot/tempkeys
 
 core/sgx/target/
-
-operator_ui/dist/
-operator_ui/artifacts/
-*-packr.go
 
 core/*.Dockerfile
 chainlink
@@ -37,4 +31,5 @@ dockercfg
 credentials.env
 gcr_creds.env
 
-coverage/
+go.work
+go.work.sum

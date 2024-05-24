@@ -1,0 +1,125 @@
+name: Create Base64 Upgrade Config
+description: A composite action that creates a base64-encoded config to be used by Chainlink version upgrade tests
+
+inputs:
+  selectedNetworks:
+    description: The networks to run tests against
+  chainlinkImage:
+    description: The chainlink image to upgrade from
+    default: "public.ecr.aws/chainlink/chainlink"
+  chainlinkVersion:
+    description: The git commit sha to use for the image tag
+  chainlinkPostgresVersion:
+    description: The postgres version to use with the chainlink node
+    default: "15.6"
+  upgradeImage:
+    description: The chainlink image to upgrade to
+    default: "public.ecr.aws/chainlink/chainlink"
+  upgradeVersion:
+    description: The git commit sha to use for the image tag
+  runId:
+    description: The run id
+  testLogCollect:
+    description: Whether to always collect logs, even for passing tests
+    default: "false"
+  lokiEndpoint:
+    description: Loki push endpoint
+  lokiTenantId:
+    description: Loki tenant id
+  lokiBasicAuth:
+    description: Loki basic auth
+  logstreamLogTargets:
+    description: Where to send logs (e.g. file, loki)
+  grafanaUrl:
+    description: Grafana URL
+  grafanaDashboardUrl:
+    description: Grafana dashboard URL
+  grafanaBearerToken:
+    description: Grafana bearer token
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare Base64 TOML override
+      shell: bash
+      id: base64-config-override
+      env:
+        SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
+        CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+        CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+        CHAINLINK_POSTGRES_VERSION: ${{ inputs.chainlinkPostgresVersion }}
+        UPGRADE_IMAGE: ${{ inputs.upgradeImage }}
+        UPGRADE_VERSION: ${{ inputs.upgradeVersion }}
+        RUN_ID: ${{ inputs.runId }}
+        TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}
+        LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
+        LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
+        LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
+        LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
+        GRAFANA_URL: ${{ inputs.grafanaUrl }}
+        GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
+        GRAFANA_BEARER_TOKEN: ${{ inputs.grafanaBearerToken }}
+      run: |
+        function convert_to_toml_array() {
+          local IFS=','
+          local input_array=($1)
+          local toml_array_format="["
+
+          for element in "${input_array[@]}"; do
+              toml_array_format+="\"$element\","
+          done
+
+          toml_array_format="${toml_array_format%,}]"
+          echo "$toml_array_format"
+        }
+
+        selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")
+
+        if [ -n "$TEST_LOG_COLLECT" ]; then
+          test_log_collect=true
+        else
+          test_log_collect=false
+        fi
+
+        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
+
+        grafana_bearer_token=""
+        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
+        fi
+
+        cat << EOF > config.toml
+        [Network]
+        selected_networks=$selected_networks
+
+        [ChainlinkImage]
+        image="$CHAINLINK_IMAGE"
+        version="$CHAINLINK_VERSION"
+        postgres_version="$CHAINLINK_POSTGRES_VERSION"
+
+        [ChainlinkUpgradeImage]
+        image="$UPGRADE_IMAGE"
+        version="$UPGRADE_VERSION"
+        postgres_version="$CHAINLINK_POSTGRES_VERSION"
+
+        [Logging]
+        test_log_collect=$test_log_collect
+        run_id="$RUN_ID"
+
+        [Logging.LogStream]
+        log_targets=$log_targets
+
+        [Logging.Loki]
+        tenant_id="$LOKI_TENANT_ID"
+        endpoint="$LOKI_ENDPOINT"
+        basic_auth_secret="$LOKI_BASIC_AUTH"
+
+        [Logging.Grafana]
+        base_url="$GRAFANA_URL"
+        dashboard_url="$GRAFANA_DASHBOARD_URL"
+        $grafana_bearer_token
+        EOF
+
+        BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+        echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+        echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV

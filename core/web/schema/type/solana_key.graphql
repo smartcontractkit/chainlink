@@ -1,0 +1,7 @@
+type SolanaKey {
+	id: ID!
+}
+
+type SolanaKeysPayload {
+	results: [SolanaKey!]!
+}

@@ -1,0 +1,14 @@
+exec chainlink admin profile --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink admin profile - Collects profile metrics from the node.
+
+USAGE:
+   chainlink admin profile [command options] [arguments...]
+
+OPTIONS:
+   --seconds value, -s value     duration of profile capture (default: 8)
+   --output_dir value, -o value  output directory of the captured profile (default: "/tmp/")
+   

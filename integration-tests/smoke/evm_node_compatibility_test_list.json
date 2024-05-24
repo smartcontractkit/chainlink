@@ -1,0 +1,184 @@
+{
+    "tests": [
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:latest_stable"
+      },
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.13.0"
+      },
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.12.0"
+      },
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.11.0"
+      },
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.10.0"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:latest_stable"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.13.0"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.12.0"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.11.0"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.10.0"
+      },
+      {
+        "product": "vrf",
+        "name": "TestVRFBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:latest_stable"
+      },
+      {
+        "product": "vrf",
+        "name": "TestVRFBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.13.0"
+      },
+      {
+        "product": "vrf",
+        "name": "TestVRFBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.12.0"
+      },
+      {
+        "product": "vrf",
+        "name": "TestVRFBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.11.0"
+      },
+      {
+        "product": "vrf",
+        "name": "TestVRFBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.10.0"
+      },
+      {
+        "product": "vrfv2",
+        "name": "TestVRFv2Basic/Request Randomness",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:latest_stable"
+      },
+      {
+        "product": "vrfv2",
+        "name": "TestVRFv2Basic/Request Randomness",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.13.0"
+      },
+      {
+        "product": "vrfv2",
+        "name": "TestVRFv2Basic/Request Randomness",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.12.0"
+      },
+      {
+        "product": "vrfv2",
+        "name": "TestVRFv2Basic/Request Randomness",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.11.0"
+      },
+      {
+        "product": "vrfv2",
+        "name": "TestVRFv2Basic/Request Randomness",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.10.0"
+      },
+      {
+        "product": "vrfv2plus",
+        "name": "TestVRFv2Plus/Link Billing",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:latest_stable"
+      },
+      {
+        "product": "vrfv2plus",
+        "name": "TestVRFv2Plus/Link Billing",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.13.0"
+      },
+      {
+        "product": "vrfv2plus",
+        "name": "TestVRFv2Plus/Link Billing",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.12.0"
+      },
+      {
+        "product": "vrfv2plus",
+        "name": "TestVRFv2Plus/Link Billing",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.11.0"
+      },
+      {
+        "product": "vrfv2plus",
+        "name": "TestVRFv2Plus/Link Billing",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.10.0"
+      },
+      {
+        "product": "automation",
+        "name": "TestSetUpkeepTriggerConfig",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:latest_stable"
+      },
+      {
+        "product": "automation",
+        "name": "TestSetUpkeepTriggerConfig",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.13.0"
+      },
+      {
+        "product": "automation",
+        "name": "TestSetUpkeepTriggerConfig",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.12.0"
+      },
+      {
+        "product": "automation",
+        "name": "TestSetUpkeepTriggerConfig",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.11.0"
+      },
+      {
+        "product": "automation",
+        "name": "TestSetUpkeepTriggerConfig",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.10.0"
+      }
+    ]
+}

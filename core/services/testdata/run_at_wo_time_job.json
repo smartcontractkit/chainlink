@@ -1,4 +1,0 @@
-{
-  "initiators": [ { "type": "runAt" } ],
-  "tasks": [ { "type": "NoOp" } ]
-}

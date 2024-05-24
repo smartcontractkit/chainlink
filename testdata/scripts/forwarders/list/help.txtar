@@ -1,0 +1,9 @@
+exec chainlink forwarders list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink forwarders list - List all stored forwarders addresses
+
+USAGE:
+   chainlink forwarders list [arguments...]

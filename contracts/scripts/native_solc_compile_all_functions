@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │      Compiling Functions contracts...        │"
+echo " └──────────────────────────────────────────────┘"
+
+OPTIMIZE_RUNS=1000000
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+
+compileContract () {
+  solc @openzeppelin/=$ROOT/node_modules/@openzeppelin/ \
+      --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o $ROOT/solc/v$SOLC_VERSION/functions/$1 \
+      --abi --bin \
+      --allow-paths $ROOT/src/v0.8,$ROOT/node_modules \
+      $ROOT/src/v0.8/functions/$2
+}
+
+############################
+# Version 1 (Mainnet Preview)
+############################
+
+SOLC_VERSION="0.8.19"
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+compileContract v1_X dev/v1_X/libraries/FunctionsRequest.sol
+compileContract v1_X dev/v1_X/FunctionsRouter.sol
+compileContract v1_X dev/v1_X/FunctionsCoordinator.sol
+compileContract v1_X dev/v1_X/accessControl/TermsOfServiceAllowList.sol
+compileContract v1_X dev/v1_X/example/FunctionsClientExample.sol
+
+# Test helpers
+compileContract v1_X tests/v1_X/testhelpers/FunctionsCoordinatorTestHelper.sol
+compileContract v1_X tests/v1_X/testhelpers/FunctionsLoadTestClient.sol
+
+# Mocks
+compileContract v1_X dev/v1_X/mocks/FunctionsV1EventsMock.sol

@@ -1,0 +1,15 @@
+{
+  "type": "solidity",
+  "basePath": "./contracts/test/",
+  "splits": [
+    {
+      "dir": "v0.8",
+      "numOfSplits": 5,
+      "slowTests": [
+        "CronUpkeepFactory",
+        "AutomationRegistry2_2",
+        "AutomationRegistry2_3"
+      ]
+    }
+  ]
+}

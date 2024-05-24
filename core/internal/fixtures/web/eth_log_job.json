@@ -1,9 +1,0 @@
-{
-  "initiators": [{
-    "type": "ethLog",
-    "params": {
-      "address": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
-    }
-  }],
-  "tasks": [ { "type": "NoOp" } ]
-}

@@ -1,0 +1,144 @@
+name: Create Base64 Config
+description: A composite action that creates a base64-encoded config to be used by integration tests
+
+inputs:
+  runId:
+    description: The run id
+  testLogCollect:
+    description: Whether to always collect logs, even for passing tests
+    default: "false"
+  chainlinkImage:
+    description: The chainlink image to use
+    default: "public.ecr.aws/chainlink/chainlink"
+  chainlinkVersion:
+    description: The git commit sha to use for the image tag
+  chainlinkPostgresVersion:
+    description: The postgres version to use with the chainlink node
+    default: "15.6"
+  pyroscopeServer:
+    description: URL of Pyroscope server
+  pyroscopeEnvironment:
+    description: Name of Pyroscope environment
+  pyroscopeKey:
+    description: Pyroscope server key
+  lokiEndpoint:
+    description: Loki push endpoint
+  lokiTenantId:
+    description: Loki tenant id
+  lokiBasicAuth:
+    description: Loki basic auth
+  logstreamLogTargets:
+    description: Where to send logs (e.g. file, loki)
+  grafanaUrl:
+    description: Grafana URL
+  grafanaDashboardUrl:
+    description: Grafana dashboard URL
+  grafanaBearerToken:
+    description: Grafana bearer token
+  network:
+    description: Network to run tests on
+  httpEndpoints:
+    description: HTTP endpoints to use for network
+  wsEndpoints:
+    description: WS endpoints to use for network
+  fundingKeys:
+    description: Funding keys to use for network
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare Base64 TOML override
+      shell: bash
+      id: base64-config-override
+      env:
+        RUN_ID: ${{ inputs.runId }}
+        PYROSCOPE_SERVER: ${{ inputs.pyroscopeServer }}
+        PYROSCOPE_ENVIRONMENT: ${{ inputs.pyroscopeEnvironment }}
+        PYROSCOPE_KEY: ${{ inputs.pyroscopeKey }}
+        CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+        CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+        CHAINLINK_POSTGRES_VERSION: ${{ inputs.chainlinkPostgresVersion }}
+        LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
+        LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
+        LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
+        LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
+        GRAFANA_URL: ${{ inputs.grafanaUrl }}
+        GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
+        GRAFANA_BEARER_TOKEN: ${{ inputs.grafanaBearerToken }}
+        NETWORK: ${{ inputs.network }}
+        HTTP_ENDPOINTS: ${{ inputs.httpEndpoints }}
+        WS_ENDPOINTS: ${{ inputs.wsEndpoints }}
+        FUNDING_KEYS: ${{ inputs.fundingKeys }}
+      run: |
+        convert_to_toml_array() {
+            local IFS=','
+            local input_array=($1)
+            local toml_array_format="["
+
+            for element in "${input_array[@]}"; do
+                toml_array_format+="\"$element\","
+            done
+
+            toml_array_format="${toml_array_format%,}]"
+            echo "$toml_array_format"
+        }
+
+        if [ -n "$PYROSCOPE_SERVER" ]; then
+          pyroscope_enabled=true
+        else
+          pyroscope_enabled=false
+        fi
+
+        grafana_bearer_token=""
+        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
+        fi
+
+        cat << EOF > config.toml
+        [Common]
+        chainlink_node_funding=0.5
+
+        [ChainlinkImage]
+        image="$CHAINLINK_IMAGE"
+        version="$CHAINLINK_VERSION"
+        postgres_version="$CHAINLINK_POSTGRES_VERSION"
+
+        [Pyroscope]
+        enabled=$pyroscope_enabled
+        server_url="$PYROSCOPE_SERVER"
+        environment="$PYROSCOPE_ENVIRONMENT"
+        key_secret="$PYROSCOPE_KEY"
+
+        [Logging]
+        run_id="$RUN_ID"
+
+        [Logging.LogStream]
+        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
+
+        [Logging.Loki]
+        tenant_id="$LOKI_TENANT_ID"
+        endpoint="$LOKI_URL"
+        basic_auth_secret="$LOKI_BASIC_AUTH"
+
+        [Logging.Grafana]
+        base_url="$GRAFANA_URL"
+        dashboard_url="$GRAFANA_DASHBOARD_URL"
+        $grafana_bearer_token
+
+        [Network]
+        selected_networks=["$NETWORK"]
+
+        [Network.RpcHttpUrls]
+        "$NETWORK" = $(convert_to_toml_array "$HTTP_ENDPOINTS")
+
+        [Network.RpcWsUrls]
+        "$NETWORK" = $(convert_to_toml_array "$WS_ENDPOINTS")
+
+        [Network.WalletKeys]
+        "$NETWORK" = $(convert_to_toml_array "$FUNDING_KEYS")
+        EOF
+
+        BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+        echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+        echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+        touch .root_dir

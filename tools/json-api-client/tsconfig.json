@@ -1,7 +1,0 @@
-{
-  "extends": "../../tsconfig.es6.json",
-  "compilerOptions": {
-    "outDir": "./dist"
-  },
-  "include": ["src", "@types"]
-}

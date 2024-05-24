@@ -3,15 +3,15 @@ package models_test
 import (
 	"encoding/json"
 	"net/url"
-	"reflect"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/fxamacker/cbor/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -144,93 +144,6 @@ func TestJSON_ParseJSON(t *testing.T) {
 	}
 }
 
-func TestJSON_Add(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		key     string
-		value   interface{}
-		errored bool
-		want    string
-	}{
-		{"adding string", "b", "2", false, `{"a":"1","b":"2"}`},
-		{"adding int", "b", 2, false, `{"a":"1","b":2}`},
-		{"overriding", "a", "2", false, `{"a":"2"}`},
-		{"escaped quote", "a", `"2"`, false, `{"a":"\"2\""}`},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			json := cltest.JSONFromString(t, `{"a":"1"}`)
-
-			json, err := json.Add(test.key, test.value)
-			assert.Equal(t, test.errored, (err != nil))
-			assert.Equal(t, test.want, json.String())
-		})
-	}
-}
-
-func TestJSON_Delete(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		key  string
-		want string
-	}{
-		{"remove existing key", "b", `{"a":"1"}`},
-		{"remove non-existing key", "c", `{"a":"1","b":2}`},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			json := cltest.JSONFromString(t, `{"a":"1","b":2}`)
-
-			json, err := json.Delete(test.key)
-
-			assert.NoError(t, err)
-			assert.Equal(t, test.want, json.String())
-		})
-	}
-}
-
-func TestJSON_CBOR(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		in   models.JSON
-	}{
-		{"empty object", models.JSON{}},
-		{"array", cltest.JSONFromString(t, `[1,2,3,4]`)},
-		{
-			"hello world",
-			cltest.JSONFromString(t, `{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
-		},
-		{
-			"complex object",
-			cltest.JSONFromString(t, `{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			encoded, err := test.in.CBOR()
-			assert.NoError(t, err)
-
-			var decoded interface{}
-			err = cbor.Unmarshal(encoded, &decoded)
-
-			assert.NoError(t, err)
-
-			decoded, err = utils.CoerceInterfaceMapToStringMap(decoded)
-			assert.NoError(t, err)
-			assert.True(t, reflect.DeepEqual(test.in.Result.Value(), decoded))
-		})
-	}
-}
-
 func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 	t.Parallel()
 	j := []byte(`"NotAUrl"`)
@@ -276,89 +189,6 @@ func TestWebURL_String_HasNilURL(t *testing.T) {
 	assert.Equal(t, "", w.String())
 }
 
-func TestAnyTime_UnmarshalJSON_Valid(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  time.Time
-	}{
-		{"unix string", `"1529445491"`, time.Unix(1529445491, 0).UTC()},
-		{"unix int", `1529445491`, time.Unix(1529445491, 0).UTC()},
-		{"iso8601 time", `"2018-06-19T22:17:19Z"`, time.Unix(1529446639, 0).UTC()},
-		{"iso8601 date", `"2018-06-19"`, time.Unix(1529366400, 0).UTC()},
-		{"iso8601 year", `"2018"`, time.Unix(1514764800, 0).UTC()},
-		{"null", `null`, time.Time{}},
-		{"empty", `""`, time.Time{}},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var actual models.AnyTime
-			err := json.Unmarshal([]byte(test.input), &actual)
-			require.NoError(t, err)
-			assert.Equal(t, test.want, actual.Time)
-		})
-	}
-}
-
-func TestAnyTime_UnmarshalJSON_Error(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-	}{
-		{"invalid string", `"1000h"`},
-		{"float", `"1000.123"`},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var actual models.AnyTime
-			err := json.Unmarshal([]byte(test.input), &actual)
-			assert.Error(t, err)
-		})
-	}
-}
-
-func TestAnyTime_MarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		input models.AnyTime
-		want  string
-	}{
-		{"valid", models.NewAnyTime(time.Unix(1529446639, 0).UTC()), `"2018-06-19T22:17:19Z"`},
-		{"invalid", models.AnyTime{}, `null`},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			b, err := json.Marshal(&test.input)
-			assert.NoError(t, err)
-			assert.Equal(t, test.want, string(b))
-		})
-	}
-}
-
-func TestDuration_MarshalJSON(t *testing.T) {
-	tests := []struct {
-		name  string
-		input models.Duration
-		want  string
-	}{
-		{"zero", models.MustMakeDuration(0), `"0s"`},
-		{"one second", models.MustMakeDuration(time.Second), `"1s"`},
-		{"one minute", models.MustMakeDuration(time.Minute), `"1m0s"`},
-		{"one hour", models.MustMakeDuration(time.Hour), `"1h0m0s"`},
-		{"one hour thirty minutes", models.MustMakeDuration(time.Hour + 30*time.Minute), `"1h30m0s"`},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			b, err := json.Marshal(&test.input)
-			assert.NoError(t, err)
-			assert.Equal(t, test.want, string(b))
-		})
-	}
-}
-
 func TestCron_UnmarshalJSON_Success(t *testing.T) {
 	t.Parallel()
 
@@ -395,4 +225,215 @@ func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
 			assert.EqualError(t, err, test.wantError)
 		})
 	}
+}
+
+func TestNewInterval(t *testing.T) {
+	t.Parallel()
+
+	duration := 33 * time.Second
+	interval := models.NewInterval(duration)
+
+	require.Equal(t, duration, interval.Duration())
+}
+
+func TestSha256Hash_MarshalJSON_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	json, err := hash.MarshalJSON()
+	require.NoError(t, err)
+	require.NotEmpty(t, json)
+
+	var newHash models.Sha256Hash
+	err = newHash.UnmarshalJSON(json)
+	require.NoError(t, err)
+
+	require.Equal(t, hash, newHash)
+}
+
+func TestSha256Hash_Sha256HashFromHex(t *testing.T) {
+	t.Parallel()
+
+	_, err := models.Sha256HashFromHex("abczzz")
+	require.Error(t, err)
+
+	_, err = models.Sha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	require.NoError(t, err)
+
+	_, err = models.Sha256HashFromHex("f5bf259689b26f1374e6")
+	require.NoError(t, err)
+}
+
+func TestSha256Hash_String(t *testing.T) {
+	t.Parallel()
+
+	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	assert.Equal(t, "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5", hash.String())
+}
+
+func TestSha256Hash_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	val, err := hash.Value()
+	require.NoError(t, err)
+
+	var newHash models.Sha256Hash
+	err = newHash.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, hash, newHash)
+}
+
+func TestAddressCollection_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	ac := models.AddressCollection{
+		common.HexToAddress(strings.Repeat("AA", 20)),
+		common.HexToAddress(strings.Repeat("BB", 20)),
+	}
+
+	val, err := ac.Value()
+	require.NoError(t, err)
+
+	var acNew models.AddressCollection
+	err = acNew.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, ac, acNew)
+}
+
+func TestAddressCollection_ToStrings(t *testing.T) {
+	t.Parallel()
+
+	hex1 := "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa"
+	hex2 := "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"
+
+	ac := models.AddressCollection{
+		common.HexToAddress(hex1),
+		common.HexToAddress(hex2),
+	}
+
+	acStrings := ac.ToStrings()
+	require.Len(t, acStrings, 2)
+	require.Equal(t, hex1, acStrings[0])
+	require.Equal(t, hex2, acStrings[1])
+}
+
+func TestInterval_IsZero(t *testing.T) {
+	t.Parallel()
+
+	i := models.NewInterval(0)
+	require.NotNil(t, i)
+	require.True(t, i.IsZero())
+
+	i = models.NewInterval(1)
+	require.NotNil(t, i)
+	require.False(t, i.IsZero())
+}
+
+func TestInterval_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	i := models.NewInterval(100)
+	require.NotNil(t, i)
+
+	val, err := i.Value()
+	require.NoError(t, err)
+
+	iNew := models.NewInterval(0)
+	err = iNew.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, i, iNew)
+}
+
+func TestInterval_MarshalText_UnmarshalText(t *testing.T) {
+	t.Parallel()
+
+	i := models.NewInterval(100)
+	require.NotNil(t, i)
+
+	txt, err := i.MarshalText()
+	require.NoError(t, err)
+
+	iNew := models.NewInterval(0)
+	err = iNew.UnmarshalText(txt)
+	require.NoError(t, err)
+
+	require.Equal(t, i, iNew)
+}
+
+func TestWebURL_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	u, err := url.Parse("https://chain.link")
+	require.NoError(t, err)
+
+	w := models.WebURL(*u)
+
+	val, err := w.Value()
+	require.NoError(t, err)
+
+	var wNew models.WebURL
+	err = wNew.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, w, wNew)
+}
+
+func TestJSON_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	js, err := models.ParseJSON([]byte(`{"foo":123}`))
+	require.NoError(t, err)
+
+	val, err := js.Value()
+	require.NoError(t, err)
+
+	var jsNew models.JSON
+	err = jsNew.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, js, jsNew)
+}
+
+func TestJSON_Bytes(t *testing.T) {
+	t.Parallel()
+
+	jsBytes := []byte(`{"foo":123}`)
+
+	js, err := models.ParseJSON(jsBytes)
+	require.NoError(t, err)
+
+	require.Equal(t, jsBytes, js.Bytes())
+}
+
+func TestJSON_MarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	jsBytes := []byte(`{"foo":123}`)
+
+	js, err := models.ParseJSON(jsBytes)
+	require.NoError(t, err)
+
+	bs, err := js.MarshalJSON()
+	require.NoError(t, err)
+
+	require.Equal(t, jsBytes, bs)
+}
+
+func TestJSON_UnmarshalTOML(t *testing.T) {
+	t.Parallel()
+
+	jsBytes := []byte(`{"foo":123}`)
+
+	var js models.JSON
+	err := js.UnmarshalTOML(jsBytes)
+	require.NoError(t, err)
+	require.Equal(t, jsBytes, js.Bytes())
+
+	err = js.UnmarshalTOML(string(jsBytes))
+	require.NoError(t, err)
+	require.Equal(t, jsBytes, js.Bytes())
 }

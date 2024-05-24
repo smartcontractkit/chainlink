@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+# Runs tests for a specific product
+
+set -x
+
+# get this scripts directory
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+cd "$SCRIPT_DIR"/../ || exit 1
+
+# Arguments needed
+# ARGS=${ARGS:=} any extra args for go test
+# SUITE=${SUITE:=} the suite of tests you want to run
+# TEST_NAME=${TEST_NAME:=} The specific test to run
+
+# run the tests
+./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
+
+exit_code=$?
+
+echo "Test exit code: ${exit_code}"
+
+# Check if the test did not pass (non-zero exit code)
+if [ $exit_code -ne 0 ]; then
+  # 3 is the code for an interrupted test, we only want to restart the test when the test is interrupted and in a state
+  # that it can recover from. Otherwise we mark the test as "passed" as far as K8s is concerned so it doesn't restart it.
+  if [ $exit_code -eq 3 ]; then
+    echo "Test was interrupted, exiting with 1 exit code to trigger K8s to restart"
+    exit 1  # Exiting with non-zero status to trigger pod restart
+  else
+    echo "Test either panicked or had some sort of failure. We're exiting with a non-zero exit code so that K8s doesn't restart the pod."
+    echo "TEST_FAILED"
+  fi
+fi
+
+# Sleep for the amount of time provided by the POST_RUN_SLEEP env var
+upload_to_slack() {
+    curl -F file=@$1 -F "initial_comment=$2" -F channels=${SLACK_CHANNEL} -H "Authorization: Bearer ${SLACK_API_KEY}" https://slack.com/api/files.upload
+}
+
+if [ -n "${UPLOAD_CPU_PROFILE}" ]; then
+    upload_to_slack profile.out "CPU Profile for ${TEST_NAME}"
+fi
+if [ -n "${UPLOAD_MEM_PROFILE}" ]; then
+    upload_to_slack memprofile.out "MEM Profile for ${TEST_NAME}"
+fi
+
+echo "Exiting with 0 exit code as test is either completed, or failed and cannot be restarted"
+exit 0

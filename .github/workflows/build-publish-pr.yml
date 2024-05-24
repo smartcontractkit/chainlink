@@ -1,0 +1,66 @@
+name: "Build and Publish from PR"
+
+##
+# This workflow builds and publishes a Docker image for Chainlink from a PR.
+# It has its own special IAM role, does not sign the image, and publishes to
+# a special ECR repo.
+##
+
+on:
+  pull_request:
+
+jobs:
+  build-publish-untrusted:
+    if: ${{ ! startsWith(github.ref_name, 'release/') || (! startsWith(github.head_ref, 'release/') && ! startsWith(github.ref_name, 'chore/'))}}
+    runs-on: ubuntu-20.04
+    environment: sdlc
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      ECR_IMAGE_NAME: crib-chainlink-untrusted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Git Short SHA
+        shell: bash
+        env:
+          GIT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "GIT_SHORT_SHA=${GIT_PR_HEAD_SHA:0:7}" | tee -a "$GITHUB_ENV"
+
+      - name: Check if image exists
+        id: check-image
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+        with:
+          repository: ${{ env.ECR_IMAGE_NAME}}
+          tag: sha-${{ env.GIT_SHORT_SHA }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
+
+      - name: Build and publish chainlink image
+        if: steps.check-image.outputs.exists == 'false'
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+          publish: true
+          aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
+          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS_DEFAULT }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          sign-images: false
+          ecr-hostname: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+          ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: build-chainlink-pr
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: build-publish-untrusted
+        continue-on-error: true

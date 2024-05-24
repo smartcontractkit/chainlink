@@ -1,0 +1,21 @@
+[Feature]
+LogPoller = true
+
+[Database]
+MaxIdleConns = 50
+MaxOpenConns = 50
+
+[OCR2]
+Enabled = true
+DefaultTransactionQueueDepth = 0
+
+[OCR]
+Enabled = false
+DefaultTransactionQueueDepth = 0
+
+[P2P]
+[P2P.V2]
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'

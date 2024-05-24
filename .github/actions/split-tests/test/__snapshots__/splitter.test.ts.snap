@@ -1,0 +1,119 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`simpleSplit doesn't error on empty arrays 1`] = `
+[
+  [],
+]
+`;
+
+exports[`simpleSplit doesn't error on empty arrays 2`] = `
+[
+  [],
+  [],
+  [],
+  [],
+  [],
+]
+`;
+
+exports[`simpleSplit handles no slow test splitting 1`] = `
+[
+  [
+    "foo.test",
+    "bar.test",
+    "baz.test",
+    "yup.test",
+    "nope.test",
+    "bonk.test",
+    "bop.test",
+    "ouch.test.ts",
+  ],
+]
+`;
+
+exports[`simpleSplit handles no slow test splitting 2`] = `
+[
+  [
+    "foo.test",
+    "bar.test",
+    "baz.test",
+    "yup.test",
+  ],
+  [
+    "nope.test",
+    "bonk.test",
+    "bop.test",
+    "ouch.test.ts",
+  ],
+]
+`;
+
+exports[`simpleSplit handles no slow test splitting 3`] = `
+[
+  [
+    "foo.test",
+    "bar.test",
+    "baz.test",
+  ],
+  [
+    "yup.test",
+    "nope.test",
+    "bonk.test",
+  ],
+  [
+    "bop.test",
+    "ouch.test.ts",
+  ],
+]
+`;
+
+exports[`simpleSplit handles slow test splitting 1`] = `
+[
+  [
+    "bonk.test",
+    "bop.test",
+    "ouch.test.ts",
+    "foo.test",
+    "bar.test",
+    "baz.test",
+    "yup.test",
+    "nope.test",
+  ],
+]
+`;
+
+exports[`simpleSplit handles slow test splitting 2`] = `
+[
+  [
+    "bonk.test",
+    "ouch.test.ts",
+    "foo.test",
+    "bar.test",
+    "baz.test",
+  ],
+  [
+    "bop.test",
+    "yup.test",
+    "nope.test",
+  ],
+]
+`;
+
+exports[`simpleSplit handles slow test splitting 3`] = `
+[
+  [
+    "bonk.test",
+    "foo.test",
+    "bar.test",
+  ],
+  [
+    "bop.test",
+    "baz.test",
+    "yup.test",
+  ],
+  [
+    "ouch.test.ts",
+    "nope.test",
+  ],
+]
+`;

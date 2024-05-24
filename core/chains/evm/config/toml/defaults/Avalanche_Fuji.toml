@@ -1,0 +1,17 @@
+ChainID = '43113'
+FinalityDepth = 1
+LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
+LogPollInterval = '3s'
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '30s'
+OCR.ContractConfirmations = 1
+RPCBlockQueryDelay = 2
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '25 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '25 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24

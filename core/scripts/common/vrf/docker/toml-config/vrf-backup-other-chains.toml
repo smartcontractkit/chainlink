@@ -1,0 +1,20 @@
+[Feature]
+LogPoller = false #VRF V2 uses Log Broadcaster instead of Log poller
+
+[[EVM]]
+ChainID = '11155111'
+BlockBackfillDepth = 500
+LogBackfillBatchSize = 1000
+MinIncomingConfirmations = 100
+RPCDefaultBatchSize = 25
+
+[EVM.Transactions]
+MaxInFlight = 128
+MaxQueued = 0
+
+[EVM.GasEstimator]
+LimitDefault = 3500000
+PriceMax = '30 gwei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 100

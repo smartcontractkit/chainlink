@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# Runs tests for a specific product
+
+set -ex
+
+# get this scripts directory
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+cd "$SCRIPT_DIR"/../ || exit 1
+PRODUCT=${PRODUCT:=cron}
+ARGS=${ARGS:=}
+go test -v ${ARGS} ./smoke/"$PRODUCT"_test.go

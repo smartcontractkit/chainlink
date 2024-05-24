@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │    Compiling Low Latency Oracle contracts... │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.19"
+OPTIMIZE_RUNS=1000000
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+
+compileContract () {
+  local contract
+  contract=$(basename "$1" ".sol")
+
+  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
+      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8\
+      "$ROOT"/contracts/src/v0.8/"$1"
+}
+
+compileContract llo-feeds/Verifier.sol
+compileContract llo-feeds/VerifierProxy.sol
+compileContract llo-feeds/FeeManager.sol
+compileContract llo-feeds/RewardManager.sol
+
+
+# Test | Mocks
+compileContract llo-feeds/test/mocks/ErroredVerifier.sol
+compileContract llo-feeds/test/mocks/ExposedVerifier.sol
+
+# LLO
+compileContract llo-feeds/dev/ChannelConfigStore.sol
+compileContract llo-feeds/dev/ChannelVerifier.sol
+compileContract llo-feeds/dev/test/mocks/ExposedChannelVerifier.sol

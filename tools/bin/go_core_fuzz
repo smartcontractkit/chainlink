@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -o pipefail
+set +e
+
+SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
+OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
+USE_TEE="${USE_TEE:-true}"
+
+echo "Failed fuzz tests and panics: ---------------------"
+echo ""
+use_tee() {
+  if [ "$USE_TEE" = "true" ]; then
+    tee "$@"
+  else
+    cat > "$@"
+  fi
+}
+
+# the amount of --seconds here is subject to change based on how long the CI job takes in the future
+# as we add more fuzz tests, we should take into consideration increasing this timelapse, so we can have enough coverage.
+# We are timing out after ~10mins in case the tests hang. (Current CI duration is ~8m, modify if needed)
+cd ./fuzz && timeout 10m ./fuzz_all_native.py --ci --seconds 420 | use_tee $OUTPUT_FILE
+EXITCODE=${PIPESTATUS[0]}
+
+# Assert no known sensitive strings present in test logger output
+printf "\n----------------------------------------------\n\n"
+echo "Beginning check of output logs for sensitive strings"
+$SCRIPT_PATH/scrub_logs $OUTPUT_FILE
+if [[ $? != 0 ]]; then
+  exit 1
+fi
+
+echo "Exit code: $EXITCODE"
+if [[ $EXITCODE != 0 ]]; then
+  echo "Encountered fuzz test failures. Logging all failing fuzz inputs:"
+  find . -type f|fgrep '/testdata/fuzz/'|while read f; do echo $f; cat $f; done
+else
+  echo "All fuzz tests passed!"
+fi
+exit $EXITCODE

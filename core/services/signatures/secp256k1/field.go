@@ -1,7 +1,9 @@
 // Package secp256k1 is an implementation of the kyber.{Group,Point,Scalar}
-////////////////////////////////////////////////////////////////////////////////
-//       XXX: Do not use in production until this code has been audited.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
+//
+//	XXX: Do not use in production until this code has been audited.
+//
+// //////////////////////////////////////////////////////////////////////////////
 // interfaces, based on btcd/btcec and kyber/group/mod
 //
 // XXX: NOT CONSTANT TIME!
@@ -47,7 +49,7 @@ func (f *fieldElt) modQ() *fieldElt {
 func fieldEltFromBigInt(v *big.Int) *fieldElt { return (*fieldElt)(v).modQ() }
 
 func fieldEltFromInt(v int64) *fieldElt {
-	return fieldEltFromBigInt(big.NewInt(int64(v))).modQ()
+	return fieldEltFromBigInt(big.NewInt(v)).modQ()
 }
 
 var fieldZero = fieldEltFromInt(0)
@@ -135,13 +137,11 @@ func fieldSquare(y *fieldElt) *fieldElt {
 	return fieldEltFromBigInt(newFieldZero().int().Exp(y.int(), two, q))
 }
 
+func i() *big.Int { return new(big.Int) }
+
 // sqrtPower is s.t. n^sqrtPower≡sqrt(n) mod q, if n has a root at all. See
 // https://math.stackexchange.com/a/1816280, for instance
-//
-// What I'm calling sqrtPower is called q on the s256 struct. (See
-// btcec.initS256), which is confusing because the "Q" in "QPlus1Div4" refers to
-// the field characteristic
-var sqrtPower = s256.QPlus1Div4()
+var sqrtPower = i().Rsh(i().Add(q, big.NewInt(1)), 2) // (q +1)/4
 
 // maybeSqrtInField returns a square root of v, if it has any, else nil
 func maybeSqrtInField(v *fieldElt) *fieldElt {

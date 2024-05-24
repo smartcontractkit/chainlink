@@ -1,0 +1,14 @@
+exec chainlink admin users chrole --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink admin users chrole - Changes an API user's role
+
+USAGE:
+   chainlink admin users chrole [command options] [arguments...]
+
+OPTIONS:
+   --email value                      email of user to be edited
+   --new-role value, --newrole value  new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.
+   

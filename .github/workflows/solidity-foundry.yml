@@ -1,0 +1,100 @@
+name: Solidity Foundry
+on: [pull_request]
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          # Foundry is only used for Solidity v0.8 contracts, therefore we can ignore
+          # changes to older contracts.
+          filters: |
+            src:
+              - 'contracts/src/v0.8/**/*'
+              - '.github/workflows/solidity-foundry.yml'
+              - 'contracts/foundry.toml'
+              - 'contracts/gas-snapshots/*.gas-snapshot'
+              - 'contracts/foundry-lib'
+              - '.gitmodules'
+
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
+    needs: [changes]
+    name: Foundry Tests ${{ matrix.product }}
+    # See https://github.com/foundry-rs/foundry/issues/3827
+    runs-on: ubuntu-22.04
+
+    # The if statements for steps after checkout repo is workaround for
+    # passing required check for PRs that don't have filtered changes.
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      # Only needed because we use the NPM versions of packages
+      # and not native Foundry. This is to make sure the dependencies
+      # stay in sync.
+      - name: Setup NodeJS
+        if: needs.changes.outputs.changes == 'true'
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        if: needs.changes.outputs.changes == 'true'
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          # Has to match the `make foundry` version.
+          version: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+
+      - name: Run Forge build
+        if: needs.changes.outputs.changes == 'true'
+        run: |
+          forge --version
+          forge build
+        id: build
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Run Forge tests
+        if: needs.changes.outputs.changes == 'true'
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Run Forge snapshot
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && !contains(fromJson('["keystone"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
+        run: |
+          forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
+        id: snapshot
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Collect Metrics
+        if: needs.changes.outputs.changes == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-foundry
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Foundry Tests ${{ matrix.product }}
+        continue-on-error: true

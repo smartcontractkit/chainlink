@@ -1,0 +1,46 @@
+name: PR Labels
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  crib:
+    runs-on: ubuntu-latest
+    permissions:
+      # For AWS assume role.
+      id-token: write
+      contents: read
+      # To comment on PR's.
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+        with:
+          version: ^8.0.0
+
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: ./.github/scripts/crib/pnpm-lock.yaml
+
+      - run: pnpm install
+        working-directory: ./.github/scripts/crib
+
+      - name: Assume role capable of dispatching action
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_SAND }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-duration-seconds: 900
+          mask-aws-account-id: true
+          role-session-name: pr-labels.crib
+
+      - name: Comment CRIB details on PR
+        run: ./.github/scripts/crib/pr-comment-crib-env.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ROUTE53_ZONE_ID: ${{ secrets.ROUTE53_ZONE_ID_SAND }}

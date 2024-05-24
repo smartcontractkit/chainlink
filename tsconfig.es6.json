@@ -1,7 +1,0 @@
-// tsconfig for packages that need es2015 module compilation
-{
-  "extends": "./tsconfig.cjs.json",
-  "compilerOptions": {
-    "module": "ES2015" /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */
-  }
-}

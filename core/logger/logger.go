@@ -1,29 +1,42 @@
-// Package logger is used to store details of events in the node.
-// Events can be categorized by Debug, Info, Error, Fatal, and Panic.
 package logger
 
 import (
-	stderr "errors"
+	"errors"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
-	"reflect"
-	"runtime"
-	"sync"
+	"path/filepath"
 
-	"github.com/pkg/errors"
+	"github.com/fatih/color"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
+
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var (
-	logger *Logger
-	mtx    sync.RWMutex
-)
+// logsFile describes the logs file name
+const logsFile = "chainlink_debug.log"
+
+// Create a standard error writer to avoid test issues around os.Stderr being
+// reassigned when verbose logging is enabled
+type stderrWriter struct{}
+
+func (sw stderrWriter) Write(p []byte) (n int, err error) {
+	return os.Stderr.Write(p)
+}
+func (sw stderrWriter) Close() error {
+	return nil // never close stderr
+}
+func (sw stderrWriter) Sync() error {
+	return os.Stderr.Sync()
+}
 
 func init() {
-	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
+	err := zap.RegisterSink("pretty", prettyConsoleSink(stderrWriter{}))
 	if err != nil {
 		log.Fatalf("failed to register pretty printer %+v", err)
 	}
@@ -31,237 +44,268 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
-
-	zl, err := zap.NewProduction()
-	if err != nil {
-		log.Fatal(err)
-	}
-	SetLogger(zl)
-}
-
-func GetLogger() *Logger {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	return logger
-}
-
-func prettyConsoleSink(s zap.Sink) func(*url.URL) (zap.Sink, error) {
-	return func(*url.URL) (zap.Sink, error) {
-		return PrettyConsole{s}, nil
+	if os.Getenv("CL_LOG_COLOR") != "true" {
+		InitColor(false)
 	}
 }
 
-// Logger holds a field for the logger interface.
-type Logger struct {
-	*zap.SugaredLogger
+var _ common.Logger = (Logger)(nil)
+
+//go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
+//go:generate mockery --quiet --name Logger --output ./mocks/ --case=underscore
+
+// Logger is the main interface of this package.
+// It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
+//
+// Loggers should be injected (and usually Named as well): e.g. lggr.Named("<service name>")
+//
+// Tests
+//   - Tests should use a TestLogger, with NewLogger being reserved for actual
+//     runtime and limited direct testing.
+//
+// Levels
+//   - Fatal: Logs and then calls os.Exit(1). Be careful about using this since it does NOT unwind the stack and may exit uncleanly.
+//   - Panic: Unrecoverable error. Example: invariant violation, programmer error
+//   - Critical: Requires quick action from the node op, obviously these should happen extremely rarely. Example: failed to listen on TCP port
+//   - Error: Something bad happened, and it was clearly on the node op side. No need for immediate action though. Example: database write timed out
+//   - Warn: Something bad happened, not clear who/what is at fault. Node ops should have a rough look at these once in a while to see whether anything stands out. Example: connection to peer was closed unexpectedly. observation timed out.
+//   - Info: High level information. First level we’d expect node ops to look at. Example: entered new epoch with leader, made an observation with value, etc.
+//   - Debug: Useful for forensic debugging, but we don't expect nops to look at this. Example: Got a message, dropped a message, ...
+//   - Trace: Only included if compiled with the trace tag. For example: go test -tags trace ...
+//
+// Node Operator Docs: https://docs.chain.link/docs/configuration-variables/#log_level
+type Logger interface {
+	// With creates a new Logger with the given arguments
+	With(args ...interface{}) Logger
+	// Named creates a new Logger sub-scoped with name.
+	// Names are inherited and dot-separated.
+	//   a := l.Named("A") // logger=A
+	//   b := a.Named("A") // logger=A.B
+	// Names are generally `MixedCaps`, without spaces, like Go names.
+	Named(name string) Logger
+
+	// SetLogLevel changes the log level for this and all connected Loggers.
+	SetLogLevel(zapcore.Level)
+
+	Trace(args ...interface{})
+	Debug(args ...interface{})
+	Info(args ...interface{})
+	Warn(args ...interface{})
+	Error(args ...interface{})
+	Critical(args ...interface{})
+	Panic(args ...interface{})
+	// Fatal logs and then calls os.Exit(1)
+	// Be careful about using this since it does NOT unwind the stack and may
+	// exit uncleanly
+	Fatal(args ...interface{})
+
+	Tracef(format string, values ...interface{})
+	Debugf(format string, values ...interface{})
+	Infof(format string, values ...interface{})
+	Warnf(format string, values ...interface{})
+	Errorf(format string, values ...interface{})
+	Criticalf(format string, values ...interface{})
+	Panicf(format string, values ...interface{})
+	Fatalf(format string, values ...interface{})
+
+	Tracew(msg string, keysAndValues ...interface{})
+	Debugw(msg string, keysAndValues ...interface{})
+	Infow(msg string, keysAndValues ...interface{})
+	Warnw(msg string, keysAndValues ...interface{})
+	Errorw(msg string, keysAndValues ...interface{})
+	Criticalw(msg string, keysAndValues ...interface{})
+	Panicw(msg string, keysAndValues ...interface{})
+	Fatalw(msg string, keysAndValues ...interface{})
+
+	// Sync flushes any buffered log entries.
+	// Some insignificant errors are suppressed.
+	Sync() error
+
+	// Helper creates a new logger with the number of callers skipped by caller annotation increased by skip.
+	// This allows wrappers and helpers to point higher up the stack (like testing.T.Helper()).
+	Helper(skip int) Logger
+
+	// Name returns the fully qualified name of the logger.
+	Name() string
+
+	// Recover reports recovered panics; this is useful because it avoids
+	// double-reporting to sentry
+	Recover(panicErr interface{})
 }
 
-// Write logs a message at the Info level and returns the length
-// of the given bytes.
-func (l *Logger) Write(b []byte) (int, error) {
-	l.Info(string(b))
-	return len(b), nil
-}
-
-// SetLogger sets the internal logger to the given input.
-func SetLogger(zl *zap.Logger) {
-	mtx.Lock()
-	defer mtx.Unlock()
-	if logger != nil {
-		defer func() {
-			if err := logger.Sync(); err != nil {
-				if stderr.Unwrap(err).Error() != os.ErrInvalid.Error() &&
-					stderr.Unwrap(err).Error() != "inappropriate ioctl for device" &&
-					stderr.Unwrap(err).Error() != "bad file descriptor" {
-					// logger.Sync() will return 'invalid argument' error when closing file
-					log.Fatalf("failed to sync logger %+v", err)
-				}
-			}
-		}()
+// newZapConfigProd returns a new production zap.Config.
+func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
+	config := newZapConfigBase()
+	if !unixTS {
+		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
-	logger = &Logger{zl.Sugar()}
-}
-
-// CreateProductionLogger returns a log config for the passed directory
-// with the given LogLevel and customizes stdout for pretty printing.
-func CreateProductionLogger(
-	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *zap.Logger {
-	config := zap.NewProductionConfig()
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
 	}
-	if toDisk {
-		destination := logFileURI(dir)
-		config.OutputPaths = append(config.OutputPaths, destination)
-		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
-	}
-	config.Level.SetLevel(lvl)
+	return config
+}
 
-	zl, err := config.Build(zap.AddCallerSkip(1))
+func verShaNameStatic() string {
+	sha, ver := static.Short()
+	return fmt.Sprintf("%s@%s", ver, sha)
+}
+
+// NewLogger returns a new Logger with default configuration.
+// Tests should use TestLogger.
+func NewLogger() (Logger, func() error) {
+	var c Config
+	return c.New()
+}
+
+type Config struct {
+	LogLevel       zapcore.Level
+	Dir            string
+	JsonConsole    bool
+	UnixTS         bool
+	FileMaxSizeMB  int
+	FileMaxAgeDays int
+	FileMaxBackups int // files
+
+	diskSpaceAvailableFn diskSpaceAvailableFn
+	diskPollConfig       zapDiskPollConfig
+	// This is for tests only
+	testDiskLogLvlChan chan zapcore.Level
+}
+
+// New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
+// Tests should use TestLogger.
+func (c *Config) New() (Logger, func() error) {
+	if c.diskSpaceAvailableFn == nil {
+		c.diskSpaceAvailableFn = diskSpaceAvailable
+	}
+	if !c.diskPollConfig.isSet() {
+		c.diskPollConfig = newDiskPollConfig(diskPollInterval)
+	}
+
+	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
+	cfg.Level.SetLevel(c.LogLevel)
+	var (
+		l           Logger
+		closeLogger func() error
+		err         error
+	)
+	if !c.DebugLogsToDisk() {
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS)
+	} else {
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
-	return zl
+
+	l = newSentryLogger(l)
+	l = newPrometheusLogger(l)
+	l = l.With("version", verShaNameStatic())
+	return l, closeLogger
 }
 
-// Infow logs an info message and any additional given information.
-func Infow(msg string, keysAndValues ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Infow(msg, keysAndValues...)
+// DebugLogsToDisk returns whether debug logs should be stored in disk
+func (c Config) DebugLogsToDisk() bool {
+	return c.FileMaxSizeMB > 0
 }
 
-// Debugw logs a debug message and any additional given information.
-func Debugw(msg string, keysAndValues ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Debugw(msg, keysAndValues...)
+// RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
+func (c Config) RequiredDiskSpace() utils.FileSize {
+	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1))
 }
 
-// Warnw logs a debug message and any additional given information.
-func Warnw(msg string, keysAndValues ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Warnw(msg, keysAndValues...)
-}
-
-// Errorw logs an error message, any additional given information, and includes
-// stack trace.
-func Errorw(msg string, keysAndValues ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Errorw(msg, keysAndValues...)
-}
-
-// Infof formats and then logs the message.
-func Infof(format string, values ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Info(fmt.Sprintf(format, values...))
-}
-
-// Debugf formats and then logs the message.
-func Debugf(format string, values ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Debug(fmt.Sprintf(format, values...))
-}
-
-// Warnf formats and then logs the message as Warn.
-func Warnf(format string, values ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Warn(fmt.Sprintf(format, values...))
-}
-
-// Panicf formats and then logs the message before panicking.
-func Panicf(format string, values ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Panic(fmt.Sprintf(format, values...))
-}
-
-// Info logs an info message.
-func Info(args ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Info(args...)
-}
-
-// Debug logs a debug message.
-func Debug(args ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Debug(args...)
-}
-
-// Warn logs a message at the warn level.
-func Warn(args ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Warn(args...)
-}
-
-// Error logs an error message.
-func Error(args ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Error(args...)
-}
-
-// WarnIf logs the error if present.
-func WarnIf(err error) {
-	if err != nil {
-		mtx.RLock()
-		defer mtx.RUnlock()
-		logger.Warn(err)
+func (c *Config) DiskSpaceAvailable(path string) (utils.FileSize, error) {
+	if c.diskSpaceAvailableFn == nil {
+		c.diskSpaceAvailableFn = diskSpaceAvailable
 	}
+
+	return c.diskSpaceAvailableFn(path)
 }
 
-// ErrorIf logs the error if present.
-func ErrorIf(err error, optionalMsg ...string) {
+func (c Config) LogsFile() string {
+	return filepath.Join(c.Dir, logsFile)
+}
+
+// InitColor explicitly sets the global color.NoColor option.
+// Not safe for concurrent use. Only to be called from init().
+func InitColor(c bool) {
+	color.NoColor = !c
+}
+
+// newZapConfigBase returns a zap.NewProductionConfig with sampling disabled and a modified level encoder.
+func newZapConfigBase() zap.Config {
+	cfg := zap.NewProductionConfig()
+	cfg.Sampling = nil
+	cfg.EncoderConfig.EncodeLevel = encodeLevel
+	return cfg
+}
+
+func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, error) {
+	core, coreCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
 	if err != nil {
-		mtx.RLock()
-		defer mtx.RUnlock()
-		if len(optionalMsg) > 0 {
-			logger.Error(errors.Wrap(err, optionalMsg[0]))
-		} else {
-			logger.Error(err)
-		}
+		return nil, nil, err
 	}
-}
 
-// ErrorIfCalling calls the given function and logs the error of it if there is.
-func ErrorIfCalling(f func() error, optionalMsg ...string) {
-	err := f()
+	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)
 	if err != nil {
-		mtx.RLock()
-		defer mtx.RUnlock()
-		e := errors.Wrap(err, runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
-		if len(optionalMsg) > 0 {
-			logger.Error(errors.Wrap(e, optionalMsg[0]))
-		} else {
-			logger.Error(e)
-		}
+		coreCloseFn()
+		return nil, nil, err
 	}
+
+	return l, func() error {
+		coreCloseFn()
+		loggerCloseFn()
+		return nil
+	}, nil
 }
 
-// PanicIf logs the error if present.
-func PanicIf(err error) {
+func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (*zapLogger, func(), error) {
+	errSink, closeFn, err := zap.Open(zcfg.ErrorOutputPaths...)
 	if err != nil {
-		mtx.RLock()
-		defer mtx.RUnlock()
-		logger.Panic(err)
+		return nil, nil, err
 	}
+
+	return &zapLogger{
+		level:         zcfg.Level,
+		SugaredLogger: zap.New(core, zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)).Sugar(),
+	}, closeFn, nil
 }
 
-// Fatal logs a fatal message then exits the application.
-func Fatal(args ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Fatal(args...)
+func newDefaultLoggingCore(zcfg zap.Config, unixTS bool) (zapcore.Core, func(), error) {
+	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(unixTS))
+
+	sink, closeOut, err := zap.Open(zcfg.OutputPaths...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if zcfg.Level == (zap.AtomicLevel{}) {
+		return nil, nil, errors.New("missing Level")
+	}
+
+	filteredLogLevels := zap.LevelEnablerFunc(zcfg.Level.Enabled)
+
+	core := zapcore.NewCore(encoder, sink, filteredLogLevels)
+	return core, closeOut, nil
 }
 
-// Errorf logs a message at the error level using Sprintf.
-func Errorf(format string, values ...interface{}) {
-	Error(fmt.Sprintf(format, values...))
-}
+func newDiskCore(diskLogLevel zap.AtomicLevel, local Config) (zapcore.Core, error) {
+	diskUsage, err := local.DiskSpaceAvailable(local.Dir)
+	if err != nil || diskUsage < local.RequiredDiskSpace() {
+		diskLogLevel.SetLevel(disabledLevel)
+	}
 
-// Fatalf logs a message at the fatal level using Sprintf.
-func Fatalf(format string, values ...interface{}) {
-	Fatal(fmt.Sprintf(format, values...))
-}
+	var (
+		encoder = zapcore.NewConsoleEncoder(makeEncoderConfig(local.UnixTS))
+		sink    = zapcore.AddSync(&lumberjack.Logger{
+			Filename:   local.logFileURI(),
+			MaxSize:    local.FileMaxSizeMB,
+			MaxAge:     local.FileMaxAgeDays,
+			MaxBackups: local.FileMaxBackups,
+			Compress:   true,
+		})
+		allLogLevels = zap.LevelEnablerFunc(diskLogLevel.Enabled)
+	)
 
-// Panic logs a panic message then panics.
-func Panic(args ...interface{}) {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	logger.Panic(args...)
-}
-
-// Sync flushes any buffered log entries.
-func Sync() error {
-	mtx.RLock()
-	defer mtx.RUnlock()
-	return logger.Sync()
+	return zapcore.NewCore(encoder, sink, allLogLevels), nil
 }

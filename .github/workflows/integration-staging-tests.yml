@@ -1,0 +1,132 @@
+# NEEDS ADJUSTING TO TOML CONFIG BEFORE USING!!
+name: E2E Functions staging tests
+
+on:
+# TODO: enable when env will be stable
+#  schedule:
+#    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Blockchain network (testnet)
+        type: choice
+        default: "MUMBAI"
+        options:
+          - "MUMBAI"
+      test_type:
+        description: Test type
+        type: choice
+        default: "mumbai_functions_soak_test_real"
+        options:
+          - "mumbai_functions_soak_test_http"
+          - "mumbai_functions_stress_test_http"
+          - "mumbai_functions_soak_test_only_secrets"
+          - "mumbai_functions_stress_test_only_secrets"
+          - "mumbai_functions_soak_test_real"
+          - "mumbai_functions_stress_test_real"
+# TODO: disabled, need GATI access
+#          - "gateway_secrets_set_soak_test"
+#          - "gateway_secrets_list_soak_test"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-soak-test:
+    environment: sdlc
+    runs-on: ubuntu22.04-8cores-32GB
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
+      SELECTED_NETWORKS: ${{ inputs.network }}
+      SELECTED_TEST: ${{ inputs.test_type }}
+      MUMBAI_URLS: ${{ secrets.FUNCTIONS_STAGING_MUMBAI_URLS }}
+      MUMBAI_KEYS: ${{ secrets.FUNCTIONS_STAGING_MUMBAI_KEYS }}
+      WASP_LOG_LEVEL: info
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        run: |
+          convert_to_toml_array() {
+              local IFS=','
+              local input_array=($1)
+              local toml_array_format="["
+
+              for element in "${input_array[@]}"; do
+                  toml_array_format+="\"$element\","
+              done
+
+              toml_array_format="${toml_array_format%,}]"
+              echo "$toml_array_format"
+          }
+
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+
+          cat << EOF > config.toml
+          [Common]
+          chainlink_node_funding=0.5
+
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="${{ github.sha }}"
+
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key_secret="$PYROSCOPE_KEY"
+
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth_secret="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dashboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+
+          [Network]
+          selected_networks=["sepolia"]
+
+          [Network.RpcHttpUrls]
+          sepolia = $(convert_to_toml_array "$SEPOLIA_HTTP_URLS")
+
+          [Network.RpcWsUrls]
+          sepolia = $(convert_to_toml_array "$SEPOLIA_URLS")
+
+          [Network.WalletKeys]
+          sepolia = $(convert_to_toml_array "$EVM_KEYS")
+          EOF
+
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Run E2E soak tests
+        run: |
+          cd integration-tests/load/functions
+          if [[ $SELECTED_TEST == mumbai_functions* ]]; then
+            go test -v -timeout 6h -run TestFunctionsLoad/$SELECTED_TEST
+          elif [[ $SELECTED_TEST == gateway* ]]; then
+            go test -v -timeout 6h -run TestGatewayLoad/$SELECTED_TEST
+          fi

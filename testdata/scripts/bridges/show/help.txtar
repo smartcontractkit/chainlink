@@ -1,0 +1,9 @@
+exec chainlink bridges show --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink bridges show - Show a Bridge's details
+
+USAGE:
+   chainlink bridges show [arguments...]

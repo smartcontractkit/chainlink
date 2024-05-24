@@ -1,0 +1,20 @@
+ChainID = '534351'
+FinalityDepth = 1
+ChainType = 'scroll'
+LogPollInterval = '3s'
+MinIncomingConfirmations = 1
+# Scroll only emits blocks when a new tx is received, so this method of liveness detection is not useful
+NoNewHeadsThreshold = '0'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+# Scroll uses the SuggestedPrice estimator; we don't want to place any limits on the minimum gas price
+PriceMin = '0'
+
+[GasEstimator.BlockHistory]
+# Force an error if someone enables the estimator by accident; we never want to run the block history estimator on Scroll
+BlockHistorySize = 0
+
+[HeadTracker]
+HistoryDepth = 50

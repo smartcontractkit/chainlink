@@ -1,0 +1,18 @@
+exec chainlink txs --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink txs - Commands for handling transactions
+
+USAGE:
+   chainlink txs command [command options] [arguments...]
+
+COMMANDS:
+   evm     Commands for handling EVM transactions
+   cosmos  Commands for handling Cosmos transactions
+   solana  Commands for handling Solana transactions
+
+OPTIONS:
+   --help, -h  show help
+   

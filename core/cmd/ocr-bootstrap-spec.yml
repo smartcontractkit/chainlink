@@ -1,0 +1,8 @@
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15"
+externalJobID      = "%s"
+name               = "%s"
+evmChainID         = "0"
+p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
+isBootstrapPeer = true

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 hash=$1
 curl -sS --data '{"method":"trace_transaction","params":["'$hash'"],"id":1,"jsonrpc":"2.0"}' \

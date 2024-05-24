@@ -1,17 +1,16 @@
-package ethdss
+package clientdss
 
 import (
 	"crypto/rand"
-	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/cryptotest"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/ethschnorr"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/ethschnorr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 
 	"go.dedis.ch/kyber/v3"
 	dkg "go.dedis.ch/kyber/v3/share/dkg/rabin"
@@ -143,7 +142,7 @@ var printTests = false
 func printTest(t *testing.T, msg *big.Int, public kyber.Point,
 	signature ethschnorr.Signature) {
 	pX, pY := secp256k1.Coordinates(public)
-	fmt.Printf("  ['%064x',\n   '%064x',\n   '%064x',\n   '%064x',\n   '%040x'],\n",
+	t.Logf("  ['%064x',\n   '%064x',\n   '%064x',\n   '%064x',\n   '%040x'],\n",
 		msg, pX, pY, signature.Signature,
 		signature.CommitmentPublicAddress)
 }
@@ -267,7 +266,6 @@ func _genDistSecret() []*dkg.DistKeyShare {
 		dkss[i] = dks
 	}
 	return dkss
-
 }
 
 func genDistSecret(checkValidPublicKey bool) []*dkg.DistKeyShare {

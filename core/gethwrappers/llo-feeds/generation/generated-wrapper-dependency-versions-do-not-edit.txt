@@ -1,0 +1,15 @@
+GETH_VERSION: 1.13.8
+channel_config_store: ../../../contracts/solc/v0.8.19/ChannelConfigStore/ChannelConfigStore.abi ../../../contracts/solc/v0.8.19/ChannelConfigStore/ChannelConfigStore.bin c90e29d9f1a885098982b6175e0447416431b28c605273c807694ac7141e9167
+channel_config_verifier_proxy: ../../../contracts/solc/v0.8.19/ChannelVerifierProxy/ChannelVerifierProxy.abi ../../../contracts/solc/v0.8.19/ChannelVerifierProxy/ChannelVerifierProxy.bin 655658e5f61dfadfe3268de04f948b7e690ad03ca45676e645d6cd6018154661
+channel_verifier: ../../../contracts/solc/v0.8.19/ChannelVerifier/ChannelVerifier.abi ../../../contracts/solc/v0.8.19/ChannelVerifier/ChannelVerifier.bin e6020553bd8e3e6b250fcaffe7efd22aea955c8c1a0eb05d282fdeb0ab6550b7
+errored_verifier: ../../../contracts/solc/v0.8.19/ErroredVerifier/ErroredVerifier.abi ../../../contracts/solc/v0.8.19/ErroredVerifier/ErroredVerifier.bin a3e5a77262e13ee30fe8d35551b32a3452d71929e43fd780bbfefeaf4aa62e43
+exposed_channel_verifier: ../../../contracts/solc/v0.8.19/ExposedChannelVerifier/ExposedChannelVerifier.abi ../../../contracts/solc/v0.8.19/ExposedChannelVerifier/ExposedChannelVerifier.bin c21cde078900241c06de69e2bc5d906c5ef558b52db66caa68bed065940a2253
+exposed_verifier: ../../../contracts/solc/v0.8.19/ExposedVerifier/ExposedVerifier.abi ../../../contracts/solc/v0.8.19/ExposedVerifier/ExposedVerifier.bin 00816ab345f768e522c79abadeadf9155c2c688067e18f8f73e5d6ab71037663
+fee_manager: ../../../contracts/solc/v0.8.19/FeeManager/FeeManager.abi ../../../contracts/solc/v0.8.19/FeeManager/FeeManager.bin edc85f34294ae7c90d45c4c71eb5c105c60a4842dfbbf700c692870ffcc403a1
+llo_feeds: ../../../contracts/solc/v0.8.19/FeeManager.abi ../../../contracts/solc/v0.8.19/FeeManager.bin cb71e018f67e49d7bc0e194c822204dfd59f79ff42e4fc8fd8ab63f3acd71361
+llo_feeds_test: ../../../contracts/solc/v0.8.19/ExposedVerifier.abi ../../../contracts/solc/v0.8.19/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
+reward_manager: ../../../contracts/solc/v0.8.19/RewardManager/RewardManager.abi ../../../contracts/solc/v0.8.19/RewardManager/RewardManager.bin 7996cbc89a7f9af85b1ca4079ecf782d7138626b3f4bdb3bfa996248c9ccb9f4
+stream_config_store: ../../../contracts/solc/v0.8.19/StreamConfigStore/StreamConfigStore.abi ../../../contracts/solc/v0.8.19/StreamConfigStore/StreamConfigStore.bin 45ae1b0a45a90b3dee076023052aef73c212c8ef8825b829397f751f6b0a1598
+verifier: ../../../contracts/solc/v0.8.19/Verifier/Verifier.abi ../../../contracts/solc/v0.8.19/Verifier/Verifier.bin 413406be1578e9fb73e664ceb1967e6aedf5cf7c4701a2b81fe7c42b03f13573
+verifier_proxy: ../../../contracts/solc/v0.8.19/VerifierProxy/VerifierProxy.abi ../../../contracts/solc/v0.8.19/VerifierProxy/VerifierProxy.bin aca18e93b0129114f20c4c0fbaeb61c86bc0ca0724bc438ec7ae11c158038ea7
+werc20_mock: ../../../contracts/solc/v0.8.19/WERC20Mock.abi ../../../contracts/solc/v0.8.19/WERC20Mock.bin ff2ca3928b2aa9c412c892cb8226c4d754c73eeb291bb7481c32c48791b2aa94

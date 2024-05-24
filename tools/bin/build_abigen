@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Checks that the correct abigen is installed in this directory, and installs it
 # if not.
@@ -7,6 +7,7 @@ set -e
 
 # Version of abigen to install. Must be run within chainlink project
 GETH_VERSION=$(go list -json -m github.com/ethereum/go-ethereum | jq -r .Version)
+GETH_REPO_URL="https://github.com/ethereum/go-ethereum"
 
 function realpath { echo $(cd $(dirname $1); pwd)/$(basename $1); }
 THIS_DIR="$(realpath "$(dirname $0)")"
@@ -31,10 +32,10 @@ TMPDIR="$(mktemp -d)"
 
 pushd "$TMPDIR"
 
-GETH_REPO_URL="https://github.com/ethereum/go-ethereum"
 git clone --depth=1 --single-branch --branch "$GETH_VERSION" "$GETH_REPO_URL"
 cd go-ethereum/cmd/abigen
 go build
+rm -f "$THIS_DIR/abigen" # necessary on MacOS for code signing
 cp ./abigen "$THIS_DIR"
 
 popd

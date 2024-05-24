@@ -1,0 +1,35 @@
+name: Bash Scripts
+
+on:
+  pull_request:
+
+jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      bash-scripts-src: ${{ steps.bash-scripts.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: bash-scripts
+        with:
+          filters: |
+            src:
+            - 'tools/bin/**'
+            - '.github/workflows/bash-scripts.yml'
+  shellcheck:
+    name: ShellCheck Lint
+    runs-on: ubuntu-latest
+    needs: [changes]
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Run ShellCheck
+        if: needs.changes.outputs.bash-scripts-src == 'true'
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # v2.0.0
+        with:
+          scandir: "./tools/bin"
+          # Consider changing this to check for warnings once all warnings are fixed.
+          severity: error

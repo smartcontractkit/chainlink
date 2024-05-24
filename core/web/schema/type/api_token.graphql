@@ -1,0 +1,28 @@
+type APIToken {
+    accessKey: String!
+    secret: String!
+}
+
+input CreateAPITokenInput {
+    password: String!
+}
+
+type CreateAPITokenSuccess {
+    token: APIToken!
+}
+
+union CreateAPITokenPayload = CreateAPITokenSuccess | InputErrors
+
+input DeleteAPITokenInput {
+    password: String!
+}
+
+type DeleteAPITokenResult {
+    accessKey: String!
+}
+
+type DeleteAPITokenSuccess {
+    token: DeleteAPITokenResult!
+}
+
+union DeleteAPITokenPayload = DeleteAPITokenSuccess | InputErrors

@@ -1,0 +1,13 @@
+exec chainlink bridges list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink bridges list - List all Bridges to External Adapters
+
+USAGE:
+   chainlink bridges list [command options] [arguments...]
+
+OPTIONS:
+   --page value  page of results to display (default: 0)
+   

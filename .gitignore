@@ -8,14 +8,6 @@ tools/bin/abigen
 /chainlink
 core/chainlink
 
-# GUI
-operator_ui/dist
-operator_ui/artifacts
-*-packr.go
-
-# Feeds UI
-feeds/build
-
 # SQLite
 tools/clroot/db.sqlite3-shm
 tools/clroot/db.sqlite3-wal
@@ -31,6 +23,15 @@ tools/clroot/db.sqlite3-wal
 .DS_Store
 .envrc
 .env*
+.dbenv
+!crib/.env.example
+!.github/actions/setup-postgres/.env
+.direnv
+.idea
+.vscode/
+*.iml
+debug.env
+*.txt
 
 # codeship
 *.aes
@@ -39,4 +40,65 @@ env
 credentials.env
 gcr_creds.env
 
-coverage/
+# DB backups
+
+cl_backup_*.tar.gz
+
+# Test artifacts
+core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
+output.txt
+race.*
+golangci-lint-output.txt
+/golangci-lint/
+.covdata
+
+# DB state
+./db/
+.s.PGSQL.5432.lock
+
+# can be left behind by tests
+core/cmd/vrfkey1
+
+# Integration Tests
+integration-tests/**/logs/
+tests-*.xml
+*.test
+tmp-manifest-*.yaml
+ztarrepo.tar.gz
+**/test-ledger/*
+__debug_bin*
+.test_summary/
+.run.id
+integration-tests/**/traces/
+benchmark_report.csv
+benchmark_summary.json
+
+# goreleaser builds
+cosign.*
+dist/
+MacOSX*
+
+# Test & linter reports
+*report.xml
+*report.json
+*.out
+
+contracts/yarn.lock
+
+# Ignore DevSpace cache and log folder
+.devspace/
+go.work*
+
+# This sometimes shows up for some reason
+tools/flakeytests/coverage.txt
+
+# Fuzz tests can create these files
+**/testdata/fuzz/*
+
+# Runtime test configuration that might contain secrets
+override*.toml
+
+# Pythin venv
+.venv/
+
+ocr_soak_report.csv

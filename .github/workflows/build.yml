@@ -1,0 +1,52 @@
+name: "Build Chainlink"
+
+on:
+  pull_request:
+
+jobs:
+  build-chainlink:
+    runs-on: ubuntu-20.04
+    if: ${{ ! startsWith(github.head_ref, 'release/') && ! startsWith(github.ref_name, 'chore/') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: change
+        with:
+          predicate-quantifier: every
+          filters: |
+            changelog-only:
+              - 'CHANGELOG.md'
+              - '!common/**'
+              - '!contracts/**'
+              - '!core/**'
+              - '!crib/**'
+              - '!dashboard-lib/**'
+              - '!fuzz/**'
+              - '!integration-tests/**'
+              - '!internal/**'
+              - '!operator_ui/**'
+              - '!plugins/**'
+              - '!tools/**'
+
+      - name: Build chainlink image
+        if: ${{ steps.change.outputs.changelog-only == 'false' }}
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          publish: false
+          sign-images: false
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: build-chainlink
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: build-chainlink
+        continue-on-error: true

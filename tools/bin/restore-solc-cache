@@ -1,5 +1,0 @@
-#!/bin/sh
-CACHE_SRC=./solc_bin
-CACHE_DST=./node_modules/@0x/sol-compiler
-
-cp -R $CACHE_SRC $CACHE_DST

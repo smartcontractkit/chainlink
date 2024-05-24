@@ -1,0 +1,9 @@
+exec chainlink initiators create --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink initiators create - Create an authentication key for a user of External Initiators
+
+USAGE:
+   chainlink initiators create [arguments...]

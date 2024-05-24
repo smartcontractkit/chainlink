@@ -1,0 +1,9 @@
+exec chainlink bridges create --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink bridges create - Create a new Bridge to an External Adapter
+
+USAGE:
+   chainlink bridges create [arguments...]

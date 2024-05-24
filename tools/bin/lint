@@ -1,20 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
-cd "$(dirname "$0")"/../../core
+cd "$(dirname "$0")"/../..
 
-echo "go vet"
-go vet ./...
-echo "shadow"
-go vet -vettool=$HOME/go/bin/shadow ./...
-echo "goimports"
-goimports -d ./
-echo "staticcheck"
-staticcheck ./...
-echo "errcheck"
-errcheck -ignoretests -asserts -ignoregenerated ./...
-echo "gosec"
-gosec -exclude=G101,G104,G204,G304 -exclude-dir ingester ./...
-echo "golint"
-golint -min_confidence 1 ./...
+golangci-lint --tests=false run

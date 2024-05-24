@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem";
+
+package telem;
+
+message BlockNumber {
+    uint64 timestamp = 1;
+    uint64 block_number = 2;
+    string block_hash = 3;
+    bytes config_digest = 4;
+}
+
+message NodeVersion {
+    uint64 timestamp = 1;
+    string node_version = 2;
+    bytes config_digest = 3;
+}
+
+message AutomationTelemWrapper{
+    oneof msg {
+        BlockNumber block_number = 1;
+        NodeVersion node_version = 2;
+    }
+}
+
+// // StreamsLookup contains the metadata about a mercury request
+// message StreamsLookup {
+//     string upkeep_id = 1;
+//     uint64 block_number = 2; // block number provided by ocr2keepers plugin
+//     uint64 timestamp = 3;  // current timestamp
+//     uint64 time_param = 4; // time param key is block number for v0.2 and timestamp for v0.3, time param is the corresponding value
+//     repeated string feeds = 5; // array of feed names
+// }
+
+// // StreamsResponse contains the metadata about mercury response
+// message StreamsResponse {
+//     string upkeep_id = 1;
+//     uint64 block_number = 2; // block number provided by ocr2keepers plugin
+//     uint64 timestamp = 3;  // current timestamp
+//     repeated string feeds = 4; // array of feed names
+//     repeated uint32 http_status_codes = 5; // Mercury server response code
+//     bool success = 6;   // True if all feeds gave successful response
+//     bool retryable = 7; // whether feedLookup should be retried if request fails
+//     uint32 failure_reason = 8; // failure enum defined in abi.go (UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED or some on chain reasons)
+// }
+
+// // StreamsCheckCallback contains whether customer's checkCallBack returns true with mercury data as input
+// message StreamsCheckCallback {
+//     string upkeep_id = 1;
+//     uint64 block_number = 2; // block number provided by ocr2keepers plugin
+//     uint64 timestamp = 3;  // current timestamp
+//     uint32 failure_reason = 4; // failure enum defined in abi.go (on chain reason)
+//     bool upkeep_needed = 5; // result of checkCallBack eth call, whether upkeep needs to be performed
+// }
+
+// // LogTrigger contains log trigger upkeep's information
+// message LogTrigger {
+//     string upkeep_id = 1;
+//     uint64 block_number = 2; // block number provided by ocr2keepers plugin
+//     uint64 timestamp = 3;  // current timestamp
+//     uint64 log_block_number = 4; // block number of log we are checking in pipeline
+//     string log_block_hash = 5; // block has of log we are checking in pipeline
+// }
+
+// // LogTriggerSuccess contains whether checkLog/checkUpkeep eth call returns true for a LogTriggered Upkeep
+// message LogTriggerSimulateResult {
+//     string upkeep_id = 1;
+//     uint64 block_number = 2; // block number provided by ocr2keepers plugin
+//     uint64 timestamp = 3;  // current timestamp
+//     bool success = 4; // result of checkLog/checkUpkeep eth call, whether upkeep needs to be performed
+// }
+
+// message AutomationTelemWrapper {
+//     oneof msg {
+//         StreamsLookup streams_lookup = 1;
+//         StreamsResponse streams_response = 2;
+//         StreamsCheckCallback streams_checkcallback = 3;
+//         LogTrigger log_trigger = 4;
+//         LogTriggerSimulateResult log_trigger_simulate_result = 5;
+//     }
+// }

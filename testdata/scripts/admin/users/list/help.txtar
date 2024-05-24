@@ -1,0 +1,9 @@
+exec chainlink admin users list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink admin users list - Lists all API users and their roles
+
+USAGE:
+   chainlink admin users list [arguments...]

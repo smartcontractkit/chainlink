@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ -z "$GCLOUD_SERVICE_KEY" ]
 then

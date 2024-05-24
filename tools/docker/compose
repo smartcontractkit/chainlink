@@ -1,14 +1,8 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -ex
 
-# Command line flags used for 'docker compose build'
-DOCKER_COMPOSE_BUILD_OPTS=${DOCKER_COMPOSE_BUILD_OPTS-"--parallel"}
-
-# Enable buildkit support locally
-if [ -z $CI ]; then
-  export COMPOSE_DOCKER_CLI_BUILD=1
-  export DOCKER_BUILDKIT=1
-fi
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 
 base_files="-f docker-compose.yaml -f docker-compose.postgres.yaml"
 # Allow for choosing between geth or parity
@@ -18,46 +12,16 @@ else
   base_files="$base_files -f docker-compose.paritynet.yaml"
 fi
 
-base="docker-compose $base_files"                                       # base config, used standalone for acceptance
-dev="$base -f docker-compose.dev.yaml"                                  # config for cldev
-test="$base -f docker-compose.integration.yaml"                         # config to run integration tests
-ts_test="$base -f docker-compose.ts-integration.yaml"                   # config to run integration tests in typescript
-deps="$test -f docker-compose.deps.yaml"                                # config to bring up integration test dependencies
-dev_integration="$test -f docker-compose.dev-integration.yaml"          # config to run integration tests in dev mode
-dev_ts_integration="$ts_test -f docker-compose.dev-ts-integration.yaml" # config to run integration tests in dev mode
+base="docker-compose $base_files"      # base config, used standalone for acceptance
+dev="$base -f docker-compose.dev.yaml" # config for cldev
 
 clean_docker() {
-  $base down -v
-  $dev down -v
-  $test down -v
-  $deps down -v
-  $dev_integration down -v
-  $ts_test down -v
+  $base down -v --remove-orphans
+  $dev down -v --remove-orphans
 }
 
-# Executed before command line args are parsed
-pre_hook() {
-  if [ "$CI" ]; then
-    # If this script is running in CI, clean up our state before running tests
-    clean_docker
-  fi
-}
-
-function save_test_logs() {
-  mkdir -p logs
-  $ts_test logs --no-color node >./logs/node.log
-  $ts_test logs --no-color node-2 >./logs/node-2.log
-  $ts_test logs --no-color devnet >./logs/devnet.log
-  $ts_test logs --no-color node-db >./logs/node-db.log
-  $ts_test logs --no-color node-db-2 >./logs/node-db-2.log
-  $ts_test logs --no-color explorer >./logs/explorer.log
-  $ts_test logs --no-color explorer-db >./logs/explorer-db.log
-  $ts_test logs --no-color external-adapter >./logs/external-adapter.log
-  $test logs --no-color cypress-job-server >./logs/cypress-job-server.log
-  $test logs --no-color echo-server >./logs/echo-server.log
-}
-
-usage="compose -- A helper script for running common docker-compose commands\
+function usage() {
+  echo "compose -- A helper script for running common docker-compose commands\
 
 Commands:
     help                  Displays this help menu
@@ -65,28 +29,20 @@ Commands:
     logs                  Display the logs of any service(s) by name
 
     cld                   Runs the chainlink node container in dev mode
-    cldo                  cld in addition to operator-ui in dev mode
 
     acceptance            Run the services required to perform an acceptance test
 
-    test                  Run integration test suite
-    test:dev              Run integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
-    test:ts               Run integration test suite in typescript (WIP)
-    test:ts:dev           Run integration test suite with /tools/ci-ts bind-mounted (WIP)
-
-    integration | i       Run docker-compose with config for integration tests
-    dev:integration | di  Run docker-compose with dev config for integration tests
-    dev                   Run docker-compose with dev config for the core node and operator-ui
+    dev                   Run docker-compose with dev config for the core node 
 
     eth:restart             Reset blockchain data to genesis state
     cl:restart              Reset chainlink database
 
     *                     Run docker-compose with base config"
+}
 
-pre_hook
 case "$1" in
 help)
-  echo "$usage"
+  usage
   ;;
 clean)
   clean_docker
@@ -98,65 +54,13 @@ cld)
   $dev build
   $dev up -d node
   docker exec -it chainlink-node bash
-  $dev down -v
-  ;;
-cldo)
-  $dev build
-  $dev up -d operator-ui
-  docker exec -it chainlink-node bash
-  $dev down -v
+  $dev down -v --remove-orphans
   ;;
 
 acceptance)
-  $base build $DOCKER_COMPOSE_BUILD_OPTS
   $base up
   ;;
 
-test)
-  $test build $DOCKER_COMPOSE_BUILD_OPTS
-  $deps up --exit-code-from wait-db wait-db
-  $test up --exit-code-from integration
-  save_test_logs
-  $test down -v
-  ;;
-test:dev)
-  $deps up --exit-code-from wait-db wait-db
-  $dev_integration up --exit-code-from integration
-  $dev_integration down -v
-  ;;
-test:ts)
-  $ts_test build $DOCKER_COMPOSE_BUILD_OPTS
-  $deps up --exit-code-from wait-db wait-db
-  $deps up --exit-code-from wait-db-2 wait-db-2
-  set +e
-  $ts_test run integration-ts /bin/sh -c \
-    "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
-      && yarn workspace @chainlink/ci-ts test --runInBand ${@:2}"
-  exit_code=$?
-  set -e
-  save_test_logs
-  $ts_test down -v
-  exit $exit_code
-  ;;
-test:ts:dev)
-  $deps up --exit-code-from wait-db wait-db
-  $deps up --exit-code-from wait-db-2 wait-db-2
-  set +e
-  $dev_ts_integration run integration-ts /bin/sh -c \
-    "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
-      && yarn workspace @chainlink/ci-ts test --verbose --runInBand ${@:2}"
-  exit_code=$?
-  set -e
-  save_test_logs
-  $dev_ts_integration down -v
-  exit $exit_code
-  ;;
-integration | i)
-  $test ${@:2}
-  ;;
-dev:integ | di)
-  $dev_integration ${@:2}
-  ;;
 dev)
   $dev ${@:2}
   ;;
@@ -175,7 +79,6 @@ cl:restart)
   $base rm --force --stop node-db
   docker volume rm --force docker_node-db-data
   ./compose eth:restart
-  $deps up --exit-code-from wait-db wait-db
   $base start node
   ;;
 *)

@@ -1,9 +1,0 @@
-{
-  "extends": "../tsconfig.cjs.json",
-  "compilerOptions": {
-    "outDir": "./lib",
-    "resolveJsonModule": true
-  },
-  "include": ["src", "test"],
-  "exclude": ["test/**/testfs/**/*"]
-}

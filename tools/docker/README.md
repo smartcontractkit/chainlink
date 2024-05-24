@@ -25,17 +25,16 @@ Acceptance can be accomplished by using the `acceptance` command.
 ./compose acceptance
 ```
 
-- The explorer can be reached at `http://localhost:8080`
 - The chainlink node can be reached at `http://localhost:6688`
 
-Credentials for logging into the operator-ui can be found [here](../../core/internals/fixtures/apicredentials)
+Credentials for logging into the operator-ui can be found [here](../../tools/secrets/apicredentials)
 
 ###
 
 ### Doing local development on the core node
 
 Doing quick, iterative changes on the core codebase can still be achieved within the compose setup with the `cld` or `cldo` commands.
-The `cld` command will bring up the services that a chainlink node needs to connect to (explorer, parity/geth, postgres), and then attach the users terminal to a docker container containing the host's chainlink repository bind-mounted inside the container at `/usr/local/src/chainlink`. What this means is that any changes made within the host's repository will be synchronized to the container, and vice versa for changes made within the container at `/usr/local/src/chainlink`.
+The `cld` command will bring up the services that a chainlink node needs to connect to (parity/geth, postgres), and then attach the users terminal to a docker container containing the host's chainlink repository bind-mounted inside the container at `/usr/local/src/chainlink`. What this means is that any changes made within the host's repository will be synchronized to the container, and vice versa for changes made within the container at `/usr/local/src/chainlink`.
 
 This enables a user to make quick changes on either the container or the host, run `cldev` within the attached container, check the new behaviour of the re-built node, and repeat this process until the desired results are achieved.
 
@@ -79,103 +78,9 @@ cldev core # import our testing key and api credentials, then start the node
 # 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149
 # ** Running node
 # 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27
-# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11
-# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12
 # ...
 # ...
 ```
-
-`cldo` allows the user to perform the same actions above, but also applied to the operator-ui codebase and the core codebase. The operator-ui will be hosted in hot-reload/development mode at `http://localhost//3000`. To see the build progress of operator-ui, we can open another terminal to watch its output while we can mess around with the core node in the original terminal.
-
-In the first terminal:
-
-```sh
-./compose cldo
-#
-# Now you are inside the container
-cldev # cldev without the "core" postfix simply calls the core node cli
-#
-# NAME:
-#    main - CLI for Chainlink
-#
-# USAGE:
-#    main [global options] command [command options] [arguments...]
-#
-# VERSION:
-#    unset@unset
-#
-# COMMANDS:
-#    admin              Commands for remotely taking admin related actions
-#    bridges            Commands for Bridges communicating with External Adapters
-#    config             Commands for the node's configuration
-#    jobs               Commands for managing Jobs
-#    node, local        Commands for admin actions that must be run locally
-#    runs               Commands for managing Runs
-#    txs                Commands for handling Ethereum transactions
-#    agreements, agree  Commands for handling service agreements
-#    attempts, txas     Commands for managing Ethereum Transaction Attempts
-#    createextrakey     Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
-#    initiators         Commands for managing External Initiators
-#    help, h            Shows a list of commands or help for one command
-#
-# GLOBAL OPTIONS:
-#    --json, -j     json output as opposed to table
-#    --help, -h     show help
-#    --version, -v  print the version
-cldev core # import our testing key and api credentials, then start the node
-#
-# ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
-# 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #
-# 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149
-# ** Running node
-# 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27
-# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11
-# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12
-# ...
-# ...
-```
-
-In a new terminal:
-
-```sh
-docker logs operator-ui -f
-```
-
-You'll now have two terminals, one with the core node, one with operator-ui, with both being able to react to code changes without rebuilding their respective images.
-
-### Running integration test suites
-
-The integration test suite will run against a parity node by default. You can run the integration test suite with the following command:
-
-```sh
-./compose test
-```
-
-If you want to run the test suite against a geth node, you can set the `GETH_MODE` environment variable.
-
-```sh
-GETH_MODE=true ./compose test
-```
-
-If we want to quickly test new changes we make to `integration/` or `tools/ci/ethereum_test` without re-building our images, we can use the `test:dev` command which will reflect those changes from the host file system without rebuilding those containers.
-
-```sh
-./compose test:dev
-```
-
-Still a work in progress, you can run the tests in typescript (instead of bash) by using
-
-```sh
-./compose test:ts
-# or
-./compose test:ts:dev
-```
-
-Eventually, these tests should replace the bash tests entirely
-
-### Running specifically cypress tests
-
-See the README within the [integration folder.](../../integration/README.md)
 
 ### Cleaning up
 
@@ -185,17 +90,12 @@ To remove any containers, volumes, and networks related to our docker-compose se
 ./compose clean
 ```
 
-If running in a CI environment where the `CI` environment variable is set, a cleanup will be run before any command
-is executed.
-
 ### Running your own commands based off of docker-compose
 
 The following commands allow you do just about anything:
 
 ```sh
 ./compose <subcommand>
-./compose integration <subcommand> # or ./compose i
-./compose dev:integration <subcommand> # or ./compose di
 ./compose dev <subcommand>
 ```
 
@@ -203,7 +103,6 @@ For example, to see what our compose configuration looks like:
 
 ```sh
 ./compose config # base config
-./compose dev:integration # development integration test config
 ```
 
 Or, to run just an ethereum node:
@@ -251,7 +150,7 @@ echo "ALLOW_ORIGINS=http://localhost:1337" > chainlink-variables.env
 The `logs` command will allow you to follow the logs of any running service. For example:
 
 ```bash
-./compose up node # starts the node service and all it's dependencies, including devnet, explorer, the DB...
+./compose up node # starts the node service and all it's dependencies, including devnet, the DB...
 ./compose logs devnet # shows the blockchain logs
 # ^C to exit
 ./compose logs # shows the combined logs of all running services
@@ -317,7 +216,7 @@ The docker env contains direnv, so whatever changes you make locally to your (bi
 docker build ./tools/docker/ -t chainlink-develop:latest -f ./tools/docker/develop.Dockerfile
 # create the image
 docker container create -v /home/ryan/chainlink/chainlink:/root/chainlink --name chainlink-dev chainlink-develop:latest
-# if you want to access the db, chain, node, or explorer from the host... expose the relevant ports
+# if you want to access the db, chain, node, or from the host... expose the relevant ports
 # This could also be used in case you want to run some services in the container, and others directly
 # on the host
 docker container create -v /home/ryan/chainlink/chainlink:/root/chainlink --name chainlink-dev -p 5432:5432 -p 6688:6688 -p 6689:6689 -p 3000:3000 -p 3001:3001 -p 8545:8545 -p 8546:8546 chainlink-develop:latest
@@ -343,13 +242,12 @@ This is nothing new, just a demonstration that you should be able to run all the
 $ make install
 
 # run go tests
-$ go run ./core/main.go local db preparetest
+$ make testdb
 $ go test ./...
 
-# run evm/explorer/operatorUI tests
-$ yarn workspace @chainlink/contracts test
-$ yarn workspace @chainlink/explorer test
-$ yarn workspace @chainlink/operator-ui test
+# run evm tests
+$ cd contracts
+$ pnpm test
 
 # start geth
 $ geth --dev --datadir ./tools/gethnet/datadir --mine --ipcdisable --dev.period 2 --unlock 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f --password ./tools/clroot/password.txt --config ./tools/gethnet/config.toml

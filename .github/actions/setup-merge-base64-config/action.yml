@@ -1,0 +1,72 @@
+name: Merge Base64 Config
+description: A composite action that merges user-provided Base64-encoded config with repository's secrets
+
+inputs:
+  base64Config:
+    description: Base64-encoded config to decode
+
+runs:
+  using: composite
+  steps:
+    - name: Install dasel
+      shell: bash
+      run: |
+        if ! which dasel > /dev/null; then
+          curl -L -o dasel "https://github.com/TomWright/dasel/releases/download/v2.6.0/dasel_linux_amd64" && chmod +x dasel && sudo mv dasel /usr/local/bin/
+        else
+          echo "Dasel is already installed."
+        fi
+    - name: Add masks and export base64 config
+      shell: bash
+      run: |
+        BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
+        echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+        echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+
+        decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
+        CHAINLINK_IMAGE=$(echo "$decoded_toml" | dasel -r toml 'ChainlinkImage.image')
+        echo ::add-mask::$CHAINLINK_IMAGE
+        CHAINLINK_VERSION=$(echo "$decoded_toml" | dasel -r toml 'ChainlinkImage.version')
+        NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
+
+        if [ -n "$CHAINLINK_IMAGE" ]; then
+          echo "CHAINLINK_IMAGE=$CHAINLINK_IMAGE" >> $GITHUB_ENV
+        else
+          echo "No Chainlink Image found in base64-ed config. Exiting"
+          exit 1
+        fi
+        if [ -n "$CHAINLINK_VERSION" ]; then
+          echo "CHAINLINK_VERSION=$CHAINLINK_VERSION" >> $GITHUB_ENV
+        else
+          echo "No Chainlink Version found in base64-ed config. Exiting"
+          exit 1
+        fi
+        if [ -n "$NETWORKS" ]; then
+          echo "NETWORKS=$NETWORKS" >> $GITHUB_ENV
+        fi
+
+        grafana_bearer_token=""
+        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
+        fi
+
+        # use Loki config from GH secrets and merge it with base64 input
+        cat << EOF > config.toml
+        [Logging.Loki]
+        tenant_id="$LOKI_TENANT_ID"
+        endpoint="$LOKI_URL"
+        basic_auth_secret="$LOKI_BASIC_AUTH"
+        # legacy, you only need this to access the cloud version
+        # bearer_token_secret="bearer_token"
+        
+        [Logging.Grafana]
+        base_url="$GRAFANA_URL"
+        dashboard_url="$GRAFANA_DASHBOARD_URL"
+        $grafana_bearer_token
+        EOF
+
+        echo "$decoded_toml" >> final_config.toml
+        cat config.toml >> final_config.toml
+        BASE64_CONFIG_OVERRIDE=$(cat final_config.toml | base64 -w 0)
+        echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+        echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV

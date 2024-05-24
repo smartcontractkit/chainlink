@@ -1,0 +1,33 @@
+[[Cosmos]]
+# ChainID is the Cosmos chain ID. Mandatory.
+ChainID = 'Malaga-420' # Example
+# Enabled enables this chain.
+Enabled = true # Default
+# Bech32Prefix is the human-readable prefix for addresses on this Cosmos chain. See https://docs.cosmos.network/v0.47/spec/addresses/bech32.
+Bech32Prefix = 'wasm' # Default
+# BlockRate is the average time between blocks.
+BlockRate = '6s' # Default
+# BlocksUntilTxTimeout is the number of blocks to wait before giving up on the tx getting confirmed.
+BlocksUntilTxTimeout = 30 # Default
+# ConfirmPollPeriod sets how often check for tx confirmation.
+ConfirmPollPeriod = '1s' # Default
+# FallbackGasPrice sets a fallback gas price to use when the estimator is not available.
+FallbackGasPrice = '0.015' # Default
+# GasToken is the token denomination which is being used to pay gas fees on this chain.
+GasToken = 'ucosm' # Default
+# GasLimitMultiplier scales the estimated gas limit.
+GasLimitMultiplier = '1.5' # Default
+# MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
+MaxMsgsPerBatch = 100 # Default
+# OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
+OCR2CachePollPeriod = '4s' # Default
+# OCR2CacheTTL is the stale OCR2 cache deadline.
+OCR2CacheTTL = '1m' # Default
+# TxMsgTimeout is the maximum age for resending transaction before they expire.
+TxMsgTimeout = '10m' # Default
+
+[[Cosmos.Nodes]]
+# Name is a unique (per-chain) identifier for this node.
+Name = 'primary' # Example
+# TendermintURL is the HTTP(S) tendermint endpoint for this node.
+TendermintURL = 'http://tender.mint' # Example

@@ -1,0 +1,79 @@
+{
+  "tests": [
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 3,
+      "run":[
+        {"name":"registry_2_0"},
+        {"name":"registry_2_1_conditional"},
+        {"name":"registry_2_1_logtrigger"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 3,
+      "run":[
+        {"name":"registry_2_1_with_mercury_v02"},
+        {"name":"registry_2_1_with_mercury_v03"},
+        {"name":"registry_2_1_with_logtrigger_and_mercury_v02"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 3,
+      "run":[
+        {"name":"registry_2_2_conditional"},
+        {"name":"registry_2_2_logtrigger"},
+        {"name":"registry_2_2_with_mercury_v02"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_2_with_mercury_v03"},
+        {"name":"registry_2_2_with_logtrigger_and_mercury_v02"}
+      ]
+    },
+    {
+      "name": "TestSetUpkeepTriggerConfig",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationAddFunds",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationPauseUnPause",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationRegisterUpkeep",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationPauseRegistry",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationKeeperNodesDown",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationPerformSimulation",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationCheckPerformGasLimit",
+      "nodes": 3
+    },
+    {
+      "name": "TestUpdateCheckData",
+      "nodes": 3
+    },
+    {
+      "name": "TestSetOffchainConfigWithMaxGasPrice",
+      "nodes": 2
+    }
+  ]
+}

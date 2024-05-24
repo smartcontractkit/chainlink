@@ -1,0 +1,12 @@
+type Chain {
+    id: ID!
+    enabled: Boolean!
+    config: String!
+}
+
+union ChainPayload = Chain | NotFoundError
+
+type ChainsPayload implements PaginatedPayload {
+    results: [Chain!]!
+    metadata: PaginationMetadata!
+}

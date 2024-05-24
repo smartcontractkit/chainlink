@@ -1,0 +1,65 @@
+# product defaults
+[Common]
+chainlink_node_funding = 0.5
+
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '1m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[Keeper]
+TurnLookBack = 0
+"""
+
+[Keeper.Common]
+registry_to_test = "2_1"
+number_of_registries = 1
+number_of_nodes = 6
+number_of_upkeeps = 500
+upkeep_gas_limit = 1500000
+check_gas_to_burn = 100000
+perform_gas_to_burn = 50000
+max_perform_gas = 5000000
+block_range = 100
+block_interval = 20
+forces_single_tx_key = false
+delete_jobs_on_end = true
+
+# will retry roughly for 1h before giving up (900 * 4s)
+[Keeper.Resiliency]
+# number of retries before giving up
+contract_call_limit = 900
+# static interval between retries
+contract_call_interval = "4s"
+
+[Seth]
+# keeper benchmark running on simulated network requires 100k per node
+root_key_funds_buffer = 700_000

@@ -1,4 +1,4 @@
-FROM smartcontract/builder:1.0.33
+FROM ubuntu:20.04
 
 # Add the PostgreSQL PGP key & repository
 RUN apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
@@ -12,10 +12,10 @@ RUN mkdir -p ~/.local/bin/
 ENV PATH="/root/.local/bin:${PATH}"
 RUN go get github.com/go-delve/delve/cmd/dlv
 RUN go get github.com/google/gofuzz
-RUN yarn global add ganache-cli
+RUN pnpm install -g ganache-cli
 RUN pip3 install web3 slither-analyzer crytic-compile
 RUN curl -L https://github.com/crytic/echidna/releases/download/v1.5.1/echidna-test-v1.5.1-Ubuntu-18.04.tar.gz | tar -xz -C ~/.local/bin
-RUN curl -L https://github.com/openethereum/openethereum/releases/download/v3.0.1/openethereum-linux-v3.0.1.zip --output openethereum.zip
+RUN curl -L https://github.com/openethereum/openethereum/releases/download/v3.2.4/openethereum-linux-v3.2.4.zip --output openethereum.zip
 RUN unzip openethereum.zip -d ~/.local/bin/ && rm openethereum.zip
 RUN chmod +x ~/.local/bin/*
 
@@ -29,8 +29,6 @@ RUN echo "listen_addresses='*'" >> /etc/postgresql/10/main/postgresql.conf
 RUN /etc/init.d/postgresql start &&\
   createdb chainlink_test &&\
   createdb node_dev &&\
-  createdb explorer_dev &&\
-  createdb explorer_test &&\
   createuser --superuser --no-password root &&\
   psql -c "ALTER USER postgres PASSWORD 'node';"
 
@@ -56,8 +54,8 @@ EXPOSE 8546
 
 # Default env setup for testing
 ENV CHAINLINK_DB_NAME chainlink_test
-ENV CHAINLINK_PGPASSWORD=node
-ENV DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@localhost:5432/$CHAINLINK_DB_NAME?sslmode=disable
+ENV CHAINLINK_PGPASSWORD=thispasswordislongenough
+ENV CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@localhost:5432/$CHAINLINK_DB_NAME?sslmode=disable
 ENV TYPEORM_USERNAME=postgres
 ENV TYPEORM_PASSWORD=node
 ENV ETH_CHAIN_ID=1337

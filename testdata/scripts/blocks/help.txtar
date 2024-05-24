@@ -1,0 +1,17 @@
+exec chainlink blocks --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink blocks - Commands for managing blocks
+
+USAGE:
+   chainlink blocks command [command options] [arguments...]
+
+COMMANDS:
+   replay    Replays block data from the given number
+   find-lca  Find latest common block stored in DB and on chain
+
+OPTIONS:
+   --help, -h  show help
+   

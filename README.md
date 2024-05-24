@@ -1,69 +1,102 @@
 <br/>
 <p align="center">
 <a href="https://chain.link" target="_blank">
-<img src="./styleguide/static/images/logo-chainlink-blue.svg" width="225" alt="Chainlink logo">
+<img src="https://raw.githubusercontent.com/smartcontractkit/chainlink/develop/docs/logo-chainlink-blue.svg" width="225" alt="Chainlink logo">
 </a>
 </p>
 <br/>
 
-
-![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/smartcontractkit/chainlink?style=flat-square)
+[![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/smartcontractkit/chainlink?style=flat-square)](https://hub.docker.com/r/smartcontract/chainlink/tags)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
-[![GitHub workflow changelog](https://img.shields.io/github/workflow/status/smartcontractkit/chainlink/Changelog?style=flat-square&label=github-actions)](https://github.com/smartcontractkit/chainlink/actions?query=workflow%3AChangelog)
-[![CircleCI build](https://img.shields.io/circleci/build/github/smartcontractkit/chainlink/master?style=flat-square&label=circleci&logo=circleci)](https://circleci.com/gh/smartcontractkit/chainlink/tree/master)
-[![Maintainability](https://api.codeclimate.com/v1/badges/273722bb9f6f22d799bd/maintainability)](https://codeclimate.com/github/smartcontractkit/chainlink/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/273722bb9f6f22d799bd/test_coverage)](https://codeclimate.com/github/smartcontractkit/chainlink/test_coverage)
+[![GitHub workflow changeset](https://img.shields.io/github/actions/workflow/status/smartcontractkit/chainlink/changeset.yml)](https://github.com/smartcontractkit/chainlink/actions/workflows/changeset.yml?query=workflow%3AChangeset)
 [![GitHub contributors](https://img.shields.io/github/contributors-anon/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/graphs/contributors)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/y/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/commits/master)
+[![Official documentation](https://img.shields.io/static/v1?label=docs&message=latest&color=blue)](https://docs.chain.link/)
 
-[Chainlink](https://chain.link/) is middleware to simplify communication with blockchains.
-Here you'll find the Chainlink Golang node, currently in alpha.
-This initial implementation is intended for use and review by developers,
-and will go on to form the basis for Chainlink's [decentralized oracle network](https://link.smartcontract.com/whitepaper).
-Further development of the Chainlink Node and Chainlink Network will happen here,
-if you are interested in contributing please see our [contribution guidelines](./docs/CONTRIBUTING.md).
+[Chainlink](https://chain.link/) expands the capabilities of smart contracts by enabling access to real-world data and off-chain computation while maintaining the security and reliability guarantees inherent to blockchain technology.
 
-## Features
-
-- easy connectivity of on-chain contracts to any off-chain computation or API
-- multiple methods for scheduling both on-chain and off-chain computation for a user's smart contract
-- automatic gas price bumping to prevent stuck transactions, assuring your data is delivered in a timely manner
-- push notification of smart contract state changes to off-chain systems, by tracking Ethereum logs
-- translation of various off-chain data types into EVM consumable types and transactions
-- easy to implement smart contract libraries for connecting smart contracts directly to their preferred oracles
-- easy to install node, which runs natively across operating systems, blazingly fast, and with a low memory footprint
-
-Examples of how to utilize and integrate Chainlinks can be found in the [Chainlink Truffle Box](https://github.com/smartcontractkit/box).
+This repo contains the Chainlink core node and contracts. The core node is the bundled binary available to be run by node operators participating in a [decentralized oracle network](https://link.smartcontract.com/whitepaper).
+All major release versions have pre-built docker images available for download from the [Chainlink dockerhub](https://hub.docker.com/r/smartcontract/chainlink/tags).
+If you are interested in contributing please see our [contribution guidelines](./docs/CONTRIBUTING.md).
+If you are here to report a bug or request a feature, please [check currently open Issues](https://github.com/smartcontractkit/chainlink/issues).
+For more information about how to get started with Chainlink, check our [official documentation](https://docs.chain.link/).
+Resources for Solidity developers can be found in the [Chainlink Hardhat Box](https://github.com/smartcontractkit/hardhat-starter-kit).
 
 ## Community
 
 Chainlink has an active and ever growing community. [Discord](https://discordapp.com/invite/aSK4zew)
 is the primary communication channel used for day to day communication,
 answering development questions, and aggregating Chainlink related content. Take
-a look at the [community docs](../docs/COMMUNITY.md) for more information 
+a look at the [community docs](./docs/COMMUNITY.md) for more information
 regarding Chainlink social accounts, news, and networking.
 
-## Install
+## Build Chainlink
 
-1. [Install Go 1.14](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
-2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
-3. Install [Postgres (>= 9.6)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
-4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
-5. Build and install Chainlink: `make install`
-6. Run the node: `chainlink help`
+1. [Install Go 1.21](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+   - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
+2. Install [NodeJS v20](https://nodejs.org/en/download/package-manager/) & [pnpm v8 via npm](https://pnpm.io/installation#using-npm).
+   - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
+3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
+   - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
+   - You should [configure Postgres](https://www.postgresql.org/docs/current/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
+4. Ensure you have Python 3 installed (this is required by [solc-select](https://github.com/crytic/solc-select) which is needed to compile solidity contracts)
+5. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
+6. Build and install Chainlink: `make install`
+7. Run the node: `chainlink help`
 
-### Ethereum Node Requirements
+For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
+
+### Apple Silicon - ARM64
+
+Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
+
+```bash
+$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile
+```
+
+### Ethereum Execution Client Requirements
 
 In order to run the Chainlink node you must have access to a running Ethereum node with an open websocket connection.
 Any Ethereum based network will work once you've [configured](https://github.com/smartcontractkit/chainlink#configure) the chain ID.
 Ethereum node versions currently tested and supported:
 
-- [Parity 1.11+](https://github.com/paritytech/parity-ethereum/releases) (due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).)
-- [Geth 1.8+](https://github.com/ethereum/go-ethereum/releases)
+[Officially supported]
 
-## Run
+- [Parity/Openethereum](https://github.com/openethereum/openethereum) (NOTE: Parity is deprecated and support for this client may be removed in future)
+- [Geth](https://github.com/ethereum/go-ethereum/releases)
 
-**NOTE**: By default, chainlink will run in TLS mode. For local development you can either disable this by setting CHAINLINK_DEV to true, or generate self signed certificates using `tools/bin/self-signed-certs` or [manually](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates).
+[Supported but broken]
+These clients are supported by Chainlink, but have bugs that prevent Chainlink from working reliably on these execution clients.
+
+- [Nethermind](https://github.com/NethermindEth/nethermind)
+  Blocking issues:
+  - ~https://github.com/NethermindEth/nethermind/issues/4384~
+- [Besu](https://github.com/hyperledger/besu)
+  Blocking issues:
+  - https://github.com/hyperledger/besu/issues/4212
+  - ~https://github.com/hyperledger/besu/issues/4192~
+  - ~https://github.com/hyperledger/besu/issues/4114~
+- [Erigon](https://github.com/ledgerwatch/erigon)
+  Blocking issues:
+  - https://github.com/ledgerwatch/erigon/discussions/4946
+  - https://github.com/ledgerwatch/erigon/issues/4030#issuecomment-1113964017
+
+We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
+
+## Running a local Chainlink node
+
+**NOTE**: By default, chainlink will run in TLS mode. For local development you can disable this by using a `dev build` using `make chainlink-dev` and setting the TOML fields:
+
+```toml
+[WebServer]
+SecureCookies = false
+TLS.HTTPSPort = 0
+
+[Insecure]
+DevWebServer = true
+```
+
+Alternatively, you can generate self signed certificates using `tools/bin/self-signed-certs` or [manually](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates).
 
 To start your Chainlink node, simply run:
 
@@ -71,140 +104,229 @@ To start your Chainlink node, simply run:
 chainlink node start
 ```
 
-By default this will start on port 6688, where it exposes a [REST API](https://github.com/smartcontractkit/chainlink/wiki/REST-API).
+By default this will start on port 6688. You should be able to access the UI at [http://localhost:6688/](http://localhost:6688/).
 
-Once your node has started, you can view your current jobs with:
+Chainlink provides a remote CLI client as well as a UI. Once your node has started, you can open a new terminal window to use the CLI. You will need to log in to authorize the client first:
+
+```bash
+chainlink admin login
+```
+
+(You can also set `ADMIN_CREDENTIALS_FILE=/path/to/credentials/file` in future if you like, to avoid having to login again).
+
+Now you can view your current jobs with:
 
 ```bash
 chainlink jobs list
 ```
 
-View details of a specific job with:
-
-```bash
-chainlink jobs show "$JOB_ID"
-```
-
 To find out more about the Chainlink CLI, you can always run `chainlink help`.
 
-Check out the [docs'](https://docs.chain.link/) pages on [Adapters](https://docs.chain.link/docs/adapters) and [Initiators](https://docs.chain.link/docs/initiators) to learn more about how to create Jobs and Runs.
+Check out the [doc](https://docs.chain.link/) pages on [Jobs](https://docs.chain.link/docs/jobs/) to learn more about how to create Jobs.
 
-## Configure
+### Configuration
 
-You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found. The latest information on configuration variables are available in [the docs](https://docs.chain.link/docs/configuration-variables).
+Node configuration is managed by a combination of environment variables and direct setting via API/UI/CLI.
 
-## Project Structure
+Check the [official documentation](https://docs.chain.link/docs/configuration-variables) for more information on how to configure your node.
 
-Chainlink is a monorepo containing several logicaly separatable and relatable 
-projects.
+### External Adapters
 
-- [core](./core) - the core Chainlink node
-- [@chainlink/belt](./belt) - tools for performing commands on Chainlink smart contracts
-- [@chainlink/contracts](./evm-contracts) - smart contracts
-- [@chainlink/test-helpers](./evm-test-helpers) - smart contract-related resources
-- [explorer](./explorer) - [Mainnet Chainlink Explorer](https://explorer.chain.link/)
-- [integration/forks](./integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
-- [sgx](./core/sgx) - an optional and experimental Chainlink module to do processing within an [SGX](https://software.intel.com/en-us/sgx) enclave
-- [styleguide](./styleguide) - Chainlink style guide
-- [tools](./tools) - Chainlink tools
-
-## External Adapters
-
-External adapters are what make Chainlink easily extensible, providing simple integration of custom computations and specialized APIs.
-A Chainlink node communicates with external adapters via a simple REST API.
+External adapters are what make Chainlink easily extensible, providing simple integration of custom computations and specialized APIs. A Chainlink node communicates with external adapters via a simple REST API.
 
 For more information on creating and using external adapters, please see our [external adapters page](https://docs.chain.link/docs/external-adapters).
 
-## Development Setup
+## Development
 
-For the latest information on setting up a development environment, see the [guide here](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
+### Running tests
 
-### Build your current version
+1. [Install pnpm via npm](https://pnpm.io/installation#using-npm)
 
-```bash
-go build -o chainlink ./core/
-```
+2. Install [gencodec](https://github.com/fjl/gencodec) and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
 
-- Run the binary:
+3. Install mockery
 
-```bash
-./chainlink
-```
+`make mockery`
 
-### Test Core
+Using the `make` command will install the correct version.
 
-1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
-
-2. Install [gencodec](https://github.com/fjl/gencodec), [mockery version 1.0.0](https://github.com/vektra/mockery/releases/tag/v1.0.0), and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
-
-3. Build contracts:
+4. Build contracts:
 
 ```bash
-yarn
-yarn setup:contracts
+pushd contracts
+pnpm i
+pnpm compile:native
+popd
 ```
 
 4. Generate and compile static assets:
 
 ```bash
 go generate ./...
-go run ./packr/main.go ./core/eth/
 ```
 
 5. Prepare your development environment:
 
+The tests require a postgres database. In turn, the environment variable
+`CL_DATABASE_URL` must be set to value that can connect to `_test` database, and the user must be able to create and drop
+the given `_test` database.
+
+Note: Other environment variables should not be set for all tests to pass
+
+There helper script for initial setup to create an appropriate test user. It requires postgres to be running on localhost at port 5432. You will be prompted for
+the `postgres` user password 
+
 ```bash
-export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
-export CHAINLINK_DEV=true # I prefer to use direnv and skip this
+make setup-testdb
 ```
 
-6.  Drop/Create test database and run migrations:
-```
-go run ./core/main.go local db preparetest
-```
+This script will save the `CL_DATABASE_URL` in `.dbenv`
 
-If you do end up modifying the migrations for the database, you will need to rerun
+Changes to database require migrations to be run. Similarly, `pull`'ing the repo may require migrations to run.
+After the one-time setup above:
+```
+source .dbenv
+make testdb
+```
 
 7. Run tests:
 
 ```bash
-go test -parallel=1 ./...
+go test ./...
 ```
 
+#### Notes
 
-### Solidity Development
+- The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
+- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
+- The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute
 
-1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
-2. Install the dependencies:
+#### Race Detector
+
+As of Go 1.1, the runtime includes a data race detector, enabled with the `-race` flag. This is used in CI via the
+`tools/bin/go_core_race_tests` script. If the action detects a race, the artifact on the summary page will include
+`race.*` files with detailed stack traces.
+
+> _**It will not issue false positives, so take its warnings seriously.**_
+
+For local, targeted race detection, you can run:
 
 ```bash
-cd evm
-yarn install
+GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 10
+GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 100 -run TestFooBar/sub_test
 ```
 
-3. Run tests:
+https://go.dev/doc/articles/race_detector
+
+#### Fuzz tests
+
+As of Go 1.18, fuzz tests `func FuzzXXX(*testing.F)` are included as part of the normal test suite, so existing cases are executed with `go test`.
+
+Additionally, you can run active fuzzing to search for new cases:
 
 ```bash
-yarn run test-sol
+go test ./pkg/path -run=XXX -fuzz=FuzzTestName
 ```
 
-### Use of Go Generate
+https://go.dev/doc/fuzz/
+
+### Go Modules
+
+This repository contains three Go modules:
+
+```mermaid
+flowchart RL
+    github.com/smartcontractkit/chainlink/v2
+    github.com/smartcontractkit/chainlink/integration-tests --> github.com/smartcontractkit/chainlink/v2
+    github.com/smartcontractkit/chainlink/core/scripts --> github.com/smartcontractkit/chainlink/v2
+
+```
+The `integration-tests` and `core/scripts` modules import the root module using a relative replace in their `go.mod` files,
+so dependency changes in the root `go.mod` often require changes in those modules as well. After making a change, `go mod tidy`
+can be run on all three modules using:
+```
+make gomodtidy
+```
+
+### Solidity
+
+Inside the `contracts/` directory:
+
+1. Install dependencies:
+
+```bash
+pnpm i
+```
+
+2. Run tests:
+
+```bash
+pnpm test
+```
+NOTE: Chainlink is currently in the process of migrating to Foundry and contains both Foundry and Hardhat tests in some versions. More information can be found here: [Chainlink Foundry Documentation](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/foundry.md).
+Any 't.sol' files associated with Foundry tests, contained within the src directories will be ignored by Hardhat.
+
+### Code Generation
 
 Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
 
-### Development Tips
+### Nix
+
+A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/). By default,we utilize the shell through [Nix Flakes](https://nixos.wiki/wiki/Flakes). 
+
+Nix defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies to
+gain more consistency/reproducibility on the built artifacts.
+
+To use it:
+
+1. Install [nix package manager](https://nixos.org/download.html) in your system.
+
+- Enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
+
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
+
+- Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
+- You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use flake` on it.
+
+3. Create a local postgres database:
+
+```sh
+mkdir -p $PGDATA && cd $PGDATA/
+initdb
+pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start
+createdb chainlink_test -h localhost
+createuser --superuser --password chainlink -h localhost
+# then type a test password, e.g.: chainlink, and set it in shell.nix CL_DATABASE_URL
+```
+
+4. When re-entering project, you can restart postgres: `cd $PGDATA; pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start`
+   Now you can run tests or compile code as usual.
+5. When you're done, stop it: `cd $PGDATA; pg_ctl -o "--unix_socket_directories='$PWD'" stop`
+
+### Changesets
+
+We use [changesets](https://github.com/changesets/changesets) to manage versioning for libs and the services.
+
+Every PR that modifies any configuration or code, should most likely accompanied by a changeset file.
+
+To install `changesets`:
+  1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
+  2. Run `pnpm install`.
+
+Either after or before you create a commit, run the `pnpm changeset` command to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+### Tips
 
 For more tips on how to build and test Chainlink, see our [development tips page](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips).
 
-## Contributing
+### Contributing
 
-Chainlink's source code is [licensed under the MIT License](./LICENSE), and contributions are welcome.
+Contributions are welcome to Chainlink's source code.
 
 Please check out our [contributing guidelines](./docs/CONTRIBUTING.md) for more details.
 
 Thank you!
-
-## License
-
-[MIT](https://choosealicense.com/licenses/mit/)
-

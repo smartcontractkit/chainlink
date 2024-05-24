@@ -1,0 +1,13 @@
+type JobError {
+    id: ID!
+	description: String!
+	occurrences: Int!
+	createdAt: Time!
+	updatedAt: Time!
+}
+
+type DismissJobErrorSuccess {
+	jobError: JobError!
+}
+
+union DismissJobErrorPayload = DismissJobErrorSuccess | NotFoundError

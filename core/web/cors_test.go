@@ -4,21 +4,17 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func TestCors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig(t)
-	config.Set("ALLOW_ORIGINS", "http://localhost:3000,http://localhost:6689")
-	app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.LenientEthMock)
-	defer appCleanup()
-	require.NoError(t, app.Start())
-
-	client := app.NewHTTPClient()
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.WebServer.AllowOrigins = ptr("http://localhost:3000,http://localhost:6689")
+	})
 
 	tests := []struct {
 		origin     string
@@ -31,8 +27,12 @@ func TestCors_DefaultOrigins(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.origin, func(t *testing.T) {
+			app := cltest.NewApplicationWithConfig(t, config)
+
+			client := app.NewHTTPClient(nil)
+
 			headers := map[string]string{"Origin": test.origin}
-			resp, cleanup := client.Get("/v2/config", headers)
+			resp, cleanup := client.Get("/v2/chains/evm", headers)
 			defer cleanup()
 			cltest.AssertServerResponse(t, resp, test.statusCode)
 		})
@@ -55,17 +55,15 @@ func TestCors_OverrideOrigins(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.origin, func(t *testing.T) {
-			config, _ := cltest.NewConfig(t)
-			config.Set("ALLOW_ORIGINS", test.allow)
+			config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.WebServer.AllowOrigins = ptr(test.allow)
+			})
+			app := cltest.NewApplicationWithConfig(t, config)
 
-			app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.LenientEthMock)
-			defer appCleanup()
-			require.NoError(t, app.Start())
-
-			client := app.NewHTTPClient()
+			client := app.NewHTTPClient(nil)
 
 			headers := map[string]string{"Origin": test.origin}
-			resp, cleanup := client.Get("/v2/config", headers)
+			resp, cleanup := client.Get("/v2/chains/evm", headers)
 			defer cleanup()
 			cltest.AssertServerResponse(t, resp, test.statusCode)
 		})

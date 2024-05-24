@@ -1,0 +1,45 @@
+# 344 warnings
+#./src/v0.8/automation
+
+# Ignore frozen Automation code
+./src/v0.8/automation/v1_2
+./src/v0.8/automation/interfaces/v1_2
+./src/v0.8/automation/v1_3
+./src/v0.8/automation/interfaces/v1_3
+./src/v0.8/automation/v2_0
+./src/v0.8/automation/interfaces/v2_0
+./src/v0.8/automation/v2_1
+./src/v0.8/automation/interfaces/v2_1/
+./src/v0.8/automation/interfaces/MigratableKeeperRegistryInterface.sol
+./src/v0.8/automation/upkeeps/UpkeepBalanceMonitor.sol
+./src/v0.8/automation/upkeeps/LinkAvailableBalanceMonitor.sol
+./src/v0.8/automation/upkeeps/EthBalanceMonitor.sol
+./src/v0.8/automation/upkeeps/ERC20BalanceMonitor.sol
+./src/v0.8/automation/upkeeps/CronUpkeepFactory.sol
+./src/v0.8/automation/upkeeps/CronUpkeepDelegate.sol
+./src/v0.8/automation/upkeeps/CronUpkeep.sol
+./src/v0.8/automation/libraries/internal/Cron.sol
+./src/v0.8/automation/AutomationForwarder.sol
+./src/v0.8/automation/AutomationForwarderLogic.sol
+./src/v0.8/automation/interfaces/v2_2/IAutomationRegistryMaster.sol
+./src/v0.8/automation/dev/interfaces/v2_3/IAutomationRegistryMaster2_3.sol
+
+
+# Ignore tests / test helpers (for now)
+./src/v0.8/automation/mocks
+./src/v0.8/automation/testhelpers
+
+# Ignore Functions v1.0.0 code that was frozen after audit
+./src/v0.8/functions/v1_0_0
+
+# Ignore tests, this should not be the long term plan but is OK in the short term
+./src/v0.8/**/*.t.sol
+./src/v0.8/mocks
+./src/v0.8/tests
+./src/v0.8/llo-feeds/test
+./src/v0.8/vrf/testhelpers
+./src/v0.8/functions/tests
+
+# Always ignore vendor
+./src/v0.8/vendor
+./node_modules/

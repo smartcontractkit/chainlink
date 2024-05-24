@@ -1,0 +1,69 @@
+name: "Push develop to private ECR"
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Git ref (commit SHA, branch name, tag name, etc.) to checkout"
+        required: true
+env:
+  GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
+
+jobs:
+  push-chainlink-develop:
+    runs-on: ubuntu-20.04
+    environment: build-develop
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        image:
+          - name: ""
+            dockerfile: core/chainlink.Dockerfile
+            tag-suffix: ""
+          - name: (plugins)
+            dockerfile: plugins/chainlink.Dockerfile
+            tag-suffix: -plugins
+    name: push-chainlink-develop ${{ matrix.image.name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.GIT_REF }}
+      # When this is ran from manual workflow_dispatch, the github.sha may be
+      # different than the checked out commit sha. The core build uses this
+      # commit sha as build metadata, so we need to make sure it's correct.
+      - name: Get checked out git ref
+        if: github.event.inputs.git_ref
+        id: git-ref
+        run: echo "checked-out=$(git rev-parse HEAD)" | tee -a "${GITHUB_OUTPUT}"
+      - name: Build, sign and publish chainlink image
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+          publish: true
+          aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          ecr-hostname: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
+          ecr-image-name: chainlink
+          ecr-tag-suffix: ${{ matrix.image.tag-suffix }}
+          dockerfile: ${{ matrix.image.dockerfile }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          git-commit-sha: ${{ steps.git-ref.outputs.checked-out || github.sha }}
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: build-chainlink-develop
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: push-chainlink-develop ${{ matrix.image.name }}
+        continue-on-error: true

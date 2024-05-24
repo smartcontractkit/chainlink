@@ -1,0 +1,6 @@
+exec chainlink node db migrate
+! stdout .
+stderr 'goose: no migrations to run. current version:'
+
+-- testdb.txt --
+CL_DATABASE_URL

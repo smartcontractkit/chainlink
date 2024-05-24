@@ -1,7 +1,9 @@
 // Package secp256k1 is an implementation of the kyber.{Group,Point,Scalcar}
-////////////////////////////////////////////////////////////////////////////////
-//       XXX: Do not use in production until this code has been audited.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
+//
+//	XXX: Do not use in production until this code has been audited.
+//
+// //////////////////////////////////////////////////////////////////////////////
 // interfaces, based on btcd/btcec and kyber/group/mod
 //
 // XXX: NOT CONSTANT TIME!
@@ -17,7 +19,7 @@ import (
 	"io"
 	"math/big"
 
-	secp256k1BTCD "github.com/btcsuite/btcd/btcec"
+	secp256k1BTCD "github.com/btcsuite/btcd/btcec/v2"
 	"github.com/ethereum/go-ethereum/common"
 
 	"go.dedis.ch/kyber/v3"
@@ -25,6 +27,7 @@ import (
 )
 
 var GroupOrder = secp256k1BTCD.S256().N
+var FieldSize = secp256k1BTCD.S256().P
 
 type secp256k1Scalar big.Int
 
