@@ -1,10 +1,7 @@
 package job_test
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"math/big"
 	"testing"
 	"time"
 
@@ -22,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -48,32 +43,6 @@ contractConfigConfirmations = 3
 observationSource = """
 	%s
 """
-`
-	ocr2vrfJobSpecTemplate = `
-type                 	= "offchainreporting2"
-schemaVersion        	= 1
-name                 	= "ocr2 vrf spec"
-maxTaskDuration      	= "10s"
-contractID           	= "%s"
-ocrKeyBundleID       	= "%s"
-relay                	= "evm"
-pluginType           	= "ocr2vrf"
-transmitterID        	= "%s"
-forwardingAllowed       = %t
-
-[relayConfig]
-chainID              	= %d
-fromBlock               = %d
-sendingKeys             = [%s]
-
-[pluginConfig]
-dkgEncryptionPublicKey 	= "%s"
-dkgSigningPublicKey    	= "%s"
-dkgKeyID               	= "%s"
-dkgContractAddress     	= "%s"
-
-vrfCoordinatorAddress   = "%s"
-linkEthFeedAddress     	= "%s"
 `
 	voterTurnoutDataSourceTemplate = `
 // data source 1
@@ -266,42 +235,6 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	jb.OCROracleSpec = &ocrspec
 
 	return &jb
-}
-
-func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int, fromBlock uint64) *job.Job {
-	t.Helper()
-	ctx := testutils.Context(t)
-
-	useForwarders := false
-	_, beacon := cltest.MustInsertRandomKey(t, ks.Eth())
-	_, coordinator := cltest.MustInsertRandomKey(t, ks.Eth())
-	_, feed := cltest.MustInsertRandomKey(t, ks.Eth())
-	_, dkg := cltest.MustInsertRandomKey(t, ks.Eth())
-	sendingKeys := fmt.Sprintf(`"%s"`, transmitter)
-	kb, _ := ks.OCR2().Create(ctx, chaintype.EVM)
-
-	vrfKey := make([]byte, 32)
-	_, err := rand.Read(vrfKey)
-	require.NoError(t, err)
-
-	ocr2vrfJob := fmt.Sprintf(ocr2vrfJobSpecTemplate,
-		beacon.String(),
-		kb.ID(),
-		"",
-		useForwarders,
-		chainID,
-		fromBlock,
-		sendingKeys,
-		ks.DKGEncrypt(),
-		ks.DKGSign(),
-		hex.EncodeToString(vrfKey[:]),
-		dkg.String(),
-		coordinator.String(),
-		feed.String(),
-	)
-	jobSpec := makeOCR2JobSpecFromToml(t, ocr2vrfJob)
-
-	return jobSpec
 }
 
 func makeOCR2JobSpecFromToml(t testing.TB, jobSpecToml string) *job.Job {

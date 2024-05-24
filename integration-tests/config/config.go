@@ -31,12 +31,6 @@ LimitDefault = 3500000
 MaxQueued = 10000
 `
 
-	DefaultOCR2VRFNetworkDetailTomlConfig = `FinalityDepth = 5
-[EVM.GasEstimator]
-LimitDefault = 3_500_000
-PriceMax = 100000000000
-FeeCapDefault = 100000000000`
-
 	BaseMercuryTomlConfig = `[Feature]
 LogPoller = true
 

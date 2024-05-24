@@ -18,10 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -29,15 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type delegate struct {
@@ -272,72 +267,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(false))
 
 		clearDB(t, db)
-	})
-
-	t.Run("Unregisters filters on 'DeleteJob()'", func(t *testing.T) {
-		config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
-		})
-		lp := &mocklp.LogPoller{}
-		testopts := evmtest.TestChainOpts{
-			DB:            db,
-			Client:        ethClient,
-			GeneralConfig: config,
-			LogPoller:     lp,
-			KeyStore:      ethKeyStore,
-		}
-
-		lggr := logger.TestLogger(t)
-		relayExtenders := evmtest.NewChainRelayExtenders(t, testopts)
-		assert.Equal(t, relayExtenders.Len(), 1)
-		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-		chain := evmtest.MustGetDefaultChain(t, legacyChains)
-
-		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
-			DS:                   db,
-			CSAETHKeystore:       keyStore,
-			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
-		})
-		assert.NoError(t, err)
-
-		testRelayGetter := &relayGetter{
-			e: relayExtenders.Slice()[0],
-			r: evmRelayer,
-		}
-
-		jobOCR2VRF := makeOCR2VRFJobSpec(t, keyStore, address, chain.ID(), 2)
-
-		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db), keyStore)
-		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
-
-		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil }, func(loopId string) {})
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), processConfig)
-
-		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, nil, nil, monitoringEndpoint, legacyChains, lggr, ocr2DelegateConfig,
-			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, testRelayGetter, mailMon, capabilities.NewRegistry(lggr))
-		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
-
-		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
-			jobOCR2VRF.Type: delegateOCR2,
-		}, lggr, nil)
-
-		ctx := testutils.Context(t)
-		err = spawner.CreateJob(ctx, nil, jobOCR2VRF)
-		require.NoError(t, err)
-		jobSpecID := jobOCR2VRF.ID
-		delegateOCR2.jobID = jobOCR2VRF.ID
-
-		lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			lggr.Debugf("Got here, with args %v", args)
-		})
-
-		err = spawner.DeleteJob(ctx, nil, jobSpecID)
-		require.NoError(t, err)
-
-		lp.AssertNumberOfCalls(t, "UnregisterFilter", 3)
-
-		lp.On("Close").Return(nil).Once()
-		spawner.Close()
 	})
 }
 
