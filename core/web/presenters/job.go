@@ -433,6 +433,7 @@ type WorkflowSpec struct {
 	Workflow      string    `json:"workflow"`
 	WorkflowID    string    `json:"workflowId"`
 	WorkflowOwner string    `json:"workflowOwner"`
+	WorkflowName  string    `json:"workflowName"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
@@ -442,6 +443,7 @@ func NewWorkflowSpec(spec *job.WorkflowSpec) *WorkflowSpec {
 		Workflow:      spec.Workflow,
 		WorkflowID:    spec.WorkflowID,
 		WorkflowOwner: spec.WorkflowOwner,
+		WorkflowName:  spec.WorkflowName,
 		CreatedAt:     spec.CreatedAt,
 		UpdatedAt:     spec.UpdatedAt,
 	}

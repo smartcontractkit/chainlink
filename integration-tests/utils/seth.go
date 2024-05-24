@@ -132,3 +132,15 @@ func ValidateSethNetworkConfig(cfg *seth.Network) error {
 
 	return nil
 }
+
+const RootKeyNum = 0
+
+// AvailableSethKeyNum returns the available Seth address index
+// If there are multiple addresses, it will return any synced key
+// Otherwise it will return the root key
+func AvailableSethKeyNum(client *seth.Client) int {
+	if len(client.Addresses) > 1 {
+		return client.AnySyncedKey()
+	}
+	return RootKeyNum
+}
