@@ -188,7 +188,7 @@ type staticMedianProviderConfig struct {
 	reportCodec         staticReportCodec
 	medianContract      staticMedianContract
 	onchainConfigCodec  staticOnchainConfigCodec
-	chainReader         testtypes.ChainReaderEvaluator
+	chainReader         testtypes.ChainReaderTester
 	codec               testtypes.CodecEvaluator
 }
 
@@ -231,7 +231,7 @@ func (s staticMedianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
 	return s.onchainConfigCodec
 }
 
-func (s staticMedianProvider) ChainReader() types.ChainReader {
+func (s staticMedianProvider) ChainReader() types.ContractReader {
 	return s.chainReader
 }
 

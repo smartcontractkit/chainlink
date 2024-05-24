@@ -72,7 +72,7 @@ func (t testMedianProvider) ContractTransmitter() libocr.ContractTransmitter {
 	return nil
 }
 
-func (t testMedianProvider) ChainReader() types.ChainReader {
+func (t testMedianProvider) ChainReader() types.ContractReader {
 	return nil
 }
 
@@ -127,7 +127,7 @@ func (t testPluginProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return nil
 }
 
-func (t testPluginProvider) ChainReader() types.ChainReader {
+func (t testPluginProvider) ChainReader() types.ContractReader {
 	return nil
 }
 

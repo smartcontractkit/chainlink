@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 )
 
@@ -15,7 +16,11 @@ const (
 	ErrNotFound                 = NotFoundError("not found")
 )
 
+type ContractReader = ChainReader
+
+// Deprecated: use ContractReader. New naming should clear up confusion around the usage of this interface which should strictly be contract reading related.
 type ChainReader interface {
+	services.Service
 	// GetLatestValue gets the latest value....
 	// The params argument can be any object which maps a set of generic parameters into chain specific parameters defined in RelayConfig.
 	// It must encode as an object via [json.Marshal] and [github.com/fxamacker/cbor/v2.Marshal].

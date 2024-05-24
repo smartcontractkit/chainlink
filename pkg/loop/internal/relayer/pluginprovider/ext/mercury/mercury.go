@@ -32,7 +32,7 @@ type ProviderClient struct {
 	reportCodecV1      mercury_v1.ReportCodec
 	onchainConfigCodec mercury.OnchainConfigCodec
 	serverFetcher      mercury.ServerFetcher
-	chainReader        types.ChainReader
+	chainReader        types.ContractReader
 	mercuryChainReader mercury.ChainReader
 }
 
@@ -67,7 +67,7 @@ func (m *ProviderClient) OnchainConfigCodec() mercury.OnchainConfigCodec {
 	return m.onchainConfigCodec
 }
 
-func (m *ProviderClient) ChainReader() types.ChainReader {
+func (m *ProviderClient) ChainReader() types.ContractReader {
 	return m.chainReader
 }
 

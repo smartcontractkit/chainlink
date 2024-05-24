@@ -28,10 +28,10 @@ type AssertEqualer[T any] interface {
 	AssertEqual(ctx context.Context, t *testing.T, other T)
 }
 
-// ChainReaderEvaluator is a helper interface for testing ChainReaders
-type ChainReaderEvaluator interface {
-	types.ChainReader
-	Evaluator[types.ChainReader]
+// ChainReaderTester is a helper interface for testing ChainReaders
+type ChainReaderTester interface {
+	types.ContractReader
+	Evaluator[types.ContractReader]
 }
 
 // ContractTransmitterEvaluator is a helper interface for testing ContractTransmitters

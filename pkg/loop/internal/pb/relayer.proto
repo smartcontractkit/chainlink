@@ -40,6 +40,7 @@ message SignReply {
 }
 
 service Relayer {
+  rpc NewContractReader (NewContractReaderRequest) returns (NewContractReaderReply) {}
   rpc NewConfigProvider (NewConfigProviderRequest) returns (NewConfigProviderReply) {}
   rpc NewPluginProvider (NewPluginProviderRequest) returns (NewPluginProviderReply) {}
 
@@ -62,6 +63,16 @@ message RelayArgs {
 message PluginArgs {
   string transmitterID = 1;
   bytes pluginConfig = 2;
+}
+
+// NewContractReaderRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewContractReader].
+message NewContractReaderRequest{
+  bytes contractReaderConfig = 1;
+}
+
+// NewContractReaderReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewContractReader].
+message NewContractReaderReply{
+  uint32 contractReaderID = 1;
 }
 
 // NewPluginProviderRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.Relayer.NewPluginProvider].

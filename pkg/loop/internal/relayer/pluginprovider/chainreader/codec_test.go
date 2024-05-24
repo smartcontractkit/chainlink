@@ -20,11 +20,11 @@ import (
 )
 
 func TestCodecClient(t *testing.T) {
-	interfaceTester := test.WrapCodecTesterForLoop(&fakeCodecInterfaceTester{impl: &fakeCodec{}})
+	interfaceTester := chainreadertest.WrapCodecTesterForLoop(&fakeCodecInterfaceTester{impl: &fakeCodec{}})
 	interfacetests.RunCodecInterfaceTests(t, interfaceTester)
 
 	es := &errCodec{}
-	esTester := test.WrapCodecTesterForLoop(&fakeCodecInterfaceTester{impl: es})
+	esTester := chainreadertest.WrapCodecTesterForLoop(&fakeCodecInterfaceTester{impl: es})
 	esTester.Setup(t)
 	esCodec := esTester.GetCodec(t)
 
@@ -73,7 +73,7 @@ func TestCodecClient(t *testing.T) {
 
 	t.Run("Nil esCodec returns unimplemented", func(t *testing.T) {
 		ctx := tests.Context(t)
-		nilTester := test.WrapCodecTesterForLoop(&fakeCodecInterfaceTester{impl: nil})
+		nilTester := chainreadertest.WrapCodecTesterForLoop(&fakeCodecInterfaceTester{impl: nil})
 		nilTester.Setup(t)
 		nilCodec := nilTester.GetCodec(t)
 

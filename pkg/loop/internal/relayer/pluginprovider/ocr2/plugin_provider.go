@@ -14,7 +14,7 @@ import (
 type PluginProviderClient struct {
 	*ConfigProviderClient
 	contractTransmitter libocr.ContractTransmitter
-	chainReader         types.ChainReader
+	chainReader         types.ContractReader
 	codec               types.Codec
 }
 
@@ -35,7 +35,7 @@ func (p *PluginProviderClient) ContractTransmitter() libocr.ContractTransmitter 
 	return p.contractTransmitter
 }
 
-func (p *PluginProviderClient) ChainReader() types.ChainReader {
+func (p *PluginProviderClient) ChainReader() types.ContractReader {
 	return p.chainReader
 }
 

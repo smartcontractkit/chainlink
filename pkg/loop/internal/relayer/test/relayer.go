@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	keystoretest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/keystore/test"
+	chainreadertest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/chainreader/test"
 	cciptest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip/test"
 	mediantest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
 	mercurytest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/test"
@@ -54,6 +55,7 @@ type staticPluginRelayerConfig struct {
 	StaticChecks           bool
 	relayArgs              types.RelayArgs
 	pluginArgs             types.PluginArgs
+	contractReaderConfig   []byte
 	medianProvider         testtypes.MedianProviderTester
 	agnosticProvider       testtypes.PluginProviderTester
 	mercuryProvider        mercurytest.MercuryProviderTester
@@ -61,6 +63,7 @@ type staticPluginRelayerConfig struct {
 	commitProvider         cciptest.CommitProviderTester
 	configProvider         ocr2test.ConfigProviderTester
 	ocr3CapabilityProvider testtypes.OCR3CapabilityProviderTester
+	contractReaderProvider testtypes.ChainReaderTester
 	// Note: add other Provider testers here when we implement them
 	// eg Functions, Automation, etc
 	nodeRequest        nodeRequest
@@ -75,12 +78,14 @@ func NewRelayerTester(staticChecks bool) testtypes.RelayerTester {
 			StaticChecks:           staticChecks,
 			relayArgs:              RelayArgs,
 			pluginArgs:             PluginArgs,
+			contractReaderConfig:   []byte("test"),
 			medianProvider:         mediantest.MedianProvider,
 			mercuryProvider:        mercurytest.MercuryProvider,
 			executionProvider:      cciptest.ExecutionProvider,
 			agnosticProvider:       ocr2test.AgnosticProvider,
 			configProvider:         ocr2test.ConfigProvider,
 			ocr3CapabilityProvider: ocr3capabilitytest.OCR3CapabilityProvider,
+			contractReaderProvider: chainreadertest.ChainReader,
 			nodeRequest: nodeRequest{
 				pageSize:  137,
 				pageToken: "",
@@ -129,6 +134,13 @@ func (s staticPluginRelayer) Ready() error { panic("unimplemented") }
 func (s staticPluginRelayer) Name() string { panic("unimplemented") }
 
 func (s staticPluginRelayer) HealthReport() map[string]error { panic("unimplemented") }
+
+func (s staticPluginRelayer) NewContractReader(_ context.Context, contractReaderConfig []byte) (types.ContractReader, error) {
+	if s.StaticChecks && !(bytes.Equal(s.contractReaderConfig, contractReaderConfig)) {
+		return nil, fmt.Errorf("expected contractReaderConfig:\n\t%v\nbut got:\n\t%v", string(s.contractReaderConfig), string(contractReaderConfig))
+	}
+	return s.contractReaderProvider, nil
+}
 
 func (s staticPluginRelayer) NewConfigProvider(ctx context.Context, r types.RelayArgs) (types.ConfigProvider, error) {
 	if s.StaticChecks && !equalRelayArgs(r, s.relayArgs) {
@@ -250,7 +262,17 @@ func (s staticPluginRelayer) Transact(ctx context.Context, f, t string, a *big.I
 	return nil
 }
 
-func (s staticPluginRelayer) AssertEqual(ctx context.Context, t *testing.T, relayer looptypes.Relayer) {
+func (s staticPluginRelayer) AssertEqual(_ context.Context, t *testing.T, relayer looptypes.Relayer) {
+	t.Run("ContractReader", func(t *testing.T) {
+		t.Parallel()
+		ctx := tests.Context(t)
+		contractReader, err := relayer.NewContractReader(ctx, []byte("test"))
+		require.NoError(t, err)
+		require.NoError(t, contractReader.Start(ctx))
+
+		t.Cleanup(func() { assert.NoError(t, contractReader.Close()) })
+	})
+
 	t.Run("ConfigProvider", func(t *testing.T) {
 		t.Parallel()
 		ctx := tests.Context(t)

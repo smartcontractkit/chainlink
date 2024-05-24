@@ -41,6 +41,13 @@ func NewRelayerService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec.C
 	return &rs
 }
 
+func (r *RelayerService) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ContractReader, error) {
+	if err := r.WaitCtx(ctx); err != nil {
+		return nil, err
+	}
+	return r.Service.NewContractReader(ctx, contractReaderConfig)
+}
+
 func (r *RelayerService) NewConfigProvider(ctx context.Context, args types.RelayArgs) (types.ConfigProvider, error) {
 	if err := r.WaitCtx(ctx); err != nil {
 		return nil, err

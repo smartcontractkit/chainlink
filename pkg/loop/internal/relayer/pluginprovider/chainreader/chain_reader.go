@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -20,21 +21,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 )
 
-var _ types.ChainReader = (*Client)(nil)
-
-// NewChainReaderTestClient is a test client for [types.ChainReader]
-// internal users should instantiate a client directly and set all private fields.
-func NewChainReaderTestClient(conn *grpc.ClientConn) types.ChainReader {
-	return &Client{grpc: pb.NewChainReaderClient(conn)}
-}
+var _ types.ContractReader = (*Client)(nil)
 
 type Client struct {
-	*net.BrokerExt
+	*goplugin.ServiceClient
 	grpc pb.ChainReaderClient
 }
 
 func NewClient(b *net.BrokerExt, cc grpc.ClientConnInterface) *Client {
-	return &Client{BrokerExt: b, grpc: pb.NewChainReaderClient(cc)}
+	return &Client{ServiceClient: goplugin.NewServiceClient(b, cc), grpc: pb.NewChainReaderClient(cc)}
 }
 
 // enum of all known encoding formats for versioned data.
@@ -150,13 +145,13 @@ func (c *Client) Bind(ctx context.Context, bindings []types.BoundContract) error
 
 var _ pb.ChainReaderServer = (*Server)(nil)
 
-func NewServer(impl types.ChainReader) pb.ChainReaderServer {
+func NewServer(impl types.ContractReader) pb.ChainReaderServer {
 	return &Server{impl: impl}
 }
 
 type Server struct {
 	pb.UnimplementedChainReaderServer
-	impl types.ChainReader
+	impl types.ContractReader
 }
 
 func (c *Server) GetLatestValue(ctx context.Context, request *pb.GetLatestValueRequest) (*pb.GetLatestValueReply, error) {
@@ -487,4 +482,8 @@ func convertSequencesFromProto(pbSequences []*pb.Sequence, sequenceDataType any)
 	}
 
 	return sequences, nil
+}
+
+func RegisterContractReaderService(s *grpc.Server, contractReader types.ContractReader) {
+	pb.RegisterServiceServer(s, &goplugin.ServiceServer{Srv: contractReader})
 }

@@ -66,7 +66,7 @@ type staticExecProvider struct {
 }
 
 // ChainReader implements ExecProviderEvaluator.
-func (s staticExecProvider) ChainReader() types.ChainReader {
+func (s staticExecProvider) ChainReader() types.ContractReader {
 	return nil
 }
 

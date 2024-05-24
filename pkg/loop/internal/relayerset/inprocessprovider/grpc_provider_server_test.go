@@ -95,7 +95,7 @@ func (s staticMedianProvider) ReportCodec() median.ReportCodec {
 }
 
 // ChainReader implements types.MedianProvider.
-func (s staticMedianProvider) ChainReader() types.ChainReader {
+func (s staticMedianProvider) ChainReader() types.ContractReader {
 	return nil
 }
 

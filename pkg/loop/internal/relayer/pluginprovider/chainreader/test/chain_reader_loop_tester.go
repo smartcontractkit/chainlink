@@ -1,4 +1,4 @@
-package test
+package chainreadertest
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 )
 
-// WrapChainReaderTesterForLoop allows you to test a [types.ChainReader] implementation behind a LOOP server
+// WrapChainReaderTesterForLoop allows you to test a [types.ContractReader] implementation behind a LOOP server
 func WrapChainReaderTesterForLoop(wrapped interfacetests.ChainReaderInterfaceTester) interfacetests.ChainReaderInterfaceTester {
 	return &chainReaderLoopTester{ChainReaderInterfaceTester: wrapped}
 }
@@ -33,7 +33,7 @@ func (c *chainReaderLoopTester) Setup(t *testing.T) {
 	c.lst.Setup(t)
 }
 
-func (c *chainReaderLoopTester) GetChainReader(t *testing.T) types.ChainReader {
+func (c *chainReaderLoopTester) GetChainReader(t *testing.T) types.ContractReader {
 	return chainreader.NewClient(nil, c.lst.GetConn(t))
 }
 

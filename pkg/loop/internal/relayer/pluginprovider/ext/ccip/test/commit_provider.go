@@ -64,7 +64,7 @@ type staticCommitProvider struct {
 }
 
 // ChainReader implements CommitProviderEvaluator.
-func (s staticCommitProvider) ChainReader() types.ChainReader {
+func (s staticCommitProvider) ChainReader() types.ContractReader {
 	return nil
 }
 

@@ -16,7 +16,7 @@ import (
 
 type ChainReaderInterfaceTester interface {
 	BasicTester
-	GetChainReader(t *testing.T) types.ChainReader
+	GetChainReader(t *testing.T) types.ContractReader
 
 	// SetLatestValue is expected to return the same bound contract and method in the same test
 	// Any setup required for this should be done in Setup.

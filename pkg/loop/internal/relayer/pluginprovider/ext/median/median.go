@@ -34,7 +34,7 @@ type ProviderClient struct {
 	reportCodec        median.ReportCodec
 	medianContract     median.MedianContract
 	onchainConfigCodec median.OnchainConfigCodec
-	chainReader        types.ChainReader
+	chainReader        types.ContractReader
 	codec              types.Codec
 }
 
@@ -72,7 +72,7 @@ func (m *ProviderClient) OnchainConfigCodec() median.OnchainConfigCodec {
 	return m.onchainConfigCodec
 }
 
-func (m *ProviderClient) ChainReader() types.ChainReader {
+func (m *ProviderClient) ChainReader() types.ContractReader {
 	return m.chainReader
 }
 

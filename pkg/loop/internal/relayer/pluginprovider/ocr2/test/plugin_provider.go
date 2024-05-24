@@ -27,7 +27,7 @@ type staticPluginProvider struct {
 	offchainConfigDigester staticOffchainConfigDigester
 	contractConfigTracker  staticContractConfigTracker
 	contractTransmitter    testtypes.ContractTransmitterEvaluator
-	chainReader            testtypes.ChainReaderEvaluator
+	chainReader            testtypes.ChainReaderTester
 	codec                  testtypes.CodecEvaluator
 }
 
@@ -55,7 +55,7 @@ func (s staticPluginProvider) ContractTransmitter() libocr.ContractTransmitter {
 	return s.contractTransmitter
 }
 
-func (s staticPluginProvider) ChainReader() types.ChainReader {
+func (s staticPluginProvider) ChainReader() types.ContractReader {
 	return s.chainReader
 }
 

@@ -65,12 +65,12 @@ func TestVersionedBytesFunctions(t *testing.T) {
 
 func TestChainReaderInterfaceTests(t *testing.T) {
 	fake := &fakeChainReader{}
-	RunChainReaderInterfaceTests(t, test.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: fake}))
+	RunChainReaderInterfaceTests(t, chainreadertest.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: fake}))
 }
 
 func TestBind(t *testing.T) {
 	es := &errChainReader{}
-	errTester := test.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: es})
+	errTester := chainreadertest.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: es})
 	errTester.Setup(t)
 	chainReader := errTester.GetChainReader(t)
 
@@ -86,14 +86,14 @@ func TestBind(t *testing.T) {
 
 func TestGetLatestValue(t *testing.T) {
 	es := &errChainReader{}
-	errTester := test.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: es})
+	errTester := chainreadertest.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: es})
 	errTester.Setup(t)
 	chainReader := errTester.GetChainReader(t)
 
 	t.Run("nil reader should return unimplemented", func(t *testing.T) {
 		ctx := tests.Context(t)
 
-		nilTester := test.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: nil})
+		nilTester := chainreadertest.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: nil})
 		nilTester.Setup(t)
 		nilCr := nilTester.GetChainReader(t)
 
@@ -121,19 +121,19 @@ func TestGetLatestValue(t *testing.T) {
 
 func TestQueryKey(t *testing.T) {
 	impl := &protoConversionTestChainReader{}
-	crTester := test.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: impl})
+	crTester := chainreadertest.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: impl})
 	crTester.Setup(t)
 	cr := crTester.GetChainReader(t)
 
 	es := &errChainReader{}
-	errTester := test.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: es})
+	errTester := chainreadertest.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: es})
 	errTester.Setup(t)
 	chainReader := errTester.GetChainReader(t)
 
 	t.Run("nil reader should return unimplemented", func(t *testing.T) {
 		ctx := tests.Context(t)
 
-		nilTester := test.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: nil})
+		nilTester := chainreadertest.WrapChainReaderTesterForLoop(&fakeChainReaderInterfaceTester{impl: nil})
 		nilTester.Setup(t)
 		nilCr := nilTester.GetChainReader(t)
 
@@ -172,7 +172,7 @@ func makeEncoder() cbor.EncMode {
 
 type fakeChainReaderInterfaceTester struct {
 	interfaceTesterBase
-	impl types.ChainReader
+	impl types.ContractReader
 }
 
 func (it *fakeChainReaderInterfaceTester) Setup(_ *testing.T) {
@@ -183,7 +183,7 @@ func (it *fakeChainReaderInterfaceTester) Setup(_ *testing.T) {
 	}
 }
 
-func (it *fakeChainReaderInterfaceTester) GetChainReader(_ *testing.T) types.ChainReader {
+func (it *fakeChainReaderInterfaceTester) GetChainReader(_ *testing.T) types.ContractReader {
 	return it.impl
 }
 
@@ -216,6 +216,16 @@ type fakeChainReader struct {
 	lock     sync.Mutex
 	triggers []TestStruct
 }
+
+func (f *fakeChainReader) Start(_ context.Context) error { return nil }
+
+func (f *fakeChainReader) Close() error { return nil }
+
+func (f *fakeChainReader) Ready() error { panic("unimplemented") }
+
+func (f *fakeChainReader) Name() string { panic("unimplemented") }
+
+func (f *fakeChainReader) HealthReport() map[string]error { panic("unimplemented") }
 
 func (f *fakeChainReader) Bind(_ context.Context, _ []types.BoundContract) error {
 	return nil
@@ -311,6 +321,16 @@ type errChainReader struct {
 	err error
 }
 
+func (e *errChainReader) Start(_ context.Context) error { return nil }
+
+func (e *errChainReader) Close() error { return nil }
+
+func (e *errChainReader) Ready() error { panic("unimplemented") }
+
+func (e *errChainReader) Name() string { panic("unimplemented") }
+
+func (e *errChainReader) HealthReport() map[string]error { panic("unimplemented") }
+
 func (e *errChainReader) GetLatestValue(_ context.Context, _, _ string, _, _ any) error {
 	return e.err
 }
@@ -328,6 +348,16 @@ type protoConversionTestChainReader struct {
 	expectedQueryFilter  query.KeyFilter
 	expectedLimitAndSort query.LimitAndSort
 }
+
+func (pc *protoConversionTestChainReader) Start(_ context.Context) error { return nil }
+
+func (pc *protoConversionTestChainReader) Close() error { return nil }
+
+func (pc *protoConversionTestChainReader) Ready() error { panic("unimplemented") }
+
+func (pc *protoConversionTestChainReader) Name() string { panic("unimplemented") }
+
+func (pc *protoConversionTestChainReader) HealthReport() map[string]error { panic("unimplemented") }
 
 func (pc *protoConversionTestChainReader) GetLatestValue(_ context.Context, _, _ string, _, _ any) error {
 	return nil

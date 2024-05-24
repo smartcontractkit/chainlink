@@ -103,7 +103,7 @@ func (s staticMercuryProvider) MercuryChainReader() mercurytypes.ChainReader {
 	return s.mercuryChainReader
 }
 
-func (s staticMercuryProvider) ChainReader() types.ChainReader {
+func (s staticMercuryProvider) ChainReader() types.ContractReader {
 	//panic("mercury does not use the general ChainReader interface yet")
 	return nil
 }
