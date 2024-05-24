@@ -3,10 +3,11 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -40,6 +41,7 @@ type MultiNode[
 	HEAD types.Head[BLOCK_HASH],
 	RPC_CLIENT any,
 ] interface {
+	Dial(ctx context.Context) error
 	// SelectRPC - returns the best healthy RPCClient
 	SelectRPC() (RPC_CLIENT, error)
 	// DoAll - calls `do` sequentially on all healthy RPCClients.
@@ -59,18 +61,18 @@ type multiNode[
 	RPC_CLIENT RPCClient[CHAIN_ID, HEAD],
 ] struct {
 	services.StateMachine
-	primaryNodes        []Node[CHAIN_ID, HEAD, RPC_CLIENT]
-	sendOnlyNodes       []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
-	chainID             CHAIN_ID
-	lggr                logger.SugaredLogger
-	selectionMode       string
-	noNewHeadsThreshold time.Duration
-	nodeSelector        NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
-	leaseDuration       time.Duration
-	leaseTicker         *time.Ticker
-	chainType           config.ChainType
-	chainFamily         string
-	reportInterval      time.Duration
+	primaryNodes  []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
+	chainID       CHAIN_ID
+	lggr          logger.SugaredLogger
+	selectionMode string
+	// noNewHeadsThreshold time.Duration TODO: Move this?
+	nodeSelector   NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
+	leaseDuration  time.Duration
+	leaseTicker    *time.Ticker
+	chainType      config.ChainType
+	chainFamily    string
+	reportInterval time.Duration
 
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
@@ -145,7 +147,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) DoAll(ctx context.Co
 		}
 	}
 	if callsCompleted == 0 {
-		return ErroringNodeError
+		return fmt.Errorf("no calls were completed")
 	}
 	return nil
 }
@@ -165,7 +167,6 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) NodeStates() map[str
 //
 // Nodes handle their own redialing and runloops, so this function does not
 // return any error if the nodes aren't available
-// TODO: Remove Dial() from MultiNode? Who will start the nodes?
 func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) Dial(ctx context.Context) error {
 	return c.StartOnce("MultiNode", func() (merr error) {
 		if len(c.primaryNodes) == 0 {
@@ -253,8 +254,8 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) selectNode() (node N
 
 	if c.activeNode == nil {
 		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
-		errmsg := fmt.Errorf("no live nodes available for chain %s", c.chainID.String())
-		c.SvcErrBuffer.Append(errmsg)
+		//errmsg := fmt.Errorf("no live nodes available for chain %s", c.chainID.String())
+		c.SvcErrBuffer.Append(ErroringNodeError)
 		err = ErroringNodeError
 	}
 

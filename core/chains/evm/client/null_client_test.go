@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -61,8 +60,7 @@ func TestNullClient(t *testing.T) {
 		require.Nil(t, h)
 		require.Equal(t, 1, logs.FilterMessage("HeadByNumber").Len())
 
-		chHeads := make(chan *evmtypes.Head)
-		sub, err := nc.SubscribeNewHead(ctx, chHeads)
+		_, sub, err := nc.SubscribeNewHead(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, logs.FilterMessage("SubscribeNewHead").Len())
 		require.Nil(t, sub.Err())

@@ -337,6 +337,7 @@ func (client *client) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.He
 	forwardCh, csf := newChainIDSubForwarder(client.ConfiguredChainID(), ch)
 	err := csf.start(client.pool.EthSubscribe(ctx, ch, "newHeads"))
 	if err != nil {
+		fmt.Println("HEREEE!!")
 		return nil, nil, err
 	}
 	return forwardCh, csf, nil

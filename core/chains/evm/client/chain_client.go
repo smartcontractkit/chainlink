@@ -29,7 +29,7 @@ type chainClient struct {
 		*big.Int,
 		common.Hash,
 		*evmtypes.Head,
-		*RpcClient,
+		EvmRpcClient,
 	]
 	logger       logger.SugaredLogger
 	chainType    config.ChainType
@@ -41,8 +41,8 @@ func NewChainClient(
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
-	nodes []commonclient.Node[*big.Int, *evmtypes.Head, *RpcClient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient],
+	nodes []commonclient.Node[*big.Int, *evmtypes.Head, EvmRpcClient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, EvmRpcClient],
 	chainID *big.Int,
 	chainType config.ChainType,
 	clientErrors evmconfig.ClientErrors,
@@ -93,19 +93,19 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []ethrpc.BatchE
 		return selectionErr
 	}
 
-	doFunc := func(ctx context.Context, rpc *RpcClient, isSendOnly bool) bool {
+	doFunc := func(ctx context.Context, rpc EvmRpcClient, isSendOnly bool) bool {
 		if rpc == main {
 			return true
 		}
 		// Parallel call made to all other nodes with ignored return value
 		wg.Add(1)
-		go func(rpc *RpcClient) {
+		go func(rpc EvmRpcClient) {
 			defer wg.Done()
 			err := rpc.BatchCallContext(ctx, b)
 			if err != nil {
-				rpc.rpcLog.Debugw("Secondary node BatchCallContext failed", "err", err)
+				c.logger.Debugw("Secondary node BatchCallContext failed", "err", err)
 			} else {
-				rpc.rpcLog.Trace("Secondary node BatchCallContext success")
+				c.logger.Debug("Secondary node BatchCallContext success")
 			}
 		}(rpc)
 		return true
@@ -165,7 +165,8 @@ func (c *chainClient) ChainID() (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	return rpc.chainID, nil
+	// TODO: Progagate context
+	return rpc.ChainID(context.Background())
 }
 
 func (c *chainClient) Close() {
@@ -185,15 +186,16 @@ func (c *chainClient) ConfiguredChainID() *big.Int {
 	if err != nil {
 		return nil
 	}
-	return rpc.chainID
+	// TODO: propagate context
+	chainId, err := rpc.ChainID(context.Background())
+	if err != nil {
+		return nil
+	}
+	return chainId
 }
 
 func (c *chainClient) Dial(ctx context.Context) error {
-	rpc, err := c.multiNode.SelectRPC()
-	if err != nil {
-		return err
-	}
-	return rpc.Dial(ctx)
+	return c.multiNode.Dial(ctx)
 }
 
 func (c *chainClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
@@ -322,7 +324,14 @@ func (c *chainClient) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.He
 	}
 
 	ch, sub, err := rpc.SubscribeToHeads(ctx)
-	forwardCh, csf := newChainIDSubForwarder(c.ConfiguredChainID(), ch)
+	if err != nil {
+		return nil, nil, err
+	}
+	chainID, err := c.ChainID()
+	if err != nil {
+		return nil, nil, err
+	}
+	forwardCh, csf := newChainIDSubForwarder(chainID, ch)
 	err = csf.start(sub, err)
 	if err != nil {
 		return nil, nil, err

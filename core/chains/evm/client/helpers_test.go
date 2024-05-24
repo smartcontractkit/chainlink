@@ -169,18 +169,18 @@ func NewChainClientWithTestNode(
 	}
 	rpc := NewRPCClient(nodePoolCfg, lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RpcClient](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, EvmRpcClient](
 		nodeCfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, *RpcClient]{n}
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, EvmRpcClient]{n}
 
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, EvmRpcClient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
 		rpc := NewRPCClient(nodePoolCfg, lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
-		s := commonclient.NewSendOnlyNode[*big.Int, *RpcClient](
+		s := commonclient.NewSendOnlyNode[*big.Int, EvmRpcClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
 	}
@@ -214,7 +214,7 @@ func NewChainClientWithMockedRpc(
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
 	chainID *big.Int,
-	rpc *commonclient.RPCClient[*big.Int, *evmtypes.Head],
+	rpc EvmRpcClient,
 ) Client {
 
 	lggr := logger.Test(t)
@@ -226,9 +226,9 @@ func NewChainClientWithMockedRpc(
 	}
 	parsed, _ := url.ParseRequestURI("ws://test")
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *clientMocks.MockRPCClient[*big.Int, *evmtypes.Head]](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, EvmRpcClient](
 		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, *clientMocks.MockRPCClient[*big.Int, *evmtypes.Head]]{n}
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, EvmRpcClient]{n}
 	clientErrors := NewTestClientErrors()
 	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &clientErrors)
 	t.Cleanup(c.Close)

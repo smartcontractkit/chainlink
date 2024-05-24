@@ -1,21 +1,21 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -45,12 +45,6 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 	return testMultiNode{
 		result.(*multiNode[types.ID, Hashable, types.Head[Hashable], multiNodeRPCClient]),
 	}
-}
-
-func newMultiNodeRPCClient(t *testing.T) *mockRPC[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
-	types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], any] {
-	return newMockRPC[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
-		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], any](t)
 }
 
 func newHealthyNode(t *testing.T, chainID types.ID) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {

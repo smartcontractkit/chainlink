@@ -3,10 +3,11 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"math"
 	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -69,7 +70,7 @@ const (
 	msgDegradedState = "Chainlink is now operating in a degraded state and urgent action is required to resolve the issue"
 )
 
-const rpcSubscriptionMethodNewHeads = "newHeads"
+// const rpcSubscriptionMethodNewHeads = "newHeads"
 
 // Node is a FSM
 // Each state has a loop that goes with it, which monitors the node and moves it into another state as necessary.

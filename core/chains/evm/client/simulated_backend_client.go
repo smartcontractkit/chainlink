@@ -298,15 +298,15 @@ func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
 // to convert those into evmtypes.Head.
 func (c *SimulatedBackendClient) SubscribeNewHead(
 	ctx context.Context,
-	channel chan<- *evmtypes.Head,
-) (ethereum.Subscription, error) {
+) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
 	subscription := &headSubscription{unSub: make(chan chan struct{})}
 	ch := make(chan *types.Header)
+	channel := make(chan *evmtypes.Head)
 
 	var err error
 	subscription.subscription, err = c.b.SubscribeNewHead(ctx, ch)
 	if err != nil {
-		return nil, fmt.Errorf("%w: could not subscribe to new heads on "+
+		return nil, nil, fmt.Errorf("%w: could not subscribe to new heads on "+
 			"simulated backend", err)
 	}
 	go func() {
@@ -334,7 +334,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 			}
 		}
 	}()
-	return subscription, err
+	return channel, subscription, err
 }
 
 // HeaderByNumber returns the geth header type.

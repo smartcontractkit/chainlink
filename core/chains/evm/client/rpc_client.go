@@ -30,6 +30,48 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
+//go:generate mockery --quiet --name EvmRpcClient --structname MockEvmRpcClient --filename "mock_evm_rpc_client_test.go" --inpackage --case=underscore
+type EvmRpcClient interface {
+	commonclient.RPCClient[*big.Int, *evmtypes.Head]
+	BalanceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (*big.Int, error)
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	BlockByHash(ctx context.Context, hash common.Hash) (*evmtypes.Head, error)
+	BlockByHashGeth(ctx context.Context, hash common.Hash) (*types.Block, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*evmtypes.Head, error)
+	BlockByNumberGeth(ctx context.Context, number *big.Int) (*types.Block, error)
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	CallContract(ctx context.Context, msg interface{}, blockNumber *big.Int) ([]byte, error)
+	ClientVersion(_a0 context.Context) (string, error)
+	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+	DialHTTP() error
+	DisconnectAll()
+	EstimateGas(ctx context.Context, call interface{}) (uint64, error)
+	FilterEvents(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error)
+	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
+	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
+	LINKBalance(ctx context.Context, accountAddress common.Address, linkAddress common.Address) (*commonassets.Link, error)
+	LatestBlockHeight(_a0 context.Context) (*big.Int, error)
+	LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error)
+	PendingCallContract(ctx context.Context, msg interface{}) ([]byte, error)
+	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
+	PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error)
+	SendEmptyTransaction(ctx context.Context, newTxAttempt func(evmtypes.Nonce, uint32, *assets.Wei, common.Address) (interface{}, error), seq evmtypes.Nonce, gasLimit uint32, fee *assets.Wei, fromAddress common.Address) (string, error)
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	SequenceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (evmtypes.Nonce, error)
+	SetAliveLoopSub(_a0 commontypes.Subscription)
+	SimulateTransaction(ctx context.Context, tx *types.Transaction) error
+	Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error)
+	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	SubscribersCount() int32
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
+	TokenBalance(ctx context.Context, accountAddress common.Address, tokenAddress common.Address) (*big.Int, error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	UnsubscribeAllExceptAliveLoop()
+}
+
 type RpcClient struct {
 	cfg     config.NodePool
 	rpcLog  logger.SugaredLogger
@@ -67,7 +109,7 @@ func NewRPCClient(
 	id int32,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
-) *RpcClient {
+) EvmRpcClient {
 	r := new(RpcClient)
 	r.cfg = cfg
 	r.name = name
@@ -375,7 +417,7 @@ func (r *RpcClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head
 
 // GethClient wrappers
 
-func (r *RpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *evmtypes.Receipt, err error) {
+func (r *RpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
 	err = r.CallContext(ctx, &receipt, "eth_getTransactionReceipt", txHash, false)
 	if err != nil {
 		return nil, err
