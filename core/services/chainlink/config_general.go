@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -201,7 +201,7 @@ func (g *generalConfig) CosmosConfigs() coscfg.TOMLConfigs {
 	return g.c.Cosmos
 }
 
-func (g *generalConfig) SolanaConfigs() solana.TOMLConfigs {
+func (g *generalConfig) SolanaConfigs() solcfg.TOMLConfigs {
 	return g.c.Solana
 }
 

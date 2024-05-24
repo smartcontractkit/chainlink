@@ -861,10 +861,11 @@ func TestVRFV2WithBHS(t *testing.T) {
 		CleanupFn:  cleanupFn,
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
-		NumberOfTxKeysToCreate: 0,
-		UseVRFOwner:            false,
-		UseTestCoordinator:     false,
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
+		NumberOfTxKeysToCreate:          0,
+		UseVRFOwner:                     false,
+		UseTestCoordinator:              false,
+		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
 	testEnv, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFV2 universe")
@@ -1266,10 +1267,11 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		CleanupFn:  cleanupFn,
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
-		NumberOfTxKeysToCreate: 0,
-		UseVRFOwner:            false,
-		UseTestCoordinator:     false,
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate:          0,
+		UseVRFOwner:                     false,
+		UseTestCoordinator:              false,
+		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
 	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFv2 universe")
