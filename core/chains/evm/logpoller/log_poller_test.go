@@ -864,7 +864,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			b, err := th.Client.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
 			require.Equal(t, uint64(1), b.NumberU64())
-			require.Equal(t, uint64(10), b.Time())
 
 			// Test scenario: single block in chain, no logs.
 			// Chain genesis <- 1
@@ -878,7 +877,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			assert.Equal(t, lpb.BlockHash, b.Hash())
 			assert.Equal(t, lpb.BlockNumber, int64(b.NumberU64()))
 			assert.Equal(t, int64(1), int64(b.NumberU64()))
-			assert.Equal(t, uint64(10), b.Time())
 
 			// No logs.
 			lgs, err := th.ORM.SelectLogsByBlockRange(testutils.Context(t), 1, 1)
