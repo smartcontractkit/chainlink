@@ -120,7 +120,7 @@ func (s *registrySyncer) launch(ctx context.Context) {
 	if s.networkSetup.IsTriggerDon(myId) {
 		s.lggr.Info("member of a capability DON - starting remote publishers")
 
-		/*{
+		{
 			// ---- This is for local tests only, until a full-blown Syncer is implemented
 			// ---- Normally this is set up asynchronously (by the Relayer + job specs in Mercury's case)
 			localTrigger := triggers.NewMercuryTriggerService(1000, s.lggr)
@@ -128,12 +128,12 @@ func (s *registrySyncer) launch(ctx context.Context) {
 			err = s.registry.Add(ctx, localTrigger)
 			if err != nil {
 				s.lggr.Errorw("failed to add local trigger capability to registry", "error", err)
-				return err
+			} else {
+				s.subServices = append(s.subServices, localTrigger)
+				s.subServices = append(s.subServices, mockMercuryDataProducer)
 			}
-			s.subServices = append(s.subServices, localTrigger)
-			s.subServices = append(s.subServices, mockMercuryDataProducer)
 			// ----
-		}*/
+		}
 
 		count := 0
 		for {
@@ -212,16 +212,17 @@ func NewHardcodedDonNetworkSetup() (HardcodedDonNetworkSetup, error) {
 	result := HardcodedDonNetworkSetup{}
 
 	result.workflowDonPeers = []string{
-		"12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N",
-		"12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
-		"12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92mywwpuqkEtz8XWyv",
-		"12D3KooW9zYWQv3STmDeNDidyzxsJSTxoCTLicafgfeEz9nhwhC4",
+		"12D3KooWF3dVeJ6YoT5HFnYhmwQWWMoEwVFzJQ5kKCMX3ZityxMC",
+		"12D3KooWQsmok6aD8PZqt3RnJhQRrNzKHLficq7zYFRp7kZ1hHP8",
+		"12D3KooWJbZLiMuGeKw78s3LM5TNgBTJHcF39DraxLu14bucG9RN",
+		"12D3KooWGqfSPhHKmQycfhRjgUDE2vg9YWZN27Eue8idb2ZUk6EH",
 	}
 	result.triggerDonPeers = []string{
-		"12D3KooWBaiTbbRwwt2fbNifiL7Ew9tn3vds9AJE3Nf3eaVBX36m",
-		"12D3KooWS7JSY9fzSfWgbCE1S3W2LNY6ZVpRuun74moVBkKj6utE",
-		"12D3KooWMMTDXcWhpVnwrdAer1jnVARTmnr3RyT3v7Djg8ZuoBh9",
-		"12D3KooWGzVXsKxXsF4zLgxSDM8Gzx1ywq2pZef4PrHMKuVg4K3P",
+		"12D3KooWHCcyTPmYFB1ydNvNcXw5WyAomRzGSFu1B7hpB4yi8Smf",
+		"12D3KooWPv6eqJvYz7TcQWk4Y4XjZ1uQ7mUKahdDXj65ht95zH6a",
+		"12D3KooWDkmuwPBCB4PQxyEt58oncyLyMHxAwGFnyNkTjp7PtUSX",
+		"12D3KooWEcSYArApRXcfRbQnTzxZVHUB7u9WFbrXm21GdrPJj97U",
+
 		"12D3KooWSyjmmzjVtCzwN7bXzZQFmWiJRuVcKBerNjVgL7HdLJBW",
 		"12D3KooWLGz9gzhrNsvyM6XnXS3JRkZoQdEzuAvysovnSChNK5ZK",
 		"12D3KooWAvZnvknFAfSiUYjATyhzEJLTeKvAzpcLELHi4ogM3GET",
@@ -295,17 +296,14 @@ func (m *mockMercuryDataProducer) Start(ctx context.Context) error {
 func (m *mockMercuryDataProducer) loop() {
 	defer m.wg.Done()
 
-	sleepSec := 60
+	sleepSec := 10
 	ticker := time.NewTicker(time.Duration(sleepSec) * time.Second)
 	defer ticker.Stop()
 
 	prices := []*big.Int{big.NewInt(300000), big.NewInt(40000), big.NewInt(5000000)}
 
 	for range ticker.C {
-		for i := range prices {
-			prices[i].Add(prices[i], big.NewInt(1))
-		}
-
+		// no changes to price
 		reports := []datastreams.FeedReport{
 			{
 				FeedID:               "0x0003fbba4fce42f65d6032b18aee53efdf526cc734ad296cb57565979d883bdd",

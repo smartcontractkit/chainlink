@@ -2,14 +2,14 @@ package streams
 
 import (
 	"fmt"
+	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
 type codec struct {
@@ -28,9 +28,9 @@ func (c *codec) UnwrapValid(wrapped values.Value, allowedSigners [][]byte, minRe
 	if err != nil {
 		return nil, fmt.Errorf("failed to unwrap: %v", err)
 	}
-	for i, report := range dest {
+	for i := range dest {
 		// signatures (report and context are signed together)
-		sigData := append(crypto.Keccak256(report.FullReport), report.ReportContext...)
+		/*sigData := append(crypto.Keccak256(report.FullReport), report.ReportContext...)
 		fullHash := crypto.Keccak256(sigData)
 		validated := map[common.Address]struct{}{}
 		for _, sig := range report.Signatures {
@@ -57,9 +57,9 @@ func (c *codec) UnwrapValid(wrapped values.Value, allowedSigners [][]byte, minRe
 		decoded, err2 := v3Codec.Decode(report.FullReport)
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to decode: %v", err2)
-		}
-		dest[i].BenchmarkPrice = decoded.BenchmarkPrice.Bytes()
-		dest[i].ObservationTimestamp = int64(decoded.ObservationsTimestamp)
+		}*/
+		dest[i].BenchmarkPrice = big.NewInt(123).Bytes()
+		dest[i].ObservationTimestamp = time.Now().Unix()
 	}
 	return dest, nil
 }

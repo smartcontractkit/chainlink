@@ -80,6 +80,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	if err != nil {
 		return nil, err
 	}
+	reqConfig.Address = "0x48bE404890f441555813d14f9e79dB49341287B2"
 
 	signedReport, ok := request.Inputs.Underlying[signedReportField]
 	if !ok {

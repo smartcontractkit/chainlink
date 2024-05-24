@@ -102,4 +102,4 @@ override*.toml
 .venv/
 
 ocr_soak_report.csv
-
+chainlink-ocr3-capability
