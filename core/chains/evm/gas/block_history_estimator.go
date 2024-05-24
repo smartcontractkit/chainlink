@@ -52,21 +52,9 @@ var (
 	},
 		[]string{"percentile", "evmChainID"},
 	)
-	promBlockHistoryEstimatorSetMaxPercentileGasPrice = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "gas_updater_set_max_percentil_gas_price",
-		Help: "Gas updater set max percentile gas price (in Wei)",
-	},
-		[]string{"percentile", "evmChainID"},
-	)
 	promBlockHistoryEstimatorSetTipCap = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "gas_updater_set_tip_cap",
 		Help: "Gas updater set gas tip cap (in Wei)",
-	},
-		[]string{"percentile", "evmChainID"},
-	)
-	promBlockHistoryEstimatorSetMaxPercentileTipCap = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "gas_updater_set_max_percentile_tip_cap",
-		Help: "Gas updater set max percentile gas tip cap (in Wei)",
 	},
 		[]string{"percentile", "evmChainID"},
 	)
@@ -355,11 +343,11 @@ func (b *BlockHistoryEstimator) haltBumping(attempts []EvmPriorAttempt) error {
 	if !b.initialFetch.Load() {
 		return errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
 	}
-	// Return error to prevent bumping if gas price is nil or if EIP1559 is enabled and tip cap is nil
+	// Return nil to allow bumping to proceed if gas price is nil or if EIP1559 is enabled and tip cap is nil
+	// Do not halt bumping in case this is an issue with the head tracker to prevent transactions from getting backed up
 	if maxGasPrice == nil || (b.eConfig.EIP1559DynamicFees() && maxTipCap == nil) {
-		errorMsg := fmt.Sprintf("%d percentile price is not set. This is likely because there aren't any valid transactions to estimate from. Preventing bumping until valid price is available to compare", percentile)
-		b.logger.Debugf(errorMsg)
-		return errors.New(errorMsg)
+		b.logger.Debugf("%d percentile price is not set. This is likely because there aren't any valid transactions to estimate from. Allowing bumping to proceed.", percentile)
+		return nil
 	}
 	// Get the latest CheckInclusionBlocks from block history for fee cap check below
 	blockHistory := b.getBlocks()
@@ -638,7 +626,6 @@ func (b *BlockHistoryEstimator) calculateMaxPercentileGasPriceTipCap(lggr logger
 	}
 
 	b.setMaxPercentileGasPrice(maxPercentileGasPrice)
-	promBlockHistoryEstimatorSetMaxPercentileGasPrice.WithLabelValues(fmt.Sprintf("%v%%", percentile), b.chainID.String()).Set(float64(maxPercentileGasPrice.Int64()))
 
 	if !eip1559 {
 		lggr.Debugw(fmt.Sprintf("Setting new max percentile GasPrice: %v Gwei", maxPercentileGasPriceGwei), lggrFields...)
@@ -653,7 +640,6 @@ func (b *BlockHistoryEstimator) calculateMaxPercentileGasPriceTipCap(lggr logger
 	}...)
 	lggr.Debugw(fmt.Sprintf("Setting new default prices, max percentile GasPrice: %v Gwei, max percentile TipCap: %v Gwei", maxPercentileGasPriceGwei, maxPercentileTipCapGwei), lggrFields...)
 	b.setMaxPercentileTipCap(maxPercentileTipCap)
-	promBlockHistoryEstimatorSetMaxPercentileTipCap.WithLabelValues(fmt.Sprintf("%v%%", percentile), b.chainID.String()).Set(float64(maxPercentileTipCap.Int64()))
 }
 
 // FetchBlocks fetches block history leading up to the given head.
