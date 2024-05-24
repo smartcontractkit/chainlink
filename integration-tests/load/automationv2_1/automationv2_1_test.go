@@ -101,7 +101,7 @@ Password = '%s'`
 			},
 		},
 		"stateful": true,
-		"capacity": "10Gi",
+		"capacity": "20Gi",
 	}
 
 	recNodeSpec = map[string]interface{}{
@@ -798,7 +798,7 @@ Test Duration: %s`
 			if err != nil {
 				l.Error().Err(err).Msg("Error increasing TTL of namespace")
 			}
-		} else if chainClient.Cfg.IsSimulatedNetwork() {
+		} else if chainClient.Cfg.IsSimulatedNetwork() || *loadedTestConfig.Automation.General.RemoveNamespace {
 			err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
 			if err != nil {
 				l.Error().Err(err).Msg("Error removing namespace")
