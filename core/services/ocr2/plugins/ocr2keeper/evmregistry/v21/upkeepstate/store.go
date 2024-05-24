@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -347,16 +348,18 @@ type txStatusStore struct {
 	mu         sync.RWMutex
 	uuids      *cache.Cache // uuid to uid
 	uids       *cache.Cache // uid to bool
+	txm        txmgr.TxManager
 	threadCtrl utils.ThreadControl
 
 }
 
 // NewTxStatusStore creates a new tx status store
-func NewTxStatusStore(lggr logger.Logger) *txStatusStore {
+func NewTxStatusStore(lggr logger.Logger, txm txmgr.TxManager) *txStatusStore {
 	return &txStatusStore{
 		lggr:       lggr,
 		uuids:      cache.New(24 * time.Hour, 15 * time.Minute),
 		uids:       cache.New(24 * time.Hour, 15 * time.Minute),
+		txm:        txm,
 		threadCtrl: utils.NewThreadControl(),
 	}
 }
@@ -398,7 +401,7 @@ func (t *txStatusStore) Start(_ context.Context) error {
 					for k, v := range t.uuids.Items() {
 						t.lggr.Infof("querying tx status with UUID %s for upkeep ID %s", k, v.Object.(*big.Int))
 						// query TXM and update the data structure
-						//status := txm.queryTxStatus(k)
+						//status := t.txm.queryTxStatus(k)
 						//if status == terminally_error {
 						//	err := t.uids.Add(v.Object.(*big.Int).String(), true, cache.DefaultExpiration)
 						//	if err != nil {

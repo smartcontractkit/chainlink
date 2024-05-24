@@ -93,7 +93,12 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
+	var key *string
+	if txMeta.UpkeepID != nil {
+		key = txMeta.UpkeepID
+	}
 	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
+		IdempotencyKey:   key,
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
