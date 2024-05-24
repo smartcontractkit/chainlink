@@ -93,6 +93,7 @@ func NewEvmRegistry(
 	packer encoding.Packer,
 	blockSub *BlockSubscriber,
 	finalityDepth uint32,
+	txStatusStore ocr2keepers.TxStatusStore,
 ) *EvmRegistry {
 	mercuryConfig := NewMercuryConfig(mc, core.StreamsCompatibleABI)
 	hc := http.DefaultClient
@@ -117,6 +118,7 @@ func NewEvmRegistry(
 		finalityDepth:    finalityDepth,
 		streams:          streams.NewStreamsLookup(mercuryConfig, blockSub, client.Client(), registry, lggr),
 		ge:               client.GasEstimator(),
+		txStatusStore:    txStatusStore,
 	}
 }
 
@@ -199,6 +201,7 @@ type EvmRegistry struct {
 	finalityDepth    uint32
 	streams          streams.Lookup
 	ge               gas.EvmFeeEstimator
+	txStatusStore    ocr2keepers.TxStatusStore
 }
 
 func (r *EvmRegistry) Name() string {

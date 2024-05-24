@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -55,6 +56,7 @@ type OCR2KeeperProvider interface {
 	LogEventProvider() automation.LogEventProvider
 	LogRecoverer() automation.LogRecoverer
 	UpkeepProvider() automation.ConditionalUpkeepProvider
+	TxStatusStore() automation.TxStatusStore
 }
 
 // OCR2KeeperRelayer contains the relayer and instantiating functions for OCR2Keeper providers.
@@ -135,9 +137,10 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	al := evm.NewActiveUpkeepList()
 	services.payloadBuilder = evm.NewPayloadBuilder(al, logRecoverer, r.lggr)
 
+	services.txStatusStore = upkeepstate.NewTxStatusStore(r.lggr)
 	services.registry = evm.NewEvmRegistry(r.lggr, addr, client,
 		registryContract, rargs.MercuryCredentials, al, logProvider,
-		packer, blockSubscriber, finalityDepth)
+		packer, blockSubscriber, finalityDepth, services.txStatusStore)
 
 	services.conditionalUpkeepProvider = evm.NewUpkeepProvider(al, blockSubscriber, client.LogPoller())
 
@@ -145,13 +148,15 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 }
 
 type ocr3keeperProviderContractTransmitter struct {
+	lggr logger.Logger
 	contractTransmitter ocrtypes.ContractTransmitter
+	txStatusStore automation.TxStatusStore
 }
 
 var _ ocr3types.ContractTransmitter[plugin.AutomationReportInfo] = &ocr3keeperProviderContractTransmitter{}
 
-func NewKeepersOCR3ContractTransmitter(ocr2ContractTransmitter ocrtypes.ContractTransmitter) *ocr3keeperProviderContractTransmitter {
-	return &ocr3keeperProviderContractTransmitter{ocr2ContractTransmitter}
+func NewKeepersOCR3ContractTransmitter(ocr2ContractTransmitter ocrtypes.ContractTransmitter, txStatusStore automation.TxStatusStore, lggr logger.SugaredLogger,) *ocr3keeperProviderContractTransmitter {
+	return &ocr3keeperProviderContractTransmitter{contractTransmitter: ocr2ContractTransmitter, txStatusStore: txStatusStore, lggr: lggr.Named("ocr3keeperProviderContractTransmitter")}
 }
 
 func (t *ocr3keeperProviderContractTransmitter) Transmit(
@@ -161,6 +166,21 @@ func (t *ocr3keeperProviderContractTransmitter) Transmit(
 	reportWithInfo ocr3types.ReportWithInfo[plugin.AutomationReportInfo],
 	aoss []ocrtypes.AttributedOnchainSignature,
 ) error {
+
+	// possibly decode reportWithInfo.Report into automation_compatible_utils.IAutomationV21PlusCommonReport if
+	// the Info approach is not working
+
+	// for zk chains, the batch size should be set to 1 in order to figure out which upkeep is responsible for a possible
+	// overflown tx
+	if len(reportWithInfo.Info.UpkeepIDs) == 1 {
+		id := uuid.New()
+		uid := reportWithInfo.Info.UpkeepIDs[0]
+		err := t.txStatusStore.SaveTxInfo(id, uid)
+		if err != nil {
+			t.lggr.Errorf("failed to save tx info into tx status key %s for upkeep ID %s", id.String(), uid)
+		}
+	}
+
 	return t.contractTransmitter.Transmit(
 		ctx,
 		ocrtypes.ReportContext{
@@ -190,6 +210,11 @@ type ocr2keeperProvider struct {
 	logEventProvider          automation.LogEventProvider
 	logRecoverer              automation.LogRecoverer
 	conditionalUpkeepProvider automation.ConditionalUpkeepProvider
+	txStatusStore             automation.TxStatusStore
+}
+
+func (c *ocr2keeperProvider) TxStatusStore() automation.TxStatusStore {
+	return c.txStatusStore
 }
 
 func (c *ocr2keeperProvider) ContractTransmitter() ocrtypes.ContractTransmitter {

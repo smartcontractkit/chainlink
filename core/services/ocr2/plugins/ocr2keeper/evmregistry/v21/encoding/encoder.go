@@ -28,9 +28,9 @@ func NewReportEncoder(p Packer) ocr2keepers.Encoder {
 	}
 }
 
-func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error) {
+func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, []*big.Int, error) {
 	if len(results) == 0 {
-		return nil, ErrEmptyResults
+		return nil, nil, ErrEmptyResults
 	}
 
 	report := ac.IAutomationV21PlusCommonReport{
@@ -77,7 +77,7 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 
 		trigger, err := core.PackTrigger(id, triggerW)
 		if err != nil {
-			return nil, fmt.Errorf("%w: failed to pack trigger", err)
+			return nil, nil, fmt.Errorf("%w: failed to pack trigger", err)
 		}
 
 		report.Triggers[i] = trigger
@@ -86,7 +86,8 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 		encoded++
 	}
 
-	return e.packer.PackReport(report)
+	reports, err := e.packer.PackReport(report)
+	return reports, report.UpkeepIds, err
 }
 
 // Extract extracts a slice of reported upkeeps (upkeep id, trigger, and work id) from raw bytes. the plugin will call this function to accept/transmit reports.

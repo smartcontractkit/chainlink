@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/patrickmn/go-cache"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
@@ -20,6 +22,7 @@ import (
 )
 
 const (
+	TxStatusStoreServiceName = "TxStatusStore"
 	UpkeepStateStoreServiceName = "UpkeepStateStore"
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
@@ -28,6 +31,7 @@ const (
 	// flushCadence is the amount of time between flushes to the DB.
 	flushCadence         = 30 * time.Second
 	concurrentBatchCalls = 10
+	TxStatusCheckInterval = 20 * time.Second
 )
 
 type ORM interface {
@@ -335,4 +339,93 @@ func (u *upkeepStateStore) cleanCache() {
 			delete(u.cache, id)
 		}
 	}
+}
+
+type txStatusStore struct {
+	services.StateMachine
+	lggr       logger.Logger
+	mu         sync.RWMutex
+	uuids      *cache.Cache // uuid to uid
+	uids       *cache.Cache // uid to bool
+	threadCtrl utils.ThreadControl
+
+}
+
+// NewTxStatusStore creates a new tx status store
+func NewTxStatusStore(lggr logger.Logger) *txStatusStore {
+	return &txStatusStore{
+		lggr:       lggr,
+		uuids:      cache.New(24 * time.Hour, 15 * time.Minute),
+		uids:       cache.New(24 * time.Hour, 15 * time.Minute),
+		threadCtrl: utils.NewThreadControl(),
+	}
+}
+
+func (t *txStatusStore) SaveTxInfo(uuid uuid.UUID, upkeepID *big.Int) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return t.uuids.Add(uuid.String(), upkeepID, cache.DefaultExpiration)
+}
+
+func (t *txStatusStore) IsStuck(uid *big.Int) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	stuck, ok := t.uids.Get(uid.String())
+	if !ok {
+		return false
+	}
+
+	return stuck.(bool)
+}
+
+// Start starts the upkeep state store.
+// it does background cleanup of the cache every GCInterval,
+// and flush records to DB every flushCadence.
+func (t *txStatusStore) Start(_ context.Context) error {
+	return t.StartOnce(TxStatusStoreServiceName, func() error {
+
+		t.lggr.Debug("Starting tx status store")
+
+		t.threadCtrl.Go(func(ctx context.Context) {
+			ticker := time.NewTicker(TxStatusCheckInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					for k, v := range t.uuids.Items() {
+						t.lggr.Infof("querying tx status with UUID %s for upkeep ID %s", k, v.Object.(*big.Int))
+						// query TXM and update the data structure
+						//status := txm.queryTxStatus(k)
+						//if status == terminally_error {
+						//	err := t.uids.Add(v.Object.(*big.Int).String(), true, cache.DefaultExpiration)
+						//	if err != nil {
+						//		t.lggr.Errorf("failed to add")
+						//		continue
+						//	}
+						//} else if status != pending {
+						//	t.uuids.Delete(k)
+						//}
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		})
+		return nil
+	})
+}
+
+// Close stops the service of pruning stale data; implements io.Closer
+func (t *txStatusStore) Close() error {
+	return t.StopOnce(TxStatusStoreServiceName, func() error {
+		t.threadCtrl.Close()
+		return nil
+	})
+}
+
+func (t *txStatusStore) HealthReport() map[string]error {
+	return map[string]error{TxStatusStoreServiceName: t.Healthy()}
 }

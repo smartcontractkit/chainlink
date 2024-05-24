@@ -189,6 +189,11 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 
 	for i, p := range payloads {
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
+		if r.txStatusStore.IsStuck(upkeepId) {
+			r.lggr.Errorf("upkeep %s's previous tx is terminally stuck. this node will return false for it for at least 24 hrs.", upkeepId)
+			results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonZKOverflowCooldown, encoding.NoPipelineError, false)
+			continue
+		}
 		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
 		if state != encoding.NoPipelineError {
 			results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, state, retryable)
