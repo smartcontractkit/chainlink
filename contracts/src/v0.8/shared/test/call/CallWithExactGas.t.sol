@@ -258,7 +258,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
 
     vm.expectCall(address(s_gasConsumer), abi.encodeWithSelector(s_gasConsumer.throwOutOfGasError.selector));
 
-    (bool success,, ) = s_caller.callWithExactGasSafeReturnData(
+    (bool success, , ) = s_caller.callWithExactGasSafeReturnData(
       abi.encodePacked(s_gasConsumer.throwOutOfGasError.selector),
       address(s_gasConsumer),
       DEFAULT_GAS_LIMIT,
