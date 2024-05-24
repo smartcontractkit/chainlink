@@ -33,9 +33,7 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 	if checkInterface {
 		i := v.Interface()
 		if vc, ok := i.(Validated); ok {
-			for _, e := range utils.UnwrapError(vc.ValidateConfig()) {
-				err = multierr.Append(err, e)
-			}
+			err = multierr.Append(err, vc.ValidateConfig())
 		} else if v.CanAddr() {
 			i = v.Addr().Interface()
 			if vc, ok := i.(Validated); ok {
