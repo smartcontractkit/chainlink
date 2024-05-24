@@ -36,6 +36,7 @@
     3. [Adjustment Factor](#adjustment-factor)
     4. [Buffer Percents](#buffer-percents)
 18. [How to Tweak Automated Gas Estimation](#how-to-tweak-automated-gas-estimation)
+19. [How to debug with 'execution reverted' error](#how-to-debug-with-execution-reverted-error)
 
 ## Introduction
 
@@ -437,3 +438,19 @@ Now that you know how automated gas estimation works, you can tweak it to better
 * **Adjust the Gas Price Estimation Blocks**: Increase or decrease the number of blocks used for gas estimation based on network conditions. More blocks provide a more accurate picture of network congestion and can smooth out short spikes of high gas prices. On the other hand, fewer blocks can speed up the estimation process or even be a prerequisite for the estimation to work (if the RPC is slow). Remember also that longer block range can lead to less accurate estimation, if network conditions changed very recently (although the algorithm tries to counter that by assigning higher weights to more recent blocks.
 * **Set the Gas Price Estimation Tx Priority**: Choose the transaction priority that best suits your needs. A higher priority will increase the gas price, ensuring faster inclusion in a block. Conversely, a lower priority will reduce the gas price, potentially saving you money.
 * **Disable Gas Estimation**: If you prefer to use hardcoded values, you can disable automated gas estimation. This will make Seth use the hardcoded values from your TOML configuration, which can be useful if you want to avoid the overhead of estimation or if you have specific gas prices you want to use or in a rare case that estimations are inaccurate.
+
+## How to debug with 'execution reverted' error
+When you encounter the 'execution reverted' error without any additional details, it can be challenging to determine the cause. This error indicates that the Ethereum Virtual Machine (EVM) couldn't return a specific revert reason. Here are some tips to help you debug this issue:
+1. **Set SETH_LOG_LEVEL**: Increase the log level to `trace` to get more detailed information about the transaction. This will help you identify the cause of the revert.
+2. **Use Custom Revert Reasons**: Ensure your contract uses custom error/custom messages with `revert`/`require` statements. Without them, you won't get specific reasons for the error.
+3. **Check Solidity Version**: Make sure your contract uses a Solidity version that supports custom revert reasons (>= 0.8.4). The version is specified at the beginning of your contract file, like this:
+   ```solidity
+   // SPDX-License-Identifier: MIT
+   pragma solidity ^0.8.4;
+   ```
+   If the version is lower, you won't get custom revert reasons. Upgrading the version might introduce breaking changes, so do not commit these changes without thorough testing.
+4. **Inspect `delegatecall` Usage**: If the method you are calling uses `delegatecall`, it might be the cause of the issue. `delegatecall` is a low-level call that doesn't return revert reasons, so you'll always get the 'execution reverted' error unless you manually handle it in assembly.
+5. **Debug with Events**: If you're still unable to find the cause, you can modify the contract to emit an event with the revert reason. For example, define an event like `event DebugEvent(string reason)` and add it before the points where you suspect a revert might occur. You will be able to find events in the transaction receipt's logs. Remember to remove these changes after debugging.
+6. **Check EVM Node Logs**: If all else fails, the issue might be that Seth cannot decode the revert reason. Look at the logs of the EVM node for 'execution reverted' errors and any additional information (e.g., `errdata=0x46f08154`). If you find more details there but not in your test output, it might be a bug in Seth, and you should contact the Test Tooling team.
+7. 
+By following these steps, you can systematically identify and address the cause of 'execution reverted' errors in your smart contracts.
