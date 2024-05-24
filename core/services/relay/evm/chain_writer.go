@@ -30,7 +30,7 @@ type ChainWriterService interface {
 var _ ChainWriterService = (*chainWriter)(nil)
 
 func NewChainWriterService(config config.ChainWriter, logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager) ChainWriterService {
-	return &chainWriter{logger: logger, client: client, config: config}
+	return &chainWriter{logger: logger, client: client, config: config, txm: txm}
 }
 
 type chainWriter struct {
