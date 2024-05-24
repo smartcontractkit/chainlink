@@ -1175,6 +1175,8 @@ github.com/smartcontractkit/chainlink-common v0.1.7-0.20240522203001-10ea0211efd
 github.com/smartcontractkit/chainlink-common v0.1.7-0.20240522203001-10ea0211efd7/go.mod h1:cFHRblGbGn/rFYOOGsNbtLicMc1+5YdN0KoebYr93pk=
 github.com/smartcontractkit/chainlink-common v0.1.7-0.20240523205053-03a5a4e1a596 h1:WI1fUFlMVPUpSQrqd2NOEJ2+UCcflT+HnIKXYOiSXe8=
 github.com/smartcontractkit/chainlink-common v0.1.7-0.20240523205053-03a5a4e1a596/go.mod h1:s+68EchlrXqHKRW3JJgZLEARvzMSKRI5+cE5Zx7pVJA=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240524131122-70f94ee563a6 h1:ChXBMCAlp2tNdPc6QAv/F+oNPiE/CHfiIjXZcIYPFlo=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240524131122-70f94ee563a6/go.mod h1:DUZccDEW98n+J1mhdWGO7wr/Njad9p9Fzks839JN7Rs=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240508101745-af1ed7bc8a69 h1:Sec/GpBpUVaTEax1kSHlTvkzF/+d3w5roAQXaj5+SLA=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240508101745-af1ed7bc8a69/go.mod h1:ZQKf+0OLzCLYIisH/OdOIQuFRI6bDuw+jPBTATyHfFM=
 github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540 h1:xFSv8561jsLtF6gYZr/zW2z5qUUAkcFkApin2mnbYTo=
