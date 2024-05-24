@@ -36,8 +36,8 @@ type chainWriter struct {
 	config config.ChainWriter
 }
 
-func (w *chainWriter) SubmitSignedTransaction(ctx context.Context, payload []byte, signature map[string]any, transactionID uuid.UUID, toAddress string, meta *types.TxMeta, value big.Int) (int64, error) {
-	return 0, fmt.Errorf("not implemented")
+func (w *chainWriter) SubmitSignedTransaction(ctx context.Context, payload []byte, signature map[string]any, transactionID uuid.UUID, toAddress string, meta *types.TxMeta, value big.Int) error {
+	return fmt.Errorf("not implemented")
 }
 
 func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (types.TransactionStatus, error) {
