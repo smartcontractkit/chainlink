@@ -1195,8 +1195,8 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			lpOpts := logpoller.Opts{
 				UseFinalityTag:           tt.finalityTag,
 				FinalityDepth:            tt.finalityDepth,
-				BackfillBatchSize:        3,
-				RpcBatchSize:             2,
+				BackfillBatchSize:        50,
+				RpcBatchSize:             50,
 				KeepFinalizedBlocksDepth: 1000,
 			}
 			th := SetupTH(t, lpOpts)
@@ -1229,7 +1229,7 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 
 			// Single block reorg and log poller not working for a while, mine blocks and progress with finalization
 			// Chain gen <- 1 <- 2 (L1_1)
-			//                \ 2'(L1_2) <- 3 <- 4 <- 5 <- 6 (finalized on chain) <- 7 <- 8 <- 9 <- 10
+			//                \ 2'(L1_2) <- 3' <- 4' <- ... <- 32' (finalized on chain) <- 33' <- 34' <- 35'
 			lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
 			require.NoError(t, err)
 			require.NoError(t, th.Backend.Fork(lca.Hash()))
@@ -1237,26 +1237,26 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
 			require.NoError(t, err)
 			th.Backend.Commit()
-			// Create 3-10
-			for i := 3; i < 10; i++ {
+			// Create 3-35
+			for i := 3; i <= 35; i++ {
 				_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 				require.NoError(t, err)
 				th.Backend.Commit()
 			}
-			//markBlockAsFinalized(t, th, 6)
+			finalizeThroughBlock(t, th, 32)
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
-			assert.Equal(t, int64(10), newStart)
+			assert.Equal(t, int64(36), newStart)
 			assert.NoError(t, th.LogPoller.Healthy())
 
 			// Expect L1_2 to be properly updated
-			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 2, 2)
+			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 2, 31)
 			require.NoError(t, err)
-			require.NotZero(t, len(lgs))
+			require.Len(t, lgs, 30)
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
-			th.assertHaveCanonical(t, 1, 1)
-			th.assertDontHave(t, 2, 3) // These blocks are backfilled
-			th.assertHaveCanonical(t, 5, 10)
+			th.assertHaveCanonical(t, 1, 2)
+			th.assertDontHave(t, 2, 31) // These blocks are backfilled
+			th.assertHaveCanonical(t, 32, 36)
 		})
 	}
 }
@@ -1962,7 +1962,7 @@ func Test_PruneOldBlocks(t *testing.T) {
 
 // Commits new blocks until blockNumber is finalized. This requires committing all of
 // the rest of the blocks in the epoch blockNumber belongs to, where each new epoch
-// starts on a 32-block boundary (blockNumber % 32 == 0)
+// ends on a 32-block boundary (blockNumber % 32 == 0)
 func finalizeThroughBlock(t *testing.T, th TestHarness, blockNumber int64) {
 	var currentBlock common.Hash
 	ctx := testutils.Context(t)
