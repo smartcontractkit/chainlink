@@ -32,6 +32,10 @@ func (m MockRelayer) HealthReport() map[string]error {
 	panic("not implemented")
 }
 
+func (m MockRelayer) NewContractReader(_ context.Context, _ []byte) (commontypes.ContractReader, error) {
+	panic("not implemented")
+}
+
 func (m MockRelayer) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, error) {
 	return m.ChainStatus, nil
 }
