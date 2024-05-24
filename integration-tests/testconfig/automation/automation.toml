@@ -109,6 +109,7 @@ ephemeral_addresses_number = 100
 
 [Load.Common]
 chainlink_node_funding = 100
+remove_namespace = true
 
 [Load.Automation]
 [Load.Automation.General]
