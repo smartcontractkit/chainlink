@@ -33,9 +33,9 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 	// schedule.
 	mt := newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"write_polygon-testnet-mumbai@1",
+			"write_polygon-testnet-mumbai@1.0.0",
 			capabilities.CapabilityTypeTarget,
-			"a write capability targeting polygon mumbai testnet"
+			"a write capability targeting polygon mumbai testnet",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			gotTime = time.Now()

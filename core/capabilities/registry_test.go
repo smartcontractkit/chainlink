@@ -37,7 +37,7 @@ func TestRegistry(t *testing.T) {
 
 	r := coreCapabilities.NewRegistry(logger.TestLogger(t))
 
-	id := "capability-1@1"
+	id := "capability-1@1.0.0"
 	ci, err := capabilities.NewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeAction,
@@ -64,12 +64,11 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	ctx := testutils.Context(t)
 	r := coreCapabilities.NewRegistry(logger.TestLogger(t))
 
-	id := "capability-1@1"
+	id := "capability-1@1.0.0"
 	ci, err := capabilities.NewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeAction,
 		"capability-1-description",
-		"v1.0.0",
 	)
 	require.NoError(t, err)
 
@@ -86,7 +85,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	c2 := &mockCapability{CapabilityInfo: ci}
 
 	err = r.Add(ctx, c2)
-	assert.ErrorContains(t, err, "capability with id: capability-1@1 already exists")
+	assert.ErrorContains(t, err, "capability with id: capability-1@1.0.0 already exists")
 }
 
 func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
@@ -99,7 +98,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "action",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1" )
+				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1.0.0")
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
 					capabilities.CapabilityTypeAction,
@@ -118,7 +117,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "target",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1" )
+				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1.0.0")
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
 					capabilities.CapabilityTypeTarget,
@@ -150,7 +149,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "consensus",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1" )
+				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1.0.0")
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
 					capabilities.CapabilityTypeConsensus,

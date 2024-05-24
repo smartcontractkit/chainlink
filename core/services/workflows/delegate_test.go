@@ -99,7 +99,7 @@ targets: []
 				owner := "00000000000000000000000000000000000000aa"
 				workflow := `
 triggers:
-  - id: "mercury-trigger@1"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
@@ -107,7 +107,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
 
 consensus:
-  - id: "offchain_reporting@2"
+  - id: "offchain_reporting@2.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -129,14 +129,14 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai@3"
+  - id: "write_polygon-testnet-mumbai@3.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-  - id: "write_ethereum-testnet-sepolia@4"
+  - id: "write_ethereum-testnet-sepolia@4.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
