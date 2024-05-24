@@ -158,6 +158,7 @@ type ChainlinkApplication struct {
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
 	loopRegistrarConfig      plugins.RegistrarConfig
+	//TODO beholder client for direct access?
 
 	started     bool
 	startStopMu sync.Mutex
