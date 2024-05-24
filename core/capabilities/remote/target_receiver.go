@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 )
 
 type remoteTargetReceiver struct {
+	peerID       p2ptypes.PeerID
 	underlying   commoncap.TargetCapability
 	capInfo      commoncap.CapabilityInfo
 	localDonInfo capabilities.DON
@@ -22,26 +24,27 @@ type remoteTargetReceiver struct {
 	dispatcher   types.Dispatcher
 	lggr         logger.Logger
 
-	msgIDToExecuteRequest map[string]executeRequest
-	requestTimeout        time.Duration
+	requestMsgIDToResponse map[string]remoteTargetCapabilityRequest
+	requestTimeout         time.Duration
 
 	receiveLock sync.Mutex
 }
 
 var _ types.Receiver = &remoteTargetReceiver{}
 
-func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON,
+func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON,
 	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration) *remoteTargetReceiver {
 
 	receiver := &remoteTargetReceiver{
 		underlying:   underlying,
+		peerID:       peerID,
 		capInfo:      capInfo,
 		localDonInfo: localDonInfo,
 		workflowDONs: workflowDONs,
 		dispatcher:   dispatcher,
 
-		msgIDToExecuteRequest: map[string]executeRequest{},
-		requestTimeout:        requestTimeout,
+		requestMsgIDToResponse: map[string]remoteTargetCapabilityRequest{},
+		requestTimeout:         requestTimeout,
 
 		lggr: lggr,
 	}
@@ -62,38 +65,21 @@ func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, underlying
 	return receiver
 }
 
-type executeRequest struct {
-	fromPeers        map[p2ptypes.PeerID]bool
-	response         *types.MessageBody
-	callingDonID     string
-	firstRequestTime time.Time
-}
-
 func (r *remoteTargetReceiver) ExpireRequests(ctx context.Context) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
-	for messageId, executeReq := range r.msgIDToExecuteRequest {
-		if time.Since(executeReq.firstRequestTime) > r.requestTimeout {
+	for messageId, executeReq := range r.requestMsgIDToResponse {
+		if time.Since(executeReq.createdTime) > r.requestTimeout {
 
-			if executeReq.response == nil {
-				responseMsg := &types.MessageBody{
-					CapabilityId:    r.capInfo.ID,
-					CapabilityDonId: r.localDonInfo.ID,
-					CallerDonId:     executeReq.callingDonID,
-					Method:          types.MethodExecute,
-					MessageId:       []byte(messageId),
-					Error:           types.Error_TIMEOUT,
-				}
-
-				for peerID := range executeReq.fromPeers {
-					if err := r.dispatcher.Send(peerID, responseMsg); err != nil {
-						r.lggr.Errorw("failed to send time out response", "peer", peerID, "err", err)
-					}
+			if !executeReq.hasResponse() {
+				executeReq.setError(types.Error_TIMEOUT)
+				if err := executeReq.sendResponseToAllRequesters(); err != nil {
+					r.lggr.Errorw("failed to send timeout response to all requesters", "capabilityId", r.capInfo.ID, "err", err)
 				}
 			}
 
-			delete(r.msgIDToExecuteRequest, messageId)
+			delete(r.requestMsgIDToResponse, messageId)
 		}
 
 	}
@@ -122,77 +108,183 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 		return
 	}
 
-	sender := ToPeerID(msg.Sender)
+	requester := ToPeerID(msg.Sender)
+	messageId := GetMessageID(msg)
 
-	messageId := getMessageID(msg)
-
-	executeReq, ok := r.msgIDToExecuteRequest[messageId]
-	if !ok {
-		executeReq = executeRequest{
-			fromPeers:        map[p2ptypes.PeerID]bool{},
-			callingDonID:     msg.CallerDonId,
-			firstRequestTime: time.Now(),
-		}
-		r.msgIDToExecuteRequest[messageId] = executeReq
+	if _, ok := r.requestMsgIDToResponse[messageId]; !ok {
+		r.requestMsgIDToResponse[messageId] = newTargetCapabilityRequest(r.capInfo.ID, r.localDonInfo.ID, r.peerID,
+			msg.CallerDonId, messageId, r.dispatcher)
 	}
 
-	if executeReq.callingDonID != msg.CallerDonId {
-		r.lggr.Warnw("received duplicate execute request from different don, ignoring", "peer", sender)
+	request, ok := r.requestMsgIDToResponse[messageId]
+
+	if err := request.addRequester(requester, msg.CallerDonId, messageId); err != nil {
+		r.lggr.Errorw("failed to add request to response", "capabilityId", r.capInfo.ID, "sender",
+			requester, "err", err)
 		return
 	}
 
-	if executeReq.fromPeers[sender] {
-		r.lggr.Warnw("received duplicate execute request from peer, ignoring", "peer", sender)
-		return
-	}
-
-	executeReq.fromPeers[sender] = true
 	minRequiredRequests := int(callerDon.F + 1)
-	if len(executeReq.fromPeers) >= minRequiredRequests {
-		if executeReq.response == nil {
+	if request.getRequestersCount() == minRequiredRequests {
 
-			responseMsg := &types.MessageBody{
-				CapabilityId:    r.capInfo.ID,
-				CapabilityDonId: r.localDonInfo.ID,
-				CallerDonId:     msg.CallerDonId,
-				Method:          types.MethodExecute,
-				MessageId:       []byte(messageId),
-			}
-
-			capabilityRequest, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+		capabilityRequest, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+		if err == nil {
+			ctxWithTimeout, cancel := context.WithTimeout(ctx, r.requestTimeout)
+			defer cancel()
+			capResponseCh, err := r.underlying.Execute(ctxWithTimeout, capabilityRequest)
 			if err == nil {
-				ctxWithTimeout, cancel := context.WithTimeout(ctx, r.requestTimeout)
-				defer cancel()
-				responseCh, err := r.underlying.Execute(ctxWithTimeout, capabilityRequest)
-				if err == nil {
-					// TODO working on the assumption that the capability will only ever return one response from its channel (for now at least)
-					response := <-responseCh
-					responseMsg.Payload, err = pb.MarshalCapabilityResponse(response)
+				// TODO working on the assumption that the capability will only ever return one response from its channel (for now at least)
+				capResponse := <-capResponseCh
+				responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
+				if err != nil {
+					r.lggr.Errorw("failed to marshal capability response", "capabilityId", r.capInfo.ID, "err", err)
+					request.setError(types.Error_INTERNAL_ERROR)
 				} else {
-					r.lggr.Errorw("failed to execute capability", "capabilityId", r.capInfo.ID, "err", err)
-					responseMsg.Error = types.Error_INTERNAL_ERROR
+					request.setResult(responsePayload)
 				}
 			} else {
-				r.lggr.Errorw("failed to unmarshal capability request", "capabilityId", r.capInfo.ID, "err", err)
-				responseMsg.Error = types.Error_INVALID_REQUEST
-			}
 
-			executeReq.response = responseMsg
-
-			for peerID := range executeReq.fromPeers {
-				if err = r.dispatcher.Send(peerID, responseMsg); err != nil {
-					r.lggr.Errorw("failed to send response", "peer", peerID, "err", err)
-				}
+				r.lggr.Errorw("failed to execute capability", "capabilityId", r.capInfo.ID, "err", err)
+				request.setError(types.Error_INTERNAL_ERROR)
 			}
 		} else {
-			if err := r.dispatcher.Send(sender, executeReq.response); err != nil {
-				r.lggr.Errorw("failed to send response", "peer", sender, "err", err)
-			}
+			r.lggr.Errorw("failed to unmarshal capability request", "capabilityId", r.capInfo.ID, "err", err)
+			request.setError(types.Error_INVALID_REQUEST)
+		}
+
+		if err := request.sendResponseToAllRequesters(); err != nil {
+			r.lggr.Errorw("failed to send response to all requesters", "capabilityId", r.capInfo.ID, "err", err)
+		}
+
+	} else if request.getRequestersCount() > minRequiredRequests {
+		if err := request.sendResponse(requester); err != nil {
+			r.lggr.Errorw("failed to send response to requester", "capabilityId", r.capInfo.ID, "err", err)
 		}
 	}
 
 }
 
-func getMessageID(msg *types.MessageBody) string {
+type remoteTargetCapabilityRequest struct {
+	capabilityPeerId p2ptypes.PeerID
+	capabilityID     string
+	capabilityDonID  string
+
+	dispatcher types.Dispatcher
+
+	requesters        map[p2ptypes.PeerID]bool
+	responseReceivers map[p2ptypes.PeerID]bool
+
+	createdTime time.Time
+
+	response      []byte
+	responseError types.Error
+
+	initialRequestingDon string
+	requestMessageID     string
+}
+
+func newTargetCapabilityRequest(capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
+	callingDonID string, requestMessageID string,
+	dispatcher types.Dispatcher) remoteTargetCapabilityRequest {
+	return remoteTargetCapabilityRequest{
+		capabilityID:         capabilityID,
+		capabilityDonID:      capabilityDonID,
+		capabilityPeerId:     capabilityPeerId,
+		dispatcher:           dispatcher,
+		requesters:           map[p2ptypes.PeerID]bool{},
+		responseReceivers:    map[p2ptypes.PeerID]bool{},
+		createdTime:          time.Now(),
+		initialRequestingDon: callingDonID,
+		requestMessageID:     requestMessageID,
+	}
+}
+
+func (e *remoteTargetCapabilityRequest) addRequester(from p2ptypes.PeerID, fromDonID string, requestMessageID string) error {
+	if e.requesters[from] {
+		return fmt.Errorf("request already received from peer %s", from)
+	}
+
+	if e.initialRequestingDon != fromDonID {
+		return fmt.Errorf("received request from different initial requesting don %s, expected %s", fromDonID, e.initialRequestingDon)
+	}
+
+	if e.requestMessageID != requestMessageID {
+		return fmt.Errorf("received request with different message id %s, expected %s", requestMessageID, e.requestMessageID)
+	}
+
+	e.requesters[from] = true
+
+	return nil
+}
+
+func (e *remoteTargetCapabilityRequest) getRequestersCount() int {
+	return len(e.requesters)
+}
+
+func (e *remoteTargetCapabilityRequest) setResult(result []byte) {
+	e.response = result
+}
+
+func (e *remoteTargetCapabilityRequest) setError(err types.Error) {
+	e.responseError = err
+}
+
+func (e *remoteTargetCapabilityRequest) hasResponse() bool {
+	return e.response != nil || e.responseError != types.Error_OK
+}
+
+func (e *remoteTargetCapabilityRequest) sendResponseToAllRequesters() error {
+	for peer := range e.requesters {
+		if err := e.sendResponse(peer); err != nil {
+			return fmt.Errorf("failed to send response to peer %s: %w", peer, err)
+		}
+	}
+
+	return nil
+}
+
+func (e *remoteTargetCapabilityRequest) sendResponse(peer p2ptypes.PeerID) error {
+	if err := e.validateResponseSendRequest(peer); err != nil {
+		return fmt.Errorf("failed to validate response send request: %w", err)
+	}
+
+	responseMsg := types.MessageBody{
+		CapabilityId:    e.capabilityID,
+		CapabilityDonId: e.capabilityDonID,
+		CallerDonId:     e.initialRequestingDon,
+		Method:          types.MethodExecute,
+		MessageId:       []byte(e.requestMessageID),
+		Sender:          e.capabilityPeerId[:],
+		Receiver:        peer[:],
+	}
+
+	if e.responseError != types.Error_OK {
+		responseMsg.Error = e.responseError
+	} else {
+		responseMsg.Payload = e.response
+	}
+
+	if err := e.dispatcher.Send(peer, &responseMsg); err != nil {
+		return fmt.Errorf("failed to send response: %w", err)
+	}
+
+	e.responseReceivers[peer] = true
+
+	return nil
+}
+
+func (e *remoteTargetCapabilityRequest) validateResponseSendRequest(peer p2ptypes.PeerID) error {
+	if !e.hasResponse() {
+		return fmt.Errorf("no response to send")
+	}
+
+	if e.responseReceivers[peer] {
+		return fmt.Errorf("response already sent to peer")
+	}
+
+	return nil
+}
+
+func GetMessageID(msg *types.MessageBody) string {
 	return string(msg.MessageId)
 }

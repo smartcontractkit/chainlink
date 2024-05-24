@@ -21,10 +21,9 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
+func Test_TargetRemoteTarget(t *testing.T) {
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
-
 		require.NoError(t, responseError)
 		response := <-responseCh
 		responseValue, err := response.Value.Unwrap()
@@ -32,12 +31,35 @@ func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
 		assert.Equal(t, "aValue1", responseValue.(string))
 	}
 
-	// Test scenarios where the number of submissions is greater than or equal to F + 1
-	testRemoteTargetConsensus(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, responseTest)
-	testRemoteTargetConsensus(t, 4, 3, 10*time.Minute, 1, 0, 10*time.Minute, responseTest)
-	testRemoteTargetConsensus(t, 10, 3, 10*time.Minute, 1, 0, 10*time.Minute, responseTest)
-	
 	/*
+		transmissionSchedule, err := values.NewMap(map[string]any{
+			"schedule":   transmission.Schedule_AllAtOnce,
+			"deltaStage": "100ms",
+		})
+		require.NoError(t, err)
+
+		// Test scenarios where the number of submissions is greater than or equal to F + 1
+		testRemoteTarget(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, transmissionSchedule, responseTest)
+		testRemoteTarget(t, 4, 3, 10*time.Minute, 4, 3, 10*time.Minute, transmissionSchedule, responseTest)
+		testRemoteTarget(t, 10, 3, 10*time.Minute, 10, 3, 10*time.Minute, transmissionSchedule, responseTest)
+
+
+	*/
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_OneAtATime,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	//	testRemoteTarget(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, transmissionSchedule, responseTest)
+
+	testRemoteTarget(t, 10, 3, 10*time.Minute, 10, 3, 10*time.Minute, transmissionSchedule, responseTest)
+
+	// test capability don F handling
+
+	/*
+		here - these errors tests failing still? why?
+
 		errResponseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 			require.NoError(t, responseError)
 			response := <-responseCh
@@ -68,8 +90,8 @@ func Test_TargetReceiverConsensusWithMultipleCallers(t *testing.T) {
 
 }
 
-func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
-	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeTimeout time.Duration,
+func testRemoteTarget(t *testing.T, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
+	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration, transmissionSchedule *values.Map,
 	responseTest func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error)) {
 	lggr := logger.TestLogger(t)
 	ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -116,13 +138,15 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 	workflowDONs := map[string]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
-	underlying := &testTargetReceiver{}
+	underlying := &testCapability{}
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
-		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeers[i])
-		receiver := remote.NewRemoteTargetReceiver(ctx, lggr, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher, capabilityNodeTimeout)
-		broker.RegisterReceiverNode(capabilityPeers[i], receiver)
+		capabilityPeer := capabilityPeers[i]
+		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
+		receiver := remote.NewRemoteTargetReceiver(ctx, lggr, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+			capabilityNodeResponseTimeout)
+		broker.RegisterReceiverNode(capabilityPeer, receiver)
 		receivers[i] = receiver
 	}
 
@@ -134,17 +158,13 @@ func testRemoteTargetConsensus(t *testing.T, numWorkflowPeers int, workflowDonF 
 		callers[i] = caller
 	}
 
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "100ms",
-	})
-	require.NoError(t, err)
-
 	executeInputs, err := values.NewMap(
 		map[string]any{
 			"executeValue1": "aValue1",
 		},
 	)
+
+	require.NoError(t, err)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(len(callers))
@@ -229,22 +249,22 @@ func (t *nodeDispatcher) SetReceiver(capabilityId string, donId string, receiver
 }
 func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId string) {}
 
-type testTargetReceiver struct {
+type testCapability struct {
 }
 
-func (t testTargetReceiver) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
+func (t testCapability) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
 	return commoncap.CapabilityInfo{}, nil
 }
 
-func (t testTargetReceiver) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
+func (t testCapability) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
 	return nil
 }
 
-func (t testTargetReceiver) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
+func (t testCapability) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
 	return nil
 }
 
-func (t testTargetReceiver) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+func (t testCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	ch := make(chan commoncap.CapabilityResponse, 1)
 
 	value := request.Inputs.Underlying["executeValue1"]

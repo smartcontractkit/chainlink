@@ -136,15 +136,6 @@ func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, r
 		return fmt.Errorf("failed to extract transmission config from request config: %w", err)
 	}
 
-	message := &types.MessageBody{
-		CapabilityId:    c.remoteCapabilityInfo.ID,
-		CapabilityDonId: c.remoteCapabilityDonInfo.ID,
-		CallerDonId:     c.localDONInfo.ID,
-		Method:          types.MethodExecute,
-		Payload:         rawRequest,
-		MessageId:       []byte(messageID),
-	}
-
 	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(c.remoteCapabilityDonInfo.Members, c.localDONInfo.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
 	if err != nil {
 		return fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
@@ -152,6 +143,15 @@ func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, r
 
 	for peerID, delay := range peerIDToDelay {
 		go func(peerID ragep2ptypes.PeerID, delay time.Duration) {
+			message := &types.MessageBody{
+				CapabilityId:    c.remoteCapabilityInfo.ID,
+				CapabilityDonId: c.remoteCapabilityDonInfo.ID,
+				CallerDonId:     c.localDONInfo.ID,
+				Method:          types.MethodExecute,
+				Payload:         rawRequest,
+				MessageId:       []byte(messageID),
+			}
+
 			select {
 			case <-ctx.Done():
 				return
@@ -172,7 +172,7 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	messageID := getMessageID(msg)
+	messageID := GetMessageID(msg)
 
 	req := c.messageIDToExecuteRequest[messageID]
 	if req == nil {
