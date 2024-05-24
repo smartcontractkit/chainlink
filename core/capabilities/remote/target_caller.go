@@ -90,7 +90,6 @@ func (c *remoteTargetCaller) UnregisterFromWorkflow(ctx context.Context, request
 }
 
 func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
-	// TODO To keep the initial implementation simple make it single threaded - will this need to be concurrent?
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

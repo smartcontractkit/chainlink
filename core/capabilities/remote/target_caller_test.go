@@ -20,213 +20,6 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-const (
-	executeValue1 = "triggerEvent1"
-)
-
-func Test_TargetCallerExecuteTimeout(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
-
-	p1 := p2ptypes.PeerID{}
-	require.NoError(t, p1.UnmarshalText([]byte(PeerID1)))
-	p2 := p2ptypes.PeerID{}
-	require.NoError(t, p2.UnmarshalText([]byte(PeerID2)))
-	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
-		Members: []p2ptypes.PeerID{p1},
-		F:       0,
-	}
-
-	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
-		CapabilityType: commoncap.CapabilityTypeTarget,
-		Description:    "Remote Target",
-		Version:        "0.0.1",
-	}
-
-	workflowDonInfo := commoncap.DON{
-		ID:      "workflow-don",
-		Members: []p2ptypes.PeerID{p2},
-		F:       0,
-	}
-
-	dispatcher := NewTestDispatcher()
-
-	caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher, 1*time.Second)
-
-	err := dispatcher.SetReceiver("cap_id", "workflow-don", caller)
-	require.NoError(t, err)
-
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "100ms",
-	})
-	require.NoError(t, err)
-
-	responseCh, err := caller.Execute(ctx,
-		commoncap.CapabilityRequest{
-			Metadata: commoncap.RequestMetadata{
-				WorkflowID:          "workflowID",
-				WorkflowExecutionID: "workflowExecutionID",
-			},
-			Config: transmissionSchedule,
-		})
-
-	response := <-responseCh
-	assert.NotNil(t, response.Err)
-
-}
-
-func Test_TargetCallerExecute(t *testing.T) {
-
-	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
-
-	p1 := p2ptypes.PeerID{}
-	require.NoError(t, p1.UnmarshalText([]byte(PeerID1)))
-	p2 := p2ptypes.PeerID{}
-	require.NoError(t, p2.UnmarshalText([]byte(PeerID2)))
-	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
-		Members: []p2ptypes.PeerID{p1},
-		F:       0,
-	}
-
-	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
-		CapabilityType: commoncap.CapabilityTypeTarget,
-		Description:    "Remote Target",
-		Version:        "0.0.1",
-	}
-
-	workflowDonInfo := commoncap.DON{
-		ID:      "workflow-don",
-		Members: []p2ptypes.PeerID{p2},
-		F:       0,
-	}
-
-	dispatcher := NewTestDispatcher()
-
-	caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher, 1*time.Minute)
-
-	err := dispatcher.SetReceiver("cap_id", "workflow-don", caller)
-	require.NoError(t, err)
-
-	go func() {
-		sentMessage := <-dispatcher.sentMessagesCh
-
-		executeValue, err := values.Wrap(executeValue1)
-		require.NoError(t, err)
-		capResponse := commoncap.CapabilityResponse{
-			Value: executeValue,
-			Err:   nil,
-		}
-		marshaled, err := pb.MarshalCapabilityResponse(capResponse)
-		require.NoError(t, err)
-		executeResponse := &remotetypes.MessageBody{
-			Sender:    p1[:],
-			Method:    remotetypes.MethodExecute,
-			Payload:   marshaled,
-			MessageId: sentMessage.MessageId,
-		}
-
-		dispatcher.SendToReceiver(executeResponse)
-	}()
-
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "100ms",
-	})
-	require.NoError(t, err)
-
-	resultCh, err := caller.Execute(ctx,
-		commoncap.CapabilityRequest{
-			Metadata: commoncap.RequestMetadata{
-				WorkflowID:          "workflowID",
-				WorkflowExecutionID: "workflowExecutionID",
-			},
-			Config: transmissionSchedule,
-		})
-
-	require.NoError(t, err)
-
-	response := <-resultCh
-
-	responseValue, err := response.Value.Unwrap()
-	assert.Equal(t, executeValue1, responseValue.(string))
-
-}
-
-func Test_TargetCallerExecuteWithErrorTimesOut(t *testing.T) {
-
-	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
-
-	p1 := p2ptypes.PeerID{}
-	require.NoError(t, p1.UnmarshalText([]byte(PeerID1)))
-	p2 := p2ptypes.PeerID{}
-	require.NoError(t, p2.UnmarshalText([]byte(PeerID2)))
-	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
-		Members: []p2ptypes.PeerID{p1},
-		F:       0,
-	}
-
-	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
-		CapabilityType: commoncap.CapabilityTypeTarget,
-		Description:    "Remote Target",
-		Version:        "0.0.1",
-	}
-
-	workflowDonInfo := commoncap.DON{
-		ID:      "workflow-don",
-		Members: []p2ptypes.PeerID{p2},
-		F:       0,
-	}
-
-	dispatcher := NewTestDispatcher()
-
-	caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, dispatcher, 1*time.Second)
-
-	err := dispatcher.SetReceiver("cap_id", "workflow-don", caller)
-	require.NoError(t, err)
-
-	go func() {
-		sentMessage := <-dispatcher.sentMessagesCh
-
-		require.NoError(t, err)
-		executeResponse := &remotetypes.MessageBody{
-			Sender:    p1[:],
-			Method:    remotetypes.MethodExecute,
-			MessageId: sentMessage.MessageId,
-			Error:     remotetypes.Error_CAPABILITY_NOT_FOUND,
-		}
-
-		dispatcher.SendToReceiver(executeResponse)
-	}()
-
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "100ms",
-	})
-	require.NoError(t, err)
-
-	responseCh, err := caller.Execute(ctx,
-		commoncap.CapabilityRequest{
-			Metadata: commoncap.RequestMetadata{
-				WorkflowID:          "workflowID",
-				WorkflowExecutionID: "workflowExecutionID",
-			},
-			Config: transmissionSchedule,
-		})
-
-	response := <-responseCh
-
-	require.NotNil(t, response.Err)
-}
-
 func Test_RemoteTargetCaller_DonTopologies(t *testing.T) {
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -298,6 +91,58 @@ func Test_RemoteTargetCaller_TransmissionSchedules(t *testing.T) {
 	testRemoteTargetCaller(t, 1, responseTimeOut, 1, 0,
 		capability, transmissionSchedule, responseTest)
 	testRemoteTargetCaller(t, 10, responseTimeOut, 10, 3,
+		capability, transmissionSchedule, responseTest)
+
+}
+
+func Test_RemoteTargetCaller_TimesOutIfRespondingCapabilityPeersLessThenFPlusOne(t *testing.T) {
+
+	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		response := <-responseCh
+		assert.NotNil(t, response.Err)
+	}
+
+	capability := &testCapability{}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	// number of capability peers is less than F + 1
+	testRemoteTargetCaller(t, 10, 1*time.Second, 10, 11,
+		capability, transmissionSchedule, responseTest)
+
+	transmissionSchedule, err = values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_OneAtATime,
+		"deltaStage": "1000ms",
+	})
+	require.NoError(t, err)
+
+	testRemoteTargetCaller(t, 10, 1*time.Second, 10, 7,
+		capability, transmissionSchedule, responseTest)
+
+}
+
+func Test_RemoteTargetCaller_TimesOutIfTransmissionScheduleExceedsTimeout(t *testing.T) {
+
+	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		response := <-responseCh
+		assert.NotNil(t, response.Err)
+	}
+
+	capability := &testCapability{}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_OneAtATime,
+		"deltaStage": "1000ms",
+	})
+	require.NoError(t, err)
+
+	testRemoteTargetCaller(t, 10, 1*time.Second, 10, 7,
 		capability, transmissionSchedule, responseTest)
 
 }

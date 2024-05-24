@@ -31,28 +31,24 @@ func Test_TargetRemoteTarget(t *testing.T) {
 		assert.Equal(t, "aValue1", responseValue.(string))
 	}
 
-	/*
-		transmissionSchedule, err := values.NewMap(map[string]any{
-			"schedule":   transmission.Schedule_AllAtOnce,
-			"deltaStage": "100ms",
-		})
-		require.NoError(t, err)
-
-		// Test scenarios where the number of submissions is greater than or equal to F + 1
-		testRemoteTarget(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, transmissionSchedule, responseTest)
-		testRemoteTarget(t, 4, 3, 10*time.Minute, 4, 3, 10*time.Minute, transmissionSchedule, responseTest)
-		testRemoteTarget(t, 10, 3, 10*time.Minute, 10, 3, 10*time.Minute, transmissionSchedule, responseTest)
-
-
-	*/
 	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "100ms",
+	})
+	require.NoError(t, err)
+
+	// Test scenarios where the number of submissions is greater than or equal to F + 1
+	testRemoteTarget(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, transmissionSchedule, responseTest)
+	testRemoteTarget(t, 4, 3, 10*time.Minute, 4, 3, 10*time.Minute, transmissionSchedule, responseTest)
+	testRemoteTarget(t, 10, 3, 10*time.Minute, 10, 3, 10*time.Minute, transmissionSchedule, responseTest)
+
+	transmissionSchedule, err = values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_OneAtATime,
 		"deltaStage": "10ms",
 	})
 	require.NoError(t, err)
 
-	//	testRemoteTarget(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, transmissionSchedule, responseTest)
-
+	testRemoteTarget(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, transmissionSchedule, responseTest)
 	testRemoteTarget(t, 10, 3, 10*time.Minute, 10, 3, 10*time.Minute, transmissionSchedule, responseTest)
 
 	// test capability don F handling
