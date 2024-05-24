@@ -38,4 +38,7 @@ type Head[BLOCK_HASH Hashable] interface {
 	BlockDifficulty() *big.Int
 	// IsValid returns true if the head is valid.
 	IsValid() bool
+
+	// Returns the latest finalized based on finality tag or depth
+	LatestFinalizedHead() Head[BLOCK_HASH]
 }

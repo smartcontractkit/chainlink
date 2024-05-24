@@ -121,6 +121,88 @@ cancel_subs_after_test_run = true
 
 When processing TOML files, the system initially searches for a general (unnamed) configuration. If a named configuration is found, it can specifically override the general (unnamed) settings, providing a targeted approach to configuration management based on distinct identifiers like test names or types.
 
+### Chainlink Node TOML config
+
+Find default node config in `testconfig/default.toml`
+
+To set custom config for Chainlink Node use `NodeConfig.BaseConfigTOML` in TOML. Example:
+```toml
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[OCR]
+Enabled = true
+DefaultTransactionQueueDepth = 0
+"""
+```
+Note that you cannot override individual values in BaseConfigTOML. You must provide the entire configuration.
+
+
+To set base config for EVM chains use `NodeConfig.CommonChainConfigTOML`. Example:
+```toml
+CommonChainConfigTOML = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+```
+
+This is the default configuration used for all EVM chains unless ChainConfigTOMLByChainID is specified.
+
+To set custom per-chain config use `[NodeConfig.ChainConfigTOMLByChainID]`. Example:
+```toml
+[NodeConfig.ChainConfigTOMLByChainID]
+# applicable for arbitrum-goerli chain
+421613 = """
+[GasEstimator]
+PriceMax = '400 gwei'
+LimitDefault = 100000000
+FeeCapDefault = '200 gwei'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 gwei'
+"""
+```
+
+For more examples see `example.toml` in product TOML configs like `testconfig/automation/example.toml`.
+
+### Setting env vars for Chainlink Node
+
+To set env vars for Chainlink Node use `WithCLNodeOptions()` and `WithNodeEnvVars()` when building a test environment. Example:
+
+```go
+envs := map[string]string{
+    "CL_LOOPP_HOSTNAME": "hostname",
+}
+testEnv, err := test_env.NewCLTestEnvBuilder().
+    WithTestInstance(t).
+    WithTestConfig(&config).
+    WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+    WithMockAdapter().
+    WithCLNodes(clNodeCount).
+    WithCLNodeOptions(test_env.WithNodeEnvVars(envs)).
+    WithFunding(big.NewFloat(.1)).
+    WithStandardCleanup().
+    WithSeth().
+    Build()
+```
+
 ## Local/Kubernetes Usage
 
 GitHub workflows in this repository have been updated to dynamically generate and utilize base64-encoded TOML configurations derived from user inputs or environment variables. For local execution or remote Kubernetes runners, users must manually supply certain variables, which cannot be embedded in configuration files due to their sensitive or dynamic nature.

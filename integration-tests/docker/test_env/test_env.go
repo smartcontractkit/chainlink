@@ -112,6 +112,7 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetwork
 	builder := test_env.NewEthereumNetworkBuilder()
 	c, err := builder.WithExistingConfig(*cfg).
 		WithTest(te.t).
+		WithLogStream(te.LogStream).
 		Build()
 	if err != nil {
 		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
@@ -366,7 +367,7 @@ func (te *CLClusterTestEnv) returnFunds() error {
 
 	for _, evmClient := range te.evmClients {
 		for _, chainlinkNode := range te.ClCluster.Nodes {
-			fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.evmClients[0].GetChainID().String())
+			fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(evmClient.GetChainID().String())
 			if err != nil {
 				return err
 			}

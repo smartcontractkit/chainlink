@@ -288,6 +288,18 @@ func (v *EthereumVRFCoordinatorV2_5) GetNativeTokenTotalBalance(ctx context.Cont
 	return totalBalance, nil
 }
 
+func (v *EthereumVRFCoordinatorV2_5) GetBlockHashStoreAddress(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	blockHashStoreAddress, err := v.coordinator.BLOCKHASHSTORE(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return blockHashStoreAddress, nil
+}
+
 // OwnerCancelSubscription cancels subscription by Coordinator owner
 // return funds to sub owner,
 // does not check if pending requests for a sub exist

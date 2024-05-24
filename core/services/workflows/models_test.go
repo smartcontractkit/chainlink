@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
 func TestParse_Graph(t *testing.T) {
@@ -41,7 +43,7 @@ targets:
       consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
-				keywordTrigger: {
+				workflows.KeywordTrigger: {
 					"an-action":   struct{}{},
 					"a-consensus": struct{}{},
 				},
@@ -175,7 +177,7 @@ targets:
       consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
-				keywordTrigger: {
+				workflows.KeywordTrigger: {
 					"an-action": struct{}{},
 				},
 				"an-action": {
@@ -239,4 +241,14 @@ targets:
 			}
 		})
 	}
+}
+
+func TestParsesIntsCorrectly(t *testing.T) {
+	wf, err := Parse(hardcodedWorkflow)
+	require.NoError(t, err)
+
+	n, err := wf.Vertex("evm_median")
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(3600), n.Config["aggregation_config"].(map[string]any)["0x1111111111111111111100000000000000000000000000000000000000000000"].(map[string]any)["heartbeat"])
 }
