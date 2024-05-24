@@ -29,7 +29,7 @@ type ChainWriterService interface {
 // Compile-time assertion that chainWriter implements the ChainWriterService interface.
 var _ ChainWriterService = (*chainWriter)(nil)
 
-func NewChainWriterService(config config.ChainWriter, logger logger.Logger, client evmclient.Client) ChainWriterService {
+func NewChainWriterService(config config.ChainWriter, logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager) ChainWriterService {
 	return &chainWriter{logger: logger, client: client, config: config}
 }
 
@@ -39,6 +39,7 @@ type chainWriter struct {
 	logger logger.Logger
 	client evmclient.Client
 	config config.ChainWriter
+	txm    evmtxmgr.TxManager
 }
 
 func (w *chainWriter) SubmitSignedTransaction(ctx context.Context, payload []byte, signatures map[string]any, transactionID uuid.UUID, toAddress string, meta *types.TxMeta, value big.Int) error {
@@ -48,8 +49,8 @@ func (w *chainWriter) SubmitSignedTransaction(ctx context.Context, payload []byt
 	// Check the required format for the signatures when packing the ABI. The original type was [][]byte, however we'll need strict type assertions
 	// translating any -> []byte.
 	//
-	// Also, figure out what to use for the method name.
-	calldata, err := forwarderABI.Pack("", common.HexToAddress(toAddress), payload, signatures)
+	// Also, double check that the method name is always going to be 'report'?
+	calldata, err := forwarderABI.Pack("report", common.HexToAddress(toAddress), payload, signatures)
 	if err != nil {
 		return fmt.Errorf("pack forwarder abi: %w", err)
 	}
@@ -67,14 +68,17 @@ func (w *chainWriter) SubmitSignedTransaction(ctx context.Context, payload []byt
 		ToAddress:      w.config.ForwarderAddress().Address(),
 		EncodedPayload: calldata,
 		FeeLimit:       w.config.GasLimit(),
-		Meta:           nil, // TODO(nickcorin): Add this in once parsed.
+		Meta:           &txmgrtypes.TxMeta[common.Address, common.Hash]{WorkflowExecutionID: meta.WorkflowExecutionID},
 		Strategy:       sendStrategy,
 		Checker:        checker,
 	}
 
-	// TODO(nickcorin): Send the request to the TXM.
+	_, err = w.txm.CreateTransaction(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to create tx: %w", err)
+	}
 
-	return fmt.Errorf("not implemented")
+	return nil
 }
 
 func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (types.TransactionStatus, error) {
