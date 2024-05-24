@@ -993,11 +993,6 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		bhe.Recalculate(cltest.Head(0))
 		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
 
-		// Same for xDai (deprecated)
-		cfg.ChainTypeF = string(config.ChainXDai)
-		bhe.Recalculate(cltest.Head(0))
-		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
-
 		// And for X Layer
 		cfg.ChainTypeF = string(config.ChainXLayer)
 		bhe.Recalculate(cltest.Head(0))
