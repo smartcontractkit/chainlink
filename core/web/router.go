@@ -58,6 +58,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	cors := uiCorsHandler(config.WebServer().AllowOrigins())
 	if prometheus != nil {
 		prometheusUse(prometheus, engine, promhttp.HandlerOpts{EnableOpenMetrics: true})
+		//TODO prometheus.DefaultGatherer to beholder client or otel adapter?
 	}
 
 	tls := config.WebServer().TLS()

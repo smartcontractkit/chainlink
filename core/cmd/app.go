@@ -261,6 +261,7 @@ func NewApp(s *Shell) *cli.App {
 					FileMaxSizeMB:  int(logFileMaxSizeMB),
 					FileMaxAgeDays: int(s.Config.Log().File().MaxAgeDays()),
 					FileMaxBackups: int(s.Config.Log().File().MaxBackups()),
+					//TODO configure to export to beholder client or otel via https://github.com/agoda-com/opentelemetry-logs-go
 				}
 				l, closeFn := lggrCfg.New()
 
