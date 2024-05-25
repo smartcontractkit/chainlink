@@ -599,18 +599,34 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
+	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
+	feeEstimator.On("OnNewLongestChain", mock.Anything, mock.Anything).Once()
 	txm, err := makeTestEvmTxm(t, db, ethClient, feeEstimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), ethKeyStore)
 	require.NoError(t, err)
+	err = txm.Start(ctx)
+	require.NoError(t, err)
+
+	head := &evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 100,
+		Parent: &evmtypes.Head{
+			Hash:        utils.NewHash(),
+			Number:      99,
+			IsFinalized: true,
+		},
+	}
+	txm.OnNewLongestChain(ctx, head)
 
 	t.Run("returns error if transaction not found", func(t *testing.T) {
 		idempotencyKey := uuid.New()
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.Error(t, err, fmt.Sprintf("failed to find transaction with IdempotencyKey: %s", idempotencyKey))
-		require.Equal(t, txmgrtypes.TxState(""), state)
+		require.Equal(t, txmgrcommon.Unknown, state)
 	})
 
-	t.Run("returns unstarted state", func(t *testing.T) {
+	t.Run("returns unknown for unstarted state", func(t *testing.T) {
 		idempotencyKey := uuid.New()
 		idempotencyKeyStr := idempotencyKey.String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -625,10 +641,10 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.TxUnstarted, state)
+		require.Equal(t, txmgrcommon.Unknown, state)
 	})
 
-	t.Run("returns in-progress state", func(t *testing.T) {
+	t.Run("returns unknown for in-progress state", func(t *testing.T) {
 		idempotencyKey := uuid.New()
 		idempotencyKeyStr := idempotencyKey.String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -645,10 +661,10 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.TxInProgress, state)
+		require.Equal(t, txmgrcommon.Unknown, state)
 	})
 
-	t.Run("returns unconfirmed state", func(t *testing.T) {
+	t.Run("returns unconfirmed for unconfirmed state", func(t *testing.T) {
 		idempotencyKey := uuid.New()
 		idempotencyKeyStr := idempotencyKey.String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -668,10 +684,10 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.TxUnconfirmed, state)
+		require.Equal(t, txmgrcommon.Unconfirmed, state)
 	})
 
-	t.Run("returns confirmed state", func(t *testing.T) {
+	t.Run("returns unconfirmed for confirmed state newer than finalized block", func(t *testing.T) {
 		idempotencyKey := uuid.New()
 		idempotencyKeyStr := idempotencyKey.String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -689,12 +705,49 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		}
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
+		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKeyStr, testutils.FixtureChainID)
+		require.NoError(t, err)
+		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		// Insert receipt for unfinalized block num
+		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt.Hash)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.TxConfirmed, state)
+		require.Equal(t, txmgrcommon.Unconfirmed, state)
 	})
 
-	t.Run("returns confirmed missing receipt state", func(t *testing.T) {
+	t.Run("returns finalized for confirmed state older than finalized block", func(t *testing.T) {
+		idempotencyKey := uuid.New()
+		idempotencyKeyStr := idempotencyKey.String()
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		nonce := evmtypes.Nonce(0)
+		broadcast := time.Now()
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKeyStr,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxConfirmed,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKeyStr, testutils.FixtureChainID)
+		require.NoError(t, err)
+		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		// Insert receipt for finalized block num
+		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.Parent.Hash, attempt.Hash)
+		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
+		require.NoError(t, err)
+		require.Equal(t, txmgrcommon.Finalized, state)
+	})
+
+	t.Run("returns unconfirmed for confirmed missing receipt state", func(t *testing.T) {
 		idempotencyKey := uuid.New()
 		idempotencyKeyStr := idempotencyKey.String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -714,10 +767,10 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, state)
+		require.Equal(t, txmgrcommon.Unconfirmed, state)
 	})
 
-	t.Run("returns fatal error state with terminally stuck error", func(t *testing.T) {
+	t.Run("returns fatal for fatal error state with terminally stuck error", func(t *testing.T) {
 		idempotencyKey := uuid.New()
 		idempotencyKeyStr := idempotencyKey.String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -737,11 +790,11 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
-		require.Equal(t, txmgrcommon.TxFatalError, state)
+		require.Equal(t, txmgrcommon.Fatal, state)
 		require.Error(t, err, client.TerminallyStuckMsg)
 	})
 
-	t.Run("returns fatal error state with other error", func(t *testing.T) {
+	t.Run("returns failed for fatal error state with other error", func(t *testing.T) {
 		idempotencyKey := uuid.New()
 		idempotencyKeyStr := idempotencyKey.String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -757,7 +810,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
-		require.Equal(t, txmgrcommon.TxFatalError, state)
+		require.Equal(t, txmgrcommon.Failed, state)
 		require.Error(t, err, errorMsg)
 	})
 }
