@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mitchellh/mapstructure"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -68,20 +67,17 @@ func NewEvmWrite(chain legacyevm.Chain, lggr logger.Logger) *EvmWrite {
 }
 
 type EvmConfig struct {
-	ChainID uint
 	Address string
 }
 
-// TODO: enforce required key presence
-
-func parseConfig(rawConfig *values.Map) (EvmConfig, error) {
-	var config EvmConfig
-	configAny, err := rawConfig.Unwrap()
-	if err != nil {
+func parseConfig(rawConfig *values.Map) (config EvmConfig, err error) {
+	if err := rawConfig.UnwrapTo(&config); err != nil {
 		return config, err
 	}
-	err = mapstructure.Decode(configAny, &config)
-	return config, err
+	if !common.IsHexAddress(config.Address) {
+		return config, fmt.Errorf("'%v' is not a valid address", config.Address)
+	}
+	return config, nil
 }
 
 func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
