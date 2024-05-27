@@ -65,23 +65,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   struct Capability {
-    // The `LabelledName` is a partially qualified ID for the capability.
+    // The `labelledName` is a partially qualified ID for the capability.
     //
     // Given the following capability ID: {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
-    // Then we denote the `LabelledName` as the `{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}` portion of the ID.
+    // Then we denote the `labelledName` as the `{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}` portion of the ID.
     //
     // Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
-    //     LabelledName = "data-streams-reports:chain:ethereum"
+    //     labelledName = "data-streams-reports:chain:ethereum"
     //
     // validation regex: ^[a-z0-9_\-:]$
-    string LabelledName;
+    string labelledName;
     // Semver, e.g., "1.2.3"
     // must be valid Semver.
-    string Version;
+    string version;
     // responseType indicates whether remote response requires
     // aggregation or is an OCR report. There are multiple possible
     // ways to aggregate.
-    CapabilityResponseType ResponseType;
+    CapabilityResponseType responseType;
     // An address to the capability configuration contract. Having this defined
     // on a capability enforces consistent configuration across DON instances
     // serving the same capability. Configuration contract MUST implement
@@ -94,7 +94,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     //
     // It is not recommended to store configuration which requires knowledge of
     // the DON membership.
-    address ConfigurationContract;
+    address configurationContract;
   }
 
   /// @notice CapabilityConfiguration is a struct that holds the capability configuration
@@ -425,16 +425,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   function addCapability(Capability calldata capability) external onlyOwner {
-    bytes32 hashedId = getHashedCapabilityId(capability.LabelledName, capability.Version);
+    bytes32 hashedId = getHashedCapabilityId(capability.labelledName, capability.version);
     if (s_hashedCapabilityIds.contains(hashedId)) revert CapabilityAlreadyExists();
 
-    if (capability.ConfigurationContract != address(0)) {
+    if (capability.configurationContract != address(0)) {
       if (
-        capability.ConfigurationContract.code.length == 0 ||
-        !IERC165(capability.ConfigurationContract).supportsInterface(
+        capability.configurationContract.code.length == 0 ||
+        !IERC165(capability.configurationContract).supportsInterface(
           ICapabilityConfiguration.getCapabilityConfiguration.selector
         )
-      ) revert InvalidCapabilityConfigurationContractInterface(capability.ConfigurationContract);
+      ) revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
     }
 
     s_hashedCapabilityIds.add(hashedId);
@@ -489,8 +489,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice This functions returns a capability id that has been hashed to fit into a bytes32 for cheaper access
   /// @return bytes32 A unique identifier for the capability
-  function getHashedCapabilityId(string calldata LabelledName, string calldata Version) public pure returns (bytes32) {
-    return keccak256(abi.encodePacked(LabelledName, Version));
+  function getHashedCapabilityId(string calldata labelledName, string calldata version) public pure returns (bytes32) {
+    return keccak256(abi.encodePacked(labelledName, version));
   }
 
   /// @notice Returns whether a capability is deprecated

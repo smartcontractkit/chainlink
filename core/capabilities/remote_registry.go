@@ -1,9 +1,12 @@
 package capabilities
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 type Capability struct {
@@ -34,9 +37,14 @@ type remoteRegistry struct {
 }
 
 // NewRemoteRegistry creates a new remote capability registry
-func NewRemoteRegistry(registryAddress common.Address, lggr logger.Logger) *remoteRegistry {
+func NewRemoteRegistry(remoteRegistryAddress string, lggr logger.Logger) *remoteRegistry {
+	onchainCapabilityRegistryAddress, err := evmtypes.NewEIP55Address(remoteRegistryAddress)
+	if err != nil {
+		panic(fmt.Sprintf("failed to remote capability registry address. Received address: %v. Err: %v", remoteRegistryAddress, err))
+	}
+
 	return &remoteRegistry{
-		address: registryAddress,
+		address: onchainCapabilityRegistryAddress.Address(),
 		lggr:    lggr,
 	}
 }

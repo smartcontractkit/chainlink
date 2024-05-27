@@ -80,6 +80,44 @@ func NewRegistrySyncer(
 	remoteRegistry *remoteRegistry,
 	client evmclient.Client,
 ) *registrySyncer {
+	// db := pgtest.NewSqlxDB(t)
+	// lpOpts := logpoller.Opts{
+	// 	PollPeriod:               time.Millisecond,
+	// 	FinalityDepth:            4,
+	// 	BackfillBatchSize:        1,
+	// 	RpcBatchSize:             1,
+	// 	KeepFinalizedBlocksDepth: 10000,
+	// }
+	// lp := logpoller.NewLogPoller(
+	// 	logpoller.NewORM(testutils.SimulatedChainID, db, lggr),
+	// 	simulatedBackendClient,
+	// 	lggr,
+	// 	lpOpts,
+	// )
+
+	// chainConfig := types.ChainReaderConfig{
+	// 	Contracts: map[string]types.ChainContractReader{
+	// 		"capability_registry": {
+	// 			ContractABI: keystone_capability_registry.CapabilityRegistryABI,
+	// 			Configs: map[string]*types.ChainReaderDefinition{
+	// 				"get_capabilities": {
+	// 					ChainSpecificName: "getCapabilities",
+	// 					OutputModifications: codec.ModifiersConfig{
+	// 						&codec.RenameModifierConfig{Fields: map[string]string{"labelledName": "name"}},
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	},
+	// }
+	// cr, err := evm.NewChainReaderService(ctx, lggr, lp, simulatedBackendClient, chainConfig)
+
+	// cr.Bind(ctx, []commontypes.BoundContract{
+	// 	{
+	// 		Name:    "capability_registry",
+	// 		Address: capabilityRegistry.Address().String(),
+	// 	}})
+
 	return &registrySyncer{
 		peerWrapper:    peerWrapper,
 		registry:       registry,
@@ -91,6 +129,21 @@ func NewRegistrySyncer(
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
+	// INITIALIZE SYNCER
+
+	// type Cap struct {
+	// 	Name                  string
+	// 	Version               string
+	// 	ResponseType          int
+	// 	ConfigurationContract []byte
+	// }
+
+	// var returnedCapabilities []Cap
+
+	// err = cr.GetLatestValue(ctx, "capability_registry", "get_capabilities", nil, &returnedCapabilities)
+
+	// fmt.Println("Returned capabilities:", returnedCapabilities)
+
 	// NOTE: temporary hard-coded DONs
 	workflowDONPeers := []string{
 		"12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N",

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	utils "github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -53,6 +54,7 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 		lggr,
 		lpOpts,
 	)
+
 	require.NoError(t, lp.Start(ctx))
 
 	chainConfig := types.ChainReaderConfig{
@@ -62,7 +64,6 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 				Configs: map[string]*types.ChainReaderDefinition{
 					"get_capabilities": {
 						ChainSpecificName: "getCapabilities",
-						// It is painful to map output fields to the desired output fields.
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"labelledName": "name"}},
 						},
@@ -73,9 +74,24 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 	}
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, simulatedBackendClient, chainConfig)
 	require.NoError(t, err)
+
+	require.NoError(t, cr.Bind(ctx, []commontypes.BoundContract{
+		{
+			Name:    "capability_registry",
+			Address: capabilityRegistry.Address().String(),
+		}}))
+
 	require.NoError(t, cr.Start(ctx))
 
-	var returnedCapabilities map[string]any
+	type Cap struct {
+		Name                  string
+		Version               string
+		ResponseType          int
+		ConfigurationContract []byte
+	}
+
+	var returnedCapabilities []Cap
+
 	err = cr.GetLatestValue(ctx, "capability_registry", "get_capabilities", nil, &returnedCapabilities)
 	require.NoError(t, err)
 
