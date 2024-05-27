@@ -2,6 +2,7 @@ package capabilities_test
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -12,14 +13,18 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
+
 	utils "github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/internal"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestIntegration_GetCapabilities(t *testing.T) {
@@ -127,26 +132,32 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 	// Setting up a new relayer that reads from the simulated backend. This part doesn't work.
 	// ==========================================================================================
 
-	// keyStore := cltest.NewKeyStore(t, db)
-	// relayer, err := evm.NewRelayer(
-	// 	lggr,
-	// 	simulatedBackend,
-	// 	evm.RelayerOpts{
-	// 		DS:                   db,
-	// 		CSAETHKeystore:       keyStore,
-	// 		CapabilitiesRegistry: workflowEngineCapabilitiesRegistry,
-	// 	},
-	// )
-	// //require.NoError(t, err)
+	keyStore := cltest.NewKeyStore(t, db)
+	mockChain := &evmmocks.Chain{}
+	c := client.NewSimulatedBackendClient(t, simulatedBackend, big.NewInt(1337))
+	mockChain.On("Client").Return(c)
+	require.NoError(t, lp.Start(ctx))
+	mockChain.On("LogPoller").Return(lp)
 
-	// syncer := cap.NewRegistrySyncer(
-	// 	wrapper,
-	// 	workflowEngineCapabilitiesRegistry,
-	// 	dispatcher,
-	// 	lggr,
-	// 	relayer, // relayer
-	// 	capabilityRegistry.Address().String(),
-	// )
+	relayer, err := evm.NewRelayer(
+		lggr,
+		mockChain,
+		evm.RelayerOpts{
+			DS:                   db,
+			CSAETHKeystore:       keyStore,
+			CapabilitiesRegistry: workflowEngineCapabilitiesRegistry,
+		},
+	)
+	require.NoError(t, err)
+
+	syncer := cap.NewRegistrySyncer(
+		wrapper,
+		workflowEngineCapabilitiesRegistry,
+		dispatcher,
+		lggr,
+		relayer, // relayer
+		capabilityRegistry.Address().String(),
+	)
 
 	// require.NoError(t, syncer.Start(ctx))
 
