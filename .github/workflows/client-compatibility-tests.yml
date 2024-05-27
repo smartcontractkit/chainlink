@@ -117,6 +117,11 @@ jobs:
     runs-on: ubuntu-latest
     name: Client Compatibility Test ${{ matrix.name }}
     steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/chainlink
+          ref: ${{ github.sha }}
       - name: Prepare Base64 TOML config
         env:
           SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
