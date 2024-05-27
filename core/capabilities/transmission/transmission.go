@@ -49,11 +49,10 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 
 // GetPeerIDToTransmissionDelay returns a map of PeerID to the time.Duration that the node with that PeerID should wait
 // before transmitting. If a node is not in the map, it should not transmit.
-func GetPeerIDToTransmissionDelay(donPeerIDs []ragep2ptypes.PeerID, sharedSecret [16]byte, workflowID string,
-	workflowExecutionID string, tc TransmissionConfig) (map[p2ptypes.PeerID]time.Duration, error) {
+func GetPeerIDToTransmissionDelay(donPeerIDs []ragep2ptypes.PeerID, sharedSecret [16]byte, transmissionID string, tc TransmissionConfig) (map[p2ptypes.PeerID]time.Duration, error) {
 	donMemberCount := len(donPeerIDs)
-	key := scheduleSeed(sharedSecret, workflowID, workflowExecutionID)
-	sched, err := schedule(tc.Schedule, donMemberCount)
+	key := transmissionScheduleSeed(sharedSecret, transmissionID)
+	schedule, err := createTransmissionSchedule(tc.Schedule, donMemberCount)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +61,7 @@ func GetPeerIDToTransmissionDelay(donPeerIDs []ragep2ptypes.PeerID, sharedSecret
 
 	peerIDToTransmissionDelay := map[p2ptypes.PeerID]time.Duration{}
 	for i, peerID := range donPeerIDs {
-		delay := delayFor(i, sched, picked, tc.DeltaStage)
+		delay := delayFor(i, schedule, picked, tc.DeltaStage)
 		if delay != nil {
 			peerIDToTransmissionDelay[peerID] = *delay
 		}
@@ -83,8 +82,8 @@ func delayFor(position int, schedule []int, permutation []int, deltaStage time.D
 	return nil
 }
 
-func schedule(sched string, N int) ([]int, error) {
-	switch sched {
+func createTransmissionSchedule(scheduleType string, N int) ([]int, error) {
+	switch scheduleType {
 	case Schedule_AllAtOnce:
 		return []int{N}, nil
 	case Schedule_OneAtATime:
@@ -94,20 +93,13 @@ func schedule(sched string, N int) ([]int, error) {
 		}
 		return sch, nil
 	}
-	return nil, fmt.Errorf("unknown schedule %s", sched)
+	return nil, fmt.Errorf("unknown schedule type %s", scheduleType)
 }
 
-// scheduleSeed uses a shared secret, combined with a workflowID and a workflowExecutionID to generate
-// a secret that can later be used to pseudo-randomly determine a schedule for a set of nodes in a DON.
-// The addition of the workflowExecutionID -- which nodes don't know ahead of time -- additionally guarantees
-// that a malicious coalition of nodes can't "game" the schedule.
-// IMPORTANT: changing this function should happen carefully to maintain the guarantee that all nodes
-// arrive at the same secret.
-func scheduleSeed(sharedSecret [16]byte, workflowID, workflowExecutionID string) [16]byte {
+func transmissionScheduleSeed(sharedSecret [16]byte, transmissionID string) [16]byte {
 	hash := sha3.NewLegacyKeccak256()
 	hash.Write(sharedSecret[:])
-	hash.Write([]byte(workflowID))
-	hash.Write([]byte(workflowExecutionID))
+	hash.Write([]byte(transmissionID))
 
 	var key [16]byte
 	copy(key[:], hash.Sum(nil))

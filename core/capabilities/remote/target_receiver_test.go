@@ -51,7 +51,7 @@ func Test_TargetRemoteTarget(t *testing.T) {
 	testRemoteTarget(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, transmissionSchedule, responseTest)
 	testRemoteTarget(t, 10, 3, 10*time.Minute, 10, 3, 10*time.Minute, transmissionSchedule, responseTest)
 
-	here - below tests plus additional tests for the remoteTargetCapability test
+	//here - below tests plus additional tests for the remoteTargetCapability test
 
 	// test capability don F handling
 
@@ -95,13 +95,6 @@ func testRemoteTarget(t *testing.T, numWorkflowPeers int, workflowDonF uint8, wo
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
-	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
-		CapabilityType: commoncap.CapabilityTypeTarget,
-		Description:    "Remote Target",
-		Version:        "0.0.1",
-	}
-
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeerID := p2ptypes.PeerID{}
@@ -116,6 +109,14 @@ func testRemoteTarget(t *testing.T, numWorkflowPeers int, workflowDonF uint8, wo
 		ID:      "capability-don",
 		Members: capabilityPeers,
 		F:       capabilityDonF,
+	}
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Remote Target",
+		Version:        "0.0.1",
+		DON:            &capDonInfo,
 	}
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
@@ -151,7 +152,7 @@ func testRemoteTarget(t *testing.T, numWorkflowPeers int, workflowDonF uint8, wo
 	callers := make([]commoncap.TargetCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout)
+		caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
 		callers[i] = caller
 	}
@@ -274,10 +275,6 @@ func (t testCapability) Execute(ctx context.Context, request commoncap.Capabilit
 	return ch, nil
 }
 
-func libp2pMagic() []byte {
-	return []byte{0x00, 0x24, 0x08, 0x01, 0x12, 0x20}
-}
-
 func newPeerID() string {
 	var privKey [32]byte
 	_, err := rand.Read(privKey[:])
@@ -288,4 +285,8 @@ func newPeerID() string {
 	peerID := append(libp2pMagic(), privKey[:]...)
 
 	return base58.Encode(peerID[:])
+}
+
+func libp2pMagic() []byte {
+	return []byte{0x00, 0x24, 0x08, 0x01, 0x12, 0x20}
 }

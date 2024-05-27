@@ -145,13 +145,6 @@ func testRemoteTargetCaller(t *testing.T, numWorkflowPeers int, workflowNodeResp
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
-	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
-		CapabilityType: commoncap.CapabilityTypeTarget,
-		Description:    "Remote Target",
-		Version:        "0.0.1",
-	}
-
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeerID := p2ptypes.PeerID{}
@@ -166,6 +159,14 @@ func testRemoteTargetCaller(t *testing.T, numWorkflowPeers int, workflowNodeResp
 		ID:      "capability-don",
 		Members: capabilityPeers,
 		F:       capabilityDonF,
+	}
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Remote Target",
+		Version:        "0.0.1",
+		DON:            &capDonInfo,
 	}
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
@@ -193,7 +194,7 @@ func testRemoteTargetCaller(t *testing.T, numWorkflowPeers int, workflowNodeResp
 	callers := make([]commoncap.TargetCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, capDonInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeResponseTimeout)
+		caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeResponseTimeout)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
 		callers[i] = caller
 	}

@@ -61,8 +61,10 @@ func (d scheduledExecution) Apply(ctx context.Context, lggr logger.Logger, cap c
 	// Case 1: Local DON
 	case info.DON == nil:
 
+		// The transmission ID is created using the workflow ID and the workflow execution ID which nodes don't know
+		// ahead of time and ensures a malicious node cannot game the schedule.
 		peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(d.DON.Members, d.DON.Config.SharedSecret,
-			req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
+			req.Metadata.WorkflowID+req.Metadata.WorkflowExecutionID, tc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get peer ID to transmission delay map: %w", err)
 		}

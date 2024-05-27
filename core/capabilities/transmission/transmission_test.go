@@ -90,7 +90,7 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 			require.NoError(t, err)
 			transmissionCfg, err := ExtractTransmissionConfig(m)
 
-			peerIdToDelay, err := GetPeerIDToTransmissionDelay(ids, [16]byte(sharedSecret), "mock-workflow-id", tc.workflowExecutionID, transmissionCfg)
+			peerIdToDelay, err := GetPeerIDToTransmissionDelay(ids, [16]byte(sharedSecret), "mock-workflow-id"+tc.workflowExecutionID, transmissionCfg)
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.expectedDelays["one"], peerIdToDelay[peer1])

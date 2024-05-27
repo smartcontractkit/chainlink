@@ -19,12 +19,11 @@ import (
 
 // remoteTargetCaller/Receiver are shims translating between capability API calls and network messages
 type remoteTargetCaller struct {
-	lggr                    logger.Logger
-	remoteCapabilityInfo    commoncap.CapabilityInfo
-	remoteCapabilityDonInfo capabilities.DON
-	localDONInfo            capabilities.DON
-	dispatcher              types.Dispatcher
-	requestTimeout          time.Duration
+	lggr                 logger.Logger
+	remoteCapabilityInfo commoncap.CapabilityInfo
+	localDONInfo         capabilities.DON
+	dispatcher           types.Dispatcher
+	requestTimeout       time.Duration
 
 	messageIDToExecuteRequest map[string]*callerExecuteRequest
 	mutex                     sync.Mutex
@@ -33,13 +32,12 @@ type remoteTargetCaller struct {
 var _ commoncap.TargetCapability = &remoteTargetCaller{}
 var _ types.Receiver = &remoteTargetCaller{}
 
-func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, remoteCapabilityDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
+func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration) *remoteTargetCaller {
 
 	caller := &remoteTargetCaller{
 		lggr:                      lggr,
 		remoteCapabilityInfo:      remoteCapabilityInfo,
-		remoteCapabilityDonInfo:   remoteCapabilityDonInfo,
 		localDONInfo:              localDonInfo,
 		dispatcher:                dispatcher,
 		requestTimeout:            requestTimeout,
@@ -54,7 +52,7 @@ func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabi
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				caller.ExpireRequests(ctx)
+				caller.ExpireRequests()
 			}
 		}
 	}()
@@ -62,16 +60,13 @@ func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabi
 	return caller
 }
 
-func (c *remoteTargetCaller) ExpireRequests(ctx context.Context) {
+func (c *remoteTargetCaller) ExpireRequests() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	for messageID, req := range c.messageIDToExecuteRequest {
 		if time.Since(req.creationTime) > c.requestTimeout {
-			req.transmissionCancelFn()
-			if !req.responseSent() {
-				req.sendResponse(commoncap.CapabilityResponse{Err: errors.New("request timed out")})
-			}
+			req.cancelRequest("request timed out")
 		}
 
 		delete(c.messageIDToExecuteRequest, messageID)
@@ -90,81 +85,24 @@ func (c *remoteTargetCaller) UnregisterFromWorkflow(ctx context.Context, request
 	return errors.New("not implemented")
 }
 
-func (c *remoteTargetCaller) Execute(parentCtx context.Context, req commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	deterministicMessageID, err := getDeterministicMessageID(req)
+	messageID, err := getMessageIDForRequest(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get deterministic message ID from request: %w", err)
+		return nil, fmt.Errorf("failed to create message ID from request: %w", err)
 	}
 
-	if _, ok := c.messageIDToExecuteRequest[deterministicMessageID]; ok {
-		return nil, fmt.Errorf("request with message ID %s already exists", deterministicMessageID)
+	if _, ok := c.messageIDToExecuteRequest[messageID]; ok {
+		return nil, fmt.Errorf("request with message ID %s already exists", messageID)
 	}
 
-	transmissionCtx, transmissionCancelFn := context.WithCancel(parentCtx)
-	execRequest := newCallerExecuteRequest(transmissionCancelFn, int(c.remoteCapabilityDonInfo.F+1))
+	execRequest, err := newCallerExecuteRequest(ctx, c.lggr, req, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
 
-	c.messageIDToExecuteRequest[deterministicMessageID] = execRequest
-
-	if err = c.transmitRequestWithMessageID(transmissionCtx, req, deterministicMessageID); err != nil {
-		return nil, fmt.Errorf("failed to transmit request: %w", err)
-	}
+	c.messageIDToExecuteRequest[messageID] = execRequest
 
 	return execRequest.responseCh, nil
-}
-
-func getDeterministicMessageID(req commoncap.CapabilityRequest) (string, error) {
-	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
-		return "", errors.New("workflow ID and workflow execution ID must be set in request metadata")
-	}
-
-	deterministicMessageID := req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID
-	return deterministicMessageID, nil
-}
-
-// transmitRequestWithMessageID transmits a capability request to remote capabilities according to the transmission configuration
-func (c *remoteTargetCaller) transmitRequestWithMessageID(ctx context.Context, req commoncap.CapabilityRequest, messageID string) error {
-	rawRequest, err := pb.MarshalCapabilityRequest(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal capability request: %w", err)
-	}
-
-	tc, err := transmission.ExtractTransmissionConfig(req.Config)
-	if err != nil {
-		return fmt.Errorf("failed to extract transmission config from request config: %w", err)
-	}
-
-	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(c.remoteCapabilityDonInfo.Members, c.localDONInfo.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, tc)
-	if err != nil {
-		return fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
-	}
-
-	for peerID, delay := range peerIDToDelay {
-		go func(peerID ragep2ptypes.PeerID, delay time.Duration) {
-			message := &types.MessageBody{
-				CapabilityId:    c.remoteCapabilityInfo.ID,
-				CapabilityDonId: c.remoteCapabilityDonInfo.ID,
-				CallerDonId:     c.localDONInfo.ID,
-				Method:          types.MethodExecute,
-				Payload:         rawRequest,
-				MessageId:       []byte(messageID),
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(delay):
-				err = c.dispatcher.Send(peerID, message)
-				if err != nil {
-					c.lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
-				}
-			}
-		}(peerID, delay)
-	}
-
-	return nil
 }
 
 func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
@@ -187,26 +125,83 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 	req.addResponse(msg.Payload)
 }
 
+// getMessageIDForRequest uses the workflow ID and workflow execution ID from the request metadata to create a
+// deterministically unique message ID for the request.
+func getMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
+	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
+		return "", errors.New("workflow ID and workflow execution ID must be set in request metadata")
+	}
+
+	return req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID, nil
+}
+
 type callerExecuteRequest struct {
+	transmissionCtx      context.Context
 	responseCh           chan commoncap.CapabilityResponse
 	transmissionCancelFn context.CancelFunc
 	creationTime         time.Time
 	responseIDCount      map[[32]byte]int
 
 	requiredIdenticalResponses int
-	respSent                   bool
+
+	respSent bool
 }
 
-should refactor this, move the tranmission logic onto it to better encapsulate the cancellation logic
+func newCallerExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest, messageID string,
+	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher) (*callerExecuteRequest, error) {
 
-func newCallerExecuteRequest(transmissionCancelFn context.CancelFunc, requiredIdenticalResponses int) *callerExecuteRequest {
-	return &callerExecuteRequest{
-		responseCh:                 make(chan commoncap.CapabilityResponse, 1),
-		transmissionCancelFn:       transmissionCancelFn,
-		responseIDCount:            make(map[[32]byte]int),
-		creationTime:               time.Now(),
-		requiredIdenticalResponses: requiredIdenticalResponses,
+	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
+	if remoteCapabilityDonInfo == nil {
+		return nil, errors.New("remote capability info missing DON")
 	}
+
+	rawRequest, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+
+	tc, err := transmission.ExtractTransmissionConfig(req.Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract transmission config from request config: %w", err)
+	}
+
+	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(remoteCapabilityDonInfo.Members, localDonInfo.Config.SharedSecret,
+		messageID, tc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
+	}
+
+	transmissionCtx, transmissionCancelFn := context.WithCancel(ctx)
+	for peerID, delay := range peerIDToDelay {
+		go func(peerID ragep2ptypes.PeerID, delay time.Duration) {
+			message := &types.MessageBody{
+				CapabilityId:    remoteCapabilityInfo.ID,
+				CapabilityDonId: remoteCapabilityDonInfo.ID,
+				CallerDonId:     localDonInfo.ID,
+				Method:          types.MethodExecute,
+				Payload:         rawRequest,
+				MessageId:       []byte(messageID),
+			}
+
+			select {
+			case <-transmissionCtx.Done():
+				return
+			case <-time.After(delay):
+				err = dispatcher.Send(peerID, message)
+				if err != nil {
+					lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
+				}
+			}
+		}(peerID, delay)
+	}
+
+	return &callerExecuteRequest{
+		creationTime:               time.Now(),
+		transmissionCancelFn:       transmissionCancelFn,
+		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
+		responseIDCount:            make(map[[32]byte]int),
+		responseCh:                 make(chan commoncap.CapabilityResponse, 1),
+	}, nil
 }
 
 func (c *callerExecuteRequest) responseSent() bool {
@@ -233,4 +228,11 @@ func (c *callerExecuteRequest) sendResponse(response commoncap.CapabilityRespons
 	close(c.responseCh)
 	c.transmissionCancelFn()
 	c.respSent = true
+}
+
+func (c *callerExecuteRequest) cancelRequest(reason string) {
+	c.transmissionCancelFn()
+	if !c.responseSent() {
+		c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(reason)})
+	}
 }
