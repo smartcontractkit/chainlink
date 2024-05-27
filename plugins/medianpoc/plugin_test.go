@@ -73,7 +73,7 @@ func (p provider) OnchainConfigCodec() median.OnchainConfigCodec {
 	return mockOnchainConfigCodec{}
 }
 
-func (p provider) ChainReader() types.ChainReader {
+func (p provider) ChainReader() types.ContractReader {
 	return nil
 }
 
