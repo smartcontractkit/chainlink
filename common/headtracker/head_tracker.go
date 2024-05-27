@@ -355,7 +355,6 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx cont
 		}
 
 		return latestFinalized, nil
-
 	}
 	// no need to make an additional RPC call on chains with instant finality
 	if ht.config.FinalityDepth() == 0 {
