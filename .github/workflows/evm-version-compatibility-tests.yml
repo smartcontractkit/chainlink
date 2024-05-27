@@ -71,15 +71,18 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: smartcontractkit/chainlink-testing-framework
+          ref: 6d74de723296d12338e3d4aa795001b1e949b138
           path: chainlink-testing-framework
       - name: Set up Go
         uses: actions/setup-go@v3
       - name: Run get-latest-ethereum-client-version ethereum/client-go:latest_stable command
         id: get-latest-ethereum-client-version
         run: |
-          version=$(go run chainlink-testing-framework/utils/cmd/main.go get-latest-ethereum-client-version ethereum/client-go:latest_stable)
-          echo "::set-output name=version::${version}"
-      - name: Check if latest Ethereum client image exists in ECR
+          cd chainlink-testing-framework/
+          ls utils/cmd/
+          version=$(go run utils/cmd/main.go get-latest-ethereum-client-version ethereum/client-go:latest_stable)
+          echo "version=${version}" >> $GITHUB_OUTPUT
+      - name: Check if latest Ethereum client image ${{ steps.get-latest-ethereum-client-version.outputs.version }} exists in ECR
         id: check-latest-ethereum-client-image-exists
         uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
         with:
@@ -87,11 +90,17 @@ jobs:
           tag: ${{ steps.get-latest-ethereum-client-version.outputs.version }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      - name: Latest Ethereum client image does not exist in ECR
+        if: steps.check-latest-ethereum-client-image-exists.outputs.exists != 'true'
+        run: |
+          echo "ethereum/client-go:${{ steps.get-latest-ethereum-client-version.outputs.version }} does not exist in our ECR. The image download was scheduled, and you can rerun this workflow in few minutes."
+          exit 1          
 
   # If the required images do not exist, trigger the update-internal-mirrors workflow in CTF and fail the current workflow
   trigger-update-internal-mirrors-workflow-in-ctf:
+    name: Trigger update-internal-mirrors workflow in CTF
     needs: [check-ecr-images-exist]
-    if: needs.check-ecr-images-exist.outputs.latest-ethereum-client-image-exists != 'true'
+    if: ${{ failure() && needs.check-ecr-images-exist.outputs.latest-ethereum-client-image-exists != 'true' }}
     permissions:
       actions: read
       id-token: write
@@ -109,16 +118,12 @@ jobs:
         run: gh workflow run --repo smartcontractkit/chainlink-testing-framework update-internal-mirrors.yaml
         env:
           GITHUB_TOKEN: ${{ steps.setup-github-token.outputs.access-token }}
-      - name: Fail the workflow
-        run: |
-          echo "The latest image for ethereum/client-go does not exist in our ECR. The image download was scheduled, and you can rerun this workflow in a few minutes."
-          exit 1
 
   # Build Test Dependencies
 
   build-chainlink:
     if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [check-dependency-bump]
+    needs: [check-dependency-bump, check-ecr-images-exist]
     environment: integration
     permissions:
       id-token: write
@@ -151,7 +156,7 @@ jobs:
 
   build-tests:
     if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [check-dependency-bump]
+    needs: [check-dependency-bump, check-ecr-images-exist]
     environment: integration
     permissions:
       id-token: write
@@ -186,7 +191,7 @@ jobs:
 
   build-test-matrix:
     if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [check-dependency-bump]
+    needs: [check-dependency-bump, check-ecr-images-exist]
     runs-on: ubuntu-latest
     name: Build Test Matrix
     outputs:
