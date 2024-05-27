@@ -24,7 +24,7 @@ import (
 
 type ChainReaderService interface {
 	services.ServiceCtx
-	commontypes.ChainReader
+	commontypes.ContractReader
 }
 
 type chainReader struct {

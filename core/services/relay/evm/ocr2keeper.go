@@ -197,7 +197,7 @@ func (c *ocr2keeperProvider) ContractTransmitter() ocrtypes.ContractTransmitter 
 	return c.contractTransmitter
 }
 
-func (c *ocr2keeperProvider) ChainReader() commontypes.ChainReader {
+func (c *ocr2keeperProvider) ChainReader() commontypes.ContractReader {
 	return nil
 }
 
