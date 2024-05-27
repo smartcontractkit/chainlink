@@ -148,7 +148,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // s_coordinatorLinkPremiumPercentage is the premium ratio in percentage for link payment. For example, a
   // value of 0 indicates no premium. A value of 15 indicates a 15 percent premium.
   // Wrapper has no premium. This premium is for VRFCoordinator.
-  uint8 private s_coordinatorLinkPremiumPercentage;
+  uint8 public s_coordinatorLinkPremiumPercentage;
   /* Storage Slot 5: END */
 
   struct Callback {
@@ -171,8 +171,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   /* Storage Slot 8: BEGIN */
   // s_upperBoundLimitL1FeeCalculationEnabled indicates if we are using upper bound limit gas calculation
   // to determine L1 gas feed (crucial for OP stack chains) or using the accurate gas calculation
-  bool private s_upperBoundLimitL1FeeCalculationEnabled = false;
+  bool public s_upperBoundLimitL1FeeCalculationEnabled = false;
   /* Storage Slot 8: 31 bytes left in the slot */
+
   constructor(
     address _link,
     address _linkNativeFeed,
@@ -196,10 +197,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // handled by the external account (owner of the subscription).
     SUBSCRIPTION_ID = _subId;
 
-    // creating a dummy fulfillment transaction data is needed when we don't want
+    // Creating a dummy fulfillment transaction data is needed when we don't want
     // to use upper bound limit calculation (estimate) but switch to a more accurate
     // gas estimation instead (the one provided by the chain itself)
-    if (s_upperBoundLimitL1FeeCalculationEnabled) {
+    if (!s_upperBoundLimitL1FeeCalculationEnabled) {
       s_fulfillmentTxData = new bytes(s_fulfillmentTxSizeBytes);
       for (uint256 i = 0; i < s_fulfillmentTxData.length; i++) {
         s_fulfillmentTxData[i] = 0xff;
@@ -214,7 +215,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function setFulfillmentTxSize(uint32 _size) external onlyOwner {
     s_fulfillmentTxSizeBytes = _size;
 
-    if (s_upperBoundLimitL1FeeCalculationEnabled) {
+    if (!s_upperBoundLimitL1FeeCalculationEnabled) {
       delete s_fulfillmentTxData;
 
       s_fulfillmentTxData = new bytes(s_fulfillmentTxSizeBytes);
@@ -235,7 +236,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
     delete s_fulfillmentTxData;
 
-    if (_enabled) {
+    if (!_enabled) {
       s_fulfillmentTxData = new bytes(s_fulfillmentTxSizeBytes);
       for (uint256 i = 0; i < s_fulfillmentTxData.length; i++) {
         s_fulfillmentTxData[i] = 0xff;
