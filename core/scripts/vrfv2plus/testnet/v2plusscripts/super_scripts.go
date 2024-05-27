@@ -994,12 +994,6 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	fmt.Println("Added wrapper as the subscription consumer")
 	fmt.Println()
 
-	EoaFundSubWithLink(e, *coordinator, *linkAddress, subAmountLink, subId)
-	EoaFundSubWithNative(e, common.HexToAddress(*coordinatorAddress), subId, subAmountNative)
-
-	fmt.Println("Funded wrapper subscription")
-	fmt.Println()
-
 	link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
 	helpers.PanicErr(err)
 
@@ -1012,12 +1006,19 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	fmt.Println("Funded wrapper consumer")
 	fmt.Println()
 
+	EoaFundSubWithLink(e, *coordinator, *linkAddress, subAmountLink, subId)
+	// e.Owner.Value is hardcoded inside this helper function, make sure to run it as the last one in the script
+	EoaFundSubWithNative(e, common.HexToAddress(*coordinatorAddress), subId, subAmountNative)
+
+	fmt.Println("Funded wrapper subscription")
+	fmt.Println()
+
 	fmt.Println("Wrapper universe deployment complete")
 	fmt.Println("Wrapper address:", wrapper.String())
 	fmt.Println("Wrapper consumer address:", consumer.String())
 	fmt.Println("Wrapper subscription ID:", subId)
-	fmt.Printf("Send native request example: go run . wrapper-consumer-request --consumer-address=%s --cb-gas-limit=1000000 --native-payment=false\n", consumer.String())
-	fmt.Printf("Send LINK request example: go run . wrapper-consumer-request --consumer-address=%s --cb-gas-limit=1000000 --native-payment=true\n", consumer.String())
+	fmt.Printf("Send native request example: go run . wrapper-consumer-request --consumer-address=%s --cb-gas-limit=1000000 --native-payment=true\n", consumer.String())
+	fmt.Printf("Send LINK request example: go run . wrapper-consumer-request --consumer-address=%s --cb-gas-limit=1000000 --native-payment=false\n", consumer.String())
 }
 
 func parseSubID(subID string) *big.Int {
