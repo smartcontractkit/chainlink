@@ -136,7 +136,11 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 		return types.Observation{}, fmt.Errorf("observe gas prices: %w", err)
 	}
 
-	return model.NewCommitPluginObservation(newMsgs, gasPrices, tokenPrices, maxSeqNumsPerChain).Encode()
+	msgBaseDetails := make([]model.CCIPMsgBaseDetails, 0)
+	for _, msg := range newMsgs {
+		msgBaseDetails = append(msgBaseDetails, msg.CCIPMsgBaseDetails)
+	}
+	return model.NewCommitPluginObservation(msgBaseDetails, gasPrices, tokenPrices, maxSeqNumsPerChain).Encode()
 }
 
 func (p *Plugin) ValidateObservation(_ ocr3types.OutcomeContext, _ types.Query, ao types.AttributedObservation) error {

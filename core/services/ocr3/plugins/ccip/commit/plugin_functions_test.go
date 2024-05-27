@@ -129,7 +129,7 @@ func Test_observeNewMsgs(t *testing.T) {
 		destChain          model.ChainSelector
 		msgScanBatchSize   int
 		newMsgs            map[model.ChainSelector][]model.CCIPMsg
-		expMsgs            []model.CCIPMsgBaseDetails
+		expMsgs            []model.CCIPMsg
 		expErr             bool
 	}{
 		{
@@ -144,7 +144,7 @@ func Test_observeNewMsgs(t *testing.T) {
 				1: {},
 				2: {},
 			},
-			expMsgs: []model.CCIPMsgBaseDetails{},
+			expMsgs: []model.CCIPMsg{},
 			expErr:  false,
 		},
 		{
@@ -164,10 +164,10 @@ func Test_observeNewMsgs(t *testing.T) {
 					{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
 				},
 			},
-			expMsgs: []model.CCIPMsgBaseDetails{
-				{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11},
-				{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21},
-				{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22},
+			expMsgs: []model.CCIPMsg{
+				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}},
+				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
+				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
 			},
 			expErr: false,
 		},
@@ -185,9 +185,9 @@ func Test_observeNewMsgs(t *testing.T) {
 					{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
 				},
 			},
-			expMsgs: []model.CCIPMsgBaseDetails{
-				{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21},
-				{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22},
+			expMsgs: []model.CCIPMsg{
+				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
+				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
 			},
 			expErr: false,
 		},
@@ -571,7 +571,7 @@ func Test_validateObservedGasPrices(t *testing.T) {
 	}
 }
 
-func Test_newMsgsConsensus(t *testing.T) {
+func Test_newMsgsConsensusForChain(t *testing.T) {
 	testCases := []struct {
 		name           string
 		maxSeqNums     []model.SeqNumChain
@@ -761,6 +761,41 @@ func Test_newMsgsConsensus(t *testing.T) {
 				{
 					ChainSel:     2,
 					SeqNumsRange: model.NewSeqNumRange(21, 22), // we stop at 11 because there is a gap for going to 13
+				},
+			},
+			expErr: false,
+		},
+		{
+			name: "one message seq num with multiple reported ids",
+			fChain: map[model.ChainSelector]int{
+				1: 2,
+			},
+			maxSeqNums: []model.SeqNumChain{
+				{ChainSel: 1, SeqNum: 10},
+			},
+			observations: []model.CommitPluginObservation{
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{10}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{10}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{111}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{111}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 11}}},
+
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+			},
+			expMerkleRoots: []model.MerkleRootChain{
+				{
+					ChainSel:     1,
+					SeqNumsRange: model.NewSeqNumRange(11, 11),
 				},
 			},
 			expErr: false,

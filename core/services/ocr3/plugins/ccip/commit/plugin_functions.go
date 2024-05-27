@@ -81,9 +81,10 @@ func observeNewMsgs(
 	readableChains mapset.Set[model.ChainSelector],
 	maxSeqNumsPerChain []model.SeqNumChain,
 	msgScanBatchSize int,
-) ([]model.CCIPMsgBaseDetails, error) {
+) ([]model.CCIPMsg, error) {
 	// Find the new msgs for each supported chain based on the discovered max sequence numbers.
-	observedNewMsgs := make([]model.CCIPMsgBaseDetails, 0)
+	observedNewMsgs := make([]model.CCIPMsg, 0)
+
 	for _, seqNumChain := range maxSeqNumsPerChain {
 		if !readableChains.Contains(seqNumChain.ChainSel) {
 			lggr.Debugw("reading chain is not supported", "chain", seqNumChain.ChainSel)
@@ -108,7 +109,11 @@ func observeNewMsgs(
 		}
 
 		for _, msg := range newMsgs {
-			observedNewMsgs = append(observedNewMsgs, msg.CCIPMsgBaseDetails)
+			if err := msg.IsValid(); err != nil {
+				lggr.Warnw("invalid message discovered", "msg", msg, "err", err)
+				continue
+			}
+			observedNewMsgs = append(observedNewMsgs, msg)
 		}
 	}
 
@@ -242,17 +247,56 @@ func newMsgsConsensusForChain(
 	lggr.Debugw("observed messages consensus",
 		"chain", chainSel, "fChain", fChain, "observedMsgs", len(observedMsgs))
 
-	// Reach consensus on the observed msgs sequence numbers.
-	msgSeqNums := make(map[model.SeqNum]int)
+	// First come to consensus about the (sequence number, id) pairs.
+	// For each sequence number consider correct the ID with the most votes.
+	msgSeqNumToIDCounts := make(map[model.SeqNum]map[string]int) // seqNum -> msgID -> count
 	for _, msg := range observedMsgs {
-		msgSeqNums[msg.SeqNum]++
-		// TODO: message data might be spoofed, validate the message data
+		if _, exists := msgSeqNumToIDCounts[msg.SeqNum]; !exists {
+			msgSeqNumToIDCounts[msg.SeqNum] = make(map[string]int)
+		}
+		msgSeqNumToIDCounts[msg.SeqNum][msg.ID.String()]++
 	}
-	lggr.Debugw("observed message counts", "chain", chainSel, "msgSeqNums", msgSeqNums)
+	lggr.Debugw("observed message counts", "chain", chainSel, "msgSeqNumToIdCounts", msgSeqNumToIDCounts)
+
+	msgObservationsCount := make(map[model.SeqNum]int)
+	msgSeqNumToID := make(map[model.SeqNum]model.Bytes32)
+	for seqNum, idCounts := range msgSeqNumToIDCounts {
+		if len(idCounts) == 0 {
+			lggr.Errorw("critical error id counts should never be empty", "seqNum", seqNum)
+			continue
+		}
+
+		// Find the ID with the most votes for each sequence number.
+		idsSlice := make([]string, 0, len(idCounts))
+		for id := range idCounts {
+			idsSlice = append(idsSlice, id)
+		}
+		// determinism in case we have the same count for different ids
+		sort.Slice(idsSlice, func(i, j int) bool { return idsSlice[i] < idsSlice[j] })
+
+		maxCnt := idCounts[idsSlice[0]]
+		mostVotedID := idsSlice[0]
+		for _, id := range idsSlice[1:] {
+			cnt := idCounts[id]
+			if cnt > maxCnt {
+				maxCnt = cnt
+				mostVotedID = id
+			}
+		}
+
+		msgObservationsCount[seqNum] = maxCnt
+		idBytes, err := model.NewBytes32FromString(mostVotedID)
+		if err != nil {
+			return observedMsgsConsensus{}, fmt.Errorf("critical issue converting id '%s' to bytes32: %w",
+				mostVotedID, err)
+		}
+		msgSeqNumToID[seqNum] = idBytes
+	}
+	lggr.Debugw("observed message consensus", "chain", chainSel, "msgSeqNumToId", msgSeqNumToID)
 
 	// Filter out msgs not observed by at least 2f_chain+1 followers.
 	msgSeqNumsQuorum := mapset.NewSet[model.SeqNum]()
-	for seqNum, count := range msgSeqNums {
+	for seqNum, count := range msgObservationsCount {
 		if count >= 2*fChain+1 {
 			msgSeqNumsQuorum.Add(seqNum)
 		}
@@ -274,6 +318,10 @@ func newMsgsConsensusForChain(
 
 	msgsBySeqNum := make(map[model.SeqNum]model.CCIPMsgBaseDetails)
 	for _, msg := range observedMsgs {
+		consensusMsgID, ok := msgSeqNumToID[msg.SeqNum]
+		if !ok || consensusMsgID != msg.ID {
+			continue
+		}
 		msgsBySeqNum[msg.SeqNum] = msg
 	}
 

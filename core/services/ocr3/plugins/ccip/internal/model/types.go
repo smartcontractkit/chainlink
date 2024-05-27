@@ -8,6 +8,21 @@ import (
 
 type Bytes32 [32]byte
 
+func NewBytes32FromString(s string) (Bytes32, error) {
+	if len(s) < 2 {
+		return Bytes32{}, fmt.Errorf("invalid Bytes32: %s", s)
+	}
+
+	b, err := hex.DecodeString(s[2:])
+	if err != nil {
+		return Bytes32{}, err
+	}
+
+	var res Bytes32
+	copy(res[:], b)
+	return res, nil
+}
+
 func (m Bytes32) String() string {
 	return "0x" + hex.EncodeToString(m[:])
 }

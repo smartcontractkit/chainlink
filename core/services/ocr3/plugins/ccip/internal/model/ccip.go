@@ -75,6 +75,17 @@ type CCIPMsg struct {
 	CCIPMsgBaseDetails
 }
 
+func (c CCIPMsg) IsValid() error {
+	if c.ID != c.Hash() {
+		return fmt.Errorf("message id does not match the computed hash")
+	}
+	return nil
+}
+
+func (c CCIPMsg) Hash() Bytes32 {
+	return c.ID // todo: hash msg fields similar to what the contract does
+}
+
 func (c CCIPMsg) String() string {
 	js, _ := json.Marshal(c)
 	return fmt.Sprintf("%s", js)
