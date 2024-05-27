@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -142,6 +144,11 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	content, err := toml.Marshal(config)
+	require.NoError(t, err, "Error marshalling config")
+
+	fmt.Println(string(content))
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
