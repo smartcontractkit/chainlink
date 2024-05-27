@@ -1,4 +1,4 @@
-package remote_test
+package target_test
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -194,7 +194,7 @@ func testRemoteTargetCaller(t *testing.T, numWorkflowPeers int, workflowNodeResp
 	callers := make([]commoncap.TargetCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		caller := remote.NewRemoteTargetCaller(ctx, lggr, capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeResponseTimeout)
+		caller := target.NewRemoteTargetCaller(ctx, lggr, capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeResponseTimeout)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
 		callers[i] = caller
 	}
@@ -260,7 +260,7 @@ func (t *callerTestReceiver) Receive(msg *remotetypes.MessageBody) {
 	defer t.mux.Unlock()
 
 	sender := toPeerID(msg.Sender)
-	messageID := remote.GetMessageID(msg)
+	messageID := target.GetMessageID(msg)
 
 	if t.messageIDToSenders[messageID] == nil {
 		t.messageIDToSenders[messageID] = make(map[p2ptypes.PeerID]bool)
