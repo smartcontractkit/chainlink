@@ -1,7 +1,6 @@
 package feeds
 
 import (
-	"context"
 	"crypto/ed25519"
 	"sync"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
@@ -35,10 +35,7 @@ type connectionsManager struct {
 }
 
 type connection struct {
-	// ctx allows us to cancel any connections which are currently blocking
-	// while waiting to establish a connection to FMS.
-	ctx    context.Context
-	cancel context.CancelFunc
+	stopCh services.StopChan
 
 	connected bool
 	client    pb.FeedsManagerClient
@@ -81,11 +78,8 @@ type ConnectOpts struct {
 // Eventually when FMS does come back up, wsrpc will establish the connection
 // without any interaction on behalf of the node operator.
 func (mgr *connectionsManager) Connect(opts ConnectOpts) {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	conn := &connection{
-		ctx:       ctx,
-		cancel:    cancel,
+		stopCh:    make(chan struct{}),
 		connected: false,
 	}
 
@@ -96,11 +90,13 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 	mgr.mu.Unlock()
 
 	go recovery.WrapRecover(mgr.lggr, func() {
+		ctx, cancel := conn.stopCh.NewCtx()
+		defer cancel()
 		defer mgr.wgClosed.Done()
 
 		mgr.lggr.Infow("Connecting to Feeds Manager...", "feedsManagerID", opts.FeedsManagerID)
 
-		clientConn, err := wsrpc.DialWithContext(conn.ctx, opts.URI,
+		clientConn, err := wsrpc.DialWithContext(ctx, opts.URI,
 			wsrpc.WithTransportCreds(opts.Privkey, ed25519.PublicKey(opts.Pubkey)),
 			wsrpc.WithBlock(),
 			wsrpc.WithLogger(mgr.lggr),
@@ -108,7 +104,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 		if err != nil {
 			// We only want to log if there was an error that did not occur
 			// from a context cancel.
-			if conn.ctx.Err() == nil {
+			if ctx.Err() == nil {
 				mgr.lggr.Warnf("Error connecting to Feeds Manager server: %v", err)
 			} else {
 				mgr.lggr.Infof("Closing wsrpc websocket connection: %v", err)
@@ -139,7 +135,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 			for {
 				s := clientConn.GetState()
 
-				clientConn.WaitForStateChange(conn.ctx, s)
+				clientConn.WaitForStateChange(ctx, s)
 
 				s = clientConn.GetState()
 
@@ -155,7 +151,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 		}()
 
 		// Wait for close
-		<-conn.ctx.Done()
+		<-ctx.Done()
 	})
 }
 
@@ -169,7 +165,7 @@ func (mgr *connectionsManager) Disconnect(id int64) error {
 		return errors.New("feeds manager is not connected")
 	}
 
-	conn.cancel()
+	close(conn.stopCh)
 	delete(mgr.connections, id)
 
 	mgr.lggr.Infow("Disconnected Feeds Manager", "feedsManagerID", id)
@@ -181,7 +177,7 @@ func (mgr *connectionsManager) Disconnect(id int64) error {
 func (mgr *connectionsManager) Close() {
 	mgr.mu.Lock()
 	for _, conn := range mgr.connections {
-		conn.cancel()
+		close(conn.stopCh)
 	}
 
 	mgr.mu.Unlock()

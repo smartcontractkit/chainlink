@@ -23,6 +23,7 @@ fi
 CHANGESET_FILE_PATH=$1
 tags_list=( "#nops" "#added" "#changed" "#removed" "#updated" "#deprecation_notice" "#breaking_change" "#db_update" "#wip" "#bugfix" "#internal" )
 has_tags=false
+found_tags=()
 
 if [[ ! -f "$CHANGESET_FILE_PATH" ]]; then
   echo "Error: File '$CHANGESET_FILE_PATH' does not exist."
@@ -40,6 +41,7 @@ fi
 while IFS= read -r line; do
   for tag in "${tags_list[@]}"; do
     if [[ "$line" == *"$tag"* ]]; then
+      found_tags+=("$tag")
       echo "Found tag: $tag in $CHANGESET_FILE_PATH"
       has_tags=true
     fi
@@ -51,3 +53,4 @@ if [[ "$has_tags" == false ]]; then
 fi
 
 echo "has_tags=$has_tags" >> $GITHUB_OUTPUT
+echo "found_tags=$(jq -jR 'split(" ") | join(",")' <<< "${found_tags[*]}")" >> $GITHUB_OUTPUT

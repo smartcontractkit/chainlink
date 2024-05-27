@@ -2,6 +2,51 @@
 [Common]
 chainlink_node_funding = 0.5
 
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '1m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+"""
+
 # smoke test specific overrodes
 [Smoke.Automation.AutomationConfig]
 use_log_buffer_v1=false
@@ -57,13 +102,15 @@ block_time=1
 spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
+remove_namespace = true
 
 # load test specific overrides
 [Load.Seth]
 ephemeral_addresses_number = 100
+root_key_funds_buffer = 1_000_000
 
 [Load.Common]
-chainlink_node_funding = 100
+chainlink_node_funding = 1000
 
 [Load.Automation]
 [Load.Automation.General]
@@ -73,6 +120,7 @@ block_time=1
 spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
+remove_namespace = true
 
 [Load.Automation.DataStreams]
 enabled=false
