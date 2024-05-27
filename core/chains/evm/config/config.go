@@ -2,6 +2,7 @@ package config
 
 import (
 	"math/big"
+	"net/url"
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -100,6 +101,14 @@ type Transactions interface {
 	ReaperThreshold() time.Duration
 	MaxInFlight() uint32
 	MaxQueued() uint64
+	AutoPurge() AutoPurgeConfig
+}
+
+type AutoPurgeConfig interface {
+	Enabled() bool
+	Threshold() uint32
+	MinAttempts() uint32
+	DetectionApiUrl() *url.URL
 }
 
 //go:generate mockery --quiet --name GasEstimator --output ./mocks/ --case=underscore

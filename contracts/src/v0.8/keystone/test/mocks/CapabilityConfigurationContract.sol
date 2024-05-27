@@ -11,7 +11,14 @@ contract CapabilityConfigurationContract is ICapabilityConfiguration, ERC165 {
     return s_donConfiguration[donId];
   }
 
+  function beforeCapabilityConfigSet(
+    bytes32[] calldata nodes,
+    bytes calldata config,
+    uint64 configCount,
+    uint32 donId
+  ) external {}
+
   function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-    return interfaceId == this.getCapabilityConfiguration.selector;
+    return interfaceId == this.getCapabilityConfiguration.selector ^ this.beforeCapabilityConfigSet.selector;
   }
 }

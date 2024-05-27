@@ -2,4 +2,4 @@
 "@chainlink/contracts": patch
 ---
 
-minor fixes #bugfix
+track config count in DON struct
