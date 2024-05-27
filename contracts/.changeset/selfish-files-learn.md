@@ -2,4 +2,4 @@
 "@chainlink/contracts": patch
 ---
 
-contracts work
+add getters in capability registry
