@@ -87,6 +87,11 @@ func TestDoc(t *testing.T) {
 		docDefaults.ChainWriter.ForwarderAddress = nil
 		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
 
+		// Transactions.AutoPurge configs are only set if the feature is enabled
+		docDefaults.Transactions.AutoPurge.DetectionApiUrl = nil
+		docDefaults.Transactions.AutoPurge.Threshold = nil
+		docDefaults.Transactions.AutoPurge.MinAttempts = nil
+
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})
 
