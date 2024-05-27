@@ -21,10 +21,10 @@ import (
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
-func InitializeWrite(registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, lggr logger.Logger) error {
+func InitializeWrite(ctx context.Context, registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, lggr logger.Logger) error {
 	for _, chain := range legacyEVMChains.Slice() {
 		capability := NewEvmWrite(chain, lggr)
-		if err := registry.Add(context.TODO(), capability); err != nil {
+		if err := registry.Add(ctx, capability); err != nil {
 			return err
 		}
 	}
