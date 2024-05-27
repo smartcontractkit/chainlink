@@ -468,6 +468,37 @@ func sendTx(e helpers.Environment, to common.Address, data []byte) (*types.Recei
 		e.ChainID, "send tx", signedTx.Hash().String(), "to", to.String()), signedTx.Hash()
 }
 
+func sendNativeTokens(e helpers.Environment, to common.Address, amount *big.Int) (*types.Receipt, common.Hash) {
+	nonce, err := e.Ec.PendingNonceAt(context.Background(), e.Owner.From)
+	helpers.PanicErr(err)
+	gasPrice, err := e.Ec.SuggestGasPrice(context.Background())
+	helpers.PanicErr(err)
+	msg := ethereum.CallMsg{
+		From:     e.Owner.From,
+		To:       &to,
+		Value:    amount,
+		Gas:      0,
+		GasPrice: big.NewInt(0),
+		Data:     nil,
+	}
+	gasLimit, err := e.Ec.EstimateGas(context.Background(), msg)
+	helpers.PanicErr(err)
+	rawTx := types.NewTx(&types.LegacyTx{
+		Nonce:    nonce,
+		To:       &to,
+		Data:     nil,
+		Value:    amount,
+		Gas:      gasLimit,
+		GasPrice: gasPrice,
+	})
+	signedTx, err := e.Owner.Signer(e.Owner.From, rawTx)
+	helpers.PanicErr(err)
+	err = e.Ec.SendTransaction(context.Background(), signedTx)
+	helpers.PanicErr(err)
+	return helpers.ConfirmTXMined(context.Background(), e.Ec, signedTx,
+		e.ChainID, "send tx", signedTx.Hash().String(), "to", to.String()), signedTx.Hash()
+}
+
 func DeployUniverseViaCLI(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
@@ -876,26 +907,60 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	wrapperLinkPremiumPercentage := cmd.Uint("wrapper-link-premium-percentage", 25, "gas premium charged by wrapper for link payment")
 	keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
 	maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
-	subFunding := cmd.String("sub-funding", "10000000000000000000", "amount to fund the subscription with")
-	consumerFunding := cmd.String("consumer-funding", "10000000000000000000", "amount to fund the consumer with")
+	subFundingLink := cmd.String("sub-funding-link", "10000000000000000000", "amount in LINK to fund the subscription with")
+	subFundingNative := cmd.String("sub-funding-native", "10000000000000000000", "amount in native to fund the subscription with")
+	consumerFundingLink := cmd.String("consumer-funding-link", "10000000000000000000", "amount in LINK to fund the consumer with")
+	consumerFundingNative := cmd.String("consumer-funding-native", "10000000000000000000", "amount in native to fund the consumer with")
 	fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "the fallback wei per unit link")
 	stalenessSeconds := cmd.Uint("staleness-seconds", 86400, "the number of seconds of staleness to allow")
 	fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment denominated in native")
 	fulfillmentFlatFeeLinkDiscountPPM := cmd.Uint("fulfillment-flat-fee-link-discount-ppm", 500, "the link flat fee discount in ppm to charge for fulfillment denominated in native")
 	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-native-feed", "coordinator-address", "key-hash", "fallback-wei-per-unit-link")
 
-	amount, s := big.NewInt(0).SetString(*subFunding, 10)
+	subAmountLink, s := big.NewInt(0).SetString(*subFundingLink, 10)
 	if !s {
-		panic(fmt.Sprintf("failed to parse top up amount '%s'", *subFunding))
+		panic(fmt.Sprintf("failed to parse subscription top up amount '%s'", *subFundingLink))
 	}
 
-	subId := parseSubID(*subscriptionID)
+	subAmountNative, s := big.NewInt(0).SetString(*subFundingNative, 10)
+	if !s {
+		panic(fmt.Sprintf("failed to parse subscription top up amount '%s'", *subFundingNative))
+	}
+
+	consumerAmountLink, s := big.NewInt(0).SetString(*consumerFundingLink, 10)
+	if !s {
+		panic(fmt.Sprintf("failed to parse consumer top up amount '%s'", *consumerFundingLink))
+	}
+
+	consumerAmountNative, s := big.NewInt(0).SetString(*consumerFundingNative, 10)
+	if !s {
+		panic(fmt.Sprintf("failed to parse consumer top up amount '%s'", *consumerFundingNative))
+	}
+
+	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
+	helpers.PanicErr(err)
+
+	var subId *big.Int
+	if *subscriptionID == "" {
+		subId, err = EoaCreateSub(e, *coordinator)
+		helpers.PanicErr(err)
+		fmt.Println("Created subscription ID:", subId)
+	} else {
+		subId = parseSubID(*subscriptionID)
+		fmt.Println("Using existing subscription ID:", subId)
+	}
+
+	fmt.Println()
+
 	wrapper := WrapperDeploy(e,
 		common.HexToAddress(*linkAddress),
 		common.HexToAddress(*linkNativeFeedAddress),
 		common.HexToAddress(*coordinatorAddress),
 		subId,
 	)
+
+	fmt.Println("Deployed wrapper:", wrapper.String())
+	fmt.Println()
 
 	WrapperConfigure(e,
 		wrapper,
@@ -913,29 +978,46 @@ func DeployWrapperUniverse(e helpers.Environment) {
 		uint32(*fulfillmentFlatFeeLinkDiscountPPM),
 	)
 
+	fmt.Println("Configured wrapper")
+	fmt.Println()
+
 	consumer := WrapperConsumerDeploy(e,
 		common.HexToAddress(*linkAddress),
 		wrapper)
 
-	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
-	helpers.PanicErr(err)
+	fmt.Println("Deployed wrapper consumer:", consumer.String())
+	fmt.Println()
 
-	EoaFundSubWithLink(e, *coordinator, *linkAddress, amount, subId)
+	// for v2plus we need to add wrapper as a consumer to the subscription
+	EoaAddConsumerToSub(e, *coordinator, subId, wrapper.String())
+
+	fmt.Println("Added wrapper as the subscription consumer")
+	fmt.Println()
+
+	EoaFundSubWithLink(e, *coordinator, *linkAddress, subAmountLink, subId)
+	EoaFundSubWithNative(e, common.HexToAddress(*coordinatorAddress), subId, subAmountNative)
+
+	fmt.Println("Funded wrapper subscription")
+	fmt.Println()
 
 	link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
 	helpers.PanicErr(err)
-	consumerAmount, s := big.NewInt(0).SetString(*consumerFunding, 10)
-	if !s {
-		panic(fmt.Sprintf("failed to parse top up amount '%s'", *consumerFunding))
-	}
 
-	tx, err := link.Transfer(e.Owner, consumer, consumerAmount)
+	tx, err := link.Transfer(e.Owner, consumer, consumerAmountLink)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "link transfer to consumer")
 
-	fmt.Println("wrapper universe deployment complete")
-	fmt.Println("wrapper address:", wrapper.String())
-	fmt.Println("wrapper consumer address:", consumer.String())
+	sendNativeTokens(e, consumer, consumerAmountNative)
+
+	fmt.Println("Funded wrapper consumer")
+	fmt.Println()
+
+	fmt.Println("Wrapper universe deployment complete")
+	fmt.Println("Wrapper address:", wrapper.String())
+	fmt.Println("Wrapper consumer address:", consumer.String())
+	fmt.Println("Wrapper subscription ID:", subId)
+	fmt.Printf("Send native request example: go run . wrapper-consumer-request --consumer-address=%s --cb-gas-limit=1000000 --native-payment=false\n", consumer.String())
+	fmt.Printf("Send LINK request example: go run . wrapper-consumer-request --consumer-address=%s --cb-gas-limit=1000000 --native-payment=true\n", consumer.String())
 }
 
 func parseSubID(subID string) *big.Int {

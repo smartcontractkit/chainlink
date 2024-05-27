@@ -777,7 +777,9 @@ func main() {
 		helpers.ParseArgs(createSubCmd, os.Args[2:], "coordinator-address")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		v2plusscripts.EoaCreateSub(e, *coordinator)
+		subId, err := v2plusscripts.EoaCreateSub(e, *coordinator)
+		helpers.PanicErr(err)
+		fmt.Println("Created subscription ID: ", subId)
 	case "eoa-add-sub-consumer":
 		addSubConsCmd := flag.NewFlagSet("eoa-add-sub-consumer", flag.ExitOnError)
 		coordinatorAddress := addSubConsCmd.String("coordinator-address", "", "coordinator address")

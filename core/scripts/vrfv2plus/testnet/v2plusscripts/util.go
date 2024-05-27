@@ -3,7 +3,9 @@ package v2plusscripts
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"log"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
@@ -79,10 +81,24 @@ func EoaAddConsumerToSub(
 	helpers.ConfirmTXMined(context.Background(), e.Ec, txadd, e.ChainID)
 }
 
-func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoordinatorV25) {
+func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoordinatorV25) (*big.Int, error) {
 	tx, err := coordinator.CreateSubscription(e.Owner)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+
+	receipt, err := e.Ec.TransactionReceipt(context.Background(), tx.Hash())
+	if err != nil {
+		log.Fatalf("Failed to get transaction receipt: %v", err)
+	}
+
+	for _, log := range receipt.Logs {
+		subCreatedLog, err := coordinator.ParseSubscriptionCreated(*log)
+		if err == nil {
+			return subCreatedLog.SubId, nil
+		}
+	}
+
+	return nil, errors.New("expected SubscriptionCreated log")
 }
 
 // returns subscription ID that belongs to the given owner. Returns result found first
