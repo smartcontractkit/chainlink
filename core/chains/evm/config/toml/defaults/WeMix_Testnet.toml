@@ -12,3 +12,6 @@ ContractConfirmations = 1
 [GasEstimator]
 EIP1559DynamicFees = true
 TipCapDefault = '100 gwei'
+
+[HeadTracker]
+FinalityTagSupportDisabled = false

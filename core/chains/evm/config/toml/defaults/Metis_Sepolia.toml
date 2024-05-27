@@ -18,3 +18,6 @@ BlockHistorySize = 0
 
 [NodePool]
 SyncThreshold = 10
+
+[HeadTracker]
+FinalityTagSupportDisabled = false

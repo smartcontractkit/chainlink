@@ -361,6 +361,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagSupportDisabled = false
 
 [EVM.NodePool]
 PollFailureThreshold = 5

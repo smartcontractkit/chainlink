@@ -119,7 +119,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			ht.log.Errorw("Error handling initial head", "err", err)
+			ht.log.Errorw("Error handling initial head", "err", err.Error())
 		}
 
 		ht.wgDone.Add(3)
@@ -338,9 +338,24 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 // calculateLatestFinalized - returns latest finalized block. It's expected that currentHeadNumber - is the head of
 // canonical chain. There is no guaranties that returned block belongs to the canonical chain. Additional verification
 // must be performed before usage.
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH) (h HTH, err error) {
-	if ht.config.FinalityTagEnabled() {
-		return ht.client.LatestFinalizedBlock(ctx)
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH) (latestFinalized HTH, err error) {
+	if ht.config.FinalityTagEnabled() && !ht.htConfig.FinalityTagSupportDisabled() {
+		latestFinalized, err = ht.client.LatestFinalizedBlock(ctx)
+		if err != nil {
+			return latestFinalized, fmt.Errorf("failed to get latest finalized block: %w", err)
+		}
+
+		if !latestFinalized.IsValid() {
+			return latestFinalized, fmt.Errorf("failed to get valid latest finalized block")
+		}
+
+		if currentHead.BlockNumber()-latestFinalized.BlockNumber() > int64(ht.htConfig.MaxAllowedFinalityDepth()) {
+			return latestFinalized, fmt.Errorf("gap between latest finalized block (%d) and current head (%d) is too large (> %d)",
+				latestFinalized.BlockNumber(), currentHead.BlockNumber(), ht.htConfig.MaxAllowedFinalityDepth())
+		}
+
+		return latestFinalized, nil
+
 	}
 	// no need to make an additional RPC call on chains with instant finality
 	if ht.config.FinalityDepth() == 0 {

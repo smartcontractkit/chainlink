@@ -27,6 +27,7 @@ BlockHistorySize = 24
 [HeadTracker]
 HistoryDepth = 100
 SamplingInterval = '1s'
+FinalityTagSupportDisabled = false
 
 [OCR]
 DatabaseTimeout = '2s'

@@ -11,3 +11,4 @@ ResendAfterThreshold = '3m'
 
 [HeadTracker]
 HistoryDepth = 1000
+FinalityTagSupportDisabled = false

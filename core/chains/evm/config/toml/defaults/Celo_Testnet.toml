@@ -17,3 +17,4 @@ BlockHistorySize = 24
 
 [HeadTracker]
 HistoryDepth = 50
+FinalityTagSupportDisabled = false
