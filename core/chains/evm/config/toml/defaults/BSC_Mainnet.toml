@@ -16,7 +16,8 @@ Enabled = true
 
 [GasEstimator]
 PriceDefault = '5 gwei'
-PriceMin = '1 gwei'
+# The distributed default config sets the minimum gas price to 3 gwei
+PriceMin = '3 gwei'
 BumpMin = '5 gwei'
 # 15s delay since feeds update every minute in volatile situations
 BumpThreshold = 5
