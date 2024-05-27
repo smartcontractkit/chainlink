@@ -80,6 +80,15 @@ func parseConfig(rawConfig *values.Map) (config EvmConfig, err error) {
 	return config, nil
 }
 
+func success() <-chan capabilities.CapabilityResponse {
+	callback := make(chan capabilities.CapabilityResponse)
+	go func() {
+		callback <- capabilities.CapabilityResponse{}
+		close(callback)
+	}()
+	return callback
+}
+
 func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	cap.lggr.Debugw("Execute", "request", request)
 	// TODO: idempotency
@@ -118,6 +127,42 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
+	// Check whether value was already transmitted on chain
+	cr, err := evm.NewChainReaderService(ctx, cap.lggr, cap.chain.LogPoller(), cap.chain.Client(), relayevmtypes.ChainReaderConfig{
+		Contracts: map[string]relayevmtypes.ChainContractReader{
+			"forwarder": {
+				ContractABI: forwarder.KeystoneForwarderABI,
+				Configs: map[string]*relayevmtypes.ChainReaderDefinition{
+					"getTransmitter": {
+						ChainSpecificName: "getTransmitter",
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	var transmitter common.Address
+	cr.Bind(ctx, []commontypes.BoundContract{{
+		Address: config.ForwarderAddress().String(),
+		Name:    "forwarder",
+	}})
+	queryInputs := struct {
+		Receiver            string
+		WorkflowExecutionID []byte
+	}{
+		Receiver:            reqConfig.Address,
+		WorkflowExecutionID: []byte(request.Metadata.WorkflowExecutionID),
+	}
+	if err := cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
+		return nil, err
+	}
+	if transmitter != common.HexToAddress("0x0") {
+		// report already transmitted, early return
+		return success(), nil
+	}
+
 	// construct forwarder payload
 	calldata, err := forwardABI.Pack("report", common.HexToAddress(reqConfig.Address), inputs.Report, inputs.Signatures)
 	if err != nil {
@@ -139,9 +184,10 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 		EncodedPayload: calldata,
 		FeeLimit:       uint64(defaultGasLimit),
 		Meta:           txMeta,
-		Strategy:       strategy,
-		Checker:        checker,
-		// SignalCallback:   true, TODO: add code that checks if a workflow id is present, if so, route callback to chainwriter rather than pipeline
+		Strategy:       txmgrcommon.NewSendEveryStrategy(),
+		Checker: txmgr.TransmitCheckerSpec{
+			CheckerType: txmgr.TransmitCheckerTypeSimulate,
+		},
 	}
 	tx, err := txm.CreateTransaction(ctx, req)
 	if err != nil {
