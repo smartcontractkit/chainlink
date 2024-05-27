@@ -51,11 +51,6 @@ core/services/relay/evm/functions @smartcontractkit/functions
 core/scripts/functions @smartcontractkit/functions
 core/scripts/gateway @smartcontractkit/functions
 
-
-# Contracts
-/contracts/ @rensr @matyang @makramkd
-/contracts/**/*shared* @rensr @matyang @makramkd
-
 # First we match on project names to catch files like the compilation scripts,
 # gas snapshots and other files not places in the project directories.
 # This could give some false positives, so afterwards we match on the project directories
@@ -65,7 +60,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/**/*upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
 /contracts/gas-snapshots/automation.gas-snapshot @smartcontractkit/keepers
-/contracts/**/ccip/ @rensr @matyang @makramkd
+/contracts/**/ccip/ @smartcontractkit/ccip-onchain @makramkd
 /contracts/**/*Functions* @smartcontractkit/functions
 
 /contracts/src/v0.8/functions @smartcontractkit/functions
@@ -143,14 +138,14 @@ flake.lock @smartcontractkit/prodsec-public
 
 # CCIP override
 /core/ @smartcontractkit/ccip
-/contracts/ @rensr @matyang @makramkd
+/contracts/ @smartcontractkit/ccip-onchain @makramkd
 
 # CCIP LM
 /core/services/ocr2/plugins/liquiditymanager/ @smartcontractkit/liquidity-manager
 /core/services/relay/evm/liquidity_manager.go @smartcontractkit/liquidity-manager
 
 # CCIP ARM
-/contracts/src/v0.8/ccip/RMN.sol @gtklocker @kaleofduty
-/contracts/src/v0.8/ccip/ARMProxy.sol @gtklocker @kaleofduty
-/contracts/src/v0.8/ccip/interfaces/IARM.sol @gtklocker @kaleofduty
-/contracts/src/v0.8/ccip/test/arm @gtklocker @kaleofduty
+/contracts/src/v0.8/ccip/RMN.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/ARMProxy.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/interfaces/IARM.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/test/arm @smartcontractkit/rmn
