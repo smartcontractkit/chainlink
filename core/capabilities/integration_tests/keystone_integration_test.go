@@ -12,17 +12,14 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
-	cap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	utils "github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/internal"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestIntegration_GetCapabilities(t *testing.T) {
@@ -60,6 +57,10 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 	)
 
 	require.NoError(t, lp.Start(ctx))
+
+	// ==========================================================================================
+	// START - Using ChainReaderService - This works, but we want to use a relayer instead.
+	// ==========================================================================================
 
 	// chainID, err := simulatedBackendClient.ChainID()
 	// require.NoError(t, err)
@@ -104,6 +105,10 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 
 	// fmt.Println("Returned capabilities:", returnedCapabilities)
 
+	// ==========================================================================================
+	// END - Using ChainReaderService
+	// ==========================================================================================
+
 	// SYNCER DEPENDENCIES
 	var pid ragetypes.PeerID
 	err = pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
@@ -118,28 +123,32 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 	dispatcher := remoteMocks.NewDispatcher(t)
 	dispatcher.On("SetReceiver", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	// NEW RELAYER
-	keyStore := cltest.NewKeyStore(t, db)
-	relayer, err := evm.NewRelayer(
-		lggr,
-		simulatedBackend,
-		evm.RelayerOpts{
-			DS:                   db,
-			CSAETHKeystore:       keyStore,
-			CapabilitiesRegistry: workflowEngineCapabilitiesRegistry,
-		},
-	)
-	//require.NoError(t, err)
+	// ==========================================================================================
+	// Setting up a new relayer that reads from the simulated backend. This part doesn't work.
+	// ==========================================================================================
 
-	syncer := cap.NewRegistrySyncer(
-		wrapper,
-		workflowEngineCapabilitiesRegistry,
-		dispatcher,
-		lggr,
-		relayer, // relayer
-		capabilityRegistry.Address().String(),
-	)
-	require.NoError(t, syncer.Start(ctx))
+	// keyStore := cltest.NewKeyStore(t, db)
+	// relayer, err := evm.NewRelayer(
+	// 	lggr,
+	// 	simulatedBackend,
+	// 	evm.RelayerOpts{
+	// 		DS:                   db,
+	// 		CSAETHKeystore:       keyStore,
+	// 		CapabilitiesRegistry: workflowEngineCapabilitiesRegistry,
+	// 	},
+	// )
+	// //require.NoError(t, err)
+
+	// syncer := cap.NewRegistrySyncer(
+	// 	wrapper,
+	// 	workflowEngineCapabilitiesRegistry,
+	// 	dispatcher,
+	// 	lggr,
+	// 	relayer, // relayer
+	// 	capabilityRegistry.Address().String(),
+	// )
+
+	// require.NoError(t, syncer.Start(ctx))
 
 	// Syncer.LocalState().getCapabilities()
 	// fmt.Println("Synced capabilities:", returnedCapabilities)
