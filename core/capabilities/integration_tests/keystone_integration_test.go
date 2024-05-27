@@ -14,6 +14,7 @@ import (
 
 	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
 
+	cap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	utils "github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/internal"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -159,7 +160,7 @@ func TestIntegration_GetCapabilities(t *testing.T) {
 		capabilityRegistry.Address().String(),
 	)
 
-	// require.NoError(t, syncer.Start(ctx))
+	require.NoError(t, syncer.Start(ctx))
 
 	// Syncer.LocalState().getCapabilities()
 	// fmt.Println("Synced capabilities:", returnedCapabilities)
