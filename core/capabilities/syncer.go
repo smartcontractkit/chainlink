@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
@@ -41,6 +42,35 @@ const (
 	// A number of identical observations need to be aggregated.
 	ObservationIdentical CapabilityResponseType = 1
 )
+
+// CapabilityID is the unique identifier of the capability in the CR.
+// It is calculated as keccak256(abi.encode(capabilityType, capabilityVersion)).
+type CapabilityID = [32]byte
+
+type Capability struct {
+	ID CapabilityID
+	// The `Name` is a partially qualified ID for the capability.
+	// Validation: ^[a-z0-9_\-:]{1,32}$
+	Name string
+	// Semver, e.g., "1.2.3"
+	Version      string
+	ResponseType CapabilityResponseType
+	// An address to the capability configuration contract. Having this defined
+	// on a capability enforces consistent configuration across DON instances
+	// serving the same capability.
+	//
+	// The main use cases are:
+	// 1) Sharing capability configuration across DON instances
+	// 2) Inspect and modify on-chain configuration without off-chain
+	// capability code.
+	ConfigurationContract common.Address
+}
+
+// State mirrors the state in the onchain capability registry.
+type RemoteRegistryState struct {
+	Capabilities  map[CapabilityID]Capability
+	CapabilityIDs []CapabilityID
+}
 
 type registrySyncer struct {
 	peerWrapper    p2ptypes.PeerWrapper
@@ -78,7 +108,6 @@ func NewRegistrySyncer(
 	dispatcher remotetypes.Dispatcher,
 	lggr logger.Logger,
 	remoteRegistry *remoteRegistry,
-	client evmclient.Client,
 ) *registrySyncer {
 	// db := pgtest.NewSqlxDB(t)
 	// lpOpts := logpoller.Opts{
@@ -124,7 +153,6 @@ func NewRegistrySyncer(
 		dispatcher:     dispatcher,
 		lggr:           lggr,
 		remoteRegistry: remoteRegistry,
-		client:         client,
 	}
 }
 
