@@ -219,660 +219,660 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           dep_evm_sha: ${{ inputs.evm-ref }}
 
-  compare-tests:
-    needs: [changes]
-    runs-on: ubuntu-latest
-    name: Compare/Build Automation Test List
-    outputs:
-      automation-matrix: ${{ env.AUTOMATION_JOB_MATRIX_JSON }}
-      lp-matrix: ${{ env.LP_JOB_MATRIX_JSON }}
-    steps:
-      - name: Check for Skip Tests Label
-        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
-        run: |
-          echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
-          exit 0
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref }}
-      - name: Compare Test Lists
-        run: |
-          cd ./integration-tests
-          ./scripts/compareTestList.sh ./smoke/automation_test.go
-          ./scripts/compareTestList.sh ./smoke/keeper_test.go
-          ./scripts/compareTestList.sh ./smoke/log_poller_test.go
-      - name: Build Test Matrix Lists
-        id: build-test-matrix-list
-        run: |
-          cd ./integration-tests
-          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
-          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
-          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
-          echo "combined array = ${COMBINED_ARRAY}"
-          echo "event name = $GITHUB_EVENT_NAME"
-
-          LOG_POLLER_MATRIX_JSON=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
-          echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
-
-          # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
-          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
-            echo "We are in a merge_group event, run both automation and keepers tests"
-            echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
-          else
-            echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
-            target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
-            if [[ "$target_branch" == "develop" ]]; then
-              echo "only run automation tests"
-              echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
-            else
-              echo "run both automation and keepers tests"
-              echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
-            fi
-          fi
-
-  eth-smoke-tests-matrix-automation:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs:
-      [build-chainlink, changes, compare-tests, build-lint-integration-tests]
-    env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-    strategy:
-      fail-fast: false
-      matrix:
-        product: ${{fromJson(needs.compare-tests.outputs.automation-matrix)}}
-    runs-on: ${{ matrix.product.os }}
-    name: ETH Smoke Tests ${{ matrix.product.name }}
-    steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.name }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Go Test Command
-        id: build-go-test-command
-        run: |
-          # if the matrix.product.run is set, use it for a different command
-          if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
-        with:
-          # aws inputs
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-          # other inputs
-          duplicate-authorization-header: "true"
-          # metrics inputs
-          metrics-job-name: "grafana"
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-      - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
-        with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-
-      ## Run this step when changes that require tests to be run are made
-      - name: Run Tests
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ inputs.evm-ref || github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.product.name }}-test-logs
-          artifacts_location: |
-            ./integration-tests/smoke/logs/
-            /tmp/gotest.log
-          publish_check_name: ${{ matrix.product.name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
-          should_tidy: "false"
-          go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-
-      - name: Upload Coverage Data
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
-        timeout-minutes: 2
-        continue-on-error: true
-        with:
-          name: cl-node-coverage-data-${{ matrix.product.name }}
-          path: .covdata
-          retention-days: 1
-
-      - name: Print failed test summary
-        if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-
-  eth-smoke-tests-matrix-log-poller:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs:
-      [build-chainlink, changes, compare-tests, build-lint-integration-tests]
-    env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-    strategy:
-      fail-fast: false
-      matrix:
-        product: ${{fromJson(needs.compare-tests.outputs.lp-matrix)}}
-    runs-on: ${{ matrix.product.os }}
-    name: ETH Smoke Tests ${{ matrix.product.name }}
-    steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.name }}
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Go Test Command
-        id: build-go-test-command
-        run: |
-          # if the matrix.product.run is set, use it for a different command
-          if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
-        with:
-          # aws inputs
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-          # other inputs
-          duplicate-authorization-header: "true"
-          # metrics inputs
-          metrics-job-name: "grafana"
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-      - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
-        with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      ## Run this step when changes that require tests to be run are made
-      - name: Run Tests
-        if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ inputs.evm-ref || github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.product.name }}-test-logs
-          artifacts_location: |
-            ./integration-tests/smoke/logs/
-            /tmp/gotest.log
-          publish_check_name: ${{ matrix.product.name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
-          should_tidy: "false"
-          go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-
-      - name: Upload Coverage Data
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
-        timeout-minutes: 2
-        continue-on-error: true
-        with:
-          name: cl-node-coverage-data-${{ matrix.product.name }}
-          path: .covdata
-          retention-days: 1
-
-  eth-smoke-tests-matrix:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    environment: integration
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, changes, build-lint-integration-tests]
-    env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-    strategy:
-      fail-fast: false
-      matrix:
-        product:
-          - name: runlog
-            id: runlog
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: "ci-smoke-runlog-evm-simulated"
-          - name: cron
-            id: cron
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: "ci-smoke-cron-evm-simulated"
-          - name: flux
-            id: flux
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: "ci-smoke-flux-evm-simulated"
-          - name: ocr
-            id: ocr
-            nodes: 2
-            os: ubuntu-latest
-            file: ocr
-            pyroscope_env: ci-smoke-ocr-evm-simulated
-          - name: ocr2
-            id: ocr2
-            nodes: 6
-            os: ubuntu22.04-16cores-64GB
-            file: ocr2
-            pyroscope_env: ci-smoke-ocr2-evm-simulated
-          - name: ocr2
-            id: ocr2-plugins
-            nodes: 6
-            os: ubuntu22.04-16cores-64GB
-            pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
-            tag_suffix: "-plugins"
-          - name: vrf
-            id: vrf
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf-evm-simulated
-          - name: vrfv2
-            id: vrfv2
-            nodes: 6
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf2-evm-simulated
-          - name: vrfv2plus
-            id: vrfv2plus
-            nodes: 9
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
-          - name: forwarder_ocr
-            id: forwarder_ocr
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-          - name: forwarders_ocr2
-            id: forwarders_ocr2
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-    runs-on: ${{ matrix.product.os }}
-    name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
-    steps:
-      # Handy for debugging resource usage
-      # - name: Collect Workflow Telemetry
-      #   uses: catchpoint/workflow-telemetry-action@v2
-      - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.id }}
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Go Test Command
-        id: build-go-test-command
-        run: |
-          # if the matrix.product.run is set, use it for a different command
-          if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Check for "enable tracing" label
-        id: check-label
-        run: |
-          label=$(jq -r '.pull_request.labels[]?.name // empty' "$GITHUB_EVENT_PATH")
-
-          if [[ -n "$label" ]]; then
-            if [[ "$label" == "enable tracing" ]]; then
-              echo "Enable tracing label found."
-              echo "trace=true" >> $GITHUB_OUTPUT
-            else
-              echo "Enable tracing label not found."
-              echo "trace=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "No labels present or labels are null."
-            echo "trace=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Setup Grafana and OpenTelemetry
-        id: docker-setup
-        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
-        run: |
-          # Create network
-          docker network create --driver bridge tracing
-
-          # Make trace directory
-          cd integration-tests/smoke/
-          mkdir ./traces
-          chmod -R 777 ./traces
-
-          # Switch directory
-          cd ../../.github/tracing
-
-          # Create a Docker volume for traces
-          # docker volume create otel-traces
-
-          # Start OpenTelemetry Collector
-          # Note the user must be set to the same user as the runner for the trace data to be accessible
-          docker run -d --network=tracing --name=otel-collector \
-            -v $PWD/otel-collector-ci.yaml:/etc/otel-collector.yaml \
-            -v $PWD/../../integration-tests/smoke/traces:/tracing \
-            --user "$(id -u):$(id -g)" \
-            -p 4317:4317 otel/opentelemetry-collector:0.88.0 --config=/etc/otel-collector.yaml
-      - name: Locate Docker Volume
-        id: locate-volume
-        if: false
-        run: |
-          echo "VOLUME_PATH=$(docker volume inspect --format '{{ .Mountpoint }}' otel-traces)" >> $GITHUB_OUTPUT
-      - name: Show Otel-Collector Logs
-        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
-        run: |
-          docker logs otel-collector
-      - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
-        with:
-          # aws inputs
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-          # other inputs
-          duplicate-authorization-header: "true"
-          # metrics inputs
-          metrics-job-name: "grafana"
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-      - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
-        with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary"
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      ## Run this step when changes that require tests to be run are made
-      - name: Run Tests
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ inputs.evm-ref || github.sha }}${{ matrix.product.tag_suffix }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}-test-logs
-          artifacts_location: |
-            ./integration-tests/smoke/logs/
-            /tmp/gotest.log
-          publish_check_name: ${{ matrix.product.name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
-          should_tidy: "false"
-          go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-
-      - name: Upload Coverage Data
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
-        timeout-minutes: 2
-        continue-on-error: true
-        with:
-          name: cl-node-coverage-data-${{ matrix.product.name }}-${{ matrix.product.tag_suffix }}
-          path: .covdata
-          retention-days: 1
-
-      # Run this step when changes that do not need the test to run are made
-      - name: Run Setup
-        if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
-          should_tidy: "false"
-      - name: Show Otel-Collector Logs
-        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
-        run: |
-          docker logs otel-collector
-      - name: Permissions on traces
-        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
-        run: |
-          ls -l ./integration-tests/smoke/traces
-      - name: Upload Trace Data
-        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-        with:
-          name: trace-data
-          path: ./integration-tests/smoke/traces/trace-data.json
-      - name: Print failed test summary
-        if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          test_directory: ./integration-tests/smoke/
-
-  ### Used to check the required checks box when the matrix completes
-  eth-smoke-tests:
-    if: always()
-    runs-on: ubuntu-latest
-    name: ETH Smoke Tests
-    needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation, eth-smoke-tests-matrix-log-poller]
-    steps:
-      - name: Check smoke test matrix status
-        if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success' || needs.eth-smoke-tests-matrix-log-poller.result != 'success'
-        run: |
-          echo "ETH Smoke Tests: ${{ needs.eth-smoke-tests-matrix.result }}"
-          echo "Automation: ${{ needs.eth-smoke-tests-matrix-automation.result }}"
-          echo "Log Poller: ${{ needs.eth-smoke-tests-matrix-log-poller.result }}"
-          exit 1
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ${{ env.COLLECTION_ID }}-matrix-results
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: ETH Smoke Tests
-          matrix-aggregator-status: ${{ needs.eth-smoke-tests-matrix.result }}
-        continue-on-error: true
-
-  cleanup:
-    name: Clean up integration environment deployments
-    if: always()
-    needs: [eth-smoke-tests]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref }}
-
-      - name: 🧼 Clean up Environment
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: ./.github/actions/delete-deployments
-        with:
-          environment: integration
-          ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663
-
-      - name: Collect Metrics
-        if: ${{ github.event_name == 'pull_request' }}
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ${{ env.COLLECTION_ID }}-env-cleanup
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Clean up integration environment deployments
-        continue-on-error: true
-
-  show-coverage:
-    name: Show Chainlink Node Go Coverage
-    if: always()
-    needs: [cleanup]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Download All Artifacts
-        uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
-        with:
-          path: cl-node-coverage-data
-          pattern: cl-node-coverage-data-*
-          merge-multiple: true
-      - name: Show Coverage
-        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl-node-coverage-data/*/merged"
-
-  # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
-  # this will also only run if both of the matrix jobs pass
-  eth-smoke-go-mod-cache:
-
-    environment: integration
-    needs: [eth-smoke-tests]
-    runs-on: ubuntu-latest
-    name: ETH Smoke Tests Go Mod Cache
-    continue-on-error: true
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Run Setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          test_download_vendor_packages_command: |
-            cd ./integration-tests
-            go mod download
-            # force download of test dependencies
-            go test -run=NonExistentTest ./smoke/... || echo "ignore expected test failure"
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "false"
+#  compare-tests:
+#    needs: [changes]
+#    runs-on: ubuntu-latest
+#    name: Compare/Build Automation Test List
+#    outputs:
+#      automation-matrix: ${{ env.AUTOMATION_JOB_MATRIX_JSON }}
+#      lp-matrix: ${{ env.LP_JOB_MATRIX_JSON }}
+#    steps:
+#      - name: Check for Skip Tests Label
+#        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
+#        run: |
+#          echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
+#          exit 0
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink
+#          ref: ${{ inputs.cl_ref }}
+#      - name: Compare Test Lists
+#        run: |
+#          cd ./integration-tests
+#          ./scripts/compareTestList.sh ./smoke/automation_test.go
+#          ./scripts/compareTestList.sh ./smoke/keeper_test.go
+#          ./scripts/compareTestList.sh ./smoke/log_poller_test.go
+#      - name: Build Test Matrix Lists
+#        id: build-test-matrix-list
+#        run: |
+#          cd ./integration-tests
+#          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
+#          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
+#          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
+#          echo "combined array = ${COMBINED_ARRAY}"
+#          echo "event name = $GITHUB_EVENT_NAME"
+#
+#          LOG_POLLER_MATRIX_JSON=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
+#          echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
+#
+#          # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
+#          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+#            echo "We are in a merge_group event, run both automation and keepers tests"
+#            echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+#          else
+#            echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
+#            target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
+#            if [[ "$target_branch" == "develop" ]]; then
+#              echo "only run automation tests"
+#              echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
+#            else
+#              echo "run both automation and keepers tests"
+#              echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+#            fi
+#          fi
+#
+#  eth-smoke-tests-matrix-automation:
+#    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+#    environment: integration
+#    permissions:
+#      checks: write
+#      pull-requests: write
+#      id-token: write
+#      contents: read
+#    needs:
+#      [build-chainlink, changes, compare-tests, build-lint-integration-tests]
+#    env:
+#      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+#      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+#      CHAINLINK_ENV_USER: ${{ github.actor }}
+#      TEST_LOG_LEVEL: debug
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        product: ${{fromJson(needs.compare-tests.outputs.automation-matrix)}}
+#    runs-on: ${{ matrix.product.os }}
+#    name: ETH Smoke Tests ${{ matrix.product.name }}
+#    steps:
+#      - name: Collect Metrics
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+#        with:
+#          id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.name }}
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+#          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+#        continue-on-error: true
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink
+#          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+#      - name: Build Go Test Command
+#        id: build-go-test-command
+#        run: |
+#          # if the matrix.product.run is set, use it for a different command
+#          if [ "${{ matrix.product.run }}" != "" ]; then
+#            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+#          else
+#            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+#          fi
+#      - name: Setup GAP for Grafana
+#        uses: smartcontractkit/.github/actions/setup-gap@main
+#        with:
+#          # aws inputs
+#          aws-region: ${{ secrets.AWS_REGION }}
+#          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+#          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+#          # other inputs
+#          duplicate-authorization-header: "true"
+#          # metrics inputs
+#          metrics-job-name: "grafana"
+#          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+#          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#      - name: Prepare Base64 TOML override
+#        uses: ./.github/actions/setup-create-base64-config
+#        with:
+#          runId: ${{ github.run_id }}
+#          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+#          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+#          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+#          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
+#          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+#          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+#          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+#          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+#          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+#          grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
+#          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+#          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+#
+#      ## Run this step when changes that require tests to be run are made
+#      - name: Run Tests
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#        with:
+#          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+#          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+#          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+#          cl_image_tag: ${{ inputs.evm-ref || github.sha }}
+#          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+#          artifacts_name: ${{ matrix.product.name }}-test-logs
+#          artifacts_location: |
+#            ./integration-tests/smoke/logs/
+#            /tmp/gotest.log
+#          publish_check_name: ${{ matrix.product.name }}
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          go_mod_path: ./integration-tests/go.mod
+#          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+#          cache_restore_only: "true"
+#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#          QA_KUBECONFIG: ""
+#          should_tidy: "false"
+#          go_coverage_src_dir: /var/tmp/go-coverage
+#          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+#
+#      - name: Upload Coverage Data
+#        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+#        timeout-minutes: 2
+#        continue-on-error: true
+#        with:
+#          name: cl-node-coverage-data-${{ matrix.product.name }}
+#          path: .covdata
+#          retention-days: 1
+#
+#      - name: Print failed test summary
+#        if: always()
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#
+#  eth-smoke-tests-matrix-log-poller:
+#    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
+#    environment: integration
+#    permissions:
+#      checks: write
+#      pull-requests: write
+#      id-token: write
+#      contents: read
+#    needs:
+#      [build-chainlink, changes, compare-tests, build-lint-integration-tests]
+#    env:
+#      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+#      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+#      CHAINLINK_ENV_USER: ${{ github.actor }}
+#      TEST_LOG_LEVEL: debug
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        product: ${{fromJson(needs.compare-tests.outputs.lp-matrix)}}
+#    runs-on: ${{ matrix.product.os }}
+#    name: ETH Smoke Tests ${{ matrix.product.name }}
+#    steps:
+#      - name: Collect Metrics
+#        if: needs.changes.outputs.src == 'true'
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+#        with:
+#          id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.name }}
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+#          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+#        continue-on-error: true
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink
+#          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+#      - name: Build Go Test Command
+#        id: build-go-test-command
+#        run: |
+#          # if the matrix.product.run is set, use it for a different command
+#          if [ "${{ matrix.product.run }}" != "" ]; then
+#            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+#          else
+#            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+#          fi
+#      - name: Setup GAP for Grafana
+#        uses: smartcontractkit/.github/actions/setup-gap@main
+#        with:
+#          # aws inputs
+#          aws-region: ${{ secrets.AWS_REGION }}
+#          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+#          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+#          # other inputs
+#          duplicate-authorization-header: "true"
+#          # metrics inputs
+#          metrics-job-name: "grafana"
+#          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+#          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#      - name: Prepare Base64 TOML override
+#        uses: ./.github/actions/setup-create-base64-config
+#        with:
+#          runId: ${{ github.run_id }}
+#          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+#          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+#          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+#          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
+#          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+#          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+#          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+#          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+#          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+#          grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
+#          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+#          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+#      ## Run this step when changes that require tests to be run are made
+#      - name: Run Tests
+#        if: needs.changes.outputs.src == 'true'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#        with:
+#          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+#          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+#          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+#          cl_image_tag: ${{ inputs.evm-ref || github.sha }}
+#          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+#          artifacts_name: ${{ matrix.product.name }}-test-logs
+#          artifacts_location: |
+#            ./integration-tests/smoke/logs/
+#            /tmp/gotest.log
+#          publish_check_name: ${{ matrix.product.name }}
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          go_mod_path: ./integration-tests/go.mod
+#          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+#          cache_restore_only: "true"
+#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#          QA_KUBECONFIG: ""
+#          should_tidy: "false"
+#          go_coverage_src_dir: /var/tmp/go-coverage
+#          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+#
+#      - name: Upload Coverage Data
+#        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+#        timeout-minutes: 2
+#        continue-on-error: true
+#        with:
+#          name: cl-node-coverage-data-${{ matrix.product.name }}
+#          path: .covdata
+#          retention-days: 1
+#
+#  eth-smoke-tests-matrix:
+#    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+#    environment: integration
+#    permissions:
+#      actions: read
+#      checks: write
+#      pull-requests: write
+#      id-token: write
+#      contents: read
+#    needs: [build-chainlink, changes, build-lint-integration-tests]
+#    env:
+#      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+#      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+#      CHAINLINK_ENV_USER: ${{ github.actor }}
+#      TEST_LOG_LEVEL: debug
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        product:
+#          - name: runlog
+#            id: runlog
+#            nodes: 2
+#            os: ubuntu-latest
+#            pyroscope_env: "ci-smoke-runlog-evm-simulated"
+#          - name: cron
+#            id: cron
+#            nodes: 2
+#            os: ubuntu-latest
+#            pyroscope_env: "ci-smoke-cron-evm-simulated"
+#          - name: flux
+#            id: flux
+#            nodes: 1
+#            os: ubuntu-latest
+#            pyroscope_env: "ci-smoke-flux-evm-simulated"
+#          - name: ocr
+#            id: ocr
+#            nodes: 2
+#            os: ubuntu-latest
+#            file: ocr
+#            pyroscope_env: ci-smoke-ocr-evm-simulated
+#          - name: ocr2
+#            id: ocr2
+#            nodes: 6
+#            os: ubuntu22.04-16cores-64GB
+#            file: ocr2
+#            pyroscope_env: ci-smoke-ocr2-evm-simulated
+#          - name: ocr2
+#            id: ocr2-plugins
+#            nodes: 6
+#            os: ubuntu22.04-16cores-64GB
+#            pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
+#            tag_suffix: "-plugins"
+#          - name: vrf
+#            id: vrf
+#            nodes: 2
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-vrf-evm-simulated
+#          - name: vrfv2
+#            id: vrfv2
+#            nodes: 6
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-vrf2-evm-simulated
+#          - name: vrfv2plus
+#            id: vrfv2plus
+#            nodes: 9
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
+#          - name: forwarder_ocr
+#            id: forwarder_ocr
+#            nodes: 2
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+#          - name: forwarders_ocr2
+#            id: forwarders_ocr2
+#            nodes: 2
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+#    runs-on: ${{ matrix.product.os }}
+#    name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
+#    steps:
+#      # Handy for debugging resource usage
+#      # - name: Collect Workflow Telemetry
+#      #   uses: catchpoint/workflow-telemetry-action@v2
+#      - name: Collect Metrics
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+#        with:
+#          id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.id }}
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
+#          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+#        continue-on-error: true
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink
+#          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+#      - name: Build Go Test Command
+#        id: build-go-test-command
+#        run: |
+#          # if the matrix.product.run is set, use it for a different command
+#          if [ "${{ matrix.product.run }}" != "" ]; then
+#            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+#          else
+#            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+#          fi
+#      - name: Check for "enable tracing" label
+#        id: check-label
+#        run: |
+#          label=$(jq -r '.pull_request.labels[]?.name // empty' "$GITHUB_EVENT_PATH")
+#
+#          if [[ -n "$label" ]]; then
+#            if [[ "$label" == "enable tracing" ]]; then
+#              echo "Enable tracing label found."
+#              echo "trace=true" >> $GITHUB_OUTPUT
+#            else
+#              echo "Enable tracing label not found."
+#              echo "trace=false" >> $GITHUB_OUTPUT
+#            fi
+#          else
+#            echo "No labels present or labels are null."
+#            echo "trace=false" >> $GITHUB_OUTPUT
+#          fi
+#
+#      - name: Setup Grafana and OpenTelemetry
+#        id: docker-setup
+#        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
+#        run: |
+#          # Create network
+#          docker network create --driver bridge tracing
+#
+#          # Make trace directory
+#          cd integration-tests/smoke/
+#          mkdir ./traces
+#          chmod -R 777 ./traces
+#
+#          # Switch directory
+#          cd ../../.github/tracing
+#
+#          # Create a Docker volume for traces
+#          # docker volume create otel-traces
+#
+#          # Start OpenTelemetry Collector
+#          # Note the user must be set to the same user as the runner for the trace data to be accessible
+#          docker run -d --network=tracing --name=otel-collector \
+#            -v $PWD/otel-collector-ci.yaml:/etc/otel-collector.yaml \
+#            -v $PWD/../../integration-tests/smoke/traces:/tracing \
+#            --user "$(id -u):$(id -g)" \
+#            -p 4317:4317 otel/opentelemetry-collector:0.88.0 --config=/etc/otel-collector.yaml
+#      - name: Locate Docker Volume
+#        id: locate-volume
+#        if: false
+#        run: |
+#          echo "VOLUME_PATH=$(docker volume inspect --format '{{ .Mountpoint }}' otel-traces)" >> $GITHUB_OUTPUT
+#      - name: Show Otel-Collector Logs
+#        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
+#        run: |
+#          docker logs otel-collector
+#      - name: Setup GAP for Grafana
+#        uses: smartcontractkit/.github/actions/setup-gap@main
+#        with:
+#          # aws inputs
+#          aws-region: ${{ secrets.AWS_REGION }}
+#          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+#          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+#          # other inputs
+#          duplicate-authorization-header: "true"
+#          # metrics inputs
+#          metrics-job-name: "grafana"
+#          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+#          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#      - name: Prepare Base64 TOML override
+#        uses: ./.github/actions/setup-create-base64-config
+#        with:
+#          runId: ${{ github.run_id }}
+#          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+#          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+#          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+#          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
+#          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+#          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+#          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+#          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+#          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+#          grafanaUrl: "http://localhost:8080/primary"
+#          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+#          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+#      ## Run this step when changes that require tests to be run are made
+#      - name: Run Tests
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#        with:
+#          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+#          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+#          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+#          cl_image_tag: ${{ inputs.evm-ref || github.sha }}${{ matrix.product.tag_suffix }}
+#          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+#          artifacts_name: ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}-test-logs
+#          artifacts_location: |
+#            ./integration-tests/smoke/logs/
+#            /tmp/gotest.log
+#          publish_check_name: ${{ matrix.product.name }}
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          go_mod_path: ./integration-tests/go.mod
+#          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+#          cache_restore_only: "true"
+#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#          QA_KUBECONFIG: ""
+#          should_tidy: "false"
+#          go_coverage_src_dir: /var/tmp/go-coverage
+#          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+#
+#      - name: Upload Coverage Data
+#        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+#        timeout-minutes: 2
+#        continue-on-error: true
+#        with:
+#          name: cl-node-coverage-data-${{ matrix.product.name }}-${{ matrix.product.tag_suffix }}
+#          path: .covdata
+#          retention-days: 1
+#
+#      # Run this step when changes that do not need the test to run are made
+#      - name: Run Setup
+#        if: needs.changes.outputs.src == 'false'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#        with:
+#          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+#          go_mod_path: ./integration-tests/go.mod
+#          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+#          cache_restore_only: "true"
+#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#          QA_KUBECONFIG: ""
+#          should_tidy: "false"
+#      - name: Show Otel-Collector Logs
+#        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
+#        run: |
+#          docker logs otel-collector
+#      - name: Permissions on traces
+#        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
+#        run: |
+#          ls -l ./integration-tests/smoke/traces
+#      - name: Upload Trace Data
+#        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
+#        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+#        with:
+#          name: trace-data
+#          path: ./integration-tests/smoke/traces/trace-data.json
+#      - name: Print failed test summary
+#        if: always()
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#        with:
+#          test_directory: ./integration-tests/smoke/
+#
+#  ### Used to check the required checks box when the matrix completes
+#  eth-smoke-tests:
+#    if: always()
+#    runs-on: ubuntu-latest
+#    name: ETH Smoke Tests
+#    needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation, eth-smoke-tests-matrix-log-poller]
+#    steps:
+#      - name: Check smoke test matrix status
+#        if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success' || needs.eth-smoke-tests-matrix-log-poller.result != 'success'
+#        run: |
+#          echo "ETH Smoke Tests: ${{ needs.eth-smoke-tests-matrix.result }}"
+#          echo "Automation: ${{ needs.eth-smoke-tests-matrix-automation.result }}"
+#          echo "Log Poller: ${{ needs.eth-smoke-tests-matrix-log-poller.result }}"
+#          exit 1
+#      - name: Collect Metrics
+#        if: always()
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+#        with:
+#          id: ${{ env.COLLECTION_ID }}-matrix-results
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          this-job-name: ETH Smoke Tests
+#          matrix-aggregator-status: ${{ needs.eth-smoke-tests-matrix.result }}
+#        continue-on-error: true
+#
+#  cleanup:
+#    name: Clean up integration environment deployments
+#    if: always()
+#    needs: [eth-smoke-tests]
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout repo
+#        if: ${{ github.event_name == 'pull_request' }}
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink
+#          ref: ${{ inputs.cl_ref }}
+#
+#      - name: 🧼 Clean up Environment
+#        if: ${{ github.event_name == 'pull_request' }}
+#        uses: ./.github/actions/delete-deployments
+#        with:
+#          environment: integration
+#          ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663
+#
+#      - name: Collect Metrics
+#        if: ${{ github.event_name == 'pull_request' }}
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+#        with:
+#          id: ${{ env.COLLECTION_ID }}-env-cleanup
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          this-job-name: Clean up integration environment deployments
+#        continue-on-error: true
+#
+#  show-coverage:
+#    name: Show Chainlink Node Go Coverage
+#    if: always()
+#    needs: [cleanup]
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink
+#          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+#      - name: Download All Artifacts
+#        uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
+#        with:
+#          path: cl-node-coverage-data
+#          pattern: cl-node-coverage-data-*
+#          merge-multiple: true
+#      - name: Show Coverage
+#        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl-node-coverage-data/*/merged"
+#
+#  # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
+#  # this will also only run if both of the matrix jobs pass
+#  eth-smoke-go-mod-cache:
+#
+#    environment: integration
+#    needs: [eth-smoke-tests]
+#    runs-on: ubuntu-latest
+#    name: ETH Smoke Tests Go Mod Cache
+#    continue-on-error: true
+#    steps:
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink
+#          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+#      - name: Run Setup
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#        with:
+#          test_download_vendor_packages_command: |
+#            cd ./integration-tests
+#            go mod download
+#            # force download of test dependencies
+#            go test -run=NonExistentTest ./smoke/... || echo "ignore expected test failure"
+#          go_mod_path: ./integration-tests/go.mod
+#          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+#          cache_restore_only: "false"
 
   ### Migration tests
   node-migration-tests:
@@ -886,7 +886,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-chainlink, changes]
     # Only run migration tests on new tags
-    if: startsWith(github.ref, 'refs/tags/')
+#    if: startsWith(github.ref, 'refs/tags/')
+    # TODO: remove me
+    if: always()
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
@@ -984,304 +986,304 @@ jobs:
           slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
 
   ## Solana Section
-  get_solana_sha:
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' }}
-    name: Get Solana Sha From Go Mod
-    environment: Integration
-    runs-on: ubuntu-latest
-    outputs:
-      sha: ${{ steps.getsha.outputs.sha }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-        with:
-          only-modules: "true"
-      - name: Get the sha from go mod
-        id: getshortsha
-        run: |
-          sol_ver=$(go list -m -json github.com/smartcontractkit/chainlink-solana  | jq -r .Version)
-          if [ -z "${sol_ver}" ]; then
-              echo "Error: could not get the solana version from the go.mod file, look above for error(s)"
-              exit 1
-          fi
-          short_sha="${sol_ver##*-}"
-          echo "short sha is: ${short_sha}"
-          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
-      - name: Checkout solana
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink-solana
-          ref: develop
-          fetch-depth: 0
-          path: solanapath
-      - name: Get long sha
-        id: getsha
-        run: |
-          cd solanapath
-          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}})
-          if [ -z "${full_sha}" ]; then
-              echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
-              exit 1
-          fi
-          echo "sha is: ${full_sha}"
-          echo "sha=${full_sha}" >> "$GITHUB_OUTPUT"
-
-  get_projectserum_version:
-    name: Get ProjectSerum Version
-    environment: integration
-    runs-on: ubuntu-latest
-    needs: [get_solana_sha]
-    outputs:
-      projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
-    steps:
-      - name: Checkout the solana repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Get ProjectSerum Version
-        id: psversion
-        uses: smartcontractkit/chainlink-solana/.github/actions/projectserum_version@4b971869e26b79c7ce3fb7c98005cc2e3f350915 # stable action on Oct 12 2022
-
-  solana-test-image-exists:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    name: Check If Solana Test Image Exists
-    runs-on: ubuntu-latest
-    needs: [get_solana_sha]
-    outputs:
-      exists: ${{ steps.check-image.outputs.exists }}
-    steps:
-      - name: Check if image exists
-        id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          repository: chainlink-solana-tests
-          tag: ${{ needs.get_solana_sha.outputs.sha }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-
-  solana-build-contracts:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    name: Solana Build Artifacts
-    runs-on: ubuntu22.04-16cores-64GB
-    needs:
-      [
-        changes,
-        get_projectserum_version,
-        solana-test-image-exists,
-        get_solana_sha,
-      ]
-    steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ${{ env.COLLECTION_ID }}-solana-build-contracts
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solana Build Artifacts
-        continue-on-error: true
-      - name: Checkout the solana repo
-        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
-        with:
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Build contracts
-        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
-        with:
-          ref: ${{ needs.get_solana_sha.outputs.sha }}
-          image: projectserum/build
-          image-version: ${{ needs.get_projectserum_version.outputs.projectserum_version }}
-
-  solana-build-test-image:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    name: Solana Build Test Image
-    runs-on: ubuntu22.04-16cores-64GB
-    needs:
-      [
-        solana-build-contracts,
-        solana-test-image-exists,
-        changes,
-        get_solana_sha,
-      ]
-    env:
-      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
-    steps:
-      - name: Collect Metrics
-        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ${{ env.COLLECTION_ID }}-solana-build-test-image
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solana Build Test Image
-        continue-on-error: true
-      - name: Checkout the repo
-        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Build Test Image
-        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: ./.github/actions/build-test-image
-        with:
-          tag: ${{ needs.get_solana_sha.outputs.sha }}
-          artifacts_path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      - run: echo "this exists so we don't have to run anything else if the build is skipped"
-        if: needs.changes.outputs.src == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
-
-  solana-smoke-tests:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    name: Solana Smoke Tests
-    runs-on: ubuntu22.04-16cores-64GB
-    needs:
-      [
-        build-chainlink,
-        solana-build-contracts,
-        solana-build-test-image,
-        changes,
-        get_solana_sha,
-      ]
-    env:
-      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
-    steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ${{ env.COLLECTION_ID }}-solana-e2e-tests
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solana Smoke Tests
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Run Setup
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          go_mod_path: ./integration-tests/go.mod
-          cache_restore_only: true
-          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Pull Artifacts
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        run: |
-          IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }}
-          # Pull the Docker image
-          docker pull "$IMAGE_NAME"
-
-          # Create a container without starting it
-          CONTAINER_ID=$(docker create "$IMAGE_NAME")
-
-          # Copy the artifacts from the container
-          mkdir -p ./${{env.CONTRACT_ARTIFACTS_PATH}}/
-          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./${{env.CONTRACT_ARTIFACTS_PATH}}/../"
-
-          # Remove the created container
-          docker rm "$CONTAINER_ID"
-      - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
-        run: ./scripts/install-solana-ci.sh
-      - name: Install gauntlet
-        run: |
-          yarn --cwd ./gauntlet install --frozen-lockfile
-          yarn --cwd ./gauntlet build
-          yarn --cwd ./gauntlet gauntlet
-      - name: Generate config overrides
-        run: | # https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md
-          cat << EOF > config.toml
-          [ChainlinkImage]
-          image="${{ env.CHAINLINK_IMAGE }}"
-          version="${{ inputs.evm-ref || github.sha }}"
-          [Common]
-          user="${{ github.actor }}"
-          internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
-          EOF
-          # shellcheck disable=SC2002
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          # shellcheck disable=SC2086
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          # shellcheck disable=SC2086
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-      - name: Run Tests
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ inputs.evm-ref || github.sha }}
-          publish_check_name: Solana Smoke Test Results
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: solana-test-logs
-          artifacts_location: |
-            ./integration-tests/smoke/logs
-            /tmp/gotest.log
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
-          run_setup: false
-          go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-
-      - name: Upload Coverage Data
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
-        timeout-minutes: 2
-        continue-on-error: true
-        with:
-          name: cl-node-coverage-data-solana-tests
-          path: .covdata
-          retention-days: 1
+#  get_solana_sha:
+#    # We don't directly merge dependabot PRs, so let's not waste the resources
+#    if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' }}
+#    name: Get Solana Sha From Go Mod
+#    environment: Integration
+#    runs-on: ubuntu-latest
+#    outputs:
+#      sha: ${{ steps.getsha.outputs.sha }}
+#    steps:
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink
+#          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+#      - name: Setup Go
+#        uses: ./.github/actions/setup-go
+#        with:
+#          only-modules: "true"
+#      - name: Get the sha from go mod
+#        id: getshortsha
+#        run: |
+#          sol_ver=$(go list -m -json github.com/smartcontractkit/chainlink-solana  | jq -r .Version)
+#          if [ -z "${sol_ver}" ]; then
+#              echo "Error: could not get the solana version from the go.mod file, look above for error(s)"
+#              exit 1
+#          fi
+#          short_sha="${sol_ver##*-}"
+#          echo "short sha is: ${short_sha}"
+#          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+#      - name: Checkout solana
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink-solana
+#          ref: develop
+#          fetch-depth: 0
+#          path: solanapath
+#      - name: Get long sha
+#        id: getsha
+#        run: |
+#          cd solanapath
+#          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}})
+#          if [ -z "${full_sha}" ]; then
+#              echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
+#              exit 1
+#          fi
+#          echo "sha is: ${full_sha}"
+#          echo "sha=${full_sha}" >> "$GITHUB_OUTPUT"
+#
+#  get_projectserum_version:
+#    name: Get ProjectSerum Version
+#    environment: integration
+#    runs-on: ubuntu-latest
+#    needs: [get_solana_sha]
+#    outputs:
+#      projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
+#    steps:
+#      - name: Checkout the solana repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink-solana
+#          ref: ${{ needs.get_solana_sha.outputs.sha }}
+#      - name: Get ProjectSerum Version
+#        id: psversion
+#        uses: smartcontractkit/chainlink-solana/.github/actions/projectserum_version@4b971869e26b79c7ce3fb7c98005cc2e3f350915 # stable action on Oct 12 2022
+#
+#  solana-test-image-exists:
+#    environment: integration
+#    permissions:
+#      checks: write
+#      pull-requests: write
+#      id-token: write
+#      contents: read
+#    name: Check If Solana Test Image Exists
+#    runs-on: ubuntu-latest
+#    needs: [get_solana_sha]
+#    outputs:
+#      exists: ${{ steps.check-image.outputs.exists }}
+#    steps:
+#      - name: Check if image exists
+#        id: check-image
+#        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#        with:
+#          repository: chainlink-solana-tests
+#          tag: ${{ needs.get_solana_sha.outputs.sha }}
+#          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#
+#  solana-build-contracts:
+#    environment: integration
+#    permissions:
+#      checks: write
+#      pull-requests: write
+#      id-token: write
+#      contents: read
+#    name: Solana Build Artifacts
+#    runs-on: ubuntu22.04-16cores-64GB
+#    needs:
+#      [
+#        changes,
+#        get_projectserum_version,
+#        solana-test-image-exists,
+#        get_solana_sha,
+#      ]
+#    steps:
+#      - name: Collect Metrics
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+#        with:
+#          id: ${{ env.COLLECTION_ID }}-solana-build-contracts
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          this-job-name: Solana Build Artifacts
+#        continue-on-error: true
+#      - name: Checkout the solana repo
+#        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+#        with:
+#          repository: smartcontractkit/chainlink-solana
+#          ref: ${{ needs.get_solana_sha.outputs.sha }}
+#      - name: Build contracts
+#        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+#        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
+#        with:
+#          ref: ${{ needs.get_solana_sha.outputs.sha }}
+#          image: projectserum/build
+#          image-version: ${{ needs.get_projectserum_version.outputs.projectserum_version }}
+#
+#  solana-build-test-image:
+#    environment: integration
+#    permissions:
+#      checks: write
+#      pull-requests: write
+#      id-token: write
+#      contents: read
+#    name: Solana Build Test Image
+#    runs-on: ubuntu22.04-16cores-64GB
+#    needs:
+#      [
+#        solana-build-contracts,
+#        solana-test-image-exists,
+#        changes,
+#        get_solana_sha,
+#      ]
+#    env:
+#      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
+#    steps:
+#      - name: Collect Metrics
+#        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+#        with:
+#          id: ${{ env.COLLECTION_ID }}-solana-build-test-image
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          this-job-name: Solana Build Test Image
+#        continue-on-error: true
+#      - name: Checkout the repo
+#        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink-solana
+#          ref: ${{ needs.get_solana_sha.outputs.sha }}
+#      - name: Build Test Image
+#        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+#        uses: ./.github/actions/build-test-image
+#        with:
+#          tag: ${{ needs.get_solana_sha.outputs.sha }}
+#          artifacts_path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
+#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+#      - run: echo "this exists so we don't have to run anything else if the build is skipped"
+#        if: needs.changes.outputs.src == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
+#
+#  solana-smoke-tests:
+#    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+#    environment: integration
+#    permissions:
+#      checks: write
+#      pull-requests: write
+#      id-token: write
+#      contents: read
+#    name: Solana Smoke Tests
+#    runs-on: ubuntu22.04-16cores-64GB
+#    needs:
+#      [
+#        build-chainlink,
+#        solana-build-contracts,
+#        solana-build-test-image,
+#        changes,
+#        get_solana_sha,
+#      ]
+#    env:
+#      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+#      CHAINLINK_ENV_USER: ${{ github.actor }}
+#      TEST_LOG_LEVEL: debug
+#      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
+#    steps:
+#      - name: Collect Metrics
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+#        with:
+#          id: ${{ env.COLLECTION_ID }}-solana-e2e-tests
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          this-job-name: Solana Smoke Tests
+#          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+#        continue-on-error: true
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          repository: smartcontractkit/chainlink-solana
+#          ref: ${{ needs.get_solana_sha.outputs.sha }}
+#      - name: Run Setup
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#        with:
+#          go_mod_path: ./integration-tests/go.mod
+#          cache_restore_only: true
+#          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
+#          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+#          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+#          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+#      - name: Pull Artifacts
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        run: |
+#          IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }}
+#          # Pull the Docker image
+#          docker pull "$IMAGE_NAME"
+#
+#          # Create a container without starting it
+#          CONTAINER_ID=$(docker create "$IMAGE_NAME")
+#
+#          # Copy the artifacts from the container
+#          mkdir -p ./${{env.CONTRACT_ARTIFACTS_PATH}}/
+#          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./${{env.CONTRACT_ARTIFACTS_PATH}}/../"
+#
+#          # Remove the created container
+#          docker rm "$CONTAINER_ID"
+#      - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
+#        run: ./scripts/install-solana-ci.sh
+#      - name: Install gauntlet
+#        run: |
+#          yarn --cwd ./gauntlet install --frozen-lockfile
+#          yarn --cwd ./gauntlet build
+#          yarn --cwd ./gauntlet gauntlet
+#      - name: Generate config overrides
+#        run: | # https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md
+#          cat << EOF > config.toml
+#          [ChainlinkImage]
+#          image="${{ env.CHAINLINK_IMAGE }}"
+#          version="${{ inputs.evm-ref || github.sha }}"
+#          [Common]
+#          user="${{ github.actor }}"
+#          internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
+#          EOF
+#          # shellcheck disable=SC2002
+#          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+#          # shellcheck disable=SC2086
+#          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+#          # shellcheck disable=SC2086
+#          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+#      - name: Run Tests
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+#        with:
+#          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
+#          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+#          cl_image_tag: ${{ inputs.evm-ref || github.sha }}
+#          publish_check_name: Solana Smoke Test Results
+#          go_mod_path: ./integration-tests/go.mod
+#          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+#          artifacts_name: solana-test-logs
+#          artifacts_location: |
+#            ./integration-tests/smoke/logs
+#            /tmp/gotest.log
+#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#          QA_KUBECONFIG: ""
+#          run_setup: false
+#          go_coverage_src_dir: /var/tmp/go-coverage
+#          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+#
+#      - name: Upload Coverage Data
+#        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+#        timeout-minutes: 2
+#        continue-on-error: true
+#        with:
+#          name: cl-node-coverage-data-solana-tests
+#          path: .covdata
+#          retention-days: 1
 

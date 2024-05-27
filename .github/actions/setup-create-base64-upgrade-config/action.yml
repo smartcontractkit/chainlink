@@ -81,10 +81,11 @@ runs:
           test_log_collect=false
         fi
 
-        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
+        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")        
 
         grafana_bearer_token=""
         if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          echo "ENTERED THE IF"
           grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
         fi
 
