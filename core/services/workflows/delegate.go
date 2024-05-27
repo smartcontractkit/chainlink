@@ -43,7 +43,7 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
 	// NOTE: we temporarily do registration inside ServicesForSpec, this will be moved out of job specs in the future
-	err := targets.InitializeWrite(d.registry, d.legacyEVMChains, d.logger)
+	err := targets.InitializeWrite(ctx, d.registry, d.legacyEVMChains, d.logger)
 	if err != nil {
 		d.logger.Errorw("could not initialize writes", err)
 	}
