@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
+import {EVM2EVMOnRamp} from "../../../onRamp/EVM2EVMOnRamp.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {EVM2EVMOnRampSetup} from "../../onRamp/EVM2EVMOnRampSetup.t.sol";
 import {FacadeClient} from "./FacadeClient.sol";
@@ -103,9 +104,9 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
     Internal.EVM2EVMMessage memory msgEvent2 = _messageToEvent(message2, 2, 2, expectedFee, address(s_facadeClient));
 
     vm.expectEmit();
-    emit CCIPSendRequested(msgEvent2);
+    emit EVM2EVMOnRamp.CCIPSendRequested(msgEvent2);
     vm.expectEmit();
-    emit CCIPSendRequested(msgEvent1);
+    emit EVM2EVMOnRamp.CCIPSendRequested(msgEvent1);
 
     s_facadeClient.send(amount);
   }

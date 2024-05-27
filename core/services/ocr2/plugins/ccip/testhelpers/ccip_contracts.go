@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
@@ -179,7 +178,6 @@ type Common struct {
 	Chain              *backends.SimulatedBackend
 	LinkToken          *link_token_interface.LinkToken
 	LinkTokenPool      *lock_release_token_pool.LockReleaseTokenPool
-	CustomPool         *custom_token_pool.CustomTokenPool
 	CustomToken        *link_token_interface.LinkToken
 	WrappedNative      *weth9.WETH9
 	WrappedNativePool  *lock_release_token_pool.LockReleaseTokenPool
@@ -1168,7 +1166,6 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			Chain:              sourceChain,
 			LinkToken:          sourceLinkToken,
 			LinkTokenPool:      sourceLinkPool,
-			CustomPool:         nil,
 			CustomToken:        sourceCustomToken,
 			ARM:                sourceARM,
 			ARMProxy:           sourceARMProxy,
@@ -1188,7 +1185,6 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			Chain:              destChain,
 			LinkToken:          destLinkToken,
 			LinkTokenPool:      destLinkPool,
-			CustomPool:         nil,
 			CustomToken:        destCustomToken,
 			ARM:                destARM,
 			ARMProxy:           destARMProxy,

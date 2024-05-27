@@ -29,7 +29,6 @@ contract MultiAggregateRateLimiterSetup is PriceRegistrySetup {
   }
 }
 
-/// @notice #constructor
 contract MultiAggregateRateLimiter_constructor is MultiAggregateRateLimiterSetup {
   function test_Constructor_Success() public view {
     assertEq(ADMIN, s_rateLimiter.getTokenLimitAdmin());
@@ -44,20 +43,16 @@ contract MultiAggregateRateLimiter_constructor is MultiAggregateRateLimiterSetup
   }
 }
 
-/// @notice #getTokenLimitAdmin
 contract MultiAggregateRateLimiter_getTokenLimitAdmin is MultiAggregateRateLimiterSetup {
   function test_GetTokenLimitAdmin_Success() public view {
     assertEq(ADMIN, s_rateLimiter.getTokenLimitAdmin());
   }
 }
 
-/// @notice #setAdmin
 contract MultiAggregateRateLimiter_setAdmin is MultiAggregateRateLimiterSetup {
-  event AdminSet(address newAdmin);
-
   function test_Owner_Success() public {
     vm.expectEmit();
-    emit AdminSet(STRANGER);
+    emit AggregateRateLimiter.AdminSet(STRANGER);
 
     s_rateLimiter.setAdmin(STRANGER);
     assertEq(STRANGER, s_rateLimiter.getTokenLimitAdmin());
@@ -73,7 +68,6 @@ contract MultiAggregateRateLimiter_setAdmin is MultiAggregateRateLimiterSetup {
   }
 }
 
-/// @notice #getTokenBucket
 contract MultiAggregateRateLimiter_getTokenBucket is MultiAggregateRateLimiterSetup {
   function test_GetTokenBucket_Success() public view {
     RateLimiter.TokenBucket memory bucket = s_rateLimiter.currentRateLimiterState();
@@ -121,10 +115,7 @@ contract MultiAggregateRateLimiter_getTokenBucket is MultiAggregateRateLimiterSe
   }
 }
 
-/// @notice #setRateLimiterConfig
 contract MultiAggregateRateLimiter_setRateLimiterConfig is MultiAggregateRateLimiterSetup {
-  event ConfigChanged(RateLimiter.Config config);
-
   function test_Owner_Success() public {
     setConfig();
   }
@@ -146,7 +137,7 @@ contract MultiAggregateRateLimiter_setRateLimiterConfig is MultiAggregateRateLim
     }
 
     vm.expectEmit();
-    emit ConfigChanged(s_config);
+    emit RateLimiter.ConfigChanged(s_config);
 
     s_rateLimiter.setRateLimiterConfig(s_config);
 
@@ -167,10 +158,7 @@ contract MultiAggregateRateLimiter_setRateLimiterConfig is MultiAggregateRateLim
   }
 }
 
-/// @notice #_rateLimitValue
 contract MultiAggregateRateLimiter__rateLimitValue is MultiAggregateRateLimiterSetup {
-  event TokensConsumed(uint256 tokens);
-
   function test_RateLimitValueSuccess_gas() public {
     vm.pauseGasMetering();
     // start from blocktime that does not equal rate limiter init timestamp
@@ -181,7 +169,7 @@ contract MultiAggregateRateLimiter__rateLimitValue is MultiAggregateRateLimiterS
     uint256 value = (numberOfTokens * TOKEN_PRICE) / 1e18;
 
     vm.expectEmit();
-    emit TokensConsumed(value);
+    emit RateLimiter.TokensConsumed(value);
 
     vm.resumeGasMetering();
     s_rateLimiter.rateLimitValue(value);
@@ -227,7 +215,6 @@ contract MultiAggregateRateLimiter__rateLimitValue is MultiAggregateRateLimiterS
   }
 }
 
-/// @notice #_getTokenValue
 contract MultiAggregateRateLimiter__getTokenValue is MultiAggregateRateLimiterSetup {
   function test_GetTokenValue_Success() public view {
     uint256 numberOfTokens = 10;

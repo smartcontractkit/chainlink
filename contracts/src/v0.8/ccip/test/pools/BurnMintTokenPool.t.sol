@@ -5,11 +5,14 @@ import {IPool} from "../../interfaces/IPool.sol";
 
 import {Internal} from "../../libraries/Internal.sol";
 import {Pool} from "../../libraries/Pool.sol";
+import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {BurnMintSetup} from "./BurnMintSetup.t.sol";
+
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract BurnMintTokenPoolSetup is BurnMintSetup {
   BurnMintTokenPool internal s_pool;
@@ -41,13 +44,13 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
     vm.startPrank(s_burnMintOnRamp);
 
     vm.expectEmit();
-    emit TokensConsumed(burnAmount);
+    emit RateLimiter.TokensConsumed(burnAmount);
 
     vm.expectEmit();
-    emit Transfer(address(s_pool), address(0), burnAmount);
+    emit IERC20.Transfer(address(s_pool), address(0), burnAmount);
 
     vm.expectEmit();
-    emit Burned(address(s_burnMintOnRamp), burnAmount);
+    emit TokenPool.Burned(address(s_burnMintOnRamp), burnAmount);
 
     bytes4 expectedSignature = bytes4(keccak256("burn(uint256)"));
     vm.expectCall(address(s_burnMintERC677), abi.encodeWithSelector(expectedSignature, burnAmount));
@@ -108,7 +111,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
     vm.startPrank(s_burnMintOffRamp);
 
     vm.expectEmit();
-    emit Transfer(address(0), OWNER, amount);
+    emit IERC20.Transfer(address(0), OWNER, amount);
     s_pool.releaseOrMint(
       Pool.ReleaseOrMintInV1({
         originalSender: bytes(""),

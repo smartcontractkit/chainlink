@@ -28,7 +28,7 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   uint16 public constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
   uint64 public constant DEFAULT_GAS_LIMIT = 200_000;
 
-  uint256 internal s_mockfeetokenamount; //use setFee() to change to non-zero to test fees
+  uint256 internal s_mockFeeTokenAmount; //use setFee() to change to non-zero to test fees
 
   function routeMessage(
     Client.Any2EVMMessage calldata message,
@@ -128,12 +128,12 @@ contract MockCCIPRouter is IRouter, IRouterClient {
 
   /// @notice Returns 0 as the fee is not supported in this mock contract.
   function getFee(uint64, Client.EVM2AnyMessage memory) public view returns (uint256) {
-    return s_mockfeetokenamount;
+    return s_mockFeeTokenAmount;
   }
 
   /// @notice Sets the fees returned by getFee but is only checked when using native fee tokens
   function setFee(uint256 feeAmount) external {
-    s_mockfeetokenamount = feeAmount;
+    s_mockFeeTokenAmount = feeAmount;
   }
 
   /// @notice Always returns address(1234567890)

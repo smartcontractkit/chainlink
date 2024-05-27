@@ -63,8 +63,6 @@ contract TokenPool_getRemotePool is TokenPoolSetup {
 }
 
 contract TokenPool_setRemotePool is TokenPoolSetup {
-  event RemotePoolSet(uint64 indexed remoteChainSelector, bytes previousPoolAddress, bytes remotePoolAddress);
-
   function test_setRemotePool_Success() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     address initialPool = makeAddr("remotePool");
@@ -82,7 +80,7 @@ contract TokenPool_setRemotePool is TokenPoolSetup {
     s_tokenPool.applyChainUpdates(chainUpdates);
 
     vm.expectEmit();
-    emit RemotePoolSet(chainSelector, abi.encode(initialPool), newPool);
+    emit TokenPool.RemotePoolSet(chainSelector, abi.encode(initialPool), newPool);
 
     s_tokenPool.setRemotePool(chainSelector, newPool);
 
@@ -108,11 +106,6 @@ contract TokenPool_setRemotePool is TokenPoolSetup {
 }
 
 contract TokenPool_applyChainUpdates is TokenPoolSetup {
-  event ChainAdded(
-    uint64 chainSelector, RateLimiter.Config outboundRateLimiterConfig, RateLimiter.Config inboundRateLimiterConfig
-  );
-  event ChainRemoved(uint64 chainSelector);
-
   function assertState(TokenPool.ChainUpdate[] memory chainUpdates) public view {
     uint64[] memory chainSelectors = s_tokenPool.getSupportedChains();
     for (uint256 i = 0; i < chainUpdates.length; i++) {
@@ -157,13 +150,13 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
 
     // Assert configuration is applied
     vm.expectEmit();
-    emit ChainAdded(
+    emit TokenPool.ChainAdded(
       chainUpdates[0].remoteChainSelector,
       chainUpdates[0].outboundRateLimiterConfig,
       chainUpdates[0].inboundRateLimiterConfig
     );
     vm.expectEmit();
-    emit ChainAdded(
+    emit TokenPool.ChainAdded(
       chainUpdates[1].remoteChainSelector,
       chainUpdates[1].outboundRateLimiterConfig,
       chainUpdates[1].inboundRateLimiterConfig
@@ -191,7 +184,7 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     chainRemoves[0].remoteChainSelector = 1;
 
     vm.expectEmit();
-    emit ChainRemoved(chainRemoves[0].remoteChainSelector);
+    emit TokenPool.ChainRemoved(chainRemoves[0].remoteChainSelector);
 
     s_tokenPool.applyChainUpdates(chainRemoves);
 
@@ -324,11 +317,6 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
 }
 
 contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
-  event ConfigChanged(RateLimiter.Config);
-  event ChainConfigured(
-    uint64 chainSelector, RateLimiter.Config outboundRateLimiterConfig, RateLimiter.Config inboundRateLimiterConfig
-  );
-
   uint64 internal s_remoteChainSelector;
 
   function setUp() public virtual override {
@@ -362,11 +350,11 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
       RateLimiter.Config({isEnabled: true, capacity: capacity / 2, rate: rate / 2});
 
     vm.expectEmit();
-    emit ConfigChanged(newOutboundConfig);
+    emit RateLimiter.ConfigChanged(newOutboundConfig);
     vm.expectEmit();
-    emit ConfigChanged(newInboundConfig);
+    emit RateLimiter.ConfigChanged(newInboundConfig);
     vm.expectEmit();
-    emit ChainConfigured(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
+    emit TokenPool.ChainConfigured(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
 
     s_tokenPool.setChainRateLimiterConfig(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
 
@@ -612,15 +600,13 @@ contract TokenPoolWithAllowList_getAllowListEnabled is TokenPoolWithAllowListSet
 }
 
 contract TokenPoolWithAllowList_setRouter is TokenPoolWithAllowListSetup {
-  event RouterUpdated(address oldRouter, address newRouter);
-
   function test_SetRouter_Success() public {
     assertEq(address(s_sourceRouter), s_tokenPool.getRouter());
 
     address newRouter = makeAddr("newRouter");
 
     vm.expectEmit();
-    emit RouterUpdated(address(s_sourceRouter), newRouter);
+    emit TokenPool.RouterUpdated(address(s_sourceRouter), newRouter);
 
     s_tokenPool.setRouter(newRouter);
 
@@ -638,9 +624,6 @@ contract TokenPoolWithAllowList_getAllowList is TokenPoolWithAllowListSetup {
 }
 
 contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListSetup {
-  event AllowListAdd(address sender);
-  event AllowListRemove(address sender);
-
   function test_SetAllowList_Success() public {
     address[] memory newAddresses = new address[](2);
     newAddresses[0] = address(1);
@@ -648,7 +631,7 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
 
     for (uint256 i = 0; i < 2; ++i) {
       vm.expectEmit();
-      emit AllowListAdd(newAddresses[i]);
+      emit TokenPool.AllowListAdd(newAddresses[i]);
     }
 
     s_tokenPool.applyAllowListUpdates(new address[](0), newAddresses);
@@ -668,10 +651,10 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
     removeAddresses[0] = address(1);
 
     vm.expectEmit();
-    emit AllowListRemove(address(1));
+    emit TokenPool.AllowListRemove(address(1));
 
     vm.expectEmit();
-    emit AllowListAdd(address(3));
+    emit TokenPool.AllowListAdd(address(3));
 
     s_tokenPool.applyAllowListUpdates(removeAddresses, newAddresses);
     setAddresses = s_tokenPool.getAllowList();
@@ -684,7 +667,7 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
     // remove all from allowList
     for (uint256 i = 0; i < setAddresses.length; ++i) {
       vm.expectEmit();
-      emit AllowListRemove(setAddresses[i]);
+      emit TokenPool.AllowListRemove(setAddresses[i]);
     }
 
     s_tokenPool.applyAllowListUpdates(setAddresses, new address[](0));

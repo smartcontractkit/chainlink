@@ -13,8 +13,6 @@ import {Test} from "forge-std/Test.sol";
 contract RegistryModuleOwnerCustomSetup is Test {
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
 
-  event AdministratorRegistered(address indexed token, address indexed administrator);
-
   RegistryModuleOwnerCustom internal s_registryModuleOwnerCustom;
   TokenAdminRegistry internal s_tokenAdminRegistry;
   address internal s_token;
@@ -43,7 +41,7 @@ contract RegistryModuleOwnerCustom_registerAdminViaGetCCIPAdmin is RegistryModul
     );
 
     vm.expectEmit();
-    emit AdministratorRegistered(s_token, expectedOwner);
+    emit RegistryModuleOwnerCustom.AdministratorRegistered(s_token, expectedOwner);
 
     s_registryModuleOwnerCustom.registerAdminViaGetCCIPAdmin(s_token);
 
@@ -77,7 +75,7 @@ contract RegistryModuleOwnerCustom_registerAdminViaOwner is RegistryModuleOwnerC
     );
 
     vm.expectEmit();
-    emit AdministratorRegistered(s_token, expectedOwner);
+    emit RegistryModuleOwnerCustom.AdministratorRegistered(s_token, expectedOwner);
 
     s_registryModuleOwnerCustom.registerAdminViaOwner(s_token);
 

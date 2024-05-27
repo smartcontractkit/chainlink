@@ -9,16 +9,12 @@ import {MultiCommitStore} from "../../MultiCommitStore.sol";
 import {PriceRegistry} from "../../PriceRegistry.sol";
 import {RMN} from "../../RMN.sol";
 import {MerkleMultiProof} from "../../libraries/MerkleMultiProof.sol";
+import {OCR2Abstract} from "../../ocr/OCR2Abstract.sol";
 import {MultiCommitStoreHelper} from "../helpers/MultiCommitStoreHelper.sol";
 import {OCR2BaseSetup} from "../ocr/OCR2Base.t.sol";
 import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 
 contract MultiCommitStoreSetup is PriceRegistrySetup, OCR2BaseSetup {
-  event ConfigSet(MultiCommitStore.StaticConfig, MultiCommitStore.DynamicConfig);
-  event SourceChainConfigUpdated(
-    uint64 indexed sourceChainSelector, IMultiCommitStore.SourceChainConfig sourceChainConfig
-  );
-
   MultiCommitStoreHelper internal s_multiCommitStore;
 
   function setUp() public virtual override(PriceRegistrySetup, OCR2BaseSetup) {
@@ -90,13 +86,7 @@ contract MultiCommitStoreRealRMNSetup is PriceRegistrySetup, OCR2BaseSetup {
   }
 }
 
-/// @notice #constructor
 contract MultiCommitStore_constructor is PriceRegistrySetup, OCR2BaseSetup {
-  event ConfigSet(MultiCommitStore.StaticConfig, MultiCommitStore.DynamicConfig);
-  event SourceChainConfigUpdated(
-    uint64 indexed sourceChainSelector, IMultiCommitStore.SourceChainConfig sourceChainConfig
-  );
-
   function setUp() public virtual override(PriceRegistrySetup, OCR2BaseSetup) {
     PriceRegistrySetup.setUp();
     OCR2BaseSetup.setUp();
@@ -116,12 +106,12 @@ contract MultiCommitStore_constructor is PriceRegistrySetup, OCR2BaseSetup {
       MultiCommitStore.DynamicConfig({priceRegistry: address(s_priceRegistry)});
 
     vm.expectEmit();
-    emit SourceChainConfigUpdated(
+    emit MultiCommitStore.SourceChainConfigUpdated(
       sourceChainConfigs[0].sourceChainSelector,
       IMultiCommitStore.SourceChainConfig({isEnabled: true, minSeqNr: 1, onRamp: sourceChainConfigs[0].onRamp})
     );
     vm.expectEmit();
-    emit ConfigSet(staticConfig, dynamicConfig);
+    emit MultiCommitStore.ConfigSet(staticConfig, dynamicConfig);
 
     MultiCommitStore multiCommitStore = new MultiCommitStore(staticConfig, sourceChainConfigs);
     multiCommitStore.setOCR2Config(
@@ -209,7 +199,6 @@ contract MultiCommitStore_constructor is PriceRegistrySetup, OCR2BaseSetup {
   }
 }
 
-/// @notice #setMinSeqNr
 contract MultiCommitStore_applySourceChainConfigUpdates is MultiCommitStoreSetup {
   function test_Fuzz_applySourceChainConfigUpdates_Success(
     MultiCommitStore.SourceChainConfigArgs memory sourceChainConfig
@@ -239,7 +228,7 @@ contract MultiCommitStore_applySourceChainConfigUpdates is MultiCommitStoreSetup
       s_multiCommitStore.applySourceChainConfigUpdates(sourceChainConfigs);
     } else {
       vm.expectEmit();
-      emit SourceChainConfigUpdated(
+      emit MultiCommitStore.SourceChainConfigUpdated(
         sourceChainConfig.sourceChainSelector,
         IMultiCommitStore.SourceChainConfig({
           isEnabled: sourceChainConfig.isEnabled,
@@ -319,7 +308,6 @@ contract MultiCommitStore_applySourceChainConfigUpdates is MultiCommitStoreSetup
   }
 }
 
-/// @notice #setDynamicConfig
 contract MultiCommitStore_setDynamicConfig is MultiCommitStoreSetup {
   function test_Fuzz_SetDynamicConfig_Success(address priceRegistry) public {
     vm.assume(priceRegistry != address(0));
@@ -328,12 +316,12 @@ contract MultiCommitStore_setDynamicConfig is MultiCommitStoreSetup {
     bytes memory onchainConfig = abi.encode(dynamicConfig);
 
     vm.expectEmit();
-    emit ConfigSet(staticConfig, dynamicConfig);
+    emit MultiCommitStore.ConfigSet(staticConfig, dynamicConfig);
 
     uint32 configCount = 1;
 
     vm.expectEmit();
-    emit ConfigSet(
+    emit OCR2Abstract.ConfigSet(
       uint32(block.number),
       getBasicConfigDigest(address(s_multiCommitStore), s_f, configCount, onchainConfig),
       configCount + 1,
@@ -390,10 +378,7 @@ contract MultiCommitStore_setDynamicConfig is MultiCommitStoreSetup {
   }
 }
 
-/// @notice #resetUnblessedRoots
 contract MultiCommitStore_resetUnblessedRoots is MultiCommitStoreRealRMNSetup {
-  event RootRemoved(bytes32 root);
-
   function test_ResetUnblessedRoots_Success() public {
     MultiCommitStore.UnblessedRoot[] memory rootsToReset = new MultiCommitStore.UnblessedRoot[](3);
     rootsToReset[0] = MultiCommitStore.UnblessedRoot({sourceChainSelector: SOURCE_CHAIN_SELECTOR, merkleRoot: "1"});
@@ -430,10 +415,10 @@ contract MultiCommitStore_resetUnblessedRoots is MultiCommitStoreRealRMNSetup {
     s_rmn.voteToBless(blessedTaggedRoots);
 
     vm.expectEmit(false, false, false, true);
-    emit RootRemoved(rootsToReset[0].merkleRoot);
+    emit MultiCommitStore.RootRemoved(rootsToReset[0].merkleRoot);
 
     vm.expectEmit(false, false, false, true);
-    emit RootRemoved(rootsToReset[2].merkleRoot);
+    emit MultiCommitStore.RootRemoved(rootsToReset[2].merkleRoot);
 
     vm.startPrank(OWNER);
     s_multiCommitStore.resetUnblessedRoots(rootsToReset);
@@ -453,11 +438,7 @@ contract MultiCommitStore_resetUnblessedRoots is MultiCommitStoreRealRMNSetup {
   }
 }
 
-/// @notice #report
 contract MultiCommitStore_report is MultiCommitStoreSetup {
-  event ReportAccepted(MultiCommitStore.CommitReport report);
-  event UsdPerTokenUpdated(address indexed feeToken, uint256 value, uint256 timestamp);
-
   function test_ReportOnlyRootSuccess_gas() public {
     vm.pauseGasMetering();
     uint64 max1 = 931;
@@ -474,7 +455,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
       MultiCommitStore.CommitReport({priceUpdates: getEmptyPriceUpdates(), merkleRoots: roots});
 
     vm.expectEmit();
-    emit ReportAccepted(report);
+    emit MultiCommitStore.ReportAccepted(report);
 
     bytes memory encodedReport = abi.encode(report);
 
@@ -503,7 +484,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
     });
 
     vm.expectEmit();
-    emit ReportAccepted(report);
+    emit MultiCommitStore.ReportAccepted(report);
 
     s_multiCommitStore.report(abi.encode(report), ++s_latestEpochAndRound);
 
@@ -526,7 +507,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
       MultiCommitStore.CommitReport({priceUpdates: getEmptyPriceUpdates(), merkleRoots: roots});
 
     vm.expectEmit();
-    emit ReportAccepted(report);
+    emit MultiCommitStore.ReportAccepted(report);
     s_multiCommitStore.report(abi.encode(report), s_latestEpochAndRound);
     assertEq(maxSeq + 1, s_multiCommitStore.getSourceChainConfig(SOURCE_CHAIN_SELECTOR).minSeqNr);
     assertEq(s_latestEpochAndRound, s_multiCommitStore.getLatestPriceEpochAndRound());
@@ -534,7 +515,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
     report.merkleRoots[0].interval = MultiCommitStore.Interval(maxSeq + 1, maxSeq * 2);
     report.merkleRoots[0].merkleRoot = "stale report 2";
     vm.expectEmit();
-    emit ReportAccepted(report);
+    emit MultiCommitStore.ReportAccepted(report);
     s_multiCommitStore.report(abi.encode(report), s_latestEpochAndRound);
     assertEq(maxSeq * 2 + 1, s_multiCommitStore.getSourceChainConfig(SOURCE_CHAIN_SELECTOR).minSeqNr);
     assertEq(s_latestEpochAndRound, s_multiCommitStore.getLatestPriceEpochAndRound());
@@ -551,7 +532,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
       merkleRoots: roots
     });
     vm.expectEmit();
-    emit UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
+    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
     s_multiCommitStore.report(abi.encode(report), ++s_latestEpochAndRound);
     assertEq(s_latestEpochAndRound, s_multiCommitStore.getLatestPriceEpochAndRound());
   }
@@ -563,7 +544,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
       merkleRoots: roots
     });
     vm.expectEmit();
-    emit UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
+    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
     s_multiCommitStore.report(abi.encode(report), ++s_latestEpochAndRound);
     assertEq(s_latestEpochAndRound, s_multiCommitStore.getLatestPriceEpochAndRound());
   }
@@ -578,7 +559,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
       merkleRoots: roots
     });
     vm.expectEmit();
-    emit UsdPerTokenUpdated(s_sourceFeeToken, tokenPrice1, block.timestamp);
+    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, tokenPrice1, block.timestamp);
     s_multiCommitStore.report(abi.encode(report), ++s_latestEpochAndRound);
     assertEq(s_latestEpochAndRound, s_multiCommitStore.getLatestPriceEpochAndRound());
 
@@ -592,7 +573,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
     report.merkleRoots = roots;
 
     vm.expectEmit();
-    emit ReportAccepted(report);
+    emit MultiCommitStore.ReportAccepted(report);
     s_multiCommitStore.report(abi.encode(report), s_latestEpochAndRound);
     assertEq(maxSeq + 1, s_multiCommitStore.getSourceChainConfig(SOURCE_CHAIN_SELECTOR).minSeqNr);
     assertEq(
@@ -688,7 +669,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
       merkleRoots: roots
     });
     vm.expectEmit();
-    emit UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
+    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
     s_multiCommitStore.report(abi.encode(report), ++s_latestEpochAndRound);
     vm.expectRevert(MultiCommitStore.StaleReport.selector);
     s_multiCommitStore.report(abi.encode(report), s_latestEpochAndRound);
@@ -728,7 +709,6 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
     s_multiCommitStore.report(abi.encode(report), ++s_latestEpochAndRound);
   }
 }
-/// @notice #verify
 
 contract MultiCommitStore_verify is MultiCommitStoreRealRMNSetup {
   function test_NotBlessed_Success() public {
@@ -839,7 +819,6 @@ contract MultiCommitStore_isUnpausedAndRMNHealthy is MultiCommitStoreSetup {
     assertFalse(s_multiCommitStore.isUnpausedAndNotCursed(SOURCE_CHAIN_SELECTOR));
   }
 }
-/// @notice #setLatestPriceEpochAndRound
 
 contract MultiCommitStore_setLatestPriceEpochAndRound is MultiCommitStoreSetup {
   function test_SetLatestPriceEpochAndRound_Success() public {

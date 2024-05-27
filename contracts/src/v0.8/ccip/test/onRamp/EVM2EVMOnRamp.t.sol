@@ -14,9 +14,6 @@ import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMint
 import "./EVM2EVMOnRampSetup.t.sol";
 
 contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
-  event ConfigSet(EVM2EVMOnRamp.StaticConfig staticConfig, EVM2EVMOnRamp.DynamicConfig dynamicConfig);
-  event PoolAdded(address token, address pool);
-
   function test_Constructor_Success() public {
     EVM2EVMOnRamp.StaticConfig memory staticConfig = EVM2EVMOnRamp.StaticConfig({
       linkToken: s_sourceTokens[0],
@@ -31,7 +28,7 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
       generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry), address(s_tokenAdminRegistry));
 
     vm.expectEmit();
-    emit ConfigSet(staticConfig, dynamicConfig);
+    emit EVM2EVMOnRamp.ConfigSet(staticConfig, dynamicConfig);
 
     s_onRamp = new EVM2EVMOnRampHelper(
       staticConfig,
@@ -263,7 +260,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
 
     vm.expectEmit();
-    emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+    emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
@@ -277,7 +274,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
 
     vm.expectEmit();
     // We expect the message to be emitted with strict = false.
-    emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+    emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
@@ -289,7 +286,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
 
     vm.expectEmit();
-    emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+    emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
@@ -303,7 +300,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
 
     vm.expectEmit();
-    emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+    emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
@@ -317,7 +314,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
 
     vm.expectEmit();
-    emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+    emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
@@ -398,7 +395,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
       // If enforcement is on, only true should be allowed.
       if (allowOutOfOrderExecution) {
         vm.expectEmit();
-        emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+        emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
         s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
       } else {
         vm.expectRevert(EVM2EVMOnRamp.ExtraArgOutOfOrderExecutionMustBeTrue.selector);
@@ -407,7 +404,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     } else {
       // no enforcement should allow any value.
       vm.expectEmit();
-      emit CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
+      emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, 1, feeAmount, OWNER));
       s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
     }
   }
@@ -420,7 +417,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
       uint64 sequenceNumberBefore = s_onRamp.getSequenceNumber();
 
       vm.expectEmit();
-      emit CCIPSendRequested(_messageToEvent(message, i, i, 0, OWNER));
+      emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, i, i, 0, OWNER));
 
       s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
 
@@ -442,7 +439,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
       uint64 sequenceNumberBefore = s_onRamp.getSequenceNumber();
 
       vm.expectEmit();
-      emit CCIPSendRequested(_messageToEvent(message, i, i, 0, OWNER));
+      emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, i, i, 0, OWNER));
 
       s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
 
@@ -505,7 +502,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     Internal.EVM2EVMMessage memory expectedEvent = _messageToEvent(message, 1, 1, feeTokenAmount, originalSender);
 
     vm.expectEmit(false, false, false, true);
-    emit CCIPSendRequested(expectedEvent);
+    emit EVM2EVMOnRamp.CCIPSendRequested(expectedEvent);
 
     // Assert the message Id is correct
     assertEq(
@@ -865,7 +862,7 @@ contract EVM2EVMOnRamp_forwardFromRouter_upgrade is EVM2EVMOnRampSetup {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     vm.expectEmit();
-    emit CCIPSendRequested(_messageToEvent(message, 1, 1, FEE_AMOUNT, OWNER));
+    emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, 1, FEE_AMOUNT, OWNER));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, OWNER);
   }
 
@@ -892,14 +889,14 @@ contract EVM2EVMOnRamp_forwardFromRouter_upgrade is EVM2EVMOnRampSetup {
 
     // new onramp nonce should start from 2, while sequence number start from 1
     vm.expectEmit();
-    emit CCIPSendRequested(_messageToEvent(message, 1, startNonce + 2, FEE_AMOUNT, OWNER));
+    emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, startNonce + 2, FEE_AMOUNT, OWNER));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, OWNER);
 
     assertEq(startNonce + 2, s_onRamp.getSenderNonce(OWNER));
 
     // after another send, nonce should be 3, and sequence number be 2
     vm.expectEmit();
-    emit CCIPSendRequested(_messageToEvent(message, 2, startNonce + 3, FEE_AMOUNT, OWNER));
+    emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 2, startNonce + 3, FEE_AMOUNT, OWNER));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, OWNER);
 
     assertEq(startNonce + 3, s_onRamp.getSenderNonce(OWNER));
@@ -914,7 +911,7 @@ contract EVM2EVMOnRamp_forwardFromRouter_upgrade is EVM2EVMOnRampSetup {
     address newSender = address(1234567);
     // new onramp nonce should start from 1 for new sender
     vm.expectEmit();
-    emit CCIPSendRequested(_messageToEvent(message, 1, 1, FEE_AMOUNT, newSender));
+    emit EVM2EVMOnRamp.CCIPSendRequested(_messageToEvent(message, 1, 1, FEE_AMOUNT, newSender));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, newSender);
   }
 }
@@ -1546,8 +1543,6 @@ contract EVM2EVMOnRamp_getFee is EVM2EVMOnRamp_getFeeSetup {
 }
 
 contract EVM2EVMOnRamp_setNops is EVM2EVMOnRampSetup {
-  event NopPaid(address indexed nop, uint256 amount);
-
   // Used because EnumerableMap doesn't guarantee order
   mapping(address nop => uint256 weight) internal s_nopsToWeights;
 
@@ -1598,7 +1593,7 @@ contract EVM2EVMOnRamp_setNops is EVM2EVMOnRampSetup {
     EVM2EVMOnRamp.NopAndWeight[] memory existingNopsAndWeights = getNopsAndWeights();
     for (uint256 i = 0; i < existingNopsAndWeights.length; ++i) {
       vm.expectEmit(true, false, false, false);
-      emit NopPaid(existingNopsAndWeights[i].nop, 0);
+      emit EVM2EVMOnRamp.NopPaid(existingNopsAndWeights[i].nop, 0);
     }
 
     s_onRamp.setNops(nopsAndWeights);
@@ -1762,13 +1757,11 @@ contract EVM2EVMOnRamp_withdrawNonLinkFees is EVM2EVMOnRampSetup {
 }
 
 contract EVM2EVMOnRamp_setFeeTokenConfig is EVM2EVMOnRampSetup {
-  event FeeConfigSet(EVM2EVMOnRamp.FeeTokenConfigArgs[] feeConfig);
-
   function test_SetFeeTokenConfig_Success() public {
     EVM2EVMOnRamp.FeeTokenConfigArgs[] memory feeConfig;
 
     vm.expectEmit();
-    emit FeeConfigSet(feeConfig);
+    emit EVM2EVMOnRamp.FeeConfigSet(feeConfig);
 
     s_onRamp.setFeeTokenConfig(feeConfig);
   }
@@ -1779,7 +1772,7 @@ contract EVM2EVMOnRamp_setFeeTokenConfig is EVM2EVMOnRampSetup {
     vm.startPrank(ADMIN);
 
     vm.expectEmit();
-    emit FeeConfigSet(feeConfig);
+    emit EVM2EVMOnRamp.FeeConfigSet(feeConfig);
 
     s_onRamp.setFeeTokenConfig(feeConfig);
   }
@@ -1797,9 +1790,6 @@ contract EVM2EVMOnRamp_setFeeTokenConfig is EVM2EVMOnRampSetup {
 }
 
 contract EVM2EVMOnRamp_setTokenTransferFeeConfig is EVM2EVMOnRampSetup {
-  event TokenTransferFeeConfigSet(EVM2EVMOnRamp.TokenTransferFeeConfigArgs[] transferFeeConfig);
-  event TokenTransferFeeConfigDeleted(address[] tokens);
-
   function test__setTokenTransferFeeConfig_Success() public {
     EVM2EVMOnRamp.TokenTransferFeeConfigArgs[] memory tokenTransferFeeArgs =
       new EVM2EVMOnRamp.TokenTransferFeeConfigArgs[](2);
@@ -1823,7 +1813,7 @@ contract EVM2EVMOnRamp_setTokenTransferFeeConfig is EVM2EVMOnRampSetup {
     });
 
     vm.expectEmit();
-    emit TokenTransferFeeConfigSet(tokenTransferFeeArgs);
+    emit EVM2EVMOnRamp.TokenTransferFeeConfigSet(tokenTransferFeeArgs);
 
     s_onRamp.setTokenTransferFeeConfig(tokenTransferFeeArgs, new address[](0));
 
@@ -1854,7 +1844,7 @@ contract EVM2EVMOnRamp_setTokenTransferFeeConfig is EVM2EVMOnRampSetup {
     tokensToRemove[0] = tokenTransferFeeArgs[0].token;
 
     vm.expectEmit();
-    emit TokenTransferFeeConfigDeleted(tokensToRemove);
+    emit EVM2EVMOnRamp.TokenTransferFeeConfigDeleted(tokensToRemove);
 
     s_onRamp.setTokenTransferFeeConfig(new EVM2EVMOnRamp.TokenTransferFeeConfigArgs[](0), tokensToRemove);
 
@@ -1884,7 +1874,7 @@ contract EVM2EVMOnRamp_setTokenTransferFeeConfig is EVM2EVMOnRampSetup {
     vm.startPrank(ADMIN);
 
     vm.expectEmit();
-    emit TokenTransferFeeConfigSet(transferFeeConfig);
+    emit EVM2EVMOnRamp.TokenTransferFeeConfigSet(transferFeeConfig);
 
     s_onRamp.setTokenTransferFeeConfig(transferFeeConfig, new address[](0));
   }
@@ -1934,8 +1924,6 @@ contract EVM2EVMOnRamp_getTokenPool is EVM2EVMOnRampSetup {
 }
 
 contract EVM2EVMOnRamp_setDynamicConfig is EVM2EVMOnRampSetup {
-  event ConfigSet(EVM2EVMOnRamp.StaticConfig staticConfig, EVM2EVMOnRamp.DynamicConfig dynamicConfig);
-
   function test_SetDynamicConfig_Success() public {
     EVM2EVMOnRamp.StaticConfig memory staticConfig = s_onRamp.getStaticConfig();
     EVM2EVMOnRamp.DynamicConfig memory newConfig = EVM2EVMOnRamp.DynamicConfig({
@@ -1957,7 +1945,7 @@ contract EVM2EVMOnRamp_setDynamicConfig is EVM2EVMOnRampSetup {
     });
 
     vm.expectEmit();
-    emit ConfigSet(staticConfig, newConfig);
+    emit EVM2EVMOnRamp.ConfigSet(staticConfig, newConfig);
 
     s_onRamp.setDynamicConfig(newConfig);
 

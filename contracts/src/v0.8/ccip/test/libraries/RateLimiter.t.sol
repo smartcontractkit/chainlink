@@ -28,10 +28,7 @@ contract RateLimiter_constructor is RateLimiterSetup {
   }
 }
 
-/// @notice #setTokenBucketConfig
 contract RateLimiter_setTokenBucketConfig is RateLimiterSetup {
-  event ConfigChanged(RateLimiter.Config config);
-
   function test_SetRateLimiterConfig_Success() public {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
     assertEq(s_config.rate, rateLimiter.rate);
@@ -41,7 +38,7 @@ contract RateLimiter_setTokenBucketConfig is RateLimiterSetup {
       RateLimiter.Config({isEnabled: true, rate: uint128(rateLimiter.rate * 2), capacity: rateLimiter.capacity * 8});
 
     vm.expectEmit();
-    emit ConfigChanged(s_config);
+    emit RateLimiter.ConfigChanged(s_config);
 
     s_helper.setTokenBucketConfig(s_config);
 
@@ -54,7 +51,6 @@ contract RateLimiter_setTokenBucketConfig is RateLimiterSetup {
   }
 }
 
-/// @notice #currentTokenBucketState
 contract RateLimiter_currentTokenBucketState is RateLimiterSetup {
   function test_CurrentTokenBucketState_Success() public {
     RateLimiter.TokenBucket memory bucket = s_helper.currentTokenBucketState();
@@ -110,10 +106,7 @@ contract RateLimiter_currentTokenBucketState is RateLimiterSetup {
   }
 }
 
-/// @notice #consume
 contract RateLimiter_consume is RateLimiterSetup {
-  event TokensConsumed(uint256 tokens);
-
   address internal s_token = address(100);
 
   function test_ConsumeAggregateValue_Success() public {
@@ -127,7 +120,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     uint256 requestTokens = 50;
 
     vm.expectEmit();
-    emit TokensConsumed(requestTokens);
+    emit RateLimiter.TokensConsumed(requestTokens);
 
     s_helper.consume(requestTokens, address(0));
 
@@ -143,7 +136,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     uint256 requestTokens = 50;
 
     vm.expectEmit();
-    emit TokensConsumed(requestTokens);
+    emit RateLimiter.TokensConsumed(requestTokens);
 
     s_helper.consume(requestTokens, s_token);
   }
@@ -152,7 +145,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     uint256 requestTokens = 50;
 
     vm.expectEmit();
-    emit TokensConsumed(requestTokens);
+    emit RateLimiter.TokensConsumed(requestTokens);
 
     s_helper.consume(requestTokens, address(0));
 
@@ -167,7 +160,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     vm.warp(BLOCK_TIME + warpTime);
 
     vm.expectEmit();
-    emit TokensConsumed(requestTokens);
+    emit RateLimiter.TokensConsumed(requestTokens);
 
     s_helper.consume(requestTokens, address(0));
 
@@ -289,7 +282,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
 
     vm.expectEmit();
-    emit TokensConsumed(rateLimiter.capacity);
+    emit RateLimiter.TokensConsumed(rateLimiter.capacity);
 
     s_helper.consume(rateLimiter.capacity, address(0));
 

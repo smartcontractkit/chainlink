@@ -103,7 +103,7 @@ contract E2E is EVM2EVMOnRampSetup, CommitStoreSetup, EVM2EVMOffRampSetup {
       _messageToEvent(message, expectedSeqNum, expectedSeqNum, expectedFee, OWNER);
 
     vm.expectEmit();
-    emit CCIPSendRequested(msgEvent);
+    emit EVM2EVMOnRamp.CCIPSendRequested(msgEvent);
 
     vm.resumeGasMetering();
     s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, message);

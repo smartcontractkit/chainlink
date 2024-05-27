@@ -8,10 +8,6 @@ import {TokenPool} from "../../pools/TokenPool.sol";
 import {RouterSetup} from "../router/RouterSetup.t.sol";
 
 contract BurnMintSetup is RouterSetup {
-  event Transfer(address indexed from, address indexed to, uint256 value);
-  event TokensConsumed(uint256 tokens);
-  event Burned(address indexed sender, uint256 amount);
-
   BurnMintERC677 internal s_burnMintERC677;
   address internal s_burnMintOffRamp = makeAddr("burn_mint_offRamp");
   address internal s_burnMintOnRamp = makeAddr("burn_mint_onRamp");

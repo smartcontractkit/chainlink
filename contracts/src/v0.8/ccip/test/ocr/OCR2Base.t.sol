@@ -1,23 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {OCR2Abstract} from "../../ocr/OCR2Abstract.sol";
 import {OCR2Base} from "../../ocr/OCR2Base.sol";
 import {OCR2Helper} from "../helpers/OCR2Helper.sol";
 import {OCR2Setup} from "./OCR2Setup.t.sol";
 
 contract OCR2BaseSetup is OCR2Setup {
-  event ConfigSet(
-    uint32 previousConfigBlockNumber,
-    bytes32 configDigest,
-    uint64 configCount,
-    address[] signers,
-    address[] transmitters,
-    uint8 f,
-    bytes onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes offchainConfig
-  );
-
   OCR2Helper internal s_OCR2Base;
 
   bytes32[] internal s_rs;
@@ -194,7 +183,7 @@ contract OCR2Base_setOCR2Config is OCR2BaseSetup {
     assertEq(0, transmitters.length);
 
     vm.expectEmit();
-    emit ConfigSet(
+    emit OCR2Abstract.ConfigSet(
       0,
       configDigest,
       configCount,
@@ -216,7 +205,7 @@ contract OCR2Base_setOCR2Config is OCR2BaseSetup {
     configDigest = getBasicConfigDigest(s_f, configCount++);
 
     vm.expectEmit();
-    emit ConfigSet(
+    emit OCR2Abstract.ConfigSet(
       uint32(block.number),
       configDigest,
       configCount,

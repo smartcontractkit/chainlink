@@ -98,7 +98,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     Internal.EVM2EVMMessage memory msgEvent = _messageToEvent(message, 1, 1, expectedFee, OWNER);
 
     vm.expectEmit();
-    emit CCIPSendRequested(msgEvent);
+    emit EVM2EVMOnRamp.CCIPSendRequested(msgEvent);
 
     vm.resumeGasMetering();
     bytes32 messageId = s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, message);
@@ -121,7 +121,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     Internal.EVM2EVMMessage memory msgEvent = _messageToEvent(message, 1, 1, expectedFee, OWNER);
 
     vm.expectEmit();
-    emit CCIPSendRequested(msgEvent);
+    emit EVM2EVMOnRamp.CCIPSendRequested(msgEvent);
 
     vm.resumeGasMetering();
     bytes32 messageId = s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, message);
@@ -158,7 +158,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     message.feeToken = address(0);
 
     vm.expectEmit();
-    emit CCIPSendRequested(msgEvent);
+    emit EVM2EVMOnRamp.CCIPSendRequested(msgEvent);
 
     vm.resumeGasMetering();
     bytes32 messageId = s_sourceRouter.ccipSend{value: expectedFee}(DEST_CHAIN_SELECTOR, message);
@@ -186,7 +186,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     message.feeToken = address(0);
 
     vm.expectEmit();
-    emit CCIPSendRequested(msgEvent);
+    emit EVM2EVMOnRamp.CCIPSendRequested(msgEvent);
 
     vm.resumeGasMetering();
     bytes32 messageId = s_sourceRouter.ccipSend{value: expectedFee}(DEST_CHAIN_SELECTOR, message);
@@ -389,10 +389,6 @@ contract Router_getArmProxy is RouterSetup {
 }
 
 contract Router_applyRampUpdates is RouterSetup {
-  event OffRampRemoved(uint64 indexed sourceChainSelector, address offRamp);
-  event OffRampAdded(uint64 indexed sourceChainSelector, address offRamp);
-  event OnRampSet(uint64 indexed destChainSelector, address onRamp);
-
   MaybeRevertMessageReceiver internal s_receiver;
 
   function setUp() public virtual override(RouterSetup) {
@@ -477,7 +473,7 @@ contract Router_applyRampUpdates is RouterSetup {
 
     for (uint256 i = 0; i < offRampUpdates.length; ++i) {
       vm.expectEmit();
-      emit OffRampAdded(offRampUpdates[i].sourceChainSelector, offRampUpdates[i].offRamp);
+      emit Router.OffRampAdded(offRampUpdates[i].sourceChainSelector, offRampUpdates[i].offRamp);
     }
     s_sourceRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
 
@@ -509,11 +505,11 @@ contract Router_applyRampUpdates is RouterSetup {
 
     for (uint256 i = 0; i < numberOfPartialUpdates; ++i) {
       vm.expectEmit();
-      emit OffRampRemoved(partialOffRampRemoves[i].sourceChainSelector, partialOffRampRemoves[i].offRamp);
+      emit Router.OffRampRemoved(partialOffRampRemoves[i].sourceChainSelector, partialOffRampRemoves[i].offRamp);
     }
     for (uint256 i = 0; i < numberOfPartialUpdates; ++i) {
       vm.expectEmit();
-      emit OffRampAdded(partialOffRampAdds[i].sourceChainSelector, partialOffRampAdds[i].offRamp);
+      emit Router.OffRampAdded(partialOffRampAdds[i].sourceChainSelector, partialOffRampAdds[i].offRamp);
     }
     s_sourceRouter.applyRampUpdates(onRampUpdates, partialOffRampRemoves, partialOffRampAdds);
 
@@ -540,7 +536,7 @@ contract Router_applyRampUpdates is RouterSetup {
     // Check all offramps have been removed, no offramp is able to route messages.
     for (uint256 i = 0; i < numberOfPartialUpdates; ++i) {
       vm.expectEmit();
-      emit OffRampRemoved(partialOffRampAdds[i].sourceChainSelector, partialOffRampAdds[i].offRamp);
+      emit Router.OffRampRemoved(partialOffRampAdds[i].sourceChainSelector, partialOffRampAdds[i].offRamp);
     }
     s_sourceRouter.applyRampUpdates(onRampUpdates, partialOffRampAdds, new Router.OffRamp[](0));
 
@@ -552,7 +548,7 @@ contract Router_applyRampUpdates is RouterSetup {
 
     for (uint256 i = 0; i < numberOfRemainingOfframps; ++i) {
       vm.expectEmit();
-      emit OffRampRemoved(remainingOffRampRemoves[i].sourceChainSelector, remainingOffRampRemoves[i].offRamp);
+      emit Router.OffRampRemoved(remainingOffRampRemoves[i].sourceChainSelector, remainingOffRampRemoves[i].offRamp);
     }
     s_sourceRouter.applyRampUpdates(onRampUpdates, remainingOffRampRemoves, new Router.OffRamp[](0));
 
@@ -575,7 +571,7 @@ contract Router_applyRampUpdates is RouterSetup {
     // Check offramps that were not added back remain unset, and cannot route messages.
     for (uint256 i = 0; i < offRampUpdates.length; ++i) {
       vm.expectEmit();
-      emit OffRampAdded(offRampUpdates[i].sourceChainSelector, offRampUpdates[i].offRamp);
+      emit Router.OffRampAdded(offRampUpdates[i].sourceChainSelector, offRampUpdates[i].offRamp);
     }
     s_sourceRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
 
@@ -600,7 +596,7 @@ contract Router_applyRampUpdates is RouterSetup {
     // Test adding onRamps
     for (uint256 i = 0; i < onRamps.length; ++i) {
       vm.expectEmit();
-      emit OnRampSet(onRamps[i].destChainSelector, onRamps[i].onRamp);
+      emit Router.OnRampSet(onRamps[i].destChainSelector, onRamps[i].onRamp);
     }
 
     s_sourceRouter.applyRampUpdates(onRamps, new Router.OffRamp[](0), new Router.OffRamp[](0));
@@ -610,7 +606,7 @@ contract Router_applyRampUpdates is RouterSetup {
       onRamps[i].onRamp = address(0);
 
       vm.expectEmit();
-      emit OnRampSet(onRamps[i].destChainSelector, onRamps[i].onRamp);
+      emit Router.OnRampSet(onRamps[i].destChainSelector, onRamps[i].onRamp);
     }
     s_sourceRouter.applyRampUpdates(onRamps, new Router.OffRamp[](0), new Router.OffRamp[](0));
     for (uint256 i = 0; i < onRamps.length; ++i) {
@@ -658,7 +654,7 @@ contract Router_applyRampUpdates is RouterSetup {
     offRampUpdates[0] = Router.OffRamp(DEST_CHAIN_SELECTOR, offRamp);
 
     vm.expectEmit();
-    emit OffRampAdded(DEST_CHAIN_SELECTOR, offRamp);
+    emit Router.OffRampAdded(DEST_CHAIN_SELECTOR, offRamp);
     s_sourceRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
 
     offRampUpdates[0] = Router.OffRamp(SOURCE_CHAIN_SELECTOR, offRamp);
@@ -690,8 +686,6 @@ contract Router_getSupportedTokens is EVM2EVMOnRampSetup {
 }
 
 contract Router_routeMessage is EVM2EVMOffRampSetup {
-  event MessageExecuted(bytes32 messageId, uint64 sourceChainSelector, address offRamp, bytes32 calldataHash);
-
   function setUp() public virtual override {
     EVM2EVMOffRampSetup.setUp();
     vm.startPrank(address(s_offRamp));
@@ -725,7 +719,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     s_reverting_receiver.setErr(realError1);
 
     vm.expectEmit();
-    emit MessageExecuted(
+    emit Router.MessageExecuted(
       message.messageId,
       message.sourceChainSelector,
       address(s_offRamp),
@@ -751,7 +745,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     s_reverting_receiver.setErr(realError2);
 
     vm.expectEmit();
-    emit MessageExecuted(
+    emit Router.MessageExecuted(
       message.messageId,
       message.sourceChainSelector,
       address(s_offRamp),
@@ -780,7 +774,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
 
     // Should emit success
     vm.expectEmit();
-    emit MessageExecuted(
+    emit Router.MessageExecuted(
       message.messageId,
       message.sourceChainSelector,
       address(s_offRamp),
@@ -808,7 +802,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     if (error.length >= 33) {
       uint256 cutOff = error.length > 64 ? 64 : error.length;
       vm.expectEmit();
-      emit MessageExecuted(
+      emit Router.MessageExecuted(
         message.messageId,
         message.sourceChainSelector,
         address(s_offRamp),
@@ -823,7 +817,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
       );
     } else {
       vm.expectEmit();
-      emit MessageExecuted(
+      emit Router.MessageExecuted(
         message.messageId,
         message.sourceChainSelector,
         address(s_offRamp),

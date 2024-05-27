@@ -7,10 +7,6 @@ import {TokenPool} from "../../pools/TokenPool.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract TokenPoolHelper is TokenPool {
-  event LockOrBurn(uint256 amount);
-  event ReleaseOrMint(address indexed recipient, uint256 amount);
-  event AssertionPassed();
-
   constructor(
     IERC20 token,
     address[] memory allowlist,
@@ -23,7 +19,6 @@ contract TokenPoolHelper is TokenPool {
     override
     returns (Pool.LockOrBurnOutV1 memory)
   {
-    emit LockOrBurn(lockOrBurnIn.amount);
     return Pool.LockOrBurnOutV1({destPoolAddress: getRemotePool(lockOrBurnIn.remoteChainSelector), destPoolData: ""});
   }
 
@@ -32,7 +27,6 @@ contract TokenPoolHelper is TokenPool {
     override
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
-    emit ReleaseOrMint(releaseOrMintIn.receiver, releaseOrMintIn.amount);
     return Pool.ReleaseOrMintOutV1({localToken: address(i_token), destinationAmount: releaseOrMintIn.amount});
   }
 

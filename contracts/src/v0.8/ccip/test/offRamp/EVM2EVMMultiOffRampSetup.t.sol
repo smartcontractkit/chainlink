@@ -44,14 +44,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
   EVM2EVMMultiOffRampHelper internal s_offRamp;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
-  event ExecutionStateChanged(
-    uint64 indexed sourceChainSelector,
-    uint64 indexed sequenceNumber,
-    bytes32 indexed messageId,
-    Internal.MessageExecutionState state,
-    bytes returnData
-  );
-
   function setUp() public virtual override(TokenSetup, PriceRegistrySetup, OCR2BaseSetup) {
     TokenSetup.setUp();
     PriceRegistrySetup.setUp();

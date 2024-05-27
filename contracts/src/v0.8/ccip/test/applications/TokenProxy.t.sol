@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {TokenProxy} from "../../applications/TokenProxy.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
+import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
 import {EVM2EVMOnRampSetup} from "../onRamp/EVM2EVMOnRampSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -120,7 +121,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     msgEvent.messageId = Internal._hash(msgEvent, s_metadataHash);
 
     vm.expectEmit();
-    emit CCIPSendRequested(msgEvent);
+    emit EVM2EVMOnRamp.CCIPSendRequested(msgEvent);
 
     vm.resumeGasMetering();
     s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
@@ -144,7 +145,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     msgEvent.messageId = Internal._hash(msgEvent, s_metadataHash);
 
     vm.expectEmit();
-    emit CCIPSendRequested(msgEvent);
+    emit EVM2EVMOnRamp.CCIPSendRequested(msgEvent);
 
     vm.resumeGasMetering();
     s_tokenProxy.ccipSend{value: expectedFee}(DEST_CHAIN_SELECTOR, message);
