@@ -17,11 +17,11 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.3
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240524173852-a74b009c7303
-	github.com/smartcontractkit/chainlink-testing-framework v1.28.15
+	github.com/smartcontractkit/chainlink-testing-framework v1.28.16-0.20240527143520-ee1f628a7809
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
-	github.com/smartcontractkit/seth v1.0.9
+	github.com/smartcontractkit/seth v1.0.10-0.20240527141846-e5cc48324890
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/wasp v0.4.7
 	github.com/stretchr/testify v1.9.0
