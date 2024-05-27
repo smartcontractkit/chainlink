@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
@@ -212,16 +213,28 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		srvcs = append(srvcs, externalPeerWrapper)
 
-		remoteRegistry := capabilities.NewRemoteRegistry(cfg.Capabilities().OnchainCapabilityRegistryAddress(), globalLogger)
-
-		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
 		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-		// r := relayerChainInterops[cfg.Capabilities().RelayerID()]
-		// Config needs to be json.marshaled to be used in the chain reader
-		// Over the wire: RelayConfig        []byte
-		// registryChainReader := r.NewChainReaderService(ctx /* *chainReaderConfig, codecConfig */)
-		// registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, remoteRegistry, registryChainReader)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, remoteRegistry)
+
+		relayID := commontypes.RelayID{
+			Network: cfg.Capabilities().RemoteRegistry().Network(),
+			ChainID: cfg.Capabilities().RemoteRegistry().ChainID(),
+		}
+		relayer, err := relayerChainInterops.Get(relayID)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "remote registry - failed to get relayer. RelayID: "+relayID.String())
+		}
+
+		registrySyncer := capabilities.NewRegistrySyncer(
+			externalPeerWrapper,
+			opts.CapabilitiesRegistry,
+			dispatcher,
+			globalLogger,
+			// Passing the relayer and registry address to the syncer because
+			// ContractReader needs ctx
+			relayer,
+			cfg.Capabilities().RemoteRegistry().ContractAddress(),
+		)
 		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 

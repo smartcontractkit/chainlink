@@ -3,18 +3,24 @@ package capabilities
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gin-gonic/gin/internal/json"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -22,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -62,19 +69,24 @@ type Capability struct {
 	ConfigurationContract common.Address
 }
 
-// State mirrors the state in the onchain capability registry.
+// RemoteRegistryState contains a local cache of the CapabilityRegistry deployed
+// on-chain. It is updated by the syncer and is otherwise read-only.
 type RemoteRegistryState struct {
 	Capabilities  map[CapabilityID]Capability
 	CapabilityIDs []CapabilityID
 }
 
 type registrySyncer struct {
-	peerWrapper p2ptypes.PeerWrapper
-	registry    core.CapabilitiesRegistry
-	dispatcher  remotetypes.Dispatcher
-	subServices []services.Service
-	wg          sync.WaitGroup
-	lggr        logger.Logger
+	peerWrapper           p2ptypes.PeerWrapper
+	registry              core.CapabilitiesRegistry
+	dispatcher            remotetypes.Dispatcher
+	subServices           []services.Service
+	wg                    sync.WaitGroup
+	lggr                  logger.Logger
+	remoteRegistryState   RemoteRegistryState
+	chainReader           commontypes.ContractReader
+	relayer               loop.Relayer
+	remoteRegistryAddress string
 }
 
 var _ services.Service = &registrySyncer{}
@@ -101,51 +113,16 @@ func NewRegistrySyncer(
 	registry core.CapabilitiesRegistry,
 	dispatcher remotetypes.Dispatcher,
 	lggr logger.Logger,
-	remoteRegistry *remoteRegistry,
+	relayer loop.Relayer,
+	remoteRegistryAddress string,
 ) *registrySyncer {
-	// db := pgtest.NewSqlxDB(t)
-	// lpOpts := logpoller.Opts{
-	// 	PollPeriod:               time.Millisecond,
-	// 	FinalityDepth:            4,
-	// 	BackfillBatchSize:        1,
-	// 	RpcBatchSize:             1,
-	// 	KeepFinalizedBlocksDepth: 10000,
-	// }
-	// lp := logpoller.NewLogPoller(
-	// 	logpoller.NewORM(testutils.SimulatedChainID, db, lggr),
-	// 	simulatedBackendClient,
-	// 	lggr,
-	// 	lpOpts,
-	// )
-
-	// chainConfig := types.ChainReaderConfig{
-	// 	Contracts: map[string]types.ChainContractReader{
-	// 		"capability_registry": {
-	// 			ContractABI: keystone_capability_registry.CapabilityRegistryABI,
-	// 			Configs: map[string]*types.ChainReaderDefinition{
-	// 				"get_capabilities": {
-	// 					ChainSpecificName: "getCapabilities",
-	// 					OutputModifications: codec.ModifiersConfig{
-	// 						&codec.RenameModifierConfig{Fields: map[string]string{"labelledName": "name"}},
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// }
-	// cr, err := evm.NewChainReaderService(ctx, lggr, lp, simulatedBackendClient, chainConfig)
-
-	// cr.Bind(ctx, []commontypes.BoundContract{
-	// 	{
-	// 		Name:    "capability_registry",
-	// 		Address: capabilityRegistry.Address().String(),
-	// 	}})
-
 	return &registrySyncer{
-		peerWrapper: peerWrapper,
-		registry:    registry,
-		dispatcher:  dispatcher,
-		lggr:        lggr,
+		peerWrapper:           peerWrapper,
+		registry:              registry,
+		dispatcher:            dispatcher,
+		lggr:                  lggr,
+		relayer:               relayer,
+		remoteRegistryAddress: remoteRegistryAddress,
 	}
 }
 
@@ -158,6 +135,49 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 // NOTE: this implementation of the Syncer is temporary and will be replaced by one
 // that reads the configuration from chain (KS-117).
 func (s *registrySyncer) launch(ctx context.Context) {
+	// Creating a JSON blob for chain-agnostic configuration
+
+	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
+		Contracts: map[string]evmrelaytypes.ChainContractReader{
+			"capability_registry": {
+				ContractABI: keystone_capability_registry.CapabilityRegistryABI,
+				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+					"get_capabilities": {
+						ChainSpecificName: "getCapabilities",
+						OutputModifications: codec.ModifiersConfig{
+							&codec.RenameModifierConfig{Fields: map[string]string{"labelledName": "name"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	contractReaderConfigEncoded, err := json.Marshal(contractReaderConfig)
+	if err != nil {
+		s.lggr.Errorw("failed to marshal contract reader config", "error", err)
+	}
+
+	fmt.Println("contractReaderConfigEncoded", contractReaderConfigEncoded)
+
+	cr, err := s.relayer.NewContractReader(ctx, contractReaderConfigEncoded)
+
+	if err != nil {
+		// TODO: What to do here?
+		s.lggr.Errorw("failed to create contract reader", "error", err)
+	}
+
+	err = cr.Bind(ctx, []commontypes.BoundContract{
+		{
+			Name:    "capability_registry",
+			Address: s.remoteRegistryAddress,
+		}})
+
+	if err != nil {
+		// TODO: What to do here?
+		s.lggr.Errorw("failed to bind to capability registry", "error", err)
+	}
+
 	defer s.wg.Done()
 	// NOTE: temporary hard-coded DONs
 	workflowDONPeers := []string{
