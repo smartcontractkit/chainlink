@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
@@ -25,7 +26,7 @@ type remoteTargetCaller struct {
 	dispatcher           types.Dispatcher
 	requestTimeout       time.Duration
 
-	messageIDToExecuteRequest map[string]*callerExecuteRequest
+	requestIDToExecuteRequest map[string]*callerExecuteRequest
 	mutex                     sync.Mutex
 }
 
@@ -41,7 +42,7 @@ func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabi
 		localDONInfo:              localDonInfo,
 		dispatcher:                dispatcher,
 		requestTimeout:            requestTimeout,
-		messageIDToExecuteRequest: make(map[string]*callerExecuteRequest),
+		requestIDToExecuteRequest: make(map[string]*callerExecuteRequest),
 	}
 
 	go func() {
@@ -64,12 +65,12 @@ func (c *remoteTargetCaller) ExpireRequests() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for messageID, req := range c.messageIDToExecuteRequest {
-		if time.Since(req.creationTime) > c.requestTimeout {
+	for messageID, req := range c.requestIDToExecuteRequest {
+		if time.Since(req.createdAt) > c.requestTimeout {
 			req.cancelRequest("request timed out")
 		}
 
-		delete(c.messageIDToExecuteRequest, messageID)
+		delete(c.requestIDToExecuteRequest, messageID)
 	}
 }
 
@@ -89,18 +90,18 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	messageID, err := getMessageIDForRequest(req)
+	requestID, err := GetRequestID(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create message ID from request: %w", err)
+		return nil, fmt.Errorf("failed to get request ID: %w", err)
 	}
 
-	if _, ok := c.messageIDToExecuteRequest[messageID]; ok {
-		return nil, fmt.Errorf("request with message ID %s already exists", messageID)
+	if _, ok := c.requestIDToExecuteRequest[requestID]; ok {
+		return nil, fmt.Errorf("request with ID %s already exists", requestID)
 	}
 
-	execRequest, err := newCallerExecuteRequest(ctx, c.lggr, req, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
+	execRequest, err := newCallerExecuteRequest(ctx, c.lggr, req, requestID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
 
-	c.messageIDToExecuteRequest[messageID] = execRequest
+	c.requestIDToExecuteRequest[requestID] = execRequest
 
 	return execRequest.responseCh, nil
 }
@@ -109,25 +110,27 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	messageID := GetMessageID(msg)
+	requestID := GetMessageID(msg)
+	sender := ToPeerID(msg.Sender)
 
-	req := c.messageIDToExecuteRequest[messageID]
+	req := c.requestIDToExecuteRequest[requestID]
 	if req == nil {
-		c.lggr.Warnw("received response for unknown message ID", "messageID", messageID, "sender", msg.Sender)
+		c.lggr.Warnw("received response for unknown request ID", "requestID", requestID, "sender", sender)
 		return
 	}
 
 	if msg.Error != types.Error_OK {
-		c.lggr.Warnw("received error response for pending request", "messageID", messageID, "sender", msg.Sender, "receiver", msg.Receiver, "error", msg.Error)
+		c.lggr.Warnw("received error response for pending request", "requestID", requestID, "sender", sender, "receiver", msg.Receiver, "error", msg.Error)
 		return
 	}
 
-	req.addResponse(msg.Payload)
+	if err := req.addResponse(sender, msg.Payload); err != nil {
+		c.lggr.Errorw("failed to add response to request", "requestID", requestID, "sender", sender, "err", err)
+	}
 }
 
-// getMessageIDForRequest uses the workflow ID and workflow execution ID from the request metadata to create a
-// deterministically unique message ID for the request.
-func getMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
+// Move this into common?
+func GetRequestID(req commoncap.CapabilityRequest) (string, error) {
 	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
 		return "", errors.New("workflow ID and workflow execution ID must be set in request metadata")
 	}
@@ -139,8 +142,9 @@ type callerExecuteRequest struct {
 	transmissionCtx      context.Context
 	responseCh           chan commoncap.CapabilityResponse
 	transmissionCancelFn context.CancelFunc
-	creationTime         time.Time
+	createdAt            time.Time
 	responseIDCount      map[[32]byte]int
+	responseReceived     map[p2ptypes.PeerID]bool
 
 	requiredIdenticalResponses int
 
@@ -165,14 +169,16 @@ func newCallerExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 		return nil, fmt.Errorf("failed to extract transmission config from request config: %w", err)
 	}
 
-	peerIDToDelay, err := transmission.GetPeerIDToTransmissionDelay(remoteCapabilityDonInfo.Members, localDonInfo.Config.SharedSecret,
+	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(remoteCapabilityDonInfo.Members, localDonInfo.Config.SharedSecret,
 		messageID, tc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
 
 	transmissionCtx, transmissionCancelFn := context.WithCancel(ctx)
-	for peerID, delay := range peerIDToDelay {
+	responseReceived := make(map[p2ptypes.PeerID]bool)
+	for peerID, delay := range peerIDToTransmissionDelay {
+		responseReceived[peerID] = false
 		go func(peerID ragep2ptypes.PeerID, delay time.Duration) {
 			message := &types.MessageBody{
 				CapabilityId:    remoteCapabilityInfo.ID,
@@ -196,10 +202,11 @@ func newCallerExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	return &callerExecuteRequest{
-		creationTime:               time.Now(),
+		createdAt:                  time.Now(),
 		transmissionCancelFn:       transmissionCancelFn,
 		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
 		responseIDCount:            make(map[[32]byte]int),
+		responseReceived:           responseReceived,
 		responseCh:                 make(chan commoncap.CapabilityResponse, 1),
 	}, nil
 }
@@ -209,7 +216,17 @@ func (c *callerExecuteRequest) responseSent() bool {
 }
 
 // TODO addResponse assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated
-func (c *callerExecuteRequest) addResponse(response []byte) {
+func (c *callerExecuteRequest) addResponse(sender p2ptypes.PeerID, response []byte) error {
+	if _, ok := c.responseReceived[sender]; !ok {
+		return fmt.Errorf("response from peer %s not expected", sender)
+	}
+
+	if c.responseReceived[sender] {
+		return fmt.Errorf("response from peer %s already received", sender)
+	}
+
+	c.responseReceived[sender] = true
+
 	payloadId := sha256.Sum256(response)
 	c.responseIDCount[payloadId]++
 
@@ -221,6 +238,8 @@ func (c *callerExecuteRequest) addResponse(response []byte) {
 			c.sendResponse(commoncap.CapabilityResponse{Value: capabilityResponse.Value})
 		}
 	}
+
+	return nil
 }
 
 func (c *callerExecuteRequest) sendResponse(response commoncap.CapabilityResponse) {
