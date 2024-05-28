@@ -301,20 +301,20 @@ jobs:
           - name: ccip-smoke-rate-limit
             nodes: 1
             dir: ccip-tests/smoke
-            os: ubuntu20.04-16cores-64GB
+            os: ubuntu-latest
             file: ccip
             run: -run ^TestSmokeCCIPRateLimit$
 # This test will be fixed in a follow-up PR
 #          - name: ccip-smoke-multicall
 #            nodes: 1
 #            dir: ccip-tests/smoke
-#            os: ubuntu20.04-16cores-64GB
+#            os: ubuntu-latest
 #            file: ccip
 #            run: -run ^TestSmokeCCIPMulticall$
           - name: ccip-smoke-manual-exec
             nodes: 1
             dir: ccip-tests/smoke
-            os: ubuntu20.04-16cores-64GB
+            os: ubuntu-latest
             file: ccip
             run: -run ^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$
           - name: ccip-smoke-self-serve-offramp-arl
@@ -333,88 +333,49 @@ jobs:
             id: runlog
             nodes: 2
             os: ubuntu-latest
-            pyroscope_env: "ci-smoke-runlog-evm-simulated"
           - name: cron
             id: cron
             nodes: 2
             os: ubuntu-latest
-            pyroscope_env: "ci-smoke-cron-evm-simulated"
           - name: flux
             id: flux
             nodes: 1
             os: ubuntu-latest
-            pyroscope_env: "ci-smoke-flux-evm-simulated"
           - name: ocr
             id: ocr
             nodes: 2
             os: ubuntu-latest
             file: ocr
-            pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             id: ocr2
             nodes: 6
             os: ubuntu22.04-16cores-64GB
             file: ocr2
-            pyroscope_env: ci-smoke-ocr2-evm-simulated
-          - name: ocr2-geth
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            run: -run TestOCRv2Basic
-            file: ocr2
-            client: geth
-            pyroscope_env: ci-smoke-ocr2-evm-simulated
-          - name: ocr2-nethermind
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            run: -run TestOCRv2Basic
-            file: ocr2
-            client: nethermind
-            pyroscope_env: ci-smoke-ocr2-evm-simulated
-          - name: ocr2-besu
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            run: -run TestOCRv2Basic
-            file: ocr2
-            client: besu
-            pyroscope_env: ci-smoke-ocr2-evm-simulated
-          - name: ocr2-erigon
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            run: -run TestOCRv2Basic
-            file: ocr2
-            client: erigon
-            pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             id: ocr2-plugins
             nodes: 6
             os: ubuntu22.04-16cores-64GB
-            pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
           - name: vrf
             id: vrf
             nodes: 2
             os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             id: vrfv2
             nodes: 5
             os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             id: vrfv2plus
             nodes: 8
             os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
             id: forwarder_ocr
             nodes: 2
             os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: forwarders_ocr2
             id: forwarders_ocr2
             nodes: 2
             os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:

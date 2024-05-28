@@ -1,13 +1,11 @@
 name: CCIP Client Compatibility Tests
 on:
-#  merge_group:
-#  pull_request:
-#  push:
-#    tags:
-#      - "*"
-#    branches:
-#      - ccip-develop
-#      - "release/**"
+  push:
+    tags:
+      - '*'
+  # TODO: Uncomment when CCIP-2255 is resolved
+  # schedule:
+  #   - cron: "30 5 * * *"
   workflow_dispatch:
 
 env:
@@ -18,48 +16,7 @@ env:
 jobs:
   # Build Test Dependencies
 
-  changes:
-    environment: integration
-    name: Check Paths That Require Tests To Run
-    runs-on: ubuntu-latest
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/ccip
-          ref: ${{ inputs.cl_ref }}
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
-        with:
-          filters: |
-            src:
-              - '**/*.go'
-              - '**/*go.sum'
-              - '**/*go.mod'
-              - '.github/workflows/integration-tests.yml'
-              - '.github/workflows/ccip-client-compatibility-tests.yml'
-              - '**/*Dockerfile'
-              - 'core/**/config/**/*.toml'
-              - 'integration-tests/**/*.toml'
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ccip-client-compatablility-check-paths
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Check Paths That Require Tests To Run
-        continue-on-error: true
-    outputs:
-      src: ${{ inputs.set_changes_output || steps.changes.outputs.src }}
-
   build-chainlink:
-    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [changes]
     environment: integration
     permissions:
       id-token: write
@@ -91,44 +48,7 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  build-tests:
-    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [changes]
-    environment: integration
-    permissions:
-      id-token: write
-      contents: read
-    name: Build Tests Binary
-    runs-on: ubuntu-latest
-    steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ccip-build-tests
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Build Tests Binary
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
-        with:
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          go_tags: embed
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          binary_name: tests
-
   get-latest-available-images:
-    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [changes]
     environment: integration
     runs-on: ubuntu-latest
     permissions:
@@ -197,15 +117,14 @@ jobs:
 
   # End Build Test Dependencies
 
-  evm-compatibility-matrix:
+  ccip-compatibility-matrix:
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes, get-latest-available-images]
-    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [build-chainlink, get-latest-available-images]
     env:
       SELECTED_NETWORKS: SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -215,33 +134,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: bidirectionallane-geth
+          - name: bidirectional-lane-geth
             os: ubuntu-latest
             test: TestSmokeCCIPForBidirectionalLane
             client: geth
-            timeout: 30m
-            pyroscope_env: ci-ccip-bidirectionallane-geth
+            pyroscope_env: ci-ccip-bidirectional-lane-geth
             chainConfig: "1337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }},2337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }}"
-          # uncomment when nethermind flake reason is addressed
-          # - name: bidirectionallane-nethermind
+          # TODO: uncomment when nethermind flake reason is addressed
+          # - name: bidirectional-lane-nethermind
           #   test: TestSmokeCCIPForBidirectionalLane
           #   client: nethermind
-          #   timeout: 30m
-          #   pyroscope_env: ci-ccip-bidirectionallane-nethermind
+          #   pyroscope_env: ci-ccip-bidirectional-lane-nethermind
           #   chainConfig: "1337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }},2337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }}"
-          # uncomment when 24.4.0  is released with our data/input fix
-          # - name: bidirectionallane-besu
+          # TODO: uncomment when 24.4.0  is released with our data/input fix
+          # - name: bidirectional-lane-besu
           #   test: TestSmokeCCIPForBidirectionalLane
           #   client: besu
-          #   timeout: 30m
-          #   pyroscope_env: ci-ccip-bidirectionallane-besu
+          #   pyroscope_env: ci-ccip-bidirectional-lane-besu
           #   chainConfig: "1337=hyperledger/besu:${{ needs.get-latest-available-images.outputs.besu_tag }},2337=hyperledger/besu:${{ needs.get-latest-available-images.outputs.besu_tag }}"
-          - name: bidirectionallane-erigon
-            test: TestSmokeCCIPForBidirectionalLane
-            client: erigon
-            timeout: 30m
-            pyroscope_env: ci-ccip-bidirectionallane-erigon
-            chainConfig: "1337=thorax/erigon:${{ needs.get-latest-available-images.outputs.erigon_tag }},2337=thorax/erigon:${{ needs.get-latest-available-images.outputs.erigon_tag }}"
+          # TODO: Waiting for CCIP-2255 to be resolved
+          # - name: bidirectional-lane-erigon
+          #   test: TestSmokeCCIPForBidirectionalLane
+          #   client: erigon
+          #   pyroscope_env: ci-ccip-bidirectional-lane-erigon
+          #   chainConfig: "1337=thorax/erigon:${{ needs.get-latest-available-images.outputs.erigon_tag }},2337=thorax/erigon:${{ needs.get-latest-available-images.outputs.erigon_tag }}"
     runs-on: ubuntu-latest
     name: CCIP Latest EVM Node Compatibility Test with ${{ matrix.client }}
     steps:
@@ -314,6 +230,7 @@ jobs:
           artifacts_location: |
             ./integration-tests/smoke/logs/
             ./integration-tests/ccip-tests/smoke/logs/*
+            /tmp/gotest.log
           publish_check_name: ${{ matrix.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
@@ -331,7 +248,7 @@ jobs:
 
   start-slack-thread:
     name: Start Slack Thread
-    if: ${{ (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' ) && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && github.event_name != 'workflow_dispatch'}}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -341,7 +258,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [evm-compatibility-matrix, changes]
+    needs: ccip-compatibility-matrix
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -349,7 +266,7 @@ jobs:
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         id: slack
         with:
-          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
+          channel-id: ${{ secrets.QA_CCIP_SLACK_CHANNEL }}
           payload: |
             {
               "attachments": [
@@ -389,8 +306,8 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   post-test-results-to-slack:
-    name: Post Test Results for ${{matrix.client}}
-    if: ${{ always() && needs.changes.outputs.src == 'true' && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    name: Post Test Results
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     permissions:
       checks: write
@@ -398,7 +315,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [changes, start-slack-thread]
+    needs: start-slack-thread
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -411,7 +328,7 @@ jobs:
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
           github_job_name_regex: ^CCIP Latest EVM Node Compatibility Test with (?<cap>.*?)$
-          message_title: BiDirectional Lane Test Results
-          slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
+          message_title: CCIP Compatibility Test Results
+          slack_channel_id: ${{ secrets.QA_CCIP_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
