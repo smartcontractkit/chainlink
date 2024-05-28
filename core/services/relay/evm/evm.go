@@ -526,17 +526,34 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		gasLimit = uint64(*opts.pluginGasLimit)
 	}
 
-	transmitter, err := ocrcommon.NewTransmitter(
-		configWatcher.chain.TxManager(),
-		fromAddresses,
-		gasLimit,
-		effectiveTransmitterAddress,
-		strategy,
-		checker,
-		configWatcher.chain.ID(),
-		ethKeystore,
-	)
+	var transmitter Transmitter
+	var err error
 
+	switch commontypes.OCR2PluginType(rargs.ProviderType) {
+	case commontypes.Median:
+		transmitter, err = ocrcommon.NewOCR2FeedsTransmitter(
+			configWatcher.chain.TxManager(),
+			fromAddresses,
+			common.HexToAddress(rargs.ContractID),
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
+			configWatcher.chain.ID(),
+			ethKeystore,
+		)
+	default:
+		transmitter, err = ocrcommon.NewTransmitter(
+			configWatcher.chain.TxManager(),
+			fromAddresses,
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
+			configWatcher.chain.ID(),
+			ethKeystore,
+		)
+	}
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
 	}
