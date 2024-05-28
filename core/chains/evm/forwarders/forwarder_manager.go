@@ -130,7 +130,7 @@ func (f *FwdMgr) ForwarderFor(ctx context.Context, addr common.Address) (forward
 			}
 		}
 	}
-	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
+	return common.Address{}, ErrForwarderForEOANotFound
 }
 
 // ErrForwarderForEOANotFound defines the error triggered when no valid forwarders were found for EOA
