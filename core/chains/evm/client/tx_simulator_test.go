@@ -78,7 +78,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			Data: []byte("0x00"),
 		}
 		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
-		require.Equal(t, true, sendErr.IsOutOfCounters(nil))
+		require.Equal(t, true, sendErr.IsTerminallyStuck())
 	})
 
 	t.Run("returns without error if simulation returns non-OOC error", func(t *testing.T) {
@@ -108,6 +108,6 @@ func TestSimulateTx_Default(t *testing.T) {
 			Data: []byte("0x00"),
 		}
 		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
-		require.Equal(t, false, sendErr.IsOutOfCounters(nil))
+		require.Equal(t, false, sendErr.IsTerminallyStuck())
 	})
 }

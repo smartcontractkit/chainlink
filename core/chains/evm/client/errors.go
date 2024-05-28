@@ -60,7 +60,7 @@ const (
 	TransactionAlreadyMined
 	Fatal
 	ServiceUnavailable
-	OutOfCounters
+	TerminallyStuck
 )
 
 type ClientErrors map[int]*regexp.Regexp
@@ -246,10 +246,17 @@ var zkSync = ClientErrors{
 }
 
 var zkEvm = ClientErrors{
-	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
+	TerminallyStuck: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
+const TerminallyStuckMsg = "transaction terminally stuck"
+
+// Tx.Error messages that are set internally so they are not chain or client specific
+var internal = ClientErrors{
+	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
@@ -353,9 +360,17 @@ func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
 	return s.is(ServiceUnavailable, configErrors)
 }
 
-// IsOutOfCounters is a zk chain specific error returned if the transaction is too complex to prove on zk circuits
-func (s *SendError) IsOutOfCounters(configErrors *ClientErrors) bool {
-	return s.is(OutOfCounters, configErrors)
+// IsTerminallyStuck indicates if a transaction was stuck without any chance of inclusion
+func (s *SendError) IsTerminallyStuckConfigError(configErrors *ClientErrors) bool {
+	return s.is(TerminallyStuck, configErrors)
+}
+
+func (s *SendError) IsFatal() bool {
+	return s.Fatal(nil)
+}
+
+func (s *SendError) IsTerminallyStuck() bool {
+	return s.IsTerminallyStuckConfigError(nil)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -397,6 +412,10 @@ func NewSendError(e error) *SendError {
 	}
 	fatal := isFatalSendError(e)
 	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
+}
+
+func NewTxError(e error) commonclient.TxError {
+	return NewSendError(e)
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:

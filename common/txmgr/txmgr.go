@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
@@ -28,6 +29,8 @@ import (
 
 // ResumeCallback is assumed to be idempotent
 type ResumeCallback func(ctx context.Context, id uuid.UUID, result interface{}, err error) error
+
+type NewTxError func(err error) client.TxError
 
 // TxManager is the main component of the transaction manager.
 // It is also the interface to external callers.
@@ -62,6 +65,7 @@ type TxManager[
 	FindEarliestUnconfirmedBroadcastTime(ctx context.Context) (nullv4.Time, error)
 	FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (nullv4.Int, error)
 	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error)
+	GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (state TransactionStatus, err error)
 }
 
 type reset struct {
@@ -93,10 +97,12 @@ type Txm[
 	checkerFactory          TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	pruneQueueAndCreateLock sync.Mutex
 
-	chHeads        chan HEAD
-	trigger        chan ADDR
-	reset          chan reset
-	resumeCallback ResumeCallback
+	chHeads                 chan HEAD
+	latestFinalizedBlockNum int64
+	finalizedBlockNumMu     sync.RWMutex
+	trigger                 chan ADDR
+	reset                   chan reset
+	resumeCallback          ResumeCallback
 
 	chStop   services.StopChan
 	chSubbed chan struct{}
@@ -109,6 +115,7 @@ type Txm[
 	tracker          *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	newTxError       NewTxError
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
@@ -141,6 +148,7 @@ func NewTxm[
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	newTxErrorFunc NewTxError,
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		logger:           logger.Sugared(lggr),
@@ -161,6 +169,7 @@ func NewTxm[
 		confirmer:        confirmer,
 		resender:         resender,
 		tracker:          tracker,
+		newTxError:       newTxErrorFunc,
 	}
 
 	if txCfg.ResendAfterThreshold() <= 0 {
@@ -411,6 +420,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		case head := <-b.chHeads:
 			b.confirmer.mb.Deliver(head)
 			b.tracker.mb.Deliver(head.BlockNumber())
+			// Set latest finalized block number
+			b.finalizedBlockNumMu.Lock()
+			if head.LatestFinalizedHead() != nil && head.LatestFinalizedHead().BlockNumber() != 0 {
+				b.latestFinalizedBlockNum = head.LatestFinalizedHead().BlockNumber()
+			}
+			b.finalizedBlockNumMu.Unlock()
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
@@ -625,6 +640,47 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTrans
 	return b.txStore.CountTransactionsByState(ctx, state, b.chainID)
 }
 
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (status TransactionStatus, err error) {
+	// Loads attempts and receipts
+	tx, err := b.txStore.FindTxWithIdempotencyKey(ctx, transactionID.String(), b.chainID)
+	if err != nil {
+		return status, fmt.Errorf("failed to find transaction with IdempotencyKey %s: %w", transactionID.String(), err)
+	}
+	// This check is required since a no-rows error returns nil err
+	if tx == nil {
+		return status, fmt.Errorf("failed to find transaction with IdempotencyKey %s", transactionID.String())
+	}
+	switch tx.State {
+	case TxUnconfirmed, TxConfirmedMissingReceipt:
+		return Unconfirmed, nil
+	case TxConfirmed:
+		var receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]
+		// Find tx receipt if one exists
+		for _, attempt := range tx.TxAttempts {
+			if len(attempt.Receipts) > 0 {
+				// Tx will only have one receipt
+				receipt = attempt.Receipts[0]
+				break
+			}
+		}
+		b.finalizedBlockNumMu.RLock()
+		defer b.finalizedBlockNumMu.RUnlock()
+		if receipt != nil && b.latestFinalizedBlockNum != 0 && receipt.GetBlockNumber().Cmp(big.NewInt(b.latestFinalizedBlockNum)) <= 0 {
+			return Finalized, nil
+		}
+		return Unconfirmed, nil
+	case TxFatalError:
+		txErr := b.newTxError(tx.GetError())
+		if txErr != nil && txErr.IsTerminallyStuck() {
+			return Fatal, tx.GetError()
+		}
+		return Failed, tx.GetError()
+	default:
+		// Unstarted and InProgress are classified as unknown since they are not supported by the ChainWriter interface
+		return Unknown, nil
+	}
+}
+
 type NullTxManager[
 	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
@@ -706,6 +762,10 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Fin
 
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error) {
 	return count, errors.New(n.ErrMsg)
+}
+
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (status TransactionStatus, err error) {
+	return
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueueAndCreateTxn(
