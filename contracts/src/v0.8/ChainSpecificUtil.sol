@@ -49,9 +49,9 @@ library ChainSpecificUtil {
   uint256 private constant BASE_GOERLI_CHAIN_ID = 84531;
   uint256 private constant BASE_SEPOLIA_CHAIN_ID = 84532;
 
-  /// @dev included L1_FEE_DATA_PADDING and 38 bytes for the transaction signature
+  /// @dev included L1_FEE_DATA_PADDING and 68 bytes for the transaction signature
   /// @dev reference: https://github.com/ethereum-optimism/optimism/blob/233ede59d16cb01bdd8e7ff662a153a4c3178bdd/packages/contracts-bedrock/contracts/L2/GasPriceOracle.sol#L110
-  uint256 private constant OP_L1_TX_PADDING_BYTES = 73;
+  uint256 private constant OP_L1_TX_PADDING_BYTES = 103;
 
   // ------------ End Optimism Constants ------------
 
