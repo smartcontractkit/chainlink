@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	relayermocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -30,6 +32,14 @@ func TestEvmWrite(t *testing.T) {
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
+
+	lggr := logger.TestLogger(t)
+	relayevm.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
+		DS:                   db,
+		CSAETHKeystore:       keyStore,
+		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+	})
+	relayer := relayermocks.NewRelayer(lggr)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()
@@ -45,8 +55,9 @@ func TestEvmWrite(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chain.On("Config").Return(evmcfg)
 
-	capability := targets.NewEvmWrite(chain, logger.TestLogger(t))
 	ctx := testutils.Context(t)
+	capability, err := targets.NewWriteTarget(ctx, relayer, chain, lggr)
+	require.NoError(t, err)
 
 	config, err := values.NewMap(map[string]any{})
 	require.NoError(t, err)
@@ -103,8 +114,9 @@ func TestEvmWrite_EmptyReport(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chain.On("Config").Return(evmcfg)
 
-	capability := targets.NewEvmWrite(chain, logger.TestLogger(t))
 	ctx := testutils.Context(t)
+	capability, err := targets.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
+	require.NoError(t, err)
 
 	config, err := values.NewMap(map[string]any{
 		"abi":    "receive(report bytes)",
