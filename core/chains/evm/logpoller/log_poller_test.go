@@ -437,7 +437,7 @@ func Test_BackupLogPoller(t *testing.T) {
 }
 
 func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
-	emittedLogs := 30
+	emittedLogs := 40
 	// Intentionally use very low backupLogPollerDelay to verify if finality is used properly
 	ctx := testutils.Context(t)
 	lpOpts := logpoller.Opts{
@@ -449,27 +449,25 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 	}
 	th := SetupTH(t, lpOpts)
 
-	header, err := th.Client.HeaderByNumber(ctx, nil)
-	require.NoError(t, err)
-
 	// Emit some logs in blocks
 	for i := 0; i < emittedLogs; i++ {
+		if i == 30 {
+			// Call PollAndSave with no filters are registered.  We call it on block 31, so that
+			// it misses the logs for blocks 2 - 31 but marks block 0 as finalized (rather than 32)
+			currentBlock := th.PollAndSaveLogs(ctx, 1)
+			// currentBlock should be blockChain start + number of emitted logs + 1
+			assert.Equal(t, int64(32), currentBlock)
+		}
+
 		_, err2 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err2)
 		th.Backend.Commit()
 	}
 
-	// First PollAndSave, no filters are registered
-	// 0 (finalized) -> 1 -> 2 -> ...
-	currentBlock := th.PollAndSaveLogs(ctx, 1)
-	// currentBlock should be blockChain start + number of emitted logs + 1
-	assert.Equal(t, int64(emittedLogs)+header.Number.Int64()+1, currentBlock)
-
 	// LogPoller not working, but chain in the meantime has progressed
-	// 0 -> 1 -> 2 -> ... -> currentBlock - 10 (finalized) -> .. -> currentBlock
-	//markBlockAsFinalized(t, th, currentBlock-10)
+	// 0 -> 1 -> 2 -> ... -> 32 (finalized) -> .. -> 42 (currentBlock)
 
-	err = th.LogPoller.RegisterFilter(ctx, logpoller.Filter{
+	err := th.LogPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name:      "Test Emitter",
 		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
 		Addresses: []common.Address{th.EmitterAddress1},
@@ -484,23 +482,22 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 	logs, err := th.LogPoller.Logs(
 		ctx,
 		0,
-		currentBlock,
+		42,
 		EmitterABI.Events["Log1"].ID,
 		th.EmitterAddress1,
 	)
 	require.NoError(t, err)
 	require.Len(t, logs, emittedLogs-10)
 
-	// Progressing even more, move blockchain forward by 1 block and mark it as finalized
-	th.Backend.Commit()
-	//markBlockAsFinalized(t, th, currentBlock)
+	// Finalize the rest of the logs emitted, after which Backup Poller should pick them up
+	finalizeThroughBlock(t, th, 42)
 	th.LogPoller.BackupPollAndSaveLogs(ctx)
 
 	// All emitted logs should be backfilled
 	logs, err = th.LogPoller.Logs(
 		ctx,
 		0,
-		currentBlock+1,
+		43,
 		EmitterABI.Events["Log1"].ID,
 		th.EmitterAddress1,
 	)
