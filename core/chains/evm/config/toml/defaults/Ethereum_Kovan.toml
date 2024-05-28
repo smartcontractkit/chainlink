@@ -9,6 +9,5 @@ OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
 EIP1559DynamicFees = false
 
 [GasEstimator.BlockHistory]
-BatchSize = 25
 BlockHistorySize = 4
 TransactionPercentile = 50
