@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -179,18 +178,6 @@ func (t *ocr3keeperProviderContractTransmitter) Transmit(
 	reportWithInfo ocr3types.ReportWithInfo[plugin.AutomationReportInfo],
 	aoss []ocrtypes.AttributedOnchainSignature,
 ) error {
-
-	// for zk chains, the batch size should be set to 1 in order to figure out which upkeep is responsible for a possible
-	// overflown tx
-	if len(reportWithInfo.Info.UpkeepIDs) == 1 {
-		id := uuid.New()
-		uid := reportWithInfo.Info.UpkeepIDs[0]
-		err := t.txStatusStore.SaveTxInfo(id, uid)
-		if err != nil {
-			t.lggr.Errorf("failed to save tx info into tx status key %s for upkeep ID %s due to %s", id.String(), uid, err.Error())
-		}
-	}
-
 	return t.contractTransmitter.Transmit(
 		ctx,
 		ocrtypes.ReportContext{
