@@ -2,16 +2,18 @@ package request_test
 
 import (
 	"context"
+	"crypto/rand"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -20,13 +22,13 @@ import (
 
 func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	capability := target.testCapability{}
-	capabilityPeerID := target.newP2PPeerID(t)
+	capability := TestCapability{}
+	capabilityPeerID := NewP2PPeerID(t)
 
 	numWorkflowPeers := 2
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
-		workflowPeers[i] = target.newP2PPeerID(t)
+		workflowPeers[i] = NewP2PPeerID(t)
 	}
 
 	callingDon := commoncap.DON{
@@ -72,7 +74,7 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
 
-		nonDonPeer := target.newP2PPeerID(t)
+		nonDonPeer := NewP2PPeerID(t)
 		err = request.Receive(context.Background(), &types.MessageBody{
 			Version:         0,
 			Sender:          nonDonPeer[:],
@@ -116,7 +118,7 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 	t.Run("Send second valid request when capability errors", func(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
-		request := request.NewReceiverRequest(lggr, target.testErrorCapability{}, "capabilityID", "capabilityDonID",
+		request := request.NewReceiverRequest(lggr, TestErrorCapability{}, "capabilityID", "capabilityDonID",
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
 
 		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
@@ -199,4 +201,65 @@ func (t *testDispatcher) RemoveReceiver(capabilityId string, donId string) {}
 func (t *testDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs = append(t.msgs, msgBody)
 	return nil
+}
+
+type abstractTestCapability struct {
+}
+
+func (t abstractTestCapability) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
+	return commoncap.CapabilityInfo{}, nil
+}
+
+func (t abstractTestCapability) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (t abstractTestCapability) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
+type TestCapability struct {
+	abstractTestCapability
+}
+
+func (t TestCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+	ch := make(chan commoncap.CapabilityResponse, 1)
+
+	value := request.Inputs.Underlying["executeValue1"]
+
+	ch <- commoncap.CapabilityResponse{
+		Value: value,
+	}
+
+	return ch, nil
+}
+
+type TestErrorCapability struct {
+	abstractTestCapability
+}
+
+func (t TestErrorCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+	return nil, errors.New("an error")
+}
+
+func NewP2PPeerID(t *testing.T) p2ptypes.PeerID {
+	id := p2ptypes.PeerID{}
+	require.NoError(t, id.UnmarshalText([]byte(NewPeerID())))
+	return id
+}
+
+func NewPeerID() string {
+	var privKey [32]byte
+	_, err := rand.Read(privKey[:])
+	if err != nil {
+		panic(err)
+	}
+
+	peerID := append(libp2pMagic(), privKey[:]...)
+
+	return base58.Encode(peerID[:])
+}
+
+func libp2pMagic() []byte {
+	return []byte{0x00, 0x24, 0x08, 0x01, 0x12, 0x20}
 }

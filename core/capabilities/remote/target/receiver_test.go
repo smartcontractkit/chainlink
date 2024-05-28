@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -23,7 +22,7 @@ func Test_Receiver_RespondsAfterSufficientRequests(t *testing.T) {
 
 	numCapabilityPeers := 4
 
-	callers := testRemoteTargetReceiver(t, ctx, &testCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+	callers := testRemoteTargetReceiver(t, ctx, &TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
 
 	for _, caller := range callers {
 		caller.Execute(context.Background(),
@@ -49,7 +48,7 @@ func Test_Receiver_InsufficientCallers(t *testing.T) {
 
 	numCapabilityPeers := 4
 
-	callers := testRemoteTargetReceiver(t, ctx, &testCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers := testRemoteTargetReceiver(t, ctx, &TestCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond)
 
 	for _, caller := range callers {
 		caller.Execute(context.Background(),
@@ -75,7 +74,7 @@ func Test_Receiver_CapabilityError(t *testing.T) {
 
 	numCapabilityPeers := 4
 
-	callers := testRemoteTargetReceiver(t, ctx, &testErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers := testRemoteTargetReceiver(t, ctx, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond)
 
 	for _, caller := range callers {
 		caller.Execute(context.Background(),
@@ -104,7 +103,7 @@ func testRemoteTargetReceiver(t *testing.T, ctx context.Context,
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
-		capabilityPeerID := newP2PPeerID(t)
+		capabilityPeerID := NewP2PPeerID(t)
 		capabilityPeers[i] = capabilityPeerID
 	}
 
@@ -124,7 +123,7 @@ func testRemoteTargetReceiver(t *testing.T, ctx context.Context,
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
-		workflowPeers[i] = newP2PPeerID(t)
+		workflowPeers[i] = NewP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -158,12 +157,6 @@ func testRemoteTargetReceiver(t *testing.T, ctx context.Context,
 	}
 
 	return workflowNodes
-}
-
-func newP2PPeerID(t *testing.T) p2ptypes.PeerID {
-	id := p2ptypes.PeerID{}
-	require.NoError(t, id.UnmarshalText([]byte(newPeerID())))
-	return id
 }
 
 type receiverTestCaller struct {

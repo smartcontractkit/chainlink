@@ -10,35 +10,43 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-// remoteTargetCaller/Receiver are shims translating between capability API calls and network messages
-type remoteTargetCaller struct {
+type callerRequest interface {
+	AddResponse(sender p2ptypes.PeerID, response []byte) error
+	ResponseChan() <-chan commoncap.CapabilityResponse
+	Expired() bool
+}
+
+// caller/Receiver are shims translating between capability API calls and network messages
+type caller struct {
 	lggr                 logger.Logger
 	remoteCapabilityInfo commoncap.CapabilityInfo
 	localDONInfo         capabilities.DON
 	dispatcher           types.Dispatcher
 	requestTimeout       time.Duration
 
-	messageIDToExecuteRequest map[string]*callerRequest
+	messageIDToExecuteRequest map[string]callerRequest
 	mutex                     sync.Mutex
 }
 
-var _ commoncap.TargetCapability = &remoteTargetCaller{}
-var _ types.Receiver = &remoteTargetCaller{}
+var _ commoncap.TargetCapability = &caller{}
+var _ types.Receiver = &caller{}
 
 func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration) *remoteTargetCaller {
+	requestTimeout time.Duration) *caller {
 
-	caller := &remoteTargetCaller{
+	caller := &caller{
 		lggr:                      lggr,
 		remoteCapabilityInfo:      remoteCapabilityInfo,
 		localDONInfo:              localDonInfo,
 		dispatcher:                dispatcher,
 		requestTimeout:            requestTimeout,
-		messageIDToExecuteRequest: make(map[string]*callerRequest),
+		messageIDToExecuteRequest: make(map[string]callerRequest),
 	}
 
 	go func() {
@@ -57,32 +65,30 @@ func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabi
 	return caller
 }
 
-func (c *remoteTargetCaller) ExpireRequests() {
+func (c *caller) ExpireRequests() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	for messageID, req := range c.messageIDToExecuteRequest {
-		if time.Since(req.createdAt) > c.requestTimeout {
-			req.cancelRequest("request timed out")
+		if req.Expired() {
 			delete(c.messageIDToExecuteRequest, messageID)
 		}
-
 	}
 }
 
-func (c *remoteTargetCaller) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
+func (c *caller) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
 	return c.remoteCapabilityInfo, nil
 }
 
-func (c *remoteTargetCaller) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
+func (c *caller) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
 	return errors.New("not implemented")
 }
 
-func (c *remoteTargetCaller) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
+func (c *caller) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
 	return errors.New("not implemented")
 }
 
-func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+func (c *caller) Execute(ctx context.Context, req commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -95,14 +101,15 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 		return nil, fmt.Errorf("request for message ID %s already exists", messageID)
 	}
 
-	execRequest, err := NewCallerRequest(ctx, c.lggr, req, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
+	execRequest, err := request.NewCallerRequest(ctx, c.lggr, req, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher,
+		c.requestTimeout)
 
 	c.messageIDToExecuteRequest[messageID] = execRequest
 
 	return execRequest.ResponseChan(), nil
 }
 
-func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
+func (c *caller) Receive(msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

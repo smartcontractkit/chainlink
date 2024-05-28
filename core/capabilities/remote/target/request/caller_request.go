@@ -1,4 +1,4 @@
-package target
+package request
 
 import (
 	"context"
@@ -25,11 +25,14 @@ type callerRequest struct {
 
 	requiredIdenticalResponses int
 
+	requestTimeout time.Duration
+
 	respSent bool
 }
 
 func NewCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest, messageID string,
-	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher) (*callerRequest, error) {
+	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
+	requestTimeout time.Duration) (*callerRequest, error) {
 
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
@@ -79,6 +82,7 @@ func NewCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 
 	return &callerRequest{
 		createdAt:                  time.Now(),
+		requestTimeout:             requestTimeout,
 		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
 		responseIDCount:            make(map[[32]byte]int),
 		responseReceived:           responseReceived,
@@ -88,6 +92,15 @@ func NewCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 
 func (c *callerRequest) ResponseChan() <-chan commoncap.CapabilityResponse {
 	return c.responseCh
+}
+
+func (c *callerRequest) Expired() bool {
+	if time.Since(c.createdAt) > c.requestTimeout {
+		c.cancelRequest("request timed out")
+		return true
+	}
+
+	return false
 }
 
 // TODO addResponse assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated

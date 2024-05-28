@@ -92,14 +92,13 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 	// TODO Confirm threading semantics of dispatcher Receive
 	// TODO May want to have executor per message id to improve liveness
 
-	// TODO multithread this
-
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
 		return
 	}
 
-	// A request is uniquely identified by the message id and the hash of the payload
+	// A request is uniquely identified by the message id and the hash of the payload to prevent a malicious
+	// actor from sending a different payload with the same message id
 	messageId := GetMessageID(msg)
 	hash := sha256.Sum256(msg.Payload)
 	requestID := messageId + hex.EncodeToString(hash[:])
@@ -114,13 +113,14 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 		}
 	}
 
-	request := r.requestIDToRequest[requestID]
+	req := r.requestIDToRequest[requestID]
 
-	err := request.Receive(ctx, msg)
-	if err != nil {
-		r.lggr.Errorw("request failed to Receive new message", "request", request, "err", err)
-	}
-
+	go func() {
+		err := req.Receive(ctx, msg)
+		if err != nil {
+			r.lggr.Errorw("request failed to Receive new message", "request", req, "err", err)
+		}
+	}()
 }
 
 func GetMessageID(msg *types.MessageBody) string {

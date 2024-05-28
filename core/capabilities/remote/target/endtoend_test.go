@@ -3,12 +3,12 @@ package target_test
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/mr-tron/base58"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +32,7 @@ func Test_RemoteTargetCapability_InsufficientCapabilityResponses(t *testing.T) {
 		assert.NotNil(t, response.Err)
 	}
 
-	capability := &testCapability{}
+	capability := &TestCapability{}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_AllAtOnce,
@@ -55,7 +55,7 @@ func Test_RemoteTargetCapability_InsufficientWorkflowRequests(t *testing.T) {
 
 	timeOut := 10 * time.Minute
 
-	capability := &testCapability{}
+	capability := &TestCapability{}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_AllAtOnce,
@@ -86,7 +86,7 @@ func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 
 	timeOut := 10 * time.Minute
 
-	capability := &testCapability{}
+	capability := &TestCapability{}
 
 	testRemoteTarget(t, ctx, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
 
@@ -120,7 +120,7 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 
 	timeOut := 10 * time.Minute
 
-	capability := &testCapability{}
+	capability := &TestCapability{}
 
 	// Test scenarios where the number of submissions is greater than or equal to F + 1
 	testRemoteTarget(t, ctx, capability, 1, 0, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
@@ -146,7 +146,7 @@ func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
 		assert.NotNil(t, response.Err)
 	}
 
-	capability := &testErrorCapability{}
+	capability := &TestErrorCapability{}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_AllAtOnce,
@@ -165,12 +165,12 @@ func testRemoteTarget(t *testing.T, ctx context.Context, underlying commoncap.Ta
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeerID := p2ptypes.PeerID{}
-		require.NoError(t, capabilityPeerID.UnmarshalText([]byte(newPeerID())))
+		require.NoError(t, capabilityPeerID.UnmarshalText([]byte(NewPeerID())))
 		capabilityPeers[i] = capabilityPeerID
 	}
 
 	capabilityPeerID := p2ptypes.PeerID{}
-	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(newPeerID())))
+	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(NewPeerID())))
 
 	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
@@ -189,7 +189,7 @@ func testRemoteTarget(t *testing.T, ctx context.Context, underlying commoncap.Ta
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerID := p2ptypes.PeerID{}
-		require.NoError(t, workflowPeerID.UnmarshalText([]byte(newPeerID())))
+		require.NoError(t, workflowPeerID.UnmarshalText([]byte(NewPeerID())))
 		workflowPeers[i] = workflowPeerID
 	}
 
@@ -328,11 +328,11 @@ func (t abstractTestCapability) UnregisterFromWorkflow(ctx context.Context, requ
 	return nil
 }
 
-type testCapability struct {
+type TestCapability struct {
 	abstractTestCapability
 }
 
-func (t testCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+func (t TestCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	ch := make(chan commoncap.CapabilityResponse, 1)
 
 	value := request.Inputs.Underlying["executeValue1"]
@@ -344,15 +344,21 @@ func (t testCapability) Execute(ctx context.Context, request commoncap.Capabilit
 	return ch, nil
 }
 
-type testErrorCapability struct {
+type TestErrorCapability struct {
 	abstractTestCapability
 }
 
-func (t testErrorCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+func (t TestErrorCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	return nil, errors.New("an error")
 }
 
-func newPeerID() string {
+func NewP2PPeerID(t *testing.T) p2ptypes.PeerID {
+	id := p2ptypes.PeerID{}
+	require.NoError(t, id.UnmarshalText([]byte(NewPeerID())))
+	return id
+}
+
+func NewPeerID() string {
 	var privKey [32]byte
 	_, err := rand.Read(privKey[:])
 	if err != nil {

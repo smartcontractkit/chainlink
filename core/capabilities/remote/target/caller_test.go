@@ -38,7 +38,7 @@ func Test_Caller_DonTopologies(t *testing.T) {
 		assert.Equal(t, "aValue1", responseValue.(string))
 	}
 
-	capability := &testCapability{}
+	capability := &TestCapability{}
 
 	responseTimeOut := 10 * time.Minute
 
@@ -71,7 +71,7 @@ func Test_Caller_TransmissionSchedules(t *testing.T) {
 		assert.Equal(t, "aValue1", responseValue.(string))
 	}
 
-	capability := &testCapability{}
+	capability := &TestCapability{}
 
 	responseTimeOut := 10 * time.Minute
 
@@ -109,7 +109,7 @@ func Test_Caller_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 		assert.NotNil(t, response.Err)
 	}
 
-	capability := &testCapability{}
+	capability := &TestCapability{}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_AllAtOnce,
@@ -131,7 +131,7 @@ func testCaller(t *testing.T, ctx context.Context, numWorkflowPeers int, workflo
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
-		capabilityPeers[i] = newP2PPeerID(t)
+		capabilityPeers[i] = NewP2PPeerID(t)
 	}
 
 	capDonInfo := commoncap.DON{
@@ -150,7 +150,7 @@ func testCaller(t *testing.T, ctx context.Context, numWorkflowPeers int, workflo
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
-		workflowPeers[i] = newP2PPeerID(t)
+		workflowPeers[i] = NewP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{

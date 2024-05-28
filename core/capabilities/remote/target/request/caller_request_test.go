@@ -1,8 +1,9 @@
-package target_test
+package request_test
 
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -11,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,7 +25,7 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 	numCapabilityPeers := 2
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
-		capabilityPeers[i] = newP2PPeerID(t)
+		capabilityPeers[i] = NewP2PPeerID(t)
 	}
 
 	capDonInfo := commoncap.DON{
@@ -43,7 +45,7 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 	numWorkflowPeers := 2
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
-		workflowPeers[i] = newP2PPeerID(t)
+		workflowPeers[i] = NewP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -87,8 +89,8 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		dispatcher := &callerRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		request, err := target.NewCallerRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
-			workflowDonInfo, dispatcher)
+		request, err := request.NewCallerRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
+			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 
 		capabilityResponse2 := commoncap.CapabilityResponse{
@@ -119,13 +121,13 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		dispatcher := &callerRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		request, err := target.NewCallerRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
-			workflowDonInfo, dispatcher)
+		request, err := request.NewCallerRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
+			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 
 		err = request.AddResponse(capabilityPeers[0], rawResponse)
 		require.NoError(t, err)
-		err = request.AddResponse(newP2PPeerID(t), rawResponse)
+		err = request.AddResponse(NewP2PPeerID(t), rawResponse)
 		require.NotNil(t, err)
 	})
 
@@ -137,8 +139,8 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		dispatcher := &callerRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		request, err := target.NewCallerRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
-			workflowDonInfo, dispatcher)
+		request, err := request.NewCallerRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
+			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 
 		err = request.AddResponse(capabilityPeers[0], rawResponse)
@@ -155,8 +157,8 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		dispatcher := &callerRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		request, err := target.NewCallerRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
-			workflowDonInfo, dispatcher)
+		request, err := request.NewCallerRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
+			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 
 		<-dispatcher.msgs
