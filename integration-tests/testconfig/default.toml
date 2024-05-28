@@ -97,6 +97,7 @@ tracing_level = "reverted"
 # were able te decode, we try to save maximum information possible. It can either be:
 # just tx hash, decoded transaction or call trace. Which transactions traces are saved depends
 # on 'tracing_level'.
+
 # number of addresses to be generated and runtime, if set to 0, no addresses will be generated
 # each generated address will receive a proportion of native tokens from root private key's balance
 # with the value equal to (root_balance / ephemeral_addresses_number) - transfer_fee * ephemeral_addresses_number
@@ -106,16 +107,27 @@ ephemeral_addresses_number = 10
 # That's because the one we are about to send would get queued, possibly for a very long time
 pending_nonce_protection_enabled = true
 
-root_key_funds_buffer = 1000
+# Amount to be left on root key/address, when we are using ephemeral addresses. It's the amount that will not
+# be divided into ephemeral keys. Default value is good for simulated networks, but you should change it for
+# something much more reasonable for live networks.
+root_key_funds_buffer = 1000 # 1000 ethers
 
 # when enabled when creating a new Seth client we will send 10k wei from root address to root address
 # to make sure transaction can be submited and mined
 check_rpc_health_on_start = false
 
+# feature-flagged expriments: "slow_funds_return" sets funds return priority to 'slow' (core only!);
+# "eip_1559_fee_equalizer" sets the tip/base fee to the higher value in case there's 3+ orders of magnitude difference between them
+experiments_enabled = []
+
 [Seth.nonce_manager]
+# rate-limiting of key syncs, to prevent spamming the node with nonce calls
 key_sync_rate_limit_per_sec = 10
+# how long to wait for a key sync to complete before giving up
 key_sync_timeout = "100s"
+# how long to wait before retrying a key sync
 key_sync_retry_delay = "1s"
+# how many times to retry a key sync before giving up
 key_sync_retries = 10
 
 # this is a default config that will be used if you haven't specified any network specific settings
@@ -178,7 +190,7 @@ eip_1559_dynamic_fees = true
 # gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
 # gas_limit = 8_000_000
 # transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
-# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
+# we use hardcoded value in order to estimate how much funds are available for sending or returning after tx costs have been paid
 transfer_gas_fee = 21_000
 
 # manual settings, used when gas_price_estimation_enabled is false or when it fails
