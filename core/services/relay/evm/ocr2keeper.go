@@ -180,9 +180,6 @@ func (t *ocr3keeperProviderContractTransmitter) Transmit(
 	aoss []ocrtypes.AttributedOnchainSignature,
 ) error {
 
-	// possibly decode reportWithInfo.Report into automation_compatible_utils.IAutomationV21PlusCommonReport if
-	// the Info approach is not working
-
 	// for zk chains, the batch size should be set to 1 in order to figure out which upkeep is responsible for a possible
 	// overflown tx
 	if len(reportWithInfo.Info.UpkeepIDs) == 1 {
@@ -190,7 +187,7 @@ func (t *ocr3keeperProviderContractTransmitter) Transmit(
 		uid := reportWithInfo.Info.UpkeepIDs[0]
 		err := t.txStatusStore.SaveTxInfo(id, uid)
 		if err != nil {
-			t.lggr.Errorf("failed to save tx info into tx status key %s for upkeep ID %s", id.String(), uid)
+			t.lggr.Errorf("failed to save tx info into tx status key %s for upkeep ID %s due to %s", id.String(), uid, err.Error())
 		}
 	}
 
