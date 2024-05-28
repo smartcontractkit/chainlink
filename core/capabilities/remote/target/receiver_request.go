@@ -59,14 +59,17 @@ func NewReceiverRequest(lggr logger.Logger, capability capabilities.TargetCapabi
 	}
 }
 
-func (e *receiverRequest) receive(ctx context.Context, msg *types.MessageBody) error {
+func (e *receiverRequest) Receive(ctx context.Context, msg *types.MessageBody) error {
 	requester := remote.ToPeerID(msg.Sender)
 	if err := e.addRequester(requester); err != nil {
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
 
 	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
-		e.executeRequest(ctx, msg.Payload)
+		if err := e.executeRequest(ctx, msg.Payload); err != nil {
+			e.setError(types.Error_INTERNAL_ERROR)
+			e.lggr.Errorw("failed to execute request", "error", err)
+		}
 	}
 
 	if err := e.sendResponses(); err != nil {
@@ -76,32 +79,31 @@ func (e *receiverRequest) receive(ctx context.Context, msg *types.MessageBody) e
 	return nil
 }
 
-func (e *receiverRequest) executeRequest(ctx context.Context, payload []byte) {
+func (e *receiverRequest) executeRequest(ctx context.Context, payload []byte) error {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
 	defer cancel()
 
 	capabilityRequest, err := pb.UnmarshalCapabilityRequest(payload)
 	if err != nil {
-		e.setError(types.Error_INVALID_REQUEST)
-		e.lggr.Errorw("failed to unmarshal capability request", "err", err)
+		return fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
 
 	capResponseCh, err := e.capability.Execute(ctxWithTimeout, capabilityRequest)
 
 	if err != nil {
-		e.setError(types.Error_INTERNAL_ERROR)
-		e.lggr.Errorw("failed to execute capability", "err", err)
+		return fmt.Errorf("failed to execute capability: %w", err)
 	}
 
 	// TODO working on the assumption that the capability will only ever return one response from its channel (for now at least)
 	capResponse := <-capResponseCh
 	responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
 	if err != nil {
-		e.setError(types.Error_INTERNAL_ERROR)
-		e.lggr.Errorw("failed to marshal capability response", "err", err)
+		return fmt.Errorf("failed to marshal capability response: %w", err)
 	}
 
 	e.setResult(responsePayload)
+
+	return nil
 }
 
 func (e *receiverRequest) addRequester(from p2ptypes.PeerID) error {

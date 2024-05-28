@@ -90,7 +90,7 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 	// TODO should the dispatcher be passing in a context?
 	ctx := context.Background()
 
-	// TODO Confirm threading semantics of dispatcher receive
+	// TODO Confirm threading semantics of dispatcher Receive
 	// TODO May want to have executor per message id to improve liveness
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
@@ -109,7 +109,7 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
 		if callingDon, ok := r.workflowDONs[msg.CallerDonId]; ok {
-			r.requestIDToRequest[requestID] = newTargetCapabilityRequest(r.lggr, r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
+			r.requestIDToRequest[requestID] = NewReceiverRequest(r.lggr, r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
 				callingDon, messageId, r.dispatcher, r.requestTimeout)
 		} else {
 			r.lggr.Errorw("received request from unregistered workflow don", "donId", msg.CallerDonId)
@@ -119,9 +119,9 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 
 	request := r.requestIDToRequest[requestID]
 
-	err := request.receive(ctx, msg)
+	err := request.Receive(ctx, msg)
 	if err != nil {
-		r.lggr.Errorw("request failed to receive new message", "request", request, "err", err)
+		r.lggr.Errorw("request failed to Receive new message", "request", request, "err", err)
 	}
 
 }

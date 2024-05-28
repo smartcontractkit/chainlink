@@ -17,13 +17,13 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func Test_RemoteTargetCapability_InsufficientWorkflowCallers(t *testing.T) {
+func Test_Receiver_InsufficientWorkflowCallers(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
 	numCapabilityPeers := 4
 
-	callers := testRemoteTargetReceiver(t, ctx, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers := testRemoteTargetReceiver(t, ctx, &testCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond)
 
 	for _, caller := range callers {
 		caller.Execute(context.Background(),
@@ -43,13 +43,13 @@ func Test_RemoteTargetCapability_InsufficientWorkflowCallers(t *testing.T) {
 	}
 }
 
-func Test_RemoteTargetCapability_IgnoresRequestFromIncorrectPeer(t *testing.T) {
+func Test_Receiver_CapabilityError(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
 	numCapabilityPeers := 4
 
-	callers := testRemoteTargetReceiver(t, ctx, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers := testRemoteTargetReceiver(t, ctx, &testErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond)
 
 	for _, caller := range callers {
 		caller.Execute(context.Background(),
@@ -64,25 +64,23 @@ func Test_RemoteTargetCapability_IgnoresRequestFromIncorrectPeer(t *testing.T) {
 	for _, caller := range callers {
 		for i := 0; i < numCapabilityPeers; i++ {
 			msg := <-caller.receivedMessages
-			assert.Equal(t, remotetypes.Error_TIMEOUT, msg.Error)
+			assert.Equal(t, remotetypes.Error_INTERNAL_ERROR, msg.Error)
 		}
 	}
 }
 
-func testRemoteTargetReceiver(t *testing.T, ctx context.Context, numWorkflowPeers int, workflowDonF uint8,
+func testRemoteTargetReceiver(t *testing.T, ctx context.Context,
+	underlying commoncap.TargetCapability,
+	numWorkflowPeers int, workflowDonF uint8,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration) []*receiverTestCaller {
 
 	lggr := logger.TestLogger(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
-		capabilityPeerID := p2ptypes.PeerID{}
-		require.NoError(t, capabilityPeerID.UnmarshalText([]byte(newPeerID())))
+		capabilityPeerID := newP2PPeerID(t)
 		capabilityPeers[i] = capabilityPeerID
 	}
-
-	capabilityPeerID := p2ptypes.PeerID{}
-	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(newPeerID())))
 
 	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
@@ -100,9 +98,7 @@ func testRemoteTargetReceiver(t *testing.T, ctx context.Context, numWorkflowPeer
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
-		workflowPeerID := p2ptypes.PeerID{}
-		require.NoError(t, workflowPeerID.UnmarshalText([]byte(newPeerID())))
-		workflowPeers[i] = workflowPeerID
+		workflowPeers[i] = newP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -116,7 +112,6 @@ func testRemoteTargetReceiver(t *testing.T, ctx context.Context, numWorkflowPeer
 	workflowDONs := map[string]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
-	underlying := &testCapability{}
 
 	capabilityNodes := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -137,6 +132,12 @@ func testRemoteTargetReceiver(t *testing.T, ctx context.Context, numWorkflowPeer
 	}
 
 	return workflowNodes
+}
+
+func newP2PPeerID(t *testing.T) p2ptypes.PeerID {
+	id := p2ptypes.PeerID{}
+	require.NoError(t, id.UnmarshalText([]byte(newPeerID())))
+	return id
 }
 
 type receiverTestCaller struct {
@@ -176,7 +177,7 @@ func (r *receiverTestCaller) Execute(ctx context.Context, req commoncap.Capabili
 		return nil, err
 	}
 
-	messageID, err := target.GetRequestID(req)
+	messageID, err := target.GetMessageIDForRequest(req)
 	if err != nil {
 		return nil, err
 	}

@@ -147,13 +147,8 @@ func testRemoteTargetCaller(t *testing.T, numWorkflowPeers int, workflowNodeResp
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
-		capabilityPeerID := p2ptypes.PeerID{}
-		require.NoError(t, capabilityPeerID.UnmarshalText([]byte(newPeerID())))
-		capabilityPeers[i] = capabilityPeerID
+		capabilityPeers[i] = newP2PPeerID(t)
 	}
-
-	capabilityPeerID := p2ptypes.PeerID{}
-	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(newPeerID())))
 
 	capDonInfo := commoncap.DON{
 		ID:      "capability-don",
@@ -171,9 +166,7 @@ func testRemoteTargetCaller(t *testing.T, numWorkflowPeers int, workflowNodeResp
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
-		workflowPeerID := p2ptypes.PeerID{}
-		require.NoError(t, workflowPeerID.UnmarshalText([]byte(newPeerID())))
-		workflowPeers[i] = workflowPeerID
+		workflowPeers[i] = newP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{

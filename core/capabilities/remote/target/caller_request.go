@@ -106,10 +106,10 @@ func (c *callerRequest) addResponse(sender p2ptypes.PeerID, response []byte) err
 
 	c.responseReceived[sender] = true
 
-	payloadId := sha256.Sum256(response)
-	c.responseIDCount[payloadId]++
+	responseID := sha256.Sum256(response)
+	c.responseIDCount[responseID]++
 
-	if c.responseIDCount[payloadId] == c.requiredIdenticalResponses {
+	if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
 		capabilityResponse, err := pb.UnmarshalCapabilityResponse(response)
 		if err != nil {
 			c.sendResponse(commoncap.CapabilityResponse{Err: fmt.Errorf("failed to unmarshal capability response: %w", err)})

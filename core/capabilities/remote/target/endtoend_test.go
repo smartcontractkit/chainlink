@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -39,7 +40,9 @@ func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 
 	timeOut := 10 * time.Minute
 
-	testRemoteTarget(t, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
+	capability := &testCapability{}
+
+	testRemoteTarget(t, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
 
 	transmissionSchedule, err = values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_AllAtOnce,
@@ -47,7 +50,7 @@ func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testRemoteTarget(t, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
 
 }
 
@@ -69,18 +72,20 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 
 	timeOut := 10 * time.Minute
 
+	capability := &testCapability{}
+
 	// Test scenarios where the number of submissions is greater than or equal to F + 1
-	testRemoteTarget(t, 1, 0, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, 4, 3, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, 10, 3, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 1, 0, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 4, 3, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 10, 3, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
 
-	testRemoteTarget(t, 1, 0, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, 1, 0, timeOut, 4, 3, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, 1, 0, timeOut, 10, 3, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 1, 0, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 1, 0, timeOut, 4, 3, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 1, 0, timeOut, 10, 3, timeOut, transmissionSchedule, responseTest)
 
-	testRemoteTarget(t, 4, 3, timeOut, 4, 3, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, 10, 3, timeOut, 10, 3, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 4, 3, timeOut, 4, 3, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 10, 3, timeOut, 10, 3, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
 
 	/*
 		transmissionSchedule, err = values.NewMap(map[string]any{
@@ -106,7 +111,30 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 
 }
 
-func testRemoteTarget(t *testing.T, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
+func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
+	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		response := <-responseCh
+		responseValue, err := response.Value.Unwrap()
+		require.NoError(t, err)
+		assert.Equal(t, "aValue1", responseValue.(string))
+	}
+
+	timeOut := 10 * time.Minute
+
+	capability := &testErrorCapability{}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	testRemoteTarget(t, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
+
+}
+
+func testRemoteTarget(t *testing.T, underlying commoncap.TargetCapability, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration, transmissionSchedule *values.Map,
 	responseTest func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error)) {
 	lggr := logger.TestLogger(t)
@@ -155,7 +183,6 @@ func testRemoteTarget(t *testing.T, numWorkflowPeers int, workflowDonF uint8, wo
 	workflowDONs := map[string]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
-	underlying := &testCapability{}
 
 	capabilityNodes := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -265,19 +292,23 @@ func (t *nodeDispatcher) SetReceiver(capabilityId string, donId string, receiver
 }
 func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId string) {}
 
-type testCapability struct {
+type abstractTestCapability struct {
 }
 
-func (t testCapability) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
+func (t abstractTestCapability) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
 	return commoncap.CapabilityInfo{}, nil
 }
 
-func (t testCapability) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
+func (t abstractTestCapability) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
 	return nil
 }
 
-func (t testCapability) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
+func (t abstractTestCapability) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
 	return nil
+}
+
+type testCapability struct {
+	abstractTestCapability
 }
 
 func (t testCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
@@ -290,6 +321,14 @@ func (t testCapability) Execute(ctx context.Context, request commoncap.Capabilit
 	}
 
 	return ch, nil
+}
+
+type testErrorCapability struct {
+	abstractTestCapability
+}
+
+func (t testErrorCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+	return nil, errors.New("an error")
 }
 
 func newPeerID() string {

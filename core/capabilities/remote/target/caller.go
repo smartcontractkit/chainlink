@@ -22,7 +22,7 @@ type remoteTargetCaller struct {
 	dispatcher           types.Dispatcher
 	requestTimeout       time.Duration
 
-	requestIDToExecuteRequest map[string]*callerRequest
+	messageIDToExecuteRequest map[string]*callerRequest
 	mutex                     sync.Mutex
 }
 
@@ -38,7 +38,7 @@ func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabi
 		localDONInfo:              localDonInfo,
 		dispatcher:                dispatcher,
 		requestTimeout:            requestTimeout,
-		requestIDToExecuteRequest: make(map[string]*callerRequest),
+		messageIDToExecuteRequest: make(map[string]*callerRequest),
 	}
 
 	go func() {
@@ -61,12 +61,12 @@ func (c *remoteTargetCaller) ExpireRequests() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for messageID, req := range c.requestIDToExecuteRequest {
+	for messageID, req := range c.messageIDToExecuteRequest {
 		if time.Since(req.createdAt) > c.requestTimeout {
 			req.cancelRequest("request timed out")
 		}
 
-		delete(c.requestIDToExecuteRequest, messageID)
+		delete(c.messageIDToExecuteRequest, messageID)
 	}
 }
 
@@ -86,18 +86,18 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	requestID, err := GetRequestID(req)
+	messageID, err := GetMessageIDForRequest(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get request ID: %w", err)
+		return nil, fmt.Errorf("failed to get message ID for request: %w", err)
 	}
 
-	if _, ok := c.requestIDToExecuteRequest[requestID]; ok {
-		return nil, fmt.Errorf("request with ID %s already exists", requestID)
+	if _, ok := c.messageIDToExecuteRequest[messageID]; ok {
+		return nil, fmt.Errorf("request for message ID %s already exists", messageID)
 	}
 
-	execRequest, err := newCallerRequest(ctx, c.lggr, req, requestID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
+	execRequest, err := newCallerRequest(ctx, c.lggr, req, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
 
-	c.requestIDToExecuteRequest[requestID] = execRequest
+	c.messageIDToExecuteRequest[messageID] = execRequest
 
 	return execRequest.responseCh, nil
 }
@@ -106,27 +106,27 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	requestID := GetMessageID(msg)
+	messageID := GetMessageID(msg)
 	sender := remote.ToPeerID(msg.Sender)
 
-	req := c.requestIDToExecuteRequest[requestID]
+	req := c.messageIDToExecuteRequest[messageID]
 	if req == nil {
-		c.lggr.Warnw("received response for unknown request ID", "requestID", requestID, "sender", sender)
+		c.lggr.Warnw("received response for unknown message ID ", "messageID", messageID, "sender", sender)
 		return
 	}
 
 	if msg.Error != types.Error_OK {
-		c.lggr.Warnw("received error response for pending request", "requestID", requestID, "sender", sender, "receiver", msg.Receiver, "error", msg.Error)
+		c.lggr.Warnw("received error response for pending request", "messageID", messageID, "sender", sender, "receiver", msg.Receiver, "error", msg.Error)
 		return
 	}
 
 	if err := req.addResponse(sender, msg.Payload); err != nil {
-		c.lggr.Errorw("failed to add response to request", "requestID", requestID, "sender", sender, "err", err)
+		c.lggr.Errorw("failed to add response to request", "messageID", messageID, "sender", sender, "err", err)
 	}
 }
 
 // Move this into common?
-func GetRequestID(req commoncap.CapabilityRequest) (string, error) {
+func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
 	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
 		return "", errors.New("workflow ID and workflow execution ID must be set in request metadata")
 	}
