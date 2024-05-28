@@ -49,6 +49,10 @@ Most test files have a couple of tests, it's recommended to look into the file a
 
 It's generally recommended to run only one test at a time on a local machine as it needs a lot of docker containers and can peg your resources otherwise. You will see docker containers spin up on your machine for each component of the test where you can inspect logs.
 
+### Configure Seth
+
+Our new evm client is Seth. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) in this repo as well as in [Seth repository](https://github.com/smartcontractkit/seth).
+
 ## Analyze
 
 You can see the results of each test in the terminal with normal `go test` output. If a test fails, logs of each Chainlink container will dump into the `smoke/logs/` folder for later analysis. You can also see these logs in CI uploaded as GitHub artifacts.
