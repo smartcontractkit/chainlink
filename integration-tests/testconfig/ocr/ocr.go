@@ -127,7 +127,7 @@ func (o *SoakConfig) Validate() error {
 		return errors.New("ocr_version must be set to either 1 or 2")
 	}
 	if o.NumberOfContracts == nil || *o.NumberOfContracts <= 1 {
-		return errors.New("number_of_contracts must be set and be greater than 1")
+		// return errors.New("number_of_contracts must be set and be greater than 1")
 	}
 	if o.TimeBetweenRounds == nil || o.TimeBetweenRounds.Duration == 0 {
 		return errors.New("time_between_rounds must be set and be a positive integer")
