@@ -29,6 +29,6 @@ func (b *chainWriterConfig) ABI() string {
 	return *b.c.ABI
 }
 
-func (b *chainWriterConfig) ContractFunction() string {
-	return *b.c.ContractFunction
+func (b *chainWriterConfig) ContractMethod() string {
+	return *b.c.ContractMethod
 }
