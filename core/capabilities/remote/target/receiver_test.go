@@ -17,6 +17,32 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+func Test_Receiver_RespondsAfterSufficientRequests(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	numCapabilityPeers := 4
+
+	callers := testRemoteTargetReceiver(t, ctx, &testCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+
+	for _, caller := range callers {
+		caller.Execute(context.Background(),
+			commoncap.CapabilityRequest{
+				Metadata: commoncap.RequestMetadata{
+					WorkflowID:          "workflowID",
+					WorkflowExecutionID: "workflowExecutionID",
+				},
+			})
+	}
+
+	for _, caller := range callers {
+		for i := 0; i < numCapabilityPeers; i++ {
+			msg := <-caller.receivedMessages
+			assert.Equal(t, remotetypes.Error_OK, msg.Error)
+		}
+	}
+}
+
 func Test_Receiver_InsufficientCallers(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()

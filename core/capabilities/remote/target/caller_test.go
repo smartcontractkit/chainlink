@@ -99,7 +99,7 @@ func Test_Caller_TransmissionSchedules(t *testing.T) {
 
 }
 
-func Test_Caller_TimesOutIfRespondingCapabilityPeersLessThenFPlusOne(t *testing.T) {
+func Test_Caller_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 

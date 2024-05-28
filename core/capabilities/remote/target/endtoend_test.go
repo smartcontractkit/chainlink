@@ -22,6 +22,50 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+func Test_RemoteTargetCapability_InsufficientCapabilityResponses(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		response := <-responseCh
+		assert.NotNil(t, response.Err)
+	}
+
+	capability := &testCapability{}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	testRemoteTarget(t, ctx, capability, 10, 9, 10*time.Millisecond, 10, 10, 10*time.Minute, transmissionSchedule, responseTest)
+}
+
+func Test_RemoteTargetCapability_InsufficientWorkflowRequests(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		response := <-responseCh
+		assert.NotNil(t, response.Err)
+	}
+
+	timeOut := 10 * time.Minute
+
+	capability := &testCapability{}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	testRemoteTarget(t, ctx, capability, 10, 10, 10*time.Millisecond, 10, 9, timeOut, transmissionSchedule, responseTest)
+}
+
 func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
