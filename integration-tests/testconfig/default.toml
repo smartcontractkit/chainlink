@@ -379,3 +379,20 @@ gas_price_estimation_blocks = 50
 # priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
 gas_price_estimation_tx_priority = "standard"
 
+[[Seth.networks]]
+name = "Arbitrum Sepolia"
+transaction_timeout = "10m"
+transfer_gas_fee = 50_000
+# gas_limit = 15_000_000
+# legacy transactions
+gas_price = 200_000_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = true
+gas_fee_cap = 200_000_000_000
+gas_tip_cap = 10_000_000_000
+# if set to true we will estimate gas for every transaction
+gas_price_estimation_enabled = true
+# how many last blocks to use, when estimating gas for a transaction
+gas_price_estimation_blocks = 100
+# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
+gas_price_estimation_tx_priority = "standard"
