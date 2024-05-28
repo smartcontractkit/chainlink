@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update internal ECR if the latest Ethereum client image does not exist
-        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@cbbf3ed245ae00c2f14aaecf3ea1556537e6fdaf
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@7eb04a030823b316d8dd5bb555f1e49593a503fc
         with:
           aws_region: ${{ secrets.QA_AWS_REGION }}
           role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
