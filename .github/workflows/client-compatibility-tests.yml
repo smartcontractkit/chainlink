@@ -13,6 +13,24 @@ env:
   MOD_CACHE_VERSION: 2
 
 jobs:
+  # Check if images used as test dependencies exist in the ECR 
+  check-ecr-images-exist:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Check images used as test dependencies exist in ECR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update internal ECR if the latest Ethereum client image does not exist
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@cbbf3ed245ae00c2f14aaecf3ea1556537e6fdaf
+        with:
+          aws_region: ${{ secrets.QA_AWS_REGION }}
+          role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          aws_account_number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          image_name: 'ethereum/client-go'
+          expression: '^(alltools-v|v)[0-9]\.[0-9]+\.[0-9]+$'
+
   # Build Test Dependencies
 
   build-chainlink:
@@ -88,7 +106,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, build-tests]
+    needs: [build-chainlink, build-tests, check-ecr-images-exist]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
