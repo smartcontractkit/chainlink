@@ -667,7 +667,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       uint32 configCount = don.configCount;
       EnumerableSet.Bytes32Set storage nodeP2PIds = don.config[configCount].nodes;
 
-      for (uint32 j; j < nodeP2PIds.length(); ++j) {
+      for (uint256 j; j < nodeP2PIds.length(); ++j) {
         s_nodes[nodeP2PIds.at(j)].supportedDONIds.remove(donId);
       }
 
