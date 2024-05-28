@@ -129,6 +129,7 @@ jobs:
           cl_image_tag: 'latest'
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_location: ./integration-tests/${{ matrix.tests.suite }}/logs
+          artifacts_name: testcontainers-logs-${{ matrix.tests.name }}
           publish_check_name: Automation Results ${{ matrix.tests.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
@@ -139,7 +140,7 @@ jobs:
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         if: failure()
         with:
-          name: test-log-${{ matrix.tests.name }}
+          name: gotest-logs-${{ matrix.tests.name }}
           path: /tmp/gotest.log
           retention-days: 7
         continue-on-error: true
@@ -155,6 +156,9 @@ jobs:
           this-job-name: Automation ${{ matrix.tests.name }} Test
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
 
   test-notify:
     name: Start Slack Thread

@@ -24,7 +24,7 @@ jobs:
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
-              - 'contracts/foundry-lib'
+              - 'contracts/foundry-lib/**/*'
               - '.gitmodules'
 
   tests:

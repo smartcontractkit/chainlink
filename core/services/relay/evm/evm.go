@@ -78,7 +78,7 @@ type Relayer struct {
 	lggr                 logger.Logger
 	ks                   CSAETHKeystore
 	mercuryPool          wsrpc.Pool
-	chainReader          commontypes.ChainReader
+	chainReader          commontypes.ContractReader
 	codec                commontypes.Codec
 	capabilitiesRegistry coretypes.CapabilitiesRegistry
 
@@ -439,8 +439,7 @@ type configWatcher struct {
 	chain            legacyevm.Chain
 	runReplay        bool
 	fromBlock        uint64
-	replayCtx        context.Context
-	replayCancel     context.CancelFunc
+	stopCh           services.StopChan
 	wg               sync.WaitGroup
 }
 
@@ -452,7 +451,6 @@ func newConfigWatcher(lggr logger.Logger,
 	fromBlock uint64,
 	runReplay bool,
 ) *configWatcher {
-	replayCtx, replayCancel := context.WithCancel(context.Background())
 	return &configWatcher{
 		lggr:             lggr.Named("ConfigWatcher").Named(contractAddress.String()),
 		contractAddress:  contractAddress,
@@ -461,8 +459,7 @@ func newConfigWatcher(lggr logger.Logger,
 		chain:            chain,
 		runReplay:        runReplay,
 		fromBlock:        fromBlock,
-		replayCtx:        replayCtx,
-		replayCancel:     replayCancel,
+		stopCh:           make(chan struct{}),
 	}
 }
 
@@ -477,8 +474,10 @@ func (c *configWatcher) Start(ctx context.Context) error {
 			c.wg.Add(1)
 			go func() {
 				defer c.wg.Done()
+				ctx, cancel := c.stopCh.NewCtx()
+				defer cancel()
 				c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
-				if err := c.configPoller.Replay(c.replayCtx, int64(c.fromBlock)); err != nil {
+				if err := c.configPoller.Replay(ctx, int64(c.fromBlock)); err != nil {
 					c.lggr.Errorf("error replaying for config", "err", err)
 				} else {
 					c.lggr.Infow("completed replaying for config", "fromBlock", c.fromBlock)
@@ -492,7 +491,7 @@ func (c *configWatcher) Start(ctx context.Context) error {
 
 func (c *configWatcher) Close() error {
 	return c.StopOnce(fmt.Sprintf("configWatcher %x", c.contractAddress), func() error {
-		c.replayCancel()
+		close(c.stopCh)
 		c.wg.Wait()
 		return c.configPoller.Close()
 	})
@@ -567,17 +566,34 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		gasLimit = uint64(*opts.pluginGasLimit)
 	}
 
-	transmitter, err := ocrcommon.NewTransmitter(
-		configWatcher.chain.TxManager(),
-		fromAddresses,
-		gasLimit,
-		effectiveTransmitterAddress,
-		strategy,
-		checker,
-		configWatcher.chain.ID(),
-		ethKeystore,
-	)
+	var transmitter Transmitter
+	var err error
 
+	switch commontypes.OCR2PluginType(rargs.ProviderType) {
+	case commontypes.Median:
+		transmitter, err = ocrcommon.NewOCR2FeedsTransmitter(
+			configWatcher.chain.TxManager(),
+			fromAddresses,
+			common.HexToAddress(rargs.ContractID),
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
+			configWatcher.chain.ID(),
+			ethKeystore,
+		)
+	default:
+		transmitter, err = ocrcommon.NewTransmitter(
+			configWatcher.chain.TxManager(),
+			fromAddresses,
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
+			configWatcher.chain.ID(),
+			ethKeystore,
+		)
+	}
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
 	}
@@ -593,6 +609,16 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		nil,
 		transmissionContractRetention,
 	)
+}
+
+func (r *Relayer) NewContractReader(chainReaderConfig []byte) (commontypes.ContractReader, error) {
+	ctx := context.Background()
+	cfg := &types.ChainReaderConfig{}
+	if err := json.Unmarshal(chainReaderConfig, cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshall chain reader config err: %s", err)
+	}
+
+	return NewChainReaderService(ctx, r.lggr, r.chain.LogPoller(), r.chain.Client(), *cfg)
 }
 
 func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
@@ -734,7 +760,7 @@ func (p *medianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 	return p.configWatcher.ContractConfigTracker()
 }
 
-func (p *medianProvider) ChainReader() commontypes.ChainReader {
+func (p *medianProvider) ChainReader() commontypes.ContractReader {
 	return p.chainReader
 }
 

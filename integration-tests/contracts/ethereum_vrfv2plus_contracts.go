@@ -480,24 +480,28 @@ func (v *EthereumVRFCoordinatorV2_5) FindSubscriptionID(subID *big.Int) (*big.In
 	return subscriptionIterator.Event.SubId, nil
 }
 
-func (v *EthereumVRFCoordinatorV2_5) WaitForSubscriptionCanceledEvent(subID *big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error) {
-	eventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled)
-	subscription, err := v.coordinator.WatchSubscriptionCanceled(nil, eventsChannel, []*big.Int{subID})
+func (v *EthereumVRFCoordinatorV2_5) FilterRandomWordsFulfilledEvent(opts *bind.FilterOpts, requestId *big.Int) (*CoordinatorRandomWordsFulfilled, error) {
+	iterator, err := v.coordinator.FilterRandomWordsFulfilled(
+		opts,
+		[]*big.Int{requestId},
+		nil,
+	)
 	if err != nil {
 		return nil, err
 	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for SubscriptionCanceled event")
-		case sub := <-eventsChannel:
-			return sub, nil
-		}
+	if !iterator.Next() {
+		return nil, fmt.Errorf("expected at least 1 RandomWordsFulfilled event for request Id: %s", requestId.String())
 	}
+	return &CoordinatorRandomWordsFulfilled{
+		RequestId:     iterator.Event.RequestId,
+		OutputSeed:    iterator.Event.OutputSeed,
+		SubId:         iterator.Event.SubId.String(),
+		Payment:       iterator.Event.Payment,
+		NativePayment: iterator.Event.NativePayment,
+		Success:       iterator.Event.Success,
+		OnlyPremium:   iterator.Event.OnlyPremium,
+		Raw:           iterator.Event.Raw,
+	}, nil
 }
 
 func (v *EthereumVRFCoordinatorV2_5) WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error) {
@@ -902,12 +906,34 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) FindSubscriptionID() (*big
 	if err != nil {
 		return nil, err
 	}
-
 	if !subscriptionIterator.Next() {
 		return nil, fmt.Errorf("expected at least 1 subID for the given owner %s", owner)
 	}
-
 	return subscriptionIterator.Event.SubId, nil
+}
+
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) FilterRandomWordsFulfilledEvent(opts *bind.FilterOpts, requestId *big.Int) (*CoordinatorRandomWordsFulfilled, error) {
+	iterator, err := v.coordinator.FilterRandomWordsFulfilled(
+		opts,
+		[]*big.Int{requestId},
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if !iterator.Next() {
+		return nil, fmt.Errorf("expected at least 1 RandomWordsFulfilled event for request Id: %s", requestId.String())
+	}
+	return &CoordinatorRandomWordsFulfilled{
+		RequestId:     iterator.Event.RequestId,
+		OutputSeed:    iterator.Event.OutputSeed,
+		SubId:         iterator.Event.SubId.String(),
+		Payment:       iterator.Event.Payment,
+		NativePayment: iterator.Event.NativePayment,
+		Success:       iterator.Event.Success,
+		OnlyPremium:   iterator.Event.OnlyPremium,
+		Raw:           iterator.Event.Raw,
+	}, nil
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error) {
