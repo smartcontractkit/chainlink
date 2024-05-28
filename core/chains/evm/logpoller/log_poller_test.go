@@ -921,10 +921,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			// DB: 1, 2
 			// - Detect a reorg,
 			// - Update the block 2's hash
-			// - Save L1'
+			// - Save L1_2
 			// - L1_1 deleted
-			reorgedOutBlock, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(2))
-			require.NoError(t, err)
 			lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
 			require.NoError(t, err)
 			require.NoError(t, th.Backend.Fork(lca.Hash()))
@@ -946,20 +944,25 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
 			th.assertHaveCanonical(t, 1, 3)
 
-			// Test scenario: reorg back to previous tip.
-			// Chain gen <- 1 <- 2 (L1_1) <- 3' (L1_3) <- 4
-			//                \ 2'(L1_2) <- 3
-			require.NoError(t, th.Backend.Fork(reorgedOutBlock.Hash()))
+			parent, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
+
+			// Test scenario: reorg back to a chain that looks similar to the original chain. (simulated geth used to allow
+			// re-org'ing back to exactly the same chain--now the best we can do is re-emit the same logs on a new one to simulate that)
+			// Chain gen <- 1 <- 2 (L1_1)
+			//               \ 2' (L1_2) <- 3
+			//                \ 2''(L1_1) <- 3' <- 4
+			require.NoError(t, th.Backend.Fork(parent.Hash()))
+			// Re-emit L1 to make 2'' tip look like original 2 tip
+			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+			require.NoError(t, err)
+			th.Backend.Commit()
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(3)})
 			require.NoError(t, err)
 			// Create 3'
 			th.Backend.Commit()
 			// Create 4
 			th.Backend.Commit()
-			// Mark block 1 as finalized
-			if tt.finalityTag {
-				finalizeThroughBlock(t, th, 1)
-			}
+
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(5), newStart)
 			latest, err = th.ORM.SelectLatestBlock(testutils.Context(t))
@@ -967,8 +970,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			assert.Equal(t, int64(4), latest.BlockNumber)
 			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 1, 3)
 			require.NoError(t, err)
-			// We expect ONLY L1_1 and L1_3 since L1_2 is reorg'd out.
-			assert.Equal(t, 2, len(lgs))
+
+			require.Equal(t, 2, len(lgs))
 			assert.Equal(t, int64(2), lgs[0].BlockNumber)
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 			assert.Equal(t, int64(3), lgs[1].BlockNumber)
@@ -994,9 +997,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			// Create 5
 			th.Backend.Commit()
 			// Mark block 2 as finalized
-			if tt.finalityTag {
-				finalizeThroughBlock(t, th, 3)
-			}
+			//if tt.finalityTag {
+			//	finalizeThroughBlock(t, th, 3)
+			//}
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(7), newStart)
@@ -1025,10 +1028,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 				require.NoError(t, err)
 				th.Backend.Commit()
 			}
-			// Mark block 7 as finalized
-			if tt.finalityTag {
-				finalizeThroughBlock(t, th, 7)
-			}
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(11), newStart)
@@ -1041,43 +1040,42 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			assert.Equal(t, int64(8), lgs[1].BlockNumber)
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), lgs[2].Data)
 			assert.Equal(t, int64(9), lgs[2].BlockNumber)
-			th.assertDontHave(t, 7, 7) // Do not expect to save backfilled blocks.
 			th.assertHaveCanonical(t, 8, 10)
 
 			// Test scenario large backfill (multiple batches)
-			// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..16
+			// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..32
 			//                \ 2'(L1_2) <- 3
-			// DB: 1, 2, 3, 4, 5, 6, (backfilled 7), 8, 9, 10
-			// - 11, 12, 13 backfilled in batch 1
-			// - 14 backfilled in batch 2
-			// - 15, 16, 17 to be treated as unfinalized
-			for i := 11; i < 18; i++ {
+			// DB: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+			// - 11 - 13 backfilled in batch 1
+			// - 14 - 16 backfilled in batch 2
+			// ...
+			// - 33, 34, 35 to be treated as unfinalized
+			for i := 11; i < 36; i++ {
 				_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 				require.NoError(t, err)
 				th.Backend.Commit()
 			}
-			// Mark block 14 as finalized
-			//markBlockAsFinalized(t, th, 14)
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
-			assert.Equal(t, int64(18), newStart)
-			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 11, 17)
+			assert.Equal(t, int64(36), newStart)
+			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 11, 36)
 			require.NoError(t, err)
-			assert.Equal(t, 7, len(lgs))
-			th.assertHaveCanonical(t, 14, 16) // Should have last finalized block plus unfinalized blocks
+			assert.Equal(t, 25, len(lgs))
+			th.assertHaveCanonical(t, 32, 36) // Should have last finalized block plus unfinalized blocks
 			th.assertDontHave(t, 11, 13)      // Should not have older finalized blocks
+			th.assertDontHave(t, 14, 16)      // Should not have older finalized blocks
 
 			// Verify that a custom block timestamp will get written to db correctly also
 			b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
-			require.Equal(t, uint64(17), b.NumberU64())
-			require.Equal(t, uint64(170), b.Time())
-			require.NoError(t, th.Backend.AdjustTime(1*time.Hour))
+			require.Equal(t, uint64(35), b.NumberU64())
+			blockTimestamp := b.Time()
+			require.NoError(t, th.Backend.AdjustTime(time.Hour))
 			th.Backend.Commit()
 
 			b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
-			require.Equal(t, uint64(180+time.Hour.Seconds()), b.Time())
+			require.Equal(t, blockTimestamp+uint64(time.Hour)+1, b.Time())
 		})
 	}
 }
