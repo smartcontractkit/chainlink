@@ -36,7 +36,7 @@ func ToBackwardCompatibleCallArg(msg ethereum.CallMsg) interface{} {
 	}
 	if len(msg.Data) > 0 {
 		arg["input"] = hexutil.Bytes(msg.Data)
-		arg["data"] = hexutil.Bytes(msg.Data) // duplicate legacy field for compatibility
+		// arg["data"] = hexutil.Bytes(msg.Data) // duplicate legacy field for compatibility
 	}
 	if msg.Value != nil {
 		arg["value"] = (*hexutil.Big)(msg.Value)

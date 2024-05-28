@@ -3,9 +3,9 @@ ChainID = '296'
 #we set the depth to 6/2 = 3 blocks
 FinalityDepth = 3
 # same as block production rate
-LogPollInterval = '2s'
+LogPollInterval = '10s'
 MinIncomingConfirmations = 1
-NoNewHeadsThreshold = '30s'
+NoNewHeadsThreshold = '3m'
 # 5 since thats our consideration for finality depth & 10s exposure to api so we can always get the final blocks
 RPCBlockQueryDelay = 5
 
@@ -13,5 +13,12 @@ RPCBlockQueryDelay = 5
 Enabled = true
 
 [GasEstimator]
+Mode = 'SuggestedPrice'
+PriceDefault = '800 gwei' # gwei = ston
+PriceMin = '800 gwei'
 # TODO: check this, this may not prove effective since we dont have mempool and cannot use market rates to 
 BumpThreshold = 5
+
+[Transactions]
+# increase resend time to align with finality
+ResendAfterThreshold = '30s'
