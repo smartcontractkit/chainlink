@@ -26,7 +26,7 @@ abstract contract CCIPReceiver is IAny2EVMMessageReceiver, IERC165 {
   /// If this returns true, tokens are transferred and ccipReceive is called atomically.
   /// Additionally, if the receiver address does not have code associated with
   /// it at the time of execution (EXTCODESIZE returns 0), only tokens will be transferred.
-  function supportsInterface(bytes4 interfaceId) public pure virtual override returns (bool) {
+  function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
     return interfaceId == type(IAny2EVMMessageReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 
@@ -45,7 +45,7 @@ abstract contract CCIPReceiver is IAny2EVMMessageReceiver, IERC165 {
 
   /// @notice Return the current router
   /// @return CCIP router address
-  function getRouter() public view returns (address) {
+  function getRouter() public view virtual returns (address) {
     return address(i_ccipRouter);
   }
 
@@ -53,7 +53,7 @@ abstract contract CCIPReceiver is IAny2EVMMessageReceiver, IERC165 {
 
   /// @dev only calls from the set router are accepted.
   modifier onlyRouter() {
-    if (msg.sender != address(i_ccipRouter)) revert InvalidRouter(msg.sender);
+    if (msg.sender != getRouter()) revert InvalidRouter(msg.sender);
     _;
   }
 }
