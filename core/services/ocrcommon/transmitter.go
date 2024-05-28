@@ -210,3 +210,76 @@ func (t *ocr2FeedsTransmitter) forwarderAddress(ctx context.Context, eoa, ocr2Ag
 
 	return forwarderAddress, nil
 }
+
+type ocr3AutomationTransmitter struct {
+	transmitter
+}
+
+// NewOCR3AutomationTransmitter creates a new eth transmitter
+func NewOCR3AutomationTransmitter(
+	txm txManager,
+	fromAddresses []common.Address,
+	gasLimit uint64,
+	effectiveTransmitterAddress common.Address,
+	strategy types.TxStrategy,
+	checker txmgr.TransmitCheckerSpec,
+	chainID *big.Int,
+	keystore roundRobinKeystore,
+) (Transmitter, error) {
+	// Ensure that a keystore is provided.
+	if keystore == nil {
+		return nil, errors.New("nil keystore provided to transmitter")
+	}
+
+	return &ocr3AutomationTransmitter{
+		transmitter: transmitter{
+			txm:                         txm,
+			fromAddresses:               fromAddresses,
+			gasLimit:                    gasLimit,
+			effectiveTransmitterAddress: effectiveTransmitterAddress,
+			strategy:                    strategy,
+			checker:                     checker,
+			chainID:                     chainID,
+			keystore:                    keystore,
+		},
+	}, nil
+}
+
+func (t *ocr3AutomationTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
+	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.fromAddresses...)
+	if err != nil {
+		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
+	}
+
+	var key *string
+	if txMeta != nil && txMeta.UpkeepID != nil {
+		key = txMeta.UpkeepID
+	}
+
+
+	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
+		IdempotencyKey:   key,
+		FromAddress:      roundRobinFromAddress,
+		ToAddress:        toAddress,
+		EncodedPayload:   payload,
+		FeeLimit:         t.gasLimit,
+		ForwarderAddress: t.forwarderAddress(),
+		Strategy:         t.strategy,
+		Checker:          t.checker,
+		Meta:             txMeta,
+	})
+	return errors.Wrap(err, "skipped OCR transmission")
+}
+
+func (t *ocr3AutomationTransmitter) FromAddress() common.Address {
+	return t.effectiveTransmitterAddress
+}
+
+func (t *ocr3AutomationTransmitter) forwarderAddress() common.Address {
+	for _, a := range t.fromAddresses {
+		if a == t.effectiveTransmitterAddress {
+			return common.Address{}
+		}
+	}
+	return t.effectiveTransmitterAddress
+}

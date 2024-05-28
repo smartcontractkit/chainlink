@@ -582,6 +582,17 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 			configWatcher.chain.ID(),
 			ethKeystore,
 		)
+	case commontypes.OCR2Keeper:
+		transmitter, err = ocrcommon.NewOCR3AutomationTransmitter(
+			configWatcher.chain.TxManager(),
+			fromAddresses,
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
+			configWatcher.chain.ID(),
+			ethKeystore,
+		)
 	default:
 		transmitter, err = ocrcommon.NewTransmitter(
 			configWatcher.chain.TxManager(),
