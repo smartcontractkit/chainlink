@@ -15,6 +15,39 @@ env:
 jobs:
   # Build Test Dependencies
 
+  check-ecr-images-exist:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Check images used as test dependencies exist in ECR
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mirror:
+          - name: ethereum/client-go
+            expression: '^(alltools-v|v)[0-9]\.[0-9]+\.[0-9]+$'
+          - name: hyperledger/besu
+            expression: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+            page_size: 300
+          - name: thorax/erigon
+            expression: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          - name: nethermind/nethermind
+            expression: '^[0-9]+\.[0-9]+\.[0-9]+$'
+          - name: tofelb/ethereum-genesis-generator
+            expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'    
+    steps:
+      - name: Update internal ECR if the latest Ethereum client image does not exist
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@7eb04a030823b316d8dd5bb555f1e49593a503fc
+        with:
+          aws_region: ${{ secrets.QA_AWS_REGION }}
+          role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          aws_account_number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          image_name: ${{matrix.mirror.name}}
+          expression: ${{matrix.mirror.expression}}
+          page_size: ${{matrix.mirror.page_size}}
+          
   build-chainlink:
     environment: integration
     permissions:
@@ -55,7 +88,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink]
+    needs: [build-chainlink, check-ecr-images-exist]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
