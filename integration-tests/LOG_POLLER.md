@@ -6,11 +6,7 @@
 * WASP's `gun` implementation is imperfect in terms of generated load
 
 ## Configuration
-Due to unfinished migration to TOML config tests use a mixed configuration approach:
-* network, RPC endpoints, funding keys, etc need to be provided by env vars
-* test-specific configuration can be provided by TOML file or via a `Config` struct (to which TOML is parsed anyway) additionally some of it can be overridden by env vars (for ease of use in CI)
-** smoke tests use the programmatical approach
-** load test uses the TOML approach
+Use TOML to configure all test aspects: load characteristics, RPC endpoints, Chainlink image, etc.
 
 ## Approximated test scenario
 Different tests might have slightly modified scenarios, but generally they follow this pattern:
@@ -28,16 +24,6 @@ Different tests might have slightly modified scenarios, but generally they follo
 * compare logs that present in the EVM node with logs in CL nodes
 
 All of the checks use fluent waits.
-
-### Required env vars
-* `CHAINLINK_IMAGE`
-* `CHAINLINK_VERSION`
-* `SELECTED_NETWORKS`
-
-### Env vars required for live testnet tests
-* `EVM_WS_URL` -- RPC websocket
-* `EVM_HTTP_URL` -- RPC HTTP
-* `EVM_KEYS` -- private keys used for funding
 
 Since on live testnets we are using existing and canonical LINK contracts funding keys need to contain enough LINK to pay for the test. There's an automated check that fails during setup if there's not enough LINK. Approximately `9 LINK` is required for each UpKeep contract test uses to register a `LogTrigger`. Test contract emits 3 types of events and unless configured otherwise (programmatically!) all of them will be used, which means that due to Automation's limitation we need to register a separate `LogTrigger` for each event type for each contract. So if you want to test with 100 contracts, then you'd need to register 300 UpKeep contracts and thus your funding address needs to have at least 2700 LINK.
 
@@ -111,7 +97,7 @@ For other nuances do check [gun.go][integration-tests/universal/log_poller/gun.g
 ### TOML config
 That config follows the same structure as programmatical config shown above.
 
-Sample config: [config.toml](integration-tests/load/log_poller/config.toml)
+Sample config: [config.toml](./testconfig/log_poller/log_poller.toml)
 
 Use this snippet instead of creating the `Config` struct programmatically:
 ```
