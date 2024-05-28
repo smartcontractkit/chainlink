@@ -135,7 +135,11 @@ func ParseDependencyGraph(yamlWorkflow string) (*DependencyGraph, error) {
 
 		for _, r := range refs {
 			innerErr = g.AddEdge(r, step.Ref)
-			if innerErr != nil {
+			// Bail out if we fail to add an edge, unless the failure is
+			// because the edge already exists. This is allowed by the workflow
+			// spec since we use the inputs property to massage inputs as
+			// well as declare dependencies between nodes.
+			if innerErr != nil && !errors.Is(innerErr, graph.ErrEdgeAlreadyExists) {
 				return nil, innerErr
 			}
 		}
