@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -28,6 +29,7 @@ type callerRequest struct {
 	requestTimeout time.Duration
 
 	respSent bool
+	mux      sync.Mutex
 }
 
 func NewCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest, messageID string,
@@ -95,6 +97,9 @@ func (c *callerRequest) ResponseChan() <-chan commoncap.CapabilityResponse {
 }
 
 func (c *callerRequest) Expired() bool {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
 	if time.Since(c.createdAt) > c.requestTimeout {
 		c.cancelRequest("request timed out")
 		return true
@@ -105,6 +110,9 @@ func (c *callerRequest) Expired() bool {
 
 // TODO addResponse assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated
 func (c *callerRequest) AddResponse(sender p2ptypes.PeerID, response []byte) error {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
 	if _, ok := c.responseReceived[sender]; !ok {
 		return fmt.Errorf("response from peer %s not expected", sender)
 	}
