@@ -7,5 +7,3 @@ LogPollInterval = '5s'
 [GasEstimator]
 EIP1559DynamicFees = true
 PriceMax = '500 gwei'
-# 15s delay since feeds update every minute in volatile situations
-BumpThreshold = 3

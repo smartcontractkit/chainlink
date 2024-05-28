@@ -1014,17 +1014,17 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveConfirm
 	return r0
 }
 
-// SaveFetchedReceipts provides a mock function with given fields: ctx, receipts, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, receipts, chainID)
+// SaveFetchedReceipts provides a mock function with given fields: ctx, r, state, errorMsg, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, r []R, state txmgrtypes.TxState, errorMsg *string, chainID CHAIN_ID) error {
+	ret := _m.Called(ctx, r, state, errorMsg, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFetchedReceipts")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []R, CHAIN_ID) error); ok {
-		r0 = rf(ctx, receipts, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, []R, txmgrtypes.TxState, *string, CHAIN_ID) error); ok {
+		r0 = rf(ctx, r, state, errorMsg, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
