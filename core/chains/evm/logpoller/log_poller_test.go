@@ -657,39 +657,37 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	require.Equal(t, big.NewInt(1), blk.Number())
 	start := blk.Time()
 
-	// There is automatically a 10s delay between each block.  To make sure it's including the correct block timestamps,
+	// There is automatically a 1ns delay between each block.  To make sure it's including the correct block timestamps,
 	// we introduce irregularities by inserting two additional block delays. We can't control the block times for
 	// blocks produced by the log emitter, but we can adjust the time on empty blocks in between.  Simulated time
-	// sequence:  [ #1 ] ..(10s + delay1).. [ #2 ] ..10s.. [ #3 (LOG1) ] ..(10s + delay2).. [ #4 ] ..10s.. [ #5 (LOG2) ]
-	const delay1 = 589
-	const delay2 = 643
-	time1 := start + 20 + delay1
-	time2 := time1 + 20 + delay2
+	// sequence:  [ #1 ] ..(1ns + delay1).. [ #2 ] ..1ns.. [ #3 (LOG1) ] ..(1ns + delay2).. [ #4 ] ..1ns.. [ #5 (LOG2) ]
+	const delay1 = 589 * time.Second
+	const delay2 = 643 * time.Second
+	time1 := start + 1 + uint64(delay1)
+	time2 := time1 + 1 + uint64(delay2)
 
-	require.NoError(t, th.Backend.AdjustTime(delay1*time.Second))
-	hash := th.Backend.Commit()
+	require.NoError(t, th.Backend.AdjustTime(delay1))
 
-	blk, err = th.Client.BlockByHash(ctx, hash)
+	blk, err = th.Client.BlockByNumber(ctx, nil)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(2), blk.Number())
-	assert.Equal(t, time1-10, blk.Time())
+	assert.Equal(t, time1-1, blk.Time())
 
 	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 	require.NoError(t, err)
-	hash = th.Backend.Commit()
+	hash := th.Backend.Commit()
 
 	blk, err = th.Client.BlockByHash(ctx, hash)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(3), blk.Number())
 	assert.Equal(t, time1, blk.Time())
 
-	require.NoError(t, th.Backend.AdjustTime(delay2*time.Second))
-	th.Backend.Commit()
+	require.NoError(t, th.Backend.AdjustTime(delay2))
 	_, err = th.Emitter2.EmitLog2(th.Owner, []*big.Int{big.NewInt(2)})
 	require.NoError(t, err)
-	hash = th.Backend.Commit()
+	th.Client.Commit()
 
-	blk, err = th.Client.BlockByHash(ctx, hash)
+	blk, err = th.Client.BlockByNumber(ctx, nil)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(5), blk.Number())
 	assert.Equal(t, time2, blk.Time())
