@@ -86,41 +86,14 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 	testRemoteTarget(t, capability, 4, 3, timeOut, 4, 3, timeOut, transmissionSchedule, responseTest)
 	testRemoteTarget(t, capability, 10, 3, timeOut, 10, 3, timeOut, transmissionSchedule, responseTest)
 	testRemoteTarget(t, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
-
-	/*
-		transmissionSchedule, err = values.NewMap(map[string]any{
-			"schedule":   transmission.Schedule_OneAtATime,
-			"deltaStage": "10ms",
-		})
-		require.NoError(t, err)
-
-		testRemoteTarget(t, 1, 0, 10*time.Minute, 1, 0, 10*time.Minute, transmissionSchedule, responseTest)
-		testRemoteTarget(t, 10, 3, 10*time.Minute, 10, 3, 10*time.Minute, transmissionSchedule, responseTest)
-	*/
-	//here - below tests plus additional tests for the remoteTargetCapability test
-
-	//then got threading to do
-
-	// Context cancellation test - use an underlying capability that blocks until the context is cancelled
-
-	// Check request errors as expected and all error responses are received
-
-	//  Check that requests from an incorrect don are ignored?
-
-	// Check that multiple requests from the same sender are ignored
-
 }
 
 func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
-		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.NotNil(t, response.Err)
 	}
-
-	timeOut := 10 * time.Minute
 
 	capability := &testErrorCapability{}
 
@@ -130,8 +103,7 @@ func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testRemoteTarget(t, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
-
+	testRemoteTarget(t, capability, 10, 9, 10*time.Millisecond, 10, 9, 10*time.Minute, transmissionSchedule, responseTest)
 }
 
 func testRemoteTarget(t *testing.T, underlying commoncap.TargetCapability, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,

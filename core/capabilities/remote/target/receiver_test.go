@@ -17,7 +17,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func Test_Receiver_InsufficientWorkflowCallers(t *testing.T) {
+func Test_Receiver_InsufficientCallers(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 

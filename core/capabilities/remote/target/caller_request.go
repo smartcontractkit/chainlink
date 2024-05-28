@@ -30,7 +30,7 @@ type callerRequest struct {
 	respSent bool
 }
 
-func newCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest, messageID string,
+func NewCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest, messageID string,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher) (*callerRequest, error) {
 
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
@@ -90,12 +90,12 @@ func newCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 	}, nil
 }
 
-func (c *callerRequest) responseSent() bool {
-	return c.respSent
+func (c *callerRequest) ResponseChan() <-chan commoncap.CapabilityResponse {
+	return c.responseCh
 }
 
 // TODO addResponse assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated
-func (c *callerRequest) addResponse(sender p2ptypes.PeerID, response []byte) error {
+func (c *callerRequest) AddResponse(sender p2ptypes.PeerID, response []byte) error {
 	if _, ok := c.responseReceived[sender]; !ok {
 		return fmt.Errorf("response from peer %s not expected", sender)
 	}
@@ -130,7 +130,7 @@ func (c *callerRequest) sendResponse(response commoncap.CapabilityResponse) {
 
 func (c *callerRequest) cancelRequest(reason string) {
 	c.transmissionCancelFn()
-	if !c.responseSent() {
+	if !c.respSent {
 		c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(reason)})
 	}
 }

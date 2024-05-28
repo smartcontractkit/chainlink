@@ -95,11 +95,11 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 		return nil, fmt.Errorf("request for message ID %s already exists", messageID)
 	}
 
-	execRequest, err := newCallerRequest(ctx, c.lggr, req, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
+	execRequest, err := NewCallerRequest(ctx, c.lggr, req, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
 
 	c.messageIDToExecuteRequest[messageID] = execRequest
 
-	return execRequest.responseCh, nil
+	return execRequest.ResponseChan(), nil
 }
 
 func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
@@ -120,12 +120,11 @@ func (c *remoteTargetCaller) Receive(msg *types.MessageBody) {
 		return
 	}
 
-	if err := req.addResponse(sender, msg.Payload); err != nil {
+	if err := req.AddResponse(sender, msg.Payload); err != nil {
 		c.lggr.Errorw("failed to add response to request", "messageID", messageID, "sender", sender, "err", err)
 	}
 }
 
-// Move this into common?
 func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
 	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
 		return "", errors.New("workflow ID and workflow execution ID must be set in request metadata")
