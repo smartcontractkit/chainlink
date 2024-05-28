@@ -2,6 +2,7 @@ package forwarders
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"sync"
 	"time"
@@ -132,6 +133,9 @@ func (f *FwdMgr) ForwarderFor(ctx context.Context, addr common.Address) (forward
 	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
 }
 
+// ErrForwarderForEOANotFound defines the error triggered when no valid forwarders were found for EOA
+var ErrForwarderForEOANotFound = errors.New("cannot find forwarder for given EOA")
+
 func (f *FwdMgr) ForwarderForOCR2Feeds(ctx context.Context, eoa, ocr2Aggregator common.Address) (forwarder common.Address, err error) {
 	fwdrs, err := f.ORM.FindForwardersByChain(ctx, big.Big(*f.evmClient.ConfiguredChainID()))
 	if err != nil {
@@ -165,7 +169,7 @@ func (f *FwdMgr) ForwarderForOCR2Feeds(ctx context.Context, eoa, ocr2Aggregator 
 			}
 		}
 	}
-	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
+	return common.Address{}, ErrForwarderForEOANotFound
 }
 
 func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {
