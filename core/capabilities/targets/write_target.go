@@ -145,13 +145,13 @@ func (cap *EvmWrite) submitSignedTransaction(ctx context.Context, chainWriterCon
 	var err error
 	ABI := evmtypes.MustGetABI(chainWriterConfig.ABI())
 	if chainWriterConfig.ForwarderAddress() != nil {
-		calldata, err = ABI.Pack("report", common.HexToAddress(toAddress), report, signatures)
+		calldata, err = ABI.Pack(chainWriterConfig.ContractMethod(), common.HexToAddress(toAddress), report, signatures)
 		if err != nil {
 			return err
 		}
 		toAddress = chainWriterConfig.ForwarderAddress().Address().String()
 	} else {
-		calldata, err = ABI.Pack("report", report, signatures)
+		calldata, err = ABI.Pack(chainWriterConfig.ContractMethod(), report, signatures)
 		if err != nil {
 			return err
 		}
