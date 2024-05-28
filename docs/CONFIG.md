@@ -5032,7 +5032,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagSupportDisabled = false
+FinalityTagSupportDisabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5483,7 +5483,7 @@ HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagSupportDisabled = false
+FinalityTagSupportDisabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5661,7 +5661,7 @@ HistoryDepth = 1000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagSupportDisabled = false
+FinalityTagSupportDisabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5840,7 +5840,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagSupportDisabled = false
+FinalityTagSupportDisabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6019,7 +6019,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagSupportDisabled = false
+FinalityTagSupportDisabled = true
 
 [NodePool]
 PollFailureThreshold = 5

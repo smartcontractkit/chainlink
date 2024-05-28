@@ -26,7 +26,6 @@ BlockHistorySize = 24
 [HeadTracker]
 HistoryDepth = 2000
 SamplingInterval = '1s'
-FinalityTagSupportDisabled = false
 
 [NodePool]
 SyncThreshold = 10
