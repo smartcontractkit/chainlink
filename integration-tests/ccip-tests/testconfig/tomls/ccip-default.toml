@@ -304,10 +304,11 @@ NoOfNetworks = 2                 # same as above
 BatchGasLimit = 11000000
 
 [CCIP.Groups.load.LoadProfile]
-RequestPerUnitTime = [1]          # number of ccip requests to be sent per unit time
-TimeUnit = '10s'                  # unit of time for RequestPerUnitTime
-TestDuration = '10m'              # load test duration, not used for smoke tests
-WaitBetweenChaosDuringLoad = '2m' # Duration to wait between each chaos injection during load test; only valid for chaos tests
+RequestPerUnitTime = [1] # number of ccip requests to be sent per unit time
+TimeUnit = '10s' # unit of time for RequestPerUnitTime
+TestDuration = '10m'                # load test duration, not used for smoke tests
+WaitBetweenChaosDuringLoad = '2m'   # Duration to wait between each chaos injection during load test; only valid for chaos tests
+NetworkChaosDelay = '100ms'            # Duration for network chaos delay; only valid for chaos tests using network chaos
 
 # uncomment the following if you want your test results to be reflected under CCIP test grafana dashboard with namespace label same as the value of the following variable
 # TestRunName = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta

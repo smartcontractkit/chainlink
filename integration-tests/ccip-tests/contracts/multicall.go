@@ -202,8 +202,7 @@ func MultiCallCCIP(
 				}
 			}
 
-			data := Call{Target: tokenAndAmount.Token, AllowFailure: false, CallData: inputs}
-			callData = append(callData, data)
+			callData = append(callData, Call{Target: tokenAndAmount.Token, AllowFailure: false, CallData: inputs})
 		}
 		// approve fee token if not already approved
 		if msg.Fee != nil && msg.Fee.Cmp(big.NewInt(0)) > 0 && !isFeeTokenAndBridgeTokenSame {
@@ -211,16 +210,14 @@ func MultiCallCCIP(
 			if err != nil {
 				return nil, err
 			}
-			data := Call{Target: msg.Msg.FeeToken, AllowFailure: false, CallData: inputs}
-			callData = append(callData, data)
+			callData = append(callData, Call{Target: msg.Msg.FeeToken, AllowFailure: false, CallData: inputs})
 		}
 
 		inputs, err := CCIPSendCallData(msg)
 		if err != nil {
 			return nil, err
 		}
-		data := Call{Target: msg.RouterAddr, AllowFailure: false, CallData: inputs}
-		callData = append(callData, data)
+		callData = append(callData, Call{Target: msg.RouterAddr, AllowFailure: false, CallData: inputs})
 	}
 	opts, err := evmClient.TransactionOpts(evmClient.GetDefaultWallet())
 	if err != nil {

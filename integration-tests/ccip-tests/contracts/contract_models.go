@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -1176,7 +1177,21 @@ func (c *PriceRegistry) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, latest c
 		}
 		return newP.WatchUsdPerUnitGasUpdated(opts, latest, destChain)
 	}
-	return nil, fmt.Errorf("no instance found to watch for price updates")
+	return nil, fmt.Errorf("no instance found to watch for price updates for gas")
+}
+
+func (c *PriceRegistry) WatchUsdPerTokenUpdated(opts *bind.WatchOpts, latest chan *price_registry.PriceRegistryUsdPerTokenUpdated) (event.Subscription, error) {
+	if c.Instance.Latest != nil {
+		return c.Instance.Latest.WatchUsdPerTokenUpdated(opts, latest, nil)
+	}
+	if c.Instance.V1_2_0 != nil {
+		newP, err := price_registry.NewPriceRegistry(c.Instance.V1_2_0.Address(), wrappers.MustNewWrappedContractBackend(c.client, nil))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new PriceRegistry contract: %w", err)
+		}
+		return newP.WatchUsdPerTokenUpdated(opts, latest, nil)
+	}
+	return nil, fmt.Errorf("no instance found to watch for price updates for tokens")
 }
 
 type TokenAdminRegistry struct {
@@ -2003,13 +2018,48 @@ type MockAggregator struct {
 	logger          zerolog.Logger
 	Instance        *mock_v3_aggregator_contract.MockV3Aggregator
 	ContractAddress common.Address
+	RoundId         *big.Int
+	Answer          *big.Int
 }
 
 func (a *MockAggregator) ChainID() uint64 {
 	return a.client.GetChainID().Uint64()
 }
 
-func (a *MockAggregator) UpdateRoundData(answer *big.Int) error {
+// UpdateRoundData updates the round data in the aggregator contract
+// if answer is nil, it will set next round data by adding random percentage( within provided range) to the previous round data
+func (a *MockAggregator) UpdateRoundData(answer *big.Int, minP, maxP *int) error {
+	if answer == nil && (minP == nil || maxP == nil) {
+		return fmt.Errorf("minP and maxP are required to update round data with random percentage if answer is nil")
+	}
+	// if round id is nil, set it to 1
+	if a.RoundId == nil {
+		a.RoundId = big.NewInt(1)
+	}
+	// if there is no answer provided and last saved answer is nil
+	// we fetch the last round data from chain
+	// and set the answer to the aggregator's latest answer and round id to the aggregator's latest round id
+	if answer == nil && a.Answer == nil {
+		roundData, err := a.Instance.LatestRoundData(nil)
+		if err != nil || roundData.RoundId == nil || roundData.Answer == nil {
+			return fmt.Errorf("unable to get latest round data: %w", err)
+		}
+		a.Answer = roundData.Answer
+		a.RoundId = roundData.RoundId
+	}
+
+	// if answer is nil, we calculate the answer with random percentage (within the provided range) of latest answer
+	if answer == nil {
+		rand.Seed(uint64(time.Now().UnixNano()))
+		randomNumber := rand.Intn(pointer.GetInt(maxP)-pointer.GetInt(minP)+1) + pointer.GetInt(minP)
+		// answer = previous round answer + (previous round answer * random percentage)
+		answer = new(big.Int).Add(a.Answer, new(big.Int).Div(new(big.Int).Mul(a.Answer, big.NewInt(int64(randomNumber))), big.NewInt(100)))
+	}
+	// increment the round id
+	round := new(big.Int).Add(a.RoundId, big.NewInt(1))
+	// save the round data as the latest round data
+	a.RoundId = round
+	a.Answer = answer
 	opts, err := a.client.TransactionOpts(a.client.GetDefaultWallet())
 	if err != nil {
 		return fmt.Errorf("unable to get transaction opts: %w", err)
@@ -2018,15 +2068,6 @@ func (a *MockAggregator) UpdateRoundData(answer *big.Int) error {
 		Str("Contract Address", a.ContractAddress.Hex()).
 		Str("Network Name", a.client.GetNetworkConfig().Name).
 		Msg("Updating Round Data")
-	// we get the round from latest round data
-	// if there is any error in fetching the round , we set the round with a random number
-	// otherwise increase the latest round by 1 and set the value for the next round
-	round, err := a.Instance.LatestRound(nil)
-	if err != nil {
-		rand.Seed(uint64(time.Now().UnixNano()))
-		round = big.NewInt(int64(rand.Uint64()))
-	}
-	round = new(big.Int).Add(round, big.NewInt(1))
 	tx, err := a.Instance.UpdateRoundData(opts, round, answer, big.NewInt(time.Now().UTC().UnixNano()), big.NewInt(time.Now().UTC().UnixNano()))
 	if err != nil {
 		return fmt.Errorf("unable to update round data: %w", err)
@@ -2037,9 +2078,14 @@ func (a *MockAggregator) UpdateRoundData(answer *big.Int) error {
 		Str("Round", round.String()).
 		Str("Answer", answer.String()).
 		Msg("Updated Round Data")
-	_, err = bind.WaitMined(context.Background(), a.client.DeployBackend(), tx)
+	ctx, cancel := context.WithTimeout(context.Background(), a.client.GetNetworkConfig().Timeout.Duration)
+	defer cancel()
+	rec, err := bind.WaitMined(ctx, a.client.DeployBackend(), tx)
 	if err != nil {
 		return fmt.Errorf("error waiting for tx %s to be mined", tx.Hash().Hex())
+	}
+	if rec.Status != types.ReceiptStatusSuccessful {
+		return fmt.Errorf("tx %s failed while updating round data", tx.Hash().Hex())
 	}
 
 	return a.client.MarkTxAsSentOnL2(tx)

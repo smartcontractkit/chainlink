@@ -117,13 +117,12 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 	AggregatedRateLimitCapacity := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(30))
 	AggregatedRateLimitRate := big.NewInt(1e17)
 
-	TokenPoolRateLimitCapacity := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
-	TokenPoolRateLimitRate := big.NewInt(1e16)
+	TokenPoolRateLimitCapacity := new(big.Int).Mul(big.NewInt(1e17), big.NewInt(1))
+	TokenPoolRateLimitRate := big.NewInt(1e14)
 
 	for _, test := range tests {
 		tc := test
 		t.Run(fmt.Sprintf("%s - Rate Limit", tc.testName), func(t *testing.T) {
-			t.Parallel()
 			tc.lane.Test = t
 			src := tc.lane.Source
 			// add liquidity to pools on both networks
@@ -148,9 +147,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			require.NoError(t, err)
 			tc.lane.Logger.Info().Interface("rate limit", prevRLOnRamp).Msg("Initial OnRamp rate limiter state")
 
-			prevOnRampRLTokenPool, err := src.Common.BridgeTokenPools[0].Instance.Latest.PoolInterface.GetCurrentOutboundRateLimiterState(
-				nil, tc.lane.Source.DestinationChainId,
-			) // TODO RENS maybe?
+			prevOnRampRLTokenPool, err := src.Common.BridgeTokenPools[0].Instance.GetCurrentOutboundRateLimiterState(nil, tc.lane.Source.DestChainSelector) // TODO RENS maybe?
 			require.NoError(t, err)
 			tc.lane.Logger.Info().
 				Interface("rate limit", prevOnRampRLTokenPool).
@@ -168,9 +165,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				)
 			}
 
-			prevOffRampRLTokenPool, err := tc.lane.Dest.Common.BridgeTokenPools[0].Instance.Latest.PoolInterface.GetCurrentInboundRateLimiterState(
-				nil, tc.lane.Dest.SourceChainId,
-			) // TODO RENS maybe?
+			prevOffRampRLTokenPool, err := tc.lane.Dest.Common.BridgeTokenPools[0].Instance.GetCurrentInboundRateLimiterState(nil, tc.lane.Dest.SourceChainSelector) // TODO RENS maybe?
 			require.NoError(t, err)
 			tc.lane.Logger.Info().
 				Interface("rate limit", prevOffRampRLTokenPool).
@@ -368,7 +363,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 
 			// try to send again with amount more than the amount refilled by token pool rate and
 			// this should fail, as the refill rate is not enough to refill the capacity
-			tokensToSend = new(big.Int).Mul(TokenPoolRateLimitRate, big.NewInt(10))
+			tokensToSend = new(big.Int).Mul(TokenPoolRateLimitRate, big.NewInt(20))
 			tc.lane.Logger.Info().Str("tokensToSend", tokensToSend.String()).Msg("More than TokenPool Rate")
 			src.TransferAmount[0] = tokensToSend
 			// approve the tokens

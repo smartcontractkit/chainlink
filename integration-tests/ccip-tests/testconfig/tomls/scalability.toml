@@ -25,8 +25,8 @@ evm_transaction_timeout = '3m'
 evm_minimum_confirmations = 1
 evm_gas_estimation_buffer = 1000
 evm_supports_eip1559 = true
-evm_default_gas_limit = 7000000
-evm_finality_depth = 700
+evm_default_gas_limit = 6000000
+evm_finality_depth = 1
 
 [CCIP.Env.Network.EVMNetworks.PRIVATE-CHAIN-2]
 evm_name = 'private-chain-2'
@@ -41,8 +41,8 @@ evm_transaction_timeout = '3m'
 evm_minimum_confirmations = 1
 evm_gas_estimation_buffer = 1000
 evm_supports_eip1559 = true
-evm_default_gas_limit = 7000000
-evm_finality_depth = 700
+evm_default_gas_limit = 6000000
+evm_finality_depth = 1
 
 #[CCIP.Env.Network.AnvilConfigs.PRIVATE-CHAIN-1]
 #block_time = 1
@@ -62,22 +62,22 @@ DBCapacity = '50Gi'
 IsStateful = true
 DBArgs = ['shared_buffers=2048MB', 'effective_cache_size=4096MB', 'work_mem=64MB']
 
-[CCIP.Env.NewCLCluster.Common]
-CommonChainConfigTOML = """
-[HeadTracker]
-HistoryDepth = 3000
-
-[GasEstimator]
-PriceMax = '200 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '200 gwei'
-"""
+#[CCIP.Env.NewCLCluster.Common]
+#CommonChainConfigTOML = """
+#[HeadTracker]
+#HistoryDepth = 3000
+#
+#[GasEstimator]
+#PriceMax = '200 gwei'
+#LimitDefault = 6000000
+#FeeCapDefault = '200 gwei'
+#"""
 
 [CCIP.Groups]
 [CCIP.Groups.load]
 KeepEnvAlive = true
 NoOfCommitNodes = 16
-PhaseTimeout = '50m'
+PhaseTimeout = '40m'
 NodeFunding = 1000.0
 NoOfRoutersPerPair = 2
 NoOfNetworks = 40
@@ -97,6 +97,7 @@ TestDuration = '4h'
 TimeUnit = '5s'
 RequestPerUnitTime = [1]
 OptimizeSpace = true
+NetworkChaosDelay = '100ms'
 
 # to represent 20%, 60%, 15%, 5% of the total messages
 [CCIP.Groups.load.LoadProfile.MsgProfile]

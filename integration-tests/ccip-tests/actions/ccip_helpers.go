@@ -30,6 +30,8 @@ import (
 	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -81,6 +83,9 @@ const (
 
 	defaultUSDCDestBytesOverhead = 640
 	defaultUSDCDestGasOverhead   = 120_000
+	// DefaultResubscriptionTimeout denotes the max backoff duration for resubscription for various watch events
+	// if the subscription keeps failing even after this duration, the test will fail
+	DefaultResubscriptionTimeout = 2 * time.Hour
 )
 
 // TODO: These should be refactored along with the default CCIP test setup to use optional config functions
@@ -167,6 +172,8 @@ type CCIPCommon struct {
 	TokenMessenger                *common.Address
 	TokenTransmitter              *contracts.TokenTransmitter
 	poolFunds                     *big.Int
+	tokenPriceUpdateWatcherMu     *sync.Mutex
+	tokenPriceUpdateWatcher       map[common.Address]*big.Int // key - token; value - timestamp of update
 	gasUpdateWatcherMu            *sync.Mutex
 	gasUpdateWatcher              map[uint64]*big.Int // key - destchain id; value - timestamp of update
 	IsConnectionRestoredRecently  *atomic.Bool
@@ -177,7 +184,7 @@ type CCIPCommon struct {
 // this is called mainly by load test to keep the memory usage minimum for high number of lanes
 func (ccipModule *CCIPCommon) FreeUpUnusedSpace() {
 	ccipModule.PriceAggregators = nil
-	ccipModule.BridgeTokenPools = []*contracts.TokenPool{}
+	ccipModule.BridgeTokenPools = nil
 	ccipModule.TokenMessenger = nil
 	ccipModule.TokenTransmitter = nil
 	runtime.GC()
@@ -428,6 +435,7 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 	lggr zerolog.Logger,
 	timeout time.Duration,
 	destChainId uint64,
+	allTokens []common.Address,
 ) error {
 	destChainSelector, err := chainselectors.SelectorFromChainId(destChainId)
 	if err != nil {
@@ -438,6 +446,7 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 	if err != nil {
 		return err
 	}
+
 	if price.Timestamp > 0 && price.Value.Cmp(big.NewInt(0)) > 0 {
 		lggr.Info().
 			Str("Price Registry", ccipModule.PriceRegistry.Address()).
@@ -447,18 +456,36 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 		return nil
 	}
 	// if not, wait for price update
-	lggr.Info().Msgf("Waiting for UsdPerUnitGas for dest chain %d Price Registry %s", destChainId, ccipModule.PriceRegistry.Address())
+	lggr.Info().Msgf("Waiting for UsdPerUnitGas and UsdPerTokenUpdated for dest chain %d Price Registry %s", destChainId, ccipModule.PriceRegistry.Address())
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	localCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	var tokensMissingForUpdate common.Address
 	for {
 		select {
 		case <-ticker.C:
 			ccipModule.gasUpdateWatcherMu.Lock()
 			timestampOfUpdate, ok := ccipModule.gasUpdateWatcher[destChainId]
 			ccipModule.gasUpdateWatcherMu.Unlock()
-			if ok && timestampOfUpdate.Cmp(big.NewInt(0)) == 1 {
+			tokenPricesUpdated := false
+			if len(allTokens) > 0 {
+				ccipModule.tokenPriceUpdateWatcherMu.Lock()
+				for _, token := range allTokens {
+					timestampOfTokenUpdate, okToken := ccipModule.tokenPriceUpdateWatcher[token]
+					// we consider token prices updated only if all tokens have been updated
+					// if any token is missing, we retry
+					if !okToken || timestampOfTokenUpdate.Cmp(big.NewInt(0)) < 1 {
+						tokenPricesUpdated = false
+						tokensMissingForUpdate = token
+						break
+					}
+					tokenPricesUpdated = true
+				}
+				ccipModule.tokenPriceUpdateWatcherMu.Unlock()
+			}
+
+			if tokenPricesUpdated && ok && timestampOfUpdate.Cmp(big.NewInt(0)) == 1 {
 				lggr.Info().
 					Str("Price Registry", ccipModule.PriceRegistry.Address()).
 					Uint64("dest chain", destChainId).
@@ -467,15 +494,19 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 				return nil
 			}
 		case <-localCtx.Done():
-			return fmt.Errorf("UsdPerUnitGasUpdated is not found for chain %d", destChainId)
+			if tokensMissingForUpdate != (common.Address{}) {
+				return fmt.Errorf("price Updates not found for token %s", tokensMissingForUpdate.Hex())
+			}
+			return fmt.Errorf("price Updates not found for chain %d", destChainId)
 		}
 	}
 }
 
-func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
-	var sub event.Subscription
+func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context, lggr zerolog.Logger) error {
 	gasUpdateEventLatest := make(chan *price_registry.PriceRegistryUsdPerUnitGasUpdated)
-	sub = event.Resubscribe(2*time.Hour, func(_ context.Context) (event.Subscription, error) {
+	tokenUpdateEvent := make(chan *price_registry.PriceRegistryUsdPerTokenUpdated)
+	sub := event.Resubscribe(DefaultResubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		lggr.Info().Msg("Subscribing to UsdPerUnitGasUpdated event")
 		eventSub, err := ccipModule.PriceRegistry.WatchUsdPerUnitGasUpdated(nil, gasUpdateEventLatest, nil)
 		if err != nil {
 			log.Error().Err(err).Msg("error in subscribing to UsdPerUnitGasUpdated event")
@@ -483,6 +514,17 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 		return eventSub, err
 	})
 	if sub == nil {
+		return fmt.Errorf("no event subscription found")
+	}
+	tokenUpdateSub := event.Resubscribe(DefaultResubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		lggr.Info().Msg("Subscribing to UsdPerTokenUpdated event")
+		eventSub, err := ccipModule.PriceRegistry.WatchUsdPerTokenUpdated(nil, tokenUpdateEvent)
+		if err != nil {
+			log.Error().Err(err).Msg("error in subscribing to UsdPerTokenUpdated event")
+		}
+		return eventSub, err
+	})
+	if tokenUpdateSub == nil {
 		return fmt.Errorf("no event subscription found")
 	}
 	processEvent := func(timestamp *big.Int, destChainSelector uint64) error {
@@ -493,7 +535,7 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 		ccipModule.gasUpdateWatcherMu.Lock()
 		ccipModule.gasUpdateWatcher[destChain] = timestamp
 		ccipModule.gasUpdateWatcherMu.Unlock()
-		log.Info().
+		lggr.Info().
 			Uint64("chainSelector", destChainSelector).
 			Str("source_chain", ccipModule.ChainClient.GetNetworkName()).
 			Uint64("dest_chain", destChain).
@@ -505,8 +547,11 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 	go func() {
 		defer func() {
 			sub.Unsubscribe()
+			tokenUpdateSub.Unsubscribe()
 			ccipModule.gasUpdateWatcher = nil
 			ccipModule.gasUpdateWatcherMu = nil
+			ccipModule.tokenPriceUpdateWatcher = nil
+			ccipModule.tokenPriceUpdateWatcherMu = nil
 		}()
 		for {
 			select {
@@ -515,6 +560,15 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 				if err != nil {
 					continue
 				}
+			case tk := <-tokenUpdateEvent:
+				ccipModule.tokenPriceUpdateWatcherMu.Lock()
+				ccipModule.tokenPriceUpdateWatcher[tk.Token] = tk.Timestamp
+				ccipModule.tokenPriceUpdateWatcherMu.Unlock()
+				lggr.Info().
+					Str("token", tk.Token.Hex()).
+					Str("chain", ccipModule.ChainClient.GetNetworkName()).
+					Str("price_registry", ccipModule.PriceRegistry.Address()).
+					Msg("UsdPerTokenUpdated event received")
 			case <-ctx.Done():
 				return
 			}
@@ -526,7 +580,7 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 
 // UpdateTokenPricesAtRegularInterval updates aggregator contract with updated answer at regular interval.
 // At each iteration of ticker it chooses one of the aggregator contracts and updates its round answer.
-func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Context, interval time.Duration, conf *laneconfig.LaneConfig) error {
+func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Context, lggr zerolog.Logger, interval time.Duration, conf *laneconfig.LaneConfig) error {
 	if ccipModule.ExistingDeployment {
 		return nil
 	}
@@ -538,7 +592,7 @@ func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Con
 		}
 		aggregators = append(aggregators, contract)
 	}
-	go func() {
+	go func(aggregators []*contracts.MockAggregator) {
 		rand.NewSource(uint64(time.Now().UnixNano()))
 		ticker := time.NewTicker(interval)
 		for {
@@ -546,15 +600,16 @@ func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Con
 			case <-ticker.C:
 				// randomly choose an aggregator contract from slice of aggregators
 				randomIndex := rand.Intn(len(aggregators))
-				err := aggregators[randomIndex].UpdateRoundData(new(big.Int).Add(big.NewInt(1e18), big.NewInt(rand.Int63n(1000))))
+				err := aggregators[randomIndex].UpdateRoundData(nil, ptr.Ptr(-5), ptr.Ptr(2))
 				if err != nil {
+					lggr.Error().Err(err).Msg("error in updating round data")
 					continue
 				}
 			case <-ctx.Done():
 				return
 			}
 		}
-	}()
+	}(aggregators)
 	return nil
 }
 
@@ -1032,22 +1087,9 @@ func (d *DynamicPriceGetterConfig) AddAggregatorPriceConfig(
 		return fmt.Errorf("aggregator contract not found for token %s", tokenAddr)
 	}
 	// update round Data
-	err := aggregatorContract.UpdateRoundData(price)
+	err := aggregatorContract.UpdateRoundData(price, nil, nil)
 	if err != nil {
 		return fmt.Errorf("error in updating round data %w", err)
-	}
-	// check if latest round data is populated
-	latestRoundData, err := aggregatorContract.Instance.LatestRoundData(nil)
-	if err != nil {
-		return fmt.Errorf("error in getting latest round data %w", err)
-	}
-	log.Info().
-		Str("token", tokenAddr).
-		Interface("latestRoundData", latestRoundData).
-		Str("aggregator", aggregatorContract.ContractAddress.Hex()).
-		Msg("latest round data")
-	if latestRoundData.Answer == nil {
-		return fmt.Errorf("latest round data is not populated for token %s and aggregator %s", tokenAddr, aggregatorContract.ContractAddress.Hex())
 	}
 
 	d.AggregatorPrices[common.HexToAddress(tokenAddr)] = AggregatorPriceConfig{
@@ -1193,6 +1235,8 @@ func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, 
 		poolFunds:                     testhelpers.Link(5),
 		gasUpdateWatcherMu:            &sync.Mutex{},
 		gasUpdateWatcher:              make(map[uint64]*big.Int),
+		tokenPriceUpdateWatcherMu:     &sync.Mutex{},
+		tokenPriceUpdateWatcher:       make(map[common.Address]*big.Int),
 		PriceAggregators:              make(map[common.Address]*contracts.MockAggregator),
 	}, nil
 }
@@ -1296,33 +1340,6 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		return fmt.Errorf("getting chain selector shouldn't fail %w", err)
 	}
 
-	// update prices for price registry. It might be omitted in future
-	if !sourceCCIP.Common.ExistingDeployment {
-		var tokenUpdates []contracts.InternalTokenPriceUpdate
-		for _, token := range sourceCCIP.Common.BridgeTokens {
-			tokenUpdates = append(tokenUpdates, contracts.InternalTokenPriceUpdate{
-				SourceToken: token.ContractAddress,
-				UsdPerToken: LinkToUSD,
-			})
-		}
-		tokenUpdates = append(tokenUpdates, contracts.InternalTokenPriceUpdate{
-			SourceToken: sourceCCIP.Common.WrappedNative,
-			UsdPerToken: WrappedNativeToUSD,
-		}, contracts.InternalTokenPriceUpdate{
-			SourceToken: sourceCCIP.Common.FeeToken.EthAddress,
-			UsdPerToken: LinkToUSD,
-		})
-		err := sourceCCIP.Common.PriceRegistry.UpdatePrices(tokenUpdates,
-			[]contracts.InternalGasPriceUpdate{
-				{
-					DestChainSelector: sourceCCIP.DestChainSelector,
-					UsdPerUnitGas:     big.NewInt(20000e9),
-				},
-			})
-		if err != nil {
-			return fmt.Errorf("error updating prices %w in price registry", err)
-		}
-	}
 	if sourceCCIP.OnRamp == nil {
 		if sourceCCIP.Common.ExistingDeployment {
 			return fmt.Errorf("existing deployment is set to true but no onramp address is provided")
@@ -2552,7 +2569,7 @@ type CCIPLane struct {
 }
 
 func (lane *CCIPLane) TokenPricesConfig() (string, error) {
-	d := DynamicPriceGetterConfig{
+	d := &DynamicPriceGetterConfig{
 		AggregatorPrices: make(map[common.Address]AggregatorPriceConfig),
 		StaticPrices:     make(map[common.Address]StaticPriceConfig),
 	}
@@ -2561,7 +2578,7 @@ func (lane *CCIPLane) TokenPricesConfig() (string, error) {
 	for _, token := range lane.Dest.Common.BridgeTokens {
 		err := d.AddPriceConfig(token.Address(), lane.Dest.Common.PriceAggregators, LinkToUSD, lane.DestChain.GetChainID().Uint64())
 		if err != nil {
-			return "", fmt.Errorf("error in adding PriceConfig for dest bridge token %s: %w", token.Address(), err)
+			return "", fmt.Errorf("error in adding PriceConfig for source bridge token %s: %w", token.Address(), err)
 		}
 	}
 	err := d.AddPriceConfig(lane.Dest.Common.FeeToken.Address(), lane.Dest.Common.PriceAggregators, LinkToUSD, lane.DestChain.GetChainID().Uint64())
@@ -2714,13 +2731,13 @@ func (lane *CCIPLane) Multicall(noOfRequests int, multiSendAddr common.Address) 
 		lane.TotalFee = new(big.Int).Add(lane.TotalFee, fee)
 		ccipMultipleMsg = append(ccipMultipleMsg, sendData)
 		// if token transfer is required, transfer the token amount to multisend
-		for i, amount := range lane.Source.TransferAmount {
+		for j, amount := range lane.Source.TransferAmount {
 			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
 			token := lane.Source.Common.BridgeTokens[0]
-			if i < len(lane.Source.Common.BridgeTokens) {
-				token = lane.Source.Common.BridgeTokens[i]
+			if j < len(lane.Source.Common.BridgeTokens) {
+				token = lane.Source.Common.BridgeTokens[j]
 			}
-			err := token.Transfer(multiSendAddr.Hex(), amount)
+			err = token.Transfer(multiSendAddr.Hex(), amount)
 			if err != nil {
 				return err
 			}
@@ -2737,7 +2754,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, multiSendAddr common.Address) 
 	// transfer the fee amount to multisend
 	if feeToken != (common.Address{}) {
 		isNative = false
-		err := lane.Source.Common.FeeToken.Transfer(multiSendAddr.Hex(), lane.TotalFee)
+		err = lane.Source.Common.FeeToken.Transfer(multiSendAddr.Hex(), lane.TotalFee)
 		if err != nil {
 			return err
 		}
@@ -3225,7 +3242,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 	go lane.Dest.Common.PollRPCConnection(lane.Context, lane.Logger)
 
 	sendReqEventLatest := make(chan *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested)
-	senReqSub := event.Resubscribe(3*time.Hour, func(_ context.Context) (event.Subscription, error) {
+	senReqSub := event.Resubscribe(DefaultResubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
 		sub, err := lane.Source.OnRamp.WatchCCIPSendRequested(nil, sendReqEventLatest)
 		if err != nil {
 			log.Error().Err(err).Msg("error in subscribing to CCIPSendRequested event")
@@ -3271,7 +3288,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 	}(senReqSub)
 
 	reportAcceptedEvent := make(chan *commit_store.CommitStoreReportAccepted)
-	reportAccSub := event.Resubscribe(3*time.Hour, func(_ context.Context) (event.Subscription, error) {
+	reportAccSub := event.Resubscribe(DefaultResubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
 		sub, err := lane.Dest.CommitStore.WatchReportAccepted(nil, reportAcceptedEvent)
 		if err != nil {
 			log.Error().Err(err).Msg("error in subscribing to ReportAccepted event")
@@ -3304,7 +3321,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 
 	if lane.Dest.Common.ARM != nil {
 		reportBlessedEvent := make(chan *arm_contract.ARMContractTaggedRootBlessed)
-		blessedSub := event.Resubscribe(3*time.Hour, func(_ context.Context) (event.Subscription, error) {
+		blessedSub := event.Resubscribe(DefaultResubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
 			sub, err := lane.Dest.Common.ARM.Instance.WatchTaggedRootBlessed(nil, reportBlessedEvent, nil)
 			if err != nil {
 				log.Error().Err(err).Msg("error in subscribing to TaggedRootBlessed event")
@@ -3332,7 +3349,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 	}
 
 	execStateChangedEventLatest := make(chan *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
-	execSub := event.Resubscribe(3*time.Hour, func(_ context.Context) (event.Subscription, error) {
+	execSub := event.Resubscribe(DefaultResubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
 		sub, err := lane.Dest.OffRamp.WatchExecutionStateChanged(nil, execStateChangedEventLatest, nil, nil)
 		if err != nil {
 			log.Error().Err(err).Msg("error in subscribing to ExecutionStateChanged event")
@@ -3461,7 +3478,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	if !configureCLNodes {
 		return nil
 	}
-	err = lane.Source.Common.WatchForPriceUpdates(setUpCtx)
+	err = lane.Source.Common.WatchForPriceUpdates(setUpCtx, lane.Logger)
 	if err != nil {
 		return fmt.Errorf("error in starting price update watch %w", err)
 	}

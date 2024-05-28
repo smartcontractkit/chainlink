@@ -281,7 +281,10 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 	}
 
 	for _, n := range c.NetworkPairs {
-		lggr.Info().Str("NetworkA", n.NetworkA.Name).Str("NetworkB", n.NetworkB.Name).Msg("Network Pairs")
+		lggr.Info().
+			Str("NetworkA", fmt.Sprintf("%s-%d", n.NetworkA.Name, n.NetworkA.ChainID)).
+			Str("NetworkB", fmt.Sprintf("%s-%d", n.NetworkB.Name, n.NetworkB.ChainID)).
+			Msg("Network Pairs")
 	}
 	lggr.Info().Int("Pairs", len(c.NetworkPairs)).Msg("No Of Lanes")
 
@@ -491,14 +494,14 @@ func (o *CCIPTestSetUpOutputs) SetupDynamicTokenPriceUpdates() error {
 		lane := lanes.ForwardLane
 		if _, exists := covered[lane.SourceNetworkName]; !exists {
 			covered[lane.SourceNetworkName] = struct{}{}
-			err := lane.Source.Common.UpdateTokenPricesAtRegularInterval(lane.Context, interval, o.LaneConfig.ReadLaneConfig(lane.SourceNetworkName))
+			err := lane.Source.Common.UpdateTokenPricesAtRegularInterval(lane.Context, lane.Logger, interval, o.LaneConfig.ReadLaneConfig(lane.SourceNetworkName))
 			if err != nil {
 				return err
 			}
 		}
 		if _, exists := covered[lane.DestNetworkName]; !exists {
 			covered[lane.DestNetworkName] = struct{}{}
-			err := lane.Dest.Common.UpdateTokenPricesAtRegularInterval(lane.Context, interval, o.LaneConfig.ReadLaneConfig(lane.SourceNetworkName))
+			err := lane.Dest.Common.UpdateTokenPricesAtRegularInterval(lane.Context, lane.Logger, interval, o.LaneConfig.ReadLaneConfig(lane.SourceNetworkName))
 			if err != nil {
 				return err
 			}
@@ -742,6 +745,11 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates() {
 					Msg("Stopping price update watch")
 
 			}()
+			var allTokens []common.Address
+			for _, token := range lane.Source.Common.BridgeTokens {
+				allTokens = append(allTokens, token.ContractAddress)
+			}
+			allTokens = append(allTokens, lane.Source.Common.FeeToken.EthAddress)
 			lane.Logger.Info().
 				Str("source_chain", lane.Source.Common.ChainClient.GetNetworkName()).
 				Uint64("dest_chain", lane.Source.DestinationChainId).
@@ -751,6 +759,7 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates() {
 				o.SetUpContext, lane.Logger,
 				o.Cfg.TestGroupInput.TokenConfig.TimeoutForPriceUpdate.Duration(),
 				lane.Source.DestinationChainId,
+				allTokens,
 			)
 			if err != nil {
 				return errors.Wrapf(err, "waiting for price update failed on lane %s-->%s", lane.SourceNetworkName, lane.DestNetworkName)
@@ -957,7 +966,8 @@ func CCIPDefaultTestSetUp(
 
 	// start event watchers for all lanes
 	setUpArgs.StartEventWatchers()
-
+	// now that lane configs are already dumped to file, we can clean up the lane config map
+	setUpArgs.LaneConfig = nil
 	setUpArgs.TearDown = func() error {
 		var errs error
 		for _, lanes := range setUpArgs.Lanes {

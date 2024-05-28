@@ -256,13 +256,16 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			lane.Source.Common.BridgeTokens = nil
 			lane.Dest.Common.BridgeTokens = nil
 		}
+		// no need for price registry in load
+		lane.Source.Common.PriceRegistry = nil
+		lane.Dest.Common.PriceRegistry = nil
 		lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 		labels := make(map[string]string)
 		for k, v := range l.Labels {
 			labels[k] = v
 		}
-		labels["source_chain"] = fmt.Sprintf("%s-%s", lane.SourceNetworkName, lane.Source.Common.ChainClient.GetChainID().String())
-		labels["dest_chain"] = fmt.Sprintf("%s-%s", lane.DestNetworkName, lane.Dest.Common.ChainClient.GetChainID().String())
+		labels["source_chain"] = lane.SourceNetworkName
+		labels["dest_chain"] = lane.DestNetworkName
 		waspCfg := &wasp.Config{
 			T:                     l.TestCfg.Test,
 			GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),

@@ -1241,11 +1241,16 @@ func (e *CCIPContractsDeployer) TypeAndVersion(addr common.Address) (string, err
 	return v.String(), nil
 }
 
+// OCR2ParamsForCommit and OCR2ParamsForExec -
+// These values are used for fast blocktime chains like Avalanche, If you are running test
+// for slow blocktime chains like Ethereum, you should adjust these values accordingly through test config.
+// Refer to CommitOCRParams and ExecOCRParams in CCIPTestConfig located in testconfig/ccip.go for more details.
 var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
 	DeltaProgress:                           config.MustNewDuration(2 * time.Minute),
 	DeltaResend:                             config.MustNewDuration(5 * time.Second),
-	DeltaRound:                              config.MustNewDuration(75 * time.Second),
+	DeltaRound:                              config.MustNewDuration(60 * time.Second),
 	DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+	DeltaStage:                              config.MustNewDuration(25 * time.Second),
 	MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
 	MaxDurationObservation:                  config.MustNewDuration(35 * time.Second),
 	MaxDurationReport:                       config.MustNewDuration(10 * time.Second),
@@ -1254,15 +1259,16 @@ var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
 }
 
 var OCR2ParamsForExec = contracts.OffChainAggregatorV2Config{
-	DeltaProgress:                           config.MustNewDuration(100 * time.Second),
+	DeltaProgress:                           config.MustNewDuration(120 * time.Second),
 	DeltaResend:                             config.MustNewDuration(5 * time.Second),
-	DeltaRound:                              config.MustNewDuration(40 * time.Second),
+	DeltaRound:                              config.MustNewDuration(30 * time.Second),
 	DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+	DeltaStage:                              config.MustNewDuration(10 * time.Second),
 	MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
-	MaxDurationObservation:                  config.MustNewDuration(20 * time.Second),
-	MaxDurationReport:                       config.MustNewDuration(8 * time.Second),
+	MaxDurationObservation:                  config.MustNewDuration(35 * time.Second),
+	MaxDurationReport:                       config.MustNewDuration(10 * time.Second),
 	MaxDurationShouldAcceptFinalizedReport:  config.MustNewDuration(5 * time.Second),
-	MaxDurationShouldTransmitAcceptedReport: config.MustNewDuration(8 * time.Second),
+	MaxDurationShouldTransmitAcceptedReport: config.MustNewDuration(10 * time.Second),
 }
 
 func OffChainAggregatorV2ConfigWithNodes(numberNodes int, inflightExpiry time.Duration, cfg contracts.OffChainAggregatorV2Config) contracts.OffChainAggregatorV2Config {

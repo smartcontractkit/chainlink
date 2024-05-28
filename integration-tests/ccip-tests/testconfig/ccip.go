@@ -210,6 +210,7 @@ type LoadProfile struct {
 	TimeUnit                                   *config.Duration   `toml:",omitempty"`
 	StepDuration                               []*config.Duration `toml:",omitempty"`
 	TestDuration                               *config.Duration   `toml:",omitempty"`
+	NetworkChaosDelay                          *config.Duration   `toml:",omitempty"`
 	WaitBetweenChaosDuringLoad                 *config.Duration   `toml:",omitempty"`
 	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration   `toml:",omitempty"`
 	OptimizeSpace                              *bool              `toml:",omitempty"`
