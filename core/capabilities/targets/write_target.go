@@ -2,10 +2,10 @@ package targets
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -116,10 +116,11 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
-	txMeta := make(map[string]interface{}) // TODO: Consider just using the TxMeta struct here and pass it to submitTransaction
-	txMeta["WorkflowExecutionID"] = request.Metadata.WorkflowExecutionID
+	txMeta := txmgr.TxMeta{
+		WorkflowExecutionID: &request.Metadata.WorkflowExecutionID,
+	}
 
-	err = cap.submitSignedTransaction(ctx, cap.chain.Config().EVM().ChainWriter(), inputs.Report, inputs.Signatures, reqConfig.Address, txMeta)
+	err = cap.submitSignedTransaction(ctx, cap.chain.Config().EVM().ChainWriter(), inputs.Report, inputs.Signatures, nil, reqConfig.Address, &txMeta)
 	if err != nil {
 		return nil, err
 	}
@@ -138,17 +139,22 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 	return callback, nil
 }
 
-func (cap *EvmWrite) submitSignedTransaction(ctx context.Context, chainWriterConfig config.ChainWriter, report []byte, signatures [][]byte, toAddress string, txMeta map[string]interface{}) error {
+func (cap *EvmWrite) submitSignedTransaction(ctx context.Context, chainWriterConfig config.ChainWriter, report []byte, signatures [][]byte, TransactionUUID *uuid.UUID, toAddress string, txMeta *txmgr.TxMeta) error {
 	// construct forwarder payload
-	forwardABI := evmtypes.MustGetABI(chainWriterConfig.ABI())
-	calldata, err := forwardABI.Pack("report", common.HexToAddress(toAddress), report, signatures)
-	if err != nil {
-		return err
-	}
-
-	txMetaStruct, err := mapToStruct(txMeta)
-	if err != nil {
-		return err
+	var calldata []byte
+	var err error
+	ABI := evmtypes.MustGetABI(chainWriterConfig.ABI())
+	if chainWriterConfig.ForwarderAddress() != nil {
+		calldata, err = ABI.Pack(chainWriterConfig.ContractFunction(), common.HexToAddress(toAddress), report, signatures)
+		if err != nil {
+			return err
+		}
+		toAddress = chainWriterConfig.ForwarderAddress().Address().String()
+	} else {
+		calldata, err = ABI.Pack(chainWriterConfig.ContractFunction(), report, signatures)
+		if err != nil {
+			return err
+		}
 	}
 
 	// TODO: Turn this into config
@@ -160,12 +166,19 @@ func (cap *EvmWrite) submitSignedTransaction(ctx context.Context, chainWriterCon
 		checker.CheckerType = types.TransmitCheckerType(chainWriterConfig.Checker())
 	}
 
+	var transactionUUID *string
+	if TransactionUUID != nil {
+		uuid := TransactionUUID.String()
+		transactionUUID = &uuid
+	}
+
 	req := txmgr.TxRequest{
 		FromAddress:    chainWriterConfig.FromAddress().Address(),
-		ToAddress:      chainWriterConfig.ForwarderAddress().Address(),
+		ToAddress:      common.HexToAddress(toAddress), // TODO: store a map of strings to addresses in a map in the config and use that mapping
+		IdempotencyKey: transactionUUID,
 		EncodedPayload: calldata,
 		FeeLimit:       chainWriterConfig.GasLimit(),
-		Meta:           txMetaStruct,
+		Meta:           txMeta,
 		Strategy:       strategy,
 		Checker:        checker,
 	}
@@ -175,22 +188,6 @@ func (cap *EvmWrite) submitSignedTransaction(ctx context.Context, chainWriterCon
 	}
 	cap.lggr.Debugw("Transaction submitted", "transaction", tx)
 	return nil
-}
-
-func mapToStruct(m map[string]interface{}) (*txmgr.TxMeta, error) {
-	// Marshal the map to JSON
-	data, err := json.Marshal(m)
-	if err != nil {
-		return &txmgr.TxMeta{}, err
-	}
-
-	// Unmarshal the JSON to the struct
-	var result txmgr.TxMeta
-	if err := json.Unmarshal(data, &result); err != nil {
-		return &txmgr.TxMeta{}, err
-	}
-
-	return &result, nil
 }
 
 func (cap *EvmWrite) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {

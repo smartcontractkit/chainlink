@@ -160,6 +160,7 @@ type ChainWriter interface {
 	GasLimit() uint64
 	Checker() string
 	ABI() string
+	ContractFunction() string
 }
 
 type NodePool interface {

@@ -28,3 +28,7 @@ func (b *chainWriterConfig) Checker() string {
 func (b *chainWriterConfig) ABI() string {
 	return *b.c.ABI
 }
+
+func (b *chainWriterConfig) ContractFunction() string {
+	return *b.c.ContractFunction
+}

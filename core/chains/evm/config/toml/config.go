@@ -513,6 +513,7 @@ type ChainWriter struct {
 	GasLimit         *uint64             `toml:",omitempty"`
 	Checker          *string             `toml:",omitempty"`
 	ABI              *string             `toml:",omitempty"`
+	ContractFunction *string             `toml:",omitempty"`
 }
 
 func (m *ChainWriter) setFrom(f *ChainWriter) {
@@ -530,6 +531,9 @@ func (m *ChainWriter) setFrom(f *ChainWriter) {
 	}
 	if v := f.ABI; v != nil {
 		m.ABI = v
+	}
+	if v := f.ContractFunction; v != nil {
+		m.ContractFunction = v
 	}
 }
 

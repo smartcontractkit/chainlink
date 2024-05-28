@@ -50,6 +50,9 @@ func TestEvmWrite(t *testing.T) {
 		c.EVM[0].ChainWriter.Checker = &checker
 
 		c.EVM[0].ChainWriter.ABI = &forwarder.KeystoneForwarderMetaData.ABI
+
+		cf := "report"
+		c.EVM[0].ChainWriter.ContractFunction = &cf
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chain.On("Config").Return(evmcfg)
