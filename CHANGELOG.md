@@ -1,6 +1,5 @@
 # Changelog Chainlink Core
 
-
 ## 2.12.0 - UNRELEASED
 
 ### Minor Changes
@@ -43,6 +42,10 @@
 - [#12851](https://github.com/smartcontractkit/chainlink/pull/12851) [`40064f0dfe`](https://github.com/smartcontractkit/chainlink/commit/40064f0dfecda6e404993dff056e7a666cca7d26) Thanks [@amit-momin](https://github.com/amit-momin)! - #internal Updated FindTxesWithAttemptsAndReceiptsByIdsAndState method signature to accept int64 for tx ID instead of big.Int
 
 ### Patch Changes
+
+- [#13327](https://github.com/smartcontractkit/chainlink/pull/13327) [`0abe09d785`](https://github.com/smartcontractkit/chainlink/commit/0abe09d7852cf13970d1bb44b0e570e72be9e1e4) Thanks [@reductionista](https://github.com/reductionista)! - Reducing the scope of 0233 migration to include only 5th word index which is required for CCIP #db_update
+
+- [#13316](https://github.com/smartcontractkit/chainlink/pull/13316) [`4fbcf7d2f8`](https://github.com/smartcontractkit/chainlink/commit/4fbcf7d2f8a51bcbec185f7061ea95078ef0d11c) Thanks [@friedemannf](https://github.com/friedemannf)! - #bugfix allow ChainType to be set to xdai
 
 - [#13260](https://github.com/smartcontractkit/chainlink/pull/13260) [`5daefad14c`](https://github.com/smartcontractkit/chainlink/commit/5daefad14c42011ad0c19d9c21fb1e27d93c649c) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Fixed CPU usage issues caused by inefficiencies in HeadTracker.
 
