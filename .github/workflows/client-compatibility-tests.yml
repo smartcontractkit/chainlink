@@ -185,7 +185,6 @@ jobs:
           key_secret="$PYROSCOPE_KEY"
           
           [Logging]
-          test_log_collect=true
           run_id="$RUN_ID"
         
           [Logging.LogStream]
