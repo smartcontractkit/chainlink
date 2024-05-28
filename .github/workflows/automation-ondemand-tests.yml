@@ -56,7 +56,7 @@ jobs:
       - name: Collect Metrics
         if: inputs.chainlinkImage == ''
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: automation-on-demand-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -71,7 +71,7 @@ jobs:
       - name: Check if image exists
         if: inputs.chainlinkImage == ''
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@4bc2fc365a915124ee33b7c398b10564ca4ecaaf # v2.3.18
         with:
           repository: chainlink
           tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
@@ -79,7 +79,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false' && inputs.chainlinkImage == ''
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@4bc2fc365a915124ee33b7c398b10564ca4ecaaf # v2.3.18
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -103,7 +103,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: automation-on-demand-build-test-image
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -318,12 +318,12 @@ jobs:
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4bc2fc365a915124ee33b7c398b10564ca4ecaaf # v2.3.18
         if: ${{ matrix.tests.enabled == true }}
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ steps.determine-build.outputs.image }}
           cl_image_tag: ${{ steps.determine-build.outputs.version }}
@@ -346,7 +346,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: automation-on-demand-tests-${{ matrix.tests.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

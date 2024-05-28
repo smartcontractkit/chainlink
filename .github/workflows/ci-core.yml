@@ -163,7 +163,7 @@ jobs:
           echo "COUNT=50" >> $GITHUB_ENV
       - name: Install gotestloghelper
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.0.5
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.0
       - name: Run tests
         if: ${{ needs.filter.outputs.changes == 'true' }}
         id: run-tests
@@ -343,7 +343,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ci-core-sonarqube
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -385,7 +385,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ci-core-generate
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
