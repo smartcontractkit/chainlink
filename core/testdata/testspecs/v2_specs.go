@@ -863,3 +863,27 @@ ds -> ds_parse -> ds_multiply;
 	toml := fmt.Sprintf(template, params.Name, params.StreamID)
 	return StreamSpec{StreamSpecParams: params, toml: toml}
 }
+
+type WorkflowSpec struct {
+	toml string
+}
+
+func (w WorkflowSpec) Toml() string {
+	return w.toml
+}
+
+func GenerateWorkflowSpec(id, owner, name, spec string) WorkflowSpec {
+	template := `
+type = "workflow"
+schemaVersion = 1
+name = "test-spec"
+workflowId = "%s"
+workflowOwner = "%s"
+workflowName = "%s"
+workflow = """
+%s
+"""
+`
+	toml := fmt.Sprintf(template, id, owner, name, spec)
+	return WorkflowSpec{toml: toml}
+}

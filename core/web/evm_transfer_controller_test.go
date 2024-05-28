@@ -10,9 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -21,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -73,7 +71,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
-	validateTxCount(t, app.GetSqlxDB(), 1)
+	validateTxCount(t, app.GetDB(), 1)
 }
 
 func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
@@ -114,7 +112,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
-	validateTxCount(t, app.GetSqlxDB(), 1)
+	validateTxCount(t, app.GetDB(), 1)
 }
 
 func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testing.T) {
@@ -160,7 +158,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
-	validateTxCount(t, app.GetSqlxDB(), 1)
+	validateTxCount(t, app.GetDB(), 1)
 }
 
 func TestTransfersController_TransferZeroAddressError(t *testing.T) {
@@ -328,7 +326,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource)
 	assert.NoError(t, err)
 
-	validateTxCount(t, app.GetSqlxDB(), 1)
+	validateTxCount(t, app.GetDB(), 1)
 
 	// check returned data
 	assert.NotEmpty(t, resource.Hash)
@@ -348,7 +346,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 		ctx := testutils.Context(t)
 		timeout := 5 * time.Second
 		var done bool
-		find := func(_ int64) (txmgr.Tx, error) {
+		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			if !done {
 				done = true
 				return tx, nil
@@ -364,7 +362,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 	// failed to find tx
 	t.Run("failed to find tx", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		find := func(_ int64) (txmgr.Tx, error) {
+		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			return txmgr.Tx{}, fmt.Errorf("ERRORED")
 		}
 		_, err := web.FindTxAttempt(ctx, time.Second, tx, find)
@@ -374,7 +372,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 	// timeout
 	t.Run("timeout", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		find := func(_ int64) (txmgr.Tx, error) {
+		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			return tx, nil
 		}
 		_, err := web.FindTxAttempt(ctx, time.Second, tx, find)
@@ -384,7 +382,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 	// context canceled
 	t.Run("context canceled", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		find := func(_ int64) (txmgr.Tx, error) {
+		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			return tx, nil
 		}
 
@@ -399,9 +397,8 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 	})
 }
 
-func validateTxCount(t *testing.T, db *sqlx.DB, count int) {
-	cfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+func validateTxCount(t *testing.T, ds sqlutil.DataSource, count int) {
+	txStore := txmgr.NewTxStore(ds, logger.TestLogger(t))
 
 	txes, err := txStore.GetAllTxes(testutils.Context(t))
 	require.NoError(t, err)

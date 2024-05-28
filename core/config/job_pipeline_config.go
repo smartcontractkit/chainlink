@@ -15,4 +15,5 @@ type JobPipeline interface {
 	ReaperThreshold() time.Duration
 	ResultWriteQueueDepth() uint64
 	ExternalInitiatorsEnabled() bool
+	VerboseLogging() bool
 }

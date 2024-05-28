@@ -11,6 +11,8 @@
 		"no-inline-assembly": "off",
 		"contract-name-camelcase": "off",
 		"no-unused-import": "error",
+		"gas-struct-packing": "warn",
+		"interface-starts-with-i": "warn",
 		"func-visibility": [
 			"error",
 			{

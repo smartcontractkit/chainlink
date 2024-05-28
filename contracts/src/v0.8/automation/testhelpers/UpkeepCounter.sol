@@ -4,25 +4,25 @@ pragma solidity 0.8.16;
 contract UpkeepCounter {
   event PerformingUpkeep(
     address indexed from,
-    uint256 initialBlock,
-    uint256 lastBlock,
+    uint256 initialTimestamp,
+    uint256 lastTimestamp,
     uint256 previousBlock,
     uint256 counter
   );
 
   uint256 public testRange;
   uint256 public interval;
-  uint256 public lastBlock;
+  uint256 public lastTimestamp;
   uint256 public previousPerformBlock;
-  uint256 public initialBlock;
+  uint256 public initialTimestamp;
   uint256 public counter;
 
   constructor(uint256 _testRange, uint256 _interval) {
     testRange = _testRange;
     interval = _interval;
     previousPerformBlock = 0;
-    lastBlock = block.number;
-    initialBlock = 0;
+    lastTimestamp = block.timestamp;
+    initialTimestamp = 0;
     counter = 0;
   }
 
@@ -31,28 +31,28 @@ contract UpkeepCounter {
   }
 
   function performUpkeep(bytes calldata performData) external {
-    if (initialBlock == 0) {
-      initialBlock = block.number;
+    if (initialTimestamp == 0) {
+      initialTimestamp = block.timestamp;
     }
-    lastBlock = block.number;
+    lastTimestamp = block.timestamp;
     counter = counter + 1;
     performData;
-    emit PerformingUpkeep(tx.origin, initialBlock, lastBlock, previousPerformBlock, counter);
-    previousPerformBlock = lastBlock;
+    emit PerformingUpkeep(tx.origin, initialTimestamp, lastTimestamp, previousPerformBlock, counter);
+    previousPerformBlock = lastTimestamp;
   }
 
   function eligible() public view returns (bool) {
-    if (initialBlock == 0) {
+    if (initialTimestamp == 0) {
       return true;
     }
 
-    return (block.number - initialBlock) < testRange && (block.number - lastBlock) >= interval;
+    return (block.timestamp - initialTimestamp) < testRange && (block.timestamp - lastTimestamp) >= interval;
   }
 
   function setSpread(uint256 _testRange, uint256 _interval) external {
     testRange = _testRange;
     interval = _interval;
-    initialBlock = 0;
+    initialTimestamp = 0;
     counter = 0;
   }
 }

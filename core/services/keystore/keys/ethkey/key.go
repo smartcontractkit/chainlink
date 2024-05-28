@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 // NOTE: This model refers to the OLD key and is only used for migrations
@@ -14,7 +15,7 @@ import (
 // By default, a key is assumed to represent an ethereum account.
 type Key struct {
 	ID        int32
-	Address   EIP55Address
+	Address   types.EIP55Address
 	JSON      sqlutil.JSON `json:"-"`
 	CreatedAt time.Time    `json:"-"`
 	UpdatedAt time.Time    `json:"-"`

@@ -15,14 +15,15 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -35,20 +36,22 @@ type Runner interface {
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
 	// Note that `saveSuccessfulTaskRuns` value is ignored if the run contains async tasks.
-	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx pg.Queryer) error) (incomplete bool, err error)
-	ResumeRun(taskID uuid.UUID, value interface{}, err error) error
+	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx sqlutil.DataSource) error) (incomplete bool, err error)
+	ResumeRun(ctx context.Context, taskID uuid.UUID, value interface{}, err error) error
 
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run *Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
-	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
-	InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
+	// ds is an optional override, for example when executing a transaction.
+	InsertFinishedRun(ctx context.Context, ds sqlutil.DataSource, run *Run, saveSuccessfulTaskRuns bool) error
+	InsertFinishedRuns(ctx context.Context, ds sqlutil.DataSource, runs []*Run, saveSuccessfulTaskRuns bool) error
 
 	// ExecuteAndInsertFinishedRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
 	// Note that the spec MUST have a DOT graph for this to work.
-	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
+	// This will persist the Spec in the DB if it doesn't have an ID.
+	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results TaskRunResults, err error)
 
 	OnRunFinished(func(*Run))
 	InitializePipeline(spec Spec) (*Pipeline, error)
@@ -202,10 +205,12 @@ func (err ErrRunPanicked) Error() string {
 func NewRun(spec Spec, vars Vars) *Run {
 	return &Run{
 		State:          RunStatusRunning,
+		JobID:          spec.JobID,
+		PruningKey:     spec.JobID,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
-		Inputs:         JSONSerializable{Val: vars.vars, Valid: true},
-		Outputs:        JSONSerializable{Val: nil, Valid: false},
+		Inputs:         jsonserializable.JSONSerializable{Val: vars.vars, Valid: true},
+		Outputs:        jsonserializable.JSONSerializable{Val: nil, Valid: false},
 		CreatedAt:      time.Now(),
 	}
 }
@@ -319,7 +324,7 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 }
 
 func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Vars, l logger.Logger) TaskRunResults {
-	l = l.With("jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
+	l = l.With("run.ID", run.ID, "executionID", uuid.New(), "specID", run.PipelineSpecID, "jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
 	l.Debug("Initiating tasks for pipeline run of spec")
 
 	scheduler := newScheduler(pipeline, run, vars, l)
@@ -362,12 +367,12 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	run.FailSilently = scheduler.exiting
 	run.State = RunStatusSuspended
 
+	var runTime time.Duration
 	if !scheduler.pending {
 		run.FinishedAt = null.TimeFrom(time.Now())
 
 		// NOTE: runTime can be very long now because it'll include suspend
-		runTime := run.FinishedAt.Time.Sub(run.CreatedAt)
-		l.Debugw("Finished all tasks for pipeline run", "specID", run.PipelineSpecID, "runTime", runTime)
+		runTime = run.FinishedAt.Time.Sub(run.CreatedAt)
 		PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Set(float64(runTime))
 	}
 
@@ -389,6 +394,9 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		})
 
 		sort.Slice(run.PipelineTaskRuns, func(i, j int) bool {
+			if run.PipelineTaskRuns[i].task.OutputIndex() == run.PipelineTaskRuns[j].task.OutputIndex() {
+				return run.PipelineTaskRuns[i].FinishedAt.ValueOrZero().Before(run.PipelineTaskRuns[j].FinishedAt.ValueOrZero())
+			}
 			return run.PipelineTaskRuns[i].task.OutputIndex() < run.PipelineTaskRuns[j].task.OutputIndex()
 		})
 	}
@@ -411,7 +419,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		}
 		run.AllErrors = errors
 		run.FatalErrors = fatalErrors
-		run.Outputs = JSONSerializable{Val: outputs, Valid: true}
+		run.Outputs = jsonserializable.JSONSerializable{Val: outputs, Valid: true}
 
 		if run.HasFatalErrors() {
 			run.State = RunStatusErrored
@@ -437,6 +445,29 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	})
 	for i := range taskRunResults {
 		idxs[i] = taskRunResults[i].Task.OutputIndex()
+	}
+
+	if r.config.VerboseLogging() {
+		l = l.With(
+			"run.PipelineTaskRuns", run.PipelineTaskRuns,
+			"run.Outputs", run.Outputs,
+			"run.CreatedAt", run.CreatedAt,
+			"run.FinishedAt", run.FinishedAt,
+			"run.Meta", run.Meta,
+			"run.Inputs", run.Inputs,
+		)
+	}
+	l = l.With("run.State", run.State, "fatal", run.HasFatalErrors(), "runTime", runTime)
+	if run.HasFatalErrors() {
+		// This will also log at error level in OCR if it fails Observe so the
+		// level is appropriate
+		l = l.With("run.FatalErrors", run.FatalErrors)
+		l.Debugw("Completed pipeline run with fatal errors")
+	} else if run.HasErrors() {
+		l = l.With("run.AllErrors", run.AllErrors)
+		l.Debugw("Completed pipeline run with errors")
+	} else {
+		l.Debugw("Completed pipeline run successfully")
 	}
 
 	return taskRunResults
@@ -480,7 +511,9 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
 		loggerFields = append(loggerFields, "resultHex", fmt.Sprintf("%x", v))
 	}
-	l.Tracew("Pipeline task completed", loggerFields...)
+	if r.config.VerboseLogging() {
+		l.Tracew("Pipeline task completed", loggerFields...)
+	}
 
 	now := time.Now()
 
@@ -518,27 +551,29 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 }
 
 // ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result
-func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
+func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results TaskRunResults, err error) {
 	run, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
 	if err != nil {
-		return 0, finalResult, pkgerrors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+		return 0, trrs, pkgerrors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
-
-	finalResult = trrs.FinalResult(l)
 
 	// don't insert if we exited early
 	if run.FailSilently {
-		return 0, finalResult, nil
+		return 0, trrs, nil
 	}
 
-	if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
-		return 0, finalResult, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+	if spec.ID == 0 {
+		err = r.orm.InsertFinishedRunWithSpec(ctx, run, saveSuccessfulTaskRuns)
+	} else {
+		err = r.orm.InsertFinishedRun(ctx, run, saveSuccessfulTaskRuns)
 	}
-	return run.ID, finalResult, nil
-
+	if err != nil {
+		return 0, trrs, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", run.PipelineSpecID)
+	}
+	return run.ID, trrs, nil
 }
 
-func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx pg.Queryer) error) (incomplete bool, err error) {
+func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx sqlutil.DataSource) error) (incomplete bool, err error) {
 	pipeline, err := r.InitializePipeline(run.PipelineSpec)
 	if err != nil {
 		return false, err
@@ -555,8 +590,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
-	q := r.orm.GetQ().WithOpts(pg.WithParentCtx(ctx))
-	err = q.Transaction(func(tx pg.Queryer) error {
+	err = r.orm.Transact(ctx, func(tx ORM) error {
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
 		if preinsert && run.ID == 0 {
 			now := time.Now()
@@ -575,13 +609,13 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 				default:
 				}
 			}
-			if err = r.orm.CreateRun(run, pg.WithQueryer(tx)); err != nil {
+			if err = tx.CreateRun(ctx, run); err != nil {
 				return err
 			}
 		}
 
 		if fn != nil {
-			return fn(tx)
+			return fn(tx.DataSource())
 		}
 		return nil
 	})
@@ -595,14 +629,14 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 		if preinsert {
 			// FailSilently = run failed and task was marked failEarly. skip StoreRun and instead delete all trace of it
 			if run.FailSilently {
-				if err = r.orm.DeleteRun(run.ID); err != nil {
+				if err = r.orm.DeleteRun(ctx, run.ID); err != nil {
 					return false, pkgerrors.Wrap(err, "Run")
 				}
 				return false, nil
 			}
 
 			var restart bool
-			restart, err = r.orm.StoreRun(run)
+			restart, err = r.orm.StoreRun(ctx, run)
 			if err != nil {
 				return false, pkgerrors.Wrapf(err, "error storing run for spec ID %v state %v outputs %v errors %v finished_at %v",
 					run.PipelineSpec.ID, run.State, run.Outputs, run.FatalErrors, run.FinishedAt)
@@ -621,8 +655,8 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 				return false, nil
 			}
 
-			if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns, pg.WithParentCtx(ctx)); err != nil {
-				return false, pkgerrors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+			if err = r.orm.InsertFinishedRun(ctx, run, saveSuccessfulTaskRuns); err != nil {
+				return false, pkgerrors.Wrapf(err, "error inserting finished run for spec ID %v", run.PipelineSpec.ID)
 			}
 		}
 
@@ -632,8 +666,8 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 }
 
-func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error {
-	run, start, err := r.orm.UpdateTaskRunResult(taskID, Result{
+func (r *runner) ResumeRun(ctx context.Context, taskID uuid.UUID, value interface{}, err error) error {
+	run, start, err := r.orm.UpdateTaskRunResult(ctx, taskID, Result{
 		Value: value,
 		Error: err,
 	})
@@ -655,12 +689,20 @@ func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 	return nil
 }
 
-func (r *runner) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
-	return r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns, qopts...)
+func (r *runner) InsertFinishedRun(ctx context.Context, ds sqlutil.DataSource, run *Run, saveSuccessfulTaskRuns bool) error {
+	orm := r.orm
+	if ds != nil {
+		orm = orm.WithDataSource(ds)
+	}
+	return orm.InsertFinishedRun(ctx, run, saveSuccessfulTaskRuns)
 }
 
-func (r *runner) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
-	return r.orm.InsertFinishedRuns(runs, saveSuccessfulTaskRuns, qopts...)
+func (r *runner) InsertFinishedRuns(ctx context.Context, ds sqlutil.DataSource, runs []*Run, saveSuccessfulTaskRuns bool) error {
+	orm := r.orm
+	if ds != nil {
+		orm = orm.WithDataSource(ds)
+	}
+	return orm.InsertFinishedRuns(ctx, runs, saveSuccessfulTaskRuns)
 }
 
 func (r *runner) runReaper() {

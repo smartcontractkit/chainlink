@@ -12,10 +12,10 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -38,7 +38,9 @@ type chainClient struct {
 		RPCClient,
 		rpc.BatchElem,
 	]
-	logger logger.SugaredLogger
+	logger       logger.SugaredLogger
+	chainType    config.ChainType
+	clientErrors evmconfig.ClientErrors
 }
 
 func NewChainClient(
@@ -50,21 +52,9 @@ func NewChainClient(
 	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
+	clientErrors evmconfig.ClientErrors,
 ) Client {
-	multiNode := commonclient.NewMultiNode[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		*types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-		RPCClient,
-	](
+	multiNode := commonclient.NewMultiNode(
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -75,13 +65,14 @@ func NewChainClient(
 		chainType,
 		"EVM",
 		func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
-			return ClassifySendError(err, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
+			return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
 		},
 		0, // use the default value provided by the implementation
 	)
 	return &chainClient{
-		multiNode: multiNode,
-		logger:    logger.Sugared(lggr),
+		multiNode:    multiNode,
+		logger:       logger.Sugared(lggr),
+		clientErrors: clientErrors,
 	}
 }
 
@@ -220,7 +211,7 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
-	returnCode := ClassifySendError(err, c.logger, tx, fromAddress, c.IsL2())
+	returnCode := ClassifySendError(err, c.clientErrors, c.logger, tx, fromAddress, c.IsL2())
 	return returnCode, err
 }
 
@@ -277,4 +268,17 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	}
 	//return rpc.TransactionReceipt(ctx, txHash)
 	return rpc.TransactionReceiptGeth(ctx, txHash)
+}
+
+func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	return c.multiNode.LatestFinalizedBlock(ctx)
+}
+
+func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+	msg := ethereum.CallMsg{
+		From: from,
+		To:   &to,
+		Data: data,
+	}
+	return SimulateTransaction(ctx, c, c.logger, c.chainType, msg)
 }

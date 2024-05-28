@@ -9,10 +9,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -25,7 +25,7 @@ type (
 	}
 
 	JobRunner interface {
-		RunJob(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
+		RunJob(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	}
 )
 
@@ -73,7 +73,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {
 		)
 	}
 }
-func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
@@ -151,7 +151,7 @@ func (r *webhookJobRunner) spec(externalJobID uuid.UUID) (registeredJob, bool) {
 
 var ErrJobNotExists = errors.New("job does not exist")
 
-func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
+func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
 	spec, exists := r.spec(jobUUID)
 	if !exists {
 		return 0, ErrJobNotExists

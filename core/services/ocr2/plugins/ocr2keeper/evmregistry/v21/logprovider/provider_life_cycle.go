@@ -9,10 +9,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -22,7 +20,7 @@ var (
 	LogBackfillBuffer = 100
 )
 
-func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
+func (p *logEventProvider) RefreshActiveUpkeeps(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 	// Exploratory: investigate how we can batch the refresh
 	if len(ids) == 0 {
 		return nil, nil
@@ -42,7 +40,7 @@ func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, er
 	if len(inactiveIDs) > 0 {
 		p.lggr.Debugw("Removing inactive upkeeps", "upkeeps", len(inactiveIDs))
 		for _, id := range inactiveIDs {
-			if err := p.UnregisterFilter(id); err != nil {
+			if err := p.UnregisterFilter(ctx, id); err != nil {
 				merr = errors.Join(merr, fmt.Errorf("failed to unregister filter: %s", id.String()))
 			}
 		}
@@ -85,8 +83,7 @@ func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOption
 		filter = *currentFilter
 	} else { // new filter
 		filter = upkeepFilter{
-			upkeepID:     upkeepID,
-			blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
+			upkeepID: upkeepID,
 		}
 	}
 	filter.lastPollBlock = 0
@@ -105,7 +102,7 @@ func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOption
 
 // register registers the upkeep filter with the log poller and adds it to the filter store.
 func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filter, ufilter upkeepFilter) error {
-	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get latest block while registering filter: %w", err)
 	}
@@ -115,12 +112,12 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	if filterStoreHasFilter {
 		// removing filter in case of an update so we can recreate it with updated values
 		lggr.Debugw("Upserting upkeep filter")
-		err := p.poller.UnregisterFilter(lpFilter.Name)
+		err := p.poller.UnregisterFilter(ctx, lpFilter.Name)
 		if err != nil {
 			return fmt.Errorf("failed to upsert (unregister) upkeep filter %s: %w", ufilter.upkeepID.String(), err)
 		}
 	}
-	if err := p.poller.RegisterFilter(lpFilter); err != nil {
+	if err := p.poller.RegisterFilter(ctx, lpFilter); err != nil {
 		return err
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
@@ -144,10 +141,10 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	return nil
 }
 
-func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
+func (p *logEventProvider) UnregisterFilter(ctx context.Context, upkeepID *big.Int) error {
 	// Filter might have been unregistered already, only try to unregister if it exists
 	if p.poller.HasFilter(p.filterName(upkeepID)) {
-		if err := p.poller.UnregisterFilter(p.filterName(upkeepID)); err != nil {
+		if err := p.poller.UnregisterFilter(ctx, p.filterName(upkeepID)); err != nil {
 			return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
 		}
 	}

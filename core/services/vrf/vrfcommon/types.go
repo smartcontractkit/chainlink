@@ -22,7 +22,7 @@ type Config interface {
 
 //go:generate mockery --quiet --name FeeConfig --output ../mocks/ --case=underscore
 type FeeConfig interface {
-	LimitDefault() uint32
+	LimitDefault() uint64
 	LimitJobType() config.LimitJobType
 	PriceMaxKey(addr common.Address) *assets.Wei
 }

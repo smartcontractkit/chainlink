@@ -8,14 +8,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
+	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv1"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv1"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	ethcontracts "github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -23,34 +27,7 @@ import (
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-
-	config, err := tc.GetConfig("Smoke", tc.VRF)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestInstance(t).
-		WithTestConfig(&config).
-		WithGeth().
-		WithCLNodes(1).
-		WithFunding(big.NewFloat(.1)).
-		WithStandardCleanup().
-		Build()
-	require.NoError(t, err)
-	env.ParallelTransactions(true)
-
-	lt, err := actions.DeployLINKToken(env.ContractDeployer)
-	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	contracts, err := vrfv1.DeployVRFContracts(env.ContractDeployer, env.EVMClient, lt)
-	require.NoError(t, err, "Deploying VRF Contracts shouldn't fail")
-
-	err = lt.Transfer(contracts.Consumer.Address(), big.NewInt(2e18))
-	require.NoError(t, err, "Funding consumer contract shouldn't fail")
-	_, err = env.ContractDeployer.DeployVRFContract()
-	require.NoError(t, err, "Deploying VRF contract shouldn't fail")
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
+	env, contracts, sethClient := prepareVRFtestEnv(t, l)
 
 	for _, n := range env.ClCluster.Nodes {
 		nodeKey, err := n.API.MustCreateVRFKey()
@@ -69,7 +46,7 @@ func TestVRFBasic(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
-			EVMChainID:               env.EVMClient.GetChainID().String(),
+			EVMChainID:               fmt.Sprint(sethClient.ChainID),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Creating VRF Job shouldn't fail")
@@ -88,6 +65,7 @@ func TestVRFBasic(t *testing.T) {
 		encodedProvingKeys := make([][2]*big.Int, 0)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 
+		//nolint:gosec // G602
 		requestHash, err := contracts.Coordinator.HashOfKey(testcontext.Get(t), encodedProvingKeys[0])
 		require.NoError(t, err, "Getting Hash of encoded proving keys shouldn't fail")
 		err = contracts.Consumer.RequestRandomness(requestHash, big.NewInt(1))
@@ -118,33 +96,7 @@ func TestVRFBasic(t *testing.T) {
 func TestVRFJobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig("Smoke", tc.VRF)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestInstance(t).
-		WithTestConfig(&config).
-		WithGeth().
-		WithCLNodes(1).
-		WithFunding(big.NewFloat(.1)).
-		WithStandardCleanup().
-		Build()
-	require.NoError(t, err)
-	env.ParallelTransactions(true)
-
-	lt, err := actions.DeployLINKToken(env.ContractDeployer)
-	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	contracts, err := vrfv1.DeployVRFContracts(env.ContractDeployer, env.EVMClient, lt)
-	require.NoError(t, err, "Deploying VRF Contracts shouldn't fail")
-
-	err = lt.Transfer(contracts.Consumer.Address(), big.NewInt(2e18))
-	require.NoError(t, err, "Funding consumer contract shouldn't fail")
-	_, err = env.ContractDeployer.DeployVRFContract()
-	require.NoError(t, err, "Deploying VRF contract shouldn't fail")
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
+	env, contracts, sethClient := prepareVRFtestEnv(t, l)
 
 	for _, n := range env.ClCluster.Nodes {
 		nodeKey, err := n.API.MustCreateVRFKey()
@@ -163,7 +115,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
-			EVMChainID:               env.EVMClient.GetChainID().String(),
+			EVMChainID:               fmt.Sprint(sethClient.ChainID),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Creating VRF Job shouldn't fail")
@@ -182,6 +134,7 @@ func TestVRFJobReplacement(t *testing.T) {
 		encodedProvingKeys := make([][2]*big.Int, 0)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 
+		//nolint:gosec // G602
 		requestHash, err := contracts.Coordinator.HashOfKey(testcontext.Get(t), encodedProvingKeys[0])
 		require.NoError(t, err, "Getting Hash of encoded proving keys shouldn't fail")
 		err = contracts.Consumer.RequestRandomness(requestHash, big.NewInt(1))
@@ -212,7 +165,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
-			EVMChainID:               env.EVMClient.GetChainID().String(),
+			EVMChainID:               fmt.Sprint(sethClient.ChainID),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Recreating VRF Job shouldn't fail")
@@ -229,4 +182,39 @@ func TestVRFJobReplacement(t *testing.T) {
 			l.Debug().Uint64("Output", out.Uint64()).Msg("Randomness fulfilled")
 		}, timeout, "1s").Should(gomega.Succeed())
 	}
+}
+
+func prepareVRFtestEnv(t *testing.T, l zerolog.Logger) (*test_env.CLClusterTestEnv, *vrfv1.Contracts, *seth.Client) {
+	config, err := tc.GetConfig("Smoke", tc.VRF)
+	require.NoError(t, err, "Error getting config")
+
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+		WithCLNodes(1).
+		WithFunding(big.NewFloat(.5)).
+		WithStandardCleanup().
+		WithSeth().
+		Build()
+	require.NoError(t, err)
+
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	sethClient, err := env.GetSethClient(network.ChainID)
+	require.NoError(t, err, "Getting Seth client shouldn't fail")
+
+	lt, err := ethcontracts.DeployLinkTokenContract(l, sethClient)
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+	contracts, err := vrfv1.DeployVRFContracts(sethClient, lt.Address())
+	require.NoError(t, err, "Deploying VRF Contracts shouldn't fail")
+
+	err = lt.Transfer(contracts.Consumer.Address(), big.NewInt(2e18))
+	require.NoError(t, err, "Funding consumer contract shouldn't fail")
+	_, err = ethcontracts.DeployVRFv1Contract(sethClient)
+	require.NoError(t, err, "Deploying VRF contract shouldn't fail")
+
+	return env, contracts, sethClient
 }

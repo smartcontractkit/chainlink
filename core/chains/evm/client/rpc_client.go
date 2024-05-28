@@ -130,7 +130,7 @@ func (r *rpcClient) Dial(callerCtx context.Context) error {
 	wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
 	if err != nil {
 		promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-		return pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted())
+		return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted()))
 	}
 
 	r.ws.rpc = wsrpc
@@ -159,7 +159,7 @@ func (r *rpcClient) DialHTTP() error {
 	httprpc, err := rpc.DialHTTP(r.http.uri.String())
 	if err != nil {
 		promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-		return pkgerrors.Wrapf(err, "error while dialing HTTP: %v", r.http.uri.Redacted())
+		return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing HTTP: %v", r.http.uri.Redacted()))
 	}
 
 	r.http.rpc = httprpc
@@ -295,10 +295,7 @@ func (r *rpcClient) UnsubscribeAllExceptAliveLoop() {
 
 // CallContext implementation
 func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With(
 		"method", method,
@@ -307,6 +304,7 @@ func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method 
 
 	lggr.Debug("RPC call: evmclient.Client#CallContext")
 	start := time.Now()
+	var err error
 	if http != nil {
 		err = r.wrapHTTP(http.rpc.CallContext(ctx, result, method, args...))
 	} else {
@@ -320,15 +318,13 @@ func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method 
 }
 
 func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
 
 	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
+	var err error
 	if http != nil {
 		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
 	} else {
@@ -342,24 +338,23 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 }
 
 func (r *rpcClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error) {
-	ctx, cancel, ws, _, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, _ := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("args", args)
 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
+	var sub commontypes.Subscription
 	sub, err := ws.rpc.EthSubscribe(ctx, channel, args...)
 	if err == nil {
+		sub = newSubscriptionErrorWrapper(sub, r.rpcClientErrorPrefix())
 		r.registerSub(sub)
 	}
 	duration := time.Since(start)
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
 
-	return sub, err
+	return sub, r.wrapWS(err)
 }
 
 // GethClient wrappers
@@ -370,17 +365,14 @@ func (r *rpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) 
 		return nil, err
 	}
 	if receipt == nil {
-		err = ethereum.NotFound
+		err = r.wrapRPCClientError(ethereum.NotFound)
 		return
 	}
 	return
 }
 
 func (r *rpcClient) TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("txHash", txHash)
 
@@ -403,10 +395,7 @@ func (r *rpcClient) TransactionReceiptGeth(ctx context.Context, txHash common.Ha
 	return
 }
 func (r *rpcClient) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("txHash", txHash)
 
@@ -430,10 +419,7 @@ func (r *rpcClient) TransactionByHash(ctx context.Context, txHash common.Hash) (
 }
 
 func (r *rpcClient) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("number", number)
 
@@ -454,10 +440,7 @@ func (r *rpcClient) HeaderByNumber(ctx context.Context, number *big.Int) (header
 }
 
 func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header *types.Header, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("hash", hash)
 
@@ -479,14 +462,22 @@ func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	return
 }
 
+func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	return r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+}
+
 func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
 	hex := ToBlockNumArg(number)
-	err = r.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
+	return r.blockByNumber(ctx, hex)
+}
+
+func (r *rpcClient) blockByNumber(ctx context.Context, number string) (head *evmtypes.Head, err error) {
+	err = r.CallContext(ctx, &head, "eth_getBlockByNumber", number, false)
 	if err != nil {
 		return nil, err
 	}
 	if head == nil {
-		err = ethereum.NotFound
+		err = r.wrapRPCClientError(ethereum.NotFound)
 		return
 	}
 	head.EVMChainID = ubig.New(r.chainID)
@@ -499,7 +490,7 @@ func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (head *ev
 		return nil, err
 	}
 	if head == nil {
-		err = ethereum.NotFound
+		err = r.wrapRPCClientError(ethereum.NotFound)
 		return
 	}
 	head.EVMChainID = ubig.New(r.chainID)
@@ -507,10 +498,7 @@ func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (head *ev
 }
 
 func (r *rpcClient) BlockByHashGeth(ctx context.Context, hash common.Hash) (block *types.Block, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("hash", hash)
 
@@ -533,10 +521,7 @@ func (r *rpcClient) BlockByHashGeth(ctx context.Context, hash common.Hash) (bloc
 }
 
 func (r *rpcClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (block *types.Block, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("number", number)
 
@@ -559,15 +544,13 @@ func (r *rpcClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (blo
 }
 
 func (r *rpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("tx", tx)
 
 	lggr.Debug("RPC call: evmclient.Client#SendTransaction")
 	start := time.Now()
+	var err error
 	if http != nil {
 		err = r.wrapHTTP(http.geth.SendTransaction(ctx, tx))
 	} else {
@@ -599,10 +582,7 @@ func (r *rpcClient) SendEmptyTransaction(
 
 // PendingSequenceAt returns one higher than the highest nonce from both mempool and mined transactions
 func (r *rpcClient) PendingSequenceAt(ctx context.Context, account common.Address) (nonce evmtypes.Nonce, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return 0, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account)
 
@@ -631,10 +611,7 @@ func (r *rpcClient) PendingSequenceAt(ctx context.Context, account common.Addres
 // mined nonce at the given block number, but it actually returns the total
 // transaction count which is the highest mined nonce + 1
 func (r *rpcClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce evmtypes.Nonce, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return 0, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account, "blockNumber", blockNumber)
 
@@ -660,10 +637,7 @@ func (r *rpcClient) SequenceAt(ctx context.Context, account common.Address, bloc
 }
 
 func (r *rpcClient) PendingCodeAt(ctx context.Context, account common.Address) (code []byte, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account)
 
@@ -686,10 +660,7 @@ func (r *rpcClient) PendingCodeAt(ctx context.Context, account common.Address) (
 }
 
 func (r *rpcClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) (code []byte, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account, "blockNumber", blockNumber)
 
@@ -712,10 +683,7 @@ func (r *rpcClient) CodeAt(ctx context.Context, account common.Address, blockNum
 }
 
 func (r *rpcClient) EstimateGas(ctx context.Context, c interface{}) (gas uint64, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return 0, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	call := c.(ethereum.CallMsg)
 	lggr := r.newRqLggr().With("call", call)
@@ -739,10 +707,7 @@ func (r *rpcClient) EstimateGas(ctx context.Context, c interface{}) (gas uint64,
 }
 
 func (r *rpcClient) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr()
 
@@ -765,10 +730,7 @@ func (r *rpcClient) SuggestGasPrice(ctx context.Context) (price *big.Int, err er
 }
 
 func (r *rpcClient) CallContract(ctx context.Context, msg interface{}, blockNumber *big.Int) (val []byte, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("callMsg", msg, "blockNumber", blockNumber)
 	message := msg.(ethereum.CallMsg)
@@ -777,10 +739,10 @@ func (r *rpcClient) CallContract(ctx context.Context, msg interface{}, blockNumb
 	start := time.Now()
 	var hex hexutil.Bytes
 	if http != nil {
-		err = http.rpc.CallContext(ctx, &hex, "eth_call", toCallArg(message), toBlockNumArg(blockNumber))
+		err = http.rpc.CallContext(ctx, &hex, "eth_call", ToBackwardCompatibleCallArg(message), ToBackwardCompatibleBlockNumArg(blockNumber))
 		err = r.wrapHTTP(err)
 	} else {
-		err = ws.rpc.CallContext(ctx, &hex, "eth_call", toCallArg(message), toBlockNumArg(blockNumber))
+		err = ws.rpc.CallContext(ctx, &hex, "eth_call", ToBackwardCompatibleCallArg(message), ToBackwardCompatibleBlockNumArg(blockNumber))
 		err = r.wrapWS(err)
 	}
 	if err == nil {
@@ -796,10 +758,7 @@ func (r *rpcClient) CallContract(ctx context.Context, msg interface{}, blockNumb
 }
 
 func (r *rpcClient) PendingCallContract(ctx context.Context, msg interface{}) (val []byte, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("callMsg", msg)
 	message := msg.(ethereum.CallMsg)
@@ -808,10 +767,10 @@ func (r *rpcClient) PendingCallContract(ctx context.Context, msg interface{}) (v
 	start := time.Now()
 	var hex hexutil.Bytes
 	if http != nil {
-		err = http.rpc.CallContext(ctx, &hex, "eth_call", toCallArg(message), "pending")
+		err = http.rpc.CallContext(ctx, &hex, "eth_call", ToBackwardCompatibleCallArg(message), "pending")
 		err = r.wrapHTTP(err)
 	} else {
-		err = ws.rpc.CallContext(ctx, &hex, "eth_call", toCallArg(message), "pending")
+		err = ws.rpc.CallContext(ctx, &hex, "eth_call", ToBackwardCompatibleCallArg(message), "pending")
 		err = r.wrapWS(err)
 	}
 	if err == nil {
@@ -826,51 +785,6 @@ func (r *rpcClient) PendingCallContract(ctx context.Context, msg interface{}) (v
 	return
 }
 
-// COPIED FROM go-ethereum/ethclient/gethclient - must be kept up to date!
-func toBlockNumArg(number *big.Int) string {
-	if number == nil {
-		return "latest"
-	}
-	if number.Sign() >= 0 {
-		return hexutil.EncodeBig(number)
-	}
-	// It's negative.
-	if number.IsInt64() {
-		return rpc.BlockNumber(number.Int64()).String()
-	}
-	// It's negative and large, which is invalid.
-	return fmt.Sprintf("<invalid %d>", number)
-}
-
-// COPIED FROM go-ethereum/ethclient/gethclient - must be kept up to date!
-// Modified to include legacy 'data' as well as 'input' in order to support non-compliant servers.
-func toCallArg(msg ethereum.CallMsg) interface{} {
-	arg := map[string]interface{}{
-		"from": msg.From,
-		"to":   msg.To,
-	}
-	if len(msg.Data) > 0 {
-		arg["input"] = hexutil.Bytes(msg.Data)
-		arg["data"] = hexutil.Bytes(msg.Data) // duplicate legacy field for compatibility
-	}
-	if msg.Value != nil {
-		arg["value"] = (*hexutil.Big)(msg.Value)
-	}
-	if msg.Gas != 0 {
-		arg["gas"] = hexutil.Uint64(msg.Gas)
-	}
-	if msg.GasPrice != nil {
-		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
-	}
-	if msg.GasFeeCap != nil {
-		arg["maxFeePerGas"] = (*hexutil.Big)(msg.GasFeeCap)
-	}
-	if msg.GasTipCap != nil {
-		arg["maxPriorityFeePerGas"] = (*hexutil.Big)(msg.GasTipCap)
-	}
-	return arg
-}
-
 func (r *rpcClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 	var height big.Int
 	h, err := r.BlockNumber(ctx)
@@ -878,10 +792,7 @@ func (r *rpcClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 }
 
 func (r *rpcClient) BlockNumber(ctx context.Context) (height uint64, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return 0, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr()
 
@@ -904,10 +815,7 @@ func (r *rpcClient) BlockNumber(ctx context.Context) (height uint64, err error) 
 }
 
 func (r *rpcClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account.Hex(), "blockNumber", blockNumber)
 
@@ -944,7 +852,7 @@ func (r *rpcClient) TokenBalance(ctx context.Context, address common.Address, co
 		return numLinkBigInt, err
 	}
 	if _, ok := numLinkBigInt.SetString(result, 0); !ok {
-		return nil, fmt.Errorf("failed to parse int: %s", result)
+		return nil, r.wrapRPCClientError(fmt.Errorf("failed to parse int: %s", result))
 	}
 	return numLinkBigInt, nil
 }
@@ -963,10 +871,7 @@ func (r *rpcClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([
 }
 
 func (r *rpcClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types.Log, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("q", q)
 
@@ -994,10 +899,7 @@ func (r *rpcClient) ClientVersion(ctx context.Context) (version string, err erro
 }
 
 func (r *rpcClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (sub ethereum.Subscription, err error) {
-	ctx, cancel, ws, _, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, _ := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("q", q)
 
@@ -1005,6 +907,7 @@ func (r *rpcClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQu
 	start := time.Now()
 	sub, err = ws.geth.SubscribeFilterLogs(ctx, q, ch)
 	if err == nil {
+		sub = newSubscriptionErrorWrapper(sub, r.rpcClientErrorPrefix())
 		r.registerSub(sub)
 	}
 	err = r.wrapWS(err)
@@ -1016,10 +919,7 @@ func (r *rpcClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQu
 }
 
 func (r *rpcClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr()
 
@@ -1044,7 +944,7 @@ func (r *rpcClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err 
 // Returns the ChainID according to the geth client. This is useful for functions like verify()
 // the common node.
 func (r *rpcClient) ChainID(ctx context.Context) (chainID *big.Int, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 
 	defer cancel()
 
@@ -1063,6 +963,15 @@ func (r *rpcClient) newRqLggr() logger.SugaredLogger {
 	return r.rpcLog.With("requestID", uuid.New())
 }
 
+func (r *rpcClient) wrapRPCClientError(err error) error {
+	// simple add msg to the error without adding new stack trace
+	return pkgerrors.WithMessage(err, r.rpcClientErrorPrefix())
+}
+
+func (r *rpcClient) rpcClientErrorPrefix() string {
+	return fmt.Sprintf("RPCClient returned error (%s)", r.name)
+}
+
 func wrapCallError(err error, tp string) error {
 	if err == nil {
 		return nil
@@ -1075,11 +984,12 @@ func wrapCallError(err error, tp string) error {
 
 func (r *rpcClient) wrapWS(err error) error {
 	err = wrapCallError(err, fmt.Sprintf("%s websocket (%s)", r.tier.String(), r.ws.uri.Redacted()))
-	return err
+	return r.wrapRPCClientError(err)
 }
 
 func (r *rpcClient) wrapHTTP(err error) error {
 	err = wrapCallError(err, fmt.Sprintf("%s http (%s)", r.tier.String(), r.http.uri.Redacted()))
+	err = r.wrapRPCClientError(err)
 	if err != nil {
 		r.rpcLog.Debugw("Call failed", "err", err)
 	} else {
@@ -1089,7 +999,7 @@ func (r *rpcClient) wrapHTTP(err error) error {
 }
 
 // makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx
-func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient, err error) {
+func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient) {
 	// Need to wrap in mutex because state transition can cancel and replace the
 	// context
 	r.stateMu.RLock()
@@ -1109,16 +1019,14 @@ func (r *rpcClient) makeQueryCtx(ctx context.Context) (context.Context, context.
 }
 
 func (r *rpcClient) IsSyncing(ctx context.Context) (bool, error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return false, err
-	}
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr()
 
 	lggr.Debug("RPC call: evmclient.Client#SyncProgress")
 	var syncProgress *ethereum.SyncProgress
 	start := time.Now()
+	var err error
 	if http != nil {
 		syncProgress, err = http.geth.SyncProgress(ctx)
 		err = r.wrapHTTP(err)

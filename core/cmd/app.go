@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -126,7 +128,6 @@ func NewApp(s *Shell) *cli.App {
 		}
 
 		return nil
-
 	}
 	app.After = func(c *cli.Context) error {
 		if s.CloseLogger != nil {
@@ -309,6 +310,14 @@ func NewApp(s *Shell) *cli.App {
 			Usage:       "Commands for managing forwarder addresses.",
 			Subcommands: initFowardersSubCmds(s),
 		},
+		{
+			Name:  "help-all",
+			Usage: "Shows a list of all commands and sub-commands",
+			Action: func(c *cli.Context) error {
+				printCommands("", c.App.Commands)
+				return nil
+			},
+		},
 	}...)
 	return app
 }
@@ -326,4 +335,19 @@ func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, s
 		return nil, err
 	}
 	return opts.New()
+}
+
+func printCommands(parent string, cs cli.Commands) {
+	slices.SortFunc(cs, func(a, b cli.Command) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+	for i := range cs {
+		c := cs[i]
+		name := c.Name
+		if parent != "" {
+			name = parent + " " + name
+		}
+		fmt.Printf("%s # %s\n", name, c.Usage)
+		printCommands(name, c.Subcommands)
+	}
 }

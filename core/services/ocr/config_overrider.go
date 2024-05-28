@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -23,7 +23,7 @@ type ConfigOverriderImpl struct {
 	services.StateMachine
 	logger          logger.Logger
 	flags           *ContractFlags
-	contractAddress ethkey.EIP55Address
+	contractAddress types.EIP55Address
 
 	pollTicker               utils.TickerBase
 	lastStateChangeTimestamp time.Time
@@ -31,9 +31,8 @@ type ConfigOverriderImpl struct {
 	DeltaCFromAddress        time.Duration
 
 	// Start/Stop lifecycle
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	chDone    chan struct{}
+	chStop services.StopChan
+	chDone chan struct{}
 
 	mu sync.RWMutex
 }
@@ -49,11 +48,10 @@ type DeltaCConfig interface {
 func NewConfigOverriderImpl(
 	logger logger.Logger,
 	cfg DeltaCConfig,
-	contractAddress ethkey.EIP55Address,
+	contractAddress types.EIP55Address,
 	flags *ContractFlags,
 	pollTicker utils.TickerBase,
 ) (*ConfigOverriderImpl, error) {
-
 	if !flags.ContractExists() {
 		return nil, errors.Errorf("OCRConfigOverrider: Flags contract instance is missing, the contract does not exist: %s. "+
 			"Please create the contract or remove the OCR.TransmitterAddress configuration variable", contractAddress.Address())
@@ -64,7 +62,6 @@ func NewConfigOverriderImpl(
 	addressSeconds := addressBig.Mod(addressBig, big.NewInt(jitterSeconds)).Uint64()
 	deltaC := cfg.DeltaCOverride() + time.Duration(addressSeconds)*time.Second
 
-	ctx, cancel := context.WithCancel(context.Background())
 	co := ConfigOverriderImpl{
 		services.StateMachine{},
 		logger,
@@ -74,8 +71,7 @@ func NewConfigOverriderImpl(
 		time.Now(),
 		InitialHibernationStatus,
 		deltaC,
-		ctx,
-		cancel,
+		make(chan struct{}),
 		make(chan struct{}),
 		sync.RWMutex{},
 	}
@@ -97,7 +93,7 @@ func (c *ConfigOverriderImpl) Start(context.Context) error {
 
 func (c *ConfigOverriderImpl) Close() error {
 	return c.StopOnce("OCRContractTracker", func() error {
-		c.ctxCancel()
+		close(c.chStop)
 		<-c.chDone
 		return nil
 	})
@@ -105,11 +101,13 @@ func (c *ConfigOverriderImpl) Close() error {
 
 func (c *ConfigOverriderImpl) eventLoop() {
 	defer close(c.chDone)
+	ctx, cancel := c.chStop.NewCtx()
+	defer cancel()
 	c.pollTicker.Resume()
 	defer c.pollTicker.Destroy()
 	for {
 		select {
-		case <-c.ctx.Done():
+		case <-ctx.Done():
 			return
 		case <-c.pollTicker.Ticks():
 			if err := c.updateFlagsStatus(); err != nil {

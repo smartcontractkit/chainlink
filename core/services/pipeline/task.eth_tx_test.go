@@ -31,7 +31,7 @@ func TestETHTxTask(t *testing.T) {
 	reqID := common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2")
 	reqTxHash := common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")
 	specGasLimit := uint32(123)
-	const defaultGasLimit uint32 = 999
+	const defaultGasLimit uint64 = 999
 	const drJobTypeGasLimit uint32 = 789
 
 	from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
@@ -72,9 +72,8 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
-
 				data := []byte("foobar")
-				gasLimit := uint32(12345)
+				gasLimit := uint64(12345)
 				jobID := int32(321)
 				addr := common.HexToAddress("0x2E396ecbc8223Ebc16EC45136228AE5EDB649943")
 				txMeta := &txmgr.TxMeta{
@@ -124,7 +123,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
-				gasLimit := uint32(12345)
+				gasLimit := uint64(12345)
 				txMeta := &txmgr.TxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
@@ -202,7 +201,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
-				gasLimit := uint32(12345)
+				gasLimit := uint64(12345)
 				txMeta := &txmgr.TxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
@@ -248,7 +247,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
-				gasLimit := uint32(12345)
+				gasLimit := uint64(12345)
 				txMeta := &txmgr.TxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
@@ -284,7 +283,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
-				gasLimit := uint32(12345)
+				gasLimit := uint64(12345)
 				txMeta := &txmgr.TxMeta{FailOnRevert: null.BoolFrom(false)}
 				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
@@ -326,7 +325,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					FeeLimit:       drJobTypeGasLimit,
+					FeeLimit:       uint64(drJobTypeGasLimit),
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 					SignalCallback: true,
@@ -361,7 +360,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					FeeLimit:       specGasLimit,
+					FeeLimit:       uint64(specGasLimit),
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 					SignalCallback: true,
@@ -394,7 +393,6 @@ func TestETHTxTask(t *testing.T) {
 			}),
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
-
 				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID).Return(nil, errors.New("uh oh"))
 			},
 			nil, pipeline.ErrTaskRunFailed, "while querying keystore", pipeline.RunInfo{IsRetryable: true},
@@ -415,7 +413,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
-				gasLimit := uint32(12345)
+				gasLimit := uint64(12345)
 				txMeta := &txmgr.TxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,

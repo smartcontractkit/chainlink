@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -61,9 +62,10 @@ func TestP2PKeyPresenter_RenderTable(t *testing.T) {
 
 func TestShell_ListP2PKeys(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
-	key, err := app.GetKeyStore().P2P().Create()
+	key, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
 	requireP2PKeyCount(t, app, 1)
@@ -92,11 +94,12 @@ func TestShell_CreateP2PKey(t *testing.T) {
 
 func TestShell_DeleteP2PKey(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 
-	key, err := app.GetKeyStore().P2P().Create()
+	key, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
 	requireP2PKeyCount(t, app, 1)
@@ -118,12 +121,13 @@ func TestShell_DeleteP2PKey(t *testing.T) {
 
 func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	defer deleteKeyExportFile(t)
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
-	_, err := app.GetKeyStore().P2P().Create()
+	_, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
 	keys := requireP2PKeyCount(t, app, 1)
@@ -156,7 +160,7 @@ func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
 	require.NoError(t, client.ExportP2PKey(c))
 	require.NoError(t, utils.JustError(os.Stat(keyName)))
 
-	require.NoError(t, utils.JustError(app.GetKeyStore().P2P().Delete(key.PeerID())))
+	require.NoError(t, utils.JustError(app.GetKeyStore().P2P().Delete(ctx, key.PeerID())))
 	requireP2PKeyCount(t, app, 0)
 
 	set = flag.NewFlagSet("test P2P import", 0)

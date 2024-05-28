@@ -23,6 +23,9 @@ ReaperInterval = '1h'
 ReaperThreshold = '168h'
 ResendAfterThreshold = '1m'
 
+[Transactions.AutoPurge]
+Enabled = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -62,6 +65,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4

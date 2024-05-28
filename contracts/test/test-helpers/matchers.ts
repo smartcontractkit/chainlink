@@ -39,6 +39,25 @@ export async function evmRevert(
 }
 
 /**
+ * Check that an evm operation reverts
+ *
+ * @param action The asynchronous action to execute, which should cause an evm revert.
+ * @param contract The contract where the custom error is defined
+ * @param msg The failure message to display if the action __does not__ throw
+ */
+export async function evmRevertCustomError(
+  action: (() => Promise<any>) | Promise<any>,
+  contract: any,
+  msg?: string,
+) {
+  if (msg) {
+    await expect(action).to.be.revertedWithCustomError(contract, msg)
+  } else {
+    await expect(action).to.be.reverted
+  }
+}
+
+/**
  * Assert that an event doesnt exist
  *
  * @param max The maximum allowable gas difference

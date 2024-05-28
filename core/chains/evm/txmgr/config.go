@@ -27,7 +27,7 @@ type FeeConfig interface {
 	BumpPercent() uint16
 	BumpThreshold() uint64
 	BumpTxDepth() uint32
-	LimitDefault() uint32
+	LimitDefault() uint64
 	PriceDefault() *assets.Wei
 	TipCapMin() *assets.Wei
 	PriceMax() *assets.Wei

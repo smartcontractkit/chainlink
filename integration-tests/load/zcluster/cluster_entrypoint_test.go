@@ -14,15 +14,13 @@ func TestClusterEntrypoint(t *testing.T) {
 	require.NoError(t, err)
 	cfgBase64, err := config.AsBase64()
 	require.NoError(t, err)
-
 	p, err := wasp.NewClusterProfile(&wasp.ClusterConfig{
 		// you set up these only once, no need to configure through TOML
 		DockerCmdExecPath: "../../..",
 		BuildCtxPath:      "integration-tests/load",
-
-		Namespace:   *config.WaspConfig.Namespace,
-		KeepJobs:    config.WaspConfig.KeepJobs,
-		UpdateImage: config.WaspConfig.UpdateImage,
+		Namespace:         *config.WaspConfig.Namespace,
+		KeepJobs:          config.WaspConfig.KeepJobs,
+		UpdateImage:       config.WaspConfig.UpdateImage,
 		HelmValues: map[string]string{
 			"env.loki.url":       *config.Logging.Loki.Endpoint,
 			"env.loki.tenant_id": *config.Logging.Loki.TenantId,

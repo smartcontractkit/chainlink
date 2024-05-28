@@ -8,7 +8,7 @@ inputs:
 outputs:
   result:
     value: ${{ steps.compare.outputs.result }}
-    description: 'Result of the comparison'
+    description: "Result of the comparison"
 runs:
   using: composite
   steps:
@@ -28,10 +28,10 @@ runs:
       id: get-current-version
       shell: bash
       run: |
-        current_version=$(head -n1 ./VERSION)
+        current_version=$(jq -r '.version' ./package.json)
         echo "current_version=${current_version}" | tee -a "$GITHUB_OUTPUT"
     - name: Compare semantic versions
-      uses: smartcontractkit/chainlink-github-actions/semver-compare@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+      uses: smartcontractkit/chainlink-github-actions/semver-compare@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
       id: compare
       with:
         version1: ${{ steps.get-current-version.outputs.current_version }}
@@ -46,6 +46,6 @@ runs:
         VERSION_NOT_BUMPED: ${{ steps.compare.outputs.result }}
       run: |
         if [[ "${VERSION_NOT_BUMPED:-}" = "true" ]]; then
-          echo "Version file not bumped since last release. Please bump the ./VERSION file in the root of the repo and commit the change."
+          echo "The version in `package.json` has not bumped since the last release. Please fix by running `pnpm changeset version`."
           exit 1
         fi

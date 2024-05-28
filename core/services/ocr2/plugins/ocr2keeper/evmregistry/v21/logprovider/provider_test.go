@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/time/rate"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
@@ -22,7 +21,7 @@ import (
 )
 
 func TestLogEventProvider_GetFilters(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	_, f := newEntry(p, 1)
 	p.filterStore.AddActiveUpkeeps(f)
@@ -64,7 +63,7 @@ func TestLogEventProvider_GetFilters(t *testing.T) {
 }
 
 func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	n := 10
 
@@ -177,10 +176,10 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			ctx := testutils.Context(t)
 
 			readInterval := 10 * time.Millisecond
-			opts := NewOptions(200)
+			opts := NewOptions(200, big.NewInt(1))
 			opts.ReadInterval = readInterval
 
-			p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), opts)
+			p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), opts)
 
 			var ids []*big.Int
 			for i, id := range tc.ids {
@@ -242,7 +241,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 
 	mp := new(mocks.LogPoller)
 
-	mp.On("RegisterFilter", mock.Anything).Return(nil)
+	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("ReplayAsync", mock.Anything).Return()
 	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
@@ -255,7 +254,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	}, nil)
 
 	filterStore := NewUpkeepFilterStore()
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, filterStore, NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, NewOptions(200, big.NewInt(1)))
 
 	var ids []*big.Int
 	for i := 0; i < 10; i++ {
@@ -289,7 +288,6 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	})
 
 	// TODO: test rate limiting
-
 }
 
 func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upkeepFilter) {
@@ -310,10 +308,9 @@ func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upk
 	topics := make([]common.Hash, len(filter.EventSigs))
 	copy(topics, filter.EventSigs)
 	f := upkeepFilter{
-		upkeepID:     uid,
-		addr:         filter.Addresses[0].Bytes(),
-		topics:       topics,
-		blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
+		upkeepID: uid,
+		addr:     filter.Addresses[0].Bytes(),
+		topics:   topics,
 	}
 	return cfg, f
 }

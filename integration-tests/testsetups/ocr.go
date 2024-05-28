@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -44,11 +45,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 const (
@@ -113,6 +112,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
 	}
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
+	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
 		NamespacePrefix:    nsPre,
@@ -166,13 +166,8 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		network = networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0]
 	)
 
-	network = utils.MustReplaceSimulatedNetworkUrlWithK8(o.log, network, *o.testEnvironment)
-	readSethCfg := ocrTestConfig.GetSethConfig()
-	require.NotNil(o.t, readSethCfg, "Seth config shouldn't be nil")
-
-	sethCfg := utils.MergeSethAndEvmNetworkConfigs(o.log, network, *readSethCfg)
-
-	seth, err := seth.NewClientWithConfig(&sethCfg)
+	network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(o.log, network, *o.testEnvironment)
+	seth, err := actions_seth.GetChainClient(o.Config, network)
 	require.NoError(o.t, err, "Error creating seth client")
 
 	o.seth = seth
@@ -183,8 +178,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	o.mockServer, err = ctfClient.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
-	// Deploy LINK
-	linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
+	linkContract, err := contracts.DeployLinkTokenContract(o.log, seth)
 	require.NoError(o.t, err, "Error deploying LINK contract")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
@@ -197,7 +191,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	if o.OperatorForwarderFlow {
 		var operators []common.Address
 		operators, forwarders, _ = actions_seth.DeployForwarderContracts(
-			o.t, o.seth, linkDeploymentData, len(o.workerNodes),
+			o.t, o.seth, common.HexToAddress(linkContract.Address()), len(o.workerNodes),
 		)
 		require.Equal(o.t, len(o.workerNodes), len(operators), "Number of operators should match number of nodes")
 		require.Equal(o.t, len(o.workerNodes), len(forwarders), "Number of authorized forwarders should match number of nodes")
@@ -216,7 +210,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 				o.log,
 				o.seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
-				linkDeploymentData.Address,
+				common.HexToAddress(linkContract.Address()),
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 				forwarders,
 			)
@@ -226,7 +220,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 				o.log,
 				seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
-				linkDeploymentData.Address,
+				common.HexToAddress(linkContract.Address()),
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 			)
 			require.NoError(o.t, err)
@@ -251,7 +245,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			o.log,
 			o.seth,
 			*ocrTestConfig.GetOCRConfig().Soak.NumberOfContracts,
-			linkDeploymentData.Address,
+			common.HexToAddress(linkContract.Address()),
 			transmitters,
 			ocrOffchainOptions,
 		)

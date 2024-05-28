@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -15,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
-	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -37,7 +37,7 @@ type TestHarness struct {
 	Lggr logger.Logger
 	// Chain2/ORM2 is just a dummy second chain, doesn't have a client.
 	ChainID, ChainID2                *big.Int
-	ORM, ORM2                        *logpoller.DbORM
+	ORM, ORM2                        logpoller.ORM
 	LogPoller                        logpoller.LogPollerTest
 	Client                           *backends.SimulatedBackend
 	Owner                            *bind.TransactOpts
@@ -52,8 +52,8 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 
-	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
-	o2 := logpoller.NewORM(chainID2, db, lggr, pgtest.NewQConfig(true))
+	o := logpoller.NewORM(chainID, db, lggr)
+	o2 := logpoller.NewORM(chainID2, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
 	ethDB := rawdb.NewMemoryDatabase()
 	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
@@ -96,20 +96,20 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 
 func (th *TestHarness) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
 	th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber)
-	latest, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, _ := th.LogPoller.LatestBlock(ctx)
 	return latest.BlockNumber + 1
 }
 
 func (th *TestHarness) assertDontHave(t *testing.T, start, end int) {
 	for i := start; i < end; i++ {
-		_, err := th.ORM.SelectBlockByNumber(int64(i))
+		_, err := th.ORM.SelectBlockByNumber(testutils.Context(t), int64(i))
 		assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	}
 }
 
 func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 	for i := start; i < end; i++ {
-		blk, err := th.ORM.SelectBlockByNumber(int64(i))
+		blk, err := th.ORM.SelectBlockByNumber(testutils.Context(t), int64(i))
 		require.NoError(t, err, "block %v", i)
 		chainBlk, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
 		require.NoError(t, err)

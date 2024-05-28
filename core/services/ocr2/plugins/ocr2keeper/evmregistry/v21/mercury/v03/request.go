@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -149,6 +150,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 	defer cancel()
 	retryErr := retry.Do(
 		func() error {
+			prommetrics.AutomationStreamsRetries.WithLabelValues(prommetrics.StreamsVersion03).Inc()
 			retryable = false
 			resp, err := c.httpClient.Do(req)
 			if err != nil {
@@ -180,6 +182,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 			}
 
 			c.lggr.Infof("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
+			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion03, fmt.Sprintf("%d", resp.StatusCode)).Inc()
 			switch resp.StatusCode {
 			case http.StatusUnauthorized:
 				c.lggr.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by unauthorized upkeep", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)

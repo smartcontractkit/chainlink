@@ -16,7 +16,6 @@ func TestFunctionsLoad(t *testing.T) {
 
 	ft, err := SetupLocalLoadTestEnv(&generalConfig, &generalConfig)
 	require.NoError(t, err)
-	ft.EVMClient.ParallelTransactions(false)
 
 	labels := map[string]string{
 		"branch": "functions_healthcheck",

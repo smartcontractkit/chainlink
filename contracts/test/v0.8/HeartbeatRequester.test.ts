@@ -102,7 +102,7 @@ describe('HeartbeatRequester', () => {
         requester
           .connect(caller1)
           .getAggregatorAndRequestHeartbeat(await owner.getAddress()),
-      ).to.be.revertedWith('HeartbeatNotPermitted()')
+      ).to.be.revertedWithCustomError(requester, 'HeartbeatNotPermitted')
     })
 
     it('calls corresponding aggregator to request a new round', async () => {

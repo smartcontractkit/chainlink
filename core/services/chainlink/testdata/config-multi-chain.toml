@@ -103,8 +103,10 @@ URL = 'http://testnet.solana.com'
 
 [[Starknet]]
 ChainID = 'foobar'
+FeederURL = 'http://feeder.url'
 ConfirmationPoll = '1h0m0s'
 
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+APIKey = 'key'

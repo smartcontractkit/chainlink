@@ -18,6 +18,7 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -25,11 +26,12 @@ import (
 var _ TxmClient = (*evmTxmClient)(nil)
 
 type evmTxmClient struct {
-	client client.Client
+	client       client.Client
+	clientErrors config.ClientErrors
 }
 
-func NewEvmTxmClient(c client.Client) *evmTxmClient {
-	return &evmTxmClient{client: c}
+func NewEvmTxmClient(c client.Client, clientErrors config.ClientErrors) *evmTxmClient {
+	return &evmTxmClient{client: c, clientErrors: clientErrors}
 }
 
 func (c *evmTxmClient) PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error) {
@@ -84,7 +86,7 @@ func (c *evmTxmClient) BatchSendTransactions(
 				return
 			}
 			sendErr := reqs[i].Error
-			codes[i] = client.ClassifySendError(sendErr, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+			codes[i] = client.ClassifySendError(sendErr, c.clientErrors, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
 			txErrs[i] = sendErr
 		}(index)
 	}
@@ -145,9 +147,9 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttemp
 // May be useful for clearing stuck nonces
 func (c *evmTxmClient) SendEmptyTransaction(
 	ctx context.Context,
-	newTxAttempt func(ctx context.Context, seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
+	newTxAttempt func(ctx context.Context, seq evmtypes.Nonce, feeLimit uint64, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
 	seq evmtypes.Nonce,
-	gasLimit uint32,
+	gasLimit uint64,
 	fee gas.EvmFee,
 	fromAddress common.Address,
 ) (txhash string, err error) {
@@ -171,7 +173,7 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 	_, errCall := c.client.CallContract(ctx, ethereum.CallMsg{
 		From:       a.Tx.FromAddress,
 		To:         &a.Tx.ToAddress,
-		Gas:        uint64(a.Tx.FeeLimit),
+		Gas:        a.Tx.FeeLimit,
 		GasPrice:   a.TxFee.Legacy.ToInt(),
 		GasFeeCap:  a.TxFee.DynamicFeeCap.ToInt(),
 		GasTipCap:  a.TxFee.DynamicTipCap.ToInt(),

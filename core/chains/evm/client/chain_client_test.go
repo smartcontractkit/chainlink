@@ -12,10 +12,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 )
 
 func newMockRpc(t *testing.T) *mocks.RPCClient {
@@ -23,8 +25,9 @@ func newMockRpc(t *testing.T) *mocks.RPCClient {
 	mockRpc.On("Dial", mock.Anything).Return(nil).Once()
 	mockRpc.On("Close").Return(nil).Once()
 	mockRpc.On("ChainID", mock.Anything).Return(testutils.FixtureChainID, nil).Once()
-	mockRpc.On("Subscribe", mock.Anything, mock.Anything, mock.Anything).Return(client.NewMockSubscription(), nil).Once()
-	mockRpc.On("SetAliveLoopSub", mock.Anything).Return().Once()
+	// node does not always manage to fully setup aliveLoop, so we have to make calls optional to avoid flakes
+	mockRpc.On("Subscribe", mock.Anything, mock.Anything, mock.Anything).Return(client.NewMockSubscription(), nil).Maybe()
+	mockRpc.On("SetAliveLoopSub", mock.Anything).Return().Maybe()
 	return mockRpc
 }
 
@@ -32,7 +35,7 @@ func TestChainClient_BatchCallContext(t *testing.T) {
 	t.Parallel()
 
 	t.Run("batch requests return errors", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := tests.Context(t)
 		rpcError := errors.New("something went wrong")
 		blockNumResp := ""
 		blockNum := hexutil.EncodeBig(big.NewInt(42))

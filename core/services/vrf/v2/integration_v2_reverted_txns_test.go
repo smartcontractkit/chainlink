@@ -411,6 +411,7 @@ func createVRFJobsNew(
 	chainID *big.Int,
 	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job, vrfKeyIDs []string) {
+	ctx := testutils.Context(t)
 	if len(gasLanePrices) != len(fromKeys) {
 		t.Fatalf("must provide one gas lane price for each set of from addresses. len(gasLanePrices) != len(fromKeys) [%d != %d]",
 			len(gasLanePrices), len(fromKeys))
@@ -422,7 +423,7 @@ func createVRFJobsNew(
 			keyStrs = append(keyStrs, k.Address.String())
 		}
 
-		vrfkey, err := app.GetKeyStore().VRF().Create()
+		vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 		require.NoError(t, err)
 
 		jid := uuid.New()
@@ -447,7 +448,7 @@ func createVRFJobsNew(
 		jb, err := vrfcommon.ValidatedVRFSpec(s)
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
 		require.NoError(t, err)
-		err = app.JobSpawner().CreateJob(&jb)
+		err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 		require.NoError(t, err)
 		registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, coordinator, vrfkey, ptr(gasLanePrices[i].ToInt().Uint64()))
 		jobs = append(jobs, jb)

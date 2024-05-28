@@ -69,6 +69,73 @@ chain_id=1337
 # list of addresses to be prefunded in genesis
 addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
 
+[PrivateEthereumNetwork.EthereumChainConfig.HardForkEpochs]
+# hardforks to be applied (fork_name = epoch)
+Deneb=500
+
+# Chainlink node TOML config
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '3m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[Keeper]
+TurnLookBack = 0
+"""
+
+# override config toml related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink toml
+CommonChainConfigTOML = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+
+# chainlink override config toml for EVMNode config specific to EVM chains with chain id as mentioned in the key
+[NodeConfig.ChainConfigTOMLByChainID]
+# applicable for arbitrum-goerli chain
+421613 = """
+[GasEstimator]
+PriceMax = '400 gwei'
+LimitDefault = 100000000
+FeeCapDefault = '200 gwei'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 gwei'
+"""
+
 # Product part
 [Common]
 chainlink_node_funding = 0.5
@@ -86,3 +153,12 @@ block_range = 3600
 block_interval = 20
 forces_single_tx_key = false
 delete_jobs_on_end = true
+
+# If present will wrap keeper benchmakr consumers in retrying contract backend
+# that retries read-only operations on failure related to network issues or node unavailability
+# To disable simply remove this section or set any of the values to 0
+[Keeper.Resiliency]
+# number of retries before giving up
+contract_call_limit = 500
+# static interval between retries
+contract_call_interval = "5s"

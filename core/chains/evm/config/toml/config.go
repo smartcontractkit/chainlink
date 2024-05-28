@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"slices"
@@ -17,12 +18,12 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
+
+var ErrNotFound = errors.New("not found")
 
 type HasEVMConfigs interface {
 	EVMConfigs() EVMConfigs
@@ -145,7 +146,7 @@ func (cs EVMConfigs) Node(name string) (types.Node, error) {
 			}
 		}
 	}
-	return types.Node{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
+	return types.Node{}, fmt.Errorf("node %s: %w", name, ErrNotFound)
 }
 
 func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
@@ -156,7 +157,7 @@ func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
 			}
 		}
 	}
-	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
+	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, ErrNotFound)
 }
 
 func legacyNode(n *Node, chainID *big.Big) (v2 types.Node) {
@@ -205,7 +206,7 @@ func (cs EVMConfigs) Nodes(chainID string) (ns []types.Node, err error) {
 	}
 	nodes := cs.nodes(chainID)
 	if nodes == nil {
-		err = fmt.Errorf("no nodes: chain %q: %w", chainID, chains.ErrNotFound)
+		err = fmt.Errorf("no nodes: chain %q: %w", chainID, ErrNotFound)
 		return
 	}
 	for _, n := range nodes {
@@ -293,18 +294,14 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	} else if c.ChainID.String() == "" {
 		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	} else if must, ok := ChainTypeForID(c.ChainID); ok { // known chain id
-		if c.ChainType == nil && must != "" {
-			err = multierr.Append(err, commonconfig.ErrMissing{Name: "ChainType",
-				Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
-		} else if c.ChainType != nil && *c.ChainType != string(must) {
-			if *c.ChainType == "" {
-				err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainType",
-					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
-			} else if must == "" {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+		// Check if the parsed value matched the expected value
+		is := c.ChainType.ChainType()
+		if is != must {
+			if must == "" {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 					Msg: "must not be set with this chain id"})
 			} else {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
 			}
 		}
@@ -344,11 +341,11 @@ type Chain struct {
 	AutoCreateKey             *bool
 	BlockBackfillDepth        *uint32
 	BlockBackfillSkip         *bool
-	ChainType                 *string
+	ChainType                 *config.ChainTypeConfig
 	FinalityDepth             *uint32
 	FinalityTagEnabled        *bool
-	FlagsContractAddress      *ethkey.EIP55Address
-	LinkContractAddress       *ethkey.EIP55Address
+	FlagsContractAddress      *types.EIP55Address
+	LinkContractAddress       *types.EIP55Address
 	LogBackfillBatchSize      *uint32
 	LogPollInterval           *commonconfig.Duration
 	LogKeepBlocksDepth        *uint32
@@ -358,7 +355,7 @@ type Chain struct {
 	MinContractPayment        *commonassets.Link
 	NonceAutoSync             *bool
 	NoNewHeadsThreshold       *commonconfig.Duration
-	OperatorFactoryAddress    *ethkey.EIP55Address
+	OperatorFactoryAddress    *types.EIP55Address
 	RPCDefaultBatchSize       *uint32
 	RPCBlockQueryDelay        *uint16
 
@@ -374,12 +371,8 @@ type Chain struct {
 }
 
 func (c *Chain) ValidateConfig() (err error) {
-	var chainType config.ChainType
-	if c.ChainType != nil {
-		chainType = config.ChainType(*c.ChainType)
-	}
-	if !chainType.IsValid() {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+	if !c.ChainType.ChainType().IsValid() {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 			Msg: config.ErrInvalidChainType.Error()})
 	}
 
@@ -399,6 +392,45 @@ func (c *Chain) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "MinIncomingConfirmations", Value: *c.MinIncomingConfirmations,
 			Msg: "must be greater than or equal to 1"})
 	}
+
+	// AutoPurge configs depend on ChainType so handling validation on per chain basis
+	if c.Transactions.AutoPurge.Enabled != nil && *c.Transactions.AutoPurge.Enabled {
+		chainType := c.ChainType.ChainType()
+		switch chainType {
+		case config.ChainScroll:
+			if c.Transactions.AutoPurge.DetectionApiUrl == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.DetectionApiUrl", Msg: fmt.Sprintf("must be set for %s", chainType)})
+			} else if c.Transactions.AutoPurge.DetectionApiUrl.IsZero() {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl, Msg: fmt.Sprintf("must be set for %s", chainType)})
+			} else {
+				switch c.Transactions.AutoPurge.DetectionApiUrl.Scheme {
+				case "http", "https":
+				default:
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl.Scheme, Msg: "must be http or https"})
+				}
+			}
+		case config.ChainZkEvm:
+			// No other configs are needed
+		default:
+			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist
+			if c.GasEstimator.BumpThreshold == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "GasEstimator.BumpThreshold", Msg: fmt.Sprintf("must be set if auto-purge feature is enabled for %s", chainType)})
+			} else if *c.GasEstimator.BumpThreshold == 0 {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpThreshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if auto-purge feature is enabled for %s", chainType)})
+			}
+			if c.Transactions.AutoPurge.Threshold == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.Threshold", Msg: fmt.Sprintf("needs to be set if auto-purge feature is enabled for %s", chainType)})
+			} else if *c.Transactions.AutoPurge.Threshold == 0 {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.Threshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if auto-purge feature is enabled for %s", chainType)})
+			}
+			if c.Transactions.AutoPurge.MinAttempts == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.MinAttempts", Msg: fmt.Sprintf("needs to be set if auto-purge feature is enabled for %s", chainType)})
+			} else if *c.Transactions.AutoPurge.MinAttempts == 0 {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.MinAttempts", Value: 0, Msg: fmt.Sprintf("cannot be 0 if auto-purge feature is enabled for %s", chainType)})
+			}
+		}
+	}
+
 	return
 }
 
@@ -409,6 +441,8 @@ type Transactions struct {
 	ReaperInterval       *commonconfig.Duration
 	ReaperThreshold      *commonconfig.Duration
 	ResendAfterThreshold *commonconfig.Duration
+
+	AutoPurge AutoPurgeConfig `toml:",omitempty"`
 }
 
 func (t *Transactions) setFrom(f *Transactions) {
@@ -429,6 +463,29 @@ func (t *Transactions) setFrom(f *Transactions) {
 	}
 	if v := f.ResendAfterThreshold; v != nil {
 		t.ResendAfterThreshold = v
+	}
+	t.AutoPurge.setFrom(&f.AutoPurge)
+}
+
+type AutoPurgeConfig struct {
+	Enabled         *bool
+	Threshold       *uint32
+	MinAttempts     *uint32
+	DetectionApiUrl *commonconfig.URL
+}
+
+func (a *AutoPurgeConfig) setFrom(f *AutoPurgeConfig) {
+	if v := f.Enabled; v != nil {
+		a.Enabled = v
+	}
+	if v := f.Threshold; v != nil {
+		a.Threshold = v
+	}
+	if v := f.MinAttempts; v != nil {
+		a.MinAttempts = v
+	}
+	if v := f.DetectionApiUrl; v != nil {
+		a.DetectionApiUrl = v
 	}
 }
 
@@ -451,8 +508,8 @@ func (a *Automation) setFrom(f *Automation) {
 }
 
 type ChainWriter struct {
-	FromAddress      *ethkey.EIP55Address `toml:",omitempty"`
-	ForwarderAddress *ethkey.EIP55Address `toml:",omitempty"`
+	FromAddress      *types.EIP55Address `toml:",omitempty"`
+	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
 }
 
 func (m *ChainWriter) setFrom(f *ChainWriter) {
@@ -481,10 +538,10 @@ type GasEstimator struct {
 	PriceMax     *assets.Wei
 	PriceMin     *assets.Wei
 
-	LimitDefault    *uint32
-	LimitMax        *uint32
+	LimitDefault    *uint64
+	LimitMax        *uint64
 	LimitMultiplier *decimal.Decimal
-	LimitTransfer   *uint32
+	LimitTransfer   *uint64
 	LimitJobType    GasLimitJobType `toml:",omitempty"`
 
 	BumpMin       *assets.Wei
@@ -668,7 +725,7 @@ func (ks KeySpecificConfig) ValidateConfig() (err error) {
 }
 
 type KeySpecific struct {
-	Key          *ethkey.EIP55Address
+	Key          *types.EIP55Address
 	GasEstimator KeySpecificGasEstimator `toml:",omitempty"`
 }
 
@@ -700,13 +757,78 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 	}
 }
 
+type ClientErrors struct {
+	NonceTooLow                       *string `toml:",omitempty"`
+	NonceTooHigh                      *string `toml:",omitempty"`
+	ReplacementTransactionUnderpriced *string `toml:",omitempty"`
+	LimitReached                      *string `toml:",omitempty"`
+	TransactionAlreadyInMempool       *string `toml:",omitempty"`
+	TerminallyUnderpriced             *string `toml:",omitempty"`
+	InsufficientEth                   *string `toml:",omitempty"`
+	TxFeeExceedsCap                   *string `toml:",omitempty"`
+	L2FeeTooLow                       *string `toml:",omitempty"`
+	L2FeeTooHigh                      *string `toml:",omitempty"`
+	L2Full                            *string `toml:",omitempty"`
+	TransactionAlreadyMined           *string `toml:",omitempty"`
+	Fatal                             *string `toml:",omitempty"`
+	ServiceUnavailable                *string `toml:",omitempty"`
+}
+
+func (r *ClientErrors) setFrom(f *ClientErrors) bool {
+	if v := f.NonceTooLow; v != nil {
+		r.NonceTooLow = v
+	}
+	if v := f.NonceTooHigh; v != nil {
+		r.NonceTooHigh = v
+	}
+	if v := f.ReplacementTransactionUnderpriced; v != nil {
+		r.ReplacementTransactionUnderpriced = v
+	}
+	if v := f.LimitReached; v != nil {
+		r.LimitReached = v
+	}
+	if v := f.TransactionAlreadyInMempool; v != nil {
+		r.TransactionAlreadyInMempool = v
+	}
+	if v := f.TerminallyUnderpriced; v != nil {
+		r.TerminallyUnderpriced = v
+	}
+	if v := f.InsufficientEth; v != nil {
+		r.InsufficientEth = v
+	}
+	if v := f.TxFeeExceedsCap; v != nil {
+		r.TxFeeExceedsCap = v
+	}
+	if v := f.L2FeeTooLow; v != nil {
+		r.L2FeeTooLow = v
+	}
+	if v := f.L2FeeTooHigh; v != nil {
+		r.L2FeeTooHigh = v
+	}
+	if v := f.L2Full; v != nil {
+		r.L2Full = v
+	}
+	if v := f.TransactionAlreadyMined; v != nil {
+		r.TransactionAlreadyMined = v
+	}
+	if v := f.Fatal; v != nil {
+		r.Fatal = v
+	}
+	if v := f.ServiceUnavailable; v != nil {
+		r.ServiceUnavailable = v
+	}
+	return true
+}
+
 type NodePool struct {
-	PollFailureThreshold *uint32
-	PollInterval         *commonconfig.Duration
-	SelectionMode        *string
-	SyncThreshold        *uint32
-	LeaseDuration        *commonconfig.Duration
-	NodeIsSyncingEnabled *bool
+	PollFailureThreshold       *uint32
+	PollInterval               *commonconfig.Duration
+	SelectionMode              *string
+	SyncThreshold              *uint32
+	LeaseDuration              *commonconfig.Duration
+	NodeIsSyncingEnabled       *bool
+	FinalizedBlockPollInterval *commonconfig.Duration
+	Errors                     ClientErrors `toml:",omitempty"`
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -728,6 +850,10 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.NodeIsSyncingEnabled; v != nil {
 		p.NodeIsSyncingEnabled = v
 	}
+	if v := f.FinalizedBlockPollInterval; v != nil {
+		p.FinalizedBlockPollInterval = v
+	}
+	p.Errors.setFrom(&f.Errors)
 }
 
 type OCR struct {

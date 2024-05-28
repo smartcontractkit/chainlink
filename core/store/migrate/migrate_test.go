@@ -21,13 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -37,7 +34,7 @@ var migrationDir = "migrations"
 type OffchainReporting2OracleSpec100 struct {
 	ID                                int32           `toml:"-"`
 	ContractID                        string          `toml:"contractID"`
-	Relay                             relay.Network   `toml:"relay"`
+	Relay                             string          `toml:"relay"` // RelayID.Network
 	RelayConfig                       job.JSONConfig  `toml:"relayConfig"`
 	P2PBootstrapPeers                 pq.StringArray  `toml:"p2pBootstrapPeers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
@@ -78,14 +75,15 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	err := goose.UpTo(db.DB, migrationDir, 99)
 	require.NoError(t, err)
 
-	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	pipelineID, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
+	pipelineORM := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
+	ctx := testutils.Context(t)
+	pipelineID, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	pipelineID2, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
+	pipelineID2, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	nonBootstrapPipelineID, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
+	nonBootstrapPipelineID, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	newFormatBoostrapPipelineID2, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
+	newFormatBoostrapPipelineID2, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
 
 	// OCR2 struct at migration v0099
@@ -338,7 +336,6 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 	require.Equal(t, jobIdAndContractId{ID: 30, ContractID: "evm_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[1])
 	require.Equal(t, jobIdAndContractId{ID: 10, ContractID: "terra_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[2])
 	require.Equal(t, jobIdAndContractId{ID: 20, ContractID: "sol_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[3])
-
 }
 
 func TestMigrate_101_GenericOCR2(t *testing.T) {
@@ -392,25 +389,24 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 
 func TestMigrate(t *testing.T) {
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 
-	err = migrate.Status(ctx, db.DB, lggr)
+	err = migrate.Status(ctx, db.DB)
 	require.NoError(t, err)
 
-	ver, err := migrate.Current(ctx, db.DB, lggr)
+	ver, err := migrate.Current(ctx, db.DB)
 	require.NoError(t, err)
 	require.Equal(t, int64(100), ver)
 
-	err = migrate.Migrate(ctx, db.DB, lggr)
+	err = migrate.Migrate(ctx, db.DB)
 	require.NoError(t, err)
 
-	err = migrate.Rollback(ctx, db.DB, lggr, null.IntFrom(99))
+	err = migrate.Rollback(ctx, db.DB, null.IntFrom(99))
 	require.NoError(t, err)
 
-	ver, err = migrate.Current(ctx, db.DB, lggr)
+	ver, err = migrate.Current(ctx, db.DB)
 	require.NoError(t, err)
 	require.Equal(t, int64(99), ver)
 }
@@ -445,21 +441,22 @@ func TestSetMigrationENVVars(t *testing.T) {
 
 func TestDatabaseBackFillWithMigration202(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+	ctx := testutils.Context(t)
 
 	err := goose.UpTo(db.DB, migrationDir, 201)
 	require.NoError(t, err)
 
-	simulatedOrm := logpoller.NewORM(testutils.SimulatedChainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 10, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 51, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 90, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 120, time.Now(), 23), err)
+	simulatedOrm := logpoller.NewORM(testutils.SimulatedChainID, db, logger.TestLogger(t))
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 10, time.Now(), 0), err)
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 51, time.Now(), 0), err)
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 90, time.Now(), 0), err)
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 120, time.Now(), 23), err)
 
-	baseOrm := logpoller.NewORM(big.NewInt(int64(84531)), db, logger.TestLogger(t), pgtest.NewQConfig(true))
-	require.NoError(t, baseOrm.InsertBlock(testutils.Random32Byte(), 400, time.Now(), 0), err)
+	baseOrm := logpoller.NewORM(big.NewInt(int64(84531)), db, logger.TestLogger(t))
+	require.NoError(t, baseOrm.InsertBlock(ctx, testutils.Random32Byte(), 400, time.Now(), 0), err)
 
-	klaytnOrm := logpoller.NewORM(big.NewInt(int64(1001)), db, logger.TestLogger(t), pgtest.NewQConfig(true))
-	require.NoError(t, klaytnOrm.InsertBlock(testutils.Random32Byte(), 100, time.Now(), 0), err)
+	klaytnOrm := logpoller.NewORM(big.NewInt(int64(1001)), db, logger.TestLogger(t))
+	require.NoError(t, klaytnOrm.InsertBlock(ctx, testutils.Random32Byte(), 100, time.Now(), 0), err)
 
 	err = goose.UpTo(db.DB, migrationDir, 202)
 	require.NoError(t, err)
@@ -468,7 +465,7 @@ func TestDatabaseBackFillWithMigration202(t *testing.T) {
 		name                   string
 		blockNumber            int64
 		expectedFinalizedBlock int64
-		orm                    *logpoller.DbORM
+		orm                    logpoller.ORM
 	}{
 		{
 			name:                   "last finalized block not changed if finality is too deep",
@@ -509,7 +506,7 @@ func TestDatabaseBackFillWithMigration202(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			block, err := tt.orm.SelectBlockByNumber(tt.blockNumber)
+			block, err := tt.orm.SelectBlockByNumber(ctx, tt.blockNumber)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedFinalizedBlock, block.FinalizedBlockNumber)
 		})
@@ -520,7 +517,6 @@ func TestNoTriggers(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 
 	assert_num_triggers := func(expected int) {
-
 		row := db.DB.QueryRow("select count(*) from information_schema.triggers")
 		var count int
 		err := row.Scan(&count)
@@ -538,10 +534,10 @@ func TestNoTriggers(t *testing.T) {
 	err := goose.UpTo(db.DB, migrationDir, int64(v))
 	require.NoError(t, err)
 	assert_num_triggers(1)
-
 }
 
 func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
+	ctx := testutils.Context(b)
 	previousMigration := int64(201)
 	backfillMigration := int64(202)
 	chainCount := 2
@@ -554,7 +550,6 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	err := goose.UpTo(db.DB, migrationDir, previousMigration)
 	require.NoError(b, err)
 
-	q := pg.NewQ(db, logger.NullLogger, pgtest.NewQConfig(true))
 	for j := 0; j < chainCount; j++ {
 		// Insert 100_000 block to database, can't do all at once, so batching by 10k
 		var blocks []logpoller.LogPollerBlock
@@ -573,7 +568,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 				end = maxLogsSize
 			}
 
-			err = q.ExecQNamed(`
+			_, err = db.NamedExecContext(ctx, `
 			INSERT INTO evm.log_poller_blocks
 				(evm_chain_id, block_hash, block_number, finalized_block_number, block_timestamp, created_at)
 			VALUES 
@@ -599,7 +594,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 		err = goose.DownTo(db.DB, migrationDir, previousMigration)
 		require.NoError(b, err)
 
-		err = q.ExecQ(`
+		_, err = db.ExecContext(ctx, `
 			UPDATE evm.log_poller_blocks
 			SET finalized_block_number = 0`)
 		require.NoError(b, err)

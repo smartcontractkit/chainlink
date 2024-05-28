@@ -9,6 +9,7 @@ type Plugins {
 	execute: Boolean!
 	median: Boolean!
 	mercury: Boolean!
+	rebalancer: Boolean!
 }
 
 type FeedsManager {

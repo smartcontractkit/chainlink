@@ -25,18 +25,20 @@ func TestValidatePluginConfig(t *testing.T) {
 			{"foo pipeline", "foo", models.Interval(time.Minute), fmt.Errorf("invalid juelsPerFeeCoinSource pipeline: UnmarshalTaskFromMap: unknown task type: \"\"")},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				assert.EqualError(t, ValidatePluginConfig(PluginConfig{JuelsPerFeeCoinPipeline: tc.pipeline}), tc.expectedError.Error())
+				pc := PluginConfig{JuelsPerFeeCoinPipeline: tc.pipeline}
+				assert.EqualError(t, pc.ValidatePluginConfig(), tc.expectedError.Error())
 			})
 		}
 	})
 
 	t.Run("cache duration validation", func(t *testing.T) {
 		for _, tc := range []testCase{
-			{"cache duration below minimum", `ds1 [type=bridge name=voter_turnout];`, models.Interval(time.Second * 29), fmt.Errorf("juelsPerFeeCoinSource cache duration: 29s is below 30 second minimum")},
-			{"cache duration above maximum", `ds1 [type=bridge name=voter_turnout];`, models.Interval(time.Minute*20 + time.Second), fmt.Errorf("juelsPerFeeCoinSource cache duration: 20m1s is above 20 minute maximum")},
+			{"cache duration below minimum", `ds1 [type=bridge name=voter_turnout];`, models.Interval(time.Second * 29), fmt.Errorf("juelsPerFeeCoinSourceCache update interval: 29s is below 30 second minimum")},
+			{"cache duration above maximum", `ds1 [type=bridge name=voter_turnout];`, models.Interval(time.Minute*20 + time.Second), fmt.Errorf("juelsPerFeeCoinSourceCache update interval: 20m1s is above 20 minute maximum")},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				assert.EqualError(t, ValidatePluginConfig(PluginConfig{JuelsPerFeeCoinPipeline: tc.pipeline, JuelsPerFeeCoinCacheDuration: tc.cacheDuration}), tc.expectedError.Error())
+				pc := PluginConfig{JuelsPerFeeCoinPipeline: tc.pipeline, JuelsPerFeeCoinCache: &JuelsPerFeeCoinCache{UpdateInterval: tc.cacheDuration}}
+				assert.EqualError(t, pc.ValidatePluginConfig(), tc.expectedError.Error())
 			})
 		}
 	})
@@ -48,7 +50,8 @@ func TestValidatePluginConfig(t *testing.T) {
 			{"valid duration and valid pipeline", `ds1 [type=bridge name=voter_turnout];`, models.Interval(time.Minute * 20), nil},
 		} {
 			t.Run(s.name, func(t *testing.T) {
-				assert.Nil(t, ValidatePluginConfig(PluginConfig{JuelsPerFeeCoinPipeline: s.pipeline}))
+				pc := PluginConfig{JuelsPerFeeCoinPipeline: s.pipeline}
+				assert.Nil(t, pc.ValidatePluginConfig())
 			})
 		}
 	})

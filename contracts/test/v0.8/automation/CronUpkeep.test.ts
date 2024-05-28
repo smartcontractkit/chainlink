@@ -397,7 +397,10 @@ describe('CronUpkeep', () => {
       for (let idx = 0; idx < 5; idx++) {
         await createBasicCron()
       }
-      await expect(createBasicCron()).to.be.revertedWith('ExceedsMaxJobs')
+      await expect(createBasicCron()).to.be.revertedWithCustomError(
+        cron,
+        'ExceedsMaxJobs',
+      )
     })
   })
 
@@ -453,7 +456,7 @@ describe('CronUpkeep', () => {
           handler2Sig,
           newEncodedSpec,
         ),
-      ).to.be.revertedWith(CRON_NOT_FOUND_ERR)
+      ).to.be.revertedWithCustomError(cron, CRON_NOT_FOUND_ERR)
     })
   })
 
@@ -465,8 +468,14 @@ describe('CronUpkeep', () => {
       await createBasicCron()
       await assertJobIDsEqual([1, 2, 3, 4])
       await cron.deleteCronJob(2)
-      await expect(cron.getCronJob(2)).to.be.revertedWith(CRON_NOT_FOUND_ERR)
-      await expect(cron.deleteCronJob(2)).to.be.revertedWith(CRON_NOT_FOUND_ERR)
+      await expect(cron.getCronJob(2)).to.be.revertedWithCustomError(
+        cron,
+        CRON_NOT_FOUND_ERR,
+      )
+      await expect(cron.deleteCronJob(2)).to.be.revertedWithCustomError(
+        cron,
+        CRON_NOT_FOUND_ERR,
+      )
       await assertJobIDsEqual([1, 3, 4])
       await cron.deleteCronJob(1)
       await assertJobIDsEqual([3, 4])
@@ -484,8 +493,14 @@ describe('CronUpkeep', () => {
     it('reverts if trying to delete a non-existent ID', async () => {
       await createBasicCron()
       await createBasicCron()
-      await expect(cron.deleteCronJob(0)).to.be.revertedWith(CRON_NOT_FOUND_ERR)
-      await expect(cron.deleteCronJob(3)).to.be.revertedWith(CRON_NOT_FOUND_ERR)
+      await expect(cron.deleteCronJob(0)).to.be.revertedWithCustomError(
+        cron,
+        CRON_NOT_FOUND_ERR,
+      )
+      await expect(cron.deleteCronJob(3)).to.be.revertedWithCustomError(
+        cron,
+        CRON_NOT_FOUND_ERR,
+      )
     })
   })
 

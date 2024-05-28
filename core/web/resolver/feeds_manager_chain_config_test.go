@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -60,7 +61,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 				"ocr2IsBootstrap":      false,
 				"ocr2P2PPeerID":        peerID.String,
 				"ocr2KeyBundleID":      keyBundleID.String,
-				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true}`,
+				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":true}`,
 				"ocr2ForwarderAddress": forwarderAddr,
 			},
 		}
@@ -71,7 +72,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("CreateChainConfig", mock.Anything, feeds.ChainConfig{
 					FeedsManagerID: mgrID,
@@ -93,14 +94,15 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID:      keyBundleID,
 						ForwarderAddress: null.StringFrom(forwarderAddr),
 						Plugins: feeds.Plugins{
-							Commit:  true,
-							Execute: true,
-							Median:  false,
-							Mercury: true,
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
 						},
 					},
 				}).Return(cfgID, nil)
-				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
+				f.Mocks.feedsSvc.On("GetChainConfig", mock.Anything, cfgID).Return(&feeds.ChainConfig{
 					ID:             cfgID,
 					ChainType:      feeds.ChainTypeEVM,
 					ChainID:        chainID,
@@ -120,10 +122,11 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID:      keyBundleID,
 						ForwarderAddress: null.StringFrom(forwarderAddr),
 						Plugins: feeds.Plugins{
-							Commit:  true,
-							Execute: true,
-							Median:  false,
-							Mercury: true,
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
 						},
 					},
 				}, nil)
@@ -142,7 +145,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 		{
 			name:          "create call not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("CreateChainConfig", mock.Anything, mock.IsType(feeds.ChainConfig{})).Return(int64(0), sql.ErrNoRows)
 			},
@@ -159,10 +162,10 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 		{
 			name:          "get call not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("CreateChainConfig", mock.Anything, mock.IsType(feeds.ChainConfig{})).Return(cfgID, nil)
-				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(nil, sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("GetChainConfig", mock.Anything, cfgID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -207,9 +210,9 @@ func Test_DeleteFeedsManagerChainConfig(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
+				f.Mocks.feedsSvc.On("GetChainConfig", mock.Anything, cfgID).Return(&feeds.ChainConfig{
 					ID: cfgID,
 				}, nil)
 				f.Mocks.feedsSvc.On("DeleteChainConfig", mock.Anything, cfgID).Return(cfgID, nil)
@@ -228,9 +231,9 @@ func Test_DeleteFeedsManagerChainConfig(t *testing.T) {
 		{
 			name:          "get call not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(nil, sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("GetChainConfig", mock.Anything, cfgID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -245,9 +248,9 @@ func Test_DeleteFeedsManagerChainConfig(t *testing.T) {
 		{
 			name:          "delete call not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
+				f.Mocks.feedsSvc.On("GetChainConfig", mock.Anything, cfgID).Return(&feeds.ChainConfig{
 					ID: cfgID,
 				}, nil)
 				f.Mocks.feedsSvc.On("DeleteChainConfig", mock.Anything, cfgID).Return(int64(0), sql.ErrNoRows)
@@ -311,7 +314,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 				"ocr2IsBootstrap":      false,
 				"ocr2P2PPeerID":        peerID.String,
 				"ocr2KeyBundleID":      keyBundleID.String,
-				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true}`,
+				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":true}`,
 				"ocr2ForwarderAddress": forwarderAddr,
 			},
 		}
@@ -322,7 +325,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateChainConfig", mock.Anything, feeds.ChainConfig{
 					ID:             cfgID,
@@ -342,14 +345,15 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID:      keyBundleID,
 						ForwarderAddress: null.StringFrom(forwarderAddr),
 						Plugins: feeds.Plugins{
-							Commit:  true,
-							Execute: true,
-							Median:  false,
-							Mercury: true,
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
 						},
 					},
 				}).Return(cfgID, nil)
-				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
+				f.Mocks.feedsSvc.On("GetChainConfig", mock.Anything, cfgID).Return(&feeds.ChainConfig{
 					ID:             cfgID,
 					AccountAddress: accountAddr,
 					AdminAddress:   adminAddr,
@@ -367,10 +371,11 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID:      keyBundleID,
 						ForwarderAddress: null.StringFrom(forwarderAddr),
 						Plugins: feeds.Plugins{
-							Commit:  true,
-							Execute: true,
-							Median:  false,
-							Mercury: true,
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
 						},
 					},
 				}, nil)
@@ -389,7 +394,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 		{
 			name:          "update call not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateChainConfig", mock.Anything, mock.IsType(feeds.ChainConfig{})).Return(int64(0), sql.ErrNoRows)
 			},
@@ -406,10 +411,10 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 		{
 			name:          "get call not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateChainConfig", mock.Anything, mock.IsType(feeds.ChainConfig{})).Return(cfgID, nil)
-				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(nil, sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("GetChainConfig", mock.Anything, cfgID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,

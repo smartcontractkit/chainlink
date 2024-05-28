@@ -16,15 +16,14 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ types.TransmitEventProvider = &EventProvider{}
 
-type logParser func(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error)
+type logParser func(registry *ac.IAutomationV21PlusCommon, log logpoller.Log) (transmitEventLog, error)
 
 type EventProvider struct {
 	sync     services.StateMachine
@@ -34,7 +33,7 @@ type EventProvider struct {
 
 	logger    logger.Logger
 	logPoller logpoller.LogPoller
-	registry  *iregistry21.IKeeperRegistryMaster
+	registry  *ac.IAutomationV21PlusCommon
 	client    evmclient.Client
 
 	registryAddress common.Address
@@ -49,6 +48,7 @@ func EventProviderFilterName(addr common.Address) string {
 }
 
 func NewTransmitEventProvider(
+	ctx context.Context,
 	logger logger.Logger,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
@@ -57,20 +57,20 @@ func NewTransmitEventProvider(
 ) (*EventProvider, error) {
 	var err error
 
-	contract, err := iregistry21.NewIKeeperRegistryMaster(registryAddress, client)
+	contract, err := ac.NewIAutomationV21PlusCommon(registryAddress, client)
 	if err != nil {
 		return nil, err
 	}
-	err = logPoller.RegisterFilter(logpoller.Filter{
+	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: EventProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			// These are the events that are emitted when a node transmits a report
-			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),               // Happy path: report performed the upkeep
-			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),           // Report checkBlockNumber was reorged
-			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(), // Upkeep didn't have sufficient funds when report reached chain, perform was aborted early
+			ac.IAutomationV21PlusCommonUpkeepPerformed{}.Topic(),               // Happy path: report performed the upkeep
+			ac.IAutomationV21PlusCommonReorgedUpkeepReport{}.Topic(),           // Report checkBlockNumber was reorged
+			ac.IAutomationV21PlusCommonInsufficientFundsUpkeepReport{}.Topic(), // Upkeep didn't have sufficient funds when report reached chain, perform was aborted early
 			// Report was too old when it reached the chain. For conditionals upkeep was already performed on a higher block than checkBlockNum
 			// for logs upkeep was already performed for the particular log
-			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
+			ac.IAutomationV21PlusCommonStaleUpkeepReport{}.Topic(),
 		},
 		Addresses: []common.Address{registryAddress},
 	})
@@ -136,7 +136,7 @@ func (c *EventProvider) HealthReport() map[string]error {
 }
 
 func (c *EventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
-	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	end, err := c.logPoller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
 	}
@@ -144,16 +144,16 @@ func (c *EventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.Tran
 	// always check the last lookback number of blocks and rebroadcast
 	// this allows the plugin to make decisions based on event confirmations
 	logs, err := c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
-			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
-			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
-			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+			ac.IAutomationV21PlusCommonUpkeepPerformed{}.Topic(),
+			ac.IAutomationV21PlusCommonStaleUpkeepReport{}.Topic(),
+			ac.IAutomationV21PlusCommonReorgedUpkeepReport{}.Topic(),
+			ac.IAutomationV21PlusCommonInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
