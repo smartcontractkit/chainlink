@@ -109,7 +109,7 @@ func (c *dkgProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
 }
 
-func (c *dkgProvider) ChainReader() commontypes.ChainReader {
+func (c *dkgProvider) ChainReader() commontypes.ContractReader {
 	return nil
 }
 
@@ -126,7 +126,7 @@ func (c *ocr2vrfProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
 }
 
-func (c *ocr2vrfProvider) ChainReader() commontypes.ChainReader {
+func (c *ocr2vrfProvider) ChainReader() commontypes.ContractReader {
 	return nil
 }
 
