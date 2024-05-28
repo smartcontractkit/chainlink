@@ -9,6 +9,8 @@ import (
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -18,12 +20,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
+type RelayGetter interface {
+	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
+	LegacyEVMChains() legacyevm.LegacyChainContainer
+}
+
 type Delegate struct {
-	registry        core.CapabilitiesRegistry
-	logger          logger.Logger
-	legacyEVMChains legacyevm.LegacyChainContainer
-	peerID          func() *p2ptypes.PeerID
-	store           store.Store
+	registry    core.CapabilitiesRegistry
+	logger      logger.Logger
+	relayGetter RelayGetter
+	peerID      func() *p2ptypes.PeerID
+	store       store.Store
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -40,11 +47,36 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
+func InitializeWriteTargets(ctx context.Context, registry core.CapabilitiesRegistry, relayGetter RelayGetter, lggr logger.Logger) error {
+	legacyChains := relayGetter.LegacyEVMChains()
+	relayers, err := relayGetter.GetIDToRelayerMap()
+	if err != nil {
+		return fmt.Errorf("failed to get relayers: %w", err)
+	}
+
+	for id, relayer := range relayers {
+		if id.Network != types.NetworkEVM {
+			continue // only EVM supported for now
+		}
+		chain, err := legacyChains.Get(id.ChainID)
+		if err != nil {
+			return fmt.Errorf("failed to get chain: %w", err)
+		}
+		capability, err := targets.NewWriteTarget(ctx, relayer, chain, lggr)
+		if err != nil {
+			return fmt.Errorf("failed to initialize write target: %w", err)
+		}
+		if err := registry.Add(ctx, capability); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
 	// NOTE: we temporarily do registration inside ServicesForSpec, this will be moved out of job specs in the future
-	err := targets.InitializeWrite(ctx, d.registry, d.legacyEVMChains, d.logger)
-	if err != nil {
+	if err := InitializeWriteTargets(ctx, d.registry, d.relayGetter, d.logger); err != nil {
 		d.logger.Errorw("could not initialize writes", err)
 	}
 
@@ -104,10 +136,11 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 			SharedSecret: key,
 		},
 	}, nil
+
 }
 
-func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, store store.Store, peerID func() *p2ptypes.PeerID) *Delegate {
-	return &Delegate{logger: logger, registry: registry, legacyEVMChains: legacyEVMChains, store: store, peerID: peerID}
+func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, relayGetter RelayGetter, store store.Store, peerID func() *p2ptypes.PeerID) *Delegate {
+	return &Delegate{logger: logger, registry: registry, relayGetter: relayGetter, store: store, peerID: peerID}
 }
 
 func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
