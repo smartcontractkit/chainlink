@@ -8,12 +8,18 @@ import (
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+type receiverRequest interface {
+	Receive(ctx context.Context, msg *types.MessageBody) error
+	Expired() bool
+}
 
 type remoteTargetReceiver struct {
 	lggr         logger.Logger
@@ -24,7 +30,7 @@ type remoteTargetReceiver struct {
 	workflowDONs map[string]commoncap.DON
 	dispatcher   types.Dispatcher
 
-	requestIDToRequest map[string]*receiverRequest
+	requestIDToRequest map[string]receiverRequest
 	requestTimeout     time.Duration
 
 	receiveLock sync.Mutex
@@ -43,7 +49,7 @@ func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, peerID p2p
 		workflowDONs: workflowDONs,
 		dispatcher:   dispatcher,
 
-		requestIDToRequest: map[string]*receiverRequest{},
+		requestIDToRequest: map[string]receiverRequest{},
 		requestTimeout:     requestTimeout,
 
 		lggr: lggr,
@@ -69,31 +75,22 @@ func (r *remoteTargetReceiver) ExpireRequests() {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
-	for messageId, executeReq := range r.requestIDToRequest {
-		if time.Since(executeReq.createdTime) > r.requestTimeout {
-
-			if !executeReq.hasResponse() {
-				executeReq.setError(types.Error_TIMEOUT)
-				if err := executeReq.sendResponses(); err != nil {
-					r.lggr.Errorw("failed to send timeout response to all requesters", "capabilityId", r.capInfo.ID, "err", err)
-				}
-			}
-
-			delete(r.requestIDToRequest, messageId)
+	for requestID, executeReq := range r.requestIDToRequest {
+		if executeReq.Expired() {
+			delete(r.requestIDToRequest, requestID)
 		}
-
 	}
 
 }
 
 func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
+	r.receiveLock.Lock()
+	defer r.receiveLock.Unlock()
 	// TODO should the dispatcher be passing in a context?
 	ctx := context.Background()
 
 	// TODO Confirm threading semantics of dispatcher Receive
 	// TODO May want to have executor per message id to improve liveness
-	r.receiveLock.Lock()
-	defer r.receiveLock.Unlock()
 
 	// TODO multithread this
 
@@ -109,7 +106,7 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
 		if callingDon, ok := r.workflowDONs[msg.CallerDonId]; ok {
-			r.requestIDToRequest[requestID] = NewReceiverRequest(r.lggr, r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
+			r.requestIDToRequest[requestID] = request.NewReceiverRequest(r.lggr, r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
 				callingDon, messageId, r.dispatcher, r.requestTimeout)
 		} else {
 			r.lggr.Errorw("received request from unregistered workflow don", "donId", msg.CallerDonId)

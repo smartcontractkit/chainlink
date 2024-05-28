@@ -1,8 +1,9 @@
-package target
+package request
 
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -38,6 +39,8 @@ type receiverRequest struct {
 	requestMessageID string
 
 	requestTimeout time.Duration
+
+	mux sync.Mutex
 }
 
 func NewReceiverRequest(lggr logger.Logger, capability capabilities.TargetCapability, capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
@@ -60,6 +63,9 @@ func NewReceiverRequest(lggr logger.Logger, capability capabilities.TargetCapabi
 }
 
 func (e *receiverRequest) Receive(ctx context.Context, msg *types.MessageBody) error {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+
 	requester := remote.ToPeerID(msg.Sender)
 	if err := e.addRequester(requester); err != nil {
 		return fmt.Errorf("failed to add requester to request: %w", err)
@@ -77,6 +83,24 @@ func (e *receiverRequest) Receive(ctx context.Context, msg *types.MessageBody) e
 	}
 
 	return nil
+}
+
+func (e *receiverRequest) Expired() bool {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+
+	if time.Since(e.createdTime) > e.requestTimeout {
+		if !e.hasResponse() {
+			e.setError(types.Error_TIMEOUT)
+			if err := e.sendResponses(); err != nil {
+				e.lggr.Errorw("failed to send timeout response to all requesters", "capabilityId", e.capabilityID, "err", err)
+			}
+		}
+
+		return true
+	}
+
+	return false
 }
 
 func (e *receiverRequest) executeRequest(ctx context.Context, payload []byte) error {
