@@ -63,9 +63,9 @@ func Block(block uint64, operator primitives.ComparisonOperator) Expression {
 	}
 }
 
-func Confirmation(confLevel primitives.ConfirmationLevel) Expression {
+func Confidence(confLevel primitives.ConfidenceLevel) Expression {
 	return Expression{
-		Primitive: &primitives.Confirmations{ConfirmationLevel: confLevel},
+		Primitive: &primitives.Confidence{ConfidenceLevel: confLevel},
 	}
 }
 

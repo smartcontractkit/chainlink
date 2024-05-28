@@ -4,7 +4,7 @@ package primitives
 type Visitor interface {
 	Comparator(primitive Comparator)
 	Block(primitive Block)
-	Confirmations(primitive Confirmations)
+	Confidence(primitive Confidence)
 	Timestamp(primitive Timestamp)
 	TxHash(primitive TxHash)
 }
@@ -50,22 +50,21 @@ func (f *Block) Accept(visitor Visitor) {
 	visitor.Block(*f)
 }
 
-type ConfirmationLevel int32
+type ConfidenceLevel string
 
-// TODO come up with a proper chain agnostic solution BCF-3156
 const (
-	Finalized   = ConfirmationLevel(-1)
-	Unconfirmed = ConfirmationLevel(-2)
+	Finalized   ConfidenceLevel = "finalized"
+	Unconfirmed ConfidenceLevel = "unconfirmed"
 )
 
-// Confirmations is a primitive of KeyFilter that filters search to results that have a certain level of confirmation.
-// Confirmation map to different concepts on different blockchains.
-type Confirmations struct {
-	ConfirmationLevel
+// Confidence is a primitive of KeyFilter that filters search to results that have a certain level of finalization.
+// Confidence maps to different concepts on different blockchains.
+type Confidence struct {
+	ConfidenceLevel
 }
 
-func (f *Confirmations) Accept(visitor Visitor) {
-	visitor.Confirmations(*f)
+func (f *Confidence) Accept(visitor Visitor) {
+	visitor.Confidence(*f)
 }
 
 // Timestamp is a primitive of KeyFilter that filters search in comparison to timestamp.

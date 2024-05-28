@@ -120,13 +120,9 @@ message Block{
   ComparisonOperator operator = 2;
 }
 
-enum ConfirmationLevel {
-  Finalized   = 0;
-  Unconfirmed = 1;
-}
-
-message Confirmations {
-  ConfirmationLevel confirmations = 1;
+enum Confidence {
+  Unconfirmed = 0;
+  Finalized = 1;
 }
 
 message Timestamp{
@@ -143,7 +139,7 @@ message Primitive {
   oneof primitive {
     Comparator comparator = 1;
     Block block = 2;
-    Confirmations confirmations = 3;
+    Confidence confidence = 3;
     Timestamp timestamp = 4;
     TxHash tx_hash = 5;
   }
