@@ -105,15 +105,16 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 		return nil, err
 	}
 
+	client := r.chain
+	services := new(ocr2keeperProvider)
+	services.txStatusStore = upkeepstate.NewTxStatusStore(r.lggr, client.TxManager())
 	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI, 0, reportToUpkeepID)
+	ct := cfgWatcher.chain.Config().EVM().ChainType()
+	contractTransmitter, err := newOnChainAutomationContractTransmitter(ctx, r.lggr, rargs, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI, 0, reportToUpkeepID, ct, services.txStatusStore.SaveTxInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	client := r.chain
-
-	services := new(ocr2keeperProvider)
 	services.configWatcher = cfgWatcher
 	services.contractTransmitter = contractTransmitter
 
@@ -150,7 +151,6 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	al := evm.NewActiveUpkeepList()
 	services.payloadBuilder = evm.NewPayloadBuilder(al, logRecoverer, r.lggr)
 
-	services.txStatusStore = upkeepstate.NewTxStatusStore(r.lggr, client.TxManager())
 	services.registry = evm.NewEvmRegistry(r.lggr, addr, client,
 		registryContract, rargs.MercuryCredentials, al, logProvider,
 		packer, blockSubscriber, finalityDepth, services.txStatusStore)

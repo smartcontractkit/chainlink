@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -401,16 +402,21 @@ func (t *txStatusStore) Start(_ context.Context) error {
 					for k, v := range t.uuids.Items() {
 						t.lggr.Infof("querying tx status with UUID %s for upkeep ID %s", k, v.Object.(*big.Int))
 						// query TXM and update the data structure
-						//status := t.txm.queryTxStatus(k)
-						//if status == terminally_error {
-						//	err := t.uids.Add(v.Object.(*big.Int).String(), true, cache.DefaultExpiration)
-						//	if err != nil {
-						//		t.lggr.Errorf("failed to add")
-						//		continue
-						//	}
-						//} else if status != pending {
-						//	t.uuids.Delete(k)
-						//}
+						status, err := t.txm.GetTransactionStatus(ctx, uuid.MustParse(k))
+						if err != nil {
+							t.lggr.Errorf("failed to query TXM for tx status due to %s", err.Error())
+						} else {
+							if status == commontxmgr.Fatal {
+								uid := v.Object.(*big.Int).String()
+								err = t.uids.Add(uid, true, cache.DefaultExpiration)
+								if err != nil {
+									t.lggr.Errorf("failed to add upkeep ID %s due to %s", uid, err.Error())
+									continue
+								}
+							} else if status != commontxmgr.Unconfirmed {
+								t.uuids.Delete(k)
+							}
+						}
 					}
 				case <-ctx.Done():
 					return

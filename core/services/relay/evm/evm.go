@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -201,7 +203,7 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 		return nil, err
 	}
 
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, 0, nil)
+	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -517,7 +519,7 @@ type configTransmitterOpts struct {
 }
 
 // newOnChainContractTransmitter creates a new contract transmitter.
-func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, transmissionContractRetention time.Duration, reportToEvmTxMeta ReportToEthMetadata) (*contractTransmitter, error) {
+func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, transmissionContractRetention time.Duration) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -582,17 +584,6 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 			configWatcher.chain.ID(),
 			ethKeystore,
 		)
-	case commontypes.OCR2Keeper:
-		transmitter, err = ocrcommon.NewOCR3AutomationTransmitter(
-			configWatcher.chain.TxManager(),
-			fromAddresses,
-			gasLimit,
-			effectiveTransmitterAddress,
-			strategy,
-			checker,
-			configWatcher.chain.ID(),
-			ethKeystore,
-		)
 	default:
 		transmitter, err = ocrcommon.NewTransmitter(
 			configWatcher.chain.TxManager(),
@@ -605,6 +596,89 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 			ethKeystore,
 		)
 	}
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
+	}
+
+	return NewOCRContractTransmitterWithRetention(
+		ctx,
+		configWatcher.contractAddress,
+		configWatcher.chain.Client(),
+		transmissionContractABI,
+		transmitter,
+		configWatcher.chain.LogPoller(),
+		lggr,
+		nil,
+		transmissionContractRetention,
+	)
+}
+
+// newOnChainAutomationContractTransmitter creates a new contract transmitter.
+func newOnChainAutomationContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, transmissionContractRetention time.Duration, reportToEvmTxMeta ReportToEthMetadata, chainType config.ChainType, saveIdempotencyKey func(uuid uuid.UUID, uid *big.Int) error) (*contractTransmitter, error) {
+	var relayConfig types.RelayConfig
+	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
+		return nil, err
+	}
+	var fromAddresses []common.Address
+	sendingKeys := relayConfig.SendingKeys
+	if !relayConfig.EffectiveTransmitterID.Valid {
+		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
+	}
+	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
+
+	sendingKeysLength := len(sendingKeys)
+	if sendingKeysLength == 0 {
+		return nil, pkgerrors.New("no sending keys provided")
+	}
+
+	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
+	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
+	for _, s := range sendingKeys {
+		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
+			return nil, pkgerrors.New("the transmitter is a local sending key with transaction forwarding enabled")
+		}
+		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
+			return nil, pkgerrors.Wrap(err, "one of the sending keys given is not enabled")
+		}
+		fromAddresses = append(fromAddresses, common.HexToAddress(s))
+	}
+
+	subject := rargs.ExternalJobID
+	if opts.subjectID != nil {
+		subject = *opts.subjectID
+	}
+	strategy := txmgrcommon.NewQueueingTxStrategy(subject, relayConfig.DefaultTransactionQueueDepth)
+
+	var checker txm.TransmitCheckerSpec
+	if relayConfig.SimulateTransactions {
+		checker.CheckerType = txm.TransmitCheckerTypeSimulate
+	}
+
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
+	if ocr2Limit != nil {
+		gasLimit = uint64(*ocr2Limit)
+	}
+	if opts.pluginGasLimit != nil {
+		gasLimit = uint64(*opts.pluginGasLimit)
+	}
+
+	var transmitter Transmitter
+	var err error
+
+	transmitter, err = ocrcommon.NewOCR3AutomationTransmitter(
+		configWatcher.chain.TxManager(),
+		fromAddresses,
+		gasLimit,
+		effectiveTransmitterAddress,
+		strategy,
+		checker,
+		configWatcher.chain.ID(),
+		ethKeystore,
+		chainType,
+		saveIdempotencyKey,
+		lggr,
+	)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
 	}
@@ -658,7 +732,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, 0, nil)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, 0)
 	if err != nil {
 		return nil, err
 	}

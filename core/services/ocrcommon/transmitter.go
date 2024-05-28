@@ -1,12 +1,18 @@
 package ocrcommon
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 	"slices"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	//"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -211,8 +217,13 @@ func (t *ocr2FeedsTransmitter) forwarderAddress(ctx context.Context, eoa, ocr2Ag
 	return forwarderAddress, nil
 }
 
+type saveIdempotencyKey func(uuid uuid.UUID, uid *big.Int) error
+
 type ocr3AutomationTransmitter struct {
 	transmitter
+	ChainType config.ChainType
+	lggr logger.Logger
+	saveIdempotencyKey
 }
 
 // NewOCR3AutomationTransmitter creates a new eth transmitter
@@ -225,6 +236,9 @@ func NewOCR3AutomationTransmitter(
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
 	keystore roundRobinKeystore,
+	chainType config.ChainType,
+	saveIdempotencyKey func(uuid uuid.UUID, uid *big.Int) error,
+	lggr logger.Logger,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
 	if keystore == nil {
@@ -242,6 +256,9 @@ func NewOCR3AutomationTransmitter(
 			chainID:                     chainID,
 			keystore:                    keystore,
 		},
+		ChainType: chainType,
+		saveIdempotencyKey: saveIdempotencyKey,
+		lggr: lggr,
 	}, nil
 }
 
@@ -251,14 +268,35 @@ func (t *ocr3AutomationTransmitter) CreateEthTransaction(ctx context.Context, to
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
-	var key *string
-	if txMeta != nil && txMeta.UpkeepID != nil {
-		key = txMeta.UpkeepID
+	var id uuid.UUID
+	var key string
+	var keyPtr *string
+	if t.ChainType == config.ChainScroll || t.ChainType == config.ChainZkEvm || t.ChainType == config.ChainZkSync {
+		if txMeta != nil && txMeta.UpkeepID != nil {
+			id, err = uuid.NewRandomFromReader(bytes.NewReader([]byte(*txMeta.UpkeepID + time.Now().String())))
+			if err != nil {
+				t.lggr.Errorf("failed to create UUID from %s", *(txMeta.UpkeepID))
+			} else {
+				uid, ok := new(big.Int).SetString(*(txMeta.UpkeepID), 10)
+				if !ok {
+					t.lggr.Errorf("failed to convert upkeep ID %s to big int", *(txMeta.UpkeepID))
+				} else {
+					err = t.saveIdempotencyKey(id, uid)
+					if err != nil {
+						t.lggr.Errorf("failed to save idempotency key %s due to %s", id.String(), err.Error())
+					} else {
+						key = id.String()
+						keyPtr = &key
+					}
+				}
+			}
+		} else {
+			t.lggr.Errorf("failed to retrieve upkeep ID from tx meta")
+		}
 	}
 
-
 	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
-		IdempotencyKey:   key,
+		IdempotencyKey:   keyPtr,
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
