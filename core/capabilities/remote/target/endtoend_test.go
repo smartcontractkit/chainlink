@@ -94,27 +94,6 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 	*/
 	//here - below tests plus additional tests for the remoteTargetCapability test
 
-	// test capability don F handling
-
-	/*
-		here - these errors tests failing still? why?
-
-		errResponseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
-			require.NoError(t, responseError)
-			response := <-responseCh
-			assert.NotNil(t, response.Err)
-		}
-
-		// Test scenario where number of submissions is less than F + 1
-
-		// How to make these tests less time dependent? risk of being flaky
-		testRemoteTargetConsensus(t, 4, 6, 5*time.Second, 1, 0, 1*time.Second, errResponseTest)
-		testRemoteTargetConsensus(t, 10, 10, 5*time.Second, 1, 0, 1*time.Second, errResponseTest)
-	*/
-	//tyring to modify tests to test the caller F number handling?
-
-	//also having issues with error test cases - since the client F handling?
-
 	//then got threading to do
 
 	// Context cancellation test - use an underlying capability that blocks until the context is cancelled
@@ -207,7 +186,6 @@ func testRemoteTarget(t *testing.T, numWorkflowPeers int, workflowDonF uint8, wo
 	wg := &sync.WaitGroup{}
 	wg.Add(len(workflowNodes))
 
-	// Fire off all the requests
 	for _, caller := range workflowNodes {
 		go func(caller commoncap.TargetCapability) {
 			responseCh, err := caller.Execute(ctx,

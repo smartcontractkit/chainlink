@@ -17,7 +17,7 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
-type callerExecuteRequest struct {
+type callerRequest struct {
 	transmissionCtx      context.Context
 	responseCh           chan commoncap.CapabilityResponse
 	transmissionCancelFn context.CancelFunc
@@ -30,8 +30,8 @@ type callerExecuteRequest struct {
 	respSent bool
 }
 
-func newCallerExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest, messageID string,
-	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher) (*callerExecuteRequest, error) {
+func newCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest, messageID string,
+	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher) (*callerRequest, error) {
 
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
@@ -80,7 +80,7 @@ func newCallerExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 		}(peerID, delay)
 	}
 
-	return &callerExecuteRequest{
+	return &callerRequest{
 		createdAt:                  time.Now(),
 		transmissionCancelFn:       transmissionCancelFn,
 		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
@@ -90,12 +90,12 @@ func newCallerExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}, nil
 }
 
-func (c *callerExecuteRequest) responseSent() bool {
+func (c *callerRequest) responseSent() bool {
 	return c.respSent
 }
 
 // TODO addResponse assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated
-func (c *callerExecuteRequest) addResponse(sender p2ptypes.PeerID, response []byte) error {
+func (c *callerRequest) addResponse(sender p2ptypes.PeerID, response []byte) error {
 	if _, ok := c.responseReceived[sender]; !ok {
 		return fmt.Errorf("response from peer %s not expected", sender)
 	}
@@ -121,14 +121,14 @@ func (c *callerExecuteRequest) addResponse(sender p2ptypes.PeerID, response []by
 	return nil
 }
 
-func (c *callerExecuteRequest) sendResponse(response commoncap.CapabilityResponse) {
+func (c *callerRequest) sendResponse(response commoncap.CapabilityResponse) {
 	c.responseCh <- response
 	close(c.responseCh)
 	c.transmissionCancelFn()
 	c.respSent = true
 }
 
-func (c *callerExecuteRequest) cancelRequest(reason string) {
+func (c *callerRequest) cancelRequest(reason string) {
 	c.transmissionCancelFn()
 	if !c.responseSent() {
 		c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(reason)})

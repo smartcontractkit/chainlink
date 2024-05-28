@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type remoteTargetCapabilityRequest struct {
+type receiverRequest struct {
 	lggr logger.Logger
 
 	capability capabilities.TargetCapability
@@ -40,10 +40,10 @@ type remoteTargetCapabilityRequest struct {
 	requestTimeout time.Duration
 }
 
-func newTargetCapabilityRequest(lggr logger.Logger, capability capabilities.TargetCapability, capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
+func NewReceiverRequest(lggr logger.Logger, capability capabilities.TargetCapability, capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
 	callingDon commoncap.DON, requestMessageID string,
-	dispatcher types.Dispatcher, requestTimeout time.Duration) *remoteTargetCapabilityRequest {
-	return &remoteTargetCapabilityRequest{
+	dispatcher types.Dispatcher, requestTimeout time.Duration) *receiverRequest {
+	return &receiverRequest{
 		lggr:                    lggr,
 		capability:              capability,
 		createdTime:             time.Now(),
@@ -59,7 +59,7 @@ func newTargetCapabilityRequest(lggr logger.Logger, capability capabilities.Targ
 	}
 }
 
-func (e *remoteTargetCapabilityRequest) receive(ctx context.Context, msg *types.MessageBody) error {
+func (e *receiverRequest) receive(ctx context.Context, msg *types.MessageBody) error {
 	requester := remote.ToPeerID(msg.Sender)
 	if err := e.addRequester(requester); err != nil {
 		return fmt.Errorf("failed to add requester to request: %w", err)
@@ -76,7 +76,7 @@ func (e *remoteTargetCapabilityRequest) receive(ctx context.Context, msg *types.
 	return nil
 }
 
-func (e *remoteTargetCapabilityRequest) executeRequest(ctx context.Context, payload []byte) {
+func (e *receiverRequest) executeRequest(ctx context.Context, payload []byte) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
 	defer cancel()
 
@@ -104,7 +104,7 @@ func (e *remoteTargetCapabilityRequest) executeRequest(ctx context.Context, payl
 	e.setResult(responsePayload)
 }
 
-func (e *remoteTargetCapabilityRequest) addRequester(from p2ptypes.PeerID) error {
+func (e *receiverRequest) addRequester(from p2ptypes.PeerID) error {
 
 	fromPeerInCallingDon := false
 	for _, member := range e.callingDon.Members {
@@ -127,24 +127,24 @@ func (e *remoteTargetCapabilityRequest) addRequester(from p2ptypes.PeerID) error
 	return nil
 }
 
-func (e *remoteTargetCapabilityRequest) minimumRequiredRequestsReceived() bool {
+func (e *receiverRequest) minimumRequiredRequestsReceived() bool {
 	return len(e.requesters) >= int(e.callingDon.F+1)
 }
 
-func (e *remoteTargetCapabilityRequest) setResult(result []byte) {
+func (e *receiverRequest) setResult(result []byte) {
 	e.response = result
 }
 
-func (e *remoteTargetCapabilityRequest) setError(err types.Error) {
+func (e *receiverRequest) setError(err types.Error) {
 	e.responseError = err
 }
 
-func (e *remoteTargetCapabilityRequest) hasResponse() bool {
+func (e *receiverRequest) hasResponse() bool {
 	return e.response != nil || e.responseError != types.Error_OK
 }
 
-func (e *remoteTargetCapabilityRequest) sendResponses() error {
-	if e.minimumRequiredRequestsReceived() && e.hasResponse() {
+func (e *receiverRequest) sendResponses() error {
+	if e.hasResponse() {
 		for requester := range e.requesters {
 			if !e.responseSentToRequester[requester] {
 				e.responseSentToRequester[requester] = true
@@ -158,7 +158,7 @@ func (e *remoteTargetCapabilityRequest) sendResponses() error {
 	return nil
 }
 
-func (e *remoteTargetCapabilityRequest) sendResponse(receiver p2ptypes.PeerID) error {
+func (e *receiverRequest) sendResponse(requester p2ptypes.PeerID) error {
 
 	responseMsg := types.MessageBody{
 		CapabilityId:    e.capabilityID,
@@ -167,7 +167,7 @@ func (e *remoteTargetCapabilityRequest) sendResponse(receiver p2ptypes.PeerID) e
 		Method:          types.MethodExecute,
 		MessageId:       []byte(e.requestMessageID),
 		Sender:          e.capabilityPeerId[:],
-		Receiver:        receiver[:],
+		Receiver:        requester[:],
 	}
 
 	if e.responseError != types.Error_OK {
@@ -176,11 +176,11 @@ func (e *remoteTargetCapabilityRequest) sendResponse(receiver p2ptypes.PeerID) e
 		responseMsg.Payload = e.response
 	}
 
-	if err := e.dispatcher.Send(receiver, &responseMsg); err != nil {
+	if err := e.dispatcher.Send(requester, &responseMsg); err != nil {
 		return fmt.Errorf("failed to send response to dispatcher: %w", err)
 	}
 
-	e.responseSentToRequester[receiver] = true
+	e.responseSentToRequester[requester] = true
 
 	return nil
 }

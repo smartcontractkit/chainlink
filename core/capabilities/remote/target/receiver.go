@@ -24,7 +24,7 @@ type remoteTargetReceiver struct {
 	workflowDONs map[string]commoncap.DON
 	dispatcher   types.Dispatcher
 
-	requestIDToRequest map[string]*remoteTargetCapabilityRequest
+	requestIDToRequest map[string]*receiverRequest
 	requestTimeout     time.Duration
 
 	receiveLock sync.Mutex
@@ -43,7 +43,7 @@ func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, peerID p2p
 		workflowDONs: workflowDONs,
 		dispatcher:   dispatcher,
 
-		requestIDToRequest: map[string]*remoteTargetCapabilityRequest{},
+		requestIDToRequest: map[string]*receiverRequest{},
 		requestTimeout:     requestTimeout,
 
 		lggr: lggr,
@@ -57,7 +57,7 @@ func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, peerID p2p
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				receiver.ExpireRequests(ctx)
+				receiver.ExpireRequests()
 			}
 		}
 	}()
@@ -65,7 +65,7 @@ func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, peerID p2p
 	return receiver
 }
 
-func (r *remoteTargetReceiver) ExpireRequests(ctx context.Context) {
+func (r *remoteTargetReceiver) ExpireRequests() {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 

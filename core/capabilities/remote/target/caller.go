@@ -22,7 +22,7 @@ type remoteTargetCaller struct {
 	dispatcher           types.Dispatcher
 	requestTimeout       time.Duration
 
-	requestIDToExecuteRequest map[string]*callerExecuteRequest
+	requestIDToExecuteRequest map[string]*callerRequest
 	mutex                     sync.Mutex
 }
 
@@ -38,7 +38,7 @@ func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabi
 		localDONInfo:              localDonInfo,
 		dispatcher:                dispatcher,
 		requestTimeout:            requestTimeout,
-		requestIDToExecuteRequest: make(map[string]*callerExecuteRequest),
+		requestIDToExecuteRequest: make(map[string]*callerRequest),
 	}
 
 	go func() {
@@ -95,7 +95,7 @@ func (c *remoteTargetCaller) Execute(ctx context.Context, req commoncap.Capabili
 		return nil, fmt.Errorf("request with ID %s already exists", requestID)
 	}
 
-	execRequest, err := newCallerExecuteRequest(ctx, c.lggr, req, requestID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
+	execRequest, err := newCallerRequest(ctx, c.lggr, req, requestID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher)
 
 	c.requestIDToExecuteRequest[requestID] = execRequest
 

@@ -43,8 +43,6 @@ func Test_RemoteTargetCapability_InsufficientWorkflowCallers(t *testing.T) {
 	}
 }
 
-// Test stuck capability times out
-
 func Test_RemoteTargetCapability_IgnoresRequestFromIncorrectPeer(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
