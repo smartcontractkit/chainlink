@@ -16,4 +16,4 @@ PriceMin = '25 gwei'
 BlockHistorySize = 24
 
 [HeadTracker]
-FinalityTagSupportDisabled = false
+FinalityTagBypass = false

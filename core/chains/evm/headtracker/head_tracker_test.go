@@ -207,9 +207,9 @@ func TestHeadTracker_Start(t *testing.T) {
 	const historyDepth = 100
 	const finalityDepth = 50
 	type opts struct {
-		FinalityTagEnable          *bool
-		MaxAllowedFinalityDepth    *uint32
-		FinalityTagSupportDisabled *bool
+		FinalityTagEnable       *bool
+		MaxAllowedFinalityDepth *uint32
+		FinalityTagBypass       *bool
 	}
 	newHeadTracker := func(t *testing.T, opts opts) *headTrackerUniverse {
 		db := pgtest.NewSqlxDB(t)
@@ -223,8 +223,8 @@ func TestHeadTracker_Start(t *testing.T) {
 				c.EVM[0].HeadTracker.MaxAllowedFinalityDepth = opts.MaxAllowedFinalityDepth
 			}
 
-			if opts.FinalityTagSupportDisabled != nil {
-				c.EVM[0].HeadTracker.FinalityTagSupportDisabled = opts.FinalityTagSupportDisabled
+			if opts.FinalityTagBypass != nil {
+				c.EVM[0].HeadTracker.FinalityTagBypass = opts.FinalityTagBypass
 			}
 		})
 		config := evmtest.NewChainScopedConfig(t, gCfg)
@@ -255,7 +255,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		tests.AssertLogEventually(t, ht.observer, "Got nil initial head")
 	})
 	t.Run("Starts even if fails to get finalizedHead", func(t *testing.T) {
-		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagSupportDisabled: ptr(false)})
+		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
 		head := cltest.Head(1000)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New("failed to load latest finalized")).Once()
@@ -263,7 +263,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
 	t.Run("Starts even if latest finalizedHead is nil", func(t *testing.T) {
-		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagSupportDisabled: ptr(false)})
+		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
 		head := cltest.Head(1000)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, nil).Once()
@@ -272,7 +272,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
 	t.Run("Logs error if finality gap is too big", func(t *testing.T) {
-		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagSupportDisabled: ptr(false), MaxAllowedFinalityDepth: ptr(uint32(10))})
+		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false), MaxAllowedFinalityDepth: ptr(uint32(10))})
 		head := cltest.Head(1000)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(cltest.Head(989), nil).Once()
@@ -287,7 +287,7 @@ func TestHeadTracker_Start(t *testing.T) {
 	})
 	t.Run("Happy path (finality tag)", func(t *testing.T) {
 		head := cltest.Head(1000)
-		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagSupportDisabled: ptr(false)})
+		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
 		ctx := testutils.Context(t)
 		require.NoError(t, ht.orm.IdempotentInsertHead(ctx, cltest.Head(799)))
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
@@ -320,15 +320,15 @@ func TestHeadTracker_Start(t *testing.T) {
 	}{
 		{
 			Name: "Happy path (Chain FT is disabled & HeadTracker's FT is disabled)",
-			Opts: opts{FinalityTagEnable: ptr(false), FinalityTagSupportDisabled: ptr(true)},
+			Opts: opts{FinalityTagEnable: ptr(false), FinalityTagBypass: ptr(true)},
 		},
 		{
 			Name: "Happy path (Chain FT is disabled & HeadTracker's FT is enabled, but ignored)",
-			Opts: opts{FinalityTagEnable: ptr(false), FinalityTagSupportDisabled: ptr(false)},
+			Opts: opts{FinalityTagEnable: ptr(false), FinalityTagBypass: ptr(false)},
 		},
 		{
 			Name: "Happy path (Chain FT is enabled & HeadTracker's FT is disabled)",
-			Opts: opts{FinalityTagEnable: ptr(true), FinalityTagSupportDisabled: ptr(true)},
+			Opts: opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(true)},
 		},
 	}
 	for _, tc := range testCases {

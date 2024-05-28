@@ -57,7 +57,7 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
-FinalityTagSupportDisabled = true
+FinalityTagBypass = true
 MaxAllowedFinalityDepth = 10000
 
 [NodePool]

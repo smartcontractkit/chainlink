@@ -339,7 +339,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 // canonical chain. There is no guaranties that returned block belongs to the canonical chain. Additional verification
 // must be performed before usage.
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH) (latestFinalized HTH, err error) {
-	if ht.config.FinalityTagEnabled() && !ht.htConfig.FinalityTagSupportDisabled() {
+	if ht.config.FinalityTagEnabled() && !ht.htConfig.FinalityTagBypass() {
 		latestFinalized, err = ht.client.LatestFinalizedBlock(ctx)
 		if err != nil {
 			return latestFinalized, fmt.Errorf("failed to get latest finalized block: %w", err)

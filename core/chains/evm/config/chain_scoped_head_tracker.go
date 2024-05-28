@@ -22,8 +22,8 @@ func (h *headTrackerConfig) SamplingInterval() time.Duration {
 	return h.c.SamplingInterval.Duration()
 }
 
-func (h *headTrackerConfig) FinalityTagSupportDisabled() bool {
-	return *h.c.FinalityTagSupportDisabled
+func (h *headTrackerConfig) FinalityTagBypass() bool {
+	return *h.c.FinalityTagBypass
 }
 
 func (h *headTrackerConfig) MaxAllowedFinalityDepth() uint32 {

@@ -573,11 +573,11 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
-					HistoryDepth:               ptr[uint32](15),
-					MaxBufferSize:              ptr[uint32](17),
-					SamplingInterval:           &hour,
-					FinalityTagSupportDisabled: ptr[bool](false),
-					MaxAllowedFinalityDepth:    ptr[uint32](1500),
+					HistoryDepth:            ptr[uint32](15),
+					MaxBufferSize:           ptr[uint32](17),
+					SamplingInterval:        &hour,
+					FinalityTagBypass:       ptr[bool](false),
+					MaxAllowedFinalityDepth: ptr[uint32](1500),
 				},
 
 				NodePool: evmcfg.NodePool{
@@ -1038,7 +1038,7 @@ HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
-FinalityTagSupportDisabled = false
+FinalityTagBypass = false
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

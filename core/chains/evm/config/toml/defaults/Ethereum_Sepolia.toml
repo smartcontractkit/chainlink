@@ -13,4 +13,4 @@ TransactionPercentile = 50
 GasLimit = 10500000
 
 [HeadTracker]
-FinalityTagSupportDisabled = false
+FinalityTagBypass = false

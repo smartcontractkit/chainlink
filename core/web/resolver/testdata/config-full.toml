@@ -335,7 +335,7 @@ HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagSupportDisabled = true
+FinalityTagBypass = true
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

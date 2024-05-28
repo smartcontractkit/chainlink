@@ -14,4 +14,4 @@ EIP1559DynamicFees = true
 TipCapDefault = '100 gwei'
 
 [HeadTracker]
-FinalityTagSupportDisabled = false
+FinalityTagBypass = false

@@ -36,7 +36,7 @@ func (h *headTrackerConfig) MaxBufferSize() uint32 {
 	return uint32(0)
 }
 
-func (h *headTrackerConfig) FinalityTagSupportDisabled() bool {
+func (h *headTrackerConfig) FinalityTagBypass() bool {
 	return false
 }
 func (h *headTrackerConfig) MaxAllowedFinalityDepth() uint32 {

@@ -740,11 +740,11 @@ func (e *KeySpecificGasEstimator) setFrom(f *KeySpecificGasEstimator) {
 }
 
 type HeadTracker struct {
-	HistoryDepth               *uint32
-	MaxBufferSize              *uint32
-	SamplingInterval           *commonconfig.Duration
-	MaxAllowedFinalityDepth    *uint32
-	FinalityTagSupportDisabled *bool
+	HistoryDepth            *uint32
+	MaxBufferSize           *uint32
+	SamplingInterval        *commonconfig.Duration
+	MaxAllowedFinalityDepth *uint32
+	FinalityTagBypass       *bool
 }
 
 func (t *HeadTracker) setFrom(f *HeadTracker) {
@@ -760,8 +760,8 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 	if v := f.MaxAllowedFinalityDepth; v != nil {
 		t.MaxAllowedFinalityDepth = v
 	}
-	if v := f.FinalityTagSupportDisabled; v != nil {
-		t.FinalityTagSupportDisabled = v
+	if v := f.FinalityTagBypass; v != nil {
+		t.FinalityTagBypass = v
 	}
 }
 
