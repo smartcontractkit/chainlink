@@ -761,6 +761,36 @@ func (_m *EvmTxStore) FindTxesWithMetaFieldByStates(ctx context.Context, metaFie
 	return r0, r1
 }
 
+// FindTxsByStateAndFromAddresses provides a mock function with given fields: ctx, addresses, state, chainID
+func (_m *EvmTxStore) FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, addresses, state, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindTxsByStateAndFromAddresses")
+	}
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, addresses, state, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, addresses, state, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []common.Address, types.TxState, *big.Int) error); ok {
+		r1 = rf(ctx, addresses, state, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindTxsRequiringGasBump provides a mock function with given fields: ctx, address, blockNum, gasBumpThreshold, depth, chainID
 func (_m *EvmTxStore) FindTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum int64, gasBumpThreshold int64, depth int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, address, blockNum, gasBumpThreshold, depth, chainID)
@@ -1135,17 +1165,17 @@ func (_m *EvmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, ti
 	return r0
 }
 
-// SaveFetchedReceipts provides a mock function with given fields: ctx, receipts, chainID
-func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, receipts []*evmtypes.Receipt, chainID *big.Int) error {
-	ret := _m.Called(ctx, receipts, chainID)
+// SaveFetchedReceipts provides a mock function with given fields: ctx, r, state, errorMsg, chainID
+func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, state types.TxState, errorMsg *string, chainID *big.Int) error {
+	ret := _m.Called(ctx, r, state, errorMsg, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFetchedReceipts")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, *big.Int) error); ok {
-		r0 = rf(ctx, receipts, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, types.TxState, *string, *big.Int) error); ok {
+		r0 = rf(ctx, r, state, errorMsg, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}

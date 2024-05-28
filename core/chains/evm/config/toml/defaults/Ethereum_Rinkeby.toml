@@ -8,6 +8,5 @@ MinContractPayment = '0.1 link'
 EIP1559DynamicFees = false
 
 [GasEstimator.BlockHistory]
-BatchSize = 25
 BlockHistorySize = 4
 TransactionPercentile = 50
