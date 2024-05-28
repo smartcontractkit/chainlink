@@ -25,7 +25,7 @@
       2. [As Base64-Encoded Keyfile Stored as GHA Secret](#as-base64-encoded-keyfile-stored-as-gha-secret)
 8. [How to Split Funds Between Static Keys](#how-to-split-funds-between-static-keys)
 9. [How to Return Funds From Static Keys to the Root Key](#how-to-return-funds-from-static-keys-to-the-root-key)
-   1. [How to Rebalance Static Keys](#how-to-rebalance-static-keys)
+   1. [How to Rebalance or Top Up Static Keys](#how-to-rebalance-or-top-up-static-keys)
 10. [How to Deal with "TX Fee Exceeds the Configured Cap" Error](#how-to-deal-with-tx-fee-exceeds-the-configured-cap-error)
 11. [How to Use Seth's Synchronous API](#how-to-use-seths-synchronous-api)
 12. [How to Read Event Data from Transactions](#how-to-read-event-data-from-transactions)
@@ -37,6 +37,7 @@
     4. [Buffer Percents](#buffer-percents)
 18. [How to Tweak Automated Gas Estimation](#how-to-tweak-automated-gas-estimation)
 19. [How to debug with 'execution reverted' error](#how-to-debug-with-execution-reverted-error)
+20. [How to split non-native tokens between keys](#how-to-split-non-native-tokens-between-keys)
 
 ## Introduction
 
@@ -84,24 +85,24 @@ While most of the test logic relies on the `EVMNetwork` struct, Seth employs its
 - Default gas limit (only for simulated networks)
 
 ### Seth-Specific Network Configuration
-You are still expected to manually provide some Seth-specific network configurations related to the network you are using:
+Since version v1.0.11 Seth will use a default network configuration if you don't provide one in your TOML file. It is stored in `default.toml` and named `Default`. It has both EIP-1559 and gas estimation enabled, because Seth will disable both if they are not supported by the network.
+If for whatever reason you want to use different default settings for you product, please add them to your product-specific TOML file.
 
+You can still provide your own network configuration in your TOML file, if you need to override the default settings. When you do that, you need to provide all the following fields:
 - Fallback gas price
 - Fallback gas tip/fee cap
 - Fallback gas limit (used for contract deployment and interaction)
 - Fallback transfer fee (used for transferring funds between accounts)
 - Network name
-- Chain ID (critical for matching with EVMNetwork)
 - Transaction timeout
 
 ### Steps for adding a new network
 
 #### Network is already defined in [known_networks.go](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/networks/known_networks.go)
-In that case you need add only Seth-specific network configuration to `[[Seth.networks]]` table. Here's an example:
+If you are fine with the default network configuration, you don't need to do anything. Otherwise, you need add only Seth-specific network configuration to `[[Seth.networks]]` table. Here's an example:
 ```toml
 [[Seth.networks]]
 name = "ARBITRUM_SEPOLIA"
-chain_id = "421614"
 transaction_timeout = "10m"
 transfer_gas_fee = 50_000
 # gas_limit = 15_000_000
@@ -124,13 +125,11 @@ Name of the network doesn't really matter and is used only for logging purposes.
 **Warning!** Please do not use the values from above-mentioned example. They should be replaced with the actual values obtained from gas tracker or Seth CLI (more on that later). 
 
 #### It's a new network
-
 Apart from above-mentioned fields you either need to add the network to `known_networks.go` file in the [CTF](https://github.com/smartcontractkit/chainlink-testing-framework) or define it in your test TOML file. 
 Here's an example of how to define a new `EVMNetwork` network in your test TOML file:
 ```toml
 [Network.EVMNetworks.ARBITRUM_SEPOLIA]
 evm_name = "ARBITRUM_SEPOLIA"
-evm_chain_id = 421614
 evm_urls = ["rpc ws endpoint"]
 evm_http_urls = ["rpc http endpoint"]
 client_implementation = "Ethereum"
@@ -144,19 +143,19 @@ evm_default_gas_limit = 6000000
 ```
 
 ### Things to remember:
-* you need **both** networks: one for EVM and one for Seth
-* websocket URL and private keys from the `EVMNetwork` will be copied over to the `Seth.Network` configuration so you don't need to provide them again
+* you need **both** networks: one for EVM and one for Seth (unless you are fine with the default settings)
+* websocket URL and private keys from the `EVMNetwork` will be copied over to the `Seth.Network` configuration, so you don't need to provide them again
 * it's advised to not set the gas limit, unless your test fails without it (might happen when interacting with new networks due bugs or gas estimation quirks); Seth will try to estimate gas for each interaction
-* chain ID of `Seth.Network` must match the one from `EVMNetwork` configuration
+* **name** of `Seth.Network` must match the one from `EVMNetwork` configuration
 
 While this covers the essentials, it is advisable to consult the Seth documentation for detailed settings related to gas estimation, tracing, etc.
 
 ## How to use Seth CLI
 The most important thing to keep in mind that the CLI requires you to provide a couple of settings via environment variables, in addition to a TOML configuration file. Here's a general breakdown of the required settings:
-* `keys` commands requires `SETH_KEYFILE_PATH`, `SETH_CONFIG_PATH` and `ROOT_PRIVATE_KEY` environment variables
-* `gas` command requires `SETH_CONFIG_PATH` environment variable
+* `keys` commands requires `SETH_KEYFILE_PATH`, `SETH_CONFIG_PATH` and `SETH_ROOT_PRIVATE_KEY` environment variables
+* `gas` and `stats` command requires `SETH_CONFIG_PATH` environment variable
 
-You can find a sample `Seth.toml` file [here](https://github.com/smartcontractkit/seth/blob/master/seth.toml). Currently you cannot use your test TOML file as a Seth configuration file, but we will add ability that in the future.
+You can find a sample `Seth.toml` file [here](https://github.com/smartcontractkit/seth/blob/master/seth.toml). Currently, you cannot use your test TOML file as a Seth configuration file, but we will add ability that in the future.
 
 ## How to get Fallback (Hardcoded) Values
 There are two primary methods to obtain fallback values for network configuration:
@@ -170,23 +169,14 @@ There are two primary methods to obtain fallback values for network configuratio
 git clone https://github.com/smartcontractkit/seth
 ```
 
-2. **Configure Network Details:**
-   Add your network details in the `seth.toml` file:
-```toml
-[[Networks]]
-name = "my_network"
-chain_id = "43113"
-urls_secret = ["RPC you want to use"]
-```
-
-3. **Run Seth CLI:**
+2. **Run Seth CLI:**
    Execute the command to get fallback gas prices:
 ```bash
-SETH_CONFIG_PATH=seth.toml go run cmd/seth/seth.go -n my_network gas -b 10000 -tp 0.99
+SETH_CONFIG_PATH=seth.toml go run cmd/seth/seth.go -u https://RPC_TO_USE -b 10000 -tp 0.99
 ```
 The network name passed in the CLI must match the one in your TOML file (it is case-sensitive). The `-b` flag specifies the number of blocks to consider for gas estimation, and `-tp` denotes the tip percentage.
 
-4. **Copy Fallback Values:**
+3**Copy Fallback Values:**
    From the output, copy the relevant fallback prices into your network configuration in test TOML. Here's an example of what you might see:
 ```bash
  5:08PM INF Fallback prices for TOML config:
@@ -200,7 +190,6 @@ gas_fee_cap = 122487901046
 ```toml
 [[Seth.networks]]
 name = "my_network"
-chain_id = "667"
 transaction_timeout = "10m"
 transfer_gas_fee = 21_000
 eip_1559_dynamic_fees = true
@@ -271,7 +260,7 @@ Managing funds across multiple static keys can be complex, especially if your te
 1. **Fund a Root Key**: Start by funding a key (referred to as the root key) with the total amount of funds you intend to distribute among other keys.
 2. **Use Seth to Distribute Funds**: Execute the command below to split the funds from the root key to other keys:
 ```
-KEYFILE_PATH=keyfile_my_network.toml ROOT_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 SETH_CONFIG_PATH=seth.toml go run cmd/seth/seth.go -n my_network keys split -a 10 -b 1
+SETH_KEYFILE_PATH=keyfile_my_network.toml SETH_ROOT_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 SETH_CONFIG_PATH=seth.toml go run cmd/seth/seth.go -n my_network keys fund -a 10 -b 1
 ```
 The `-a <N>` option specifies the number of keys to distribute funds to, and `-b <N>` denotes the buffer (in ethers) to be left on the root key.
 
@@ -282,14 +271,24 @@ KEYFILE_PATH=keyfile_my_network.toml ROOT_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d2
 ```
 This command will return all funds from static keys read from `keyfile_my_network.toml` to the root key.
 
-## How to Rebalance Static Keys
-Rebalancing static keys is a more complex process that involves redistributing funds among keys. Currently, there's no built-in functionality for this in Seth, but you can achieve it by following these steps:
-1. **Return Funds**: Use the `keys return` command to return all funds to the root key.
-2. **Split Funds**: Use the `keys split` command to redistribute funds among the keys as needed.
+## How to Rebalance or Top Up Static Keys
+Currently, Seth doesn't have a single step function for this, but you can follow these steps to rebalance or top up static keys:
 
-Once you've completed these steps, remember to upload new keyfile to the CI (as a base64-ed secret).
+### Rebalancing Static Keys
+1. **Return Funds to Root Key**: Use the command `keys return` to transfer all funds back to the root key.
+2. **Redistribute Funds**: Use the command `keys funds` to allocate the funds among the keys as needed.
 
-**When performing any keyfile-related operations it is advised to keep copies of files in 1password, so you can easily restore them if needed**. That's especially important for rebalancing, because you will not be able to download the keyfile from the CI since it's a secret.
+After rebalancing, upload the new keyfile to the CI as a base64-encoded secret.
+
+### Topping Up Static Keys
+1. **Fund the Root Key**: Add funds to the root key.
+2. **Distribute Funds**: Use the `keys fund` command to distribute these funds among the keys. 
+
+The key is to understand that `keys fund` command will use existing keys if a keyfile is found, or generate new private keys and save them if the file doesn't exist.
+
+For both rebalancing and topping up, you don't need to upload the keyfile to the CI again, as the private keys remain the same, only their on-chain balances change.
+
+**Tip**: Always keep copies of keyfiles in 1Password to easily restore them if needed. This is crucial for rebalancing because you cannot download the keyfile from the CI since it's a secret.
 
 ## How to Deal with "TX Fee Exceeds the Configured Cap" Error
 If the gas prices set for a transaction and the gas limit result in the transaction fee exceeding the maximum fee set for a given RPC node, you can try the following solutions:
@@ -452,5 +451,14 @@ When you encounter the 'execution reverted' error without any additional details
 4. **Inspect `delegatecall` Usage**: If the method you are calling uses `delegatecall`, it might be the cause of the issue. `delegatecall` is a low-level call that doesn't return revert reasons, so you'll always get the 'execution reverted' error unless you manually handle it in assembly.
 5. **Debug with Events**: If you're still unable to find the cause, you can modify the contract to emit an event with the revert reason. For example, define an event like `event DebugEvent(string reason)` and add it before the points where you suspect a revert might occur. You will be able to find events in the transaction receipt's logs. Remember to remove these changes after debugging.
 6. **Check EVM Node Logs**: If all else fails, the issue might be that Seth cannot decode the revert reason. Look at the logs of the EVM node for 'execution reverted' errors and any additional information (e.g., `errdata=0x46f08154`). If you find more details there but not in your test output, it might be a bug in Seth, and you should contact the Test Tooling team.
-7. 
+
 By following these steps, you can systematically identify and address the cause of 'execution reverted' errors in your smart contracts.
+
+## How to split non-native tokens between keys
+Currently, Seth doesn't support splitting non-native tokens between keys. If you need to split non-native tokens between keys, you can use the following approach:
+1. **Fund root key** with the total amount of tokens you want to distribute.
+2. **Deploy v contract** that allows to execute multiple operations in a single transaction.
+3. **Prepare payload for Multicall contract** that will call `transfer` function on the token contract for each key.
+4. **Execute Multicall contract** with the payload prepared in the previous step.
+
+You can find sample code for doing that for LINK token in [actions_seth](./actions/seth/actions.go) file as `SendLinkFundsToDeploymentAddresses()` method.
