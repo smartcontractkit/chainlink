@@ -255,7 +255,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4bc2fc365a915124ee33b7c398b10564ca4ecaaf # v2.3.18
         with:
-          test_command_to_run: cd ./integration-tests/smoke && go test -timeout ${{ matrix.timeout }} -count=1 -json -test.run ${{ matrix.test }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests/smoke && go test -timeout ${{ matrix.timeout }} -count=1 -json -test.run ${{ matrix.test }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
