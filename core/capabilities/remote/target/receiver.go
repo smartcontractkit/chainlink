@@ -50,13 +50,13 @@ func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, peerID p2p
 	}
 
 	go func() {
-		timer := time.NewTimer(requestTimeout)
-		defer timer.Stop()
+		ticker := time.NewTicker(requestTimeout)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-timer.C:
+			case <-ticker.C:
 				receiver.ExpireRequests()
 			}
 		}

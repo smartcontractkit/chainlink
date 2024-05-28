@@ -23,6 +23,8 @@ import (
 )
 
 func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -42,7 +44,7 @@ func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 
 	capability := &testCapability{}
 
-	testRemoteTarget(t, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
 
 	transmissionSchedule, err = values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_AllAtOnce,
@@ -50,11 +52,13 @@ func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testRemoteTarget(t, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
 
 }
 
 func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -75,20 +79,23 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 	capability := &testCapability{}
 
 	// Test scenarios where the number of submissions is greater than or equal to F + 1
-	testRemoteTarget(t, capability, 1, 0, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, capability, 4, 3, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, capability, 10, 3, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 1, 0, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 4, 3, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 10, 3, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
 
-	testRemoteTarget(t, capability, 1, 0, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, capability, 1, 0, timeOut, 4, 3, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, capability, 1, 0, timeOut, 10, 3, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 1, 0, timeOut, 1, 0, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 1, 0, timeOut, 4, 3, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 1, 0, timeOut, 10, 3, timeOut, transmissionSchedule, responseTest)
 
-	testRemoteTarget(t, capability, 4, 3, timeOut, 4, 3, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, capability, 10, 3, timeOut, 10, 3, timeOut, transmissionSchedule, responseTest)
-	testRemoteTarget(t, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 4, 3, timeOut, 4, 3, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 10, 3, timeOut, 10, 3, timeOut, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 10, 9, timeOut, 10, 9, timeOut, transmissionSchedule, responseTest)
 }
 
 func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
@@ -103,15 +110,13 @@ func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testRemoteTarget(t, capability, 10, 9, 10*time.Millisecond, 10, 9, 10*time.Minute, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 10, 9, 10*time.Millisecond, 10, 9, 10*time.Minute, transmissionSchedule, responseTest)
 }
 
-func testRemoteTarget(t *testing.T, underlying commoncap.TargetCapability, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
+func testRemoteTarget(t *testing.T, ctx context.Context, underlying commoncap.TargetCapability, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration, transmissionSchedule *values.Map,
 	responseTest func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error)) {
 	lggr := logger.TestLogger(t)
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {

@@ -18,12 +18,10 @@ import (
 )
 
 type callerRequest struct {
-	transmissionCtx      context.Context
-	responseCh           chan commoncap.CapabilityResponse
-	transmissionCancelFn context.CancelFunc
-	createdAt            time.Time
-	responseIDCount      map[[32]byte]int
-	responseReceived     map[p2ptypes.PeerID]bool
+	responseCh       chan commoncap.CapabilityResponse
+	createdAt        time.Time
+	responseIDCount  map[[32]byte]int
+	responseReceived map[p2ptypes.PeerID]bool
 
 	requiredIdenticalResponses int
 
@@ -54,7 +52,6 @@ func NewCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
 
-	transmissionCtx, transmissionCancelFn := context.WithCancel(ctx)
 	responseReceived := make(map[p2ptypes.PeerID]bool)
 	for peerID, delay := range peerIDToTransmissionDelay {
 		responseReceived[peerID] = false
@@ -69,10 +66,10 @@ func NewCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 			}
 
 			select {
-			case <-transmissionCtx.Done():
+			case <-ctx.Done():
 				return
 			case <-time.After(delay):
-				err = dispatcher.Send(peerID, message)
+				err := dispatcher.Send(peerID, message)
 				if err != nil {
 					lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
 				}
@@ -82,7 +79,6 @@ func NewCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 
 	return &callerRequest{
 		createdAt:                  time.Now(),
-		transmissionCancelFn:       transmissionCancelFn,
 		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
 		responseIDCount:            make(map[[32]byte]int),
 		responseReceived:           responseReceived,
@@ -124,12 +120,10 @@ func (c *callerRequest) AddResponse(sender p2ptypes.PeerID, response []byte) err
 func (c *callerRequest) sendResponse(response commoncap.CapabilityResponse) {
 	c.responseCh <- response
 	close(c.responseCh)
-	c.transmissionCancelFn()
 	c.respSent = true
 }
 
 func (c *callerRequest) cancelRequest(reason string) {
-	c.transmissionCancelFn()
 	if !c.respSent {
 		c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(reason)})
 	}

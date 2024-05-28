@@ -42,13 +42,13 @@ func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabi
 	}
 
 	go func() {
-		timer := time.NewTimer(requestTimeout)
-		defer timer.Stop()
+		ticker := time.NewTicker(requestTimeout)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-timer.C:
+			case <-ticker.C:
 				caller.ExpireRequests()
 			}
 		}
@@ -64,9 +64,9 @@ func (c *remoteTargetCaller) ExpireRequests() {
 	for messageID, req := range c.messageIDToExecuteRequest {
 		if time.Since(req.createdAt) > c.requestTimeout {
 			req.cancelRequest("request timed out")
+			delete(c.messageIDToExecuteRequest, messageID)
 		}
 
-		delete(c.messageIDToExecuteRequest, messageID)
 	}
 }
 
