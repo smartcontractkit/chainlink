@@ -46,6 +46,7 @@ func (c *ContractTransmitter) Transmit(ctx context.Context, configDigest types.C
 		for _, s := range signatures {
 			sigs = append(sigs, s.Signature)
 		}
+		c.lggr.Debugw("ContractTransmitter added signatures", "nSignatures", len(sigs))
 		resp["signatures"] = sigs
 	} else {
 		resp["report"] = nil

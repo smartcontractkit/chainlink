@@ -103,8 +103,8 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 	for feedID := range currentState.FeedInfo {
 		if _, ok := a.config.Feeds[datastreams.FeedID(feedID)]; !ok {
 			delete(currentState.FeedInfo, feedID)
+			a.lggr.Debugw("removed obsolete feedID from state", "feedID", feedID)
 		}
-		a.lggr.Debugw("removed obsolete feedID from state", "feedID", feedID)
 	}
 
 	reportsNeedingUpdate := []datastreams.FeedReport{}
@@ -129,8 +129,10 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		config := a.config.Feeds[feedID]
 		oldPrice := big.NewInt(0).SetBytes(previousReportInfo.BenchmarkPrice)
 		newPrice := big.NewInt(0).SetBytes(latestReport.BenchmarkPrice)
+		currDeviation := deviation(oldPrice, newPrice)
+		a.lggr.Debugw("checking deviation and heartbeat", "feedID", feedID, "currentTs", latestReport.ObservationTimestamp, "oldTs", previousReportInfo.ObservationTimestamp, "oldPrice", oldPrice, "newPrice", newPrice, "deviation", currDeviation)
 		if latestReport.ObservationTimestamp-previousReportInfo.ObservationTimestamp > int64(config.Heartbeat) ||
-			deviation(oldPrice, newPrice) > config.Deviation.InexactFloat64() {
+			currDeviation > config.Deviation.InexactFloat64() {
 			previousReportInfo.ObservationTimestamp = latestReport.ObservationTimestamp
 			previousReportInfo.BenchmarkPrice = latestReport.BenchmarkPrice
 			reportsNeedingUpdate = append(reportsNeedingUpdate, latestReport)

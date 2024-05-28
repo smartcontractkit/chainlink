@@ -207,7 +207,7 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 	h := sha256.New()
 	h.Write(rawOutcome)
 	outcomeHash := h.Sum(nil)
-	r.lggr.Debugw("Outcome complete", "len", len(o.Outcomes), "nCurrentReports", len(o.CurrentReports), "outcomeHash", hex.EncodeToString(outcomeHash), "err", err)
+	r.lggr.Debugw("Outcome complete", "len", len(o.Outcomes), "nAggregatedWorkflowExecutions", len(o.CurrentReports), "outcomeHash", hex.EncodeToString(outcomeHash), "err", err)
 	return rawOutcome, err
 }
 
@@ -256,6 +256,7 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 			continue
 		}
 
+		// Append every report, even if shouldReport = false, to let the transmitter mark the step as complete.
 		reports = append(reports, ocr3types.ReportWithInfo[[]byte]{
 			Report: report,
 			Info:   p,
