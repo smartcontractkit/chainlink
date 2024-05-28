@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 )
 
@@ -175,8 +176,11 @@ func (t *ocr2FeedsTransmitter) FromAddress() common.Address {
 		return t.effectiveTransmitterAddress
 	}
 
-	forwarderAddress, err := t.forwarderAddress(context.Background(), roundRobinFromAddress, t.ocr2Aggregator)
-	if err != nil || forwarderAddress == (common.Address{}) {
+	forwarderAddress, err := t.GetForwarderForEOAOCR2Feeds(context.Background(), roundRobinFromAddress, t.ocr2Aggregator)
+	if errors.Is(err, forwarders.ErrForwarderForEOANotFound) {
+		// if there are no valid forwarders try to fallback to eoa
+		return roundRobinFromAddress
+	} else if err != nil {
 		return t.effectiveTransmitterAddress
 	}
 
