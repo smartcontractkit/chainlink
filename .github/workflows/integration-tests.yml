@@ -98,6 +98,7 @@ jobs:
               - '**/*go.mod'
               - '.github/workflows/integration-tests.yml'
               - '**/*Dockerfile'
+              - 'core/**/migrations/*.sql'
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
       - name: Ignore Filter On Workflow Dispatch
@@ -1214,7 +1215,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Pull Artfacts
+      - name: Pull Artifacts
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }}
@@ -1232,12 +1233,20 @@ jobs:
           docker rm "$CONTAINER_ID"
       - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
         run: ./scripts/install-solana-ci.sh
+      - name: Install gauntlet
+        run: |
+          yarn --cwd ./gauntlet install --frozen-lockfile
+          yarn --cwd ./gauntlet build
+          yarn --cwd ./gauntlet gauntlet
       - name: Generate config overrides
         run: | # https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md
           cat << EOF > config.toml
           [ChainlinkImage]
           image="${{ env.CHAINLINK_IMAGE }}"
           version="${{ inputs.evm-ref || github.sha }}"
+          [Common]
+          user="${{ github.actor }}"
+          internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
           EOF
           # shellcheck disable=SC2002
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)

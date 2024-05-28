@@ -8,9 +8,6 @@ NoNewHeadsThreshold = '0s'
 ReaperThreshold = '0s'
 ResendAfterThreshold = '0s'
 
-[BalanceMonitor]
-Enabled = true
-
 [GasEstimator]
 Mode = 'FixedPrice'
 PriceMin = '0'

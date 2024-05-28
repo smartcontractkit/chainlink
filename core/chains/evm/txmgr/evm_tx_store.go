@@ -48,7 +48,7 @@ type EvmTxStore interface {
 	TxStoreWebApi
 }
 
-// TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers and readers
+// TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers, readers, or evm specific components
 type TxStoreWebApi interface {
 	FindTxAttemptConfirmedByTxIDs(ctx context.Context, ids []int64) ([]TxAttempt, error)
 	FindTxByHash(ctx context.Context, hash common.Hash) (*Tx, error)
@@ -57,6 +57,7 @@ type TxStoreWebApi interface {
 	TransactionsWithAttempts(ctx context.Context, offset, limit int) ([]Tx, int, error)
 	FindTxAttempt(ctx context.Context, hash common.Hash) (*TxAttempt, error)
 	FindTxWithAttempts(ctx context.Context, etxID int64) (etx Tx, err error)
+	FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state txmgrtypes.TxState, chainID *big.Int) (txs []*Tx, err error)
 }
 
 type TestEvmTxStore interface {
@@ -285,6 +286,7 @@ type DbEthTxAttempt struct {
 	TxType                  int
 	GasTipCap               *assets.Wei
 	GasFeeCap               *assets.Wei
+	IsPurgeAttempt          bool
 }
 
 func (db *DbEthTxAttempt) FromTxAttempt(attempt *TxAttempt) {
@@ -299,6 +301,7 @@ func (db *DbEthTxAttempt) FromTxAttempt(attempt *TxAttempt) {
 	db.TxType = attempt.TxType
 	db.GasTipCap = attempt.TxFee.DynamicTipCap
 	db.GasFeeCap = attempt.TxFee.DynamicFeeCap
+	db.IsPurgeAttempt = attempt.IsPurgeAttempt
 
 	// handle state naming difference between generic + EVM
 	if attempt.State == txmgrtypes.TxAttemptInsufficientFunds {
@@ -330,6 +333,7 @@ func (db DbEthTxAttempt) ToTxAttempt(attempt *TxAttempt) {
 		DynamicTipCap: db.GasTipCap,
 		DynamicFeeCap: db.GasFeeCap,
 	}
+	attempt.IsPurgeAttempt = db.IsPurgeAttempt
 }
 
 func dbEthTxAttemptsToEthTxAttempts(dbEthTxAttempt []DbEthTxAttempt) []TxAttempt {
@@ -353,8 +357,8 @@ func NewTxStore(
 }
 
 const insertIntoEthTxAttemptsQuery = `
-INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
-VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
+INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap, is_purge_attempt)
+VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap, :is_purge_attempt)
 RETURNING *;
 `
 
@@ -822,7 +826,39 @@ ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas
 	return
 }
 
-func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
+// Returns the transaction by state and from addresses
+// Loads attempt and receipts in the transactions
+func (o *evmTxStore) FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state txmgrtypes.TxState, chainID *big.Int) (txs []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.stopCh.Ctx(ctx)
+	defer cancel()
+	enabledAddrsBytea := make([][]byte, len(addresses))
+	for i, addr := range addresses {
+		enabledAddrsBytea[i] = addr.Bytes()
+	}
+	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
+		var dbEtxs []DbEthTx
+		err = orm.q.SelectContext(ctx, &dbEtxs, `SELECT * FROM evm.txes WHERE state = $1 AND from_address = ANY($2) AND evm_chain_id = $3`, state, enabledAddrsBytea, chainID.String())
+		if err != nil {
+			return fmt.Errorf("FindTxsByStateAndFromAddresses failed to load evm.txes: %w", err)
+		}
+		if len(dbEtxs) == 0 {
+			return nil
+		}
+		txs = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txs)
+		if err = orm.LoadTxesAttempts(ctx, txs); err != nil {
+			return fmt.Errorf("FindTxsByStateAndFromAddresses failed to load evm.tx_attempts: %w", err)
+		}
+		if err = orm.loadEthTxesAttemptsReceipts(ctx, txs); err != nil {
+			return fmt.Errorf("FindTxsByStateAndFromAddresses failed to load evm.receipts: %w", err)
+		}
+		return nil
+	})
+	return
+}
+
+func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, state txmgrtypes.TxState, errorMsg *string, chainID *big.Int) (err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
@@ -869,7 +905,7 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 		valueStrs = append(valueStrs, "(?,?,?,?,?,NOW())")
 		valueArgs = append(valueArgs, r.TxHash, r.BlockHash, r.BlockNumber.Int64(), r.TransactionIndex, receiptJSON)
 	}
-	valueArgs = append(valueArgs, chainID.String())
+	valueArgs = append(valueArgs, state, errorMsg, chainID.String())
 
 	/* #nosec G201 */
 	sql := `
@@ -892,7 +928,7 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 		RETURNING evm.tx_attempts.eth_tx_id
 	)
 	UPDATE evm.txes
-	SET state = 'confirmed'
+	SET state = ?, error = ?
 	FROM updated_eth_tx_attempts
 	WHERE updated_eth_tx_attempts.eth_tx_id = evm.txes.id
 	AND evm_chain_id = ?
