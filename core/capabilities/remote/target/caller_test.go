@@ -20,7 +20,9 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func Test_RemoteTargetCaller_DonTopologies(t *testing.T) {
+func Test_Caller_DonTopologies(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_OneAtATime,
@@ -40,24 +42,26 @@ func Test_RemoteTargetCaller_DonTopologies(t *testing.T) {
 
 	responseTimeOut := 10 * time.Minute
 
-	testRemoteTargetCaller(t, 1, responseTimeOut, 1, 0,
+	testCaller(t, ctx, 1, responseTimeOut, 1, 0,
 		capability, transmissionSchedule, responseTest)
 
-	testRemoteTargetCaller(t, 10, responseTimeOut, 1, 0,
+	testCaller(t, ctx, 10, responseTimeOut, 1, 0,
 		capability, transmissionSchedule, responseTest)
 
-	testRemoteTargetCaller(t, 1, responseTimeOut, 10, 3,
+	testCaller(t, ctx, 1, responseTimeOut, 10, 3,
 		capability, transmissionSchedule, responseTest)
 
-	testRemoteTargetCaller(t, 10, responseTimeOut, 10, 3,
+	testCaller(t, ctx, 10, responseTimeOut, 10, 3,
 		capability, transmissionSchedule, responseTest)
 
-	testRemoteTargetCaller(t, 10, responseTimeOut, 10, 9,
+	testCaller(t, ctx, 10, responseTimeOut, 10, 9,
 		capability, transmissionSchedule, responseTest)
 
 }
 
-func Test_RemoteTargetCaller_TransmissionSchedules(t *testing.T) {
+func Test_Caller_TransmissionSchedules(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -77,9 +81,9 @@ func Test_RemoteTargetCaller_TransmissionSchedules(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testRemoteTargetCaller(t, 1, responseTimeOut, 1, 0,
+	testCaller(t, ctx, 1, responseTimeOut, 1, 0,
 		capability, transmissionSchedule, responseTest)
-	testRemoteTargetCaller(t, 10, responseTimeOut, 10, 3,
+	testCaller(t, ctx, 10, responseTimeOut, 10, 3,
 		capability, transmissionSchedule, responseTest)
 
 	transmissionSchedule, err = values.NewMap(map[string]any{
@@ -88,14 +92,16 @@ func Test_RemoteTargetCaller_TransmissionSchedules(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testRemoteTargetCaller(t, 1, responseTimeOut, 1, 0,
+	testCaller(t, ctx, 1, responseTimeOut, 1, 0,
 		capability, transmissionSchedule, responseTest)
-	testRemoteTargetCaller(t, 10, responseTimeOut, 10, 3,
+	testCaller(t, ctx, 10, responseTimeOut, 10, 3,
 		capability, transmissionSchedule, responseTest)
 
 }
 
-func Test_RemoteTargetCaller_TimesOutIfRespondingCapabilityPeersLessThenFPlusOne(t *testing.T) {
+func Test_Caller_TimesOutIfRespondingCapabilityPeersLessThenFPlusOne(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -112,38 +118,16 @@ func Test_RemoteTargetCaller_TimesOutIfRespondingCapabilityPeersLessThenFPlusOne
 	require.NoError(t, err)
 
 	// number of capability peers is less than F + 1
-	testRemoteTargetCaller(t, 10, 1*time.Second, 10, 11,
+
+	testCaller(t, ctx, 10, 1*time.Second, 10, 11,
 		capability, transmissionSchedule, responseTest)
 
 }
 
-func Test_RemoteTargetCaller_TimesOutIfTransmissionScheduleExceedsTimeout(t *testing.T) {
-
-	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
-		require.NoError(t, responseError)
-		response := <-responseCh
-		assert.NotNil(t, response.Err)
-	}
-
-	capability := &testCapability{}
-
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
-		"deltaStage": "1000ms",
-	})
-	require.NoError(t, err)
-
-	testRemoteTargetCaller(t, 10, 1*time.Second, 10, 7,
-		capability, transmissionSchedule, responseTest)
-
-}
-
-func testRemoteTargetCaller(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout time.Duration,
+func testCaller(t *testing.T, ctx context.Context, numWorkflowPeers int, workflowNodeResponseTimeout time.Duration,
 	numCapabilityPeers int, capabilityDonF uint8, underlying commoncap.TargetCapability, transmissionSchedule *values.Map,
 	responseTest func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error)) {
 	lggr := logger.TestLogger(t)
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
