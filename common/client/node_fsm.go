@@ -144,7 +144,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) setState(s NodeState) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareAlive() {
 	n.transitionToAlive(func() {
-		n.lfcLog.Infow("RPC Node is online", "NodeState", n.state)
+		n.lfcLog.Infow("RPC Node is online", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -170,7 +170,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 // pool consumers again
 func (n *node[CHAIN_ID, HEAD, RPC]) declareInSync() {
 	n.transitionToInSync(func() {
-		n.lfcLog.Infow("RPC Node is back in sync", "NodeState", n.state)
+		n.lfcLog.Infow("RPC Node is back in sync", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -197,7 +197,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 // clients and making it unavailable for use until back in-sync.
 func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(isOutOfSync func(num int64, td *big.Int) bool) {
 	n.transitionToOutOfSync(func() {
-		n.lfcLog.Errorw("RPC Node is out of sync", "NodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.outOfSyncLoop(isOutOfSync)
 	})
@@ -222,7 +222,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareUnreachable() {
 	n.transitionToUnreachable(func() {
-		n.lfcLog.Errorw("RPC Node is unreachable", "NodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is unreachable", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.unreachableLoop()
 	})
@@ -265,7 +265,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state NodeState) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareInvalidChainID() {
 	n.transitionToInvalidChainID(func() {
-		n.lfcLog.Errorw("RPC Node has the wrong chain ID", "NodeState", n.state)
+		n.lfcLog.Errorw("RPC Node has the wrong chain ID", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.invalidChainIDLoop()
 	})
@@ -290,7 +290,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareSyncing() {
 	n.transitionToSyncing(func() {
-		n.lfcLog.Errorw("RPC Node is syncing", "NodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is syncing", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.syncingLoop()
 	})
