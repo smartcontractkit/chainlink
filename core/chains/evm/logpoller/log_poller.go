@@ -173,15 +173,15 @@ func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, opts Opts) *logPoller 
 }
 
 type Filter struct {
-	Name         string // see FilterName(id, args) below
-	Addresses    evmtypes.AddressArray
-	EventSigs    evmtypes.HashArray // list of possible values for eventsig (aka topic1)
-	Topic2       evmtypes.HashArray // list of possible values for topic2
-	Topic3       evmtypes.HashArray // list of possible values for topic3
-	Topic4       evmtypes.HashArray // list of possible values for topic4
-	Retention    time.Duration      // maximum amount of time to retain logs
-	MaxLogsKept  uint64             // maximum number of logs to retain ( 0 = unlimited )
-	LogsPerBlock uint64             // rate limit ( maximum # of logs per block, 0 = unlimited )
+	Name         string                `json:"name"` // see FilterName(id, args) below
+	Addresses    evmtypes.AddressArray `json:"addresses"`
+	EventSigs    evmtypes.HashArray    `json:"eventSigs"`    // list of possible values for eventsig (aka topic1)
+	Topic2       evmtypes.HashArray    `json:"topic2"`       // list of possible values for topic2
+	Topic3       evmtypes.HashArray    `json:"topic3"`       // list of possible values for topic3
+	Topic4       evmtypes.HashArray    `json:"topic4"`       // list of possible values for topic4
+	Retention    time.Duration         `json:"retention"`    // maximum amount of time to retain logs
+	MaxLogsKept  uint64                `json:"maxLogsKept"`  // maximum number of logs to retain ( 0 = unlimited )
+	LogsPerBlock uint64                `json:"logsPerBlock"` // rate limit ( maximum # of logs per block, 0 = unlimited )
 }
 
 // FilterName is a suggested convenience function for clients to construct unique filter names

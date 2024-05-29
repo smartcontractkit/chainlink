@@ -8,17 +8,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
-
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -33,7 +30,7 @@ type chainReader struct {
 	lggr             logger.Logger
 	lp               logpoller.LogPoller
 	client           evmclient.Client
-	contractBindings contractBindings
+	contractBindings bindings
 	parsed           *parsedTypes
 	codec            commontypes.RemoteCodec
 	commonservices.StateMachine
@@ -48,7 +45,7 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 		lggr:             lggr.Named("ChainReader"),
 		lp:               lp,
 		client:           client,
-		contractBindings: contractBindings{},
+		contractBindings: bindings{},
 		parsed:           &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
 	}
 
@@ -61,8 +58,10 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 		return nil, err
 	}
 
-	err = cr.contractBindings.ForEach(ctx, func(b readBinding, c context.Context) error {
-		b.SetCodec(cr.codec)
+	err = cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBindings) error {
+		for _, rb := range rbs.bindings {
+			rb.SetCodec(cr.codec)
+		}
 		return nil
 	})
 
@@ -83,7 +82,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
-	return cr.contractBindings.Bind(ctx, bindings)
+	return cr.contractBindings.Bind(ctx, cr.lp, bindings)
 }
 
 func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
@@ -119,13 +118,17 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 				return err
 			}
 		}
+
+		cr.contractBindings[contractName].contractFilter = chainContractReader.LogPollerFilter
 	}
 	return nil
 }
 
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		return cr.contractBindings.ForEach(ctx, readBinding.Register)
+		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBindings) error {
+			return rbs.RegisterEventFilters(ctx, cr.lp)
+		})
 	})
 }
 
@@ -133,7 +136,9 @@ func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		return cr.contractBindings.ForEach(ctx, readBinding.Unregister)
+		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBindings) error {
+			return rbs.UnregisterEventFilters(ctx, cr.lp)
+		})
 	})
 }
 
@@ -209,27 +214,16 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	}
 
 	eventDefinitions := chainReaderDefinition.EventDefinitions
-	pollingFilter := eventDefinitions.PollingFilter
 	eb := &eventBinding{
-		contractName: contractName,
-		eventName:    eventName,
-		lp:           cr.lp,
-		logPollerFilter: logpoller.Filter{
-			EventSigs:    evmtypes.HashArray{event.ID},
-			Topic2:       pollingFilter.Topic2,
-			Topic3:       pollingFilter.Topic3,
-			Topic4:       pollingFilter.Topic4,
-			Retention:    pollingFilter.Retention.Duration(),
-			MaxLogsKept:  pollingFilter.MaxLogsKept,
-			LogsPerBlock: pollingFilter.LogsPerBlock,
-		},
+		contractName:   contractName,
+		eventName:      eventName,
+		lp:             cr.lp,
 		hash:           event.ID,
 		inputInfo:      inputInfo,
 		inputModifier:  inputModifier,
 		codecTopicInfo: codecTopicInfo,
 		topics:         make(map[string]topicDetail),
 		eventDataWords: eventDefinitions.GenericDataWordNames,
-		id:             wrapItemType(contractName, eventName, false) + uuid.NewString(),
 	}
 
 	cr.contractBindings.AddReadBinding(contractName, eventName, eb)

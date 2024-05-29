@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,27 +20,23 @@ import (
 )
 
 type eventBinding struct {
-	address         common.Address
-	contractName    string
-	eventName       string
-	logPollerFilter logpoller.Filter
-	lp              logpoller.LogPoller
-	hash            common.Hash
-	codec           commontypes.RemoteCodec
-	pending         bool
-	bound           bool
-	registerCalled  bool
-	lock            sync.Mutex
-	inputInfo       types.CodecEntry
-	inputModifier   codec.Modifier
-	codecTopicInfo  types.CodecEntry
+	address        common.Address
+	contractName   string
+	eventName      string
+	lp             logpoller.LogPoller
+	hash           common.Hash
+	codec          commontypes.RemoteCodec
+	pending        bool
+	bound          bool
+	inputInfo      types.CodecEntry
+	inputModifier  codec.Modifier
+	codecTopicInfo types.CodecEntry
 	// topics maps a generic topic name (key) to topic data
 	topics map[string]topicDetail
 	// eventDataWords maps a generic name to a word index
 	// key is a predefined generic name for evm log event data word
 	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
 	eventDataWords map[string]uint8
-	id             string
 }
 
 type topicDetail struct {
@@ -55,40 +50,12 @@ func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 	e.codec = codec
 }
 
-func (e *eventBinding) Register(ctx context.Context) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-
-	e.registerCalled = true
-	if !e.bound || e.lp.HasFilter(e.id) {
-		return nil
-	}
-
-	if err := e.lp.RegisterFilter(ctx, e.logPollerFilter); err != nil {
-		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
-	}
-	return nil
-}
-
-func (e *eventBinding) Unregister(ctx context.Context) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-
-	if !e.lp.HasFilter(e.id) {
-		return nil
-	}
-
-	if err := e.lp.UnregisterFilter(ctx, e.id); err != nil {
-		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
-	}
-	return nil
-}
-
 func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) error {
 	if !e.bound {
 		return fmt.Errorf("%w: event not bound", commontypes.ErrInvalidType)
 	}
 
+	// TODO BCF-3247 change GetLatestValue to use chain agnostic confidence levels
 	confs := evmtypes.Finalized
 	if e.pending {
 		confs = evmtypes.Unconfirmed
@@ -131,20 +98,10 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
 }
 
-func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
-	if err := e.Unregister(ctx); err != nil {
-		return err
-	}
-
+func (e *eventBinding) Bind(binding commontypes.BoundContract) {
 	e.address = common.HexToAddress(binding.Address)
-	e.logPollerFilter.Name = logpoller.FilterName(e.id, e.address)
-	e.logPollerFilter.Addresses = evmtypes.AddressArray{e.address}
+	e.pending = binding.Pending
 	e.bound = true
-
-	if e.registerCalled {
-		return e.Register(ctx)
-	}
-	return nil
 }
 
 func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs evmtypes.Confirmations, into any) error {

@@ -196,12 +196,12 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 					EventWithFilterName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
-						EventInputFields:  []string{"Field"},
+						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field"}},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
 						ReadType:          types.Event,
-						EventInputFields:  []string{"fieldHash"},
+						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"fieldHash"}},
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
 						},
@@ -209,7 +209,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 					triggerWithAllTopics: {
 						ChainSpecificName: triggerWithAllTopics,
 						ReadType:          types.Event,
-						EventInputFields:  []string{"Field1", "Field2", "Field3"},
+						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field1", "Field2", "Field3"}},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",

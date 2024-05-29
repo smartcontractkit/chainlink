@@ -16,9 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
@@ -40,7 +38,7 @@ type ChainCodecConfig struct {
 type ChainContractReader struct {
 	ContractABI string `json:"contractABI" toml:"contractABI"`
 
-	ContractPollingFilter ContractPollingFilter `json:"contractPollingFilter"`
+	LogPollerFilter logpoller.Filter `json:"logPollerFilter,omitempty"`
 	// key is genericName from config
 	Configs map[string]*ChainReaderDefinition `json:"configs" toml:"configs"`
 }
@@ -48,7 +46,6 @@ type ChainContractReader struct {
 type ChainReaderDefinition chainReaderDefinitionFields
 
 type EventDefinitions struct {
-	PollingFilter PollingFilter `json:"pollingFilter"`
 	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
 	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
 	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
@@ -117,21 +114,6 @@ func (r *ReadType) UnmarshalText(text []byte) error {
 		return nil
 	}
 	return fmt.Errorf("unrecognized ReadType: %s", string(text))
-}
-
-type PollingFilter struct {
-	Topic2       evmtypes.HashArray `json:"topic2"`       // list of possible values for topic2
-	Topic3       evmtypes.HashArray `json:"topic3"`       // list of possible values for topic3
-	Topic4       evmtypes.HashArray `json:"topic4"`       // list of possible values for topic4
-	Retention    models.Interval    `json:"retention"`    // maximum amount of time to retain logs
-	MaxLogsKept  uint64             `json:"maxLogsKept"`  // maximum number of logs to retain ( 0 = unlimited )
-	LogsPerBlock uint64             `json:"logsPerBlock"` // rate limit ( maximum # of logs per block, 0 = unlimited )
-}
-
-type ContractPollingFilter struct {
-	EventKeys []string `json:"eventKeys"` // list of possible values for eventsig (aka topic1)
-	// contract wide polling filter
-	PollingFilter PollingFilter
 }
 
 type RelayConfig struct {
