@@ -32,6 +32,7 @@ const (
 	UpkeepFailureReasonSimulationFailed        UpkeepFailureReason = 35
 	UpkeepFailureReasonTxHashReorged           UpkeepFailureReason = 36
 	UpkeepFailureReasonGasPriceTooHigh         UpkeepFailureReason = 37
+	UpkeepFailureReasonZKOverflowCooldown      UpkeepFailureReason = 38
 
 	// pipeline execution error
 	NoPipelineError               PipelineExecutionState = 0

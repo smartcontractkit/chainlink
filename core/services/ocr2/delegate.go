@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
 	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -1399,7 +1400,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	dConf := ocr2keepers21.DelegateConfig{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
-		ContractTransmitter:          evmrelay.NewKeepersOCR3ContractTransmitter(keeperProvider.ContractTransmitter()),
+		ContractTransmitter:          evmrelay.NewKeepersOCR3ContractTransmitter(keeperProvider.ContractTransmitter(), keeperProvider.TxStatusStore(), lggr),
 		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 		KeepersDatabase:              ocrDB,
@@ -1440,6 +1441,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		keeperProvider.LogRecoverer(),
 		keeperProvider.UpkeepStateStore(),
 		keeperProvider.TransmitEventProvider(),
+		keeperProvider.TxStatusStore(),
 		pluginService,
 		ocrLogger,
 	}

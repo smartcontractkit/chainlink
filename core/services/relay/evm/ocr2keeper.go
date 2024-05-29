@@ -17,6 +17,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
@@ -34,6 +35,7 @@ var (
 	_                        OCR2KeeperRelayer  = (*ocr2keeperRelayer)(nil)
 	_                        OCR2KeeperProvider = (*ocr2keeperProvider)(nil)
 	ErrInitializationFailure                    = fmt.Errorf("failed to initialize registry")
+	packer                                      = encoding.NewAbiPacker()
 )
 
 // OCR2KeeperProviderOpts is the custom options to create a keeper provider
@@ -55,6 +57,7 @@ type OCR2KeeperProvider interface {
 	LogEventProvider() automation.LogEventProvider
 	LogRecoverer() automation.LogRecoverer
 	UpkeepProvider() automation.ConditionalUpkeepProvider
+	TxStatusStore() automation.TxStatusStore
 }
 
 // OCR2KeeperRelayer contains the relayer and instantiating functions for OCR2Keeper providers.
@@ -80,6 +83,18 @@ func NewOCR2KeeperRelayer(ds sqlutil.DataSource, chain legacyevm.Chain, lggr log
 	}
 }
 
+func reportToUpkeepID(report []byte) (*txmgr.TxMeta, error) {
+	r, err := packer.UnpackReport(report)
+	if err != nil {
+		return nil, err
+	}
+
+	uid := r.UpkeepIds[0].String()
+	return &txmgr.TxMeta{
+		UpkeepID: &uid,
+	}, nil
+}
+
 func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error) {
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
@@ -89,15 +104,16 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 		return nil, err
 	}
 
+	client := r.chain
+	services := new(ocr2keeperProvider)
+	services.txStatusStore = upkeepstate.NewTxStatusStore(r.lggr, client.TxManager())
 	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI, 0)
+	ct := cfgWatcher.chain.Config().EVM().ChainType()
+	contractTransmitter, err := newOnChainAutomationContractTransmitter(ctx, r.lggr, rargs, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI, 0, reportToUpkeepID, ct, services.txStatusStore.SaveTxInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	client := r.chain
-
-	services := new(ocr2keeperProvider)
 	services.configWatcher = cfgWatcher
 	services.contractTransmitter = contractTransmitter
 
@@ -117,7 +133,6 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 
 	services.transmitEventProvider = transmitEventProvider
 
-	packer := encoding.NewAbiPacker()
 	services.encoder = encoding.NewReportEncoder(packer)
 
 	finalityDepth := client.Config().EVM().FinalityDepth()
@@ -137,7 +152,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 
 	services.registry = evm.NewEvmRegistry(r.lggr, addr, client,
 		registryContract, rargs.MercuryCredentials, al, logProvider,
-		packer, blockSubscriber, finalityDepth)
+		packer, blockSubscriber, finalityDepth, services.txStatusStore)
 
 	services.conditionalUpkeepProvider = evm.NewUpkeepProvider(al, blockSubscriber, client.LogPoller())
 
@@ -145,13 +160,15 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 }
 
 type ocr3keeperProviderContractTransmitter struct {
+	lggr logger.Logger
 	contractTransmitter ocrtypes.ContractTransmitter
+	txStatusStore automation.TxStatusStore
 }
 
 var _ ocr3types.ContractTransmitter[plugin.AutomationReportInfo] = &ocr3keeperProviderContractTransmitter{}
 
-func NewKeepersOCR3ContractTransmitter(ocr2ContractTransmitter ocrtypes.ContractTransmitter) *ocr3keeperProviderContractTransmitter {
-	return &ocr3keeperProviderContractTransmitter{ocr2ContractTransmitter}
+func NewKeepersOCR3ContractTransmitter(ocr2ContractTransmitter ocrtypes.ContractTransmitter, txStatusStore automation.TxStatusStore, lggr logger.SugaredLogger) *ocr3keeperProviderContractTransmitter {
+	return &ocr3keeperProviderContractTransmitter{contractTransmitter: ocr2ContractTransmitter, txStatusStore: txStatusStore, lggr: lggr.Named("ocr3keeperProviderContractTransmitter")}
 }
 
 func (t *ocr3keeperProviderContractTransmitter) Transmit(
@@ -190,6 +207,11 @@ type ocr2keeperProvider struct {
 	logEventProvider          automation.LogEventProvider
 	logRecoverer              automation.LogRecoverer
 	conditionalUpkeepProvider automation.ConditionalUpkeepProvider
+	txStatusStore             automation.TxStatusStore
+}
+
+func (c *ocr2keeperProvider) TxStatusStore() automation.TxStatusStore {
+	return c.txStatusStore
 }
 
 func (c *ocr2keeperProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
