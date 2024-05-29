@@ -1293,14 +1293,14 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+	ethClient.On("SubscribeNewHead", mock.Anything).
 		Return(
-			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+			func(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
+				ch := make(chan *evmtypes.Head)
 				sub := mockEth.NewSub(t)
 				chchNewHeads <- evmtest.NewRawSub(ch, sub.Err())
-				return sub
+				return ch, sub, nil
 			},
-			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
 	// Nonce syncer
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
