@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-#interal added tests for Chainwriter
+#internal added tests for Chainwriter
