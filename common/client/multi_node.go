@@ -62,12 +62,11 @@ type multiNode[
 	RPC_CLIENT RPCClient[CHAIN_ID, HEAD],
 ] struct {
 	services.StateMachine
-	primaryNodes  []Node[CHAIN_ID, HEAD, RPC_CLIENT]
-	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
-	chainID       CHAIN_ID
-	lggr          logger.SugaredLogger
-	selectionMode string
-	// noNewHeadsThreshold time.Duration TODO: Move this?
+	primaryNodes   []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	sendOnlyNodes  []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
+	chainID        CHAIN_ID
+	lggr           logger.SugaredLogger
+	selectionMode  string
 	nodeSelector   NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
 	leaseDuration  time.Duration
 	leaseTicker    *time.Ticker
@@ -96,7 +95,6 @@ func NewMultiNode[
 	chainID CHAIN_ID, // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
 	chainFamily string, // name of the chain family - used in the metrics
 ) MultiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT] {
-	// TODO: does node selector only need primary nodes, or all nodes?
 	nodeSelector := newNodeSelector(selectionMode, primaryNodes)
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
 	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
@@ -140,6 +138,10 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) DoAll(ctx context.Co
 			callsCompleted++
 		}
 	}
+	if callsCompleted == 0 {
+		return fmt.Errorf("no calls were completed")
+	}
+
 	for _, n := range c.sendOnlyNodes {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -147,12 +149,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) DoAll(ctx context.Co
 		if n.State() != nodeStateAlive {
 			continue
 		}
-		if do(ctx, n.RPC(), false) {
-			callsCompleted++
-		}
-	}
-	if callsCompleted == 0 {
-		return fmt.Errorf("no calls were completed")
+		do(ctx, n.RPC(), false)
 	}
 	return nil
 }

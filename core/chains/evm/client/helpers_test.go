@@ -13,7 +13,6 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -185,9 +184,8 @@ func NewChainClientWithTestNode(
 		sendonlys = append(sendonlys, s)
 	}
 
-	var chainType commonconfig.ChainType
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &clientErrors)
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, primaries, sendonlys, chainID, &clientErrors)
 	t.Cleanup(c.Close)
 	return c, nil
 }
@@ -202,8 +200,7 @@ func NewChainClientWithEmptyNode(
 
 	lggr := logger.Test(t)
 
-	var chainType commonconfig.ChainType
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, nil)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, nil, nil, chainID, nil)
 	t.Cleanup(c.Close)
 	return c
 }
@@ -219,8 +216,6 @@ func NewChainClientWithMockedRpc(
 
 	lggr := logger.Test(t)
 
-	var chainType commonconfig.ChainType
-
 	cfg := TestNodePoolConfig{
 		NodeSelectionMode: NodeSelectionMode_RoundRobin,
 	}
@@ -230,7 +225,7 @@ func NewChainClientWithMockedRpc(
 		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
 	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, EvmRpcClient]{n}
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &clientErrors)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, primaries, nil, chainID, &clientErrors)
 	t.Cleanup(c.Close)
 	return c
 }

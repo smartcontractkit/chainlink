@@ -848,8 +848,7 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	id := erroringClient.ConfiguredChainID()
-	var expected *big.Int
-	require.Equal(t, id, expected)
+	require.Equal(t, id, big.NewInt(0))
 
 	err = erroringClient.Dial(ctx)
 	require.ErrorContains(t, err, "no available nodes for chain")

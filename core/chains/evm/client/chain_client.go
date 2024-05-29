@@ -40,11 +40,9 @@ func NewChainClient(
 	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
-	noNewHeadsThreshold time.Duration,
 	nodes []commonclient.Node[*big.Int, *evmtypes.Head, EvmRpcClient],
 	sendonlys []commonclient.SendOnlyNode[*big.Int, EvmRpcClient],
 	chainID *big.Int,
-	chainType config.ChainType,
 	clientErrors evmconfig.ClientErrors,
 ) Client {
 	multiNode := commonclient.NewMultiNode(

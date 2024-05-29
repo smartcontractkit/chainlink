@@ -30,6 +30,6 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 		}
 	}
 
-	return NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), chainCfg.NodeNoNewHeadsThreshold(),
-		primaries, sendonlys, chainID, chainCfg.ChainType(), clientErrors)
+	return NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(),
+		primaries, sendonlys, chainID, clientErrors)
 }

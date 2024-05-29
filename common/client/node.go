@@ -279,7 +279,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyChainID(callerCtx context.Conte
 	var err error
 	if chainID, err = n.rpc.ChainID(callerCtx); err != nil {
 		promFailed()
-		lggr.Errorw("Failed to verify chain ID for node", "err", err, "NodeState", n.State())
+		lggr.Errorw("Failed to verify chain ID for node", "err", err, "nodeState", n.State())
 		return nodeStateUnreachable
 	} else if chainID.String() != n.chainID.String() {
 		promFailed()
@@ -290,7 +290,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyChainID(callerCtx context.Conte
 			n.name,
 			errInvalidChainID,
 		)
-		lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err, "NodeState", n.State())
+		lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err, "nodeState", n.State())
 		return nodeStateInvalidChainID
 	}
 
@@ -303,7 +303,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyChainID(callerCtx context.Conte
 // Returns desired state if one of the verifications fails. Otherwise, returns nodeStateAlive.
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) createVerifiedConn(ctx context.Context, lggr logger.Logger) NodeState {
 	if err := n.rpc.Dial(ctx); err != nil {
-		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err, "NodeState", n.State())
+		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err, "nodeState", n.State())
 		return nodeStateUnreachable
 	}
 
@@ -321,12 +321,12 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verifyConn(ctx context.Context, lggr 
 	if n.nodePoolCfg.NodeIsSyncingEnabled() {
 		isSyncing, err := n.rpc.IsSyncing(ctx)
 		if err != nil {
-			lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "NodeState", n.State())
+			lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.State())
 			return nodeStateUnreachable
 		}
 
 		if isSyncing {
-			lggr.Errorw("Verification failed: Node is syncing", "NodeState", n.State())
+			lggr.Errorw("Verification failed: Node is syncing", "nodeState", n.State())
 			return nodeStateSyncing
 		}
 	}
