@@ -2,32 +2,25 @@ package targets
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var (
 	_ capabilities.ActionCapability = &WriteTarget{}
 )
 
+// NOTE: this code will be moved into chainlink-common once fully abstracted
+
 type WriteTarget struct {
-	relayer          loop.Relayer
 	cr               commontypes.ContractReader
 	cw               commontypes.ChainWriter
 	forwarderAddress string
@@ -35,14 +28,7 @@ type WriteTarget struct {
 	lggr logger.Logger
 }
 
-func NewEvmWriteTarget(ctx context.Context, relayer loop.Relayer, chain legacyevm.Chain, lggr logger.Logger) (*WriteTarget, error) {
-	// generate ID based on chain selector
-	name := fmt.Sprintf("write_%v", chain.ID())
-	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
-	if err == nil {
-		name = fmt.Sprintf("write_%v", chainName)
-	}
-
+func NewWriteTarget(lggr logger.Logger, name string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
 		name,
 		capabilities.CapabilityTypeTarget,
@@ -51,61 +37,15 @@ func NewEvmWriteTarget(ctx context.Context, relayer loop.Relayer, chain legacyev
 		nil,
 	)
 
-	// EVM-specific init
-	config := chain.Config().EVM().ChainWriter()
-
-	// Initialize a reader to check whether a value was already transmitted on chain
-	contractReaderConfigEncoded, err := json.Marshal(relayevmtypes.ChainReaderConfig{
-		Contracts: map[string]relayevmtypes.ChainContractReader{
-			"forwarder": {
-				ContractABI: forwarder.KeystoneForwarderABI,
-				Configs: map[string]*relayevmtypes.ChainReaderDefinition{
-					"getTransmitter": {
-						ChainSpecificName: "getTransmitter",
-					},
-				},
-			},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal contract reader config %v", err)
-	}
-	cr, err := relayer.NewContractReader(ctx, contractReaderConfigEncoded)
-	if err != nil {
-		return nil, err
-	}
-	cr.Bind(ctx, []commontypes.BoundContract{{
-		Address: config.ForwarderAddress().String(),
-		Name:    "forwarder",
-	}})
-
 	logger := lggr.Named("WriteTarget")
 
-	chainWriterConfig := relayevmtypes.ChainWriterConfig{
-		Contracts: map[string]relayevmtypes.ChainWriter{
-			"forwarder": {
-				ContractABI: forwarder.KeystoneForwarderABI,
-				Configs: map[string]*relayevmtypes.ChainWriterDefinition{
-					"report": {
-						ChainSpecificName: "report",
-						Checker:           "simulate",
-						FromAddress:       config.FromAddress().Address(),
-						GasLimit:          200_000,
-					},
-				},
-			},
-		},
-	}
-	cw := evm.NewChainWriterService(logger, chain.Client(), chain.TxManager(), chainWriterConfig)
-
 	return &WriteTarget{
-		relayer,
 		cr,
 		cw,
-		config.ForwarderAddress().String(),
+		forwarderAddress,
 		info,
 		logger,
-	}, nil
+	}
 }
 
 type EvmConfig struct {

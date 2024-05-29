@@ -84,6 +84,15 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayers[relayID] = evmrelay.NewLoopRelayServerAdapter(relayer, ext)
+
+		// Initialize write target capability
+		capability, err := evmrelay.NewWriteTarget(ctx, relayer, chain, lggr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize write target: %w", err)
+		}
+		if err := r.CapabilitiesRegistry.Add(ctx, capability); err != nil {
+			return nil, err
+		}
 	}
 
 	// always return err because it is accumulating individual errors
