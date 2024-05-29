@@ -62,7 +62,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 		Run(func(args mock.Arguments) {
 			chchHeaders <- chHead
 		}).
-		Return((chan<- *evmtypes.Head)(chHead), sub, nil)
+		Return((<-chan *evmtypes.Head)(chHead), sub, nil)
 	// 2 for initial and 2 for backfill
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil).Times(4)
 

@@ -42,6 +42,7 @@ type MultiNode[
 	RPC_CLIENT any,
 ] interface {
 	Dial(ctx context.Context) error
+	ChainID() CHAIN_ID
 	// SelectRPC - returns the best healthy RPCClient
 	SelectRPC() (RPC_CLIENT, error)
 	// DoAll - calls `do` sequentially on all healthy RPCClients.
@@ -120,6 +121,10 @@ func NewMultiNode[
 
 func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) ChainType() config.ChainType {
 	return c.chainType
+}
+
+func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) ChainID() CHAIN_ID {
+	return c.chainID
 }
 
 func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC_CLIENT, isSendOnly bool) bool) error {

@@ -182,16 +182,7 @@ func (c *chainClient) CodeAt(ctx context.Context, account common.Address, blockN
 }
 
 func (c *chainClient) ConfiguredChainID() *big.Int {
-	rpc, err := c.multiNode.SelectRPC()
-	if err != nil {
-		return nil
-	}
-	// TODO: propagate context
-	chainId, err := rpc.ChainID(context.Background())
-	if err != nil {
-		return nil
-	}
-	return chainId
+	return c.multiNode.ChainID()
 }
 
 func (c *chainClient) Dial(ctx context.Context) error {

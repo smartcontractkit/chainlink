@@ -288,7 +288,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 			func(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
 				sub := mockEth.NewSub(t)
 				chchHeaders <- evmtest.NewRawSub(chHead, sub.Err())
-				return (<-chan *evmtypes.Head)(chHead), sub, nil
+				return chHead, sub, nil
 			},
 		)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil)
@@ -325,7 +325,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 				return chHead, mockEth.NewSub(t), nil
 			},
 		)
-	ethClient.On("SubscribeNewHead", mock.Anything).Return(chHead, nil, errors.New("cannot reconnect"))
+	ethClient.On("SubscribeNewHead", mock.Anything).Return((<-chan *evmtypes.Head)(chHead), nil, errors.New("cannot reconnect"))
 	ethClient.On("SubscribeNewHead", mock.Anything).
 		Return(
 			func(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
