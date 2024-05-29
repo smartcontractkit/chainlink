@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -77,26 +78,26 @@ func deployTransmissionUniverse(t *testing.T) *EntryPointUniverse {
 	backend.Commit()
 
 	// Setup all contracts and addresses used by tests.
-	entryPointAddress, _, entryPoint, err := entry_point.DeployEntryPoint(holder1, backend)
+	entryPointAddress, _, entryPoint, err := entry_point.DeployEntryPoint(holder1, backend.Client())
 	require.NoError(t, err)
-	factoryAddress, _, _, _ := smart_contract_account_factory.DeploySmartContractAccountFactory(holder1, backend)
+	factoryAddress, _, _, _ := smart_contract_account_factory.DeploySmartContractAccountFactory(holder1, backend.Client())
 	require.NoError(t, err)
-	_, _, helper, err := smart_contract_account_helper.DeploySmartContractAccountHelper(holder1, backend)
+	_, _, helper, err := smart_contract_account_helper.DeploySmartContractAccountHelper(holder1, backend.Client())
 	require.NoError(t, err)
-	greeterAddress, _, greeter, err := greeter_wrapper.DeployGreeter(holder1, backend)
+	greeterAddress, _, greeter, err := greeter_wrapper.DeployGreeter(holder1, backend.Client())
 	require.NoError(t, err)
-	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(holder1, backend)
+	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(holder1, backend.Client())
 	require.NoError(t, err)
 	linkEthFeedAddress, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 		holder1,
-		backend,
+		backend.Client(),
 		18,
 		(*big.Int)(assets.GWei(5000000)), // .005 ETH
 	)
 	require.NoError(t, err)
-	vrfCoordinatorAddress, _, vrfCoordinator, err := vrf_coordinator_mock.DeployVRFCoordinatorMock(holder1, backend, linkTokenAddress)
+	vrfCoordinatorAddress, _, vrfCoordinator, err := vrf_coordinator_mock.DeployVRFCoordinatorMock(holder1, backend.Client(), linkTokenAddress)
 	require.NoError(t, err)
-	vrfConsumerAddress, _, _, err := solidity_vrf_consumer_interface_v08.DeployVRFConsumer(holder1, backend, vrfCoordinatorAddress, linkTokenAddress)
+	vrfConsumerAddress, _, _, err := solidity_vrf_consumer_interface_v08.DeployVRFConsumer(holder1, backend.Client(), vrfCoordinatorAddress, linkTokenAddress)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -193,7 +194,7 @@ func Test4337Basic(t *testing.T) {
 	tx, err := universe.entryPoint.DepositTo(holder1, toDeployAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend.Client(), tx)
 	require.NoError(t, err)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := universe.entryPoint.BalanceOf(nil, toDeployAddress)
@@ -204,7 +205,7 @@ func Test4337Basic(t *testing.T) {
 	tx, err = universe.entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend.Client(), tx)
 	require.NoError(t, err)
 
 	// Ensure "bye" was successfully set as the greeting.
@@ -213,7 +214,7 @@ func Test4337Basic(t *testing.T) {
 	require.Equal(t, "bye", greetingResult)
 
 	// Assert smart contract account is created and nonce incremented.
-	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend)
+	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend.Client())
 	require.NoError(t, err)
 	onChainNonce, err := sca.SNonce(nil)
 	require.NoError(t, err)
@@ -263,16 +264,16 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	t.Log("Full user operation calldata:", common.Bytes2Hex(fullEncoding))
 
 	// Deposit to LINK paymaster.
-	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(holder1, backend)
+	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(holder1, backend.Client())
 	require.NoError(t, err)
 	linkEthFeedAddress, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 		holder1,
-		backend,
+		backend.Client(),
 		18,
 		(*big.Int)(assets.GWei(5000000)), // .005 ETH
 	)
 	require.NoError(t, err)
-	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, linkTokenAddress, linkEthFeedAddress, universe.entryPointAddress)
+	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend.Client(), linkTokenAddress, linkEthFeedAddress, universe.entryPointAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	tx, err := linkToken.TransferAndCall(
@@ -283,7 +284,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend.Client(), tx)
 	require.NoError(t, err)
 
 	// Construct and execute user operation.
@@ -317,7 +318,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	tx, err = universe.entryPoint.DepositTo(holder1, paymasterAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend.Client(), tx)
 	require.NoError(t, err)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := universe.entryPoint.BalanceOf(nil, paymasterAddress)
@@ -328,7 +329,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	tx, err = universe.entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend.Client(), tx)
 	require.NoError(t, err)
 
 	// Ensure "bye" was successfully set as the greeting.
@@ -337,7 +338,7 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	require.Equal(t, "bye", greetingResult)
 
 	// Assert smart contract account is created and nonce incremented.
-	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend)
+	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend.Client())
 	require.NoError(t, err)
 	onChainNonce, err := sca.SNonce(nil)
 	require.NoError(t, err)
@@ -385,7 +386,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	t.Log("Full user operation calldata:", common.Bytes2Hex(fullEncoding))
 
 	// Deposit to LINK paymaster.
-	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend, universe.linkTokenAddress, universe.linkEthFeedAddress, universe.entryPointAddress)
+	paymasterAddress, _, _, err := paymaster_wrapper.DeployPaymaster(holder1, backend.Client(), universe.linkTokenAddress, universe.linkEthFeedAddress, universe.entryPointAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	tx, err := universe.linkToken.TransferAndCall(
@@ -396,7 +397,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend.Client(), tx)
 	require.NoError(t, err)
 
 	// Generate encoded paymaster data to fund the VRF consumer.
@@ -434,7 +435,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	tx, err = universe.entryPoint.DepositTo(holder1, paymasterAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend.Client(), tx)
 	require.NoError(t, err)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := universe.entryPoint.BalanceOf(nil, paymasterAddress)
@@ -443,13 +444,13 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 
 	// Run handleOps from holder2's account, to demonstrate that any account can execute this signed user operation.
 	// Manually execute transaction to test ABI packing.
-	gasPrice, err := backend.SuggestGasPrice(testutils.Context(t))
+	gasPrice, err := backend.Client().SuggestGasPrice(testutils.Context(t))
 	require.NoError(t, err)
-	accountNonce, err := backend.PendingNonceAt(testutils.Context(t), holder2.From)
+	accountNonce, err := backend.Client().PendingNonceAt(testutils.Context(t), holder2.From)
 	require.NoError(t, err)
 	payload, err := entrypointABI.Pack("handleOps", []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
-	gas, err := backend.EstimateGas(testutils.Context(t), ethereum.CallMsg{
+	gas, err := backend.Client().EstimateGas(testutils.Context(t), ethereum.CallMsg{
 		From:     holder2.From,
 		To:       &universe.entryPointAddress,
 		Gas:      0,
@@ -467,15 +468,15 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	require.NoError(t, err)
 	signedtx, err := holder2.Signer(holder2.From, unsigned)
 	require.NoError(t, err)
-	err = backend.SendTransaction(testutils.Context(t), signedtx)
+	err = backend.Client().SendTransaction(testutils.Context(t), signedtx)
 	require.NoError(t, err)
-	backend.Commit()
-	receipt, err := bind.WaitMined(testutils.Context(t), backend, signedtx)
+	backend.Client()
+	receipt, err := bind.WaitMined(testutils.Context(t), backend.Client(), signedtx)
 	require.NoError(t, err)
 	t.Log("Receipt:", receipt.Status)
 
 	// Assert the VRF request was correctly made.
-	logs, err := backend.FilterLogs(testutils.Context(t), ethereum.FilterQuery{
+	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{
 		Addresses: []common.Address{universe.vrfCoordinatorAddress},
 	})
 	require.NoError(t, err)
@@ -487,7 +488,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	require.Equal(t, universe.vrfConsumerAddress, randomnessRequestLog.Sender)
 
 	// Assert smart contract account is created and nonce incremented.
-	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend)
+	sca, err := sca_wrapper.NewSCA(toDeployAddress, backend.Client())
 	require.NoError(t, err)
 	onChainNonce, err := sca.SNonce(nil)
 	require.NoError(t, err)

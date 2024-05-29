@@ -250,7 +250,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			})
 			korm := keeper.NewORM(db, logger.TestLogger(t))
 
-			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
+			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, nodeKey)
 			require.NoError(t, app.Start(ctx))
 
 			// create job
@@ -410,7 +410,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		})
 		korm := keeper.NewORM(db, logger.TestLogger(t))
 
-		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
+		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, nodeKey)
 		require.NoError(t, app.Start(ctx))
 
 		forwarderORM := forwarders.NewORM(db)
@@ -554,7 +554,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		})
 		korm := keeper.NewORM(db, logger.TestLogger(t))
 
-		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
+		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, nodeKey)
 		require.NoError(t, app.Start(ctx))
 
 		// create job

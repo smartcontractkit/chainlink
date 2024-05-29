@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -110,11 +111,11 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	defer stopMining()
 
 	// Deploy registry
-	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
+	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend.Client())
 	require.NoError(t, err)
-	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
+	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(60000000000))
 	require.NoError(t, err)
-	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
+	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
@@ -128,7 +129,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register new upkeep
-	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
+	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend.Client())
 	require.NoError(t, err)
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 0, []byte{}, []byte{}, []byte{})
 	require.NoError(t, err)
@@ -211,11 +212,11 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			defer stopMining()
 
 			// Deploy registry
-			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
+			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend.Client())
 			require.NoError(t, err)
-			gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
+			gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(60000000000))
 			require.NoError(t, err)
-			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
+			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(2000000000000000000))
 			require.NoError(t, err)
 
 			registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
@@ -258,7 +259,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 					}
 				})
 
-				h, err := backend.HeaderByNumber(testutils.Context(t), nil)
+				h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 				require.NoError(t, err)
 				beforeDummyBlocks := h.Number.Uint64()
 
@@ -320,13 +321,13 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 			defer stopMining()
 
 			// Deploy registry
-			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(linkOwner, backend)
+			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(linkOwner, backend.Client())
 			require.NoError(t, err)
 
-			gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend, 18, big.NewInt(60000000000))
+			gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(60000000000))
 			require.NoError(t, err)
 
-			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend, 18, big.NewInt(2000000000000000000))
+			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(2000000000000000000))
 			require.NoError(t, err)
 
 			registry := deployKeeper21Registry(t, registryOwner, backend, linkAddr, linkFeedAddr, gasFeedAddr)
@@ -455,13 +456,13 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 			defer stopMining()
 
 			// Deploy registry
-			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(linkOwner, backend)
+			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(linkOwner, backend.Client())
 			require.NoError(t, err)
 
-			gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend, 18, big.NewInt(60000000000))
+			gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(60000000000))
 			require.NoError(t, err)
 
-			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend, 18, big.NewInt(2000000000000000000))
+			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(2000000000000000000))
 			require.NoError(t, err)
 
 			registry := deployKeeper21Registry(t, registryOwner, backend, linkAddr, linkFeedAddr, gasFeedAddr)
@@ -509,7 +510,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 			require.NoError(t, feeds.EnableMercury(t, backend, registry, registryOwner))
 			require.NoError(t, feeds.VerifyEnv(t, backend, registry, registryOwner))
 
-			h, err := backend.HeaderByNumber(testutils.Context(t), nil)
+			h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
 			startBlock := h.Number.Int64()
 			// start emitting events in a separate go-routine
@@ -599,7 +600,7 @@ func listenPerformedN(t *testing.T, backend *simulated.Backend, registry *iregis
 
 	go func() {
 		for ctx.Err() == nil {
-			h, err := backend.HeaderByNumber(testutils.Context(t), nil)
+			h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
 			currentBlock := h.Number.Uint64()
 
@@ -812,7 +813,7 @@ func deployUpkeeps(t *testing.T, backend *simulated.Backend, carrol, steve *bind
 		backend.Commit()
 		time.Sleep(1 * time.Second)
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
-			carrol, backend,
+			carrol, backend.Client(),
 			big.NewInt(100000),
 		)
 		require.NoError(t, err)
@@ -860,12 +861,12 @@ func deployKeeper21Registry(
 	linkAddr, linkFeedAddr,
 	gasFeedAddr common.Address,
 ) *iregistry21.IKeeperRegistryMaster {
-	automationForwarderLogicAddr, _, _, err := automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend)
+	automationForwarderLogicAddr, _, _, err := automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 	registryLogicBAddr, _, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		auth,
-		backend,
+		backend.Client(),
 		0, // Payment model
 		linkAddr,
 		linkFeedAddr,
@@ -877,7 +878,7 @@ func deployKeeper21Registry(
 
 	registryLogicAAddr, _, _, err := registrylogica21.DeployKeeperRegistryLogicA(
 		auth,
-		backend,
+		backend.Client(),
 		registryLogicBAddr,
 	)
 	require.NoError(t, err)
@@ -885,20 +886,20 @@ func deployKeeper21Registry(
 
 	registryAddr, _, _, err := registry21.DeployKeeperRegistry(
 		auth,
-		backend,
+		backend.Client(),
 		registryLogicAAddr,
 	)
 	require.NoError(t, err)
 	backend.Commit()
 
-	registryMaster, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, backend)
+	registryMaster, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, backend.Client())
 	require.NoError(t, err)
 
 	return registryMaster
 }
 
 func getUpkeepIdFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *gethtypes.Transaction, backend *simulated.Backend) *big.Int {
-	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
+	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
 	require.NoError(t, err)
@@ -930,7 +931,7 @@ func registerAndFund(
 
 		backend.Commit()
 
-		receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
+		receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 		require.NoError(t, err)
 
 		parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -969,7 +970,7 @@ func newFeedLookupUpkeepController(
 	backend *simulated.Backend,
 	protocolOwner *bind.TransactOpts,
 ) (*feedLookupUpkeepController, error) {
-	addr, _, contract, err := dummy_protocol_wrapper.DeployDummyProtocol(protocolOwner, backend)
+	addr, _, contract, err := dummy_protocol_wrapper.DeployDummyProtocol(protocolOwner, backend.Client())
 	if err != nil {
 		return nil, err
 	}
@@ -1001,7 +1002,7 @@ func (c *feedLookupUpkeepController) DeployUpkeeps(
 		}
 		addr, _, contract, err := log_triggered_streams_lookup_wrapper.DeployLogTriggeredStreamsLookup(
 			owner,
-			backend,
+			backend.Client(),
 			false,
 			false,
 			checkErrResult,
@@ -1102,7 +1103,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 		require.True(t, checkBytes.MercuryEnabled)
 	}
 
-	bl, _ := backend.BlockByHash(testutils.Context(t), backend.Commit())
+	bl, _ := backend.Client().BlockByHash(testutils.Context(t), backend.Commit())
 	t.Logf("block number after mercury enabled: %d", bl.NumberU64())
 
 	return nil
@@ -1171,7 +1172,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 		backend.Commit()
 
 		// verify event was emitted
-		block, _ := backend.BlockByHash(ctx, backend.Commit())
+		block, _ := backend.Client().BlockByHash(ctx, backend.Commit())
 		t.Logf("block number after emit event: %d", block.NumberU64())
 
 		iter, _ := c.protocol.FilterLimitOrderExecuted(

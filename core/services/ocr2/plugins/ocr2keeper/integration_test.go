@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
@@ -81,7 +82,7 @@ func deployKeeper20Registry(
 ) *keeper_registry_wrapper2_0.KeeperRegistry {
 	logicAddr, _, _, err := keeper_registry_logic2_0.DeployKeeperRegistryLogic(
 		auth,
-		backend,
+		backend.Client(),
 		0, // Payment model
 		linkAddr,
 		linkFeedAddr,
@@ -91,13 +92,13 @@ func deployKeeper20Registry(
 
 	regAddr, _, _, err := keeper_registry_wrapper2_0.DeployKeeperRegistry(
 		auth,
-		backend,
+		backend.Client(),
 		logicAddr,
 	)
 	require.NoError(t, err)
 	backend.Commit()
 
-	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(regAddr, backend)
+	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(regAddr, backend.Client())
 	require.NoError(t, err)
 
 	return registry
@@ -192,7 +193,7 @@ func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address,
 }
 
 func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend *simulated.Backend) *big.Int {
-	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
+	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
 	require.NoError(t, err)
@@ -224,11 +225,11 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	defer stopMining()
 
 	// Deploy contracts
-	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
+	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend.Client())
 	require.NoError(t, err)
-	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
+	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(60000000000))
 	require.NoError(t, err)
-	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
+	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
 	registry := deployKeeper20Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
@@ -376,7 +377,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	backend.Commit()
 
 	// Register new upkeep
-	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
+	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend.Client())
 	require.NoError(t, err)
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, []byte{})
 	require.NoError(t, err)
@@ -426,7 +427,7 @@ func setupForwarderForNode(
 	backend *simulated.Backend,
 	recipient common.Address,
 	linkAddr common.Address) common.Address {
-	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend, linkAddr, caller.From, recipient, []byte{})
+	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend.Client(), linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
 
 	// set EOA as an authorized sender for the forwarder
@@ -436,7 +437,7 @@ func setupForwarderForNode(
 
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetDB())
-	chainID, err := backend.ChainID(testutils.Context(t))
+	chainID, err := backend.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)
 	_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, ubig.Big(*chainID))
 	require.NoError(t, err)
@@ -475,11 +476,11 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	defer stopMining()
 
 	// Deploy contracts
-	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
+	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend.Client())
 	require.NoError(t, err)
-	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
+	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(60000000000))
 	require.NoError(t, err)
-	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
+	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
 	registry := deployKeeper20Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
@@ -639,7 +640,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	backend.Commit()
 
 	// Register new upkeep
-	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
+	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend.Client())
 	require.NoError(t, err)
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, []byte{})
 	require.NoError(t, err)

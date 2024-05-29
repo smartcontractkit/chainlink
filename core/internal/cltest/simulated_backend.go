@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -75,7 +76,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 }
 
 // Mine forces the simulated backend to produce a new block every X seconds
-func Mine(backend *simulated.Backend, blockTime time.Duration) (stopMining func()) {
+func Mine(backend evmtypes.Backend, blockTime time.Duration) (stopMining func()) {
 	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})
 	wg := sync.WaitGroup{}

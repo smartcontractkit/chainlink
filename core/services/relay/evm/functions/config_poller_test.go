@@ -57,9 +57,9 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		simulated.WithBlockGasLimit(5*ethconfig.Defaults.Miner.GasCeil))
 	defer b.Close()
-	linkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(user, b)
+	linkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(user, b.Client())
 	require.NoError(t, err)
-	accessAddress, _, _, err := testoffchainaggregator2.DeploySimpleWriteAccessController(user, b)
+	accessAddress, _, _, err := testoffchainaggregator2.DeploySimpleWriteAccessController(user, b.Client())
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	ocrAddress, _, ocrContract, err := ocr2aggregator.DeployOCR2Aggregator(
 		user,
@@ -122,7 +122,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	// Set the config
 	contractConfig := setFunctionsConfig(t, pluginConfig, ocrContract, user)
 	b.Commit()
-	latest, err := b.BlockByNumber(testutils.Context(t), nil)
+	latest, err := b.Client().BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	// Ensure we capture this config set log.
 	require.NoError(t, lp.Replay(testutils.Context(t), latest.Number().Int64()-1))

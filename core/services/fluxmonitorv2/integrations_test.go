@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -129,10 +130,10 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	require.NoError(t, err, "could not parse FluxAggregator ABI")
 
 	var linkAddress common.Address
-	linkAddress, _, f.linkContract, err = link_token_interface.DeployLinkToken(f.sergey, f.backend)
+	linkAddress, _, f.linkContract, err = link_token_interface.DeployLinkToken(f.sergey, f.backend.Client())
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
 
-	f.flagsContractAddress, _, f.flagsContract, err = flags_wrapper.DeployFlags(f.sergey, f.backend, f.sergey.From)
+	f.flagsContractAddress, _, f.flagsContract, err = flags_wrapper.DeployFlags(f.sergey, f.backend.Client(), f.sergey.From)
 	require.NoError(t, err, "failed to deploy flags contract to simulated ethereum blockchain")
 
 	f.backend.Commit()
@@ -147,7 +148,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	f.sergey.GasLimit = uint64(gasLimit)
 	f.aggregatorContractAddress, _, f.aggregatorContract, err = faw.DeployFluxAggregator(
 		f.sergey,
-		f.backend,
+		f.backend.Client(),
 		linkAddress,
 		big.NewInt(fee),
 		faTimeout,
@@ -251,7 +252,7 @@ type answerParams struct {
 func checkSubmission(t *testing.T, p answerParams, currentBalance int64, receiptBlock uint64) {
 	t.Helper()
 	if receiptBlock == 0 {
-		h, err := p.fa.backend.HeaderByNumber(testutils.Context(t), nil)
+		h, err := p.fa.backend.Client().HeaderByNumber(testutils.Context(t), nil)
 		require.NoError(t, err)
 		receiptBlock = h.Number.Uint64()
 	}
@@ -416,7 +417,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
 		ctx := testutils.Context(t)
-		block, err := fa.backend.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
+		block, err := fa.backend.Client().BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
 		require.NoError(t, err)
 		require.NotNil(t, block)
 		orm := log.NewORM(ds, fa.evmChainID)

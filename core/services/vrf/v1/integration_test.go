@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -116,11 +117,11 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 
 			// Check that each sending address sent one transaction
-			n1, err := cu.Backend.PendingNonceAt(ctx, key1.Address)
+			n1, err := cu.Backend.Client().PendingNonceAt(ctx, key1.Address)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n1)
 
-			n2, err := cu.Backend.PendingNonceAt(ctx, key2.Address)
+			n2, err := cu.Backend.Client().PendingNonceAt(ctx, key2.Address)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n2)
 		})
@@ -163,7 +164,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	require.NoError(t, err)
 
 	cu.Backend.Commit()
-	h, err := cu.Backend.HeaderByNumber(testutils.Context(t), nil)
+	h, err := cu.Backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	requestBlock := h.Number
 
