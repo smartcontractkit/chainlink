@@ -95,6 +95,7 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 			SharedSecret: key,
 		},
 	}, nil
+
 }
 
 func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, store store.Store, peerID func() *p2ptypes.PeerID) *Delegate {
