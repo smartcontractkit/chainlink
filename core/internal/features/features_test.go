@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -298,7 +299,7 @@ type OperatorContracts struct {
 
 func setupOperatorContracts(t *testing.T) OperatorContracts {
 	user := testutils.MustNewSimTransactor(t)
-	genesisData := types.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		user.From: {Balance: assets.Ether(1000).ToInt()},
 	}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
@@ -639,7 +640,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, co
 	owner := testutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000000", 10) // 1000 eth
-	genesisData := types.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		owner.From: {Balance: sb},
 	}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)

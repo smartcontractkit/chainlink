@@ -223,49 +223,6 @@ func TestLogPoller_Integration(t *testing.T) {
 	assert.ErrorIs(t, th.LogPoller.Replay(ctx, 4), logpoller.ErrReplayRequestAborted)
 }
 
-type backendWrapper struct {
-	b *simulated.Backend
-}
-
-func (b backendWrapper) Client() simulated.Client {
-	return b.b.Client()
-}
-
-func (b backendWrapper) Close() error {
-	return b.b.Close()
-}
-
-func (b backendWrapper) Commit() common.Hash {
-	return b.b.Commit()
-}
-
-func (b backendWrapper) Rollback() {
-	b.b.Rollback()
-}
-
-func (b backendWrapper) Fork(parentHash common.Hash) error {
-	return b.b.Fork(parentHash)
-}
-
-func (b backendWrapper) AdjustTime(adjustment time.Duration) error {
-	return b.b.AdjustTime(adjustment)
-}
-
-// Behaves as primary simulated.Client until failoverBlockNumber is requested (via HeaderByNumber), then
-// fails over to secondary simulated.Client.
-type failoverClient struct {
-	primary             simulated.Client
-	secondary           simulated.Client
-	failoverBlockNumber *big.Int
-}
-
-func (f failoverClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
-	if n.Cmp(f.failoverBlockNumber) < 0 {
-		return f.primary.HeaderByNumber(ctx, n)
-	}
-	return f.secondary.HeaderByNumber(ctx, n)
-}
-
 // Simulate an rpc failover event on optimism, where logs are requested from a block hash which doesn't
 // exist on the new rpc server, but a successful error code is returned. This is bad/buggy behavior on the
 // part of the rpc server, but we should be able to handle this without missing any logs, as
@@ -395,7 +352,7 @@ func Test_BackupLogPoller(t *testing.T) {
 
 			b, ok := primaryRpc.(*simulated.Backend)
 			require.True(t, ok)
-			th.SetActiveClient(backendWrapper{b}, evmtypes.Optimism) // restore primary rpc
+			th.SetActiveClient(b, evmtypes.Optimism) // restore primary rpc
 
 			// Run ordinary poller + backup poller at least once
 			require.NoError(t, err)
@@ -940,6 +897,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			th.assertHaveCanonical(t, 1, 3)
 
 			parent, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
+			require.NoError(t, err)
 
 			// Test scenario: reorg back to a chain that looks similar to the original chain. (simulated geth used to allow
 			// re-org'ing back to exactly the same chain--now the best we can do is re-emit the same logs on a new one to simulate that)

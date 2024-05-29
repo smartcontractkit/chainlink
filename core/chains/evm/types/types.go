@@ -415,7 +415,7 @@ type Backend interface {
 	Client() simulated.Client
 }
 
-type ChainFamily string
+type ChainFamily uint
 
 const (
 	Geth = ChainFamily(iota)

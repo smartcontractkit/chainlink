@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -177,19 +176,19 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
 	genesisData := types.GenesisAlloc{owner.From: {Balance: sb}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2 // 60 M blocks
-	b := backends.NewSimulatedBackend(genesisData, gasLimit)
+	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(gasLimit))
 	b.Commit()
 
 	// Deploy LINK token
-	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(owner, b)
+	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(owner, b.Client())
 	require.NoError(t, err)
 
 	// Deploy mock LINK/ETH price feed
-	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(5_000_000_000_000_000))
+	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b.Client(), 18, big.NewInt(5_000_000_000_000_000))
 	require.NoError(t, err)
 
 	// Deploy mock LINK/USD price feed
-	linkUsdFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(1_500_00_000))
+	linkUsdFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b.Client(), 18, big.NewInt(1_500_00_000))
 	require.NoError(t, err)
 
 	// Deploy Router contract
@@ -206,7 +205,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		SubscriptionDepositMinimumRequests: 10,
 		SubscriptionDepositJuels:           big.NewInt(9 * 1e18), // 9 LINK
 	}
-	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, linkAddr, functionsRouterConfig)
+	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b.Client(), linkAddr, functionsRouterConfig)
 	require.NoError(t, err)
 
 	// Deploy Allow List contract
@@ -219,7 +218,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	}
 	var initialAllowedSenders []common.Address
 	var initialBlockedSenders []common.Address
-	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig, initialAllowedSenders, initialBlockedSenders)
+	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b.Client(), allowListConfig, initialAllowedSenders, initialBlockedSenders)
 	require.NoError(t, err)
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
@@ -238,15 +237,15 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		FallbackUsdPerUnitLinkDecimals:      uint8(8),
 	}
 	require.NoError(t, err)
-	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
+	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b.Client(), routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
-	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
+	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b.Client(), routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
 
 	// Deploy Client contracts
 	clientContracts := []deployedClientContract{}
 	for i := 0; i < nClients; i++ {
-		clientContractAddress, _, clientContract, err := functions_client_example.DeployFunctionsClientExample(owner, b, routerAddress)
+		clientContractAddress, _, clientContract, err := functions_client_example.DeployFunctionsClientExample(owner, b.Client(), routerAddress)
 		require.NoError(t, err)
 		clientContracts = append(clientContracts, deployedClientContract{
 			Address:  clientContractAddress,
@@ -258,7 +257,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		}
 	}
 
-	CommitWithFinality(b.Backend)
+	CommitWithFinality(b)
 	ticker := time.NewTicker(1 * time.Second)
 	go func() {
 		for range ticker.C {
@@ -274,7 +273,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		Contract: proposalContract,
 		Address:  proposalAddress,
 	}
-	return owner, b.Backend, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
+	return owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
 }
 
 func SetupRouterRoutes(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {

@@ -8,6 +8,7 @@ import (
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
