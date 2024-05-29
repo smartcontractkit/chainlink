@@ -33,11 +33,11 @@ import (
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var ContractDeploymentInterval = 200
@@ -924,7 +924,7 @@ var noOpSethConfigFn = func(cfg *seth.Config) error { return nil }
 type SethConfigFunction = func(*seth.Config) error
 
 // OneEphemeralKeysLiveTestnetCheckFn checks whether there's at least one ephemeral key on a simulated network or at least one static key on a live network,
-// and that there are no epehemeral keys on a live network. Root key is excluded from the check.
+// and that there are no ephemeral keys on a live network. Root key is excluded from the check.
 var OneEphemeralKeysLiveTestnetCheckFn = func(sethCfg *seth.Config) error {
 	concurrency := sethCfg.GetMaxConcurrency()
 
@@ -994,7 +994,7 @@ func GetChainClientWithConfigFunction(config ctf_config.SethConfig, network bloc
 		return nil, fmt.Errorf("Seth config not found")
 	}
 
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+	sethCfg, err := seth_utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error merging seth and evm network configs")
 	}
@@ -1004,7 +1004,7 @@ func GetChainClientWithConfigFunction(config ctf_config.SethConfig, network bloc
 		return nil, errors.Wrapf(err, "Error applying seth config function")
 	}
 
-	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+	err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error validating seth network config")
 	}

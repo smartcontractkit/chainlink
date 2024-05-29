@@ -214,6 +214,44 @@ targets:
 `,
 			errMsg: "all non-trigger steps must have a dependent ref",
 		},
+		{
+			name: "duplicate edge declarations",
+			yaml: `
+triggers:
+  - id: "a-trigger"
+  - id: "a-second-trigger"
+actions:
+  - id: "an-action"
+    ref: "an-action"
+    inputs:
+      trigger_output: $(trigger.outputs)
+consensus:
+  - id: "a-consensus"
+    ref: "a-consensus"
+    inputs:
+      trigger_output: $(trigger.outputs)
+      action_output: $(an-action.outputs)
+targets:
+  - id: "a-target"
+    ref: "a-target"
+    inputs:
+      consensus_output: $(a-consensus.outputs)
+      consensus_output2: $(a-consensus.outputs)
+`,
+			graph: map[string]map[string]struct{}{
+				workflows.KeywordTrigger: {
+					"an-action":   struct{}{},
+					"a-consensus": struct{}{},
+				},
+				"an-action": {
+					"a-consensus": struct{}{},
+				},
+				"a-consensus": {
+					"a-target": struct{}{},
+				},
+				"a-target": {},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
