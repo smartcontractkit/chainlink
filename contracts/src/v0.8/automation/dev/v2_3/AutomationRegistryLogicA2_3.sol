@@ -156,6 +156,15 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
     emit UpkeepCanceled(id, uint64(height));
   }
 
+  function _checkIfMigrationAllowed(uint256[] calldata ids, address destination) internal view {
+    if (
+      s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
+      s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
+    ) revert MigrationNotPermitted();
+    if (s_storage.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
+    if (ids.length == 0) revert ArrayHasNoEntries();
+  }
+
   /**
    * @notice migrates upkeeps from one registry to another
    * @param ids the upkeepIDs to migrate
@@ -166,22 +175,51 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
    * @dev this function is most gas-efficient if upkeepIDs are sorted by billing token
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
-    if (
-      s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
-      s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
-    ) revert MigrationNotPermitted();
-    if (s_storage.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
-    if (ids.length == 0) revert ArrayHasNoEntries();
+    _checkIfMigrationAllowed(ids, destination);
 
-    IERC20 billingToken;
-    uint256 balanceToTransfer;
-    uint256 id;
-    Upkeep memory upkeep;
+//    IERC20 billingToken;
+//    uint256 balanceToTransfer;
+//    uint256 id;
+//    Upkeep memory upkeep;
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
     bytes[] memory checkDatas = new bytes[](ids.length);
     bytes[] memory triggerConfigs = new bytes[](ids.length);
     bytes[] memory offchainConfigs = new bytes[](ids.length);
+    // TODO
+    BillingOverrides[] memory billingOverrides = new BillingOverrides[](ids.length);
+    bytes[] memory privilegeConfigs = new bytes[](ids.length);
+
+    _migrateHelper(ids, destination, admins, upkeeps, checkDatas, triggerConfigs, offchainConfigs, billingOverrides, privilegeConfigs);
+
+    _migrateAndReceiveUpkeeps(
+      ids,
+      upkeeps,
+      admins,
+      checkDatas,
+      triggerConfigs,
+      offchainConfigs,
+      billingOverrides,
+      privilegeConfigs,
+      destination
+    );
+  }
+
+  function _migrateHelper(
+    uint256[] memory ids,
+    address destination,
+    address[] memory admins,
+    Upkeep[] memory upkeeps,
+    bytes[] memory checkDatas,
+    bytes[] memory triggerConfigs,
+    bytes[] memory offchainConfigs,
+    BillingOverrides[] memory billingOverrides,
+    bytes[] memory privilegeConfigs
+  ) internal {
+    IERC20 billingToken;
+    uint256 id;
+    uint256 balanceToTransfer;
+    Upkeep memory upkeep;
 
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
@@ -210,6 +248,10 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
       checkDatas[idx] = s_checkData[id];
       triggerConfigs[idx] = s_upkeepTriggerConfig[id];
       offchainConfigs[idx] = s_upkeepOffchainConfig[id];
+      // TODO
+      billingOverrides[idx] = s_billingOverrides[id];
+      privilegeConfigs[idx] = s_upkeepPrivilegeConfig[id];
+
       delete s_upkeep[id];
       delete s_checkData[id];
       delete s_upkeepTriggerConfig[id];
@@ -217,13 +259,28 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
       // nullify existing proposed admin change if an upkeep is being migrated
       delete s_proposedAdmin[id];
       delete s_upkeepAdmin[id];
+      // TODO
+      delete s_billingOverrides[id];
+      delete s_upkeepPrivilegeConfig[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     // always transfer the rolling sum in the end
     s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
     billingToken.safeTransfer(destination, balanceToTransfer);
+  }
 
+  function _migrateAndReceiveUpkeeps(
+    uint256[] memory ids,
+    Upkeep[] memory upkeeps,
+    address[] memory admins,
+    bytes[] memory checkDatas,
+    bytes[] memory triggerConfigs,
+    bytes[] memory offchainConfigs,
+    BillingOverrides[] memory billingOverrides,
+    bytes[] memory privilegeConfigs,
+    address destination
+  ) internal {
     bytes memory encodedUpkeeps = abi.encode(
       ids,
       upkeeps,
@@ -231,7 +288,9 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
       admins,
       checkDatas,
       triggerConfigs,
-      offchainConfigs
+      offchainConfigs,
+      billingOverrides,
+      privilegeConfigs
     );
     MigratableKeeperRegistryInterfaceV2(destination).receiveUpkeeps(
       UpkeepTranscoderInterfaceV2(s_storage.transcoder).transcodeUpkeeps(
@@ -259,8 +318,10 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
       address[] memory upkeepAdmins,
       bytes[] memory checkDatas,
       bytes[] memory triggerConfigs,
-      bytes[] memory offchainConfigs
-    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], address[], bytes[], bytes[], bytes[]));
+      bytes[] memory offchainConfigs,
+      BillingOverrides[] memory billingOverrides,
+      bytes[] memory privilegeConfigs
+    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], address[], bytes[], bytes[], bytes[], BillingOverrides[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
         upkeeps[idx].forwarder = IAutomationForwarder(
@@ -275,6 +336,17 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
         triggerConfigs[idx],
         offchainConfigs[idx]
       );
+
+      // set privilege config if it exists
+      if (privilegeConfigs[idx].length != 0) {
+        s_upkeepPrivilegeConfig[ids[idx]] = privilegeConfigs[idx];
+      }
+
+      // set billing overrides if it exists
+      if (upkeeps[idx].overridesEnabled) {
+        s_billingOverrides[ids[idx]] = billingOverrides[idx];
+      }
+
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
   }
