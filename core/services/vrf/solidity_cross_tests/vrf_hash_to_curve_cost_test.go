@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
@@ -48,7 +51,7 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 		solidity_vrf_verifier_wrapper.VRFTestHelperABI))
 	require.NoError(t, err, "could not parse VRF ABI")
 	address, _, vRFContract, err := bind.DeployContract(auth, parsed,
-		common.FromHex(solidity_vrf_verifier_wrapper.VRFTestHelperBin), backend)
+		common.FromHex(solidity_vrf_verifier_wrapper.VRFTestHelperBin), backend.Client())
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")
 	backend.Commit()
 	return contract{vRFContract, address, &parsed, backend}, crypto.PubkeyToAddress(
@@ -65,7 +68,7 @@ func estimateGas(t *testing.T, backend *simulated.Backend,
 	require.NoError(t, err, "failed to construct raw %s transaction with args %s",
 		method, args)
 	callMsg := ethereum.CallMsg{From: from, To: &to, Data: rawData}
-	estimate, err := backend.EstimateGas(testutils.Context(t), callMsg)
+	estimate, err := backend.Client().EstimateGas(testutils.Context(t), callMsg)
 	require.NoError(t, err, "failed to estimate gas from %s call with args %s",
 		method, args)
 	return estimate

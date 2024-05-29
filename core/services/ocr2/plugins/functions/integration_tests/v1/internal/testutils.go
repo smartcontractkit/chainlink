@@ -17,8 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -256,7 +258,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		}
 	}
 
-	CommitWithFinality(b)
+	CommitWithFinality(b.Backend)
 	ticker := time.NewTicker(1 * time.Second)
 	go func() {
 		for range ticker.C {
@@ -272,7 +274,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		Contract: proposalContract,
 		Address:  proposalAddress,
 	}
-	return owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
+	return owner, b.Backend, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
 }
 
 func SetupRouterRoutes(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {
@@ -355,7 +357,7 @@ func StartNewNode(
 	transmitter := sendingKeys[0].Address
 
 	// fund the transmitter address
-	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
+	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := cltest.NewLegacyTransaction(
@@ -366,7 +368,7 @@ func StartNewNode(
 		nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = b.SendTransaction(testutils.Context(t), signedTx)
+	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 

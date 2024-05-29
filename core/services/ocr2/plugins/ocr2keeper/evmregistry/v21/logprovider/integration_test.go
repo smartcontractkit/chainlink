@@ -460,7 +460,7 @@ func deployUpkeepCounter(
 ) {
 	for i := 0; i < n; i++ {
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
-			account, backend,
+			account, backend.Client(),
 			big.NewInt(100000),
 		)
 		require.NoError(t, err)

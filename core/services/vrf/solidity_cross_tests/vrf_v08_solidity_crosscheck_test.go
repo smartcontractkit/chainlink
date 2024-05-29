@@ -5,6 +5,8 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_v08_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
@@ -27,10 +29,10 @@ import (
 // except we are testing against the v0.8 implementation of VRF.sol.
 func deployVRFV08TestHelper(t *testing.T) *solidity_vrf_v08_verifier_wrapper.VRFV08TestHelper {
 	auth := testutils.MustNewSimTransactor(t)
-	genesisData := types.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
+	genesisData := gethtypes.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
-	_, _, verifier, err := solidity_vrf_v08_verifier_wrapper.DeployVRFV08TestHelper(auth, backend)
+	_, _, verifier, err := solidity_vrf_v08_verifier_wrapper.DeployVRFV08TestHelper(auth, backend.Client())
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")
 	backend.Commit()
 	return verifier

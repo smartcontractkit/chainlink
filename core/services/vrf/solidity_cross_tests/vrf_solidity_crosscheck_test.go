@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
@@ -43,10 +45,10 @@ import (
 // pure.) Revert to that, and see if it helps.
 func deployVRFTestHelper(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHelper {
 	auth := testutils.MustNewSimTransactor(t)
-	genesisData := types.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
+	genesisData := gethtypes.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
-	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
+	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend.Client())
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")
 	backend.Commit()
 	return verifier

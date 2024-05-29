@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/onsi/gomega"
@@ -116,7 +117,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	f.neil = testutils.MustNewSimTransactor(t)
 	f.ned = testutils.MustNewSimTransactor(t)
 	f.nallory = oracleTransactor
-	genesisData := types.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		f.sergey.From:  {Balance: assets.Ether(1000).ToInt()},
 		f.neil.From:    {Balance: assets.Ether(1000).ToInt()},
 		f.ned.From:     {Balance: assets.Ether(1000).ToInt()},

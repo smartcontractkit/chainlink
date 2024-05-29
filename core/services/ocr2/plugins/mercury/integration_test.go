@@ -19,6 +19,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
@@ -90,7 +91,7 @@ func detectPanicLogs(t *testing.T, logObservers []*observer.ObservedLogs) {
 
 func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *verifier.Verifier, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit()                                  // ensure starting block number at least 1
 	stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
