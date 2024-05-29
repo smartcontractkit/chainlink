@@ -379,7 +379,7 @@ func Test_BackupLogPoller(t *testing.T) {
 				if n.Int64() != 32 {
 					return nil
 				}
-				th.SetActiveClient(backupRpc, true)
+				th.SetActiveClient(backupRpc, evmtypes.Optimism)
 				return nil
 			})
 
@@ -395,7 +395,7 @@ func Test_BackupLogPoller(t *testing.T) {
 
 			b, ok := primaryRpc.(*simulated.Backend)
 			require.True(t, ok)
-			th.SetActiveClient(backendWrapper{b}, true) // restore primary rpc
+			th.SetActiveClient(backendWrapper{b}, evmtypes.Optimism) // restore primary rpc
 
 			// Run ordinary poller + backup poller at least once
 			require.NoError(t, err)

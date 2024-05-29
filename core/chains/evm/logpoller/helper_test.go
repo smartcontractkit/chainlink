@@ -118,7 +118,7 @@ func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 
 // Simulates an RPC failover event to an alternate rpc server. This can also be used to
 // simulate switching back to the primary rpc after it recovers.
-func (th *TestHarness) SetActiveClient(backend evmtypes.Backend, optimismMode bool) {
+func (th *TestHarness) SetActiveClient(backend evmtypes.Backend, chainFamily evmtypes.ChainFamily) {
 	th.Backend = backend
-	th.Client.SetBackend(backend, optimismMode)
+	th.Client.SetBackend(backend, chainFamily)
 }

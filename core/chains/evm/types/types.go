@@ -414,3 +414,10 @@ type Backend interface {
 	AdjustTime(adjustment time.Duration) error
 	Client() simulated.Client
 }
+
+type ChainFamily string
+
+const (
+	Geth = ChainFamily(iota)
+	Optimism
+)

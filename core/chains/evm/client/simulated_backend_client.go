@@ -70,7 +70,7 @@ type SimulatedBackendClient struct {
 	client               simulated.Client
 	t                    testing.TB
 	chainId              *big.Int
-	optimismMode         bool
+	chainFamily          evmtypes.ChainFamily
 	headByNumberCallback func(ctx context.Context, c *SimulatedBackendClient, n *big.Int) error
 }
 
@@ -85,12 +85,12 @@ func NewSimulatedBackendClient(t testing.TB, b *simulated.Backend, chainId *big.
 }
 
 // Switch to a new backend client (simulating an rpc failover event)
-// If optimismMode = true, the new backend will exhibit the non-geth behavior of optimism (and some other rpc clients),
+// If chainFamily = Optimism, the new backend will exhibit the non-geth behavior of optimism (and some other rpc clients),
 // where success rather than an error code is returned when a call to FilterLogs() fails to find the block hash
 // requested. This combined with a failover event can lead to the "eventual consistency" behavior that Backup LogPoller
 // and other solutions were designed to recover from.
-func (c *SimulatedBackendClient) SetBackend(backend evmtypes.Backend, optimismMode bool) {
-	c.optimismMode = optimismMode
+func (c *SimulatedBackendClient) SetBackend(backend evmtypes.Backend, chainFamily evmtypes.ChainFamily) {
+	c.chainFamily = chainFamily
 	c.b = backend
 	c.client = backend.Client()
 }
@@ -129,7 +129,7 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 // FilterLogs returns all logs that respect the passed filter query.
 func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
 	logs, err = c.client.FilterLogs(ctx, q)
-	if c.optimismMode {
+	if c.chainFamily == evmtypes.Optimism {
 		if err != nil && err.Error() == "unknown block" {
 			return []types.Log{}, nil // emulate optimism behavior of returning success instead of "unknown block"
 		}
