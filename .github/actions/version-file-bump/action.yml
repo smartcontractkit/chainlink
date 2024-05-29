@@ -31,7 +31,7 @@ runs:
         current_version=$(jq -r '.version' ./package.json)
         echo "current_version=${current_version}" | tee -a "$GITHUB_OUTPUT"
     - name: Compare semantic versions
-      uses: smartcontractkit/chainlink-github-actions/semver-compare@f2716118daa8c79e6c4e55a440813d8ec4166dc9 # v2.3.18
+      uses: smartcontractkit/chainlink-github-actions/semver-compare@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
       id: compare
       with:
         version1: ${{ steps.get-current-version.outputs.current_version }}

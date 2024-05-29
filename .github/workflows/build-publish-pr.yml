@@ -32,7 +32,7 @@ jobs:
 
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@f2716118daa8c79e6c4e55a440813d8ec4166dc9 # v2.3.18
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           repository: ${{ env.ECR_IMAGE_NAME}}
           tag: sha-${{ env.GIT_SHORT_SHA }}
