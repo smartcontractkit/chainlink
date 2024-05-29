@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -155,6 +156,27 @@ func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
 	require.NoError(t, err)
 
 	testRemoteTarget(t, ctx, capability, 10, 9, 10*time.Minute, 10, 9, 10*time.Minute, transmissionSchedule, responseTest)
+}
+
+func Test_RemoteTargetCapability_RandomCapabilityError(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		response := <-responseCh
+		assert.Equal(t, "request expired", response.Err.Error())
+	}
+
+	capability := &TestRandomErrorCapability{}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	testRemoteTarget(t, ctx, capability, 10, 9, 10*time.Millisecond, 10, 9, 10*time.Minute, transmissionSchedule, responseTest)
 }
 
 func testRemoteTarget(t *testing.T, ctx context.Context, underlying commoncap.TargetCapability, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
@@ -350,6 +372,14 @@ type TestErrorCapability struct {
 
 func (t TestErrorCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
 	return nil, errors.New("an error")
+}
+
+type TestRandomErrorCapability struct {
+	abstractTestCapability
+}
+
+func (t TestRandomErrorCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+	return nil, errors.New(uuid.New().String())
 }
 
 func NewP2PPeerID(t *testing.T) p2ptypes.PeerID {
