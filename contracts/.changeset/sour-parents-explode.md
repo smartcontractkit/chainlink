@@ -2,4 +2,4 @@
 "@chainlink/contracts": patch
 ---
 
-#wip Add Capability Registry skeleton
+update node signer type

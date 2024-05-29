@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -25,7 +26,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (
@@ -143,7 +143,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	benchmarkTestNetwork := getNetworkConfig(&config)
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
-	testNetwork := utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
+	testNetwork := seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
 
 	chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
 	require.NoError(t, err, "Error getting Seth client")

@@ -18,7 +18,6 @@ env:
   MOD_CACHE_VERSION: 2
 
 jobs:
-
   # Check if go.mod has changed
   check-dependency-bump:
       runs-on: ubuntu-latest
@@ -55,11 +54,31 @@ jobs:
             echo "dependency_changed=false" >> $GITHUB_OUTPUT
           fi
 
+  # Check if images used as test dependencies exist in the ECR 
+  check-ecr-images-exist:
+    if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [check-dependency-bump]
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Check images used as test dependencies exist in ECR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update internal ECR if the latest Ethereum client image does not exist
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@7eb04a030823b316d8dd5bb555f1e49593a503fc
+        with:
+          aws_region: ${{ secrets.QA_AWS_REGION }}
+          role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          aws_account_number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          image_name: 'ethereum/client-go'
+          expression: '^(alltools-v|v)[0-9]\.[0-9]+\.[0-9]+$'
+
   # Build Test Dependencies
 
   build-chainlink:
     if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [check-dependency-bump]
+    needs: [check-dependency-bump, check-ecr-images-exist]
     environment: integration
     permissions:
       id-token: write
@@ -92,7 +111,7 @@ jobs:
 
   build-tests:
     if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [check-dependency-bump]
+    needs: [check-dependency-bump, check-ecr-images-exist]
     environment: integration
     permissions:
       id-token: write
@@ -127,7 +146,7 @@ jobs:
 
   build-test-matrix:
     if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [check-dependency-bump]
+    needs: [check-dependency-bump, check-ecr-images-exist]
     runs-on: ubuntu-latest
     name: Build Test Matrix
     outputs:

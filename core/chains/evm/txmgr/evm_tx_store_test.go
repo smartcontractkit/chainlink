@@ -521,7 +521,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 		TransactionIndex: uint(1),
 	}
 
-	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&txmReceipt}, ethClient.ConfiguredChainID())
+	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&txmReceipt}, txmgrcommon.TxConfirmed, nil, ethClient.ConfiguredChainID())
 
 	require.NoError(t, err)
 	etx0, err = txStore.FindTxWithAttempts(ctx, etx0.ID)
@@ -1194,8 +1194,8 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 			tx, err := db.BeginTx(ctx, nil)
 			require.NoError(t, err)
 
-			const insertEthTxAttemptSQL = `INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
-					:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
+			const insertEthTxAttemptSQL = `INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap, is_purge_attempt) VALUES (
+					:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap, :is_purge_attempt
 					) RETURNING *`
 			query, args, err := sqlutil.DataSource(db).BindNamed(insertEthTxAttemptSQL, dbAttempt)
 			require.NoError(t, err)
