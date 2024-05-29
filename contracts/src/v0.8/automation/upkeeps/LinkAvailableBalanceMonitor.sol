@@ -234,7 +234,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     ) {
       address targetAddress = s_watchList.at(idx);
       contractToFund = s_targets[targetAddress];
-      (bool fundingNeeded,) = _needsFunding(
+      (bool fundingNeeded, ) = _needsFunding(
         targetAddress,
         contractToFund.lastTopUpTimestamp + minWaitPeriod,
         contractToFund.minBalance,
