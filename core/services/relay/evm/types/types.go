@@ -20,6 +20,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
+type ChainWriterConfig struct {
+	Contracts map[string]ChainWriter
+}
+
+type ChainWriter struct {
+	ContractABI string `json:"contractABI" toml:"contractABI"`
+	// key is genericName from config
+	Configs map[string]*ChainWriterDefinition `json:"configs" toml:"configs"`
+}
+
+type ChainWriterDefinition struct {
+	// chain specific contract method name or event type.
+	ChainSpecificName string         `json:"chainSpecificName"`
+	Checker           string         `json:"checker"`
+	FromAddress       common.Address `json:"fromAddress"`
+	GasLimit          uint64         `json:"gasLimit"` // TODO(archseer): what if this has to be configured per call?
+}
+
 type ChainReaderConfig struct {
 	// Contracts key is contract name
 	Contracts map[string]ChainContractReader `json:"contracts" toml:"contracts"`
