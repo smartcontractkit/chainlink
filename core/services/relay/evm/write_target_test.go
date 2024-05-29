@@ -35,7 +35,12 @@ func TestEvmWrite(t *testing.T) {
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := evmclimocks.NewClient(t)
 
-	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+	// This probably isn't the best way to do this, but couldn't find a simpler way to mock the CallContract response
+	var mockCall []byte
+	for i := 0; i < 32; i++ {
+		mockCall = append(mockCall, byte(0))
+	}
+	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil)
 
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
@@ -68,94 +73,76 @@ func TestEvmWrite(t *testing.T) {
 	fmt.Println(evmCfg)
 	chain.On("Config").Return(evmCfg)
 
-	ctx := testutils.Context(t)
-
-	capability, err := evm.NewWriteTarget(ctx, relayer, chain, lggr)
-	require.NoError(t, err)
-
-	config, err := values.NewMap(map[string]any{
-		"Address": evmCfg.EVM().ChainWriter().ForwarderAddress().String(),
-	})
-	require.NoError(t, err)
-
-	inputs, err := values.NewMap(map[string]any{
-		"report":     []byte{1, 2, 3},
-		"signatures": [][]byte{},
-	})
-	require.NoError(t, err)
-
-	req := capabilities.CapabilityRequest{
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID: "hello",
-		},
-		Config: config,
-		Inputs: inputs,
-	}
-
-	txManager.On("CreateTransaction", mock.Anything, mock.Anything).Return(txmgr.Tx{}, nil).Run(func(args mock.Arguments) {
-		req := args.Get(1).(txmgr.TxRequest)
-		payload := make(map[string]any)
-		method := forwardABI.Methods["report"]
-		err = method.Inputs.UnpackIntoMap(payload, req.EncodedPayload[4:])
+	t.Run("with report", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, lggr)
 		require.NoError(t, err)
-		require.Equal(t, []byte{0x1, 0x2, 0x3}, payload["rawReport"])
-		require.Equal(t, [][]byte{}, payload["signatures"])
+
+		config, err := values.NewMap(map[string]any{
+			"Address": evmCfg.EVM().ChainWriter().ForwarderAddress().String(),
+		})
+		require.NoError(t, err)
+
+		inputs, err := values.NewMap(map[string]any{
+			"report":     []byte{1, 2, 3},
+			"signatures": [][]byte{},
+		})
+		require.NoError(t, err)
+
+		req := capabilities.CapabilityRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID: "hello",
+			},
+			Config: config,
+			Inputs: inputs,
+		}
+
+		txManager.On("CreateTransaction", mock.Anything, mock.Anything).Return(txmgr.Tx{}, nil).Run(func(args mock.Arguments) {
+			req := args.Get(1).(txmgr.TxRequest)
+			payload := make(map[string]any)
+			method := forwardABI.Methods["report"]
+			err = method.Inputs.UnpackIntoMap(payload, req.EncodedPayload[4:])
+			require.NoError(t, err)
+			require.Equal(t, []byte{0x1, 0x2, 0x3}, payload["rawReport"])
+			require.Equal(t, [][]byte{}, payload["signatures"])
+		})
+
+		ch, err := capability.Execute(ctx, req)
+		require.NoError(t, err)
+
+		response := <-ch
+		require.Nil(t, response.Err)
 	})
 
-	ch, err := capability.Execute(ctx, req)
-	require.NoError(t, err)
+	t.Run("empty report", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
+		require.NoError(t, err)
 
-	response := <-ch
-	require.Nil(t, response.Err)
+		config, err := values.NewMap(map[string]any{
+			"abi":     "receive(report bytes)",
+			"params":  []any{"$(report)"},
+			"Address": evmCfg.EVM().ChainWriter().ForwarderAddress().String(),
+		})
+		require.NoError(t, err)
+
+		inputs, err := values.NewMap(map[string]any{
+			"report": nil,
+		})
+		require.NoError(t, err)
+
+		req := capabilities.CapabilityRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID: "hello",
+			},
+			Config: config,
+			Inputs: inputs,
+		}
+
+		ch, err := capability.Execute(ctx, req)
+		require.NoError(t, err)
+
+		response := <-ch
+		require.Nil(t, response.Err)
+	})
 }
-
-//func TestEvmWrite_EmptyReport(t *testing.T) {
-//	chain := evmmocks.NewChain(t)
-//
-//	txManager := txmmocks.NewMockEvmTxManager(t)
-//	chain.On("ID").Return(big.NewInt(11155111))
-//	chain.On("TxManager").Return(txManager)
-//
-//	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-//		a := testutils.NewAddress()
-//		addr, err := types.NewEIP55Address(a.Hex())
-//		require.NoError(t, err)
-//		c.EVM[0].ChainWriter.FromAddress = &addr
-//
-//		forwarderA := testutils.NewAddress()
-//		forwarderAddr, err := types.NewEIP55Address(forwarderA.Hex())
-//		require.NoError(t, err)
-//		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
-//	})
-//	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-//	chain.On("Config").Return(evmcfg)
-//
-//	ctx := testutils.Context(t)
-//	capability, err := targets.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
-//	require.NoError(t, err)
-//
-//	config, err := values.NewMap(map[string]any{
-//		"abi":    "receive(report bytes)",
-//		"params": []any{"$(report)"},
-//	})
-//	require.NoError(t, err)
-//
-//	inputs, err := values.NewMap(map[string]any{
-//		"report": nil,
-//	})
-//	require.NoError(t, err)
-//
-//	req := capabilities.CapabilityRequest{
-//		Metadata: capabilities.RequestMetadata{
-//			WorkflowID: "hello",
-//		},
-//		Config: config,
-//		Inputs: inputs,
-//	}
-//
-//	ch, err := capability.Execute(ctx, req)
-//	require.NoError(t, err)
-//
-//	response := <-ch
-//	require.Nil(t, response.Err)
-//}
