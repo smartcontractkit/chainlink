@@ -156,15 +156,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
     emit UpkeepCanceled(id, uint64(height));
   }
 
-  function _checkIfMigrationAllowed(uint256[] calldata ids, address destination) internal view {
-    if (
-      s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
-      s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
-    ) revert MigrationNotPermitted();
-    if (s_storage.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
-    if (ids.length == 0) revert ArrayHasNoEntries();
-  }
-
   /**
    * @notice migrates upkeeps from one registry to another
    * @param ids the upkeepIDs to migrate
@@ -175,12 +166,17 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
    * @dev this function is most gas-efficient if upkeepIDs are sorted by billing token
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
-    _checkIfMigrationAllowed(ids, destination);
+    if (
+      s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
+      s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
+    ) revert MigrationNotPermitted();
+    if (s_storage.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
+    if (ids.length == 0) revert ArrayHasNoEntries();
 
-//    IERC20 billingToken;
-//    uint256 balanceToTransfer;
-//    uint256 id;
-//    Upkeep memory upkeep;
+    IERC20 billingToken;
+    uint256 balanceToTransfer;
+    uint256 id;
+    Upkeep memory upkeep;
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
     bytes[] memory checkDatas = new bytes[](ids.length);
@@ -189,37 +185,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
     // TODO
     BillingOverrides[] memory billingOverrides = new BillingOverrides[](ids.length);
     bytes[] memory privilegeConfigs = new bytes[](ids.length);
-
-    _migrateHelper(ids, destination, admins, upkeeps, checkDatas, triggerConfigs, offchainConfigs, billingOverrides, privilegeConfigs);
-
-    _migrateAndReceiveUpkeeps(
-      ids,
-      upkeeps,
-      admins,
-      checkDatas,
-      triggerConfigs,
-      offchainConfigs,
-      billingOverrides,
-      privilegeConfigs,
-      destination
-    );
-  }
-
-  function _migrateHelper(
-    uint256[] memory ids,
-    address destination,
-    address[] memory admins,
-    Upkeep[] memory upkeeps,
-    bytes[] memory checkDatas,
-    bytes[] memory triggerConfigs,
-    bytes[] memory offchainConfigs,
-    BillingOverrides[] memory billingOverrides,
-    bytes[] memory privilegeConfigs
-  ) internal {
-    IERC20 billingToken;
-    uint256 id;
-    uint256 balanceToTransfer;
-    Upkeep memory upkeep;
 
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
@@ -268,19 +233,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
     // always transfer the rolling sum in the end
     s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
     billingToken.safeTransfer(destination, balanceToTransfer);
-  }
 
-  function _migrateAndReceiveUpkeeps(
-    uint256[] memory ids,
-    Upkeep[] memory upkeeps,
-    address[] memory admins,
-    bytes[] memory checkDatas,
-    bytes[] memory triggerConfigs,
-    bytes[] memory offchainConfigs,
-    BillingOverrides[] memory billingOverrides,
-    bytes[] memory privilegeConfigs,
-    address destination
-  ) internal {
     bytes memory encodedUpkeeps = abi.encode(
       ids,
       upkeeps,
