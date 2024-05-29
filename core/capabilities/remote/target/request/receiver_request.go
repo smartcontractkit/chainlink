@@ -63,9 +63,13 @@ func NewReceiverRequest(capability capabilities.TargetCapability, capabilityID s
 	}
 }
 
-func (e *receiverRequest) Receive(ctx context.Context, msg *types.MessageBody) error {
+func (e *receiverRequest) OnMessage(ctx context.Context, msg *types.MessageBody) error {
 	e.mux.Lock()
 	defer e.mux.Unlock()
+
+	if msg.Sender == nil {
+		return fmt.Errorf("sender missing from message")
+	}
 
 	requester := remote.ToPeerID(msg.Sender)
 	if err := e.addRequester(requester); err != nil {

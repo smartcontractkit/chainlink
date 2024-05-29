@@ -52,7 +52,7 @@ func Test_Poller(t *testing.T) {
 		require.NoError(t, poller.Start())
 		defer poller.Unsubscribe()
 
-		// Receive updates from the poller
+		// OnMessage updates from the poller
 		pollCount := 0
 		pollMax := 50
 		for ; pollCount < pollMax; pollCount++ {

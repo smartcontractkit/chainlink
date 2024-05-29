@@ -9,15 +9,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 type callerRequest interface {
-	AddResponse(sender p2ptypes.PeerID, msg *types.MessageBody) error
+	OnMessage(ctx context.Context, msg *types.MessageBody) error
 	ResponseChan() <-chan commoncap.CapabilityResponse
 	Expired() bool
 	Cancel(reason string)
@@ -38,10 +36,10 @@ type caller struct {
 var _ commoncap.TargetCapability = &caller{}
 var _ types.Receiver = &caller{}
 
-func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
+func NewCaller(ctx context.Context, lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration) *caller {
 
-	caller := &caller{
+	c := &caller{
 		lggr:                      lggr,
 		remoteCapabilityInfo:      remoteCapabilityInfo,
 		localDONInfo:              localDonInfo,
@@ -58,12 +56,12 @@ func NewRemoteTargetCaller(ctx context.Context, lggr logger.Logger, remoteCapabi
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				caller.ExpireRequests()
+				c.ExpireRequests()
 			}
 		}
 	}()
 
-	return caller
+	return c
 }
 
 func (c *caller) ExpireRequests() {
@@ -114,19 +112,20 @@ func (c *caller) Execute(ctx context.Context, req commoncap.CapabilityRequest) (
 func (c *caller) Receive(msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	// TODO should the dispatcher be passing in a context?
+	ctx := context.Background()
 
 	messageID := GetMessageID(msg)
-	sender := remote.ToPeerID(msg.Sender)
 
 	req := c.messageIDToExecuteRequest[messageID]
 	if req == nil {
-		c.lggr.Warnw("received response for unknown message ID ", "messageID", messageID, "sender", sender)
+		c.lggr.Warnw("received response for unknown message ID ", "messageID", messageID)
 		return
 	}
 
 	go func() {
-		if err := req.AddResponse(sender, msg); err != nil {
-			c.lggr.Errorw("failed to add response to request", "messageID", messageID, "sender", sender, "err", err)
+		if err := req.OnMessage(ctx, msg); err != nil {
+			c.lggr.Errorw("failed to add response to request", "messageID", messageID, "err", err)
 		}
 	}()
 

@@ -118,9 +118,12 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 			MessageId:       []byte("messageID"),
 		}
 
-		err = request.AddResponse(capabilityPeers[0], msg)
+		msg.Sender = capabilityPeers[0][:]
+		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
-		err = request.AddResponse(capabilityPeers[1], msg2)
+
+		msg2.Sender = capabilityPeers[1][:]
+		err = request.OnMessage(ctx, msg2)
 		require.NoError(t, err)
 
 		select {
@@ -139,9 +142,13 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 
-		err = request.AddResponse(capabilityPeers[0], msg)
+		msg.Sender = capabilityPeers[0][:]
+		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
-		err = request.AddResponse(NewP2PPeerID(t), msg)
+
+		nonDonPeer := NewP2PPeerID(t)
+		msg.Sender = nonDonPeer[:]
+		err = request.OnMessage(ctx, msg)
 		require.NotNil(t, err)
 
 		select {
@@ -161,9 +168,10 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 
-		err = request.AddResponse(capabilityPeers[0], msg)
+		msg.Sender = capabilityPeers[0][:]
+		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
-		err = request.AddResponse(capabilityPeers[0], msg)
+		err = request.OnMessage(ctx, msg)
 		require.NotNil(t, err)
 
 		select {
@@ -198,9 +206,12 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 			ErrorMsg:        "an error",
 		}
 
-		err = request.AddResponse(capabilityPeers[0], msgWithError)
+		msgWithError.Sender = capabilityPeers[0][:]
+		err = request.OnMessage(ctx, msgWithError)
 		require.NoError(t, err)
-		err = request.AddResponse(capabilityPeers[1], msgWithError)
+
+		msgWithError.Sender = capabilityPeers[1][:]
+		err = request.OnMessage(ctx, msgWithError)
 		require.NoError(t, err)
 
 		response := <-request.ResponseChan()
@@ -230,6 +241,7 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 			MessageId:       []byte("messageID"),
 			Error:           types.Error_INTERNAL_ERROR,
 			ErrorMsg:        "an error",
+			Sender:          capabilityPeers[0][:],
 		}
 
 		msgWithError2 := &types.MessageBody{
@@ -241,11 +253,12 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 			MessageId:       []byte("messageID"),
 			Error:           types.Error_INTERNAL_ERROR,
 			ErrorMsg:        "an error2",
+			Sender:          capabilityPeers[1][:],
 		}
 
-		err = request.AddResponse(capabilityPeers[0], msgWithError)
+		err = request.OnMessage(ctx, msgWithError)
 		require.NoError(t, err)
-		err = request.AddResponse(capabilityPeers[1], msgWithError2)
+		err = request.OnMessage(ctx, msgWithError2)
 		require.NoError(t, err)
 
 		select {
@@ -268,9 +281,12 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 		<-dispatcher.msgs
 		assert.Equal(t, 0, len(dispatcher.msgs))
 
-		err = request.AddResponse(capabilityPeers[0], msg)
+		msg.Sender = capabilityPeers[0][:]
+		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
-		err = request.AddResponse(capabilityPeers[1], msg)
+
+		msg.Sender = capabilityPeers[1][:]
+		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
 
 		response := <-request.ResponseChan()

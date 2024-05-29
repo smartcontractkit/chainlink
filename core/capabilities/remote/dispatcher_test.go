@@ -35,7 +35,7 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 	ctx := testutils.Context(t)
 	peer := mocks.NewPeer(t)
 	recvCh := make(<-chan p2ptypes.Message)
-	peer.On("Receive", mock.Anything).Return(recvCh)
+	peer.On("OnMessage", mock.Anything).Return(recvCh)
 	peer.On("ID", mock.Anything).Return(p2ptypes.PeerID{})
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
@@ -55,7 +55,7 @@ func TestDispatcher_Receive(t *testing.T) {
 
 	peer := mocks.NewPeer(t)
 	recvCh := make(chan p2ptypes.Message)
-	peer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
+	peer.On("OnMessage", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
 	peer.On("ID", mock.Anything).Return(peerId2)
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
@@ -98,7 +98,7 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 
 	peer := mocks.NewPeer(t)
 	recvCh := make(chan p2ptypes.Message)
-	peer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
+	peer.On("OnMessage", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
 	peer.On("ID", mock.Anything).Return(peerId2)
 	sendCh := make(chan p2ptypes.PeerID)
 	peer.On("Send", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {

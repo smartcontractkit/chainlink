@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -111,9 +112,15 @@ func (c *callerRequest) Cancel(reason string) {
 }
 
 // TODO addResponse assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated
-func (c *callerRequest) AddResponse(sender p2ptypes.PeerID, msg *types.MessageBody) error {
+func (c *callerRequest) OnMessage(_ context.Context, msg *types.MessageBody) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
+
+	if msg.Sender == nil {
+		return fmt.Errorf("sender missing from message")
+	}
+
+	sender := remote.ToPeerID(msg.Sender)
 
 	if _, ok := c.responseReceived[sender]; !ok {
 		return fmt.Errorf("response from peer %s not expected", sender)

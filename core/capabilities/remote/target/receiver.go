@@ -17,12 +17,12 @@ import (
 )
 
 type receiverRequest interface {
-	Receive(ctx context.Context, msg *types.MessageBody) error
+	OnMessage(ctx context.Context, msg *types.MessageBody) error
 	Expired() bool
 	Cancel(err types.Error, msg string) error
 }
 
-type remoteTargetReceiver struct {
+type receiver struct {
 	lggr         logger.Logger
 	peerID       p2ptypes.PeerID
 	underlying   commoncap.TargetCapability
@@ -37,12 +37,12 @@ type remoteTargetReceiver struct {
 	receiveLock sync.Mutex
 }
 
-var _ types.Receiver = &remoteTargetReceiver{}
+var _ types.Receiver = &receiver{}
 
-func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON,
-	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration) *remoteTargetReceiver {
+func NewReceiver(ctx context.Context, lggr logger.Logger, peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON,
+	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration) *receiver {
 
-	receiver := &remoteTargetReceiver{
+	r := &receiver{
 		underlying:   underlying,
 		peerID:       peerID,
 		capInfo:      capInfo,
@@ -64,15 +64,15 @@ func NewRemoteTargetReceiver(ctx context.Context, lggr logger.Logger, peerID p2p
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				receiver.ExpireRequests()
+				r.ExpireRequests()
 			}
 		}
 	}()
 
-	return receiver
+	return r
 }
 
-func (r *remoteTargetReceiver) ExpireRequests() {
+func (r *receiver) ExpireRequests() {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
@@ -88,7 +88,7 @@ func (r *remoteTargetReceiver) ExpireRequests() {
 
 }
 
-func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
+func (r *receiver) Receive(msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 	// TODO should the dispatcher be passing in a context?
@@ -118,9 +118,9 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 	req := r.requestIDToRequest[requestID]
 
 	go func() {
-		err := req.Receive(ctx, msg)
+		err := req.OnMessage(ctx, msg)
 		if err != nil {
-			r.lggr.Errorw("request failed to Receive new message", "request", req, "err", err)
+			r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)
 		}
 	}()
 }

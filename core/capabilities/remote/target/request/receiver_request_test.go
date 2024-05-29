@@ -73,7 +73,7 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		nonDonPeer := NewP2PPeerID(t)
-		err = req.Receive(context.Background(), &types.MessageBody{
+		err = req.OnMessage(context.Background(), &types.MessageBody{
 			Version:         0,
 			Sender:          nonDonPeer[:],
 			Receiver:        capabilityPeerID[:],
@@ -95,7 +95,7 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
 
-		err = req.Receive(context.Background(), &types.MessageBody{
+		err = req.OnMessage(context.Background(), &types.MessageBody{
 			Version:         0,
 			Sender:          workflowPeers[1][:],
 			Receiver:        capabilityPeerID[:],
@@ -122,7 +122,7 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
 
-		err = req.Receive(context.Background(), &types.MessageBody{
+		err = req.OnMessage(context.Background(), &types.MessageBody{
 			Version:         0,
 			Sender:          workflowPeers[1][:],
 			Receiver:        capabilityPeerID[:],
@@ -150,7 +150,7 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
 
-		err = request.Receive(context.Background(), &types.MessageBody{
+		err = request.OnMessage(context.Background(), &types.MessageBody{
 			Version:         0,
 			Sender:          workflowPeers[1][:],
 			Receiver:        capabilityPeerID[:],
@@ -169,12 +169,12 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 }
 
 type receiverRequest interface {
-	Receive(ctx context.Context, msg *types.MessageBody) error
+	OnMessage(ctx context.Context, msg *types.MessageBody) error
 }
 
 func sendValidRequest(request receiverRequest, workflowPeers []p2ptypes.PeerID, capabilityPeerID p2ptypes.PeerID,
 	rawRequest []byte) error {
-	return request.Receive(context.Background(), &types.MessageBody{
+	return request.OnMessage(context.Background(), &types.MessageBody{
 		Version:         0,
 		Sender:          workflowPeers[0][:],
 		Receiver:        capabilityPeerID[:],
