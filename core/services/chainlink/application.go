@@ -395,7 +395,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
 		opts.CapabilitiesRegistry,
-		opts.RelayerChainInteroperators,
 		workflowORM,
 		func() *p2ptypes.PeerID {
 			if externalPeerWrapper == nil {
