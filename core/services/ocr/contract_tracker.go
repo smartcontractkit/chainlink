@@ -400,7 +400,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", config.ChainArbitrum, config.ChainCelo, config.ChainGnosis, config.ChainKroma, config.ChainOptimismBedrock, config.ChainScroll, config.ChainWeMix, config.ChainXDai, config.ChainXLayer, config.ChainZkSync:
+	case "", config.ChainArbitrum, config.ChainCelo, config.ChainGnosis, config.ChainKroma, config.ChainOptimismBedrock, config.ChainScroll, config.ChainWeMix, config.ChainXLayer, config.ChainZkEvm, config.ChainZkSync:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

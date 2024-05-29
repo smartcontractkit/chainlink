@@ -18,7 +18,6 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -75,8 +74,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			Nodes:   evmcfg.EVMNodes{&node2_1},
 		})
 
-		c.Solana = solana.TOMLConfigs{
-			&solana.TOMLConfig{
+		c.Solana = solcfg.TOMLConfigs{
+			&solcfg.TOMLConfig{
 				ChainID: &solanaChainID1,
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
@@ -85,7 +84,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
 				}},
 			},
-			&solana.TOMLConfig{
+			&solcfg.TOMLConfig{
 				ChainID: &solanaChainID2,
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},

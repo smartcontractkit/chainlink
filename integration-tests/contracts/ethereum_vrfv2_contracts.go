@@ -629,12 +629,42 @@ func (v *EthereumVRFCoordinatorV2) FindSubscriptionID(subID uint64) (uint64, err
 	if err != nil {
 		return 0, err
 	}
-
 	if !subscriptionIterator.Next() {
 		return 0, fmt.Errorf("expected at least 1 subID for the given owner %s", owner)
 	}
-
 	return subscriptionIterator.Event.SubId, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) GetBlockHashStoreAddress(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	blockHashStoreAddress, err := v.coordinator.BLOCKHASHSTORE(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return blockHashStoreAddress, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) FilterRandomWordsFulfilledEvent(opts *bind.FilterOpts, requestId *big.Int) (*CoordinatorRandomWordsFulfilled, error) {
+	iterator, err := v.coordinator.FilterRandomWordsFulfilled(
+		opts,
+		[]*big.Int{requestId},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if !iterator.Next() {
+		return nil, fmt.Errorf("expected at least 1 RandomWordsFulfilled event for request Id: %s", requestId.String())
+	}
+	return &CoordinatorRandomWordsFulfilled{
+		RequestId:  iterator.Event.RequestId,
+		OutputSeed: iterator.Event.OutputSeed,
+		Payment:    iterator.Event.Payment,
+		Success:    iterator.Event.Success,
+		Raw:        iterator.Event.Raw,
+	}, nil
 }
 
 func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error) {

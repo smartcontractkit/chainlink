@@ -16,6 +16,7 @@ import (
 	eth "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -26,13 +27,13 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var ocr2vrfSmokeConfig *testconfig.TestConfig
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
+	// remember to add TOML config for Chainlink node before trying to run this test in future
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
 	config, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
@@ -45,7 +46,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 		return
 	}
 
-	testNetwork = utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
+	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
 	chainClient, err := actions_seth.GetChainClientWithConfigFunction(config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
@@ -108,7 +109,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 		return
 	}
 
-	testNetwork = utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
+	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
 	chainClient, err := actions_seth.GetChainClientWithConfigFunction(config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 

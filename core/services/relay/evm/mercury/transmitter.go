@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	capMercury "github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	capStreams "github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -388,27 +388,36 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	return report
 }
 
-func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, rs [][32]byte, ss [][32]byte, vs [32]byte) error {
-	var rsUnsized [][]byte
-	var ssUnsized [][]byte
-	for idx := range rs {
-		rsUnsized = append(rsUnsized, rs[idx][:])
-		ssUnsized = append(ssUnsized, ss[idx][:])
+func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, rawReportCtx [3][32]byte, signatures []ocrtypes.AttributedOnchainSignature) error {
+	rawSignatures := [][]byte{}
+	for _, sig := range signatures {
+		rawSignatures = append(rawSignatures, sig.Signature)
 	}
-	converted := capMercury.FeedReport{
-		FeedID:     mt.feedID.Hex(),
-		FullReport: report,
-		Rs:         rsUnsized,
-		Ss:         ssUnsized,
-		Vs:         vs[:],
+
+	reportContextFlat := []byte{}
+	reportContextFlat = append(reportContextFlat, rawReportCtx[0][:]...)
+	reportContextFlat = append(reportContextFlat, rawReportCtx[1][:]...)
+	reportContextFlat = append(reportContextFlat, rawReportCtx[2][:]...)
+
+	converted := capStreams.FeedReport{
+		FeedID:        mt.feedID.Hex(),
+		FullReport:    report,
+		ReportContext: reportContextFlat,
+		Signatures:    rawSignatures,
 		// NOTE: Skipping fields derived from FullReport, they will be filled out at a later stage
 		// after decoding and validating signatures.
 	}
-	return mt.triggerCapability.ProcessReport([]capMercury.FeedReport{converted})
+	return mt.triggerCapability.ProcessReport([]capStreams.FeedReport{converted})
 }
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
 func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
+	rawReportCtx := evmutil.RawReportContext(reportCtx)
+	if mt.triggerCapability != nil {
+		// Acting as a Capability - send report to trigger service and exit.
+		return mt.sendToTrigger(report, rawReportCtx, signatures)
+	}
+
 	var rs [][32]byte
 	var ss [][32]byte
 	var vs [32]byte
@@ -420,12 +429,6 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		rs = append(rs, r)
 		ss = append(ss, s)
 		vs[i] = v
-	}
-	rawReportCtx := evmutil.RawReportContext(reportCtx)
-
-	if mt.triggerCapability != nil {
-		// Acting as a Capability - send report to trigger service and exit.
-		return mt.sendToTrigger(report, rs, ss, vs)
 	}
 
 	payload, err := PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)

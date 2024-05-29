@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -46,7 +47,7 @@ func TestDoc(t *testing.T) {
 		fallbackDefaults := evmcfg.Defaults(nil)
 		docDefaults := defaults.EVM[0].Chain
 
-		require.Equal(t, "", *docDefaults.ChainType)
+		require.Equal(t, commonconfig.ChainType(""), docDefaults.ChainType.ChainType())
 		docDefaults.ChainType = nil
 
 		// clean up KeySpecific as a special case
@@ -86,6 +87,11 @@ func TestDoc(t *testing.T) {
 		docDefaults.ChainWriter.ForwarderAddress = nil
 		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
 
+		// Transactions.AutoPurge configs are only set if the feature is enabled
+		docDefaults.Transactions.AutoPurge.DetectionApiUrl = nil
+		docDefaults.Transactions.AutoPurge.Threshold = nil
+		docDefaults.Transactions.AutoPurge.MinAttempts = nil
+
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})
 
@@ -97,7 +103,7 @@ func TestDoc(t *testing.T) {
 	})
 
 	t.Run("Solana", func(t *testing.T) {
-		var fallbackDefaults solana.TOMLConfig
+		var fallbackDefaults solcfg.TOMLConfig
 		fallbackDefaults.SetDefaults()
 
 		assertTOML(t, fallbackDefaults.Chain, defaults.Solana[0].Chain)
