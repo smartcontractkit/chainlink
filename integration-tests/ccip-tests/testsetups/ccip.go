@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"dario.cat/mergo"
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -325,18 +324,6 @@ func (c *CCIPTestConfig) SetContractVersion() error {
 }
 
 func (c *CCIPTestConfig) SetOCRParams() error {
-	if c.TestGroupInput.CommitOCRParams != nil {
-		err := mergo.Merge(&contracts.OCR2ParamsForCommit, c.TestGroupInput.CommitOCRParams, mergo.WithOverride)
-		if err != nil {
-			return err
-		}
-	}
-	if c.TestGroupInput.ExecOCRParams != nil {
-		err := mergo.Merge(&contracts.OCR2ParamsForExec, c.TestGroupInput.ExecOCRParams, mergo.WithOverride)
-		if err != nil {
-			return err
-		}
-	}
 	if c.TestGroupInput.OffRampConfig != nil {
 		if c.TestGroupInput.OffRampConfig.InflightExpiry != nil &&
 			c.TestGroupInput.OffRampConfig.InflightExpiry.Duration() > 0 {
@@ -501,7 +488,7 @@ func (o *CCIPTestSetUpOutputs) SetupDynamicTokenPriceUpdates() error {
 		}
 		if _, exists := covered[lane.DestNetworkName]; !exists {
 			covered[lane.DestNetworkName] = struct{}{}
-			err := lane.Dest.Common.UpdateTokenPricesAtRegularInterval(lane.Context, lane.Logger, interval, o.LaneConfig.ReadLaneConfig(lane.SourceNetworkName))
+			err := lane.Dest.Common.UpdateTokenPricesAtRegularInterval(lane.Context, lane.Logger, interval, o.LaneConfig.ReadLaneConfig(lane.DestNetworkName))
 			if err != nil {
 				return err
 			}

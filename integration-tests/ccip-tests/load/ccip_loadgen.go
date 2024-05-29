@@ -239,7 +239,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 
 	destChainSelector, err := chain_selectors.SelectorFromChainId(sourceCCIP.DestinationChainId)
 	if err != nil {
-		res.Error = fmt.Sprintf("err %s - while getting selector from chainid ", err.Error())
+		res.Error = fmt.Sprintf("reqNo %d err %s - while getting selector from chainid", msgSerialNo, err.Error())
 		res.Failed = true
 		return res
 	}
@@ -248,7 +248,10 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	// if the token address is 0x0 it will use Native as fee token and the fee amount should be mentioned in bind.TransactOpts's value
 	fee, err := sourceCCIP.Common.Router.GetFee(destChainSelector, msg)
 	if err != nil {
-		res.Error = fmt.Sprintf("err %s - while getting fee from router ", err.Error())
+		res.Error = fmt.Sprintf("reqNo %d err %s - while getting fee from router - msg Data %x FeeToken %s TokenAmounts %+v ExtraArgs %x Receiver %x",
+			msgSerialNo, err.Error(),
+			msg.Data, msg.FeeToken, msg.TokenAmounts, msg.ExtraArgs, msg.Receiver)
+
 		res.Failed = true
 		return res
 	}
@@ -271,7 +274,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 
 	if err != nil {
 		stats.UpdateState(lggr, 0, testreporters.TX, time.Since(startTime), testreporters.Failure)
-		res.Error = fmt.Sprintf("failed to mark tx as sent on L2 %s", err.Error())
+		res.Error = fmt.Sprintf("reqNo %d failed to mark tx as sent on L2 %s", msgSerialNo, err.Error())
 		res.Data = stats.StatusByPhase
 		res.Failed = true
 		return res
