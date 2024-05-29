@@ -17,9 +17,10 @@ import (
 )
 
 type callerRequest interface {
-	AddResponse(sender p2ptypes.PeerID, response []byte) error
+	AddResponse(sender p2ptypes.PeerID, msg *types.MessageBody) error
 	ResponseChan() <-chan commoncap.CapabilityResponse
 	Expired() bool
+	Cancel(reason string)
 }
 
 // caller/Receiver are shims translating between capability API calls and network messages
@@ -71,6 +72,7 @@ func (c *caller) ExpireRequests() {
 
 	for messageID, req := range c.messageIDToExecuteRequest {
 		if req.Expired() {
+			req.Cancel("request expired")
 			delete(c.messageIDToExecuteRequest, messageID)
 		}
 	}
@@ -122,14 +124,12 @@ func (c *caller) Receive(msg *types.MessageBody) {
 		return
 	}
 
-	if msg.Error != types.Error_OK {
-		c.lggr.Warnw("received error response for pending request", "messageID", messageID, "sender", sender, "receiver", msg.Receiver, "error", msg.Error)
-		return
-	}
+	go func() {
+		if err := req.AddResponse(sender, msg); err != nil {
+			c.lggr.Errorw("failed to add response to request", "messageID", messageID, "sender", sender, "err", err)
+		}
+	}()
 
-	if err := req.AddResponse(sender, msg.Payload); err != nil {
-		c.lggr.Errorw("failed to add response to request", "messageID", messageID, "sender", sender, "err", err)
-	}
 }
 
 func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {

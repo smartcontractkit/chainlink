@@ -143,7 +143,7 @@ func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		assert.NotNil(t, response.Err)
+		assert.Equal(t, "failed to execute capability: an error", response.Err.Error())
 	}
 
 	capability := &TestErrorCapability{}
@@ -154,7 +154,7 @@ func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testRemoteTarget(t, ctx, capability, 10, 9, 10*time.Millisecond, 10, 9, 10*time.Minute, transmissionSchedule, responseTest)
+	testRemoteTarget(t, ctx, capability, 10, 9, 10*time.Minute, 10, 9, 10*time.Minute, transmissionSchedule, responseTest)
 }
 
 func testRemoteTarget(t *testing.T, ctx context.Context, underlying commoncap.TargetCapability, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,

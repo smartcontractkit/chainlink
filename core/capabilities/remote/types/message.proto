@@ -29,13 +29,15 @@ message MessageBody {
   string caller_don_id = 8;
   string method = 9;
   Error error = 10;
+  string errorMsg = 11;
 
   // payload contains a CapabilityRequest or CapabilityResponse
-  bytes payload = 11;
+  bytes payload = 12;
   oneof metadata {
-    TriggerRegistrationMetadata trigger_registration_metadata = 12;
-    TriggerEventMetadata trigger_event_metadata = 13;
+    TriggerRegistrationMetadata trigger_registration_metadata = 13;
+    TriggerEventMetadata trigger_event_metadata = 14;
   }
+
 }
 
 message TriggerRegistrationMetadata {

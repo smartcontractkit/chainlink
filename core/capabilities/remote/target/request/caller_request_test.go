@@ -81,6 +81,15 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 	rawResponse, err := pb.MarshalCapabilityResponse(capabilityResponse)
 	require.NoError(t, err)
 
+	msg := &types.MessageBody{
+		CapabilityId:    capInfo.ID,
+		CapabilityDonId: capDonInfo.ID,
+		CallerDonId:     workflowDonInfo.ID,
+		Method:          types.MethodExecute,
+		Payload:         rawResponse,
+		MessageId:       []byte("messageID"),
+	}
+
 	t.Run("Send second message with different response", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -100,10 +109,18 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 
 		rawResponse2, err := pb.MarshalCapabilityResponse(capabilityResponse2)
 		require.NoError(t, err)
+		msg2 := &types.MessageBody{
+			CapabilityId:    capInfo.ID,
+			CapabilityDonId: capDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
+			Method:          types.MethodExecute,
+			Payload:         rawResponse2,
+			MessageId:       []byte("messageID"),
+		}
 
-		err = request.AddResponse(capabilityPeers[0], rawResponse)
+		err = request.AddResponse(capabilityPeers[0], msg)
 		require.NoError(t, err)
-		err = request.AddResponse(capabilityPeers[1], rawResponse2)
+		err = request.AddResponse(capabilityPeers[1], msg2)
 		require.NoError(t, err)
 
 		select {
@@ -125,9 +142,9 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 
-		err = request.AddResponse(capabilityPeers[0], rawResponse)
+		err = request.AddResponse(capabilityPeers[0], msg)
 		require.NoError(t, err)
-		err = request.AddResponse(NewP2PPeerID(t), rawResponse)
+		err = request.AddResponse(NewP2PPeerID(t), msg)
 		require.NotNil(t, err)
 	})
 
@@ -143,10 +160,47 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 
-		err = request.AddResponse(capabilityPeers[0], rawResponse)
+		err = request.AddResponse(capabilityPeers[0], msg)
 		require.NoError(t, err)
-		err = request.AddResponse(capabilityPeers[0], rawResponse)
+		err = request.AddResponse(capabilityPeers[0], msg)
 		require.NotNil(t, err)
+	})
+
+	t.Run("Send second message with same error as first", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		messageID, err := target.GetMessageIDForRequest(capabilityRequest)
+		require.NoError(t, err)
+
+		dispatcher := &callerRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		request, err := request.NewCallerRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
+			workflowDonInfo, dispatcher, 10*time.Minute)
+		require.NoError(t, err)
+
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		assert.Equal(t, 0, len(dispatcher.msgs))
+
+		msgWithError := &types.MessageBody{
+			CapabilityId:    capInfo.ID,
+			CapabilityDonId: capDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
+			Method:          types.MethodExecute,
+			Payload:         rawResponse,
+			MessageId:       []byte("messageID"),
+			Error:           types.Error_INTERNAL_ERROR,
+			ErrorMsg:        "an error",
+		}
+
+		err = request.AddResponse(capabilityPeers[0], msgWithError)
+		require.NoError(t, err)
+		err = request.AddResponse(capabilityPeers[1], msgWithError)
+		require.NoError(t, err)
+
+		response := <-request.ResponseChan()
+
+		assert.Equal(t, "an error", response.Err.Error())
 	})
 
 	t.Run("Send second valid message", func(t *testing.T) {
@@ -165,9 +219,9 @@ func Test_CallerRequest_MessageValidation(t *testing.T) {
 		<-dispatcher.msgs
 		assert.Equal(t, 0, len(dispatcher.msgs))
 
-		err = request.AddResponse(capabilityPeers[0], rawResponse)
+		err = request.AddResponse(capabilityPeers[0], msg)
 		require.NoError(t, err)
-		err = request.AddResponse(capabilityPeers[1], rawResponse)
+		err = request.AddResponse(capabilityPeers[1], msg)
 		require.NoError(t, err)
 
 		response := <-request.ResponseChan()

@@ -22,6 +22,7 @@ type callerRequest struct {
 	responseCh       chan commoncap.CapabilityResponse
 	createdAt        time.Time
 	responseIDCount  map[[32]byte]int
+	errorCount       map[string]int
 	responseReceived map[p2ptypes.PeerID]bool
 
 	requiredIdenticalResponses int
@@ -87,6 +88,7 @@ func NewCallerRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		requestTimeout:             requestTimeout,
 		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
 		responseIDCount:            make(map[[32]byte]int),
+		errorCount:                 make(map[string]int),
 		responseReceived:           responseReceived,
 		responseCh:                 make(chan commoncap.CapabilityResponse, 1),
 	}, nil
@@ -97,19 +99,19 @@ func (c *callerRequest) ResponseChan() <-chan commoncap.CapabilityResponse {
 }
 
 func (c *callerRequest) Expired() bool {
+	return time.Since(c.createdAt) > c.requestTimeout
+}
+
+func (c *callerRequest) Cancel(reason string) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
-
-	if time.Since(c.createdAt) > c.requestTimeout {
-		c.cancelRequest("request timed out")
-		return true
+	if !c.respSent {
+		c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(reason)})
 	}
-
-	return false
 }
 
 // TODO addResponse assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated
-func (c *callerRequest) AddResponse(sender p2ptypes.PeerID, response []byte) error {
+func (c *callerRequest) AddResponse(sender p2ptypes.PeerID, msg *types.MessageBody) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -123,18 +125,24 @@ func (c *callerRequest) AddResponse(sender p2ptypes.PeerID, response []byte) err
 
 	c.responseReceived[sender] = true
 
-	responseID := sha256.Sum256(response)
-	c.responseIDCount[responseID]++
+	if msg.Error == types.Error_OK {
+		responseID := sha256.Sum256(msg.Payload)
+		c.responseIDCount[responseID]++
 
-	if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
-		capabilityResponse, err := pb.UnmarshalCapabilityResponse(response)
-		if err != nil {
-			c.sendResponse(commoncap.CapabilityResponse{Err: fmt.Errorf("failed to unmarshal capability response: %w", err)})
-		} else {
-			c.sendResponse(commoncap.CapabilityResponse{Value: capabilityResponse.Value})
+		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
+			capabilityResponse, err := pb.UnmarshalCapabilityResponse(msg.Payload)
+			if err != nil {
+				c.sendResponse(commoncap.CapabilityResponse{Err: fmt.Errorf("failed to unmarshal capability response: %w", err)})
+			} else {
+				c.sendResponse(commoncap.CapabilityResponse{Value: capabilityResponse.Value})
+			}
+		}
+	} else {
+		c.errorCount[msg.ErrorMsg]++
+		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
+			c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(msg.ErrorMsg)})
 		}
 	}
-
 	return nil
 }
 
@@ -142,10 +150,4 @@ func (c *callerRequest) sendResponse(response commoncap.CapabilityResponse) {
 	c.responseCh <- response
 	close(c.responseCh)
 	c.respSent = true
-}
-
-func (c *callerRequest) cancelRequest(reason string) {
-	if !c.respSent {
-		c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(reason)})
-	}
 }

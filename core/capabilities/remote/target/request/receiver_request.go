@@ -13,12 +13,15 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type receiverRequest struct {
-	lggr logger.Logger
+type response struct {
+	response []byte
+	error    types.Error
+	errorMsg string
+}
 
+type receiverRequest struct {
 	capability capabilities.TargetCapability
 
 	capabilityPeerId p2ptypes.PeerID
@@ -32,22 +35,20 @@ type receiverRequest struct {
 
 	createdTime time.Time
 
-	response      []byte
-	responseError types.Error
+	response *response
 
-	callingDon       commoncap.DON
+	callingDon commoncap.DON
+
 	requestMessageID string
-
-	requestTimeout time.Duration
+	requestTimeout   time.Duration
 
 	mux sync.Mutex
 }
 
-func NewReceiverRequest(lggr logger.Logger, capability capabilities.TargetCapability, capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
+func NewReceiverRequest(capability capabilities.TargetCapability, capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
 	callingDon commoncap.DON, requestMessageID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration) *receiverRequest {
 	return &receiverRequest{
-		lggr:                    lggr,
 		capability:              capability,
 		createdTime:             time.Now(),
 		capabilityID:            capabilityID,
@@ -73,34 +74,35 @@ func (e *receiverRequest) Receive(ctx context.Context, msg *types.MessageBody) e
 
 	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
 		if err := e.executeRequest(ctx, msg.Payload); err != nil {
-			e.setError(types.Error_INTERNAL_ERROR)
-			e.lggr.Errorw("failed to execute request", "error", err)
+			e.setError(types.Error_INTERNAL_ERROR, err.Error())
 		}
 	}
 
 	if err := e.sendResponses(); err != nil {
-		return fmt.Errorf("failed to send response to requesters: %w", err)
+		return fmt.Errorf("failed to send responses: %w", err)
 	}
 
 	return nil
 }
 
 func (e *receiverRequest) Expired() bool {
+	return time.Since(e.createdTime) > e.requestTimeout
+}
+
+func (e *receiverRequest) Cancel(err types.Error, msg string) error {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
-	if time.Since(e.createdTime) > e.requestTimeout {
-		if !e.hasResponse() {
-			e.setError(types.Error_TIMEOUT)
-			if err := e.sendResponses(); err != nil {
-				e.lggr.Errorw("failed to send timeout response to all requesters", "capabilityId", e.capabilityID, "err", err)
-			}
-		}
-
-		return true
+	if e.hasResponse() {
+		return fmt.Errorf("request already has response")
 	}
 
-	return false
+	e.setError(err, msg)
+	if err := e.sendResponses(); err != nil {
+		return fmt.Errorf("failed to send responses: %w", err)
+	}
+
+	return nil
 }
 
 func (e *receiverRequest) executeRequest(ctx context.Context, payload []byte) error {
@@ -158,15 +160,20 @@ func (e *receiverRequest) minimumRequiredRequestsReceived() bool {
 }
 
 func (e *receiverRequest) setResult(result []byte) {
-	e.response = result
+	e.response = &response{
+		response: result,
+	}
 }
 
-func (e *receiverRequest) setError(err types.Error) {
-	e.responseError = err
+func (e *receiverRequest) setError(err types.Error, errMsg string) {
+	e.response = &response{
+		error:    err,
+		errorMsg: errMsg,
+	}
 }
 
 func (e *receiverRequest) hasResponse() bool {
-	return e.response != nil || e.responseError != types.Error_OK
+	return e.response != nil
 }
 
 func (e *receiverRequest) sendResponses() error {
@@ -196,10 +203,11 @@ func (e *receiverRequest) sendResponse(requester p2ptypes.PeerID) error {
 		Receiver:        requester[:],
 	}
 
-	if e.responseError != types.Error_OK {
-		responseMsg.Error = e.responseError
+	if e.response.error != types.Error_OK {
+		responseMsg.Error = e.response.error
+		responseMsg.ErrorMsg = e.response.errorMsg
 	} else {
-		responseMsg.Payload = e.response
+		responseMsg.Payload = e.response.response
 	}
 
 	if err := e.dispatcher.Send(requester, &responseMsg); err != nil {

@@ -19,6 +19,7 @@ import (
 type receiverRequest interface {
 	Receive(ctx context.Context, msg *types.MessageBody) error
 	Expired() bool
+	Cancel(err types.Error, msg string) error
 }
 
 type remoteTargetReceiver struct {
@@ -77,6 +78,10 @@ func (r *remoteTargetReceiver) ExpireRequests() {
 
 	for requestID, executeReq := range r.requestIDToRequest {
 		if executeReq.Expired() {
+			err := executeReq.Cancel(types.Error_TIMEOUT, "request expired")
+			if err != nil {
+				r.lggr.Errorw("failed to cancel request", "request", executeReq, "err", err)
+			}
 			delete(r.requestIDToRequest, requestID)
 		}
 	}
@@ -88,9 +93,6 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 	defer r.receiveLock.Unlock()
 	// TODO should the dispatcher be passing in a context?
 	ctx := context.Background()
-
-	// TODO Confirm threading semantics of dispatcher Receive
-	// TODO May want to have executor per message id to improve liveness
 
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
@@ -105,10 +107,10 @@ func (r *remoteTargetReceiver) Receive(msg *types.MessageBody) {
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
 		if callingDon, ok := r.workflowDONs[msg.CallerDonId]; ok {
-			r.requestIDToRequest[requestID] = request.NewReceiverRequest(r.lggr, r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
+			r.requestIDToRequest[requestID] = request.NewReceiverRequest(r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
 				callingDon, messageId, r.dispatcher, r.requestTimeout)
 		} else {
-			r.lggr.Errorw("received request from unregistered workflow don", "donId", msg.CallerDonId)
+			r.lggr.Errorw("received request from unregistered don", "donId", msg.CallerDonId)
 			return
 		}
 	}

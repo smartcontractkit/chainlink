@@ -16,12 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 func Test_ReceiverRequest_MessageValidation(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	capability := TestCapability{}
 	capabilityPeerID := NewP2PPeerID(t)
 
@@ -58,24 +56,24 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Send duplicate message", func(t *testing.T) {
-		request := request.NewReceiverRequest(lggr, capability, "capabilityID", "capabilityDonID",
+		req := request.NewReceiverRequest(capability, "capabilityID", "capabilityDonID",
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
 
-		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
+		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
-		err = sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
+		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		assert.NotNil(t, err)
 	})
 
 	t.Run("Send message with non calling don peer", func(t *testing.T) {
-		request := request.NewReceiverRequest(lggr, capability, "capabilityID", "capabilityDonID",
+		req := request.NewReceiverRequest(capability, "capabilityID", "capabilityDonID",
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
 
-		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
+		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
 
 		nonDonPeer := NewP2PPeerID(t)
-		err = request.Receive(context.Background(), &types.MessageBody{
+		err = req.Receive(context.Background(), &types.MessageBody{
 			Version:         0,
 			Sender:          nonDonPeer[:],
 			Receiver:        capabilityPeerID[:],
@@ -91,13 +89,13 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send message invalid payload", func(t *testing.T) {
-		request := request.NewReceiverRequest(lggr, capability, "capabilityID", "capabilityDonID",
+		req := request.NewReceiverRequest(capability, "capabilityID", "capabilityDonID",
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
 
-		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
+		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
 
-		err = request.Receive(context.Background(), &types.MessageBody{
+		err = req.Receive(context.Background(), &types.MessageBody{
 			Version:         0,
 			Sender:          workflowPeers[1][:],
 			Receiver:        capabilityPeerID[:],
@@ -118,13 +116,13 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 	t.Run("Send second valid request when capability errors", func(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
-		request := request.NewReceiverRequest(lggr, TestErrorCapability{}, "capabilityID", "capabilityDonID",
+		req := request.NewReceiverRequest(TestErrorCapability{}, "capabilityID", "capabilityDonID",
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
 
-		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
+		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
 
-		err = request.Receive(context.Background(), &types.MessageBody{
+		err = req.Receive(context.Background(), &types.MessageBody{
 			Version:         0,
 			Sender:          workflowPeers[1][:],
 			Receiver:        capabilityPeerID[:],
@@ -138,13 +136,15 @@ func Test_ReceiverRequest_MessageValidation(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, len(dispatcher.msgs))
 		assert.Equal(t, dispatcher.msgs[0].Error, types.Error_INTERNAL_ERROR)
+		assert.Equal(t, dispatcher.msgs[0].ErrorMsg, "failed to execute capability: an error")
 		assert.Equal(t, dispatcher.msgs[1].Error, types.Error_INTERNAL_ERROR)
+		assert.Equal(t, dispatcher.msgs[1].ErrorMsg, "failed to execute capability: an error")
 
 	})
 
 	t.Run("Send second valid request", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
-		request := request.NewReceiverRequest(lggr, capability, "capabilityID", "capabilityDonID",
+		request := request.NewReceiverRequest(capability, "capabilityID", "capabilityDonID",
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
 
 		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
