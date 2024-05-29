@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-Remove deprecated app.shortcut links
+#updated Remove deprecated app.shortcut links
