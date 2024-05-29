@@ -18,7 +18,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -41,6 +40,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -293,7 +293,7 @@ type OperatorContracts struct {
 	multiWord                 *multiwordconsumer_wrapper.MultiWordConsumer
 	singleWord                *consumer_wrapper.Consumer
 	operator                  *operator_wrapper.Operator
-	sim                       *backends.SimulatedBackend
+	sim                       *simulated.Backend
 }
 
 func setupOperatorContracts(t *testing.T) OperatorContracts {
@@ -635,7 +635,7 @@ observationSource   = """
 	})
 }
 
-func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
+func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
 	owner := testutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000000", 10) // 1000 eth
@@ -680,7 +680,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
-	b *backends.SimulatedBackend, overrides func(c *chainlink.Config, s *chainlink.Secrets),
+	b *simulated.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
 	ctx := testutils.Context(t)
 	p2pKey := keystest.NewP2PKeyV2(t)
@@ -726,7 +726,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 	return app, p2pKey.PeerID().Raw(), transmitter, key
 }
 
-func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 int, b *backends.SimulatedBackend, overrides func(c *chainlink.Config, s *chainlink.Secrets)) (*cltest.TestApplication, string, common.Address, common.Address, ocrkey.KeyV2) {
+func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 int, b *simulated.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets)) (*cltest.TestApplication, string, common.Address, common.Address, ocrkey.KeyV2) {
 	ctx := testutils.Context(t)
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {

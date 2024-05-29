@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,9 +53,9 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	require.NoError(t, err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err)
-	b := backends.NewSimulatedBackend(core.GenesisAlloc{
+	b := simulated.NewBackend(types.GenesisAlloc{
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
-		5*ethconfig.Defaults.Miner.GasCeil)
+		simulated.WithBlockGasLimit(5*ethconfig.Defaults.Miner.GasCeil))
 	defer b.Close()
 	linkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(user, b)
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	ocrAddress, _, ocrContract, err := ocr2aggregator.DeployOCR2Aggregator(
 		user,
-		b,
+		b.Client(),
 		linkTokenAddress,
 		big.NewInt(0),
 		big.NewInt(10),

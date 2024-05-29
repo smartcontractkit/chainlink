@@ -17,11 +17,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -64,13 +63,13 @@ type ocr2Node struct {
 	keybundle            ocr2key.KeyBundle
 }
 
-func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *ocr2aggregator.OCR2Aggregator) {
+func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, common.Address, *ocr2aggregator.OCR2Aggregator) {
 	owner := testutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
-	genesisData := core.GenesisAlloc{owner.From: {Balance: sb}}
+	genesisData := types.GenesisAlloc{owner.From: {Balance: sb}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
-	b := backends.NewSimulatedBackend(genesisData, gasLimit)
+	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(gasLimit))
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
 	require.NoError(t, err)
 	accessAddress, _, _, err := testoffchainaggregator2.DeploySimpleWriteAccessController(owner, b)
@@ -108,7 +107,7 @@ func setupNodeOCR2(
 	owner *bind.TransactOpts,
 	port int,
 	useForwarder bool,
-	b *backends.SimulatedBackend,
+	b *simulated.Backend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
 	ctx := testutils.Context(t)
@@ -619,7 +618,7 @@ updateInterval = "1m"
 	}
 }
 
-func initOCR2(t *testing.T, lggr logger.Logger, b *backends.SimulatedBackend,
+func initOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 	ocrContract *ocr2aggregator.OCR2Aggregator,
 	owner *bind.TransactOpts,
 	bootstrapNode *ocr2Node,

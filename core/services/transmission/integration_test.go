@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/require"
@@ -42,7 +41,7 @@ type EntryPointUniverse struct {
 	holder1               *bind.TransactOpts
 	holder1Key            ethkey.KeyV2
 	holder2               *bind.TransactOpts
-	backend               *backends.SimulatedBackend
+	backend               *simulated.Backend
 	entryPointAddress     common.Address
 	entryPoint            *entry_point.EntryPoint
 	factoryAddress        common.Address

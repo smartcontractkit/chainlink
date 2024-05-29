@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -76,7 +75,7 @@ var (
 func deployKeeper20Registry(
 	t *testing.T,
 	auth *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	linkAddr, linkFeedAddr,
 	gasFeedAddr common.Address,
 ) *keeper_registry_wrapper2_0.KeeperRegistry {
@@ -108,7 +107,7 @@ func setupNode(
 	t *testing.T,
 	port int,
 	nodeKey ethkey.KeyV2,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	mercury mercury.MercuryEndpointMock,
 ) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
@@ -192,7 +191,7 @@ func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address,
 	return addresses, nil
 }
 
-func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend *simulated.Backend) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -424,7 +423,7 @@ func setupForwarderForNode(
 	t *testing.T,
 	app chainlink.Application,
 	caller *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	recipient common.Address,
 	linkAddr common.Address) common.Address {
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend, linkAddr, caller.From, recipient, []byte{})

@@ -29,6 +29,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -58,7 +59,7 @@ func ptr[T any](v T) *T { return &v }
 
 var allowListPrivateKey = "0xae78c8b502571dba876742437f8bc78b689cf8518356c0921393d89caaf284ce"
 
-func SetOracleConfig(t *testing.T, b *backends.SimulatedBackend, owner *bind.TransactOpts, coordinatorContract *functions_coordinator.FunctionsCoordinator, oracles []confighelper2.OracleIdentityExtra, batchSize int, functionsPluginConfig *functionsConfig.ReportingPluginConfig) {
+func SetOracleConfig(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, coordinatorContract *functions_coordinator.FunctionsCoordinator, oracles []confighelper2.OracleIdentityExtra, batchSize int, functionsPluginConfig *functionsConfig.ReportingPluginConfig) {
 	S := make([]int, len(oracles))
 	for i := 0; i < len(S); i++ {
 		S[i] = 1
@@ -109,7 +110,7 @@ func SetOracleConfig(t *testing.T, b *backends.SimulatedBackend, owner *bind.Tra
 	CommitWithFinality(b)
 }
 
-func CreateAndFundSubscriptions(t *testing.T, b *backends.SimulatedBackend, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
+func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
 	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
 	if !allowed {
@@ -152,7 +153,7 @@ func CreateAndFundSubscriptions(t *testing.T, b *backends.SimulatedBackend, owne
 
 const finalityDepth int = 4
 
-func CommitWithFinality(b *backends.SimulatedBackend) {
+func CommitWithFinality(b *simulated.Backend) {
 	for i := 0; i < finalityDepth; i++ {
 		b.Commit()
 	}
@@ -168,7 +169,7 @@ type Coordinator struct {
 	Contract *functions_coordinator.FunctionsCoordinator
 }
 
-func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *backends.SimulatedBackend, *time.Ticker, Coordinator, Coordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
+func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *simulated.Backend, *time.Ticker, Coordinator, Coordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
 	owner := testutils.MustNewSimTransactor(t)
 	owner.GasPrice = big.NewInt(int64(DefaultGasPrice))
 	sb := new(big.Int)
@@ -275,7 +276,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	return owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
 }
 
-func SetupRouterRoutes(t *testing.T, b *backends.SimulatedBackend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {
+func SetupRouterRoutes(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {
 	allowListId, err := routerContract.GetAllowListId(nilOpts)
 	require.NoError(t, err)
 	var donId [32]byte
@@ -311,7 +312,7 @@ func StartNewNode(
 	t *testing.T,
 	owner *bind.TransactOpts,
 	port int,
-	b *backends.SimulatedBackend,
+	b *simulated.Backend,
 	maxGas uint32,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	ocr2Keystore []byte,
@@ -539,7 +540,7 @@ func GetExpectedResponse(source []byte) [32]byte {
 func CreateFunctionsNodes(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	b *backends.SimulatedBackend,
+	b *simulated.Backend,
 	routerAddress common.Address,
 	nOracleNodes int,
 	maxGas int,
@@ -595,7 +596,7 @@ func CreateFunctionsNodes(
 func ClientTestRequests(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	b *backends.SimulatedBackend,
+	b *simulated.Backend,
 	linkToken *link_token_interface.LinkToken,
 	routerAddress common.Address,
 	routerContract *functions_router.FunctionsRouter,

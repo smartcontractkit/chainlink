@@ -7,11 +7,11 @@ import (
 	"unsafe"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -28,12 +28,12 @@ func TestConfigCalculationMatches(t *testing.T) {
 	require.NoError(t, err, "could not make private key for EOA owner")
 	owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err)
-	backend := backends.NewSimulatedBackend(
-		core.GenesisAlloc{owner.From: {Balance: new(big.Int).Lsh(big.NewInt(1), 60)}},
-		ethconfig.Defaults.Miner.GasCeil,
+	backend := simulated.NewBackend(
+		types.GenesisAlloc{owner.From: {Balance: new(big.Int).Lsh(big.NewInt(1), 60)}},
+		simulated.WithBlockGasLimit(ethconfig.Defaults.Miner.GasCeil),
 	)
 	_, _, eoa, err := exposed_verifier.DeployExposedVerifier(
-		owner, backend,
+		owner, backend.Client(),
 	)
 	backend.Commit()
 	require.NoError(t, err, "could not deploy test EOA")

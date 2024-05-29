@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -393,7 +392,7 @@ func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.
 }
 
 // waitLogPoller waits until the log poller is familiar with the given block
-func waitLogPoller(ctx context.Context, t *testing.T, backend *backends.SimulatedBackend, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) {
+func waitLogPoller(ctx context.Context, t *testing.T, backend *simulated.Backend, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) {
 	t.Log("waiting for log poller to get updated")
 	// let the log poller work
 	b, err := ethClient.BlockByHash(ctx, backend.Commit())
@@ -421,7 +420,7 @@ func pollFn(ctx context.Context, t *testing.T, lp logpoller.LogPollerTest, ethCl
 func triggerEvents(
 	ctx context.Context,
 	t *testing.T,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	account *bind.TransactOpts,
 	rounds int,
 	poll func(blockHash common.Hash),
@@ -450,7 +449,7 @@ func deployUpkeepCounter(
 	t *testing.T,
 	n int,
 	ethClient *evmclient.SimulatedBackendClient,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	account *bind.TransactOpts,
 	logProvider logprovider.LogEventProvider,
 ) (
@@ -494,7 +493,7 @@ func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerC
 	}
 }
 
-func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
+func setupDependencies(t *testing.T, db *sqlx.DB, backend *simulated.Backend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
@@ -522,7 +521,7 @@ func setup(lggr logger.Logger, poller logpoller.LogPoller, c evmclient.Client, s
 	return provider, recoverer
 }
 
-func setupBackend(t *testing.T) (*backends.SimulatedBackend, func(), []*bind.TransactOpts) {
+func setupBackend(t *testing.T) (*simulated.Backend, func(), []*bind.TransactOpts) {
 	sergey := testutils.MustNewSimTransactor(t) // owns all the link
 	steve := testutils.MustNewSimTransactor(t)  // registry owner
 	carrol := testutils.MustNewSimTransactor(t) // upkeep owner

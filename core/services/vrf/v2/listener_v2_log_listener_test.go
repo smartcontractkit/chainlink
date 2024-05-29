@@ -10,9 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
@@ -86,7 +84,6 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	blockTime := time.UnixMilli(int64(h.Time))
 	err = backend.AdjustTime(time.Since(blockTime) - FirstBlockAge)
 	require.NoError(t, err)
-	backend.Commit()
 
 	esc := client.NewSimulatedBackendClient(t, backend, chainID)
 	// Mark genesis block as finalized to avoid any nulls in the tests
@@ -815,15 +812,15 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
 
 	// Construct CoordinatorV2_X object for VRF listener
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	b := simulated.NewBackend(ethtypes.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
-	_, _, vrfLogEmitter, err := vrf_log_emitter.DeployVRFLogEmitter(owner, ec)
+	}, simulated.WithBlockGasLimit(10e6))
+	_, _, vrfLogEmitter, err := vrf_log_emitter.DeployVRFLogEmitter(owner, b.Client())
 	require.NoError(t, err)
-	ec.Commit()
-	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(vrfLogEmitter.Address(), ec)
+	b.Commit()
+	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(vrfLogEmitter.Address(), b.Client())
 	require.Nil(t, err)
 	coordinator := NewCoordinatorV2(coordinatorV2)
 

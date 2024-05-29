@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -31,7 +30,7 @@ type contract struct {
 	contract *bind.BoundContract
 	address  common.Address
 	abi      *abi.ABI
-	backend  *backends.SimulatedBackend
+	backend  *simulated.Backend
 }
 
 // deployVRFContract returns a deployed VRF contract, with some extra attributes
@@ -60,7 +59,7 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 // estimateGas returns the estimated gas cost of running the given method on the
 // contract at address to, on the given backend, with the given args, and given
 // that the transaction is sent from the from address.
-func estimateGas(t *testing.T, backend *backends.SimulatedBackend,
+func estimateGas(t *testing.T, backend *simulated.Backend,
 	from, to common.Address, abi *abi.ABI, method string, args ...interface{},
 ) uint64 {
 	rawData, err := abi.Pack(method, args...)

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -559,7 +558,7 @@ func startMercuryServer(t *testing.T, mercuryServer *mercury.SimulatedMercurySer
 	})
 }
 
-func makeDummyBlocks(t *testing.T, backend *backends.SimulatedBackend, interval time.Duration, count int) {
+func makeDummyBlocks(t *testing.T, backend *simulated.Backend, interval time.Duration, count int) {
 	go func() {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
 		defer cancel()
@@ -593,7 +592,7 @@ func mapListener(m *sync.Map, n int) func() bool {
 	}
 }
 
-func listenPerformedN(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64, count int) (func() bool, func()) {
+func listenPerformedN(t *testing.T, backend *simulated.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64, count int) (func() bool, func()) {
 	cache := &sync.Map{}
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	start := startBlock
@@ -645,11 +644,11 @@ func listenPerformedN(t *testing.T, backend *backends.SimulatedBackend, registry
 	return mapListener(cache, count), cancel
 }
 
-func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
+func listenPerformed(t *testing.T, backend *simulated.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
 	return listenPerformedN(t, backend, registry, ids, startBlock, 0)
 }
 
-func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts, useBufferV1 bool) ([]Node, *mercury.SimulatedMercuryServer) {
+func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *simulated.Backend, usr *bind.TransactOpts, useBufferV1 bool) ([]Node, *mercury.SimulatedMercuryServer) {
 	lggr := logger.TestLogger(t)
 	mServer := mercury.NewSimulatedMercuryServer()
 	mServer.Start()
@@ -805,7 +804,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	return nodes, mServer
 }
 
-func deployUpkeeps(t *testing.T, backend *backends.SimulatedBackend, carrol, steve *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registry *iregistry21.IKeeperRegistryMaster, n int) ([]*big.Int, []common.Address, []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
+func deployUpkeeps(t *testing.T, backend *simulated.Backend, carrol, steve *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registry *iregistry21.IKeeperRegistryMaster, n int) ([]*big.Int, []common.Address, []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
 	ids := make([]*big.Int, n)
 	addrs := make([]common.Address, n)
 	contracts := make([]*log_upkeep_counter_wrapper.LogUpkeepCounter, n)
@@ -834,7 +833,7 @@ func deployUpkeeps(t *testing.T, backend *backends.SimulatedBackend, carrol, ste
 	return ids, addrs, contracts
 }
 
-func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, upkeepAddr common.Address, carrol, steve *bind.TransactOpts, backend *backends.SimulatedBackend) *big.Int {
+func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, upkeepAddr common.Address, carrol, steve *bind.TransactOpts, backend *simulated.Backend) *big.Int {
 	logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
 	logTriggerConfig, err := abi.Encode(map[string]interface{}{
 		"contractAddress": upkeepAddr,
@@ -857,7 +856,7 @@ func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, u
 func deployKeeper21Registry(
 	t *testing.T,
 	auth *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	linkAddr, linkFeedAddr,
 	gasFeedAddr common.Address,
 ) *iregistry21.IKeeperRegistryMaster {
@@ -898,7 +897,7 @@ func deployKeeper21Registry(
 	return registryMaster
 }
 
-func getUpkeepIdFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *gethtypes.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *gethtypes.Transaction, backend *simulated.Backend) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -912,7 +911,7 @@ type registerAndFundFunc func(*testing.T, common.Address, *bind.TransactOpts, ui
 func registerAndFund(
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	linkToken *link_token_interface.LinkToken,
 ) registerAndFundFunc {
 	return func(t *testing.T, upkeepAddr common.Address, upkeepOwner *bind.TransactOpts, trigger uint8, config []byte) *big.Int {
@@ -967,7 +966,7 @@ type feedLookupUpkeepController struct {
 }
 
 func newFeedLookupUpkeepController(
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	protocolOwner *bind.TransactOpts,
 ) (*feedLookupUpkeepController, error) {
 	addr, _, contract, err := dummy_protocol_wrapper.DeployDummyProtocol(protocolOwner, backend)
@@ -986,7 +985,7 @@ func newFeedLookupUpkeepController(
 
 func (c *feedLookupUpkeepController) DeployUpkeeps(
 	t *testing.T,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	owner *bind.TransactOpts,
 	count int,
 	checkErrResultsProvider func(i int) bool,
@@ -1032,7 +1031,7 @@ func (c *feedLookupUpkeepController) RegisterAndFund(
 	t *testing.T,
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	linkToken *link_token_interface.LinkToken,
 ) error {
 	ids := make([]*big.Int, len(c.contracts))
@@ -1064,7 +1063,7 @@ func (c *feedLookupUpkeepController) RegisterAndFund(
 
 func (c *feedLookupUpkeepController) EnableMercury(
 	t *testing.T,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
 ) error {
@@ -1111,7 +1110,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 
 func (c *feedLookupUpkeepController) VerifyEnv(
 	t *testing.T,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
 ) error {
@@ -1155,7 +1154,7 @@ func (c *feedLookupUpkeepController) VerifyEnv(
 
 func (c *feedLookupUpkeepController) EmitEvents(
 	t *testing.T,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	count int,
 	afterEmit func(),
 ) error {

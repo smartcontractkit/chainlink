@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -32,6 +32,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -59,7 +60,7 @@ import (
 
 type ocr2vrfUniverse struct {
 	owner   *bind.TransactOpts
-	backend *backends.SimulatedBackend
+	backend *simulated.Backend
 
 	dkgAddress common.Address
 	dkg        *dkg_wrapper.DKG
@@ -106,7 +107,7 @@ func setupOCR2VRFContracts(
 			Balance: assets.Ether(100).ToInt(),
 		},
 	}
-	b := backends.NewSimulatedBackend(genesisData, ethconfig.Defaults.Miner.GasCeil*2)
+	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(ethconfig.Defaults.Miner.GasCeil*2))
 
 	// deploy OCR2VRF contracts, which have the following deploy order:
 	// * link token
@@ -221,7 +222,7 @@ func setupNodeOCR2(
 	owner *bind.TransactOpts,
 	port int,
 	dbName string,
-	b *backends.SimulatedBackend,
+	b *simulated.Backend,
 	useForwarders bool,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
