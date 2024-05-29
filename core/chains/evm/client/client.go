@@ -337,14 +337,9 @@ func (client *client) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.He
 	forwardCh, csf := newChainIDSubForwarder(client.ConfiguredChainID(), ch)
 	err := csf.start(client.pool.EthSubscribe(ctx, ch, "newHeads"))
 	if err != nil {
-		fmt.Println("HEREEE!!")
 		return nil, nil, err
 	}
 	return forwardCh, csf, nil
-}
-
-func (client *client) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
-	return client.pool.EthSubscribe(ctx, channel, args...)
 }
 
 func (client *client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {

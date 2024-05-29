@@ -60,7 +60,6 @@ type EvmRpcClient interface {
 	SequenceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (evmtypes.Nonce, error)
 	SetAliveLoopSub(_a0 commontypes.Subscription)
 	SimulateTransaction(ctx context.Context, tx *types.Transaction) error
-	Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
 	SubscribersCount() int32
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
@@ -135,7 +134,7 @@ func NewRPCClient(
 
 func (r *RpcClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
 	channel := make(chan *evmtypes.Head)
-	sub, err := r.Subscribe(ctx, channel)
+	sub, err := r.subscribe(ctx, channel)
 	return channel, sub, err
 }
 
@@ -395,7 +394,7 @@ func (r *RpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	return err
 }
 
-func (r *RpcClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error) {
+func (r *RpcClient) subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error) {
 	ctx, cancel, ws, _ := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("args", args)

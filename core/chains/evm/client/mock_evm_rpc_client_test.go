@@ -823,39 +823,6 @@ func (_m *MockEvmRpcClient) SimulateTransaction(ctx context.Context, tx *coretyp
 	return r0
 }
 
-// Subscribe provides a mock function with given fields: ctx, channel, args
-func (_m *MockEvmRpcClient) Subscribe(ctx context.Context, channel chan<- *types.Head, args ...interface{}) (commontypes.Subscription, error) {
-	var _ca []interface{}
-	_ca = append(_ca, ctx, channel)
-	_ca = append(_ca, args...)
-	ret := _m.Called(_ca...)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Subscribe")
-	}
-
-	var r0 commontypes.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *types.Head, ...interface{}) (commontypes.Subscription, error)); ok {
-		return rf(ctx, channel, args...)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *types.Head, ...interface{}) commontypes.Subscription); ok {
-		r0 = rf(ctx, channel, args...)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(commontypes.Subscription)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- *types.Head, ...interface{}) error); ok {
-		r1 = rf(ctx, channel, args...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // SubscribeFilterLogs provides a mock function with given fields: ctx, q, ch
 func (_m *MockEvmRpcClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- coretypes.Log) (ethereum.Subscription, error) {
 	ret := _m.Called(ctx, q, ch)

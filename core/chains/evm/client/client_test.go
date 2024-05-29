@@ -10,11 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	pkgerrors "github.com/pkg/errors"
+
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -22,8 +26,6 @@ import (
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
@@ -61,12 +63,14 @@ func mustNewClients(t *testing.T, wsURL string, sendonlys ...url.URL) []client.C
 	return clients
 }
 
+/*
 func mustNewClientsWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) []client.Client {
 	var clients []client.Client
 	clients = append(clients, mustNewClientWithChainID(t, wsURL, chainID, sendonlys...))
 	clients = append(clients, mustNewChainClientWithChainID(t, wsURL, chainID, sendonlys...))
 	return clients
 }
+*/
 
 func TestEthClient_TransactionReceipt(t *testing.T) {
 	t.Parallel()
