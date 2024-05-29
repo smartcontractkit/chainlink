@@ -1,7 +1,0 @@
-SELECT FROM  (
-    SELECT id, block_number, block_hash, log_index
-        FROM evm.log_poller_filters f JOIN evm.logs l ON
-            f.evm_chain_id = l.evm_chain_id AND f.address = l.address AND f.event = l.event_sig
-        WHERE f.evm_chain_id=5
-    GROUP BY f.id, l.block_number, l.block_hash, l.log_index
-) x order by block_number, log_index;
