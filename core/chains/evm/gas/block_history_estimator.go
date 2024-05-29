@@ -337,8 +337,7 @@ func (b *BlockHistoryEstimator) haltBumping(attempts []EvmPriorAttempt) error {
 	if !b.initialFetch.Load() {
 		return errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
 	}
-	// Return nil to allow bumping to proceed if gas price is nil or if EIP1559 is enabled and tip cap is nil
-	// Do not halt bumping in case this is an issue with the head tracker to prevent transactions from getting backed up
+	// Return error to prevent bumping if gas price is nil or if EIP1559 is enabled and tip cap is nil
 	if maxGasPrice == nil || (b.eConfig.EIP1559DynamicFees() && maxTipCap == nil) {
 		errorMsg := fmt.Sprintf("%d percentile price is not set. This is likely because there aren't any valid transactions to estimate from. Preventing bumping until valid price is available to compare", percentile)
 		b.logger.Debugf(errorMsg)
