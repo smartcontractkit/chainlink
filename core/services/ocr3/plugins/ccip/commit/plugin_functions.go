@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/ccipocr3/internal/reader"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -83,40 +84,55 @@ func observeNewMsgs(
 	msgScanBatchSize int,
 ) ([]model.CCIPMsg, error) {
 	// Find the new msgs for each supported chain based on the discovered max sequence numbers.
-	observedNewMsgs := make([]model.CCIPMsg, 0)
+	newMsgsPerChain := make([][]model.CCIPMsg, len(maxSeqNumsPerChain))
+	eg := new(errgroup.Group)
 
-	for _, seqNumChain := range maxSeqNumsPerChain {
+	for chainIdx, seqNumChain := range maxSeqNumsPerChain {
 		if !readableChains.Contains(seqNumChain.ChainSel) {
 			lggr.Debugw("reading chain is not supported", "chain", seqNumChain.ChainSel)
 			continue
 		}
 
-		minSeqNum := seqNumChain.SeqNum + 1
-		maxSeqNum := minSeqNum + model.SeqNum(msgScanBatchSize)
-		lggr.Debugw("scanning for new messages",
-			"chain", seqNumChain.ChainSel, "minSeqNum", minSeqNum, "maxSeqNum", maxSeqNum)
+		seqNumChain := seqNumChain
+		chainIdx := chainIdx
+		eg.Go(func() error {
+			minSeqNum := seqNumChain.SeqNum + 1
+			maxSeqNum := minSeqNum + model.SeqNum(msgScanBatchSize)
+			lggr.Debugw("scanning for new messages",
+				"chain", seqNumChain.ChainSel, "minSeqNum", minSeqNum, "maxSeqNum", maxSeqNum)
 
-		newMsgs, err := ccipReader.MsgsBetweenSeqNums(
-			ctx, []model.ChainSelector{seqNumChain.ChainSel}, model.NewSeqNumRange(minSeqNum, maxSeqNum))
-		if err != nil {
-			return nil, fmt.Errorf("get messages between seq nums: %w", err)
-		}
-
-		if len(newMsgs) > 0 {
-			lggr.Debugw("discovered new messages", "chain", seqNumChain.ChainSel, "newMsgs", len(newMsgs))
-		} else {
-			lggr.Debugw("no new messages discovered", "chain", seqNumChain.ChainSel)
-		}
-
-		for _, msg := range newMsgs {
-			if err := msg.IsValid(); err != nil {
-				lggr.Warnw("invalid message discovered", "msg", msg, "err", err)
-				continue
+			newMsgs, err := ccipReader.MsgsBetweenSeqNums(
+				ctx, []model.ChainSelector{seqNumChain.ChainSel}, model.NewSeqNumRange(minSeqNum, maxSeqNum))
+			if err != nil {
+				return fmt.Errorf("get messages between seq nums: %w", err)
 			}
-			observedNewMsgs = append(observedNewMsgs, msg)
-		}
+
+			if len(newMsgs) > 0 {
+				lggr.Debugw("discovered new messages", "chain", seqNumChain.ChainSel, "newMsgs", len(newMsgs))
+			} else {
+				lggr.Debugw("no new messages discovered", "chain", seqNumChain.ChainSel)
+			}
+
+			for _, msg := range newMsgs {
+				if err := msg.IsValid(); err != nil {
+					lggr.Warnw("invalid message discovered", "msg", msg, "err", err)
+					continue
+				}
+			}
+
+			newMsgsPerChain[chainIdx] = newMsgs
+			return nil
+		})
 	}
 
+	if err := eg.Wait(); err != nil {
+		return nil, fmt.Errorf("wait for new msg observations: %w", err)
+	}
+
+	observedNewMsgs := make([]model.CCIPMsg, 0)
+	for chainIdx := range maxSeqNumsPerChain {
+		observedNewMsgs = append(observedNewMsgs, newMsgsPerChain[chainIdx]...)
+	}
 	return observedNewMsgs, nil
 }
 

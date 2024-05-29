@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/smartcontractkit/ccipocr3/internal/libs/slicelib"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -226,6 +228,68 @@ func Test_observeNewMsgs(t *testing.T) {
 			assert.Equal(t, tc.expMsgs, msgs)
 			mockReader.AssertExpectations(t)
 		})
+	}
+}
+
+func Benchmark_observeNewMsgs(b *testing.B) {
+	const (
+		numChains       = 5
+		readerDelayMS   = 100
+		newMsgsPerChain = 256
+	)
+
+	readChains := make([]model.ChainSelector, numChains)
+	maxSeqNumsPerChain := make([]model.SeqNumChain, numChains)
+	for i := 0; i < numChains; i++ {
+		readChains[i] = model.ChainSelector(i + 1)
+		maxSeqNumsPerChain[i] = model.SeqNumChain{ChainSel: model.ChainSelector(i + 1), SeqNum: model.SeqNum(1)}
+	}
+
+	for i := 0; i < b.N; i++ {
+		ctx := context.Background()
+		lggr, _ := logger.New()
+		ccipReader := mocks.NewCCIPReader()
+
+		expNewMsgs := make([]model.CCIPMsg, 0, newMsgsPerChain*numChains)
+		for _, seqNumChain := range maxSeqNumsPerChain {
+			newMsgs := make([]model.CCIPMsg, 0, newMsgsPerChain)
+			for msgSeqNum := 1; msgSeqNum <= newMsgsPerChain; msgSeqNum++ {
+				newMsgs = append(newMsgs, model.CCIPMsg{
+					CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{
+						ID:          model.Bytes32{byte(msgSeqNum)},
+						SourceChain: seqNumChain.ChainSel,
+						SeqNum:      model.SeqNum(msgSeqNum),
+					},
+				})
+			}
+
+			ccipReader.On(
+				"MsgsBetweenSeqNums",
+				ctx,
+				[]model.ChainSelector{seqNumChain.ChainSel},
+				model.NewSeqNumRange(
+					seqNumChain.SeqNum+1,
+					seqNumChain.SeqNum+model.SeqNum(1+newMsgsPerChain),
+				),
+			).Run(func(args mock.Arguments) {
+				time.Sleep(time.Duration(readerDelayMS) * time.Millisecond)
+			}).Return(newMsgs, nil)
+			expNewMsgs = append(expNewMsgs, newMsgs...)
+		}
+
+		msgs, err := observeNewMsgs(
+			ctx,
+			lggr,
+			ccipReader,
+			mapset.NewSet(readChains...),
+			maxSeqNumsPerChain,
+			newMsgsPerChain,
+		)
+		assert.NoError(b, err)
+		assert.Equal(b, expNewMsgs, msgs)
+
+		// (old)     sequential: 509.345 ms/op   (numChains * readerDelayMS)
+		// (current) parallel:   102.543 ms/op     (readerDelayMS)
 	}
 }
 

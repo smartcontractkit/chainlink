@@ -9,6 +9,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20240326191951-2bbe9382d052
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.19.0
+	golang.org/x/sync v0.6.0
 	gonum.org/v1/gonum v0.15.0
 	google.golang.org/grpc v1.59.0
 )
