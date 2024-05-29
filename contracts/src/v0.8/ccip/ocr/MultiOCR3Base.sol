@@ -9,7 +9,6 @@ import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 ///         with multiple OCR plugin support.
 abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   // Maximum number of oracles the offchain reporting protocol is designed for
-  // TODO: consider bumping up to theoretical max
   uint256 internal constant MAX_NUM_ORACLES = 31;
 
   /// @notice triggers a new run of the offchain reporting protocol
@@ -35,6 +34,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   error UnauthorizedSigner();
   error NonUniqueSignatures();
   error OracleCannotBeZeroAddress();
+  error StaticConfigCannotBeChanged(uint8 ocrPluginType);
 
   /// @dev Packing these fields used on the hot path in a ConfigInfo variable reduces the
   ///      retrieval of all of them to a minimum number of SLOADs.
@@ -66,7 +66,6 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   }
 
   /// @notice OCR configuration for a single OCR plugin within a DON
-  // TODO: make uniqueReports and skipReports static
   struct OCRConfig {
     ConfigInfo configInfo; //  latest OCR config
     address[] signers; //      addresses oracles use to sign the reports
@@ -90,25 +89,27 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// @notice OCR plugin type => signer OR transmitter address mapping
   mapping(uint8 ocrPluginType => mapping(address signerOrTransmiter => Oracle oracle)) internal s_oracles;
 
-  // The constant-length components of the msg.data sent to transmit.
+  // Constant-length components of the msg.data sent to transmit.
   // See the "If we wanted to call sam" example on for example reasoning
   // https://solidity.readthedocs.io/en/v0.7.2/abi-spec.html
-  // TODO: assumes a constant function sig like in _transmit. Will need adjustment (either removing
-  //       the ocrPluginType word or allowing variable lengths)
-  uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT = 4 // function selector
-    + 32 // word containing ocrPluginType
-    + 32 * 3 // 3 words containing reportContext
+
+  /// @notice constant length component for transmit functions with no signatures.
+  /// The signatures are expected to match transmitPlugin(reportContext, report)
+  uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT_NO_SIGNATURES = 4 // function selector
+    + 3 * 32 // 3 words containing reportContext
     + 32 // word containing start location of abiencoded report value
-    + 32 // word containing location start of abiencoded rs value
+    + 32; // word containing length of report
+
+  /// @notice extra constant length component for transmit functions with signatures (relative to no signatures)
+  /// The signatures are expected to match transmitPlugin(reportContext, report, rs, ss, rawVs)
+  uint16 private constant TRANSMIT_MSGDATA_EXTRA_CONSTANT_LENGTH_COMPONENT_FOR_SIGNATURES = 32 // word containing location start of abiencoded rs value
     + 32 // word containing start location of abiencoded ss value
     + 32 // rawVs value
-    + 32 // word containing length of report
     + 32 // word containing length rs
     + 32; // word containing length of ss
 
   uint256 internal immutable i_chainID;
 
-  // TODO: implement config sets in constructor
   constructor() {
     i_chainID = block.chainid;
   }
@@ -121,25 +122,50 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     }
   }
 
-  // TODO: evaluate gas & contract size efficiency of unfolding OCRConfigArgs into the function args
   /// @notice sets offchain reporting protocol configuration incl. participating oracles for a single OCR plugin type
   /// @param ocrConfigArgs OCR config update args
   function _setOCR3Config(OCRConfigArgs memory ocrConfigArgs) internal {
+    if (ocrConfigArgs.F == 0) revert InvalidConfig("F must be positive");
+
     uint8 ocrPluginType = ocrConfigArgs.ocrPluginType;
     OCRConfig storage ocrConfig = s_ocrConfigs[ocrPluginType];
     ConfigInfo storage configInfo = ocrConfig.configInfo;
 
-    // TODO: re-add checkConfigValid validation
-    //       - validate signers / transmitters <= MAX_NUM_ORACLES
-    //       - validate len(signers) == len(transmitters) (when enabled)
+    // If F is 0, then the config is not yet set
+    if (configInfo.F == 0) {
+      configInfo.uniqueReports = ocrConfigArgs.uniqueReports;
+      configInfo.isSignatureVerificationEnabled = ocrConfigArgs.isSignatureVerificationEnabled;
+    } else if (
+      configInfo.uniqueReports != ocrConfigArgs.uniqueReports
+        || configInfo.isSignatureVerificationEnabled != ocrConfigArgs.isSignatureVerificationEnabled
+    ) {
+      revert StaticConfigCannotBeChanged(ocrPluginType);
+    }
 
     address[] memory transmitters = ocrConfigArgs.transmitters;
     // Transmitters are expected to never exceed 255 (since this is bounded by MAX_NUM_ORACLES)
     uint8 newTransmittersLength = uint8(transmitters.length);
 
-    if (ocrConfigArgs.isSignatureVerificationEnabled) {
+    if (newTransmittersLength > MAX_NUM_ORACLES) revert InvalidConfig("too many transmitters");
+
+    address[] memory oldTransmitters = ocrConfig.transmitters;
+    address[] memory oldSigners = ocrConfig.signers;
+    bool isSignatureVerificationEnabled = ocrConfigArgs.isSignatureVerificationEnabled;
+    for (uint256 i = 0; i < oldTransmitters.length; ++i) {
+      delete s_oracles[ocrPluginType][oldTransmitters[i]];
+
+      // NOTE: oldSigners.length == oldTransmitters.length
+      if (isSignatureVerificationEnabled) {
+        delete s_oracles[ocrPluginType][oldSigners[i]];
+      }
+    }
+
+    if (isSignatureVerificationEnabled) {
       ocrConfig.signers = ocrConfigArgs.signers;
       address[] memory signers = ocrConfigArgs.signers;
+
+      if (signers.length != newTransmittersLength) revert InvalidConfig("oracle addresses out of registration");
+      if (signers.length <= 3 * ocrConfigArgs.F) revert InvalidConfig("faulty-oracle F too high");
 
       for (uint8 i = 0; i < newTransmittersLength; ++i) {
         // add new signer/transmitter addresses
@@ -149,13 +175,6 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
         s_oracles[ocrPluginType][signer] = Oracle(uint8(i), Role.Signer);
       }
     }
-
-    // TODO: re-add s_oracles removal logic & validations
-    //     uint256 oldSignerLength = s_signers.length;
-    //     for (uint256 i = 0; i < oldSignerLength; ++i) {
-    //       delete s_oracles[s_signers[i]];
-    //       delete s_oracles[s_transmitters[i]];
-    //     }
 
     for (uint8 i = 0; i < newTransmittersLength; ++i) {
       address transmitter = transmitters[i];
@@ -170,8 +189,6 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     configInfo.F = ocrConfigArgs.F;
     configInfo.configDigest = ocrConfigArgs.configDigest;
     configInfo.n = newTransmittersLength;
-    configInfo.uniqueReports = ocrConfigArgs.uniqueReports;
-    configInfo.isSignatureVerificationEnabled = ocrConfigArgs.isSignatureVerificationEnabled;
 
     emit ConfigSet(
       ocrPluginType, ocrConfigArgs.configDigest, ocrConfigArgs.signers, ocrConfigArgs.transmitters, ocrConfigArgs.F
@@ -191,17 +208,30 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
     bytes32[3] calldata reportContext,
     bytes calldata report,
-    // TODO: revisit keeping calldata vs using memory and allowing smaller inputs
-    bytes32[] calldata rs,
-    bytes32[] calldata ss,
+    // TODO: revisit trade-off - converting this to calldata and using one CONSTANT_LENGTH_COMPONENT
+    //       decreases contract size by ~220KB, decreasees commit gas usage by ~400 gas, but increases exec gas usage by ~3600 gas
+    bytes32[] memory rs,
+    bytes32[] memory ss,
     bytes32 rawVs // signatures
   ) internal {
     // reportContext consists of:
     // reportContext[0]: ConfigDigest
     // reportContext[1]: 27 byte padding, 4-byte epoch and 1-byte round
     // reportContext[2]: ExtraHash
-    bytes32 configDigest = reportContext[0];
     ConfigInfo memory configInfo = s_ocrConfigs[ocrPluginType].configInfo;
+    bytes32 configDigest = reportContext[0];
+
+    // Scoping this reduces stack pressure and gas usage
+    {
+      uint256 expectedDataLength = uint256(TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT_NO_SIGNATURES) + report.length; // one byte pure entry in _report
+
+      if (configInfo.isSignatureVerificationEnabled) {
+        expectedDataLength += TRANSMIT_MSGDATA_EXTRA_CONSTANT_LENGTH_COMPONENT_FOR_SIGNATURES + rs.length * 32 // 32 bytes per entry in _rs
+          + ss.length * 32; // 32 bytes per entry in _ss)
+      }
+
+      if (msg.data.length != expectedDataLength) revert WrongMessageLength(expectedDataLength, msg.data.length);
+    }
 
     if (configInfo.configDigest != configDigest) {
       revert ConfigDigestMismatch(configInfo.configDigest, configDigest);
@@ -223,14 +253,6 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
       ) {
         revert UnauthorizedTransmitter();
       }
-    }
-
-    // Scoping this reduces stack pressure and gas usage
-    {
-      uint256 expectedDataLength = uint256(TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT) + report.length // one byte pure entry in _report
-        + rs.length * 32 // 32 bytes per entry in _rs
-        + ss.length * 32; // 32 bytes per entry in _ss)
-      if (msg.data.length != expectedDataLength) revert WrongMessageLength(expectedDataLength, msg.data.length);
     }
 
     if (configInfo.isSignatureVerificationEnabled) {
@@ -262,8 +284,8 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   function _verifySignatures(
     uint8 ocrPluginType,
     bytes32 hashedReport,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss,
+    bytes32[] memory rs,
+    bytes32[] memory ss,
     bytes32 rawVs // signatures
   ) internal view {
     // Verify signatures attached to report
@@ -281,25 +303,6 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
       signed[oracle.index] = true;
     }
   }
-
-  // TODO: is this function required?
-  /// @notice optionally returns the latest configDigest and sequence number for which
-  /// a report was successfully transmitted. Alternatively, the contract may return
-  /// scanLogs set to true and use Transmitted events to provide this information
-  /// to offchain watchers.
-  /// @param ocrPluginType OCR plugin type to fetch config digest & sequence number for
-  /// @return scanLogs indicates whether to rely on the configDigest and sequence number
-  /// returned or whether to scan logs for the Transmitted event instead.
-  /// @return configDigest
-  /// @return sequenceNumber
-  // function latestConfigDigestAndEpoch(uint8 ocrPluginType)
-  //   external
-  //   view
-  //   virtual
-  //   returns (bool scanLogs, bytes32 configDigest, uint64 sequenceNumber)
-  // {
-  //   return (true, bytes32(0), uint64(0));
-  // }
 
   /// @notice information about current offchain reporting protocol configuration
   /// @param ocrPluginType OCR plugin type to return config details for

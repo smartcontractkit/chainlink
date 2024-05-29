@@ -9,8 +9,7 @@ upstream_branch="origin/ccip-develop"
 changes_root=$(git diff --name-only $upstream_branch...$current_branch -- ".changeset")
 
 if ! [ -n "$changes_root" ]; then
-    printf "\033[0;31mRoot changeset changes not found, Make sure to run & commit \033[1;33mpnpm changeset\033[0;31m in the root directory.\n"
-    exit 1
+    printf "\033[1;33mRoot changeset changes not found, Consider running pnpm changeset in the root directory if there is significant off-chain impact.\e[0m\n"
 fi
 
 changes_contracts=$(git diff --name-only $upstream_branch...$current_branch -- "contracts/.changeset")

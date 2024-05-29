@@ -4,40 +4,34 @@ pragma solidity 0.8.24;
 import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
 
 contract MultiOCR3Helper is MultiOCR3Base {
-  function transmit(
-    uint8 ocrPluginType,
+  /// @dev OCR plugin type used for transmit.
+  ///      Defined in storage since it cannot be passed as calldata due to strict transmit checks
+  uint8 internal s_transmitOcrPluginType;
+
+  function setTransmitOcrPluginType(uint8 ocrPluginType) external {
+    s_transmitOcrPluginType = ocrPluginType;
+  }
+
+  /// @dev transmit function with signatures
+  function transmitWithSignatures(
     bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs
   ) external {
-    _transmit(ocrPluginType, reportContext, report, rs, ss, rawVs);
+    _transmit(s_transmitOcrPluginType, reportContext, report, rs, ss, rawVs);
   }
 
-  // TODO: revisit support for different transmit function sigs:
-  // /// @dev test transmit function that has extra msg.data
-  // function transmit2(
-  //   uint256 customArg,
-  //   uint8 ocrPluginType,
-  //   bytes32[3] calldata reportContext,
-  //   bytes calldata report,
-  //   bytes32[] calldata rs,
-  //   bytes32[] calldata ss,
-  //   bytes32 rawVs
-  // ) external {
-  //   _transmit(ocrPluginType, reportContext, report, rs, ss, rawVs);
-  // }
+  /// @dev transmit function with no signatures
+  function transmitWithoutSignatures(bytes32[3] calldata reportContext, bytes calldata report) external {
+    bytes32[] memory emptySigs = new bytes32[](0);
+    _transmit(s_transmitOcrPluginType, reportContext, report, emptySigs, emptySigs, bytes32(""));
+  }
 
-  // /// @dev test transmit function that has reduced args
-  // function transmit3(
-  //   uint8 ocrPluginType,
-  //   bytes32[3] calldata reportContext,
-  //   bytes calldata report
-  // ) external {
-  //   bytes32[] memory emptySigs = new bytes32[](0);
-  //   _transmit(ocrPluginType, reportContext, report, emptySigs, emptySigs, bytes32(""));
-  // }
+  function getOracle(uint8 ocrPluginType, address oracleAddress) external view returns (Oracle memory) {
+    return s_oracles[ocrPluginType][oracleAddress];
+  }
 
   function typeAndVersion() public pure override returns (string memory) {
     return "MultiOCR3BaseHelper 1.0.0";
