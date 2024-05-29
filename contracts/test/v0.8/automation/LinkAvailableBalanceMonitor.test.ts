@@ -176,7 +176,7 @@ const setup = async () => {
   await setTx.wait()
 }
 
-describe.only('LinkAvailableBalanceMonitor', () => {
+describe('LinkAvailableBalanceMonitor', () => {
   beforeEach(async () => {
     await loadFixture(setup)
   })
@@ -388,7 +388,7 @@ describe.only('LinkAvailableBalanceMonitor', () => {
       await expect(setTxStranger).to.be.reverted
     })
 
-    it('Should revert if any of the addresses are empty', async () => {
+    it('should revert if any of the addresses are empty', async () => {
       const tx = labm
         .connect(owner)
         .setWatchList(
@@ -662,12 +662,12 @@ describe.only('LinkAvailableBalanceMonitor', () => {
         assert.equal(watchlist.length, minBalances.length)
       })
 
-      it('Should not include more than MAX_PERFORM addresses', async () => {
+      it('should not include more than MAX_PERFORM addresses', async () => {
         const addresses = await labm.sampleUnderfundedAddresses()
         expect(addresses.length).to.be.lessThanOrEqual(MAX_PERFORM)
       })
 
-      it('Should sample from the list of addresses pseudorandomly', async () => {
+      it('should sample from the list of addresses pseudorandomly', async () => {
         const firstAddress: string[] = []
         for (let idx = 0; idx < 10; idx++) {
           const addresses = await labm.sampleUnderfundedAddresses()
@@ -721,7 +721,7 @@ describe.only('LinkAvailableBalanceMonitor', () => {
       await expect(performTx).to.be.revertedWith(PAUSED_ERR)
     })
 
-    it('Should fund the appropriate addresses', async () => {
+    it('should fund the appropriate addresses', async () => {
       await aggregator1.mock.linkAvailableForPayment.returns(zeroLINK)
       await aggregator2.mock.linkAvailableForPayment.returns(zeroLINK)
       await aggregator3.mock.linkAvailableForPayment.returns(zeroLINK)
@@ -805,13 +805,13 @@ describe.only('LinkAvailableBalanceMonitor', () => {
   })
 
   describe('topUp()', () => {
-    it('Should revert topUp address(0)', async () => {
+    it('should revert topUp address(0)', async () => {
       const tx = await labm.connect(owner).topUp([ethers.constants.AddressZero])
       await expect(tx).to.emit(labm, 'TopUpBlocked')
     })
 
     context('when not paused', () => {
-      it('Should be callable by anyone', async () => {
+      it('should be callable by anyone', async () => {
         const users = [owner, keeperRegistry, stranger]
         for (let idx = 0; idx < users.length; idx++) {
           const user = users[idx]
@@ -821,7 +821,7 @@ describe.only('LinkAvailableBalanceMonitor', () => {
     })
 
     context('when paused', () => {
-      it('Should be callable by no one', async () => {
+      it('should be callable by no one', async () => {
         await labm.connect(owner).pause()
         const users = [owner, keeperRegistry, stranger]
         for (let idx = 0; idx < users.length; idx++) {
@@ -1012,7 +1012,7 @@ describe.only('LinkAvailableBalanceMonitor', () => {
     })
 
     context('when partially funded', () => {
-      it('Should fund as many addresses as possible', async () => {
+      it('should fund as many addresses as possible', async () => {
         await lt.connect(owner).transfer(
           labm.address,
           fourLINK, // only enough LINK to fund 2 addresses
