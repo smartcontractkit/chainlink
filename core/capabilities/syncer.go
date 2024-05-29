@@ -3,6 +3,7 @@ package capabilities
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"slices"
 	"sync"
@@ -49,7 +50,7 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 	},
 }
 
-const maxRetryCount = 60
+const maxGetCapabalityRetryCount = 60
 
 // RegistrySyncer updates local Registry to match its onchain counterpart
 func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger) *registrySyncer {
@@ -125,9 +126,9 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		return
 	}
 	// NOTE: temporary hard-coded capabilities
-	capId := "streams-trigger"
+	streamsTriggerCapabilityID := "streams-trigger"
 	triggerInfo := capabilities.CapabilityInfo{
-		ID:             capId,
+		ID:             streamsTriggerCapabilityID,
 		CapabilityType: capabilities.CapabilityTypeTrigger,
 		Description:    "Remote Trigger",
 		Version:        "0.0.1",
@@ -141,19 +142,12 @@ func (s *registrySyncer) launch(ctx context.Context) {
 	}
 	if slices.Contains(workflowDONPeers, myId) {
 		s.lggr.Info("member of a workflow DON - starting remote subscribers")
-		codec := streams.NewCodec(s.lggr)
-		aggregator := triggers.NewMercuryRemoteAggregator(codec, hexStringsToBytes(triggerDONSigners), int(triggerCapabilityDonInfo.F+1), s.lggr)
-		triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, triggerCapabilityDonInfo, workflowDonInfo, s.dispatcher, aggregator, s.lggr)
-		err = s.registry.Add(ctx, triggerCap)
+		triggerCap, err := s.createRemoteMercuryTriggerSubscriber(ctx, triggerDONSigners, triggerCapabilityDonInfo, config, triggerInfo, workflowDonInfo, streamsTriggerCapabilityID)
 		if err != nil {
-			s.lggr.Errorw("failed to add remote target capability to registry", "error", err)
+			s.lggr.Errorw("failed to create remote Mercury trigger subscriber", "error", err)
 			return
 		}
-		err = s.dispatcher.SetReceiver(capId, triggerCapabilityDonInfo.ID, triggerCap)
-		if err != nil {
-			s.lggr.Errorw("workflow DON failed to set receiver", "capabilityId", capId, "donId", triggerCapabilityDonInfo.ID, "error", err)
-			return
-		}
+
 		s.subServices = append(s.subServices, triggerCap)
 	}
 	if slices.Contains(triggerDONPeers, myId) {
@@ -174,33 +168,28 @@ func (s *registrySyncer) launch(ctx context.Context) {
 			// ----
 		}*/
 
-		count := 0
-		for {
-			count++
-			if count > maxRetryCount {
-				s.lggr.Error("failed to get Streams Trigger from the Registry")
-				return
-			}
-			underlying, err2 := s.registry.GetTrigger(ctx, capId)
-			if err2 != nil {
-				// NOTE: it's possible that the jobs are not launched yet at this moment.
-				// If not found yet, Syncer won't add to Registry but retry on the next tick.
-				s.lggr.Infow("trigger not found yet ...", "capabilityId", capId, "error", err2)
-				time.Sleep(1 * time.Second)
-				continue
-			}
-			workflowDONs := map[string]capabilities.DON{
-				workflowDonInfo.ID: workflowDonInfo,
-			}
-			triggerCap := remote.NewTriggerPublisher(config, underlying, triggerInfo, triggerCapabilityDonInfo, workflowDONs, s.dispatcher, s.lggr)
-			err = s.dispatcher.SetReceiver(capId, triggerCapabilityDonInfo.ID, triggerCap)
-			if err != nil {
-				s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", triggerCapabilityDonInfo.ID, "error", err)
-				return
-			}
-			s.subServices = append(s.subServices, triggerCap)
-			break
+		workflowDONs := map[string]capabilities.DON{
+			workflowDonInfo.ID: workflowDonInfo,
 		}
+
+		underlying, err := s.retryGetCapability(ctx, streamsTriggerCapabilityID)
+		if err != nil {
+			s.lggr.Errorw("failed to get capability from the Registry", "capabilityId", streamsTriggerCapabilityID, "error", err)
+			return
+		}
+
+		trigger, ok := underlying.(capabilities.TriggerCapability)
+		if !ok {
+			s.lggr.Errorw("capability is not a TriggerCapability", "capabilityId", streamsTriggerCapabilityID)
+			return
+		}
+
+		triggerCap, done := s.createRemoteTriggerPublisher(config, trigger, triggerInfo, triggerCapabilityDonInfo, workflowDONs, err, streamsTriggerCapabilityID)
+		if done {
+			return
+		}
+		s.subServices = append(s.subServices, triggerCap)
+
 	}
 	// NOTE: temporary service start - should be managed by capability creation
 	for _, srv := range s.subServices {
@@ -211,6 +200,52 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		}
 	}
 	s.lggr.Info("registry syncer started")
+}
+
+func (s *registrySyncer) createRemoteTriggerPublisher(config remotetypes.RemoteTriggerConfig, trigger capabilities.TriggerCapability, triggerInfo capabilities.CapabilityInfo, triggerCapabilityDonInfo capabilities.DON, workflowDONs map[string]capabilities.DON, err error, streamsTriggerCapabilityID string) (services.Service, bool) {
+	triggerCap := remote.NewTriggerPublisher(config, trigger, triggerInfo, triggerCapabilityDonInfo, workflowDONs, s.dispatcher, s.lggr)
+	err = s.dispatcher.SetReceiver(streamsTriggerCapabilityID, triggerCapabilityDonInfo.ID, triggerCap)
+	if err != nil {
+		s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", streamsTriggerCapabilityID, "donId", triggerCapabilityDonInfo.ID, "error", err)
+		return nil, true
+	}
+	return triggerCap, false
+}
+
+func (s *registrySyncer) retryGetCapability(ctx context.Context, capId string) (underlying capabilities.BaseCapability, err error) {
+	count := 0
+	for {
+		count++
+		if count > maxGetCapabalityRetryCount {
+			return nil, fmt.Errorf("failed to capability from the Registry")
+		}
+		underlying, err = s.registry.GetTrigger(ctx, capId)
+		if err != nil {
+			// NOTE: it's possible that the jobs are not launched yet at this moment.
+			// If not found yet, Syncer won't add to Registry but retry on the next tick.
+			s.lggr.Infow("capability not found yet ...", "capabilityId", capId, "error", err)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		break
+	}
+	return underlying, nil
+}
+
+func (s *registrySyncer) createRemoteMercuryTriggerSubscriber(ctx context.Context, triggerDONSigners []string, triggerCapabilityDonInfo capabilities.DON,
+	config remotetypes.RemoteTriggerConfig, triggerInfo capabilities.CapabilityInfo, workflowDonInfo capabilities.DON, capId string) (services.Service, error) {
+	codec := streams.NewCodec(s.lggr)
+	aggregator := triggers.NewMercuryRemoteAggregator(codec, hexStringsToBytes(triggerDONSigners), int(triggerCapabilityDonInfo.F+1), s.lggr)
+	triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, triggerCapabilityDonInfo, workflowDonInfo, s.dispatcher, aggregator, s.lggr)
+	err := s.registry.Add(ctx, triggerCap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add capability to registry: %w", err)
+	}
+	err = s.dispatcher.SetReceiver(capId, triggerCapabilityDonInfo.ID, triggerCap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set receiver: %w", err)
+	}
+	return triggerCap, nil
 }
 
 func (s *registrySyncer) Close() error {

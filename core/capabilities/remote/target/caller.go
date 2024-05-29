@@ -101,12 +101,12 @@ func (c *caller) Execute(ctx context.Context, req commoncap.CapabilityRequest) (
 		return nil, fmt.Errorf("request for message ID %s already exists", messageID)
 	}
 
-	execRequest, err := request.NewCallerRequest(ctx, c.lggr, req, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher,
+	callerReq, err := request.NewCallerRequest(ctx, c.lggr, req, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher,
 		c.requestTimeout)
 
-	c.messageIDToExecuteRequest[messageID] = execRequest
+	c.messageIDToExecuteRequest[messageID] = callerReq
 
-	return execRequest.ResponseChan(), nil
+	return callerReq.ResponseChan(), nil
 }
 
 func (c *caller) Receive(msg *types.MessageBody) {
