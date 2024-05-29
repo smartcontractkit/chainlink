@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
@@ -342,7 +341,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		carrol := testutils.MustNewSimTransactor(t) // client
 		nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 		nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
-		genesisData := core.GenesisAlloc{
+		genesisData := types.GenesisAlloc{
 			sergey.From: {Balance: assets.Ether(1000).ToInt()},
 			steve.From:  {Balance: assets.Ether(1000).ToInt()},
 			carrol.From: {Balance: assets.Ether(1000).ToInt()},
@@ -498,7 +497,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		carrol := testutils.MustNewSimTransactor(t) // client
 		nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 		nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
-		genesisData := core.GenesisAlloc{
+		genesisData := types.GenesisAlloc{
 			sergey.From: {Balance: assets.Ether(1000).ToInt()},
 			steve.From:  {Balance: assets.Ether(1000).ToInt()},
 			carrol.From: {Balance: assets.Ether(1000).ToInt()},

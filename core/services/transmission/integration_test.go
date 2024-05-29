@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
@@ -69,7 +68,7 @@ func deployTransmissionUniverse(t *testing.T) *EntryPointUniverse {
 		holder1 = holder1Transactor
 		holder2 = testutils.MustNewSimTransactor(t)
 	)
-	genesisData := core.GenesisAlloc{
+	genesisData := types.GenesisAlloc{
 		holder1.From: {Balance: assets.Ether(1000).ToInt()},
 		holder2.From: {Balance: assets.Ether(1000).ToInt()},
 	}

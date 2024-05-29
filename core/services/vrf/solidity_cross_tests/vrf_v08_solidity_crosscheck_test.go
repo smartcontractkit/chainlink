@@ -11,11 +11,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -27,7 +27,7 @@ import (
 // except we are testing against the v0.8 implementation of VRF.sol.
 func deployVRFV08TestHelper(t *testing.T) *solidity_vrf_v08_verifier_wrapper.VRFV08TestHelper {
 	auth := testutils.MustNewSimTransactor(t)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
+	genesisData := types.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_v08_verifier_wrapper.DeployVRFV08TestHelper(auth, backend)

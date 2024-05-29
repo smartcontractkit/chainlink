@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -85,7 +85,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		vrfConsumers = append(vrfConsumers, testutils.MustNewSimTransactor(t))
 	}
 
-	genesisData := core.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		sergey.From:     {Balance: assets.Ether(1000).ToInt()},
 		neil.From:       {Balance: assets.Ether(1000).ToInt()},
 		ned.From:        {Balance: assets.Ether(1000).ToInt()},
@@ -95,7 +95,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		submanager.From: {Balance: assets.Ether(1000).ToInt()},
 	}
 	for _, consumer := range vrfConsumers {
-		genesisData[consumer.From] = core.GenesisAccount{
+		genesisData[consumer.From] = gethtypes.Account{
 			Balance: assets.Ether(1000).ToInt(),
 		}
 	}
@@ -695,7 +695,7 @@ func TestVRFV2PlusIntegration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T)
 func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	owner := testutils.MustNewSimTransactor(t)
 	random := testutils.MustNewSimTransactor(t)
-	genesisData := core.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		owner.From:  {Balance: assets.Ether(10).ToInt()},
 		random.From: {Balance: assets.Ether(10).ToInt()},
 	}
@@ -773,7 +773,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 	owner := testutils.MustNewSimTransactor(t)
 	random := testutils.MustNewSimTransactor(t)
-	genesisData := core.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		owner.From: {Balance: assets.Ether(10).ToInt()},
 	}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))

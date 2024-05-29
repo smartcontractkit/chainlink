@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
@@ -525,7 +526,7 @@ func setupBackend(t *testing.T) (*simulated.Backend, func(), []*bind.TransactOpt
 	sergey := testutils.MustNewSimTransactor(t) // owns all the link
 	steve := testutils.MustNewSimTransactor(t)  // registry owner
 	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
-	genesisData := core.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000000000000000000).ToInt()},
 		steve.From:  {Balance: assets.Ether(1000000000000000000).ToInt()},
 		carrol.From: {Balance: assets.Ether(1000000000000000000).ToInt()},

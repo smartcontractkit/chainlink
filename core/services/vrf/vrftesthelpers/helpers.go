@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/google/uuid"
@@ -195,7 +195,7 @@ func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUn
 		ned    = testutils.MustNewSimTransactor(t)
 		carol  = testutils.MustNewSimTransactor(t)
 	)
-	genesisData := core.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000).ToInt()},
 		neil.From:   {Balance: assets.Ether(1000).ToInt()},
 		ned.From:    {Balance: assets.Ether(1000).ToInt()},
@@ -203,7 +203,7 @@ func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUn
 	}
 
 	for _, t := range oracleTransactors {
-		genesisData[t.From] = core.GenesisAccount{Balance: assets.Ether(1000).ToInt()}
+		genesisData[t.From] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
 	}
 
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
