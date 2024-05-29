@@ -6958,8 +6958,6 @@ ChainType = 'arbitrum' # Example
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 Available types: `arbitrum`, `celo`, `gnosis`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
 
-`xdai` has been deprecated and will be removed in v2.13.0, use `gnosis` instead.
-
 ### FinalityDepth
 ```toml
 FinalityDepth = 50 # Default
