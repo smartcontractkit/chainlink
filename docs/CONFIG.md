@@ -3778,7 +3778,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
-FinalityDepth = 50
+FinalityDepth = 200
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -3829,7 +3829,7 @@ EIP1559FeeCapBufferBlocks = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 100
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -4963,7 +4963,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
-FinalityDepth = 50
+FinalityDepth = 200
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -5014,7 +5014,7 @@ EIP1559FeeCapBufferBlocks = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 100
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
