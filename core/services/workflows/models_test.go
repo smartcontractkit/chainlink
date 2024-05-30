@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
 func TestParse_Graph(t *testing.T) {
@@ -41,7 +43,7 @@ targets:
       consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
-				keywordTrigger: {
+				workflows.KeywordTrigger: {
 					"an-action":   struct{}{},
 					"a-consensus": struct{}{},
 				},
@@ -175,7 +177,7 @@ targets:
       consensus_output: $(a-consensus.outputs)
 `,
 			graph: map[string]map[string]struct{}{
-				keywordTrigger: {
+				workflows.KeywordTrigger: {
 					"an-action": struct{}{},
 				},
 				"an-action": {
@@ -212,6 +214,44 @@ targets:
 `,
 			errMsg: "all non-trigger steps must have a dependent ref",
 		},
+		{
+			name: "duplicate edge declarations",
+			yaml: `
+triggers:
+  - id: "a-trigger"
+  - id: "a-second-trigger"
+actions:
+  - id: "an-action"
+    ref: "an-action"
+    inputs:
+      trigger_output: $(trigger.outputs)
+consensus:
+  - id: "a-consensus"
+    ref: "a-consensus"
+    inputs:
+      trigger_output: $(trigger.outputs)
+      action_output: $(an-action.outputs)
+targets:
+  - id: "a-target"
+    ref: "a-target"
+    inputs:
+      consensus_output: $(a-consensus.outputs)
+      consensus_output2: $(a-consensus.outputs)
+`,
+			graph: map[string]map[string]struct{}{
+				workflows.KeywordTrigger: {
+					"an-action":   struct{}{},
+					"a-consensus": struct{}{},
+				},
+				"an-action": {
+					"a-consensus": struct{}{},
+				},
+				"a-consensus": {
+					"a-target": struct{}{},
+				},
+				"a-target": {},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -239,4 +279,14 @@ targets:
 			}
 		})
 	}
+}
+
+func TestParsesIntsCorrectly(t *testing.T) {
+	wf, err := Parse(hardcodedWorkflow)
+	require.NoError(t, err)
+
+	n, err := wf.Vertex("evm_median")
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(3600), n.Config["aggregation_config"].(map[string]any)["0x1111111111111111111100000000000000000000000000000000000000000000"].(map[string]any)["heartbeat"])
 }

@@ -48,14 +48,14 @@ func TestEvmWrite(t *testing.T) {
 	capability := targets.NewEvmWrite(chain, logger.TestLogger(t))
 	ctx := testutils.Context(t)
 
-	config, err := values.NewMap(map[string]any{
-		"abi":    "receive(report bytes)",
-		"params": []any{"$(report)"},
-	})
+	config, err := values.NewMap(map[string]any{})
 	require.NoError(t, err)
 
 	inputs, err := values.NewMap(map[string]any{
-		"report": []byte{1, 2, 3},
+		"signed_report": map[string]any{
+			"report":     []byte{1, 2, 3},
+			"signatures": [][]byte{},
+		},
 	})
 	require.NoError(t, err)
 
@@ -73,13 +73,8 @@ func TestEvmWrite(t *testing.T) {
 		method := forwardABI.Methods["report"]
 		err = method.Inputs.UnpackIntoMap(payload, req.EncodedPayload[4:])
 		require.NoError(t, err)
-		require.Equal(t, []byte{
-			0xa6, 0x9b, 0x6e, 0xd0, // selector = keccak(signature)[:4]
-			0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x20, // type = bytes
-			0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, // len = 3
-			0x1, 0x2, 0x3, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, // elements [1, 2, 3] zero padded
-		}, payload["data"])
-
+		require.Equal(t, []byte{0x1, 0x2, 0x3}, payload["rawReport"])
+		require.Equal(t, [][]byte{}, payload["signatures"])
 	})
 
 	ch, err := capability.Execute(ctx, req)
@@ -113,14 +108,13 @@ func TestEvmWrite_EmptyReport(t *testing.T) {
 	capability := targets.NewEvmWrite(chain, logger.TestLogger(t))
 	ctx := testutils.Context(t)
 
-	config, err := values.NewMap(map[string]any{
-		"abi":    "receive(report bytes)",
-		"params": []any{"$(report)"},
-	})
+	config, err := values.NewMap(map[string]any{})
 	require.NoError(t, err)
 
 	inputs, err := values.NewMap(map[string]any{
-		"report": nil,
+		"signed_report": map[string]any{
+			"report": nil,
+		},
 	})
 	require.NoError(t, err)
 

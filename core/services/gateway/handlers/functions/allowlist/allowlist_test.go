@@ -314,11 +314,9 @@ func TestUpdateFromContract(t *testing.T) {
 			return allowlist.Allow(common.HexToAddress(addr1)) && !allowlist.Allow(common.HexToAddress(addr3))
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 	})
-
 }
 
 func TestExtractContractVersion(t *testing.T) {
-
 	type tc struct {
 		name           string
 		versionStr     string

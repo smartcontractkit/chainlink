@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"fmt"
+	"math/big"
 	"os"
 	"slices"
 	"strings"
@@ -19,10 +20,9 @@ import (
 	"github.com/smartcontractkit/seth"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
@@ -34,15 +34,6 @@ import (
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 )
-
-type GlobalTestConfig interface {
-	GetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig
-	GetLoggingConfig() *ctf_config.LoggingConfig
-	GetNetworkConfig() *ctf_config.NetworkConfig
-	GetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
-	GetPyroscopeConfig() *ctf_config.PyroscopeConfig
-	SethConfig
-}
 
 type UpgradeableChainlinkTestConfig interface {
 	GetChainlinkUpgradeImageConfig() *ctf_config.ChainlinkImageConfig
@@ -80,24 +71,8 @@ type Ocr2TestConfig interface {
 	GetOCR2Config() *ocr2_config.Config
 }
 
-type NamedConfiguration interface {
-	GetConfigurationName() string
-}
-
-type SethConfig interface {
-	GetSethConfig() *seth.Config
-}
-
 type TestConfig struct {
-	ChainlinkImage         *ctf_config.ChainlinkImageConfig `toml:"ChainlinkImage"`
-	ChainlinkUpgradeImage  *ctf_config.ChainlinkImageConfig `toml:"ChainlinkUpgradeImage"`
-	Logging                *ctf_config.LoggingConfig        `toml:"Logging"`
-	Network                *ctf_config.NetworkConfig        `toml:"Network"`
-	Pyroscope              *ctf_config.PyroscopeConfig      `toml:"Pyroscope"`
-	PrivateEthereumNetwork *ctf_test_env.EthereumNetwork    `toml:"PrivateEthereumNetwork"`
-	WaspConfig             *ctf_config.WaspAutoBuildConfig  `toml:"WaspAutoBuild"`
-
-	Seth *seth.Config `toml:"Seth"`
+	ctf_config.TestConfig
 
 	Common     *Common                  `toml:"Common"`
 	Automation *a_config.Config         `toml:"Automation"`
@@ -182,7 +157,7 @@ func (c TestConfig) GetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig {
 	return c.ChainlinkImage
 }
 
-func (c TestConfig) GetPrivateEthereumNetworkConfig() *ctf_test_env.EthereumNetwork {
+func (c TestConfig) GetPrivateEthereumNetworkConfig() *ctf_config.EthereumNetworkConfig {
 	return c.PrivateEthereumNetwork
 }
 
@@ -256,7 +231,6 @@ type Product string
 const (
 	Automation    Product = "automation"
 	Cron          Product = "cron"
-	DirectRequest Product = "direct_request"
 	Flux          Product = "flux"
 	ForwarderOcr  Product = "forwarder_ocr"
 	ForwarderOcr2 Product = "forwarder_ocr2"
@@ -272,8 +246,6 @@ const (
 	VRFv2         Product = "vrfv2"
 	VRFv2Plus     Product = "vrfv2plus"
 )
-
-var TestTypesWithLoki = []string{"Load", "Soak", "Stress", "Spike", "Volume"}
 
 const TestTypeEnvVarName = "TEST_TYPE"
 
@@ -394,6 +366,53 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 	if testConfig.Common == nil {
 		testConfig.Common = &Common{}
+	}
+
+	isAnySimulated := false
+	for _, network := range testConfig.Network.SelectedNetworks {
+		if strings.Contains(strings.ToUpper(network), "SIMULATED") {
+			isAnySimulated = true
+			break
+		}
+	}
+
+	if testConfig.Seth != nil && !isAnySimulated && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
+		testConfig.Seth.EphemeralAddrs = new(int64)
+		logger.Warn().
+			Msg("Ephemeral addresses were enabled, but test was setup to run on a live network. Ephemeral addresses will be disabled.")
+	}
+
+	if testConfig.Seth != nil && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
+		rootBuffer := testConfig.Seth.RootKeyFundsBuffer
+		zero := int64(0)
+		if rootBuffer == nil {
+			rootBuffer = &zero
+		}
+		clNodeFunding := testConfig.Common.ChainlinkNodeFunding
+		if clNodeFunding == nil {
+			zero := 0.0
+			clNodeFunding = &zero
+		}
+		minRequiredFunds := big.NewFloat(0).Mul(big.NewFloat(*clNodeFunding), big.NewFloat(6.0))
+
+		//add buffer to the minimum required funds, this isn't even a rough estimate, because we don't know how many contracts will be deployed from root key, but it's here to let you know that you should have some buffer
+		minRequiredFundsBuffered := big.NewFloat(0).Mul(minRequiredFunds, big.NewFloat(1.2))
+		minRequiredFundsBufferedInt, _ := minRequiredFundsBuffered.Int(nil)
+
+		if *rootBuffer < minRequiredFundsBufferedInt.Int64() {
+			msg := `
+The funds allocated to the root key buffer are below the minimum requirement, which could lead to insufficient funds for performing contract deployments. Please review and adjust your TOML configuration file to ensure that the root key buffer has adequate funds. Increase the fund settings as necessary to meet this requirement.
+
+Example:
+[Seth]
+root_key_funds_buffer = 1_000
+`
+
+			logger.Warn().
+				Str("Root key buffer (wei/ether)", fmt.Sprintf("%s/%s", fmt.Sprint(rootBuffer), conversions.WeiToEther(big.NewInt(*rootBuffer)).Text('f', -1))).
+				Str("Minimum required funds (wei/ether)", fmt.Sprintf("%s/%s", minRequiredFundsBuffered.String(), conversions.WeiToEther(minRequiredFundsBufferedInt).Text('f', -1))).
+				Msg(msg)
+		}
 	}
 
 	logger.Debug().Msg("Correct test config constructed successfully")

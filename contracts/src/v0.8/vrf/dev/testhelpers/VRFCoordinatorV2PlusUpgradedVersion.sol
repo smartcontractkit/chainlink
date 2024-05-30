@@ -685,6 +685,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   error CoordinatorAlreadyRegistered(address coordinatorAddress);
 
   /// @dev encapsulates data to be migrated from current coordinator
+  // solhint-disable-next-line gas-struct-packing
   struct V1MigrationData {
     uint8 fromVersion;
     uint256 subId;

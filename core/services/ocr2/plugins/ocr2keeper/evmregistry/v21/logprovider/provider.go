@@ -167,7 +167,6 @@ func (p *logEventProvider) WithBufferVersion(v BufferVersion) {
 
 func (p *logEventProvider) Start(context.Context) error {
 	return p.StartOnce(LogProviderServiceName, func() error {
-
 		readQ := make(chan []*big.Int, readJobQueueSize)
 
 		p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)

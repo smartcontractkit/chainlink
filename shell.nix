@@ -19,13 +19,17 @@ mkShell' {
 
     python3
     python3Packages.pip
+    protobuf
+    protoc-gen-go
+    protoc-gen-go-grpc
+
+    foundry-bin
 
     curl
     nodejs
     nodePackages.pnpm
     # TODO: compiler / gcc for secp compilation
     go-ethereum # geth
-    # parity # openethereum
     go-mockery
 
     # tooling

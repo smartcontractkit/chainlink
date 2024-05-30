@@ -291,6 +291,9 @@ ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
 
+[EVM.Transactions.AutoPurge]
+Enabled = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 
@@ -332,6 +335,8 @@ TransactionPercentile = 15
 HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
+MaxAllowedFinalityDepth = 1500
+FinalityTagBypass = false
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

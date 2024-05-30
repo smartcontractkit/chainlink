@@ -258,7 +258,6 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 		require.Equal(t, defaultGasLimit, *result[0].CallbackGasLimit)
 		require.Equal(t, defaultCoordinatorContract, *result[0].CoordinatorContractAddress)
 		require.Equal(t, defaultMetadata, result[0].OnchainMetadata)
-
 	})
 
 	t.Run("with no limit", func(t *testing.T) {

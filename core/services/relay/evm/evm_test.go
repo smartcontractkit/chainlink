@@ -6,13 +6,15 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestRelayerOpts_Validate(t *testing.T) {
 	type fields struct {
-		DS             sqlutil.DataSource
-		CSAETHKeystore evm.CSAETHKeystore
+		DS                   sqlutil.DataSource
+		CSAETHKeystore       evm.CSAETHKeystore
+		CapabilitiesRegistry coretypes.CapabilitiesRegistry
 	}
 	tests := []struct {
 		name            string
@@ -22,8 +24,9 @@ func TestRelayerOpts_Validate(t *testing.T) {
 		{
 			name: "all invalid",
 			fields: fields{
-				DS:             nil,
-				CSAETHKeystore: nil,
+				DS:                   nil,
+				CSAETHKeystore:       nil,
+				CapabilitiesRegistry: nil,
 			},
 			wantErrContains: `nil DataSource
 nil Keystore`,
@@ -36,12 +39,22 @@ nil Keystore`,
 			wantErrContains: `nil DataSource
 nil Keystore`,
 		},
+		{
+			name: "missing ds, keystore, capabilitiesRegistry",
+			fields: fields{
+				DS: nil,
+			},
+			wantErrContains: `nil DataSource
+nil Keystore
+nil CapabilitiesRegistry`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := evm.RelayerOpts{
-				DS:             tt.fields.DS,
-				CSAETHKeystore: tt.fields.CSAETHKeystore,
+				DS:                   tt.fields.DS,
+				CSAETHKeystore:       tt.fields.CSAETHKeystore,
+				CapabilitiesRegistry: tt.fields.CapabilitiesRegistry,
 			}
 			err := c.Validate()
 			if tt.wantErrContains != "" {

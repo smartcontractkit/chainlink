@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
 type Delegate struct {
@@ -22,6 +23,7 @@ type Delegate struct {
 	logger          logger.Logger
 	legacyEVMChains legacyevm.LegacyChainContainer
 	peerID          func() *p2ptypes.PeerID
+	store           store.Store
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -58,6 +60,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		Registry:   d.registry,
 		DONInfo:    dinfo,
 		PeerID:     d.peerID,
+		Store:      d.store,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -103,8 +106,8 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	}, nil
 }
 
-func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, peerID func() *p2ptypes.PeerID) *Delegate {
-	return &Delegate{logger: logger, registry: registry, legacyEVMChains: legacyEVMChains, peerID: peerID}
+func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, store store.Store, peerID func() *p2ptypes.PeerID) *Delegate {
+	return &Delegate{logger: logger, registry: registry, legacyEVMChains: legacyEVMChains, store: store, peerID: peerID}
 }
 
 func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
@@ -119,21 +122,28 @@ func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
 	if err != nil {
 		return jb, fmt.Errorf("toml unmarshal error on spec: %w", err)
 	}
+	if jb.Type != job.Workflow {
+		return jb, fmt.Errorf("unsupported type %s, expected %s", jb.Type, job.Workflow)
+	}
 
 	var spec job.WorkflowSpec
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return jb, fmt.Errorf("toml unmarshal error on job: %w", err)
+		return jb, fmt.Errorf("toml unmarshal error on workflow spec: %w", err)
 	}
 
-	if err := spec.Validate(); err != nil {
-		return jb, err
+	err = spec.Validate()
+	if err != nil {
+		return jb, fmt.Errorf("invalid WorkflowSpec: %w", err)
 	}
 
+	// ensure the embedded workflow graph is valid
+	_, err = Parse(spec.Workflow)
+	if err != nil {
+		return jb, fmt.Errorf("failed to parse workflow graph: %w", err)
+	}
 	jb.WorkflowSpec = &spec
-	if jb.Type != job.Workflow {
-		return jb, fmt.Errorf("unsupported type %s", jb.Type)
-	}
+	jb.WorkflowSpecID = &spec.ID
 
 	return jb, nil
 }

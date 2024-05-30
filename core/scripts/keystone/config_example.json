@@ -14,7 +14,7 @@
     "DeltaCertifiedCommitRequestMillis": 1000,
     "DeltaStageMillis": 30000,
     "MaxRoundsPerEpoch": 10,
-    "TransmissionSchedule": [1, 1, 1, 1],
+    "TransmissionSchedule": [4],
 
     "MaxDurationQueryMillis": 1000,
     "MaxDurationObservationMillis": 1000,

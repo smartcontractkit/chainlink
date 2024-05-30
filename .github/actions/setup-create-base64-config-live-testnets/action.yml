@@ -33,6 +33,8 @@ inputs:
     description: Grafana URL
   grafanaDashboardUrl:
     description: Grafana dashboard URL
+  grafanaBearerToken:
+    description: Grafana bearer token
   network:
     description: Network to run tests on
   httpEndpoints:
@@ -62,6 +64,7 @@ runs:
         LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
         GRAFANA_URL: ${{ inputs.grafanaUrl }}
         GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
+        GRAFANA_BEARER_TOKEN: ${{ inputs.grafanaBearerToken }}
         NETWORK: ${{ inputs.network }}
         HTTP_ENDPOINTS: ${{ inputs.httpEndpoints }}
         WS_ENDPOINTS: ${{ inputs.wsEndpoints }}
@@ -84,6 +87,11 @@ runs:
           pyroscope_enabled=true
         else
           pyroscope_enabled=false
+        fi
+
+        grafana_bearer_token=""
+        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
         fi
 
         cat << EOF > config.toml
@@ -115,6 +123,7 @@ runs:
         [Logging.Grafana]
         base_url="$GRAFANA_URL"
         dashboard_url="$GRAFANA_DASHBOARD_URL"
+        $grafana_bearer_token
 
         [Network]
         selected_networks=["$NETWORK"]
