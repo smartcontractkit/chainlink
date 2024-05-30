@@ -13,6 +13,7 @@ import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
+import add from "@changesets/cli/dist/declarations/src/commands/add";
 
 chai.use(deepEqualInAnyOrder)
 
@@ -563,6 +564,24 @@ describe('LinkAvailableBalanceMonitor', () => {
       expect(addresses).to.deep.equalInAnyOrder(watchListAddresses)
     })
 
+    it('should return false because the monitor is underfunded', async () => {
+      // it needs 10 LINKs to fund all 5 upkeeps, but it only has 8 LINKs
+      const fundTx = await lt
+        .connect(owner)
+        .transfer(labm.address, fourLINK.add(fourLINK))
+      await fundTx.wait()
+
+      await labm.setWatchList(
+        watchListAddresses,
+        watchListMinBalances,
+        watchListTopUpAmounts,
+        watchListDstChainSelectors,
+      )
+
+      const [should, _] = await labm.checkUpkeep('0x')
+      assert.isFalse(should)
+    })
+
     it('should omit aggregators that have sufficient funding', async () => {
       const fundTx = await lt.connect(owner).transfer(
         labm.address,
@@ -686,7 +705,7 @@ describe('LinkAvailableBalanceMonitor', () => {
         )
       })
 
-      it('Can check MAX_CHECK upkeeps within the allotted gas limit', async () => {
+      it('can check MAX_CHECK upkeeps within the allotted gas limit', async () => {
         for (const aggregator of aggregators) {
           // here we make no aggregators eligible for funding, requiring the function to
           // traverse the whole list
@@ -749,7 +768,7 @@ describe('LinkAvailableBalanceMonitor', () => {
       await h.assertLinkTokenBalance(lt, directTarget2.address, twoLINK)
     })
 
-    it('Can handle MAX_PERFORM proxies within gas limit', async () => {
+    it('can handle MAX_PERFORM proxies within gas limit', async () => {
       const MAX_PERFORM = await labm.getMaxPerform()
       const proxyAddresses = []
       const minBalances = []
@@ -855,17 +874,17 @@ describe('LinkAvailableBalanceMonitor', () => {
 
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address, twoLINK)
+          .withArgs(aggregator1.address, twoLINK)
         assert.equal(
           (await lt.balanceOf(aggregator1.address)).toBigInt(),
           twoLINK.toBigInt(),
         )
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy2.address, twoLINK)
+          .withArgs(aggregator2.address, twoLINK)
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy3.address, twoLINK)
+          .withArgs(aggregator3.address, twoLINK)
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
           .withArgs(directTarget1.address, twoLINK)
@@ -917,7 +936,7 @@ describe('LinkAvailableBalanceMonitor', () => {
 
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address, oneLINK)
+          .withArgs(aggregator1.address, oneLINK)
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
           .withArgs(directTarget1.address, oneLINK)
@@ -942,7 +961,7 @@ describe('LinkAvailableBalanceMonitor', () => {
           .topUp([proxy1.address, proxy4.address])
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address, oneLINK)
+          .withArgs(aggregator1.address, oneLINK)
         await expect(tx).to.emit(labm, 'TopUpBlocked').withArgs(proxy4.address)
       })
 
@@ -961,7 +980,7 @@ describe('LinkAvailableBalanceMonitor', () => {
           .topUp([proxy1.address, proxy4.address])
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address, oneLINK)
+          .withArgs(aggregator1.address, oneLINK)
         await expect(tx).to.emit(labm, 'TopUpBlocked').withArgs(proxy4.address)
       })
 
@@ -981,7 +1000,7 @@ describe('LinkAvailableBalanceMonitor', () => {
           .topUp([proxy1.address, proxy4.address])
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address, oneLINK)
+          .withArgs(aggregator1.address, oneLINK)
         await expect(tx).to.emit(labm, 'TopUpBlocked').withArgs(proxy4.address)
       })
 
@@ -1000,7 +1019,7 @@ describe('LinkAvailableBalanceMonitor', () => {
           .topUp([proxy1.address, directTarget1.address])
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address, oneLINK)
+          .withArgs(aggregator1.address, oneLINK)
         assert.equal(
           (await lt.balanceOf(aggregator1.address)).toBigInt(),
           oneLINK.toBigInt(),
@@ -1027,7 +1046,7 @@ describe('LinkAvailableBalanceMonitor', () => {
         const tx = await labm.connect(keeperRegistry).topUp(watchListAddresses)
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy3.address, twoLINK)
+          .withArgs(aggregator3.address, twoLINK)
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
           .withArgs(directTarget1.address, twoLINK)

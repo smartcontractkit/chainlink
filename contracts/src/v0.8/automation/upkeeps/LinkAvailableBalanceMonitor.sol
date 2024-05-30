@@ -227,12 +227,13 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     address[] memory targetsToFund = new address[](maxPerform);
     MonitoredAddress memory contractToFund;
+    address targetAddress;
     for (
       uint256 numChecked = 0;
       numChecked < numToCheck;
       (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)
     ) {
-      address targetAddress = s_watchList.at(idx);
+      targetAddress = s_watchList.at(idx);
       contractToFund = s_targets[targetAddress];
       (bool fundingNeeded, ) = _needsFunding(
         targetAddress,
@@ -277,13 +278,13 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
         bool success = i_linkToken.transfer(target, contractToFund.topUpAmount);
         if (success) {
           localBalance -= contractToFund.topUpAmount;
-          emit TopUpSucceeded(targetAddress, contractToFund.topUpAmount); // which address should be emitted??
+          emit TopUpSucceeded(target, contractToFund.topUpAmount);
         } else {
-          s_targets[targetAddress].lastTopUpTimestamp = contractToFund.lastTopUpTimestamp;
+          s_targets[targetAddress].lastTopUpTimestamp = contractToFund.lastTopUpTimestamp; // should we update this?
           emit TopUpFailed(targetAddress);
         }
       } else {
-        s_targets[targetAddress].lastTopUpTimestamp = contractToFund.lastTopUpTimestamp;
+        s_targets[targetAddress].lastTopUpTimestamp = contractToFund.lastTopUpTimestamp; // should we update this?
         emit TopUpBlocked(targetAddress);
       }
     }
@@ -295,7 +296,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @param minBalance minimum balance required for the target
   /// @param minWaitPeriodPassed the minimum wait period (target lastTopUpTimestamp + minWaitPeriod)
   /// @return bool whether the target needs funding or not
-  /// @return address the address to fund. for DF, this is the aggregator address. for other products, it's the target address
+  /// @return address the address to fund. for DF, this is the aggregator address behind the proxy address.
+  ///         for other products, it's the original target address
   function _needsFunding(
     address targetAddress,
     uint256 minWaitPeriodPassed,
@@ -333,9 +335,18 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     bytes calldata
   ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     address[] memory needsFunding = sampleUnderfundedAddresses();
-    upkeepNeeded = needsFunding.length > 0;
-    performData = abi.encode(needsFunding);
-    return (upkeepNeeded, performData);
+    if (needsFunding.length == 0) {
+      return (false, "");
+    }
+    uint96 total_batch_balance;
+    for (uint256 idx = 0; idx < needsFunding.length; idx++) {
+      address targetAddress = needsFunding[idx];
+      total_batch_balance = total_batch_balance + s_targets[targetAddress].topUpAmount;
+    }
+    if (i_linkToken.balanceOf(address(this)) >= total_batch_balance) {
+      return (true, abi.encode(needsFunding));
+    }
+    return (false, "");
   }
 
   /// @notice Called by the keeper to send funds to underfunded addresses.
