@@ -104,7 +104,7 @@ func observeNewMsgs(
 				"chain", seqNumChain.ChainSel, "minSeqNum", minSeqNum, "maxSeqNum", maxSeqNum)
 
 			newMsgs, err := ccipReader.MsgsBetweenSeqNums(
-				ctx, []model.ChainSelector{seqNumChain.ChainSel}, model.NewSeqNumRange(minSeqNum, maxSeqNum))
+				ctx, seqNumChain.ChainSel, model.NewSeqNumRange(minSeqNum, maxSeqNum))
 			if err != nil {
 				return fmt.Errorf("get messages between seq nums: %w", err)
 			}

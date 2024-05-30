@@ -207,7 +207,7 @@ func Test_observeNewMsgs(t *testing.T) {
 					mockReader.On(
 						"MsgsBetweenSeqNums",
 						ctx,
-						[]model.ChainSelector{seqNumChain.ChainSel},
+						seqNumChain.ChainSel,
 						model.NewSeqNumRange(seqNumChain.SeqNum+1, seqNumChain.SeqNum+model.SeqNum(1+tc.msgScanBatchSize)),
 					).Return(tc.newMsgs[seqNumChain.ChainSel], nil)
 				}

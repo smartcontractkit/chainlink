@@ -2,7 +2,6 @@ package mocks
 
 import (
 	"context"
-	"time"
 
 	"github.com/smartcontractkit/ccipocr3/internal/model"
 	"github.com/smartcontractkit/ccipocr3/internal/reader"
@@ -19,13 +18,8 @@ func NewCCIPReader() *CCIPReader {
 	}
 }
 
-func (r CCIPReader) MsgsAfterTimestamp(ctx context.Context, chains []model.ChainSelector, ts time.Time, limit int) ([]model.CCIPMsg, error) {
-	args := r.Called(ctx, chains, ts, limit)
-	return args.Get(0).([]model.CCIPMsg), args.Error(1)
-}
-
-func (r CCIPReader) MsgsBetweenSeqNums(ctx context.Context, chains []model.ChainSelector, seqNumRange model.SeqNumRange) ([]model.CCIPMsg, error) {
-	args := r.Called(ctx, chains, seqNumRange)
+func (r CCIPReader) MsgsBetweenSeqNums(ctx context.Context, chain model.ChainSelector, seqNumRange model.SeqNumRange) ([]model.CCIPMsg, error) {
+	args := r.Called(ctx, chain, seqNumRange)
 	return args.Get(0).([]model.CCIPMsg), args.Error(1)
 }
 
