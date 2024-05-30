@@ -48,10 +48,12 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		return fmt.Errorf("toAddress is not a valid ethereum address: %v", toAddress)
 	}
 
+	// TODO(nickcorin): Pre-process the contracts when initialising the chain writer.
 	contractConfig, ok := w.config.Contracts[contract]
 	if !ok {
 		return fmt.Errorf("contract config not found: %v", contract)
 	}
+
 	methodConfig, ok := contractConfig.Configs[method]
 	if !ok {
 		return fmt.Errorf("method config not found: %v", method)
@@ -105,6 +107,7 @@ func (w *chainWriter) Close() error {
 		_, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
+		// TODO(nickcorin): Add shutdown steps here.
 		return nil
 	})
 }
