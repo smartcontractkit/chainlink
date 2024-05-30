@@ -2,10 +2,9 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
-contract CapabilityRegistry_AddCapabilityTest is BaseTest {
+contract CapabilityRegistry_DeprecateCapabilitiesTest is BaseTest {
   event CapabilityDeprecated(bytes32 indexed hashedCapabilityId);
 
   function setUp() public override {
@@ -24,15 +23,21 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
       s_basicCapability.version
     );
 
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = hashedCapabilityId;
+
     vm.expectRevert("Only callable by owner");
-    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
   }
 
   function test_RevertWhen_CapabilityDoesNotExist() public {
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = s_nonExistentHashedCapabilityId;
+
     vm.expectRevert(
       abi.encodeWithSelector(CapabilityRegistry.CapabilityDoesNotExist.selector, s_nonExistentHashedCapabilityId)
     );
-    s_capabilityRegistry.deprecateCapability(s_nonExistentHashedCapabilityId);
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
   }
 
   function test_RevertWhen_CapabilityIsDeprecated() public {
@@ -41,10 +46,12 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
       s_basicCapability.version
     );
 
-    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = hashedCapabilityId;
 
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.CapabilityIsDeprecated.selector, hashedCapabilityId));
-    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
   }
 
   function test_DeprecatesCapability() public {
@@ -52,9 +59,10 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
       s_basicCapability.labelledName,
       s_basicCapability.version
     );
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = hashedCapabilityId;
 
-    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
-
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
     assertEq(s_capabilityRegistry.isCapabilityDeprecated(hashedCapabilityId), true);
   }
 
@@ -64,8 +72,11 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
       s_basicCapability.version
     );
 
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = hashedCapabilityId;
+
     vm.expectEmit(address(s_capabilityRegistry));
     emit CapabilityDeprecated(hashedCapabilityId);
-    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
   }
 }

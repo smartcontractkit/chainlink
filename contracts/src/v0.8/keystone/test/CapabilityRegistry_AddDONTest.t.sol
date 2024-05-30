@@ -122,7 +122,9 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
 
   function test_RevertWhen_DeprecatedCapabilityAdded() public {
     bytes32 capabilityId = s_basicHashedCapabilityId;
-    s_capabilityRegistry.deprecateCapability(capabilityId);
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = capabilityId;
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
 
     bytes32[] memory nodes = new bytes32[](1);
     nodes[0] = P2P_ID;

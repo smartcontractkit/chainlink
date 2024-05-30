@@ -537,13 +537,18 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   /// @notice Deprecates a capability by adding it to the deprecated list
-  /// @param hashedCapabilityId The ID of the capability to deprecate
-  function deprecateCapability(bytes32 hashedCapabilityId) external onlyOwner {
-    if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
-    if (s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityIsDeprecated(hashedCapabilityId);
+  /// @param hashedCapabilityIds[] The IDs of the capabilities to deprecate
+  function deprecateCapabilities(bytes32[] calldata hashedCapabilityIds) external onlyOwner {
+    for (uint256 i; i < hashedCapabilityIds.length; ++i) {
+      bytes32 hashedCapabilityId = hashedCapabilityIds[i];
+      if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
+      if (s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId))
+        revert CapabilityIsDeprecated(hashedCapabilityId);
 
-    s_deprecatedHashedCapabilityIds.add(hashedCapabilityId);
-    emit CapabilityDeprecated(hashedCapabilityId);
+      s_deprecatedHashedCapabilityIds.add(hashedCapabilityId);
+      delete s_capabilities[hashedCapabilityId];
+      emit CapabilityDeprecated(hashedCapabilityId);
+    }
   }
 
   /// @notice This function returns a Capability by its hashed ID. Use `getHashedCapabilityId` to get the hashed ID.

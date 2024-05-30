@@ -37,7 +37,9 @@ contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
       s_basicCapability.labelledName,
       s_basicCapability.version
     );
-    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = hashedCapabilityId;
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
 
     CapabilityRegistry.Capability[] memory capabilities = s_capabilityRegistry.getCapabilities();
     assertEq(capabilities.length, 1);
