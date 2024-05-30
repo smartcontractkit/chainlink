@@ -6,7 +6,7 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_GetNodeOperatorsTest is BaseTest {
   uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
+  uint32 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
 
   function setUp() public override {
     BaseTest.setUp();
@@ -27,7 +27,7 @@ contract CapabilityRegistry_GetNodeOperatorsTest is BaseTest {
 
   function test_DoesNotIncludeRemovedNodeOperators() public {
     changePrank(ADMIN);
-    uint256[] memory nodeOperatorsToRemove = new uint256[](1);
+    uint32[] memory nodeOperatorsToRemove = new uint32[](1);
     nodeOperatorsToRemove[0] = 2;
     s_capabilityRegistry.removeNodeOperators(nodeOperatorsToRemove);
 

@@ -180,7 +180,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
   /// @param signer The encoded node's signer address
-  event NodeAdded(bytes32 p2pId, uint256 nodeOperatorId, bytes32 signer);
+  event NodeAdded(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
 
   /// @notice This event is emitted when a node is removed
   /// @param p2pId The P2P ID of the node that was removed
@@ -190,7 +190,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
   /// @param signer The node's signer address
-  event NodeUpdated(bytes32 p2pId, uint256 nodeOperatorId, bytes32 signer);
+  event NodeUpdated(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
 
   /// @notice This event is emitted when a DON's config is set
   /// @param donId The ID of the DON the config was set for
@@ -249,17 +249,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param admin The address of the admin that can manage the node
   /// operator
   /// @param name The human readable name of the node operator
-  event NodeOperatorAdded(uint256 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorAdded(uint32 nodeOperatorId, address indexed admin, string name);
 
   /// @notice This event is emitted when a node operator is removed
   /// @param nodeOperatorId The ID of the node operator that was removed
-  event NodeOperatorRemoved(uint256 nodeOperatorId);
+  event NodeOperatorRemoved(uint32 nodeOperatorId);
 
   /// @notice This event is emitted when a node operator is updated
   /// @param nodeOperatorId The ID of the node operator that was updated
   /// @param admin The address of the node operator's admin
   /// @param name The node operator's human readable name
-  event NodeOperatorUpdated(uint256 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorUpdated(uint32 nodeOperatorId, address indexed admin, string name);
 
   /// @notice This event is emitted when a new capability is added
   /// @param hashedCapabilityId The hashed ID of the newly added capability
@@ -269,21 +269,18 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param hashedCapabilityId The hashed ID of the deprecated capability
   event CapabilityDeprecated(bytes32 indexed hashedCapabilityId);
 
-  mapping(bytes32 => Capability) private s_capabilities;
+  /// @notice Mapping of capabilities
+  mapping(bytes32 hashedCapabilityId => Capability capability) private s_capabilities;
+
   /// @notice Set of hashed capability IDs.
   /// A hashed ID is created by the function `getHashedCapabilityId`.
   EnumerableSet.Bytes32Set private s_hashedCapabilityIds;
+
   /// @notice Set of deprecated hashed capability IDs,
   /// A hashed ID is created by the function `getHashedCapabilityId`.
   ///
   /// Deprecated capabilities are skipped by the `getCapabilities` function.
   EnumerableSet.Bytes32Set private s_deprecatedHashedCapabilityIds;
-
-  /// @notice Set of removed Node Operator IDs
-  EnumerableSet.UintSet private s_removedNodeOperatorIds;
-
-  /// @notice Set of removed DON IDs
-  EnumerableSet.UintSet private s_removedDONIds;
 
   /// @notice Encoded node signer addresses
   EnumerableSet.Bytes32Set private s_nodeSigners;
@@ -292,7 +289,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   EnumerableSet.Bytes32Set private s_nodeP2PIds;
 
   /// @notice Mapping of node operators
-  mapping(uint256 nodeOperatorId => NodeOperator nodeOperator) private s_nodeOperators;
+  mapping(uint32 nodeOperatorId => NodeOperator nodeOperator) private s_nodeOperators;
 
   /// @notice Mapping of nodes
   mapping(bytes32 p2pId => Node node) private s_nodes;
@@ -320,7 +317,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < nodeOperators.length; ++i) {
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      uint256 nodeOperatorId = s_nodeOperatorId;
+      uint32 nodeOperatorId = s_nodeOperatorId;
       s_nodeOperators[nodeOperatorId] = NodeOperator({admin: nodeOperator.admin, name: nodeOperator.name});
       ++s_nodeOperatorId;
       emit NodeOperatorAdded(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
@@ -329,24 +326,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Removes a node operator
   /// @param nodeOperatorIds The IDs of the node operators to remove
-  function removeNodeOperators(uint256[] calldata nodeOperatorIds) external onlyOwner {
-    for (uint256 i; i < nodeOperatorIds.length; ++i) {
-      uint256 nodeOperatorId = nodeOperatorIds[i];
+  function removeNodeOperators(uint32[] calldata nodeOperatorIds) external onlyOwner {
+    for (uint32 i; i < nodeOperatorIds.length; ++i) {
+      uint32 nodeOperatorId = nodeOperatorIds[i];
       delete s_nodeOperators[nodeOperatorId];
-      s_removedNodeOperatorIds.add(nodeOperatorId);
       emit NodeOperatorRemoved(nodeOperatorId);
     }
   }
 
   /// @notice Updates a node operator
   /// @param nodeOperatorIds The ID of the node operator being updated
-  function updateNodeOperators(uint256[] calldata nodeOperatorIds, NodeOperator[] calldata nodeOperators) external {
+  function updateNodeOperators(uint32[] calldata nodeOperatorIds, NodeOperator[] calldata nodeOperators) external {
     if (nodeOperatorIds.length != nodeOperators.length)
       revert LengthMismatch(nodeOperatorIds.length, nodeOperators.length);
 
     address owner = owner();
     for (uint256 i; i < nodeOperatorIds.length; ++i) {
-      uint256 nodeOperatorId = nodeOperatorIds[i];
+      uint32 nodeOperatorId = nodeOperatorIds[i];
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
       if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden();
@@ -365,7 +361,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Gets a node operator's data
   /// @param nodeOperatorId The ID of the node operator to query for
   /// @return NodeOperator The node operator data
-  function getNodeOperator(uint256 nodeOperatorId) external view returns (NodeOperator memory) {
+  function getNodeOperator(uint32 nodeOperatorId) external view returns (NodeOperator memory) {
     return s_nodeOperators[nodeOperatorId];
   }
 
@@ -374,12 +370,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   function getNodeOperators() external view returns (NodeOperator[] memory) {
     uint32 nodeOperatorId = s_nodeOperatorId;
     /// Minus one to account for s_nodeOperatorId starting at index 1
-    NodeOperator[] memory nodeOperators = new NodeOperator[](s_nodeOperatorId - s_removedNodeOperatorIds.length() - 1);
+    NodeOperator[] memory nodeOperators = new NodeOperator[](s_nodeOperatorId - 1);
     uint256 idx;
-    for (uint256 i = 1; i < nodeOperatorId; ++i) {
-      if (!s_removedNodeOperatorIds.contains(i)) {
+    for (uint32 i = 1; i < nodeOperatorId; ++i) {
+      if (s_nodeOperators[i].admin != address(0)) {
         nodeOperators[idx] = s_nodeOperators[i];
         ++idx;
+      }
+    }
+    if (idx != s_nodeOperatorId - 1) {
+      assembly {
+        mstore(nodeOperators, idx)
       }
     }
     return nodeOperators;
@@ -647,7 +648,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       // DON config count starts at index 1
       if (don.configCount == 0) revert DONDoesNotExist(donId);
       delete s_dons[donId];
-      s_removedDONIds.add(donId);
       emit ConfigSet(donId, 0);
     }
   }
@@ -663,14 +663,19 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @return DONInfo[] The list of configured DONs
   function getDONs() external view returns (DONInfo[] memory) {
     /// Minus one to account for s_donId starting at index 1
-    uint256 donId = s_donId;
-    DONInfo[] memory dons = new DONInfo[](s_donId - s_removedDONIds.length() - 1);
+    uint32 donId = s_donId;
+    DONInfo[] memory dons = new DONInfo[](donId - 1);
     uint256 idx;
     ///
     for (uint32 i = 1; i < donId; ++i) {
-      if (!s_removedDONIds.contains(i)) {
+      if (s_dons[i].id != 0) {
         dons[idx] = _getDON(i);
         ++idx;
+      }
+    }
+    if (idx != donId - 1) {
+      assembly {
+        mstore(dons, idx)
       }
     }
     return dons;

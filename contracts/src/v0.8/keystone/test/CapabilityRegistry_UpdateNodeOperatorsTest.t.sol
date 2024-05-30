@@ -5,9 +5,9 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
-  event NodeOperatorUpdated(uint256 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorUpdated(uint32 nodeOperatorId, address indexed admin, string name);
 
-  uint256 private constant TEST_NODE_OPERATOR_ID = 0;
+  uint32 private constant TEST_NODE_OPERATOR_ID = 0;
   address private constant NEW_NODE_OPERATOR_ADMIN = address(3);
   string private constant NEW_NODE_OPERATOR_NAME = "new-node-operator";
 
@@ -24,7 +24,7 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
     CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
     nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: NEW_NODE_OPERATOR_ADMIN, name: NEW_NODE_OPERATOR_NAME});
 
-    uint256[] memory nodeOperatorIds = new uint256[](1);
+    uint32[] memory nodeOperatorIds = new uint32[](1);
     nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
   }
@@ -35,7 +35,7 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
     CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
     nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: address(0), name: NEW_NODE_OPERATOR_NAME});
 
-    uint256[] memory nodeOperatorIds = new uint256[](1);
+    uint32[] memory nodeOperatorIds = new uint32[](1);
     nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
   }
@@ -46,7 +46,7 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
     CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
     nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: NEW_NODE_OPERATOR_ADMIN, name: NEW_NODE_OPERATOR_NAME});
 
-    uint256[] memory nodeOperatorIds = new uint256[](1);
+    uint32[] memory nodeOperatorIds = new uint32[](1);
     nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;
 
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
