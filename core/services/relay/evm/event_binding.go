@@ -39,8 +39,9 @@ type eventBinding struct {
 	// eventDataWords maps a generic name to a word index
 	// key is a predefined generic name for evm log event data word
 	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
-	eventDataWords map[string]uint8
-	id             string
+	eventDataWords       map[string]uint8
+	id                   string
+	confirmationsMapping map[primitives.ConfidenceLevel]evmtypes.Confirmations
 }
 
 type topicDetail struct {
@@ -397,9 +398,21 @@ func (e *eventBinding) remapPrimitive(key string, expression query.Expression) (
 		}
 
 		return logpoller.NewEventByTopicFilter(e.topics[key].Index, primitive.ValueComparators), nil
+	case *primitives.Confidence:
+		return logpoller.NewConfirmationsFilter(e.confirmationsFrom(primitive.ConfidenceLevel)), nil
 	default:
 		return expression, nil
 	}
+}
+
+func (e *eventBinding) confirmationsFrom(confidence primitives.ConfidenceLevel) evmtypes.Confirmations {
+	value, ok := e.confirmationsMapping[confidence]
+	if ok {
+		return value
+	}
+
+	// if the mapping doesn't exist, default to finalized for safety
+	return evmtypes.Finalized
 }
 
 func wrapInternalErr(err error) error {

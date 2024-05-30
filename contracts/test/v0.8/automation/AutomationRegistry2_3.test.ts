@@ -118,7 +118,7 @@ const emptyBytes = '0x'
 const emptyBytes32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-const transmitGasOverhead = 1_025_000
+const transmitGasOverhead = 1_040_000
 const checkGasOverhead = 600_000
 
 const stalenessSeconds = BigNumber.from(43820)
