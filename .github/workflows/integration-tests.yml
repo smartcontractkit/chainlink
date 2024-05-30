@@ -48,6 +48,9 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     steps:
+      - name: Log Concurrency Group
+        run: |
+          echo "Concurrency Group: integration-tests-chainlink-${{ github.ref }}-${{ github.sha }}-${{ github.run_id }}-${{ inputs.distinct_run_name }}"
       - run: echo "${{github.event_name}}"
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
