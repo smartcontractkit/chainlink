@@ -1,4 +1,5 @@
 ChainID = '34443'
+FinalityDepth = 200
 FinalityTagEnabled = true
 ChainType = 'optimismBedrock'
 
