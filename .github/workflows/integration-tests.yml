@@ -28,8 +28,8 @@ on:
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
-  group: integration-tests-chainlink-${{ github.ref }}-${{ github.sha }}-${{ github.run_id }}-${{ inputs.distinct_run_name }}
-  cancel-in-progress: true
+  group: ${{ github.sha }}-${{ github.run_id }}-integration-tests-chainlink-${{ github.ref }}-${{ inputs.distinct_run_name }}
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 env:
   # for run-test variables and environment
@@ -50,7 +50,7 @@ jobs:
     steps:
       - name: Log Concurrency Group
         run: |
-          echo "Concurrency Group: integration-tests-chainlink-${{ github.ref }}-${{ github.sha }}-${{ github.run_id }}-${{ inputs.distinct_run_name }}"
+          echo "Concurrency Group: ${{ github.sha }}-${{ github.run_id }}-integration-tests-chainlink-${{ github.ref }}-${{ inputs.distinct_run_name }}"
       - run: echo "${{github.event_name}}"
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
