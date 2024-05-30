@@ -46,10 +46,13 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	if err != nil {
 		return nil, err
 	}
-	cr.Bind(ctx, []commontypes.BoundContract{{
+	err = cr.Bind(ctx, []commontypes.BoundContract{{
 		Address: config.ForwarderAddress().String(),
 		Name:    "forwarder",
 	}})
+	if err != nil {
+		return nil, err
+	}
 
 	chainWriterConfig := relayevmtypes.ChainWriterConfig{
 		Contracts: map[string]relayevmtypes.ChainWriter{
