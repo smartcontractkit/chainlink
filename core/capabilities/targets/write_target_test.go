@@ -52,9 +52,9 @@ func TestWriteTarget(t *testing.T) {
 	cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmitter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		transmitter := args.Get(4).(*common.Address)
 		*transmitter = common.HexToAddress("0x0")
-	}).Twice()
+	}).Once()
 
-	cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(nil).Twice()
+	cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
 
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
@@ -74,7 +74,7 @@ func TestWriteTarget(t *testing.T) {
 	t.Run("succeeds with empty report", func(t *testing.T) {
 		emptyInputs, err := values.NewMap(map[string]any{
 			"signed_report": map[string]any{
-				"report":     nil,
+				"report": nil,
 			},
 			"signatures": [][]byte{},
 		})
