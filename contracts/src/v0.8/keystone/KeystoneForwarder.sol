@@ -130,6 +130,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   function report(
     address receiverAddress,
     bytes calldata rawReport,
+    bytes calldata reportContext,
     bytes[] calldata signatures
   ) external nonReentrant {
     if (rawReport.length < REPORT_METADATA_LENGTH) {
@@ -149,14 +150,14 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
     // validate signatures
     {
-      bytes32 hash = keccak256(rawReport);
+      bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
 
       address[MAX_ORACLES] memory signed;
       uint8 index;
       for (uint256 i; i < signatures.length; ++i) {
         // TODO: is libocr-style multiple bytes32 arrays more optimal, gas-wise?
         (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
-        address signer = ecrecover(hash, v, r, s);
+        address signer = ecrecover(completeHash, v + 27, r, s);
 
         // validate signer is trusted and signature is unique
         index = uint8(s_configs[donId]._positions[signer]);
@@ -167,9 +168,8 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       }
     }
 
-    IReceiver receiver = IReceiver(receiverAddress);
     bool success;
-    try receiver.onReport(workflowId, workflowOwner, rawReport[REPORT_METADATA_LENGTH:]) {
+    try IReceiver(receiverAddress).onReport(workflowId, workflowOwner, rawReport[REPORT_METADATA_LENGTH:]) {
       success = true;
     } catch {
       // Do nothing, success is already false

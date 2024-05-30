@@ -19,6 +19,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   bytes[] internal mercuryReports = new bytes[](2);
   bytes internal rawReports;
   bytes internal report;
+  bytes internal reportContext = new bytes(96);
   uint256 internal requiredSignaturesNum = F + 1;
   bytes[] internal signatures = new bytes[](2);
 
@@ -34,8 +35,11 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     report = abi.encodePacked(workflowId, DON_ID, executionId, workflowOwner, rawReports);
 
     for (uint256 i = 0; i < requiredSignaturesNum; i++) {
-      (uint8 v, bytes32 r, bytes32 s) = vm.sign(s_signers[i].mockPrivateKey, keccak256(report));
-      signatures[i] = bytes.concat(r, s, bytes1(v));
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+        s_signers[i].mockPrivateKey,
+        keccak256(abi.encodePacked(keccak256(report), reportContext))
+      );
+      signatures[i] = bytes.concat(r, s, bytes1(v - 27));
     }
 
     vm.startPrank(TRANSMITTER);
@@ -52,14 +56,14 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     );
 
     vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidDonId.selector, invalidDONId));
-    s_forwarder.report(address(s_receiver), reportWithInvalidDONId, signatures);
+    s_forwarder.report(address(s_receiver), reportWithInvalidDONId, reportContext, signatures);
   }
 
   function test_RevertWhen_ReportIsMalformed() public {
     bytes memory shortenedReport = abi.encode(bytes32(report));
 
     vm.expectRevert(KeystoneForwarder.InvalidReport.selector);
-    s_forwarder.report(address(s_receiver), shortenedReport, signatures);
+    s_forwarder.report(address(s_receiver), shortenedReport, reportContext, signatures);
   }
 
   function test_RevertWhen_TooFewSignatures() public {
@@ -68,7 +72,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     vm.expectRevert(
       abi.encodeWithSelector(KeystoneForwarder.InvalidSignatureCount.selector, F + 1, fewerSignatures.length)
     );
-    s_forwarder.report(address(s_receiver), report, fewerSignatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, fewerSignatures);
   }
 
   function test_RevertWhen_TooManySignatures() public {
@@ -77,40 +81,43 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     vm.expectRevert(
       abi.encodeWithSelector(KeystoneForwarder.InvalidSignatureCount.selector, F + 1, moreSignatures.length)
     );
-    s_forwarder.report(address(s_receiver), report, moreSignatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, moreSignatures);
   }
 
   function test_RevertWhen_AnySignatureIsInvalid() public {
     signatures[1] = abi.encode(1234); // invalid signature
 
     vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidSignature.selector, signatures[1]));
-    s_forwarder.report(address(s_receiver), report, signatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
   function test_RevertWhen_AnySignerIsInvalid() public {
     uint256 mockPK = 999;
 
     Signer memory maliciousSigner = Signer({mockPrivateKey: mockPK, signerAddress: vm.addr(mockPK)});
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(maliciousSigner.mockPrivateKey, keccak256(report));
-    signatures[1] = bytes.concat(r, s, bytes1(v));
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      maliciousSigner.mockPrivateKey,
+      keccak256(abi.encodePacked(keccak256(report), reportContext))
+    );
+    signatures[1] = bytes.concat(r, s, bytes1(v - 27));
 
     vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidSigner.selector, maliciousSigner.signerAddress));
-    s_forwarder.report(address(s_receiver), report, signatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
   function test_RevertWhen_ReportHasDuplicateSignatures() public {
     signatures[1] = signatures[0]; // repeat a signature
 
     vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.DuplicateSigner.selector, s_signers[0].signerAddress));
-    s_forwarder.report(address(s_receiver), report, signatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
   function test_RevertWhen_ReportAlreadyProcessed() public {
-    s_forwarder.report(address(s_receiver), report, signatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
     bytes32 reportId = keccak256(bytes.concat(bytes20(uint160(address(s_receiver))), executionId));
 
     vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.ReportAlreadyProcessed.selector, reportId));
-    s_forwarder.report(address(s_receiver), report, signatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
   function test_Report_SuccessfulDelivery() public {
@@ -123,7 +130,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     vm.expectEmit(address(s_forwarder));
     emit ReportProcessed(address(s_receiver), workflowOwner, executionId, true);
 
-    s_forwarder.report(address(s_receiver), report, signatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
     // validate transmitter was recorded
     address transmitter = s_forwarder.getTransmitter(address(s_receiver), executionId);

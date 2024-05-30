@@ -107,6 +107,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 
 	var inputs struct {
 		Report     []byte
+		Context    []byte
 		Signatures [][]byte
 	}
 	if err = signedReport.UnwrapTo(&inputs); err != nil {
@@ -127,12 +128,12 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 		}()
 		return callback, nil
 	}
-	cap.lggr.Debugw("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "report", inputs.Report, "signatures", inputs.Signatures)
+	cap.lggr.Debugw("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures))
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
 	// construct forwarder payload
-	calldata, err := forwardABI.Pack("report", common.HexToAddress(reqConfig.Address), inputs.Report, inputs.Signatures)
+	calldata, err := forwardABI.Pack("report", common.HexToAddress(reqConfig.Address), inputs.Report, inputs.Context, inputs.Signatures)
 	if err != nil {
 		return nil, err
 	}
