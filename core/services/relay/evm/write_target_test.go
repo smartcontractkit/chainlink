@@ -123,8 +123,6 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		config, err := values.NewMap(map[string]any{
-			"abi":     "receive(report bytes)",
-			"params":  []any{"$(report)"},
 			"Address": evmCfg.EVM().ChainWriter().ForwarderAddress().String(),
 		})
 		require.NoError(t, err)
@@ -160,7 +158,7 @@ func TestEvmWrite(t *testing.T) {
 
 		inputs, err := values.NewMap(map[string]any{
 			"signed_report": map[string]any{
-				"report":     nil,
+				"report": nil,
 			},
 		})
 		require.NoError(t, err)
