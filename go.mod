@@ -3,7 +3,7 @@ module github.com/smartcontractkit/chainlink/v2
 go 1.21.7
 
 require (
-	github.com/Depado/ginprom v1.8.0
+	github.com/Depado/ginprom v1.8.1
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/NethermindEth/juno v0.3.1
@@ -61,7 +61,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.16.0
-	github.com/prometheus/client_golang v1.17.0
+	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.45.0
 	github.com/prometheus/prometheus v0.48.1
