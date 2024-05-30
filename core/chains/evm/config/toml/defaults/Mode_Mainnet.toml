@@ -22,6 +22,9 @@ BlockHistorySize = 200
 # So we set this to zero so FeeCap = baseFee + tipcap.
 EIP1559FeeCapBufferBlocks = 0
 
+[HeadTracker]
+HistoryDepth = 300
+
 [NodePool]
 PollFailureThreshold = 2
 PollInterval = '3s'
