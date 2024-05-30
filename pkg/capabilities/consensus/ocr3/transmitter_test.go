@@ -90,6 +90,7 @@ func TestTransmitter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, um["report"].([]byte), spb)
 	assert.Len(t, um["signatures"], 1)
+	assert.Len(t, um["context"], 96)
 	_, ok := um[methodHeader]
 	assert.False(t, ok)
 }
@@ -162,6 +163,7 @@ func TestTransmitter_ShouldReportFalse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, um["report"])
 	assert.Len(t, um["signatures"], 0)
+	assert.Nil(t, um["context"])
 	_, ok := um[methodHeader]
 	assert.False(t, ok)
 }

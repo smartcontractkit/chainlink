@@ -2,6 +2,7 @@ package ocr3
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -42,12 +43,20 @@ func (c *ContractTransmitter) Transmit(ctx context.Context, configDigest types.C
 	if info.ShouldReport {
 		resp["report"] = []byte(rwi.Report)
 
+		// report context is the config digest + the sequence number padded with zeros
+		// (see OCR3OnchainKeyringAdapter in core)
+		seqToEpoch := make([]byte, 32)
+		binary.BigEndian.PutUint32(seqToEpoch[32-5:32-1], uint32(seqNr))
+		zeros := make([]byte, 32)
+		repContext := append(append(configDigest[:], seqToEpoch[:]...), zeros...)
+		resp["context"] = repContext
+
 		sigs := [][]byte{}
 		for _, s := range signatures {
 			sigs = append(sigs, s.Signature)
 		}
-		c.lggr.Debugw("ContractTransmitter added signatures", "nSignatures", len(sigs))
 		resp["signatures"] = sigs
+		c.lggr.Debugw("ContractTransmitter added signatures and context", "nSignatures", len(sigs), "contextLen", len(repContext))
 	} else {
 		resp["report"] = nil
 		resp["signatures"] = [][]byte{}
@@ -79,6 +88,7 @@ func (c *ContractTransmitter) Transmit(ctx context.Context, configDigest types.C
 	if err != nil {
 		c.lggr.Errorw("could not transmit response", "error", err, "weid", info.Id.WorkflowExecutionId)
 	}
+	c.lggr.Debugw("ContractTransmitter transmitting done", "shouldReport", info.ShouldReport, "len", len(rwi.Report))
 	return err
 }
 
