@@ -7,12 +7,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-
-	"github.com/smartcontractkit/libocr/permutation"
-
-	"golang.org/x/crypto/sha3"
 )
 
 type executionStrategy interface {
@@ -47,19 +44,12 @@ type scheduledExecution struct {
 	Position int
 }
 
-var (
-	// S = [N]
-	Schedule_AllAtOnce = "allAtOnce"
-	// S = [1 * N]
-	Schedule_OneAtATime = "oneAtATime"
-)
-
 // scheduledExecution generates a pseudo-random transmission schedule,
 // and delays execution until a node is required to transmit.
 func (d scheduledExecution) Apply(ctx context.Context, lggr logger.Logger, cap capabilities.CallbackCapability, req capabilities.CapabilityRequest) (values.Value, error) {
-	tc, err := d.transmissionConfig(req.Config)
+	tc, err := transmission.ExtractTransmissionConfig(req.Config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to extract transmission config from request config: %w", err)
 	}
 
 	info, err := cap.Info(ctx)
@@ -70,102 +60,36 @@ func (d scheduledExecution) Apply(ctx context.Context, lggr logger.Logger, cap c
 	switch {
 	// Case 1: Local DON
 	case info.DON == nil:
-		n := len(d.DON.Members)
-		key := d.key(d.DON.Config.SharedSecret, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID)
-		sched, err := schedule(tc.Schedule, n)
+
+		// The transmission ID is created using the workflow ID and the workflow execution ID which nodes don't know
+		// ahead of time and ensures a malicious node cannot game the schedule.
+		peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(d.DON.Members, d.DON.Config.SharedSecret,
+			req.Metadata.WorkflowID+req.Metadata.WorkflowExecutionID, tc)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get peer ID to transmission delay map: %w", err)
 		}
 
-		picked := permutation.Permutation(n, key)
-		delay := d.delayFor(d.Position, sched, picked, tc.DeltaStage)
-		if delay == nil {
+		delay, existsForPeerID := peerIDToTransmissionDelay[*d.PeerID]
+		if !existsForPeerID {
 			lggr.Debugw("skipping transmission: node is not included in schedule")
 			return nil, nil
 		}
 
-		lggr.Debugf("execution delayed by %+v", *delay)
+		lggr.Debugf("execution delayed by %+v", delay)
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(*delay):
+		case <-time.After(delay):
 			lggr.Debugw("executing delayed execution")
 			return immediateExecution{}.Apply(ctx, lggr, cap, req)
 		}
 	// Case 2: Remote DON
 	default:
+
+		// In this case just execute immediately on the capability and the shims will handle the scheduling and f+1 aggregation
+
 		// TODO: fill in the remote DON case once consensus has been reach on what to do.
 		lggr.Debugw("remote DON transmission not implemented: using immediate execution")
 		return immediateExecution{}.Apply(ctx, lggr, cap, req)
 	}
-}
-
-// `key` uses a shared secret, combined with a workflowID and a workflowExecutionID to generate
-// a secret that can later be used to pseudo-randomly determine a schedule for a set of nodes in a DON.
-// The addition of the workflowExecutionID -- which nodes don't know ahead of time -- additionally guarantees
-// that a malicious coalition of nodes can't "game" the schedule.
-// IMPORTANT: changing this function should happen carefully to maintain the guarantee that all nodes
-// arrive at the same secret.
-func (d scheduledExecution) key(sharedSecret [16]byte, workflowID, workflowExecutionID string) [16]byte {
-	hash := sha3.NewLegacyKeccak256()
-	hash.Write(sharedSecret[:])
-	hash.Write([]byte(workflowID))
-	hash.Write([]byte(workflowExecutionID))
-
-	var key [16]byte
-	copy(key[:], hash.Sum(nil))
-	return key
-}
-
-type transmissionConfig struct {
-	Schedule   string
-	DeltaStage time.Duration
-}
-
-func (d scheduledExecution) transmissionConfig(config *values.Map) (transmissionConfig, error) {
-	var tc struct {
-		DeltaStage string
-		Schedule   string
-	}
-	err := config.UnwrapTo(&tc)
-	if err != nil {
-		return transmissionConfig{}, err
-	}
-
-	duration, err := time.ParseDuration(tc.DeltaStage)
-	if err != nil {
-		return transmissionConfig{}, fmt.Errorf("failed to parse DeltaStage %s as duration: %w", tc.DeltaStage, err)
-	}
-
-	return transmissionConfig{
-		Schedule:   tc.Schedule,
-		DeltaStage: duration,
-	}, nil
-}
-
-func (d scheduledExecution) delayFor(position int, schedule []int, permutation []int, deltaStage time.Duration) *time.Duration {
-	sum := 0
-	for i, s := range schedule {
-		sum += s
-		if permutation[position] < sum {
-			result := time.Duration(i) * deltaStage
-			return &result
-		}
-	}
-
-	return nil
-}
-
-func schedule(sched string, N int) ([]int, error) {
-	switch sched {
-	case Schedule_AllAtOnce:
-		return []int{N}, nil
-	case Schedule_OneAtATime:
-		sch := []int{}
-		for i := 0; i < N; i++ {
-			sch = append(sch, 1)
-		}
-		return sch, nil
-	}
-	return nil, fmt.Errorf("unknown schedule %s", sched)
 }
