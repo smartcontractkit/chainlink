@@ -107,6 +107,8 @@ func main() {
 	nativePremiumPercentage := flag.Int64("native-premium-percentage", 1, "premium percentage for native payment")
 	linkPremiumPercentage := flag.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
 	simulationBlock := flag.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
+	gasModuleAddressString := flag.String("gas-module-address", "", "address of Gas Module contract")
+	gasModuleMode := flag.Uint64("gas-module-mode", 0, "mode of Gas Module contract (e.g. 0, 1 or 2 for Optimism gas module)")
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
@@ -198,12 +200,13 @@ func main() {
 
 	if *deployContractsAndCreateJobs {
 		contractAddresses := model.ContractAddresses{
-			LinkAddress:             *linkAddress,
-			LinkEthAddress:          *linkEthAddress,
-			BhsContractAddress:      common.HexToAddress(*bhsContractAddressString),
-			BatchBHSAddress:         common.HexToAddress(*batchBHSAddressString),
-			CoordinatorAddress:      common.HexToAddress(*coordinatorAddressString),
-			BatchCoordinatorAddress: common.HexToAddress(*batchCoordinatorAddressString),
+			LinkAddress:              *linkAddress,
+			LinkEthAddress:           *linkEthAddress,
+			BhsContractAddress:       common.HexToAddress(*bhsContractAddressString),
+			BatchBHSAddress:          common.HexToAddress(*batchBHSAddressString),
+			CoordinatorAddress:       common.HexToAddress(*coordinatorAddressString),
+			BatchCoordinatorAddress:  common.HexToAddress(*batchCoordinatorAddressString),
+			GasModuleContractAddress: common.HexToAddress(*gasModuleAddressString),
 		}
 
 		vrfKeyRegistrationConfig := model.VRFKeyRegistrationConfig{
@@ -303,6 +306,7 @@ func main() {
 				coordinatorJobSpecConfig,
 				bhsJobSpecConfig,
 				*simulationBlock,
+				*gasModuleMode,
 			)
 		}
 

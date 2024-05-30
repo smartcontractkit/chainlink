@@ -20,7 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/optimism_gas_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5_optimism"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
@@ -64,6 +66,49 @@ func DeployCoordinator(
 	return coordinatorAddress
 }
 
+func DeployGasModule(
+	e helpers.Environment,
+	gasModuleMode uint8,
+) (gasModuleAddress common.Address) {
+	_, tx, _, err := optimism_gas_module.DeployOptimismGasModule(
+		e.Owner,
+		e.Ec,
+		gasModuleMode,
+	)
+	helpers.PanicErr(err)
+	gasModuleAddress = helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	return gasModuleAddress
+}
+
+func DeployOptimismCoordinator(
+	e helpers.Environment,
+	linkAddress string,
+	bhsAddress string,
+	linkEthAddress string,
+	gasModuleAddress string,
+) (coordinatorAddress common.Address) {
+	_, tx, _, err := vrf_coordinator_v2_5_optimism.DeployVRFCoordinatorV25Optimism(
+		e.Owner,
+		e.Ec,
+		common.HexToAddress(bhsAddress),
+		common.HexToAddress(gasModuleAddress),
+	)
+	helpers.PanicErr(err)
+	coordinatorAddress = helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+
+	// Set LINK and LINK ETH
+	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
+	helpers.PanicErr(err)
+
+	if linkAddress != "" && linkEthAddress != "" {
+		linkTx, err := coordinator.SetLINKAndLINKNativeFeed(e.Owner,
+			common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
+	}
+	return coordinatorAddress
+}
+
 func DeployBatchCoordinatorV2(e helpers.Environment, coordinatorAddress common.Address) (batchCoordinatorAddress common.Address) {
 	_, tx, _, err := batch_vrf_coordinator_v2plus.DeployBatchVRFCoordinatorV2Plus(e.Owner, e.Ec, coordinatorAddress)
 	helpers.PanicErr(err)
@@ -72,7 +117,7 @@ func DeployBatchCoordinatorV2(e helpers.Environment, coordinatorAddress common.A
 
 func EoaAddConsumerToSub(
 	e helpers.Environment,
-	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface,
 	subID *big.Int,
 	consumerAddress string,
 ) {
@@ -81,7 +126,7 @@ func EoaAddConsumerToSub(
 	helpers.ConfirmTXMined(context.Background(), e.Ec, txadd, e.ChainID)
 }
 
-func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoordinatorV25) (*big.Int, error) {
+func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface) (*big.Int, error) {
 	tx, err := coordinator.CreateSubscription(e.Owner)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
@@ -102,7 +147,7 @@ func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoo
 }
 
 // returns subscription ID that belongs to the given owner. Returns result found first
-func FindSubscriptionID(e helpers.Environment, coordinator *vrf_coordinator_v2_5.VRFCoordinatorV25) *big.Int {
+func FindSubscriptionID(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface) *big.Int {
 	// Use most recent 500 blocks as search window.
 	head, err := e.Ec.BlockNumber(context.Background())
 	helpers.PanicErr(err)
@@ -134,7 +179,7 @@ func EoaDeployConsumer(e helpers.Environment,
 
 func EoaFundSubWithLink(
 	e helpers.Environment,
-	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface,
 	linkAddress string, amount,
 	subID *big.Int,
 ) {
@@ -159,7 +204,7 @@ func EoaFundSubWithNative(e helpers.Environment, coordinatorAddress common.Addre
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func PrintCoordinatorConfig(coordinator *vrf_coordinator_v2_5.VRFCoordinatorV25) {
+func PrintCoordinatorConfig(coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface) {
 	cfg, err := coordinator.SConfig(nil)
 	helpers.PanicErr(err)
 
@@ -168,7 +213,7 @@ func PrintCoordinatorConfig(coordinator *vrf_coordinator_v2_5.VRFCoordinatorV25)
 
 func SetCoordinatorConfig(
 	e helpers.Environment,
-	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface,
 	minConfs uint16,
 	maxGasLimit uint32,
 	stalenessSeconds uint32,
@@ -196,7 +241,7 @@ func SetCoordinatorConfig(
 }
 
 func RegisterCoordinatorProvingKey(e helpers.Environment,
-	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64) {
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25Interface, uncompressed string, gasLaneMaxGas uint64) {
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
 	pk, err := crypto.UnmarshalPubkey(pubBytes)

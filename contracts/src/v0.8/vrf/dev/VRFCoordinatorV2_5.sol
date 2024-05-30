@@ -293,7 +293,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
-        ChainSpecificUtil._getBlockNumber(),
+        getBlockNumber(),
         subId,
         req.callbackGasLimit,
         req.numWords,
@@ -388,7 +388,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert IncorrectCommitment();
     }
 
-    bytes32 blockHash = ChainSpecificUtil._getBlockhash(rc.blockNum);
+    bytes32 blockHash = getBlockhash(rc.blockNum);
     if (blockHash == bytes32(0)) {
       blockHash = BLOCKHASH_STORE.getBlockhash(rc.blockNum);
       if (blockHash == bytes32(0)) {
@@ -557,7 +557,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     bool onlyPremium
   ) internal view returns (uint96) {
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
+    uint256 l1CostWei = getTxL1GasFees(msg.data);
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (s_config.gasAfterPaymentCalculation + startGas - gasleft());
     // calculate flat fee in native
@@ -567,6 +567,18 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     } else {
       return uint96((((l1CostWei + baseFeeWei) * (100 + s_config.nativePremiumPercentage)) / 100) + flatFeeWei);
     }
+  }
+
+  function getBlockNumber() internal view virtual returns (uint256) {
+    return ChainSpecificUtil._getBlockNumber();
+  }
+
+  function getBlockhash(uint64 blockNum) internal view virtual returns (bytes32) {
+    return ChainSpecificUtil._getBlockhash(blockNum);
+  }
+
+  function getTxL1GasFees(bytes calldata data) internal view virtual returns (uint256) {
+    return ChainSpecificUtil._getCurrentTxL1GasFees(data);
   }
 
   // Get the amount of gas used for fulfillment
@@ -580,7 +592,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
+    uint256 l1CostWei = getTxL1GasFees(msg.data);
     // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 *
       (weiPerUnitGas * (s_config.gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /

@@ -61,3 +61,5 @@ compileContract vrf/testhelpers/VRFMockETHLINKAggregator.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
 compileContract vrf/BatchBlockhashStore.sol
 compileContract vrf/dev/BlockhashStore.sol
+compileContractAltOpts vrf/dev/VRFCoordinatorV2_5Optimism.sol 500
+compileContract vrf/dev/OptimismGasModule.sol

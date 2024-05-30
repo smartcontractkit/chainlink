@@ -552,7 +552,7 @@ func main() {
 
 		v2plusscripts.SetCoordinatorConfig(
 			e,
-			*coordinator,
+			coordinator,
 			uint16(*minConfs),
 			uint32(*maxGasLimit),
 			uint32(*stalenessSeconds),
@@ -578,7 +578,7 @@ func main() {
 			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 		}
 
-		v2plusscripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *gasLaneMaxGas)
+		v2plusscripts.RegisterCoordinatorProvingKey(e, coordinator, *registerKeyUncompressedPubKey, *gasLaneMaxGas)
 	case "coordinator-deregister-key":
 		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
 		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
@@ -777,7 +777,7 @@ func main() {
 		helpers.ParseArgs(createSubCmd, os.Args[2:], "coordinator-address")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		subId, err := v2plusscripts.EoaCreateSub(e, *coordinator)
+		subId, err := v2plusscripts.EoaCreateSub(e, coordinator)
 		helpers.PanicErr(err)
 		fmt.Println("Created subscription ID: ", subId)
 	case "eoa-add-sub-consumer":
@@ -789,7 +789,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 		parsedSubID := parseUInt256String(*subID)
-		v2plusscripts.EoaAddConsumerToSub(e, *coordinator, parsedSubID, *consumerAddress)
+		v2plusscripts.EoaAddConsumerToSub(e, coordinator, parsedSubID, *consumerAddress)
 	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
@@ -1031,7 +1031,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		v2plusscripts.EoaFundSubWithLink(e, *coordinator, *consumerLinkAddress, amount, parseUInt256String(*subID))
+		v2plusscripts.EoaFundSubWithLink(e, coordinator, *consumerLinkAddress, amount, parseUInt256String(*subID))
 	case "eoa-read":
 		cmd := flag.NewFlagSet("eoa-read", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer", "", "consumer address")

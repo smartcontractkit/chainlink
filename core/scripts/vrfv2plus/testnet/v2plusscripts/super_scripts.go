@@ -140,7 +140,7 @@ func SmokeTestVRF(e helpers.Environment) {
 		fmt.Println("\nSetting Coordinator Config...")
 		SetCoordinatorConfig(
 			e,
-			*coordinator,
+			coordinator,
 			uint16(*minConfs),
 			uint32(*maxGasLimit),
 			uint32(*stalenessSeconds),
@@ -236,17 +236,17 @@ func SmokeTestVRF(e helpers.Environment) {
 	consumerAddress := EoaDeployConsumer(e, coordinatorAddress.String(), *linkAddress)
 
 	fmt.Println("\nAdding subscription...")
-	EoaCreateSub(e, *coordinator)
+	EoaCreateSub(e, coordinator)
 
 	subID := FindSubscriptionID(e, coordinator)
 	helpers.PanicErr(err)
 
 	fmt.Println("\nAdding consumer to subscription...")
-	EoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
+	EoaAddConsumerToSub(e, coordinator, subID, consumerAddress.String())
 
 	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
 		fmt.Println("\nFunding subscription with", subscriptionBalance, "juels...")
-		EoaFundSubWithLink(e, *coordinator, *linkAddress, subscriptionBalance, subID)
+		EoaFundSubWithLink(e, coordinator, *linkAddress, subscriptionBalance, subID)
 	} else {
 		fmt.Println("Subscription", subID, "NOT getting funded. You must fund the subscription in order to use it!")
 	}
@@ -512,6 +512,8 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	batchCoordinatorAddressString := deployCmd.String("batch-coordinator-address", "", "address Batch VRF Coordinator contract")
 	subscriptionBalanceJuelsString := deployCmd.String("subscription-balance", "1e19", "amount to fund subscription with Link token (Juels)")
 	subscriptionBalanceNativeWeiString := deployCmd.String("subscription-balance-native", "1e18", "amount to fund subscription with native token (Wei)")
+	gasModuleAddressString := deployCmd.String("gas-module-address", "", "address of Gas Module contract")
+	gasModuleMode := deployCmd.Uint64("gas-module-mode", 0, "mode of Gas Module contract (e.g. 0, 1 or 2 for Optimism gas module)")
 
 	batchFulfillmentEnabled := deployCmd.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
 	batchFulfillmentGasMultiplier := deployCmd.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
@@ -579,14 +581,16 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	batchBHSAddress := common.HexToAddress(*batchBHSAddressString)
 	coordinatorAddress := common.HexToAddress(*coordinatorAddressString)
 	batchCoordinatorAddress := common.HexToAddress(*batchCoordinatorAddressString)
+	gasModuleAddress := common.HexToAddress(*gasModuleAddressString)
 
 	contractAddresses := model.ContractAddresses{
-		LinkAddress:             *linkAddress,
-		LinkEthAddress:          *linkNativeAddress,
-		BhsContractAddress:      bhsContractAddress,
-		BatchBHSAddress:         batchBHSAddress,
-		CoordinatorAddress:      coordinatorAddress,
-		BatchCoordinatorAddress: batchCoordinatorAddress,
+		LinkAddress:              *linkAddress,
+		LinkEthAddress:           *linkNativeAddress,
+		BhsContractAddress:       bhsContractAddress,
+		BatchBHSAddress:          batchBHSAddress,
+		CoordinatorAddress:       coordinatorAddress,
+		BatchCoordinatorAddress:  batchCoordinatorAddress,
+		GasModuleContractAddress: gasModuleAddress,
 	}
 
 	coordinatorConfig := CoordinatorConfigV2Plus{
@@ -633,6 +637,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		coordinatorJobSpecConfig,
 		bhsJobSpecConfig,
 		*simulationBlock,
+		*gasModuleMode,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -654,6 +659,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
 	bhsJobSpecConfig model.BHSJobSpecConfig,
 	simulationBlock string,
+	gasModuleMode uint64,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
@@ -702,11 +708,21 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		contractAddresses.BatchBHSAddress = DeployBatchBHS(e, contractAddresses.BhsContractAddress)
 	}
 
-	if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
-		fmt.Println("\nDeploying Coordinator...")
-		contractAddresses.CoordinatorAddress = DeployCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+	if helpers.IsOptimismOrBaseChainID(e.ChainID) {
+		if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+			if contractAddresses.GasModuleContractAddress.String() == "0x0000000000000000000000000000000000000000" {
+				fmt.Println("\nDeploying Gas Module...")
+				contractAddresses.GasModuleContractAddress = DeployGasModule(e, uint8(gasModuleMode))
+			}
+			fmt.Println("\nDeploying Optimism Coordinator...")
+			contractAddresses.CoordinatorAddress = DeployOptimismCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress, contractAddresses.GasModuleContractAddress.String())
+		}
+	} else {
+		if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+			fmt.Println("\nDeploying Coordinator...")
+			contractAddresses.CoordinatorAddress = DeployCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+		}
 	}
-
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(contractAddresses.CoordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
@@ -718,7 +734,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	fmt.Println("\nSetting Coordinator Config...")
 	SetCoordinatorConfig(
 		e,
-		*coordinator,
+		coordinator,
 		uint16(coordinatorConfig.MinConfs),
 		uint32(coordinatorConfig.MaxGasLimit),
 		uint32(coordinatorConfig.StalenessSeconds),
@@ -738,7 +754,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
-		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, provingKeyMaxGasPrice)
+		RegisterCoordinatorProvingKey(e, coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, provingKeyMaxGasPrice)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		registerdKeyHash, err2 := coordinator.SProvingKeyHashes(nil, big.NewInt(0))
@@ -752,16 +768,16 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	consumerAddress := EoaV2PlusLoadTestConsumerWithMetricsDeploy(e, contractAddresses.CoordinatorAddress.String())
 
 	fmt.Println("\nAdding subscription...")
-	EoaCreateSub(e, *coordinator)
+	EoaCreateSub(e, coordinator)
 
 	subID := FindSubscriptionID(e, coordinator)
 
 	fmt.Println("\nAdding consumer to subscription...")
-	EoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
+	EoaAddConsumerToSub(e, coordinator, subID, consumerAddress.String())
 
 	if subscriptionBalanceJuels.Cmp(big.NewInt(0)) > 0 {
 		fmt.Println("\nFunding subscription with Link Token.", subscriptionBalanceJuels, "juels...")
-		EoaFundSubWithLink(e, *coordinator, contractAddresses.LinkAddress, subscriptionBalanceJuels, subID)
+		EoaFundSubWithLink(e, coordinator, contractAddresses.LinkAddress, subscriptionBalanceJuels, subID)
 	} else {
 		fmt.Println("Subscription", subID, "NOT getting funded with Link Token. You must fund the subscription in order to use it!")
 	}
@@ -942,7 +958,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 
 	var subId *big.Int
 	if *subscriptionID == "" {
-		subId, err = EoaCreateSub(e, *coordinator)
+		subId, err = EoaCreateSub(e, coordinator)
 		helpers.PanicErr(err)
 		fmt.Println("Created subscription ID:", subId)
 	} else {
@@ -989,7 +1005,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	fmt.Println()
 
 	// for v2plus we need to add wrapper as a consumer to the subscription
-	EoaAddConsumerToSub(e, *coordinator, subId, wrapper.String())
+	EoaAddConsumerToSub(e, coordinator, subId, wrapper.String())
 
 	fmt.Println("Added wrapper as the subscription consumer")
 	fmt.Println()
@@ -1006,7 +1022,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	fmt.Println("Funded wrapper consumer")
 	fmt.Println()
 
-	EoaFundSubWithLink(e, *coordinator, *linkAddress, subAmountLink, subId)
+	EoaFundSubWithLink(e, coordinator, *linkAddress, subAmountLink, subId)
 	// e.Owner.Value is hardcoded inside this helper function, make sure to run it as the last one in the script
 	EoaFundSubWithNative(e, common.HexToAddress(*coordinatorAddress), subId, subAmountNative)
 

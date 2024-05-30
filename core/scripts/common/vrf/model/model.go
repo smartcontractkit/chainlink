@@ -37,12 +37,13 @@ type JobSpecs struct {
 }
 
 type ContractAddresses struct {
-	LinkAddress             string
-	LinkEthAddress          string
-	BhsContractAddress      common.Address
-	BatchBHSAddress         common.Address
-	CoordinatorAddress      common.Address
-	BatchCoordinatorAddress common.Address
+	LinkAddress              string
+	LinkEthAddress           string
+	BhsContractAddress       common.Address
+	BatchBHSAddress          common.Address
+	CoordinatorAddress       common.Address
+	BatchCoordinatorAddress  common.Address
+	GasModuleContractAddress common.Address
 }
 
 type VRFKeyRegistrationConfig struct {
