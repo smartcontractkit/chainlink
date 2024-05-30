@@ -52,8 +52,10 @@ func TestEvmWrite(t *testing.T) {
 	require.NoError(t, err)
 
 	inputs, err := values.NewMap(map[string]any{
-		"report":     []byte{1, 2, 3},
-		"signatures": [][]byte{},
+		"signed_report": map[string]any{
+			"report":     []byte{1, 2, 3},
+			"signatures": [][]byte{},
+		},
 	})
 	require.NoError(t, err)
 
@@ -106,14 +108,13 @@ func TestEvmWrite_EmptyReport(t *testing.T) {
 	capability := targets.NewEvmWrite(chain, logger.TestLogger(t))
 	ctx := testutils.Context(t)
 
-	config, err := values.NewMap(map[string]any{
-		"abi":    "receive(report bytes)",
-		"params": []any{"$(report)"},
-	})
+	config, err := values.NewMap(map[string]any{})
 	require.NoError(t, err)
 
 	inputs, err := values.NewMap(map[string]any{
-		"report": nil,
+		"signed_report": map[string]any{
+			"report": nil,
+		},
 	})
 	require.NoError(t, err)
 
