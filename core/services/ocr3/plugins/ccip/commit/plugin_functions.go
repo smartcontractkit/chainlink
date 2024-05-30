@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/smartcontractkit/ccipocr3/internal/codec"
 	"github.com/smartcontractkit/ccipocr3/internal/libs/hashlib"
 	"github.com/smartcontractkit/ccipocr3/internal/libs/merklemulti"
 	"github.com/smartcontractkit/ccipocr3/internal/libs/slicelib"
@@ -79,6 +80,7 @@ func observeNewMsgs(
 	ctx context.Context,
 	lggr logger.Logger,
 	ccipReader reader.CCIP,
+	msgHasher codec.MessageHasher,
 	readableChains mapset.Set[model.ChainSelector],
 	maxSeqNumsPerChain []model.SeqNumChain,
 	msgScanBatchSize int,
@@ -114,7 +116,12 @@ func observeNewMsgs(
 			}
 
 			for _, msg := range newMsgs {
-				if err := msg.IsValid(); err != nil {
+				msgHash, err := msgHasher.Hash(msg)
+				if err != nil {
+					return fmt.Errorf("hash message: %w", err)
+				}
+
+				if msgHash != msg.ID {
 					lggr.Warnw("invalid message discovered", "msg", msg, "err", err)
 					continue
 				}

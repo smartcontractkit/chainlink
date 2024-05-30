@@ -199,6 +199,7 @@ func Test_observeNewMsgs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 			mockReader := mocks.NewCCIPReader()
+			msgHasher := mocks.NewNopMessageHasher()
 			lggr := logger.Test(t)
 
 			for _, seqNumChain := range tc.maxSeqNumsPerChain {
@@ -216,6 +217,7 @@ func Test_observeNewMsgs(t *testing.T) {
 				ctx,
 				lggr,
 				mockReader,
+				msgHasher,
 				mapset.NewSet(tc.readChains...),
 				tc.maxSeqNumsPerChain,
 				tc.msgScanBatchSize,
@@ -249,6 +251,7 @@ func Benchmark_observeNewMsgs(b *testing.B) {
 		ctx := context.Background()
 		lggr, _ := logger.New()
 		ccipReader := mocks.NewCCIPReader()
+		msgHasher := mocks.NewNopMessageHasher()
 
 		expNewMsgs := make([]model.CCIPMsg, 0, newMsgsPerChain*numChains)
 		for _, seqNumChain := range maxSeqNumsPerChain {
@@ -281,6 +284,7 @@ func Benchmark_observeNewMsgs(b *testing.B) {
 			ctx,
 			lggr,
 			ccipReader,
+			msgHasher,
 			mapset.NewSet(readChains...),
 			maxSeqNumsPerChain,
 			newMsgsPerChain,

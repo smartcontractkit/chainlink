@@ -26,6 +26,7 @@ type Plugin struct {
 	ccipReader        reader.CCIP
 	tokenPricesReader reader.TokenPrices
 	reportCodec       codec.Commit
+	msgHasher         codec.MessageHasher
 	lggr              logger.Logger
 
 	// readableChains is the set of chains that the plugin can read from.
@@ -43,6 +44,7 @@ func NewPlugin(
 	ccipReader reader.CCIP,
 	tokenPricesReader reader.TokenPrices,
 	reportCodec codec.Commit,
+	msgHasher codec.MessageHasher,
 	lggr logger.Logger,
 ) *Plugin {
 	knownSourceChains := mapset.NewSet[model.ChainSelector](cfg.Reads...)
@@ -56,6 +58,7 @@ func NewPlugin(
 		ccipReader:        ccipReader,
 		tokenPricesReader: tokenPricesReader,
 		reportCodec:       reportCodec,
+		msgHasher:         msgHasher,
 		lggr:              lggr,
 
 		readableChains:    mapset.NewSet(cfg.Reads...),
@@ -109,6 +112,7 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 		ctx,
 		p.lggr,
 		p.ccipReader,
+		p.msgHasher,
 		p.readableChains,
 		maxSeqNumsPerChain,
 		p.cfg.NewMsgScanBatchSize,

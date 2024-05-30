@@ -15,3 +15,7 @@ type Execute interface {
 	Encode(context.Context, model.ExecutePluginReport) ([]byte, error)
 	Decode(context.Context, []byte) (model.ExecutePluginReport, error)
 }
+
+type MessageHasher interface {
+	Hash(msg model.CCIPMsg) (model.Bytes32, error)
+}
