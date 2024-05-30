@@ -28,7 +28,7 @@ on:
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
-  group: integration-tests-chainlink-${{ github.ref }}-${{ inputs.distinct_run_name }}
+  group: integration-tests-chainlink-${{ github.ref }}
   cancel-in-progress: true
 
 env:
