@@ -11,6 +11,7 @@ import (
 	"github.com/lib/pq"
 	"gopkg.in/guregu/null.v4"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -21,7 +22,8 @@ import (
 )
 
 type ChainWriterConfig struct {
-	Contracts map[string]ChainWriter
+	SendStrategy txmgrtypes.TxStrategy
+	Contracts    map[string]ChainWriter
 }
 
 type ChainWriter struct {
