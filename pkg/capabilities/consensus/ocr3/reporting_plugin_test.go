@@ -42,9 +42,11 @@ func TestReportingPlugin_Query(t *testing.T) {
 	require.NoError(t, err)
 
 	eid := uuid.New().String()
+	wowner := uuid.New().String()
 	err = s.add(ctx, &request{
 		WorkflowID:          workflowTestID,
 		WorkflowExecutionID: eid,
+		WorkflowOwner:       wowner,
 	})
 	require.NoError(t, err)
 	outcomeCtx := ocr3types.OutcomeContext{
@@ -74,9 +76,11 @@ func TestReportingPlugin_Observation(t *testing.T) {
 	require.NoError(t, err)
 
 	eid := uuid.New().String()
+	wowner := uuid.New().String()
 	err = s.add(ctx, &request{
 		WorkflowID:          workflowTestID,
 		WorkflowExecutionID: eid,
+		WorkflowOwner:       wowner,
 		Observations:        o,
 	})
 	require.NoError(t, err)
@@ -174,6 +178,10 @@ func (mc *mockCapability) getEncoder(workflowID string) (pbtypes.Encoder, error)
 	return mc.encoder, nil
 }
 
+func (mc *mockCapability) getDonID() string {
+	return "fooaa"
+}
+
 func TestReportingPlugin_Outcome(t *testing.T) {
 	lggr := logger.Test(t)
 	s := newStore()
@@ -185,9 +193,11 @@ func TestReportingPlugin_Outcome(t *testing.T) {
 	require.NoError(t, err)
 
 	weid := uuid.New().String()
+	wowner := uuid.New().String()
 	id := &pbtypes.Id{
 		WorkflowExecutionId: weid,
 		WorkflowId:          workflowTestID,
+		WorkflowOwner:       wowner,
 	}
 	q := &pbtypes.Query{
 		Ids: []*pbtypes.Id{id},
@@ -241,9 +251,11 @@ func TestReportingPlugin_Reports_ShouldReportFalse(t *testing.T) {
 
 	var sqNr uint64
 	weid := uuid.New().String()
+	wowner := uuid.New().String()
 	id := &pbtypes.Id{
 		WorkflowExecutionId: weid,
 		WorkflowId:          workflowTestID,
+		WorkflowOwner:       wowner,
 	}
 	nm, err := values.NewMap(
 		map[string]any{
@@ -291,9 +303,11 @@ func TestReportingPlugin_Reports_ShouldReportTrue(t *testing.T) {
 
 	var sqNr uint64
 	weid := uuid.New().String()
+	wowner := uuid.New().String()
 	id := &pbtypes.Id{
 		WorkflowExecutionId: weid,
 		WorkflowId:          workflowTestID,
+		WorkflowOwner:       wowner,
 	}
 	nm, err := values.NewMap(
 		map[string]any{
@@ -327,7 +341,9 @@ func TestReportingPlugin_Reports_ShouldReportTrue(t *testing.T) {
 
 	// The workflow ID and execution ID get added to the report.
 	nm.Underlying[pbtypes.WorkflowIDFieldName] = values.NewString(workflowTestID)
+	nm.Underlying[pbtypes.DonIDFieldName] = values.NewString(cap.getDonID())
 	nm.Underlying[pbtypes.ExecutionIDFieldName] = values.NewString(weid)
+	nm.Underlying[pbtypes.WorkflowOwnerFieldName] = values.NewString(wowner)
 	fp := values.FromProto(rep)
 	assert.Equal(t, nm, fp)
 

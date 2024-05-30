@@ -20,6 +20,7 @@ var _ ocr3types.ReportingPlugin[[]byte] = (*reportingPlugin)(nil)
 type capabilityIface interface {
 	getAggregator(workflowID string) (pbtypes.Aggregator, error)
 	getEncoder(workflowID string) (pbtypes.Encoder, error)
+	getDonID() string
 }
 
 type reportingPlugin struct {
@@ -55,6 +56,7 @@ func (r *reportingPlugin) Query(ctx context.Context, outctx ocr3types.OutcomeCon
 		ids = append(ids, &pbtypes.Id{
 			WorkflowExecutionId: r.WorkflowExecutionID,
 			WorkflowId:          r.WorkflowID,
+			WorkflowOwner:       r.WorkflowOwner,
 		})
 	}
 
@@ -99,6 +101,7 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 			Id: &pbtypes.Id{
 				WorkflowExecutionId: rq.WorkflowExecutionID,
 				WorkflowId:          rq.WorkflowID,
+				WorkflowOwner:       rq.WorkflowOwner,
 			},
 		}
 
@@ -229,7 +232,7 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 
 		var report []byte
 		if info.ShouldReport {
-			newOutcome, err := pbtypes.AppendWorkflowIDs(outcome, id.WorkflowId, id.WorkflowExecutionId)
+			newOutcome, err := pbtypes.AppendWorkflowIDs(outcome, id.WorkflowId, r.r.getDonID(), id.WorkflowExecutionId, id.WorkflowOwner)
 			if err != nil {
 				r.lggr.Errorw("could not append IDs")
 				continue

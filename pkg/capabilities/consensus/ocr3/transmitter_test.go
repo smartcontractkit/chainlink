@@ -24,6 +24,7 @@ import (
 
 func TestTransmitter(t *testing.T) {
 	wid := "consensus-workflow-test-id-1"
+	wowner := "foo-owner"
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
 	s := newStore()
@@ -59,6 +60,7 @@ func TestTransmitter(t *testing.T) {
 		Id: &pbtypes.Id{
 			WorkflowExecutionId: weid,
 			WorkflowId:          wid,
+			WorkflowOwner:       wowner,
 		},
 		ShouldReport: true,
 	}
@@ -97,6 +99,7 @@ func TestTransmitter(t *testing.T) {
 
 func TestTransmitter_ShouldReportFalse(t *testing.T) {
 	wid := "consensus-workflow-test-id-1"
+	wowner := "foo-owner"
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
 	s := newStore()
@@ -132,6 +135,7 @@ func TestTransmitter_ShouldReportFalse(t *testing.T) {
 		Id: &pbtypes.Id{
 			WorkflowExecutionId: weid,
 			WorkflowId:          wid,
+			WorkflowOwner:       wowner,
 		},
 		ShouldReport: false,
 	}

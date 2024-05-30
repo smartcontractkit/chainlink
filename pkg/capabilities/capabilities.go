@@ -62,11 +62,13 @@ type CapabilityResponse struct {
 
 type RequestMetadata struct {
 	WorkflowID          string
+	WorkflowOwner       string
 	WorkflowExecutionID string
 }
 
 type RegistrationMetadata struct {
-	WorkflowID string
+	WorkflowID    string
+	WorkflowOwner string
 }
 
 // CapabilityRequest is a struct for the Execute request of a capability.

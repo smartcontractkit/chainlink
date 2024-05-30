@@ -143,6 +143,10 @@ func (o *capability) getEncoder(workflowID string) (types.Encoder, error) {
 	return enc, nil
 }
 
+func (o *capability) getDonID() string {
+	return o.CapabilityInfo.DON.ID
+}
+
 func (o *capability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
 	delete(o.aggregators, request.Metadata.WorkflowID)
 	delete(o.encoders, request.Metadata.WorkflowID)
@@ -232,6 +236,7 @@ func (o *capability) queueRequestForProcessing(
 		CallbackCh:          callbackCh,
 		WorkflowExecutionID: metadata.WorkflowExecutionID,
 		WorkflowID:          metadata.WorkflowID,
+		WorkflowOwner:       metadata.WorkflowOwner,
 		Observations:        i.Observations,
 		ExpiresAt:           o.clock.Now().Add(o.requestTimeout),
 	}

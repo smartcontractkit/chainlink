@@ -21,6 +21,7 @@ message Query {
 message Id {
   string workflowExecutionId = 1;
   string workflowId = 2;
+  string workflowOwner = 3;
 }
 
 message Observation {
