@@ -62,6 +62,9 @@ type chainReaderDefinitionFields struct {
 	// key is a predefined generic name for evm log event data word
 	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
 	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
+	// ConfidenceConfirmations is a mapping between a ConfidenceLevel and the confirmations associated. Confidence levels
+	// should be valid float values.
+	ConfidenceConfirmations map[string]int `json:"confidenceConfirmations,omitempty"`
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
