@@ -9,10 +9,11 @@ import (
 	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/wasp"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 type BHSTestGun struct {
@@ -59,7 +60,7 @@ func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
 		billingType,
 		vrfv2PlusConfig,
 		m.logger,
-		utils.AvailableSethKeyNum(m.sethClient),
+		seth_utils.AvailableSethKeyNum(m.sethClient),
 	)
 	//todo - might need to store randRequestBlockNumber and blockhash to verify that it was stored in BHS contract at the end of the test
 	if err != nil {
@@ -118,7 +119,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		billingType,
 		vrfv2PlusConfig,
 		m.logger,
-		utils.AvailableSethKeyNum(m.sethClient),
+		seth_utils.AvailableSethKeyNum(m.sethClient),
 	)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}

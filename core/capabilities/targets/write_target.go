@@ -36,7 +36,10 @@ var (
 	_ capabilities.ActionCapability = &EvmWrite{}
 )
 
-const defaultGasLimit = 200000
+const (
+	defaultGasLimit   = 200000
+	signedReportField = "signed_report"
+)
 
 type EvmWrite struct {
 	chain legacyevm.Chain
@@ -97,11 +100,16 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 		return nil, err
 	}
 
+	signedReport, ok := request.Inputs.Underlying[signedReportField]
+	if !ok {
+		return nil, fmt.Errorf("missing required field %s", signedReportField)
+	}
+
 	var inputs struct {
 		Report     []byte
 		Signatures [][]byte
 	}
-	if err = request.Inputs.UnwrapTo(&inputs); err != nil {
+	if err = signedReport.UnwrapTo(&inputs); err != nil {
 		return nil, err
 	}
 
@@ -119,6 +127,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, request capabilities.Capabilit
 		}()
 		return callback, nil
 	}
+	cap.lggr.Debugw("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "report", inputs.Report, "signatures", inputs.Signatures)
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
