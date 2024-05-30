@@ -153,6 +153,7 @@ func CreateOCRv2JobsLocal(
 									ReadType:          evmtypes.Event,
 								},
 							},
+							// TODO add polling filter definition
 						},
 					},
 				}

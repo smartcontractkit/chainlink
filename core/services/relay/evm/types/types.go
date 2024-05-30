@@ -17,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type ChainReaderConfig struct {
@@ -35,10 +37,35 @@ type ChainCodecConfig struct {
 	ModifierConfigs codec.ModifiersConfig `toml:"modifierConfigs,omitempty"`
 }
 
-type ChainContractReader struct {
-	ContractABI string `json:"contractABI" toml:"contractABI"`
+type ContractPollingFilter struct {
+	GenericEventNames []string `json:"genericEventNames"`
+	PollingFilter
+}
 
-	LogPollerFilter logpoller.Filter `json:"logPollerFilter,omitempty"`
+type PollingFilter struct {
+	Topic2       evmtypes.HashArray `json:"topic2"`       // list of possible values for topic2
+	Topic3       evmtypes.HashArray `json:"topic3"`       // list of possible values for topic3
+	Topic4       evmtypes.HashArray `json:"topic4"`       // list of possible values for topic4
+	Retention    models.Interval    `json:"retention"`    // maximum amount of time to retain logs
+	MaxLogsKept  uint64             `json:"maxLogsKept"`  // maximum number of logs to retain ( 0 = unlimited )
+	LogsPerBlock uint64             `json:"logsPerBlock"` // rate limit ( maximum # of logs per block, 0 = unlimited )
+}
+
+func (f *PollingFilter) ToLPFilter(eventSigs evmtypes.HashArray) logpoller.Filter {
+	return logpoller.Filter{
+		EventSigs:    eventSigs,
+		Topic2:       f.Topic2,
+		Topic3:       f.Topic3,
+		Topic4:       f.Topic4,
+		Retention:    f.Retention.Duration(),
+		MaxLogsKept:  f.MaxLogsKept,
+		LogsPerBlock: f.LogsPerBlock,
+	}
+}
+
+type ChainContractReader struct {
+	ContractABI           string `json:"contractABI" toml:"contractABI"`
+	ContractPollingFilter `json:"pollingFilter,omitempty"`
 	// key is genericName from config
 	Configs map[string]*ChainReaderDefinition `json:"configs" toml:"configs"`
 }
@@ -50,10 +77,11 @@ type EventDefinitions struct {
 	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
 	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
 	// key is a predefined generic name for evm log event data word
-	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
+	// for e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value
 	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
 	// InputFields allows you to choose which indexed fields are expected from the input
-	InputFields []string `json:"inputFields,omitempty"`
+	InputFields    []string `json:"inputFields,omitempty"`
+	*PollingFilter `json:"pollingFilter,omitempty"`
 }
 
 // chainReaderDefinitionFields has the fields for ChainReaderDefinition but no methods.
@@ -70,6 +98,10 @@ type chainReaderDefinitionFields struct {
 	// ConfidenceConfirmations is a mapping between a ConfidenceLevel and the confirmations associated. Confidence levels
 	// should be valid float values.
 	ConfidenceConfirmations map[string]int `json:"confidenceConfirmations,omitempty"`
+}
+
+func (d *ChainReaderDefinition) HasPollingFilter() bool {
+	return d.EventDefinitions == nil && d.EventDefinitions.PollingFilter == nil
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {

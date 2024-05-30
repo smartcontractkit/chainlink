@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -105,11 +106,25 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 			return err
 		}
 
+		var eventSigsForContractFilter evmtypes.HashArray
 		for typeName, chainReaderDefinition := range chainContractReader.Configs {
 			switch chainReaderDefinition.ReadType {
 			case types.Method:
 				err = cr.addMethod(contractName, typeName, contractAbi, *chainReaderDefinition)
 			case types.Event:
+				if chainReaderDefinition.HasPollingFilter() {
+					if slices.Contains(chainContractReader.GenericEventNames, typeName) {
+						return fmt.Errorf(
+							"%w: invalid chain reader polling filter definition, "+
+								"can't have polling filter defined both on contract and event level: %s",
+							commontypes.ErrInvalidConfig,
+							chainReaderDefinition.ReadType)
+					}
+				} else {
+					eventSig := contractAbi.Events[chainReaderDefinition.ChainSpecificName]
+					eventSigsForContractFilter = append(eventSigsForContractFilter, eventSig.ID)
+				}
+
 				err = cr.addEvent(contractName, typeName, contractAbi, *chainReaderDefinition)
 			default:
 				return fmt.Errorf(
@@ -122,8 +137,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 				return err
 			}
 		}
-
-		cr.contractBindings[contractName].contractFilter = chainContractReader.LogPollerFilter
+		cr.contractBindings[contractName].contractFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
 	}
 	return nil
 }
