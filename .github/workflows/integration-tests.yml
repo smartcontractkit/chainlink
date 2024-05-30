@@ -28,7 +28,7 @@ on:
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
-  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--integration-tests-chainlink-${{ inputs.distinct_run_name }}
+  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}-e2e-tests-${{ inputs.distinct_run_name }}
   cancel-in-progress: true
 
 env:
@@ -48,7 +48,7 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     steps:
-      - run: echo "${{ github.ref }}-${{ github.event_name }}--integration-tests-chainlink-${{ inputs.distinct_run_name }}"
+      - run: echo "${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}-e2e-tests-${{ inputs.distinct_run_name }}"
       - run: |
           echo "event name: ${{github.event_name}}"
           echo "event path: ${{github.event_path}}"
@@ -56,7 +56,6 @@ jobs:
           echo "workflow: ${{github.workflow}}"
           echo "workspace: ${{github.workspace}}"
           echo "repository: ${{github.repository}}"
-          echo "action repository: ${{github.action_repository}}"
       - run: echo "${{ github.event_name != 'merge_group' }}"
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
