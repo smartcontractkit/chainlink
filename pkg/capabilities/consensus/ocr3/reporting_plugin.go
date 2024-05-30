@@ -18,7 +18,6 @@ import (
 var _ ocr3types.ReportingPlugin[[]byte] = (*reportingPlugin)(nil)
 
 type capabilityIface interface {
-	transmitResponse(ctx context.Context, resp *outputs) error
 	getAggregator(workflowID string) (pbtypes.Aggregator, error)
 	getEncoder(workflowID string) (pbtypes.Encoder, error)
 }

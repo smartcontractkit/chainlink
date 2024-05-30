@@ -78,7 +78,7 @@ func (c *ContractTransmitter) Transmit(ctx context.Context, configDigest types.C
 		c.capability = cp.(capabilities.CallbackCapability)
 	}
 
-	_, err = c.capability.Execute(ctx, capabilities.CapabilityRequest{
+	_, err = capabilities.ExecuteSync(ctx, c.capability, capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowExecutionID: info.Id.WorkflowExecutionId,
 			WorkflowID:          info.Id.WorkflowId,

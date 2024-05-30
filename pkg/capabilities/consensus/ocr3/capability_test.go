@@ -101,12 +101,12 @@ func TestOCR3Capability(t *testing.T) {
 	require.NoError(t, err)
 
 	// Mock the oracle returning a response
-	err = cp.transmitResponse(ctx, &outputs{
+	cp.transmitCh <- &outputs{
 		CapabilityResponse: capabilities.CapabilityResponse{
 			Value: obsv,
 		},
 		WorkflowExecutionID: workflowExecutionTestID,
-	})
+	}
 	require.NoError(t, err)
 
 	expectedCapabilityResponse := capabilities.CapabilityResponse{

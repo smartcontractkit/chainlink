@@ -2,7 +2,9 @@ package capability
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -218,7 +220,12 @@ func (t *triggerExecutableServer) RegisterTrigger(request *capabilitiespb.Capabi
 				return nil
 			}
 
-			if err = server.Send(pb.CapabilityResponseToProto(resp)); err != nil {
+			msg := &capabilitiespb.ResponseMessage{
+				Message: &capabilitiespb.ResponseMessage_Response{
+					Response: pb.CapabilityResponseToProto(resp),
+				},
+			}
+			if err = server.Send(msg); err != nil {
 				return fmt.Errorf("error sending response for trigger %s: %w", request, err)
 			}
 		}
@@ -305,8 +312,22 @@ func (c *callbackExecutableServer) Execute(req *capabilitiespb.CapabilityRequest
 		return fmt.Errorf("error executing capability request: %w", err)
 	}
 
+	err = server.Send(&capabilitiespb.ResponseMessage{
+		Message: &capabilitiespb.ResponseMessage_Ack{
+			Ack: &emptypb.Empty{},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("error sending ack: %w", err)
+	}
+
 	for resp := range responseCh {
-		if err = server.Send(pb.CapabilityResponseToProto(resp)); err != nil {
+		msg := &capabilitiespb.ResponseMessage{
+			Message: &capabilitiespb.ResponseMessage_Response{
+				Response: pb.CapabilityResponseToProto(resp),
+			},
+		}
+		if err = server.Send(msg); err != nil {
 			return fmt.Errorf("error sending response for execute request %s: %w", req, err)
 		}
 	}
@@ -332,6 +353,15 @@ func (c *callbackExecutableClient) Execute(ctx context.Context, req capabilities
 	responseStream, err := c.grpc.Execute(ctx, pb.CapabilityRequestToProto(req))
 	if err != nil {
 		return nil, fmt.Errorf("error executing capability request: %w", err)
+	}
+
+	resp, err := responseStream.Recv()
+	if err != nil {
+		return nil, fmt.Errorf("error waiting for ack: %w", err)
+	}
+
+	if _, ok := resp.GetMessage().(*capabilitiespb.ResponseMessage_Ack); !ok {
+		return nil, fmt.Errorf("protocol error: first message received was not an ack: %+v", resp.GetMessage())
 	}
 
 	return forwardResponsesToChannel(ctx, c.Logger, req, responseStream.Recv)
@@ -371,20 +401,42 @@ func (c *callbackExecutableClient) RegisterToWorkflow(ctx context.Context, req c
 	return err
 }
 
-func forwardResponsesToChannel(ctx context.Context, logger logger.Logger, req capabilities.CapabilityRequest, receive func() (*capabilitiespb.CapabilityResponse, error)) (<-chan capabilities.CapabilityResponse, error) {
+func forwardResponsesToChannel(ctx context.Context, logger logger.Logger, req capabilities.CapabilityRequest, receive func() (*capabilitiespb.ResponseMessage, error)) (<-chan capabilities.CapabilityResponse, error) {
 	responseCh := make(chan capabilities.CapabilityResponse)
 
 	go func() {
 		defer close(responseCh)
 		for {
-			response, err := receive()
+			message, err := receive()
+			if errors.Is(err, io.EOF) {
+				return
+			}
+
 			if err != nil {
-				logger.Error("error when receiving capability response for request", "request", req, "err", err)
+				resp := capabilities.CapabilityResponse{
+					Err: err,
+				}
+				select {
+				case responseCh <- resp:
+				case <-ctx.Done():
+				}
+				return
+			}
+
+			resp := message.GetResponse()
+			if resp == nil {
+				resp := capabilities.CapabilityResponse{
+					Err: errors.New("unexpected message type when receiving response: expected response"),
+				}
+				select {
+				case responseCh <- resp:
+				case <-ctx.Done():
+				}
 				return
 			}
 
 			select {
-			case responseCh <- pb.CapabilityResponseFromProto(response):
+			case responseCh <- pb.CapabilityResponseFromProto(resp):
 			case <-ctx.Done():
 				return
 			}

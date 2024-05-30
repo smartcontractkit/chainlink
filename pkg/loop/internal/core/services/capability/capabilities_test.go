@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -240,7 +242,12 @@ func Test_Capabilities(t *testing.T) {
 		err = client.Close()
 		require.NoError(t, err)
 
-		_, isOpen := <-ch
+		// Closing the client will result in an error being
+		// bubbled back to the client.
+		resp := <-ch
+		assert.Equal(t, status.Code(resp.Err), codes.Unavailable)
+
+		resp, isOpen := <-ch
 		assert.False(t, isOpen)
 
 		<-mtr.unregisterCalls
@@ -266,6 +273,11 @@ func Test_Capabilities(t *testing.T) {
 		assert.NotNil(t, mtr.callback)
 
 		server.Stop()
+
+		// Closing the client will result in an error being
+		// bubbled back to the client.
+		resp := <-ch
+		assert.Equal(t, status.Code(resp.Err), codes.Unavailable)
 
 		_, isOpen := <-ch
 		assert.False(t, isOpen)
@@ -441,4 +453,60 @@ func Test_Capabilities(t *testing.T) {
 		_, isOpen := <-ch
 		assert.False(t, isOpen)
 	})
+
+	t.Run("calling execute should be synchronous", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testContext)
+		defer cancel()
+
+		ma := mustSynchronousCallback(t, capabilities.CapabilityTypeAction)
+		defer close(ma.callback)
+		c, _, _, err := newCapabilityPlugin(t, ma)
+		require.NoError(t, err)
+
+		cmap, err := values.NewMap(map[string]any{"foo": "bar"})
+		require.NoError(t, err)
+
+		imap, err := values.NewMap(map[string]any{"bar": "baz"})
+		require.NoError(t, err)
+		expectedRequest := capabilities.CapabilityRequest{
+			Config: cmap,
+			Inputs: imap,
+		}
+
+		assert.False(t, ma.executeCalled)
+
+		_, err = c.(capabilities.ActionCapability).Execute(
+			ctx,
+			expectedRequest)
+		require.NoError(t, err)
+
+		assert.True(t, ma.executeCalled)
+	})
+}
+
+type synchronousCallback struct {
+	capabilities.BaseCapability
+	callback      chan capabilities.CapabilityResponse
+	executeCalled bool
+}
+
+func (m *synchronousCallback) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (m *synchronousCallback) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
+func (m *synchronousCallback) Execute(ctx context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	m.executeCalled = true
+	return m.callback, nil
+}
+
+func mustSynchronousCallback(t *testing.T, _type capabilities.CapabilityType) *synchronousCallback {
+	return &synchronousCallback{
+		BaseCapability: capabilities.MustNewCapabilityInfo(fmt.Sprintf("callback %s", _type), _type, fmt.Sprintf("a mock %s", _type), "v0.0.1", nil),
+		callback:       make(chan capabilities.CapabilityResponse, 0),
+		executeCalled:  false,
+	}
 }

@@ -146,7 +146,7 @@ func (c *triggerExecutableClient) RegisterTrigger(ctx context.Context, in *Capab
 }
 
 type TriggerExecutable_RegisterTriggerClient interface {
-	Recv() (*CapabilityResponse, error)
+	Recv() (*ResponseMessage, error)
 	grpc.ClientStream
 }
 
@@ -154,8 +154,8 @@ type triggerExecutableRegisterTriggerClient struct {
 	grpc.ClientStream
 }
 
-func (x *triggerExecutableRegisterTriggerClient) Recv() (*CapabilityResponse, error) {
-	m := new(CapabilityResponse)
+func (x *triggerExecutableRegisterTriggerClient) Recv() (*ResponseMessage, error) {
+	m := new(ResponseMessage)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func _TriggerExecutable_RegisterTrigger_Handler(srv interface{}, stream grpc.Ser
 }
 
 type TriggerExecutable_RegisterTriggerServer interface {
-	Send(*CapabilityResponse) error
+	Send(*ResponseMessage) error
 	grpc.ServerStream
 }
 
@@ -220,7 +220,7 @@ type triggerExecutableRegisterTriggerServer struct {
 	grpc.ServerStream
 }
 
-func (x *triggerExecutableRegisterTriggerServer) Send(m *CapabilityResponse) error {
+func (x *triggerExecutableRegisterTriggerServer) Send(m *ResponseMessage) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -321,7 +321,7 @@ func (c *callbackExecutableClient) Execute(ctx context.Context, in *CapabilityRe
 }
 
 type CallbackExecutable_ExecuteClient interface {
-	Recv() (*CapabilityResponse, error)
+	Recv() (*ResponseMessage, error)
 	grpc.ClientStream
 }
 
@@ -329,8 +329,8 @@ type callbackExecutableExecuteClient struct {
 	grpc.ClientStream
 }
 
-func (x *callbackExecutableExecuteClient) Recv() (*CapabilityResponse, error) {
-	m := new(CapabilityResponse)
+func (x *callbackExecutableExecuteClient) Recv() (*ResponseMessage, error) {
+	m := new(ResponseMessage)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -418,7 +418,7 @@ func _CallbackExecutable_Execute_Handler(srv interface{}, stream grpc.ServerStre
 }
 
 type CallbackExecutable_ExecuteServer interface {
-	Send(*CapabilityResponse) error
+	Send(*ResponseMessage) error
 	grpc.ServerStream
 }
 
@@ -426,7 +426,7 @@ type callbackExecutableExecuteServer struct {
 	grpc.ServerStream
 }
 
-func (x *callbackExecutableExecuteServer) Send(m *CapabilityResponse) error {
+func (x *callbackExecutableExecuteServer) Send(m *ResponseMessage) error {
 	return x.ServerStream.SendMsg(m)
 }
 

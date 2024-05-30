@@ -38,8 +38,15 @@ message CapabilityRequest {
 }
 
 service TriggerExecutable {
-  rpc RegisterTrigger (CapabilityRequest) returns (stream CapabilityResponse) {}
+  rpc RegisterTrigger (CapabilityRequest) returns (stream ResponseMessage) {}
   rpc UnregisterTrigger (CapabilityRequest) returns (google.protobuf.Empty) {}
+}
+
+message ResponseMessage {
+  oneof message {
+    google.protobuf.Empty ack = 1;
+    CapabilityResponse response = 2;
+  }
 }
 
 message CapabilityResponse {
@@ -64,5 +71,5 @@ message UnregisterFromWorkflowRequest {
 service CallbackExecutable {
   rpc RegisterToWorkflow (RegisterToWorkflowRequest) returns (google.protobuf.Empty) {}
   rpc UnregisterFromWorkflow (UnregisterFromWorkflowRequest) returns (google.protobuf.Empty) {}
-  rpc Execute(CapabilityRequest) returns (stream CapabilityResponse) {}
+  rpc Execute(CapabilityRequest) returns (stream ResponseMessage) {}
 }
