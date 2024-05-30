@@ -66,6 +66,7 @@ PriceMax = 99
 
 [EVM.HeadTracker]
 HistoryDepth = 30
+MaxAllowedFinalityDepth = 0
 
 [[EVM.KeySpecific]]
 Key = '0xde709f2102306220921060314715629080e2fb77'
