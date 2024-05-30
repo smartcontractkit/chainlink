@@ -3920,6 +3920,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+Enabled = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -3952,6 +3955,8 @@ TransactionPercentile = 60
 HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 2
@@ -5173,6 +5178,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[Transactions.AutoPurge]
+Enabled = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -5205,6 +5213,8 @@ TransactionPercentile = 60
 HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 2
