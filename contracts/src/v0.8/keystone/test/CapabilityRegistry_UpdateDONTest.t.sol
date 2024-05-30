@@ -18,9 +18,12 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
   function setUp() public override {
     BaseTest.setUp();
 
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
+    capabilities[0] = s_basicCapability;
+    capabilities[1] = s_capabilityWithConfigurationContract;
+
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
-    s_capabilityRegistry.addCapability(s_basicCapability);
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    s_capabilityRegistry.addCapabilities(capabilities);
 
     CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](2);
     bytes32[] memory capabilityIds = new bytes32[](2);

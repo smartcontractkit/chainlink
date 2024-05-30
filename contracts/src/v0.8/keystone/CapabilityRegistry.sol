@@ -514,12 +514,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   /// @notice Adds a new capability to the capability registry
-  /// @param capability The capability being added
-  function addCapability(Capability calldata capability) external onlyOwner {
-    bytes32 hashedCapabilityId = getHashedCapabilityId(capability.labelledName, capability.version);
-    if (s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityAlreadyExists();
-    s_hashedCapabilityIds.add(hashedCapabilityId);
-    _setCapability(hashedCapabilityId, capability);
+  /// @param capabilities The capabilities being added
+  function addCapabilities(Capability[] calldata capabilities) external onlyOwner {
+    for (uint256 i; i < capabilities.length; ++i) {
+      Capability memory capability = capabilities[i];
+      bytes32 hashedCapabilityId = getHashedCapabilityId(capability.labelledName, capability.version);
+      if (s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityAlreadyExists();
+      s_hashedCapabilityIds.add(hashedCapabilityId);
+      _setCapability(hashedCapabilityId, capability);
+    }
   }
 
   /// @notice Updates capabilities

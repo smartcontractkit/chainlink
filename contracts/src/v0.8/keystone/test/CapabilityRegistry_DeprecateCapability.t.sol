@@ -10,9 +10,11 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
 
   function setUp() public override {
     BaseTest.setUp();
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
+    capabilities[0] = s_basicCapability;
+    capabilities[1] = s_capabilityWithConfigurationContract;
 
-    s_capabilityRegistry.addCapability(s_basicCapability);
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    s_capabilityRegistry.addCapabilities(capabilities);
   }
 
   function test_RevertWhen_CalledByNonAdmin() public {

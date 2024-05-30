@@ -7,28 +7,37 @@ import {ICapabilityConfiguration} from "../interfaces/ICapabilityConfiguration.s
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
-contract CapabilityRegistry_AddCapabilityTest is BaseTest {
+contract CapabilityRegistry_AddCapabilitiesTest is BaseTest {
   event CapabilityConfigured(bytes32 indexed hashedCapabilityId);
 
   function test_RevertWhen_CalledByNonAdmin() public {
     changePrank(STRANGER);
 
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](1);
+    capabilities[0] = s_basicCapability;
+
     vm.expectRevert("Only callable by owner");
-    s_capabilityRegistry.addCapability(s_basicCapability);
+    s_capabilityRegistry.addCapabilities(capabilities);
   }
 
   function test_RevertWhen_CapabilityExists() public {
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](1);
+    capabilities[0] = s_basicCapability;
+
     // Successfully add the capability the first time
-    s_capabilityRegistry.addCapability(s_basicCapability);
+    s_capabilityRegistry.addCapabilities(capabilities);
 
     // Try to add the same capability again
     vm.expectRevert(CapabilityRegistry.CapabilityAlreadyExists.selector);
-    s_capabilityRegistry.addCapability(s_basicCapability);
+    s_capabilityRegistry.addCapabilities(capabilities);
   }
 
   function test_RevertWhen_ConfigurationContractNotDeployed() public {
     address nonExistentContract = address(1);
     s_capabilityWithConfigurationContract.configurationContract = nonExistentContract;
+
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](1);
+    capabilities[0] = s_capabilityWithConfigurationContract;
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -36,7 +45,7 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
         nonExistentContract
       )
     );
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    s_capabilityRegistry.addCapabilities(capabilities);
   }
 
   function test_RevertWhen_ConfigurationContractDoesNotMatchInterface() public {
@@ -51,23 +60,29 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
       abi.encode(false)
     );
     s_capabilityWithConfigurationContract.configurationContract = contractWithoutERC165;
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](1);
+    capabilities[0] = s_capabilityWithConfigurationContract;
+
     vm.expectRevert(
       abi.encodeWithSelector(
         CapabilityRegistry.InvalidCapabilityConfigurationContractInterface.selector,
         contractWithoutERC165
       )
     );
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    s_capabilityRegistry.addCapabilities(capabilities);
   }
 
   function test_AddCapability_NoConfigurationContract() public {
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](1);
+    capabilities[0] = s_basicCapability;
+
     bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
       bytes32("data-streams-reports"),
       bytes32("1.0.0")
     );
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
     emit CapabilityConfigured(hashedCapabilityId);
-    s_capabilityRegistry.addCapability(s_basicCapability);
+    s_capabilityRegistry.addCapabilities(capabilities);
 
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 
@@ -78,13 +93,16 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
   }
 
   function test_AddCapability_WithConfiguration() public {
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](1);
+    capabilities[0] = s_capabilityWithConfigurationContract;
+
     bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
       bytes32(s_capabilityWithConfigurationContract.labelledName),
       bytes32(s_capabilityWithConfigurationContract.version)
     );
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
     emit CapabilityConfigured(hashedCapabilityId);
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    s_capabilityRegistry.addCapabilities(capabilities);
 
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 
