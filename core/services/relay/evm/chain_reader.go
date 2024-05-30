@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -10,12 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -213,6 +217,11 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
+	confirmations, err := confirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
+	if err != nil {
+		return err
+	}
+
 	eventDefinitions := chainReaderDefinition.EventDefinitions
 	eb := &eventBinding{
 		contractName:   contractName,
@@ -224,6 +233,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		codecTopicInfo: codecTopicInfo,
 		topics:         make(map[string]topicDetail),
 		eventDataWords: eventDefinitions.GenericDataWordNames,
+		confirmationsMapping: confirmations,
 	}
 
 	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
@@ -333,4 +343,26 @@ func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Ar
 	}
 
 	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
+}
+
+func confirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLevel]evmtypes.Confirmations, error) {
+	mappings := map[primitives.ConfidenceLevel]evmtypes.Confirmations{
+		primitives.Unconfirmed: evmtypes.Unconfirmed,
+		primitives.Finalized:   evmtypes.Finalized,
+	}
+
+	if values == nil {
+		return mappings, nil
+	}
+
+	for key, mapped := range values {
+		mappings[primitives.ConfidenceLevel(key)] = evmtypes.Confirmations(mapped)
+	}
+
+	if mappings[primitives.Finalized] != evmtypes.Finalized &&
+		mappings[primitives.Finalized] > mappings[primitives.Unconfirmed] {
+		return nil, errors.New("finalized confidence level should map to -1 or a higher value than 0")
+	}
+
+	return mappings, nil
 }

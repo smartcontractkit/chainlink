@@ -67,7 +67,11 @@ type chainReaderDefinitionFields struct {
 	InputModifications  codec.ModifiersConfig `json:"inputModifications,omitempty"`
 	OutputModifications codec.ModifiersConfig `json:"outputModifications,omitempty"`
 	EventDefinitions    *EventDefinitions     `json:"eventDefinitions,omitempty"`
+	// ConfidenceConfirmations is a mapping between a ConfidenceLevel and the confirmations associated. Confidence levels
+	// should be valid float values.
+	ConfidenceConfirmations map[string]int `json:"confidenceConfirmations,omitempty"`
 }
+
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
 	var b bytes.Buffer

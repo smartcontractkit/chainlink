@@ -192,11 +192,13 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					EventWithFilterName: {
-						ChainSpecificName: "Triggered",
-						ReadType:          types.Event,
+						ChainSpecificName:       "Triggered",
+						ReadType:                types.Event,
 						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field"}},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
@@ -205,11 +207,13 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
 						},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithAllTopics: {
-						ChainSpecificName: triggerWithAllTopics,
-						ReadType:          types.Event,
+						ChainSpecificName:       triggerWithAllTopics,
+						ReadType:                types.Event,
 						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field1", "Field2", "Field3"}},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
