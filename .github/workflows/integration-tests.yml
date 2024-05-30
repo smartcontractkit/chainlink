@@ -27,9 +27,9 @@ on:
         type: string
 
 # Only run 1 of this workflow at a time per PR
-concurrency:
-  group: integration-tests-chainlink-${{ github.ref }}-${{ inputs.distinct_run_name }}
-  cancel-in-progress: true
+# concurrency:
+#   group: integration-tests-chainlink-${{ github.sha }}-${{ github.run_id }}-${{ inputs.distinct_run_name }}
+#   cancel-in-progress: true
 
 env:
   # for run-test variables and environment
