@@ -3,10 +3,13 @@ pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityConfigurationContract} from "./mocks/CapabilityConfigurationContract.sol";
-
+import {ICapabilityConfiguration} from "../interfaces/ICapabilityConfiguration.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
+import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
 contract CapabilityRegistry_AddCapabilityTest is BaseTest {
+  event CapabilityConfigured(bytes32 indexed hashedCapabilityId);
+
   function test_RevertWhen_CalledByNonAdmin() public {
     changePrank(STRANGER);
 
@@ -37,20 +40,35 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
   }
 
   function test_RevertWhen_ConfigurationContractDoesNotMatchInterface() public {
-    CapabilityRegistry contractWithoutERC165 = new CapabilityRegistry();
-
-    vm.expectRevert();
-    s_capabilityWithConfigurationContract.configurationContract = address(contractWithoutERC165);
+    address contractWithoutERC165 = address(9999);
+    vm.mockCall(
+      contractWithoutERC165,
+      abi.encodeWithSelector(
+        IERC165.supportsInterface.selector,
+        ICapabilityConfiguration.getCapabilityConfiguration.selector ^
+          ICapabilityConfiguration.beforeCapabilityConfigSet.selector
+      ),
+      abi.encode(false)
+    );
+    s_capabilityWithConfigurationContract.configurationContract = contractWithoutERC165;
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        CapabilityRegistry.InvalidCapabilityConfigurationContractInterface.selector,
+        contractWithoutERC165
+      )
+    );
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
   }
 
   function test_AddCapability_NoConfigurationContract() public {
-    s_capabilityRegistry.addCapability(s_basicCapability);
-
     bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
       bytes32("data-streams-reports"),
       bytes32("1.0.0")
     );
+    vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
+    emit CapabilityConfigured(hashedCapabilityId);
+    s_capabilityRegistry.addCapability(s_basicCapability);
+
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 
     assertEq(storedCapability.labelledName, s_basicCapability.labelledName);
@@ -60,12 +78,14 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
   }
 
   function test_AddCapability_WithConfiguration() public {
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
-
     bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
       bytes32(s_capabilityWithConfigurationContract.labelledName),
       bytes32(s_capabilityWithConfigurationContract.version)
     );
+    vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
+    emit CapabilityConfigured(hashedCapabilityId);
+    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 
     assertEq(storedCapability.labelledName, s_capabilityWithConfigurationContract.labelledName);
