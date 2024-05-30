@@ -57,7 +57,7 @@ mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggre
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5c8d6562e94166d4790f1ee6e4321d359d9f7262e6c5452a712b1f1c896f45cf
 operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin 88e6baa5d9b255eea02616fbcb2cbe21a25ab46adeb6395f6289d169dec949ae
 operator_wrapper: ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin 23c3888eaa7259e6adf2153d09abae8f4b1987dc44200363faab1e65483f32d5
-optimism_gas_module: ../../contracts/solc/v0.8.19/OptimismGasModule/OptimismGasModule.abi ../../contracts/solc/v0.8.19/OptimismGasModule/OptimismGasModule.bin 8edac9fcda79a351a749a11f58e6b138ff66bc918cb3d03953684345af0e0729
+optimism_gas_module: ../../contracts/solc/v0.8.19/OptimismGasModule/OptimismGasModule.abi ../../contracts/solc/v0.8.19/OptimismGasModule/OptimismGasModule.bin 7d647e2c22c3687640907fb4947485ca36d11c871455ae34028d02b2a021f272
 optimism_module: ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.abi ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.bin a1f8ee97e12b1b2311db03b94dc52b91f3c2e9a2f8d554031a9c7b41e4432280
 perform_data_checker_wrapper: ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.abi ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.bin 48d8309c2117c29a24e1155917ab0b780956b2cd6a8a39ef06ae66a7f6d94f73
 scroll_module: ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.abi ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.bin 8de157cb7e5bc78146548212803d60926c8483aca7e912d802b7c66dc5d2ab11

@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"os"
 	"strings"
@@ -16,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_specific_util_helper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/optimism_gas_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5_optimism"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 
@@ -1371,6 +1374,47 @@ func main() {
 		_ = helpers.CalculateLatestBlockHeader(e, *blockNumber)
 	case "wrapper-universe-deploy":
 		v2plusscripts.DeployWrapperUniverse(e)
+	case "deploy-and-set-gas-module":
+		cmd := flag.NewFlagSet("deploy-and-set-gas-module", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "address of the VRF coordinator")
+		gasModuleMode := cmd.Uint64("gas-module-mode", 0, "gas module mode")
+		if !helpers.IsOptimismOrBaseChainID(e.ChainID) {
+			panic("this command is only supported on optimism or base chain")
+		}
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+		moduleAddress, tx, _, err := optimism_gas_module.DeployOptimismGasModule(e.Owner, e.Ec, uint8(*gasModuleMode))
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "deploying optimism gas module")
+		fmt.Println("deployed optimism gas module at:", moduleAddress)
+		coordinator, err := vrf_coordinator_v2_5_optimism.NewVRFCoordinatorV25Optimism(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		tx, err = coordinator.SetOptimismGasModule(e.Owner, moduleAddress)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "setting optimism gas module")
+
+	case "unsigned-tx-size":
+		cmd := flag.NewFlagSet("unsigned-tx-size", flag.ExitOnError)
+		helpers.ParseArgs(cmd, os.Args[2:])
+		data, err := hex.DecodeString("301f42e993c67d34077e3530f5fc0b54e8ba16d01d065e02bdfddabc7b3fd3732bc088028999501bfca51475773b12099059b1c1c1c5a21674a6d39b4cdad069230628b560aaa372433468201699a26418e2628a47cf715f9c864ced038c76a3592b3127adfe6002f7e2c87406cf6dbf1e72b027f1fda5d2c8dfe45c6b72eca6b7e1700141e069d2f842283efd7e71f17dd5a3ecc947f5336adb8b1e8a0fcede8346af74b3ea294edae760f48da52c390b03b3356dcb4970e767f514346393ca0e4414e2e04bfab431d77aacfa5b48b578b80fbe68d9aa31ac0808e40777a4b92e0ad7f30000000000000000000000005aee56c54094ddd412554353bb65caf3aae99d0971cbbbfe34e61fc3c20c2a9e43e14f5ef469a67bf73a6e63338d9fb9b22a3bd213436e5291120378a6a2c802f55bd412ffebee9971cadd625b640b76e30335423975efb8aeb3120e725175a23f7d278d9ac66a0c9c7477c5f02f0ebdf40623f19b4cbce88876bb6f6c3e765ef10cf2788f1661493f1ce9235ff4408314a7de97d68a85bd54c357b1c9551fd42a6b0359cffe106a1496507c0418356d3f59502a00000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0c286e914f925210f664758034fcf7773b574c69da92f0769913971724295284b1c2900000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000a1c469eaa593c666081dec7be85288045548e29b00000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000002492fd1338000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000")
+		helpers.PanicErr(err)
+		to := common.HexToAddress("0x1dBFE5b642642A60061cF2CcA20c2A337e7706c8")
+		tx := types.DynamicFeeTx{
+			ChainID:   big.NewInt(0).SetUint64(math.MaxUint64),
+			Nonce:     math.MaxUint64,
+			To:        &to,
+			Gas:       3.5e7,
+			GasTipCap: assets.GWei(1000).ToInt(),
+			GasFeeCap: assets.GWei(1000).ToInt(),
+			Data:      data,
+		}
+		transaction := types.NewTx(&tx)
+		rlpUnsigned := new(bytes.Buffer)
+		err = transaction.EncodeRLP(rlpUnsigned)
+		helpers.PanicErr(err)
+		rlpUnsignedBytes := rlpUnsigned.Bytes()
+		fmt.Println("encode RLP unsigned")
+		fmt.Printf("tx unsigned RLP-encoding: %x\n", rlpUnsignedBytes)
+		fmt.Printf("tx unsigned RLP-encoding length: %d\n", len(rlpUnsignedBytes))
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
