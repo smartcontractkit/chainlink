@@ -3,22 +3,20 @@ package targets_test
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
-
-var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
 //go:generate mockery --quiet --name ChainWriter --srcpkg=github.com/smartcontractkit/chainlink-common/pkg/types --output ./mocks/ --case=underscore
 //go:generate mockery --quiet --name ChainReader --srcpkg=github.com/smartcontractkit/chainlink-common/pkg/types --output ./mocks/ --case=underscore
@@ -65,21 +63,21 @@ func TestWriteTarget(t *testing.T) {
 			Inputs: validInputs,
 		}
 
-		ch, err := writeTarget.Execute(ctx, req)
-		require.NoError(t, err)
+		ch, err2 := writeTarget.Execute(ctx, req)
+		require.NoError(t, err2)
 		response := <-ch
 		require.NotNil(t, response)
 	})
 
 	t.Run("succeeds with empty report", func(t *testing.T) {
-		emptyInputs, err := values.NewMap(map[string]any{
+		emptyInputs, err2 := values.NewMap(map[string]any{
 			"signed_report": map[string]any{
 				"report": nil,
 			},
 			"signatures": [][]byte{},
 		})
 
-		require.NoError(t, err)
+		require.NoError(t, err2)
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
 				WorkflowExecutionID: "test-id",
@@ -88,8 +86,8 @@ func TestWriteTarget(t *testing.T) {
 			Inputs: emptyInputs,
 		}
 
-		ch, err := writeTarget.Execute(ctx, req)
-		require.NoError(t, err)
+		ch, err2 := writeTarget.Execute(ctx, req)
+		require.NoError(t, err2)
 		response := <-ch
 		require.Nil(t, response.Value)
 	})

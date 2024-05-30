@@ -3,12 +3,13 @@ package evm_test
 import (
 	"errors"
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"math/big"
-	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -19,14 +20,15 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
@@ -61,13 +63,13 @@ func TestEvmWrite(t *testing.T) {
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()
-		addr, err := types.NewEIP55Address(a.Hex())
-		require.NoError(t, err)
+		addr, err2 := types.NewEIP55Address(a.Hex())
+		require.NoError(t, err2)
 		c.EVM[0].ChainWriter.FromAddress = &addr
 
 		forwarderA := testutils.NewAddress()
-		forwarderAddr, err := types.NewEIP55Address(forwarderA.Hex())
-		require.NoError(t, err)
+		forwarderAddr, err2 := types.NewEIP55Address(forwarderA.Hex())
+		require.NoError(t, err2)
 		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
 	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
@@ -150,6 +152,7 @@ func TestEvmWrite(t *testing.T) {
 	t.Run("fails with invalid config", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
+		require.NoError(t, err)
 
 		invalidConfig, err := values.NewMap(map[string]any{
 			"Address": "invalid-address",

@@ -110,7 +110,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		WorkflowExecutionID: []byte(request.Metadata.WorkflowExecutionID),
 	}
 	var transmitter common.Address
-	if err := cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
+	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
 		return nil, err
 	}
 	if transmitter != common.HexToAddress("0x0") {
