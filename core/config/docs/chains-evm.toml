@@ -116,6 +116,16 @@ ReaperThreshold = '168h' # Default
 # ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
 ResendAfterThreshold = '1m' # Default
 
+[EVM.Transactions.AutoPurge]
+# Enabled enables or disables automatically purging transactions that have been idenitified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
+Enabled = false # Default
+# DetectionApiUrl configures the base url of a custom endpoint used to identify terminally stuck transactions.
+DetectionApiUrl = 'https://example.api.io' # Example
+# Threshold configures the number of blocks a transaction has to remain unconfirmed before it is evaluated for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain.
+Threshold = 5 # Example
+# MinAttempts configures the minimum number of broadcasted attempts a transaction has to have before it is evaluated further for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain. Ensure the gas estimator configs take more bump attempts before reaching the configured max gas price.
+MinAttempts = 3 # Example
+
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.
 Enabled = true # Default

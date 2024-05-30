@@ -128,7 +128,7 @@ func (e *EVMConfig) ChainType() commonconfig.ChainType {
 	if e.C.ChainType == nil {
 		return ""
 	}
-	return commonconfig.ChainType(*e.C.ChainType)
+	return e.C.ChainType.ChainType()
 }
 
 func (e *EVMConfig) ChainID() *big.Int {

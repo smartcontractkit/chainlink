@@ -294,18 +294,14 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	} else if c.ChainID.String() == "" {
 		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	} else if must, ok := ChainTypeForID(c.ChainID); ok { // known chain id
-		if c.ChainType == nil && must != "" {
-			err = multierr.Append(err, commonconfig.ErrMissing{Name: "ChainType",
-				Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
-		} else if c.ChainType != nil && *c.ChainType != string(must) {
-			if *c.ChainType == "" {
-				err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainType",
-					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
-			} else if must == "" {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+		// Check if the parsed value matched the expected value
+		is := c.ChainType.ChainType()
+		if is != must {
+			if must == "" {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 					Msg: "must not be set with this chain id"})
 			} else {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
 			}
 		}
@@ -345,7 +341,7 @@ type Chain struct {
 	AutoCreateKey             *bool
 	BlockBackfillDepth        *uint32
 	BlockBackfillSkip         *bool
-	ChainType                 *string
+	ChainType                 *config.ChainTypeConfig
 	FinalityDepth             *uint32
 	FinalityTagEnabled        *bool
 	FlagsContractAddress      *types.EIP55Address
@@ -376,12 +372,8 @@ type Chain struct {
 }
 
 func (c *Chain) ValidateConfig() (err error) {
-	var chainType config.ChainType
-	if c.ChainType != nil {
-		chainType = config.ChainType(*c.ChainType)
-	}
-	if !chainType.IsValid() {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+	if !c.ChainType.ChainType().IsValid() {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 			Msg: config.ErrInvalidChainType.Error()})
 	}
 
@@ -402,6 +394,44 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: "must be greater than or equal to 1"})
 	}
 
+	// AutoPurge configs depend on ChainType so handling validation on per chain basis
+	if c.Transactions.AutoPurge.Enabled != nil && *c.Transactions.AutoPurge.Enabled {
+		chainType := c.ChainType.ChainType()
+		switch chainType {
+		case config.ChainScroll:
+			if c.Transactions.AutoPurge.DetectionApiUrl == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.DetectionApiUrl", Msg: fmt.Sprintf("must be set for %s", chainType)})
+			} else if c.Transactions.AutoPurge.DetectionApiUrl.IsZero() {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl, Msg: fmt.Sprintf("must be set for %s", chainType)})
+			} else {
+				switch c.Transactions.AutoPurge.DetectionApiUrl.Scheme {
+				case "http", "https":
+				default:
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl.Scheme, Msg: "must be http or https"})
+				}
+			}
+		case config.ChainZkEvm:
+			// No other configs are needed
+		default:
+			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist
+			if c.GasEstimator.BumpThreshold == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "GasEstimator.BumpThreshold", Msg: fmt.Sprintf("must be set if auto-purge feature is enabled for %s", chainType)})
+			} else if *c.GasEstimator.BumpThreshold == 0 {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpThreshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if auto-purge feature is enabled for %s", chainType)})
+			}
+			if c.Transactions.AutoPurge.Threshold == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.Threshold", Msg: fmt.Sprintf("needs to be set if auto-purge feature is enabled for %s", chainType)})
+			} else if *c.Transactions.AutoPurge.Threshold == 0 {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.Threshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if auto-purge feature is enabled for %s", chainType)})
+			}
+			if c.Transactions.AutoPurge.MinAttempts == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.MinAttempts", Msg: fmt.Sprintf("needs to be set if auto-purge feature is enabled for %s", chainType)})
+			} else if *c.Transactions.AutoPurge.MinAttempts == 0 {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.MinAttempts", Value: 0, Msg: fmt.Sprintf("cannot be 0 if auto-purge feature is enabled for %s", chainType)})
+			}
+		}
+	}
+
 	return
 }
 
@@ -412,6 +442,8 @@ type Transactions struct {
 	ReaperInterval       *commonconfig.Duration
 	ReaperThreshold      *commonconfig.Duration
 	ResendAfterThreshold *commonconfig.Duration
+
+	AutoPurge AutoPurgeConfig `toml:",omitempty"`
 }
 
 func (t *Transactions) setFrom(f *Transactions) {
@@ -432,6 +464,29 @@ func (t *Transactions) setFrom(f *Transactions) {
 	}
 	if v := f.ResendAfterThreshold; v != nil {
 		t.ResendAfterThreshold = v
+	}
+	t.AutoPurge.setFrom(&f.AutoPurge)
+}
+
+type AutoPurgeConfig struct {
+	Enabled         *bool
+	Threshold       *uint32
+	MinAttempts     *uint32
+	DetectionApiUrl *commonconfig.URL
+}
+
+func (a *AutoPurgeConfig) setFrom(f *AutoPurgeConfig) {
+	if v := f.Enabled; v != nil {
+		a.Enabled = v
+	}
+	if v := f.Threshold; v != nil {
+		a.Threshold = v
+	}
+	if v := f.MinAttempts; v != nil {
+		a.MinAttempts = v
+	}
+	if v := f.DetectionApiUrl; v != nil {
+		a.DetectionApiUrl = v
 	}
 }
 

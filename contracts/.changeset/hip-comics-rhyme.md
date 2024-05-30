@@ -2,4 +2,4 @@
 "@chainlink/contracts": patch
 ---
 
-#wip Add Capability Registry skeleton
+track config count in DON struct

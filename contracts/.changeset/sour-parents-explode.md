@@ -2,4 +2,4 @@
 "@chainlink/contracts": patch
 ---
 
-Offchain settlement fix #bugfix
+update node signer type
