@@ -2250,7 +2250,7 @@ func TestBlockHistoryEstimator_HaltBumping(t *testing.T) {
 
 	t.Run("allows bumping check if CheckInclusionPercentile price failed to set due to no suitable transactions", func(t *testing.T) {
 		err := bhe.HaltBumping(attempts)
-		require.NoError(t, err)
+		require.Error(t, err, "90 percentile price is not set. This is likely because there aren't any valid transactions to estimate from. Preventing bumping until valid price is available to compare")
 	})
 
 	b1 := evmtypes.Block{
