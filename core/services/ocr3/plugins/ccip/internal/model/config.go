@@ -1,7 +1,7 @@
 package model
 
 import (
-	"time"
+	"fmt"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -10,29 +10,52 @@ import (
 type CommitPluginConfig struct {
 	// Writer indicates that the node can contribute by sending reports to the destination chain.
 	// Being a Writer guarantees that the node can also read from the destination chain.
-	Writer bool
+	Writer bool `json:"writer"`
 
 	// Reads define the chains that the current node can read from.
-	Reads []ChainSelector
+	Reads []ChainSelector `json:"reads"`
 
 	// DestChain is the ccip destination chain configured for the commit plugin DON.
-	DestChain ChainSelector
+	DestChain ChainSelector `json:"destChain"`
 
 	// FChain defines the FChain value for each chain. FChain is used while forming consensus based on the observations.
-	FChain map[ChainSelector]int
+	FChain map[ChainSelector]int `json:"fChain"`
 
 	// ObserverInfo is a map of oracle IDs to ObserverInfo.
-	ObserverInfo map[commontypes.OracleID]ObserverInfo
+	ObserverInfo map[commontypes.OracleID]ObserverInfo `json:"observerInfo"`
 
-	// FeeTokens is a list of tokens that can be used to pay for ccip fees.
-	FeeTokens []types.Account
+	// PricedTokens is a list of tokens that we want to submit price updates for.
+	PricedTokens []types.Account `json:"pricedTokens"`
 
 	// TokenPricesObserver indicates that the node can observe token prices.
-	TokenPricesObserver bool
+	TokenPricesObserver bool `json:"tokenPricesObserver"`
 
-	NewMsgScanDuration  time.Duration
-	NewMsgScanLimit     int
-	NewMsgScanBatchSize int
+	// NewMsgScanBatchSize is the number of max new messages to scan, typically set to 256.
+	NewMsgScanBatchSize int `json:"newMsgScanBatchSize"`
+}
+
+func (c CommitPluginConfig) Validate() error {
+	if c.DestChain == ChainSelector(0) {
+		return fmt.Errorf("destChain not set")
+	}
+
+	if len(c.FChain) == 0 {
+		return fmt.Errorf("fChain not set")
+	}
+
+	if len(c.PricedTokens) == 0 {
+		return fmt.Errorf("priced tokens not set")
+	}
+
+	if c.NewMsgScanBatchSize == 0 {
+		return fmt.Errorf("newMsgScanBatchSize not set")
+	}
+
+	if _, ok := c.FChain[c.DestChain]; !ok {
+		return fmt.Errorf("fChain not set for dest chain")
+	}
+
+	return nil
 }
 
 type ObserverInfo struct {

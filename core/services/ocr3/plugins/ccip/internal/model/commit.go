@@ -6,10 +6,11 @@ import (
 )
 
 type CommitPluginObservation struct {
-	NewMsgs     []CCIPMsgBaseDetails `json:"newMsgs"`
-	GasPrices   []GasPriceChain      `json:"gasPrices,string"`
-	TokenPrices []TokenPrice         `json:"tokenPrices"`
-	MaxSeqNums  []SeqNumChain        `json:"maxSeqNums"`
+	NewMsgs      []CCIPMsgBaseDetails `json:"newMsgs"`
+	GasPrices    []GasPriceChain      `json:"gasPrices,string"`
+	TokenPrices  []TokenPrice         `json:"tokenPrices"`
+	MaxSeqNums   []SeqNumChain        `json:"maxSeqNums"`
+	PluginConfig CommitPluginConfig   `json:"pluginConfig"`
 }
 
 func NewCommitPluginObservation(
@@ -17,12 +18,14 @@ func NewCommitPluginObservation(
 	gasPrices []GasPriceChain,
 	tokenPrices []TokenPrice,
 	maxSeqNums []SeqNumChain,
+	pluginConfig CommitPluginConfig,
 ) CommitPluginObservation {
 	return CommitPluginObservation{
-		NewMsgs:     newMsgs,
-		GasPrices:   gasPrices,
-		TokenPrices: tokenPrices,
-		MaxSeqNums:  maxSeqNums,
+		NewMsgs:      newMsgs,
+		GasPrices:    gasPrices,
+		TokenPrices:  tokenPrices,
+		MaxSeqNums:   maxSeqNums,
+		PluginConfig: pluginConfig,
 	}
 }
 
