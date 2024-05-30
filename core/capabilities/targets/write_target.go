@@ -18,7 +18,7 @@ var (
 	_ capabilities.ActionCapability = &WriteTarget{}
 )
 
-// NOTE: this code will be moved into chainlink-common once fully abstracted
+const signedReportField = "signed_report"
 
 type WriteTarget struct {
 	cr               commontypes.ContractReader
@@ -62,11 +62,6 @@ func parseConfig(rawConfig *values.Map) (config EvmConfig, err error) {
 	return config, nil
 }
 
-var inputs struct {
-	Report     []byte
-	Signatures [][]byte
-}
-
 func success() <-chan capabilities.CapabilityResponse {
 	callback := make(chan capabilities.CapabilityResponse)
 	go func() {
@@ -83,7 +78,17 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	if err != nil {
 		return nil, err
 	}
-	if err = request.Inputs.UnwrapTo(&inputs); err != nil {
+
+	signedReport, ok := request.Inputs.Underlying[signedReportField]
+	if !ok {
+		return nil, fmt.Errorf("missing required field %s", signedReportField)
+	}
+
+	var inputs struct {
+		Report     []byte
+		Signatures [][]byte
+	}
+	if err = signedReport.UnwrapTo(&inputs); err != nil {
 		return nil, err
 	}
 
@@ -92,6 +97,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		cap.lggr.Debugw("Skipping empty report", "request", request)
 		return success(), nil
 	}
+	cap.lggr.Debugw("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "report", inputs.Report, "signatures", inputs.Signatures)
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 

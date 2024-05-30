@@ -15,6 +15,11 @@ BumpThreshold = 5
 [GasEstimator.BlockHistory]
 BlockHistorySize = 24
 
+[HeadTracker]
+HistoryDepth = 100
+SamplingInterval = '1s'
+FinalityTagBypass = false
+
 [OCR]
 DatabaseTimeout = '2s'
 ContractTransmitterTransmitTimeout = '2s'
