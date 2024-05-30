@@ -62,7 +62,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
 
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event NopPaid(address indexed nop, uint256 amount);
-  event FeeConfigSet(FeeTokenConfigArgs[] feeConfig);
+  event PremiumMultiplierWeiPerEthUpdated(address indexed token, uint64 premiumMultiplierWeiPerEth);
   event TokenTransferFeeConfigSet(TokenTransferFeeConfigArgs[] transferFeeConfig);
   event TokenTransferFeeConfigDeleted(address[] tokens);
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
@@ -89,22 +89,12 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     address tokenAdminRegistry; // Token admin registry address
   }
 
-  /// @dev Struct to hold the execution fee configuration for a fee token
-  struct FeeTokenConfig {
-    uint32 networkFeeUSDCents; // ─────────╮ Flat network fee to charge for messages,  multiples of 0.01 USD
-    uint64 gasMultiplierWeiPerEth; //      │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
-    uint64 premiumMultiplierWeiPerEth; //  │ Multiplier for fee-token-specific premiums
-    bool enabled; // ──────────────────────╯ Whether this fee token is enabled
-  }
-
-  /// @dev Struct to hold the fee configuration for a fee token, same as the FeeTokenConfig but with
-  /// token included so that an array of these can be passed in to setFeeTokenConfig to set the mapping
-  struct FeeTokenConfigArgs {
-    address token; // ─────────────────────╮ Token address
-    uint32 networkFeeUSDCents; //          │ Flat network fee to charge for messages,  multiples of 0.01 USD
-    uint64 gasMultiplierWeiPerEth; // ─────╯ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost
-    uint64 premiumMultiplierWeiPerEth; // ─╮ Multiplier for fee-token-specific premiums, 1e18 based
-    bool enabled; // ──────────────────────╯ Whether this fee token is enabled
+  /// @dev Struct to hold the fee token configuration for a token, same as the s_premiumMultiplierWeiPerEth but with
+  /// the token address included so that an array of these can be passed in the constructor and
+  /// applyPremiumMultiplierWeiPerEthUpdates to set the mapping
+  struct PremiumMultiplierWeiPerEthArgs {
+    address token; // // ───────────────────╮ Token address
+    uint64 premiumMultiplierWeiPerEth; // ──╯ Multiplier for destination chain specific premiums. Should never be 0 so can be used as an isEnabled flag
   }
 
   /// @dev Struct to hold the transfer fee configuration for token transfers
@@ -147,7 +137,9 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     uint16 defaultTokenFeeUSDCents; //           │ Default token fee charged per token transfer
     uint32 defaultTokenDestGasOverhead; // ──────╯ Default gas charged to execute the token transfer on the destination chain
     uint32 defaultTokenDestBytesOverhead; // ────╮ Default extra data availability bytes charged per token transfer
-    uint64 defaultTxGasLimit; // ────────────────╯ Default gas limit for a tx
+    uint64 defaultTxGasLimit; //                 │ Default gas limit for a tx
+    uint64 gasMultiplierWeiPerEth; //            │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
+    uint32 networkFeeUSDCents; // ───────────────╯ Flat network fee to charge for messages,  multiples of 0.01 USD
   }
 
   /// @dev Struct to hold the configs for a destination chain
@@ -200,8 +192,9 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
 
   /// @dev The destination chain specific configs
   mapping(uint64 destChainSelector => DestChainConfig destChainConfig) internal s_destChainConfig;
-  /// @dev The execution fee token config that can be set by the owner or fee admin
-  mapping(address token => FeeTokenConfig feeTokenConfig) internal s_feeTokenConfig;
+  /// @dev The multiplier for destination chain specific premiums that can be set by the owner or fee admin
+  /// This should never be 0 once set, so it can be used as an isEnabled flag
+  mapping(address token => uint64 premiumMultiplierWeiPerEth) internal s_premiumMultiplierWeiPerEth;
   /// @dev The token transfer fee config that can be set by the owner or fee admin
   mapping(address token => TokenTransferFeeConfig tranferFeeConfig) internal s_tokenTransferFeeConfig;
 
@@ -220,7 +213,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     DynamicConfig memory dynamicConfig,
     DestChainConfigArgs[] memory destChainConfigArgs,
     RateLimiter.Config memory rateLimiterConfig,
-    FeeTokenConfigArgs[] memory feeTokenConfigs,
+    PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs,
     TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
     NopAndWeight[] memory nopsAndWeights
   ) AggregateRateLimiter(rateLimiterConfig) {
@@ -236,7 +229,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
 
     _setDynamicConfig(dynamicConfig);
     _applyDestChainConfigUpdates(destChainConfigArgs);
-    _setFeeTokenConfig(feeTokenConfigs);
+    _applyPremiumMultiplierWeiPerEthUpdates(premiumMultiplierWeiPerEthArgs);
     _setTokenTransferFeeConfig(tokenTransferFeeConfigArgs, new address[](0));
     _setNops(nopsAndWeights);
   }
@@ -509,18 +502,19 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     uint64 destChainSelector,
     Client.EVM2AnyMessage calldata message
   ) external view returns (uint256 feeTokenAmount) {
-    DestChainConfig storage destChainConfig = s_destChainConfig[destChainSelector];
+    DestChainDynamicConfig storage destChainDynamicConfig = s_destChainConfig[destChainSelector].dynamicConfig;
 
-    if (!destChainConfig.dynamicConfig.isEnabled) revert DestinationChainNotEnabled(destChainSelector);
+    if (!destChainDynamicConfig.isEnabled) revert DestinationChainNotEnabled(destChainSelector);
 
-    uint256 gasLimit = message.extraArgs.length == 0
-      ? destChainConfig.dynamicConfig.defaultTxGasLimit
-      : _gasLimitFromBytes(message.extraArgs);
+    uint256 gasLimit =
+      message.extraArgs.length == 0 ? destChainDynamicConfig.defaultTxGasLimit : _gasLimitFromBytes(message.extraArgs);
     // Validate the message with various checks
     _validateMessage(destChainSelector, message.data.length, gasLimit, message.tokenAmounts.length);
 
-    FeeTokenConfig memory feeTokenConfig = s_feeTokenConfig[message.feeToken];
-    if (!feeTokenConfig.enabled) revert NotAFeeToken(message.feeToken);
+    uint64 premiumMultiplierWeiPerEth = s_premiumMultiplierWeiPerEth[message.feeToken];
+
+    // premiumMultiplierWeiPerEth should never be 0 so it can be used as an isEnabled flag
+    if (premiumMultiplierWeiPerEth == 0) revert NotAFeeToken(message.feeToken);
 
     (uint224 feeTokenPrice, uint224 packedGasPrice) =
       IPriceRegistry(s_dynamicConfig.priceRegistry).getTokenAndGasPrices(message.feeToken, destChainSelector);
@@ -537,7 +531,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
         _getTokenTransferCost(destChainSelector, message.feeToken, feeTokenPrice, message.tokenAmounts);
     } else {
       // Convert USD cents with 2 decimals to 18 decimals.
-      premiumFee = uint256(feeTokenConfig.networkFeeUSDCents) * 1e16;
+      premiumFee = uint256(destChainDynamicConfig.networkFeeUSDCents) * 1e16;
     }
 
     // Calculate data availability cost in USD with 36 decimals. Data availability cost exists on rollups that need to post
@@ -545,7 +539,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     uint256 dataAvailabilityCost = 0;
     // Only calculate data availability cost if data availability multiplier is non-zero.
     // The multiplier should be set to 0 if destination chain does not charge data availability cost.
-    DestChainDynamicConfig storage destChainDynamicConfig = s_destChainConfig[destChainSelector].dynamicConfig;
     if (destChainDynamicConfig.destDataAvailabilityMultiplierBps > 0) {
       dataAvailabilityCost = _getDataAvailabilityCost(
         destChainSelector,
@@ -565,13 +558,12 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
       * (
         gasLimit + destChainDynamicConfig.destGasOverhead
           + (message.data.length * destChainDynamicConfig.destGasPerPayloadByte) + tokenTransferGas
-      ) * feeTokenConfig.gasMultiplierWeiPerEth;
+      ) * destChainDynamicConfig.gasMultiplierWeiPerEth;
 
     // Calculate number of fee tokens to charge.
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
     // Result of the division is the number of smallest token denominations.
-    return
-      ((premiumFee * feeTokenConfig.premiumMultiplierWeiPerEth) + executionCost + dataAvailabilityCost) / feeTokenPrice;
+    return ((premiumFee * premiumMultiplierWeiPerEth) + executionCost + dataAvailabilityCost) / feeTokenPrice;
   }
 
   /// @notice Returns the estimated data availability cost of the message.
@@ -738,34 +730,34 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     return s_destChainConfig[destChainSelector];
   }
 
-  /// @notice Gets the fee configuration for a token
-  /// @param token The token to get the fee configuration for
-  /// @return feeTokenConfig FeeTokenConfig struct
-  function getFeeTokenConfig(address token) external view returns (FeeTokenConfig memory feeTokenConfig) {
-    return s_feeTokenConfig[token];
+  /// @notice Gets the fee configuration for a token.
+  /// @param token The token to get the fee configuration for.
+  /// @return premiumMultiplierWeiPerEth The multiplier for destination chain specific premiums.
+  function getPremiumMultiplierWeiPerEth(address token) external view returns (uint64 premiumMultiplierWeiPerEth) {
+    return s_premiumMultiplierWeiPerEth[token];
   }
 
   /// @notice Sets the fee configuration for a token
-  /// @param feeTokenConfigArgs Array of FeeTokenConfigArgs structs.
-  function setFeeTokenConfig(FeeTokenConfigArgs[] memory feeTokenConfigArgs) external {
+  /// @param premiumMultiplierWeiPerEthArgs Array of PremiumMultiplierWeiPerEthArgs structs.
+  function applyPremiumMultiplierWeiPerEthUpdates(
+    PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs
+  ) external {
     _onlyOwnerOrAdmin();
-    _setFeeTokenConfig(feeTokenConfigArgs);
+    _applyPremiumMultiplierWeiPerEthUpdates(premiumMultiplierWeiPerEthArgs);
   }
 
-  /// @dev Set the fee config
-  /// @param feeTokenConfigArgs The fee token configs.
-  function _setFeeTokenConfig(FeeTokenConfigArgs[] memory feeTokenConfigArgs) internal {
-    for (uint256 i = 0; i < feeTokenConfigArgs.length; ++i) {
-      FeeTokenConfigArgs memory configArg = feeTokenConfigArgs[i];
+  /// @dev Set the fee config.
+  /// @param premiumMultiplierWeiPerEthArgs The multiplier for destination chain specific premiums.
+  function _applyPremiumMultiplierWeiPerEthUpdates(
+    PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs
+  ) internal {
+    for (uint256 i = 0; i < premiumMultiplierWeiPerEthArgs.length; ++i) {
+      address token = premiumMultiplierWeiPerEthArgs[i].token;
+      uint64 premiumMultiplierWeiPerEth = premiumMultiplierWeiPerEthArgs[i].premiumMultiplierWeiPerEth;
+      s_premiumMultiplierWeiPerEth[token] = premiumMultiplierWeiPerEth;
 
-      s_feeTokenConfig[configArg.token] = FeeTokenConfig({
-        networkFeeUSDCents: configArg.networkFeeUSDCents,
-        gasMultiplierWeiPerEth: configArg.gasMultiplierWeiPerEth,
-        premiumMultiplierWeiPerEth: configArg.premiumMultiplierWeiPerEth,
-        enabled: configArg.enabled
-      });
+      emit PremiumMultiplierWeiPerEthUpdated(token, premiumMultiplierWeiPerEth);
     }
-    emit FeeConfigSet(feeTokenConfigArgs);
   }
 
   /// @notice Gets the transfer fee config for a given token.

@@ -30,7 +30,7 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
 
   address internal s_destTokenPool = makeAddr("destTokenPool");
 
-  EVM2EVMMultiOnRamp.FeeTokenConfigArgs[] internal s_feeTokenConfigArgs;
+  EVM2EVMMultiOnRamp.PremiumMultiplierWeiPerEthArgs[] internal s_premiumMultiplierWeiPerEthArgs;
   EVM2EVMMultiOnRamp.TokenTransferFeeConfigArgs[] internal s_tokenTransferFeeConfigArgs;
 
   function setUp() public virtual override(TokenSetup, PriceRegistrySetup) {
@@ -39,24 +39,16 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
 
     s_priceRegistry.updatePrices(getSingleTokenPriceUpdateStruct(CUSTOM_TOKEN, CUSTOM_TOKEN_PRICE));
 
-    address WETH = s_sourceRouter.getWrappedNative();
-
-    s_feeTokenConfigArgs.push(
-      EVM2EVMMultiOnRamp.FeeTokenConfigArgs({
+    s_premiumMultiplierWeiPerEthArgs.push(
+      EVM2EVMMultiOnRamp.PremiumMultiplierWeiPerEthArgs({
         token: s_sourceFeeToken,
-        networkFeeUSDCents: 1_00, // 1 USD
-        gasMultiplierWeiPerEth: 1e18, // 1x
-        premiumMultiplierWeiPerEth: 5e17, // 0.5x
-        enabled: true
+        premiumMultiplierWeiPerEth: 5e17 // 0.5x
       })
     );
-    s_feeTokenConfigArgs.push(
-      EVM2EVMMultiOnRamp.FeeTokenConfigArgs({
-        token: WETH,
-        networkFeeUSDCents: 5_00, // 5 USD
-        gasMultiplierWeiPerEth: 2e18, // 2x
-        premiumMultiplierWeiPerEth: 2e18, // 2x
-        enabled: true
+    s_premiumMultiplierWeiPerEthArgs.push(
+      EVM2EVMMultiOnRamp.PremiumMultiplierWeiPerEthArgs({
+        token: s_sourceRouter.getWrappedNative(),
+        premiumMultiplierWeiPerEth: 2e18 // 2x
       })
     );
 
@@ -104,7 +96,7 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
       generateDynamicMultiOnRampConfig(address(s_sourceRouter), address(s_priceRegistry), address(s_tokenAdminRegistry)),
       generateDestChainConfigArgs(),
       getOutboundRateLimiterConfig(),
-      s_feeTokenConfigArgs,
+      s_premiumMultiplierWeiPerEthArgs,
       s_tokenTransferFeeConfigArgs,
       getMultiOnRampNopsAndWeights()
     );
@@ -243,7 +235,9 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
         defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
         defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
         defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD,
-        defaultTxGasLimit: GAS_LIMIT
+        defaultTxGasLimit: GAS_LIMIT,
+        gasMultiplierWeiPerEth: 5e17,
+        networkFeeUSDCents: 1_00
       }),
       prevOnRamp: address(0)
     });
