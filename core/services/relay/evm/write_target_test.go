@@ -95,8 +95,10 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		inputs, err := values.NewMap(map[string]any{
-			"report":     []byte{1, 2, 3},
-			"signatures": [][]byte{},
+			"signed_report": map[string]any{
+				"report":     []byte{1, 2, 3},
+				"signatures": [][]byte{},
+			},
 		})
 		require.NoError(t, err)
 
@@ -157,7 +159,9 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		inputs, err := values.NewMap(map[string]any{
-			"report": nil,
+			"signed_report": map[string]any{
+				"report":     nil,
+			},
 		})
 		require.NoError(t, err)
 
@@ -184,8 +188,10 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		inputs, err := values.NewMap(map[string]any{
-			"report":     []byte{1, 2, 3},
-			"signatures": [][]byte{},
+			"signed_report": map[string]any{
+				"report":     []byte{1, 2, 3},
+				"signatures": [][]byte{},
+			},
 		})
 		require.NoError(t, err)
 

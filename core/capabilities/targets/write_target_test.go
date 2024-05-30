@@ -42,8 +42,10 @@ func TestWriteTarget(t *testing.T) {
 	require.NoError(t, err)
 
 	validInputs, err := values.NewMap(map[string]any{
-		"report":     []byte{1, 2, 3},
-		"signatures": [][]byte{},
+		"signed_report": map[string]any{
+			"report":     []byte{1, 2, 3},
+			"signatures": [][]byte{},
+		},
 	})
 	require.NoError(t, err)
 
@@ -71,7 +73,9 @@ func TestWriteTarget(t *testing.T) {
 
 	t.Run("succeeds with empty report", func(t *testing.T) {
 		emptyInputs, err := values.NewMap(map[string]any{
-			"report":     nil,
+			"signed_report": map[string]any{
+				"report":     nil,
+			},
 			"signatures": [][]byte{},
 		})
 
