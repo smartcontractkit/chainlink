@@ -148,6 +148,18 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     }
   }
 
+  function _requireSufficientBalance(bool condition) internal pure {
+    if (!condition) {
+      revert InsufficientBalance();
+    }
+  }
+
+  function _requireValidSubscription(address subOwner) internal pure {
+    if (subOwner == address(0)) {
+      revert InvalidSubscription();
+    }
+  }
+
   constructor() ConfirmedOwner(msg.sender) {}
 
   /**
@@ -172,9 +184,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    */
   function ownerCancelSubscription(uint256 subId) external onlyOwner {
     address subOwner = s_subscriptionConfigs[subId].owner;
-    if (subOwner == address(0)) {
-      revert InvalidSubscription();
-    }
+    _requireValidSubscription(subOwner);
     _cancelSubscriptionHelper(subId, subOwner);
   }
 
@@ -236,15 +246,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (address(LINK) == address(0)) {
       revert LinkNotSet();
     }
-    if (s_withdrawableTokens == 0) {
-      revert InsufficientBalance();
-    }
     uint96 amount = s_withdrawableTokens;
-    s_withdrawableTokens -= amount;
+    _requireSufficientBalance(amount > 0);
+    s_withdrawableTokens = 0;
     s_totalBalance -= amount;
-    if (!LINK.transfer(recipient, amount)) {
-      revert InsufficientBalance();
-    }
+    _requireSufficientBalance(LINK.transfer(recipient, amount));
   }
 
   /*
@@ -253,12 +259,10 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @param amount amount to withdraw
    */
   function withdrawNative(address payable recipient) external nonReentrant onlyOwner {
-    if (s_withdrawableNative == 0) {
-      revert InsufficientBalance();
-    }
-    // Prevent re-entrancy by updating state before transfer.
     uint96 amount = s_withdrawableNative;
-    s_withdrawableNative -= amount;
+    _requireSufficientBalance(amount > 0);
+    // Prevent re-entrancy by updating state before transfer.
+    s_withdrawableNative = 0;
     s_totalNativeBalance -= amount;
     (bool sent, ) = recipient.call{value: amount}("");
     if (!sent) {
@@ -274,13 +278,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
       revert InvalidCalldata();
     }
     uint256 subId = abi.decode(data, (uint256));
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
-      revert InvalidSubscription();
-    }
+    _requireValidSubscription(s_subscriptionConfigs[subId].owner);
     // We do not check that the sender is the subscription owner,
     // anyone can fund a subscription.
     uint256 oldBalance = s_subscriptions[subId].balance;
-    s_subscriptions[subId].balance += uint96(amount);
+    s_subscriptions[subId].balance = uint96(oldBalance + amount);
     s_totalBalance += uint96(amount);
     emit SubscriptionFunded(subId, oldBalance, oldBalance + amount);
   }
@@ -289,15 +291,13 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @inheritdoc IVRFSubscriptionV2Plus
    */
   function fundSubscriptionWithNative(uint256 subId) external payable override nonReentrant {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
-      revert InvalidSubscription();
-    }
+    _requireValidSubscription(s_subscriptionConfigs[subId].owner);
     // We do not check that the msg.sender is the subscription owner,
     // anyone can fund a subscription.
     // We also do not check that msg.value > 0, since that's just a no-op
     // and would be a waste of gas on the caller's part.
     uint256 oldNativeBalance = s_subscriptions[subId].nativeBalance;
-    s_subscriptions[subId].nativeBalance += uint96(msg.value);
+    s_subscriptions[subId].nativeBalance = uint96(oldNativeBalance + msg.value);
     s_totalNativeBalance += uint96(msg.value);
     emit SubscriptionFundedWithNative(subId, oldNativeBalance, oldNativeBalance + msg.value);
   }
@@ -314,9 +314,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     returns (uint96 balance, uint96 nativeBalance, uint64 reqCount, address subOwner, address[] memory consumers)
   {
     subOwner = s_subscriptionConfigs[subId].owner;
-    if (subOwner == address(0)) {
-      revert InvalidSubscription();
-    }
+    _requireValidSubscription(subOwner);
     return (
       s_subscriptions[subId].balance,
       s_subscriptions[subId].nativeBalance,
@@ -391,9 +389,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    */
   function acceptSubscriptionOwnerTransfer(uint256 subId) external override nonReentrant {
     address oldOwner = s_subscriptionConfigs[subId].owner;
-    if (oldOwner == address(0)) {
-      revert InvalidSubscription();
-    }
+    _requireValidSubscription(oldOwner);
     if (s_subscriptionConfigs[subId].requestedOwner != msg.sender) {
       revert MustBeRequestedOwner(s_subscriptionConfigs[subId].requestedOwner);
     }
@@ -453,9 +449,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
 
     // Only withdraw LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
-      if (!LINK.transfer(to, uint256(balance))) {
-        revert InsufficientBalance();
-      }
+      _requireSufficientBalance(LINK.transfer(to, uint256(balance)));
     }
 
     // send native to the "to" address using call
@@ -473,9 +467,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
 
   function _onlySubOwner(uint256 subId) internal view {
     address subOwner = s_subscriptionConfigs[subId].owner;
-    if (subOwner == address(0)) {
-      revert InvalidSubscription();
-    }
+    _requireValidSubscription(subOwner);
     if (msg.sender != subOwner) {
       revert MustBeSubOwner(subOwner);
     }

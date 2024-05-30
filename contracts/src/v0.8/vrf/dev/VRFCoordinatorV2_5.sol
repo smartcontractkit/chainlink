@@ -78,6 +78,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   int256 public s_fallbackWeiPerUnitLink;
 
+  bool public s_upperBoundLimitL1FeeCalculationEnabled = false;
+
   event ConfigSet(
     uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
@@ -250,9 +252,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   ) external override nonReentrant returns (uint256 requestId) {
     // Input validation using the subscription storage.
     uint256 subId = req.subId;
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
-      revert InvalidSubscription();
-    }
+    _requireValidSubscription(s_subscriptionConfigs[subId].owner);
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     mapping(uint256 => ConsumerConfig) storage consumerConfigs = s_consumers[msg.sender];
@@ -524,16 +524,12 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     Subscription storage subcription = s_subscriptions[subId];
     if (nativePayment) {
       uint96 prevBal = subcription.nativeBalance;
-      if (prevBal < payment) {
-        revert InsufficientBalance();
-      }
+      _requireSufficientBalance(prevBal >= payment);
       subcription.nativeBalance = prevBal - payment;
       s_withdrawableNative += payment;
     } else {
       uint96 prevBal = subcription.balance;
-      if (prevBal < payment) {
-        revert InsufficientBalance();
-      }
+      _requireSufficientBalance(prevBal >= payment);
       subcription.balance = prevBal - payment;
       s_withdrawableTokens += payment;
     }
@@ -556,17 +552,11 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 weiPerUnitGas,
     bool onlyPremium
   ) internal view returns (uint96) {
-    // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
-    // calculate the payment without the premium
-    uint256 baseFeeWei = weiPerUnitGas * (s_config.gasAfterPaymentCalculation + startGas - gasleft());
     // calculate flat fee in native
     uint256 flatFeeWei = 1e12 * uint256(s_config.fulfillmentFlatFeeNativePPM);
-    if (onlyPremium) {
-      return uint96((((l1CostWei + baseFeeWei) * (s_config.nativePremiumPercentage)) / 100) + flatFeeWei);
-    } else {
-      return uint96((((l1CostWei + baseFeeWei) * (100 + s_config.nativePremiumPercentage)) / 100) + flatFeeWei);
-    }
+    uint256 multiplier = onlyPremium ? s_config.nativePremiumPercentage : 100 + s_config.nativePremiumPercentage;
+    uint256 paymentNoFee = _getPaymentNoFee(startGas, weiPerUnitGas);
+    return uint96(((paymentNoFee * multiplier) / 100) + flatFeeWei);
   }
 
   // Get the amount of gas used for fulfillment
@@ -579,26 +569,24 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
-    // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
-    // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 *
-      (weiPerUnitGas * (s_config.gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
-      uint256(weiPerUnitLink);
     // calculate the flat fee in wei
     uint256 flatFeeWei = 1e12 *
       uint256(s_config.fulfillmentFlatFeeNativePPM - s_config.fulfillmentFlatFeeLinkDiscountPPM);
-    uint256 flatFeeJuels = (1e18 * flatFeeWei) / uint256(weiPerUnitLink);
-    uint256 payment;
-    if (onlyPremium) {
-      payment = ((paymentNoFee * (s_config.linkPremiumPercentage)) / 100 + flatFeeJuels);
-    } else {
-      payment = ((paymentNoFee * (100 + s_config.linkPremiumPercentage)) / 100 + flatFeeJuels);
-    }
+    uint256 paymentNoFee = _getPaymentNoFee(startGas, weiPerUnitGas);
+    uint256 multiplier = onlyPremium ? s_config.linkPremiumPercentage : 100 + s_config.linkPremiumPercentage;
+    // (1e18 juels/link) (wei) / (wei/link) = juels
+    uint256 payment = (1e18 * ((paymentNoFee * multiplier) / 100 + flatFeeWei)) / uint256(weiPerUnitLink);
     if (payment > 1e27) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
     return (uint96(payment), isFeedStale);
+  }
+
+  function _getPaymentNoFee(uint256 startGas, uint256 weiPerUnitGas) internal view returns (uint256) {
+    // Will return non-zero on chains that have this enabled
+    uint256 l1CostWei = _getL1CostWei(msg.data);
+    // calculate the payment without the premium
+    return l1CostWei + (weiPerUnitGas * (s_config.gasAfterPaymentCalculation + startGas - gasleft()));
   }
 
   function _getFeedData() private view returns (int256 weiPerUnitLink, bool isFeedStale) {
@@ -613,15 +601,23 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     return (weiPerUnitLink, isFeedStale);
   }
 
+  function _getL1CostWei(bytes calldata data) internal view returns (uint256) {
+    uint256 chainid = block.chainid;
+    if (ChainSpecificUtil._isArbitrumChainId(chainid) || ChainSpecificUtil._isOptimismChainId(chainid)) {
+      return
+        s_upperBoundLimitL1FeeCalculationEnabled
+          ? ChainSpecificUtil._getL1CalldataGasCost(data.length)
+          : ChainSpecificUtil._getCurrentTxL1GasFees(data);
+    }
+    return 0;
+  }
+
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
   function pendingRequestExists(uint256 subId) public view override returns (bool) {
     address[] storage consumers = s_subscriptionConfigs[subId].consumers;
     uint256 consumersLength = consumers.length;
-    if (consumersLength == 0) {
-      return false;
-    }
     for (uint256 i = 0; i < consumersLength; ++i) {
       if (s_consumers[consumers[i]][subId].pendingReqCount > 0) {
         return true;
@@ -641,15 +637,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
-    address[] memory consumers = s_subscriptionConfigs[subId].consumers;
-    uint256 lastConsumerIndex = consumers.length - 1;
-    for (uint256 i = 0; i < consumers.length; ++i) {
-      if (consumers[i] == consumer) {
-        address last = consumers[lastConsumerIndex];
+    address[] storage s_subscriptionConsumers = s_subscriptionConfigs[subId].consumers;
+    uint256 subscriptionConsumersLength = s_subscriptionConsumers.length;
+    for (uint256 i = 0; i < subscriptionConsumersLength; ++i) {
+      if (s_subscriptionConsumers[i] == consumer) {
         // Storage write to preserve last element
-        s_subscriptionConfigs[subId].consumers[i] = last;
+        s_subscriptionConsumers[i] = s_subscriptionConsumers[subscriptionConsumersLength - 1];
         // Storage remove last element
-        s_subscriptionConfigs[subId].consumers.pop();
+        s_subscriptionConsumers.pop();
         break;
       }
     }
@@ -737,10 +732,12 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert CoordinatorNotRegistered(newCoordinator);
     }
     (uint96 balance, uint96 nativeBalance, , address subOwner, address[] memory consumers) = getSubscription(subId);
-    // solhint-disable-next-line gas-custom-errors
-    require(subOwner == msg.sender, "Not subscription owner");
-    // solhint-disable-next-line gas-custom-errors
-    require(!pendingRequestExists(subId), "Pending request exists");
+    if (subOwner != msg.sender) {
+      revert MustBeSubOwner(subOwner);
+    }
+    if (pendingRequestExists(subId)) {
+      revert PendingRequestExists();
+    }
 
     V1MigrationData memory migrationData = V1MigrationData({
       fromVersion: 1,
@@ -756,8 +753,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     // Only transfer LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
-      // solhint-disable-next-line gas-custom-errors
-      require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
+      _requireSufficientBalance(LINK.transfer(address(newCoordinator), balance));
     }
 
     // despite the fact that we follow best practices this is still probably safest
