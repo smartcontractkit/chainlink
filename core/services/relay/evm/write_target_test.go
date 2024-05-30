@@ -2,7 +2,6 @@ package evm_test
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -50,17 +49,6 @@ func TestEvmWrite(t *testing.T) {
 	chain.On("LogPoller").Return(nil)
 	chain.On("Client").Return(evmClient)
 
-	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-
-	lggr := logger.TestLogger(t)
-	relayer, err := relayevm.NewRelayer(lggr, chain, relayevm.RelayerOpts{
-		DS:                   db,
-		CSAETHKeystore:       keyStore,
-		CapabilitiesRegistry: evmcapabilities.NewRegistry(lggr),
-	})
-	require.NoError(t, err)
-
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()
 		addr, err2 := types.NewEIP55Address(a.Hex())
@@ -73,8 +61,19 @@ func TestEvmWrite(t *testing.T) {
 		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
 	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
-	fmt.Println(evmCfg)
+
 	chain.On("Config").Return(evmCfg)
+
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+
+	lggr := logger.TestLogger(t)
+	relayer, err := relayevm.NewRelayer(lggr, chain, relayevm.RelayerOpts{
+		DS:                   db,
+		CSAETHKeystore:       keyStore,
+		CapabilitiesRegistry: evmcapabilities.NewRegistry(lggr),
+	})
+	require.NoError(t, err)
 
 	txManager.On("CreateTransaction", mock.Anything, mock.Anything).Return(txmgr.Tx{}, nil).Run(func(args mock.Arguments) {
 		req := args.Get(1).(txmgr.TxRequest)
