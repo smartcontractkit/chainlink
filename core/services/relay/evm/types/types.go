@@ -72,7 +72,6 @@ type chainReaderDefinitionFields struct {
 	ConfidenceConfirmations map[string]int `json:"confidenceConfirmations,omitempty"`
 }
 
-
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
 	var b bytes.Buffer
 	e := json.NewEncoder(&b)

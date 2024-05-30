@@ -224,15 +224,15 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 
 	eventDefinitions := chainReaderDefinition.EventDefinitions
 	eb := &eventBinding{
-		contractName:   contractName,
-		eventName:      eventName,
-		lp:             cr.lp,
-		hash:           event.ID,
-		inputInfo:      inputInfo,
-		inputModifier:  inputModifier,
-		codecTopicInfo: codecTopicInfo,
-		topics:         make(map[string]topicDetail),
-		eventDataWords: eventDefinitions.GenericDataWordNames,
+		contractName:         contractName,
+		eventName:            eventName,
+		lp:                   cr.lp,
+		hash:                 event.ID,
+		inputInfo:            inputInfo,
+		inputModifier:        inputModifier,
+		codecTopicInfo:       codecTopicInfo,
+		topics:               make(map[string]topicDetail),
+		eventDataWords:       eventDefinitions.GenericDataWordNames,
 		confirmationsMapping: confirmations,
 	}
 

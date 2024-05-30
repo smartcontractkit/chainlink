@@ -97,7 +97,6 @@ func (rb *contractBindings) RegisterEventFilters(ctx context.Context, logPoller 
 	}
 
 	return nil
-
 }
 
 func (rb *contractBindings) UnregisterEventFilters(ctx context.Context, logPoller logpoller.LogPoller) error {

@@ -35,8 +35,8 @@ type eventBinding struct {
 	topics map[string]topicDetail
 	// eventDataWords maps a generic name to a word index
 	// key is a predefined generic name for evm log event data word
-	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
-	eventDataWords map[string]uint8
+	// for e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value
+	eventDataWords       map[string]uint8
 	confirmationsMapping map[primitives.ConfidenceLevel]evmtypes.Confirmations
 }
 
