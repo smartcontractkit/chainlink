@@ -86,6 +86,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 
 	var inputs struct {
 		Report     []byte
+		Context    []byte
 		Signatures [][]byte
 	}
 	if err = signedReport.UnwrapTo(&inputs); err != nil {
@@ -97,7 +98,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		cap.lggr.Debugw("Skipping empty report", "request", request)
 		return success(), nil
 	}
-	cap.lggr.Debugw("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "report", inputs.Report, "signatures", inputs.Signatures)
+	cap.lggr.Debugw("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures))
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
@@ -122,7 +123,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	if err != nil {
 		return nil, err
 	}
-	args := []any{common.HexToAddress(reqConfig.Address), inputs.Report, inputs.Signatures}
+	args := []any{common.HexToAddress(reqConfig.Address), inputs.Report, inputs.Context, inputs.Signatures}
 	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
 	value := big.NewInt(0)
 	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", args, txID, cap.forwarderAddress, &meta, *value); err != nil {
