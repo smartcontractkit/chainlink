@@ -43,21 +43,22 @@ type chainWriter struct {
 	txm    evmtxmgr.TxManager
 }
 
-func (w *chainWriter) SubmitTransaction(ctx context.Context, contractName, method string, args []any, transactionID uuid.UUID, toAddress string, meta *commontypes.TxMeta, value big.Int) error {
+func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method string, args []any, transactionID uuid.UUID, toAddress string, meta *commontypes.TxMeta, value big.Int) error {
 	if !common.IsHexAddress(toAddress) {
 		return fmt.Errorf("toAddress is not a valid ethereum address: %v", toAddress)
 	}
 
-	contractConfig, ok := w.config.Contracts[contractName]
+	// TODO(nickcorin): Pre-process the contracts when initialising the chain writer.
+	contractConfig, ok := w.config.Contracts[contract]
 	if !ok {
-		return fmt.Errorf("contract config not found: %v", contractName)
+		return fmt.Errorf("contract config not found: %v", contract)
 	}
+
 	methodConfig, ok := contractConfig.Configs[method]
 	if !ok {
 		return fmt.Errorf("method config not found: %v", method)
 	}
 
-	// TODO(archseer): do this at init time once
 	forwarderABI := evmtypes.MustGetABI(contractConfig.ContractABI)
 
 	calldata, err := forwarderABI.Pack(methodConfig.ChainSpecificName, args...)
@@ -65,12 +66,14 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contractName, metho
 		return fmt.Errorf("pack forwarder abi: %w", err)
 	}
 
-	// TODO(nickcorin): Change this to be config driven.
-	sendStrategy := txmgr.SendEveryStrategy{}
-
 	var checker evmtxmgr.TransmitCheckerSpec
 	if methodConfig.Checker != "" {
 		checker.CheckerType = txmgrtypes.TransmitCheckerType(methodConfig.Checker)
+	}
+
+	var sendStrategy txmgrtypes.TxStrategy = txmgr.SendEveryStrategy{}
+	if w.config.SendStrategy != nil {
+		sendStrategy = w.config.SendStrategy
 	}
 
 	req := evmtxmgr.TxRequest{
@@ -120,13 +123,11 @@ func (w *chainWriter) Name() string {
 }
 
 func (w *chainWriter) Ready() error {
-	// TODO(nickcorin): Return nil here once the implementation is done.
-	return fmt.Errorf("not fully implemented")
+	return nil
 }
 
 func (w *chainWriter) Start(ctx context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
-		// TODO(nickcorin): Add startup steps here.
 		return nil
 	})
 }
