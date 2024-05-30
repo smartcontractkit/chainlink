@@ -18,11 +18,10 @@ var (
 	reportA = []byte{0x01, 0x02, 0x03}
 	reportB = []byte{0xaa, 0xbb, 0xcc, 0xdd}
 
-	// hex encoded 32 byte strings
 	workflowID      = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 	donID           = "00010203"
 	executionID     = "8d4e66421db647dd916d3ec28d56188c8d7dae5f808e03d03339ed2562f13bb0"
-	workflowOwnerID = "0000000000000000000000000000000000000000000000000000000000000000"
+	workflowOwnerID = "0000000000000000000000000000000000000000"
 
 	invalidID   = "not_valid"
 	wrongLength = "8d4e66"
