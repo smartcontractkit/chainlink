@@ -106,23 +106,27 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 			return err
 		}
 
-		var eventSigsForContractFilter evmtypes.HashArray
+		var eventSigsForPollingFilter evmtypes.HashArray
 		for typeName, chainReaderDefinition := range chainContractReader.Configs {
 			switch chainReaderDefinition.ReadType {
 			case types.Method:
 				err = cr.addMethod(contractName, typeName, contractAbi, *chainReaderDefinition)
 			case types.Event:
-				if chainReaderDefinition.HasPollingFilter() {
-					if slices.Contains(chainContractReader.GenericEventNames, typeName) {
-						return fmt.Errorf(
-							"%w: invalid chain reader polling filter definition, "+
-								"can't have polling filter defined both on contract and event level: %s",
-							commontypes.ErrInvalidConfig,
-							chainReaderDefinition.ReadType)
-					}
-				} else {
-					eventSig := contractAbi.Events[chainReaderDefinition.ChainSpecificName]
-					eventSigsForContractFilter = append(eventSigsForContractFilter, eventSig.ID)
+				partOfContractPollingFilter := slices.Contains(chainContractReader.GenericEventNames, typeName)
+				hasContractFilterOverride := chainReaderDefinition.HasPollingFilter()
+				if !partOfContractPollingFilter && !chainReaderDefinition.HasPollingFilter() {
+					return fmt.Errorf(
+						"%w: chain reader has no polling filter defined for contract: %s event: %s",
+						commontypes.ErrInvalidConfig, contractName, typeName)
+				}
+				if hasContractFilterOverride && partOfContractPollingFilter {
+					return fmt.Errorf(
+						"%w: conflicting chain reader polling filter definitions for contract: %s event: %s, can't have polling filter defined both on contract and event level",
+						commontypes.ErrInvalidConfig, contractName, typeName)
+				}
+
+				if !hasContractFilterOverride {
+					eventSigsForPollingFilter = append(eventSigsForPollingFilter, contractAbi.Events[chainReaderDefinition.ChainSpecificName].ID)
 				}
 
 				err = cr.addEvent(contractName, typeName, contractAbi, *chainReaderDefinition)
@@ -132,12 +136,11 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 					commontypes.ErrInvalidConfig,
 					chainReaderDefinition.ReadType)
 			}
-
 			if err != nil {
 				return err
 			}
 		}
-		cr.contractBindings[contractName].contractFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
+		cr.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForPollingFilter)
 	}
 	return nil
 }
@@ -145,7 +148,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
 		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBindings) error {
-			return rbs.RegisterEventFilters(ctx, cr.lp)
+			return rbs.Register(ctx, cr.lp)
 		})
 	})
 }
@@ -155,7 +158,7 @@ func (cr *chainReader) Close() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBindings) error {
-			return rbs.UnregisterEventFilters(ctx, cr.lp)
+			return rbs.Unregister(ctx, cr.lp)
 		})
 	})
 }
@@ -212,6 +215,10 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return fmt.Errorf("%w: event %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
+	if chainReaderDefinition.EventDefinitions == nil {
+		return fmt.Errorf("%w: event %s doesn't have event definitions set", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
+	}
+
 	filterArgs, codecTopicInfo, indexArgNames := setupEventInput(event, chainReaderDefinition)
 	if err := verifyEventInputsUsed(chainReaderDefinition, indexArgNames); err != nil {
 		return err
@@ -240,6 +247,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	eb := &eventBinding{
 		contractName:         contractName,
 		eventName:            eventName,
+		logPollerFilter:      eventDefinitions.PollingFilter.ToLPFilter(evmtypes.HashArray{a.Events[event.Name].ID}),
 		lp:                   cr.lp,
 		hash:                 event.ID,
 		inputInfo:            inputInfo,

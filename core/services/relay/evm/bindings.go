@@ -6,20 +6,25 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 // key is contract name
 type bindings map[string]*contractBindings
 
+type FilterRegisterer struct {
+	pollingFilter logpoller.Filter
+	filterLock    sync.Mutex
+	isRegistered  bool
+}
+
 type contractBindings struct {
-	// contractFilter is used to filter over all events or any subset of events with same filtering parameters.
-	// if an event is present in the contract filter, it can't define its own filter in the event binding.
-	contractFilter            logpoller.Filter
-	filterLock                sync.Mutex
-	areEventFiltersRegistered bool
+	// FilterRegisterer is used to manage polling filter registration.
+	FilterRegisterer
 	// key is read name
 	bindings map[string]readBinding
 }
@@ -53,21 +58,24 @@ func (b bindings) Bind(ctx context.Context, logPoller logpoller.LogPoller, bound
 			return fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidConfig, bc.Name)
 		}
 
-		rbs.contractFilter.Addresses = append(rbs.contractFilter.Addresses, common.HexToAddress(bc.Address))
-		rbs.contractFilter.Name = logpoller.FilterName(bc.Name, bc.Address)
+		rbs.pollingFilter.Addresses = evmtypes.AddressArray{common.HexToAddress(bc.Address)}
+		rbs.pollingFilter.Name = logpoller.FilterName(bc.Name+"."+uuid.NewString(), bc.Address)
 
-		if err := rbs.UnregisterEventFilters(ctx, logPoller); err != nil {
+		// we are changing contract address reference, so we need to unregister old filters
+		if err := rbs.Unregister(ctx, logPoller); err != nil {
 			return err
-		}
-
-		// if contract event filter isn't already registered then it will be by chain reader on startup
-		// if it is already registered then we are overriding filters registered on startup
-		if rbs.areEventFiltersRegistered {
-			return rbs.RegisterEventFilters(ctx, logPoller)
 		}
 
 		for _, r := range rbs.bindings {
 			r.Bind(bc)
+		}
+
+		// if contract event filters aren't already registered then they will on startup
+		// if they are already registered then we are overriding them because contract binding (address) has changed
+		if rbs.isRegistered {
+			if err := rbs.Register(ctx, logPoller); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -82,33 +90,46 @@ func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contrac
 	return nil
 }
 
-func (rb *contractBindings) RegisterEventFilters(ctx context.Context, logPoller logpoller.LogPoller) error {
+// Register registers polling filters.
+func (rb *contractBindings) Register(ctx context.Context, logPoller logpoller.LogPoller) error {
 	rb.filterLock.Lock()
 	defer rb.filterLock.Unlock()
 
-	rb.areEventFiltersRegistered = true
+	rb.isRegistered = true
 
-	if logPoller.HasFilter(rb.contractFilter.Name) {
+	if logPoller.HasFilter(rb.pollingFilter.Name) {
 		return nil
 	}
 
-	if err := logPoller.RegisterFilter(ctx, rb.contractFilter); err != nil {
+	if err := logPoller.RegisterFilter(ctx, rb.pollingFilter); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
+	for _, binding := range rb.bindings {
+		if err := binding.Register(ctx); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-func (rb *contractBindings) UnregisterEventFilters(ctx context.Context, logPoller logpoller.LogPoller) error {
+// Unregister unregisters polling filters.
+func (rb *contractBindings) Unregister(ctx context.Context, logPoller logpoller.LogPoller) error {
 	rb.filterLock.Lock()
 	defer rb.filterLock.Unlock()
 
-	if !logPoller.HasFilter(rb.contractFilter.Name) {
+	if !logPoller.HasFilter(rb.pollingFilter.Name) {
 		return nil
 	}
 
-	if err := logPoller.UnregisterFilter(ctx, rb.contractFilter.Name); err != nil {
+	if err := logPoller.UnregisterFilter(ctx, rb.pollingFilter.Name); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+	}
+
+	for _, binding := range rb.bindings {
+		if err := binding.Unregister(ctx); err != nil {
+			return err
+		}
 	}
 	return nil
 }

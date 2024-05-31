@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -20,17 +21,19 @@ import (
 )
 
 type eventBinding struct {
-	address        common.Address
-	contractName   string
-	eventName      string
-	lp             logpoller.LogPoller
-	hash           common.Hash
-	codec          commontypes.RemoteCodec
-	pending        bool
-	bound          bool
-	inputInfo      types.CodecEntry
-	inputModifier  codec.Modifier
-	codecTopicInfo types.CodecEntry
+	FilterRegisterer
+	address         common.Address
+	contractName    string
+	eventName       string
+	lp              logpoller.LogPoller
+	logPollerFilter logpoller.Filter
+	hash            common.Hash
+	codec           commontypes.RemoteCodec
+	pending         bool
+	bound           bool
+	inputInfo       types.CodecEntry
+	inputModifier   codec.Modifier
+	codecTopicInfo  types.CodecEntry
 	// topics maps a generic topic name (key) to topic data
 	topics map[string]topicDetail
 	// eventDataWords maps a generic name to a word index
@@ -49,6 +52,35 @@ var _ readBinding = &eventBinding{}
 
 func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 	e.codec = codec
+}
+
+func (e *eventBinding) Register(ctx context.Context) error {
+	e.filterLock.Lock()
+	defer e.filterLock.Unlock()
+
+	e.isRegistered = true
+	if !e.bound || e.lp.HasFilter(e.pollingFilter.Name) {
+		return nil
+	}
+
+	if err := e.lp.RegisterFilter(ctx, e.logPollerFilter); err != nil {
+		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+	}
+	return nil
+}
+
+func (e *eventBinding) Unregister(ctx context.Context) error {
+	e.filterLock.Lock()
+	defer e.filterLock.Unlock()
+
+	if !e.lp.HasFilter(e.pollingFilter.Name) {
+		return nil
+	}
+
+	if err := e.lp.UnregisterFilter(ctx, e.pollingFilter.Name); err != nil {
+		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+	}
+	return nil
 }
 
 func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) error {
@@ -102,6 +134,11 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 func (e *eventBinding) Bind(binding commontypes.BoundContract) {
 	e.address = common.HexToAddress(binding.Address)
 	e.pending = binding.Pending
+
+	id := fmt.Sprintf("%s,%s,%s", e.contractName, e.eventName, uuid.NewString())
+	e.logPollerFilter.Name = logpoller.FilterName(id, e.address)
+	e.logPollerFilter.Addresses = evmtypes.AddressArray{e.address}
+
 	e.bound = true
 }
 

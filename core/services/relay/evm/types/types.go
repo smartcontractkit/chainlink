@@ -101,7 +101,10 @@ type chainReaderDefinitionFields struct {
 }
 
 func (d *ChainReaderDefinition) HasPollingFilter() bool {
-	return d.EventDefinitions == nil && d.EventDefinitions.PollingFilter == nil
+	if d.EventDefinitions == nil && d.EventDefinitions.PollingFilter == nil {
+		return false
+	}
+	return true
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
