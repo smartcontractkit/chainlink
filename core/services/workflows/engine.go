@@ -334,7 +334,10 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Config: tc,
 		Inputs: triggerInputs,
@@ -651,6 +654,9 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          msg.state.WorkflowID,
 			WorkflowExecutionID: msg.state.ExecutionID,
+			WorkflowOwner:       e.workflow.owner,
+			WorkflowName:        e.workflow.name,
+			WorkflowDonID:       e.donInfo.ID,
 		},
 	}
 
@@ -673,7 +679,10 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 	}
 	deregRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Inputs: triggerInputs,
 		Config: t.config,
@@ -744,6 +753,8 @@ func (e *Engine) Close() error {
 type Config struct {
 	Spec                 string
 	WorkflowID           string
+	WorkflowOwner        string
+	WorkflowName         string
 	Lggr                 logger.Logger
 	Registry             core.CapabilitiesRegistry
 	MaxWorkerLimit       int
@@ -820,6 +831,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	workflow.id = cfg.WorkflowID
+	workflow.owner = cfg.WorkflowOwner
+	workflow.name = cfg.WorkflowName
 
 	// Instantiate semaphore to put a limit on the number of workers
 	newWorkerCh := make(chan struct{}, cfg.MaxWorkerLimit)
