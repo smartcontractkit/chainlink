@@ -176,7 +176,7 @@ const setup = async () => {
   await setTx.wait()
 }
 
-describe.only('LinkAvailableBalanceMonitor', () => {
+describe('LinkAvailableBalanceMonitor', () => {
   beforeEach(async () => {
     await loadFixture(setup)
   })
