@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-#added Mode Sepolia config
+#added Mode & Blast chain config tomls
