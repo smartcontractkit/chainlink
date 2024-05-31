@@ -45,13 +45,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	cfg := Config{
-		Lggr:       d.logger,
-		Spec:       spec.WorkflowSpec.Workflow,
-		WorkflowID: spec.WorkflowSpec.WorkflowID,
-		Registry:   d.registry,
-		DONInfo:    dinfo,
-		PeerID:     d.peerID,
-		Store:      d.store,
+		Lggr:          d.logger,
+		Spec:          spec.WorkflowSpec.Workflow,
+		WorkflowID:    spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName:  spec.WorkflowSpec.WorkflowName,
+		Registry:      d.registry,
+		DONInfo:       dinfo,
+		PeerID:        d.peerID,
+		Store:         d.store,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -90,6 +92,7 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	}
 
 	return &capabilities.DON{
+		ID:      "00010203",
 		Members: p2pIDs,
 		Config: capabilities.DONConfig{
 			SharedSecret: key,

@@ -34,7 +34,6 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
 			"v1.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			gotTime = time.Now()
