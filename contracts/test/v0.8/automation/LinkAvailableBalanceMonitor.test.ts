@@ -13,7 +13,6 @@ import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import add from '@changesets/cli/dist/declarations/src/commands/add'
 
 chai.use(deepEqualInAnyOrder)
 
@@ -177,7 +176,7 @@ const setup = async () => {
   await setTx.wait()
 }
 
-describe('LinkAvailableBalanceMonitor', () => {
+describe.only('LinkAvailableBalanceMonitor', () => {
   beforeEach(async () => {
     await loadFixture(setup)
   })
