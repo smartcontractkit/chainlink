@@ -82,6 +82,7 @@ func (c *ContractTransmitter) Transmit(ctx context.Context, configDigest types.C
 		Metadata: capabilities.RequestMetadata{
 			WorkflowExecutionID: info.Id.WorkflowExecutionId,
 			WorkflowID:          info.Id.WorkflowId,
+			WorkflowDonID:       info.Id.WorkflowDonId,
 		},
 		Inputs: inputs.(*values.Map),
 	})

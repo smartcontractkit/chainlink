@@ -36,6 +36,9 @@
           "required": [
             "Underlying"
           ]
+        },
+        "report_id": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -44,7 +47,8 @@
         "aggregation_method",
         "aggregation_config",
         "encoder",
-        "encoder_config"
+        "encoder_config",
+        "report_id"
       ]
     },
     "inputs": {

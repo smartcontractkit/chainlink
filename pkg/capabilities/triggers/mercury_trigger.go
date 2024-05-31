@@ -21,7 +21,6 @@ var capInfo = capabilities.MustNewCapabilityInfo(
 	capabilities.CapabilityTypeTrigger,
 	"Streams Trigger",
 	"v1.0.0",
-	nil,
 )
 
 const defaultTickerResolutionMs = 1000

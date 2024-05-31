@@ -14,7 +14,6 @@ var info = capabilities.MustNewCapabilityInfo(
 	capabilities.CapabilityTypeTrigger,
 	"An example on-demand trigger.",
 	"v1.0.0",
-	nil,
 )
 
 type workflowID string

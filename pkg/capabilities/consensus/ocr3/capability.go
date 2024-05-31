@@ -28,7 +28,6 @@ var info = capabilities.MustNewCapabilityInfo(
 	capabilities.CapabilityTypeConsensus,
 	"OCR3 consensus exposed as a capability.",
 	"v1.0.0",
-	nil,
 )
 
 type capability struct {
@@ -143,10 +142,6 @@ func (o *capability) getEncoder(workflowID string) (types.Encoder, error) {
 	return enc, nil
 }
 
-func (o *capability) getDonID() string {
-	return o.CapabilityInfo.DON.ID
-}
-
 func (o *capability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
 	delete(o.aggregators, request.Metadata.WorkflowID)
 	delete(o.encoders, request.Metadata.WorkflowID)
@@ -216,7 +211,12 @@ func (o *capability) Execute(ctx context.Context, r capabilities.CapabilityReque
 			return nil, err
 		}
 
-		return o.queueRequestForProcessing(ctx, r.Metadata, inputs)
+		config, err := o.ValidateConfig(r.Config)
+		if err != nil {
+			return nil, err
+		}
+
+		return o.queueRequestForProcessing(ctx, r.Metadata, inputs, config)
 	}
 
 	return nil, fmt.Errorf("unknown method: %s", m.Method)
@@ -229,7 +229,7 @@ func (o *capability) Execute(ctx context.Context, r capabilities.CapabilityReque
 func (o *capability) queueRequestForProcessing(
 	ctx context.Context,
 	metadata capabilities.RequestMetadata,
-	i *inputs) (<-chan capabilities.CapabilityResponse, error) {
+	i *inputs, c *config) (<-chan capabilities.CapabilityResponse, error) {
 	callbackCh := make(chan capabilities.CapabilityResponse, o.callbackChannelBufferSize)
 	r := &request{
 		StopCh:              make(chan struct{}),
@@ -237,6 +237,9 @@ func (o *capability) queueRequestForProcessing(
 		WorkflowExecutionID: metadata.WorkflowExecutionID,
 		WorkflowID:          metadata.WorkflowID,
 		WorkflowOwner:       metadata.WorkflowOwner,
+		WorkflowName:        metadata.WorkflowName,
+		ReportID:            c.ReportID,
+		WorkflowDonID:       metadata.WorkflowDonID,
 		Observations:        i.Observations,
 		ExpiresAt:           o.clock.Now().Add(o.requestTimeout),
 	}

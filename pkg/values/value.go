@@ -44,6 +44,8 @@ func Wrap(v any) (Value, error) {
 		return NewInt64(int64(tv)), nil
 	case uint:
 		return NewInt64(int64(tv)), nil
+	case uint32:
+		return NewInt64(int64(tv)), nil
 	case *big.Int:
 		return NewBigInt(tv), nil
 	case nil:

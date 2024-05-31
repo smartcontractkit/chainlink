@@ -47,6 +47,8 @@ func TestReportingPlugin_Query(t *testing.T) {
 		WorkflowID:          workflowTestID,
 		WorkflowExecutionID: eid,
 		WorkflowOwner:       wowner,
+		WorkflowName:        workflowTestName,
+		ReportID:            reportTestId,
 	})
 	require.NoError(t, err)
 	outcomeCtx := ocr3types.OutcomeContext{
@@ -81,6 +83,8 @@ func TestReportingPlugin_Observation(t *testing.T) {
 		WorkflowID:          workflowTestID,
 		WorkflowExecutionID: eid,
 		WorkflowOwner:       wowner,
+		WorkflowName:        workflowTestName,
+		ReportID:            reportTestId,
 		Observations:        o,
 	})
 	require.NoError(t, err)
@@ -178,10 +182,6 @@ func (mc *mockCapability) getEncoder(workflowID string) (pbtypes.Encoder, error)
 	return mc.encoder, nil
 }
 
-func (mc *mockCapability) getDonID() string {
-	return "fooaa"
-}
-
 func TestReportingPlugin_Outcome(t *testing.T) {
 	lggr := logger.Test(t)
 	s := newStore()
@@ -198,6 +198,8 @@ func TestReportingPlugin_Outcome(t *testing.T) {
 		WorkflowExecutionId: weid,
 		WorkflowId:          workflowTestID,
 		WorkflowOwner:       wowner,
+		WorkflowName:        workflowTestName,
+		ReportId:            reportTestId,
 	}
 	q := &pbtypes.Query{
 		Ids: []*pbtypes.Id{id},
@@ -304,10 +306,14 @@ func TestReportingPlugin_Reports_ShouldReportTrue(t *testing.T) {
 	var sqNr uint64
 	weid := uuid.New().String()
 	wowner := uuid.New().String()
+	donId := "fooaa"
 	id := &pbtypes.Id{
 		WorkflowExecutionId: weid,
 		WorkflowId:          workflowTestID,
 		WorkflowOwner:       wowner,
+		WorkflowName:        workflowTestName,
+		ReportId:            reportTestId,
+		WorkflowDonId:       donId,
 	}
 	nm, err := values.NewMap(
 		map[string]any{
@@ -340,12 +346,19 @@ func TestReportingPlugin_Reports_ShouldReportTrue(t *testing.T) {
 	require.NoError(t, err)
 
 	// The workflow ID and execution ID get added to the report.
-	nm.Underlying[pbtypes.WorkflowIDFieldName] = values.NewString(workflowTestID)
-	nm.Underlying[pbtypes.DonIDFieldName] = values.NewString(cap.getDonID())
-	nm.Underlying[pbtypes.ExecutionIDFieldName] = values.NewString(weid)
-	nm.Underlying[pbtypes.WorkflowOwnerFieldName] = values.NewString(wowner)
+	nm.Underlying[pbtypes.MetadataFieldName], err = values.NewMap(map[string]any{
+		"Version":       1,
+		"ExecutionID":   weid,
+		"Timestamp":     0,
+		"DONID":         donId,
+		"WorkflowID":    workflowTestID,
+		"WorkflowName":  workflowTestName,
+		"WorkflowOwner": wowner,
+		"ReportID":      reportTestId,
+	})
+	require.NoError(t, err)
 	fp := values.FromProto(rep)
-	assert.Equal(t, nm, fp)
+	require.Equal(t, nm, fp)
 
 	ib := gotRep.Info
 	info := &pbtypes.ReportInfo{}
