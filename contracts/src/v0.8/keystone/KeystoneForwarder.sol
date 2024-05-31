@@ -101,7 +101,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   uint256 internal constant REPORT_METADATA_LENGTH = 88;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
-  function setConfig(uint32 donId, uint8 f, address[] calldata signers) external nonReentrant {
+  function setConfig(uint32 donId, uint8 f, address[] calldata signers) external onlyOwner {
     if (f == 0) revert FaultToleranceMustBePositive();
     if (signers.length > MAX_ORACLES) revert ExcessSigners(signers.length, MAX_ORACLES);
     if (signers.length <= 3 * f) revert InsufficientSigners(signers.length, 3 * f + 1);
