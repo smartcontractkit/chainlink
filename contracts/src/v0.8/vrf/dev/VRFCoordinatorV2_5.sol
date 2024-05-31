@@ -78,7 +78,10 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   int256 public s_fallbackWeiPerUnitLink;
 
-  bool public s_upperBoundLimitL1FeeCalculationEnabled = false;
+  uint8 internal constant L1GasFeesMode = 0;
+  uint8 internal constant L1CalldataGasCostMode = 1;
+  uint8 internal constant L1GasFeesUpperBoundMode = 2;
+  uint8 public s_L1FeeCalculationMode = L1GasFeesMode;
 
   event ConfigSet(
     uint16 minimumRequestConfirmations,
@@ -91,6 +94,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint8 nativePremiumPercentage,
     uint8 linkPremiumPercentage
   );
+
+  event L1FeeCalculationModeSet(uint8 mode);
 
   event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
 
@@ -139,7 +144,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @notice Returns the proving key hash key associated with this public key
    * @param publicKey the key to return the hash of
    */
-  function hashOfKey(uint256[2] memory publicKey) public pure returns (bytes32) {
+  function hashOfKey(uint256[2] calldata publicKey) public pure returns (bytes32) {
     return keccak256(abi.encode(publicKey));
   }
 
@@ -208,6 +213,12 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       nativePremiumPercentage,
       linkPremiumPercentage
     );
+  }
+
+  function setL1FeeCalculationMode(uint8 mode) external onlyOwner {
+    s_L1FeeCalculationMode = mode;
+
+    emit L1FeeCalculationModeSet(mode);
   }
 
   /// @dev Convert the extra args bytes into a struct
@@ -367,8 +378,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   function _getRandomnessFromProof(
-    Proof memory proof,
-    VRFTypes.RequestCommitmentV2Plus memory rc
+    Proof calldata proof,
+    VRFTypes.RequestCommitmentV2Plus calldata rc
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     ProvingKey memory key = s_provingKeys[keyHash];
@@ -417,7 +428,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function _deliverRandomness(
     uint256 requestId,
-    VRFTypes.RequestCommitmentV2Plus memory rc,
+    VRFTypes.RequestCommitmentV2Plus calldata rc,
     uint256[] memory randomWords
   ) internal returns (bool success) {
     VRFConsumerBaseV2Plus v;
@@ -443,8 +454,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
   function fulfillRandomWords(
-    Proof memory proof,
-    VRFTypes.RequestCommitmentV2Plus memory rc,
+    Proof calldata proof,
+    VRFTypes.RequestCommitmentV2Plus calldata rc,
     bool onlyPremium
   ) external nonReentrant returns (uint96 payment) {
     uint256 startGas = gasleft();
@@ -604,10 +615,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   function _getL1CostWei(bytes calldata data) internal view returns (uint256) {
     uint256 chainid = block.chainid;
     if (ChainSpecificUtil._isArbitrumChainId(chainid) || ChainSpecificUtil._isOptimismChainId(chainid)) {
-      return
-        s_upperBoundLimitL1FeeCalculationEnabled
-          ? ChainSpecificUtil._getL1CalldataGasCost(data.length)
-          : ChainSpecificUtil._getCurrentTxL1GasFees(data);
+      uint8 mode = s_L1FeeCalculationMode;
+      if (mode == L1GasFeesMode) {
+        return ChainSpecificUtil._getCurrentTxL1GasFees(data);
+      } else if (mode == L1CalldataGasCostMode) {
+        return ChainSpecificUtil._getL1CalldataGasCost(data.length);
+      } else if (mode == L1GasFeesUpperBoundMode) {
+        return ChainSpecificUtil._getCurrentTxL1GasFeesUpperBound(data.length);
+      }
     }
     return 0;
   }

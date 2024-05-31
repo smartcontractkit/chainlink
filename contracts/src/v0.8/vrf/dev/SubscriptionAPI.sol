@@ -206,8 +206,8 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (internalBalance > externalBalance) {
       revert BalanceInvariantViolated(internalBalance, externalBalance);
     }
-    if (internalBalance < externalBalance) {
-      uint256 amount = externalBalance - internalBalance;
+    uint256 amount = externalBalance - internalBalance;
+    if (amount > 0) {
       if (!LINK.transfer(to, amount)) {
         revert FailedToTransferLink();
       }
@@ -226,12 +226,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (internalBalance > externalBalance) {
       revert BalanceInvariantViolated(internalBalance, externalBalance);
     }
-    if (internalBalance < externalBalance) {
-      uint256 amount = externalBalance - internalBalance;
-      (bool sent, ) = to.call{value: amount}("");
-      if (!sent) {
-        revert FailedToSendNative();
-      }
+    uint256 amount = externalBalance - internalBalance;
+    if (amount > 0) {
+      _mustSendNative(to, amount);
       emit NativeFundsRecovered(to, amount);
     }
     // If the balances are equal, nothing to be done.
@@ -264,10 +261,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // Prevent re-entrancy by updating state before transfer.
     s_withdrawableNative = 0;
     s_totalNativeBalance -= amount;
-    (bool sent, ) = recipient.call{value: amount}("");
-    if (!sent) {
-      revert FailedToSendNative();
-    }
+    _mustSendNative(recipient, amount);
   }
 
   function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override nonReentrant {
@@ -334,7 +328,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     uint256 numSubs = s_subIds.length();
     if (startIndex >= numSubs) revert IndexOutOfRange();
     uint256 endIndex = startIndex + maxCount;
-    endIndex = endIndex > numSubs || maxCount == 0 ? numSubs : endIndex;
+    if (endIndex > numSubs || maxCount == 0) {
+      endIndex = numSubs;
+    }
     uint256 idsLength = endIndex - startIndex;
     ids = new uint256[](idsLength);
     for (uint256 idx = 0; idx < idsLength; ++idx) {
@@ -453,10 +449,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     }
 
     // send native to the "to" address using call
-    (bool success, ) = to.call{value: uint256(nativeBalance)}("");
-    if (!success) {
-      revert FailedToSendNative();
-    }
+    _mustSendNative(to, uint256(nativeBalance));
     emit SubscriptionCanceled(subId, to, balance, nativeBalance);
   }
 
@@ -470,6 +463,13 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     _requireValidSubscription(subOwner);
     if (msg.sender != subOwner) {
       revert MustBeSubOwner(subOwner);
+    }
+  }
+
+  function _mustSendNative(address to, uint256 amount) internal {
+    (bool success, ) = to.call{value: amount}("");
+    if (!success) {
+      revert FailedToSendNative();
     }
   }
 }

@@ -3,8 +3,7 @@ pragma solidity ^0.8.9;
 
 import {ArbSys} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {ArbGasInfo} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import {OVM_GasPriceOracle} from "./vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
-import {L1Block} from "./vendor/@eth-optimism/contracts-bedrock/v0.17.1/src/L2/L1Block.sol";
+import {GasPriceOracle as OVM_GasPriceOracle} from "./vendor/@eth-optimism/contracts-bedrock/v0.17.3/src/L2/GasPriceOracle.sol";
 
 /// @dev A library that abstracts out opcodes that behave differently across chains.
 /// @dev The methods below return values that are pertinent to the given chain.
@@ -36,9 +35,6 @@ library ChainSpecificUtil {
   /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
   OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
-  /// @dev L1BLOCK_ADDR is the address of the L1Block precompile on Optimism.
-  address private constant L1BLOCK_ADDR = address(0x4200000000000000000000000000000000000015);
-  L1Block private constant L1BLOCK = L1Block(L1BLOCK_ADDR);
 
   uint256 private constant OP_MAINNET_CHAIN_ID = 10;
   uint256 private constant OP_GOERLI_CHAIN_ID = 420;
@@ -48,10 +44,6 @@ library ChainSpecificUtil {
   uint256 private constant BASE_MAINNET_CHAIN_ID = 8453;
   uint256 private constant BASE_GOERLI_CHAIN_ID = 84531;
   uint256 private constant BASE_SEPOLIA_CHAIN_ID = 84532;
-
-  /// @dev included L1_FEE_DATA_PADDING and 68 bytes for the transaction signature
-  /// @dev reference: https://github.com/ethereum-optimism/optimism/blob/233ede59d16cb01bdd8e7ff662a153a4c3178bdd/packages/contracts-bedrock/contracts/L2/GasPriceOracle.sol#L110
-  uint256 private constant OP_L1_TX_PADDING_BYTES = 103;
 
   // ------------ End Optimism Constants ------------
 
@@ -105,6 +97,16 @@ library ChainSpecificUtil {
     return 0;
   }
 
+  function _getCurrentTxL1GasFeesUpperBound(uint256 txCallDataSize) internal view returns (uint256) {
+    uint256 chainid = block.chainid;
+    if (_isArbitrumChainId(chainid)) {
+      return ARBGAS.getCurrentTxL1GasFees();
+    } else if (_isOptimismChainId(chainid)) {
+      return OVM_GASPRICEORACLE.getL1FeeUpperBound(txCallDataSize);
+    }
+    return 0;
+  }
+
   /**
    * @notice Returns the gas cost in wei of calldataSizeBytes of calldata being posted
    * @notice to L1.
@@ -150,9 +152,10 @@ library ChainSpecificUtil {
     // reference: https://docs.optimism.io/stack/transactions/fees#ecotone
     // also: https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/exec-engine.md#ecotone-l1-cost-fee-changes-eip-4844-da
     // we assume the worst-case scenario and treat all bytes in the calldata payload as non-zero bytes (cost: 16 gas)
-    uint256 scaledBaseFee = 16 * L1BLOCK.baseFeeScalar() * OVM_GASPRICEORACLE.l1BaseFee();
-    uint256 scaledBlobBaseFee = L1BLOCK.blobBaseFeeScalar() * L1BLOCK.blobBaseFee();
-    uint256 fee = (calldataSizeBytes + OP_L1_TX_PADDING_BYTES) * (scaledBaseFee + scaledBlobBaseFee);
-    return fee / (10 ** OVM_GASPRICEORACLE.decimals());
+    uint256 l1GasUsed = (calldataSizeBytes + 68) * 16;
+    uint256 scaledBaseFee = OVM_GASPRICEORACLE.baseFeeScalar() * 16 * OVM_GASPRICEORACLE.l1BaseFee();
+    uint256 scaledBlobBaseFee = OVM_GASPRICEORACLE.blobBaseFeeScalar() * OVM_GASPRICEORACLE.blobBaseFee();
+    uint256 fee = l1GasUsed * (scaledBaseFee + scaledBlobBaseFee);
+    return fee / (16 * 10 ** OVM_GASPRICEORACLE.decimals());
   }
 }
