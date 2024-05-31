@@ -522,7 +522,6 @@ func (r *RpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 func (r *RpcClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
 	head, err := r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
 	if err != nil {
-		r.rpcLog.Warnw("Failed to fetch latest finalized block", "err", err)
 		return nil, err
 	}
 	return head, nil

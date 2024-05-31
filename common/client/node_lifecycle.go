@@ -151,6 +151,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		}
 		defer finalizedHeadSub.Unsubscribe()
 	}
+	n.finalizedBlockSub = finalizedHeadSub
 
 	_, chainInfo := n.StateAndLatest()
 	highestReceivedBlockNumber := chainInfo.BlockNumber
