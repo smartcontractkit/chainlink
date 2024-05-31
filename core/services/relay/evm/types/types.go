@@ -11,8 +11,9 @@ import (
 	"github.com/lib/pq"
 	"gopkg.in/guregu/null.v4"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
