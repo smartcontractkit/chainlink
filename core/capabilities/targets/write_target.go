@@ -127,10 +127,29 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	if err != nil {
 		return nil, err
 	}
-	args := []any{common.HexToAddress(reqConfig.Address), inputs.Report, inputs.Context, inputs.Signatures}
+
+	req := struct {
+		ReceiverAddress string
+		RawReport       []byte
+		ReportContext   []byte
+		Signatures      [][]byte
+	}{reqConfig.Address, inputs.Report, inputs.Context, inputs.Signatures}
+
+	if req.RawReport == nil {
+		req.RawReport = make([]byte, 0)
+	}
+
+	if req.ReportContext == nil {
+		req.ReportContext = make([]byte, 0)
+	}
+
+	if req.Signatures == nil {
+		req.Signatures = make([][]byte, 0)
+	}
+
 	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
 	value := big.NewInt(0)
-	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", args, txID, cap.forwarderAddress, &meta, *value); err != nil {
+	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID, cap.forwarderAddress, &meta, *value); err != nil {
 		return nil, err
 	}
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)

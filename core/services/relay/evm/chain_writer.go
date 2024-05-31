@@ -49,6 +49,11 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 		return nil, fmt.Errorf("%w: failed to parse contracts", err)
 	}
 
+	var err error
+	if w.encoder, err = w.parsedContracts.toCodec(); err != nil {
+		return nil, fmt.Errorf("%w: failed to create codec", err)
+	}
+
 	return &w, nil
 }
 
@@ -66,7 +71,7 @@ type chainWriter struct {
 	encoder commontypes.Encoder
 }
 
-func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method string, args []any, transactionID uuid.UUID, toAddress string, meta *commontypes.TxMeta, value big.Int) error {
+func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method string, args any, transactionID uuid.UUID, toAddress string, meta *commontypes.TxMeta, value big.Int) error {
 	if !common.IsHexAddress(toAddress) {
 		return fmt.Errorf("toAddress is not a valid ethereum address: %v", toAddress)
 	}
@@ -83,7 +88,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 
 	calldata, err := w.encoder.Encode(ctx, args, wrapItemType(contract, method, true))
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: failed to encode args", err)
 	}
 
 	var checker evmtxmgr.TransmitCheckerSpec
@@ -113,7 +118,7 @@ func (w *chainWriter) parseContracts() error {
 	for contract, contractConfig := range w.contracts {
 		abi, err := abi.JSON(strings.NewReader(contractConfig.ContractABI))
 		if err != nil {
-			return fmt.Errorf(":%w failed to parse contract abi", err)
+			return fmt.Errorf("%w: failed to parse contract abi", err)
 		}
 
 		for method, methodConfig := range contractConfig.Configs {
@@ -125,22 +130,17 @@ func (w *chainWriter) parseContracts() error {
 			// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
 			inputMod, err := methodConfig.InputModifications.ToModifier(evmDecoderHooks...)
 			if err != nil {
-				return err
+				return fmt.Errorf("%w: failed to create input mods", err)
 			}
 
 			input := types.NewCodecEntry(abiMethod.Inputs, abiMethod.ID, inputMod)
 
 			if err = input.Init(); err != nil {
-				return err
+				return fmt.Errorf("%w: failed to init codec entry for method %s", err, method)
 			}
 
 			w.parsedContracts.encoderDefs[wrapItemType(contract, method, true)] = input
 		}
-	}
-
-	var err error
-	if w.encoder, err = w.parsedContracts.toCodec(); err != nil {
-		return fmt.Errorf("%w: failed to create codec", err)
 	}
 
 	return nil
