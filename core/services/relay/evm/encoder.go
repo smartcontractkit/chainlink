@@ -17,11 +17,6 @@ type encoder struct {
 var _ commontypes.Encoder = &encoder{}
 
 func (e *encoder) Encode(_ context.Context, item any, itemType string) (res []byte, err error) {
-	fmt.Println("ENCODE DEBUG")
-	fmt.Printf("%T\n", item)
-	fmt.Printf("%+v\n", item)
-	fmt.Printf("%+v\n", itemType)
-
 	// nil values can cause abi.Arguments.Pack to panic.
 	defer func() {
 		if r := recover(); r != nil {
