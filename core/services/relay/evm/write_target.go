@@ -55,7 +55,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	}
 
 	chainWriterConfig := relayevmtypes.ChainWriterConfig{
-		Contracts: map[string]relayevmtypes.ChainWriter{
+		Contracts: map[string]*relayevmtypes.ContractConfig{
 			"forwarder": {
 				ContractABI: forwarder.KeystoneForwarderABI,
 				Configs: map[string]*relayevmtypes.ChainWriterDefinition{
@@ -69,7 +69,10 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			},
 		},
 	}
-	cw := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chainWriterConfig)
+	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chainWriterConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	return targets.NewWriteTarget(lggr, name, cr, cw, config.ForwarderAddress().String()), nil
 }

@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"time"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
@@ -14,7 +15,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -30,8 +30,26 @@ type ChainWriterService interface {
 // Compile-time assertion that chainWriter implements the ChainWriterService interface.
 var _ ChainWriterService = (*chainWriter)(nil)
 
-func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, config types.ChainWriterConfig) ChainWriterService {
-	return &chainWriter{logger: logger, client: client, config: config, txm: txm}
+func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, config types.ChainWriterConfig) (ChainWriterService, error) {
+	w := chainWriter{
+		logger: logger,
+		client: client,
+		txm:    txm,
+
+		sendStrategy:    txmgr.NewSendEveryStrategy(),
+		contracts:       config.Contracts,
+		parsedContracts: &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
+	}
+
+	if config.SendStrategy != nil {
+		w.sendStrategy = config.SendStrategy
+	}
+
+	if err := w.parseContracts(); err != nil {
+		return nil, fmt.Errorf("%w: failed to parse contracts", err)
+	}
+
+	return &w, nil
 }
 
 type chainWriter struct {
@@ -39,8 +57,13 @@ type chainWriter struct {
 
 	logger logger.Logger
 	client evmclient.Client
-	config types.ChainWriterConfig
 	txm    evmtxmgr.TxManager
+
+	sendStrategy    txmgrtypes.TxStrategy
+	contracts       map[string]*types.ContractConfig
+	parsedContracts *parsedTypes
+
+	encoder commontypes.Encoder
 }
 
 func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method string, args []any, transactionID uuid.UUID, toAddress string, meta *commontypes.TxMeta, value big.Int) error {
@@ -48,8 +71,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		return fmt.Errorf("toAddress is not a valid ethereum address: %v", toAddress)
 	}
 
-	// TODO(nickcorin): Pre-process the contracts when initialising the chain writer.
-	contractConfig, ok := w.config.Contracts[contract]
+	contractConfig, ok := w.contracts[contract]
 	if !ok {
 		return fmt.Errorf("contract config not found: %v", contract)
 	}
@@ -59,21 +81,14 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		return fmt.Errorf("method config not found: %v", method)
 	}
 
-	forwarderABI := evmtypes.MustGetABI(contractConfig.ContractABI)
-
-	calldata, err := forwarderABI.Pack(methodConfig.ChainSpecificName, args...)
+	calldata, err := w.encoder.Encode(ctx, args, wrapItemType(contract, method, true))
 	if err != nil {
-		return fmt.Errorf("pack forwarder abi: %w", err)
+		return err
 	}
 
 	var checker evmtxmgr.TransmitCheckerSpec
 	if methodConfig.Checker != "" {
 		checker.CheckerType = txmgrtypes.TransmitCheckerType(methodConfig.Checker)
-	}
-
-	var sendStrategy txmgrtypes.TxStrategy = txmgr.SendEveryStrategy{}
-	if w.config.SendStrategy != nil {
-		sendStrategy = w.config.SendStrategy
 	}
 
 	req := evmtxmgr.TxRequest{
@@ -82,13 +97,50 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		EncodedPayload: calldata,
 		FeeLimit:       methodConfig.GasLimit,
 		Meta:           &txmgrtypes.TxMeta[common.Address, common.Hash]{WorkflowExecutionID: meta.WorkflowExecutionID},
-		Strategy:       sendStrategy,
+		Strategy:       w.sendStrategy,
 		Checker:        checker,
 	}
 
 	_, err = w.txm.CreateTransaction(ctx, req)
 	if err != nil {
-		return fmt.Errorf("failed to create tx: %w", err)
+		return fmt.Errorf("%w; failed to create tx", err)
+	}
+
+	return nil
+}
+
+func (w *chainWriter) parseContracts() error {
+	for contract, contractConfig := range w.contracts {
+		abi, err := abi.JSON(strings.NewReader(contractConfig.ContractABI))
+		if err != nil {
+			return fmt.Errorf(":%w failed to parse contract abi", err)
+		}
+
+		for method, methodConfig := range contractConfig.Configs {
+			abiMethod, ok := abi.Methods[methodConfig.ChainSpecificName]
+			if !ok {
+				return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, methodConfig.ChainSpecificName)
+			}
+
+			// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
+			inputMod, err := methodConfig.InputModifications.ToModifier(evmDecoderHooks...)
+			if err != nil {
+				return err
+			}
+
+			input := types.NewCodecEntry(abiMethod.Inputs, abiMethod.ID, inputMod)
+
+			if err = input.Init(); err != nil {
+				return err
+			}
+
+			w.parsedContracts.encoderDefs[wrapItemType(contract, method, true)] = input
+		}
+	}
+
+	var err error
+	if w.encoder, err = w.parsedContracts.toCodec(); err != nil {
+		return fmt.Errorf("%w: failed to create codec", err)
 	}
 
 	return nil
@@ -104,10 +156,6 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 
 func (w *chainWriter) Close() error {
 	return w.StopOnce(w.Name(), func() error {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-
-		// TODO(nickcorin): Add shutdown steps here.
 		return nil
 	})
 }
