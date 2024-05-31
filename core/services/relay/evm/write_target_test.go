@@ -42,7 +42,7 @@ func TestEvmWrite(t *testing.T) {
 	for i := 0; i < 32; i++ {
 		mockCall = append(mockCall, byte(0))
 	}
-	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil)
+	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Maybe()
 
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
@@ -96,8 +96,10 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		inputs, err := values.NewMap(map[string]any{
-			"report":     []byte{1, 2, 3},
-			"signatures": [][]byte{},
+			"signed_report": map[string]any{
+				"report":     []byte{1, 2, 3},
+				"signatures": [][]byte{},
+			},
 		})
 		require.NoError(t, err)
 
@@ -188,8 +190,10 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		inputs, err := values.NewMap(map[string]any{
-			"report":     []byte{1, 2, 3},
-			"signatures": [][]byte{},
+			"signed_report": map[string]any{
+				"report":     []byte{1, 2, 3},
+				"signatures": [][]byte{},
+			},
 		})
 		require.NoError(t, err)
 
