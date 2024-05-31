@@ -653,7 +653,6 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 			WorkflowExecutionID: msg.state.ExecutionID,
 			WorkflowOwner:       e.workflow.owner,
 			WorkflowName:        e.workflow.name,
-			WorkflowStepRef:     step.Ref,
 		},
 	}
 
