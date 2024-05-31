@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -58,19 +57,17 @@ func (v *pgDSLParser) Block(p primitives.Block) {
 	)
 }
 
-func (v *pgDSLParser) Confirmations(p primitives.Confirmations) {
-	switch p.ConfirmationLevel {
+func (v *pgDSLParser) Confidence(p primitives.Confidence) {
+	switch p.ConfidenceLevel {
 	case primitives.Finalized:
+		// the highest level of confidence maps to finalized
 		v.expression = v.nestedConfQuery(true, 0)
 	case primitives.Unconfirmed:
-		// Unconfirmed in the evm relayer is an alias to the case of 0 confirmations
-		// set the level to the number 0 and fallthrough to the default case
-		p.ConfirmationLevel = primitives.ConfirmationLevel(0)
-
-		fallthrough
+		v.expression = v.nestedConfQuery(false, 0)
 	default:
-		// the default case passes the confirmation level as a number directly to a subquery
-		v.expression = v.nestedConfQuery(false, uint64(evmtypes.Confirmations(p.ConfirmationLevel)))
+		v.err = errors.New("unrecognized confidence level; use confidence to confirmations mappings instead")
+
+		return
 	}
 }
 
@@ -188,6 +185,16 @@ func (v *pgDSLParser) VisitEventTopicsByValueFilter(p *eventByTopicFilter) {
 		}
 
 		v.expression = strings.Join(comps, " AND ")
+	}
+}
+
+func (v *pgDSLParser) VisitConfirmationsFilter(p *confirmationsFilter) {
+	switch p.Confirmations {
+	case evmtypes.Finalized:
+		// the highest level of confidence maps to finalized
+		v.expression = v.nestedConfQuery(true, 0)
+	default:
+		v.expression = v.nestedConfQuery(false, uint64(p.Confirmations))
 	}
 }
 
@@ -498,5 +505,22 @@ func (f *eventByTopicFilter) Accept(visitor primitives.Visitor) {
 	switch v := visitor.(type) {
 	case *pgDSLParser:
 		v.VisitEventTopicsByValueFilter(f)
+	}
+}
+
+type confirmationsFilter struct {
+	Confirmations evmtypes.Confirmations
+}
+
+func NewConfirmationsFilter(confirmations evmtypes.Confirmations) query.Expression {
+	return query.Expression{Primitive: &confirmationsFilter{
+		Confirmations: confirmations,
+	}}
+}
+
+func (f *confirmationsFilter) Accept(visitor primitives.Visitor) {
+	switch v := visitor.(type) {
+	case *pgDSLParser:
+		v.VisitConfirmationsFilter(f)
 	}
 }
