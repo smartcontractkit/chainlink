@@ -7,8 +7,8 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_RemoveNodeOperatorsTest is BaseTest {
   event NodeOperatorRemoved(uint256 nodeOperatorId);
 
-  uint256 private constant TEST_NODE_OPERATOR_ONE_ID = 0;
-  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 1;
+  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
+  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
 
   function setUp() public override {
     BaseTest.setUp();
@@ -32,14 +32,19 @@ contract CapabilityRegistry_RemoveNodeOperatorsTest is BaseTest {
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
     emit NodeOperatorRemoved(TEST_NODE_OPERATOR_TWO_ID);
     uint256[] memory nodeOperatorsToRemove = new uint256[](2);
-    nodeOperatorsToRemove[1] = 1;
+    nodeOperatorsToRemove[0] = TEST_NODE_OPERATOR_ONE_ID;
+    nodeOperatorsToRemove[1] = TEST_NODE_OPERATOR_TWO_ID;
     s_capabilityRegistry.removeNodeOperators(nodeOperatorsToRemove);
 
-    CapabilityRegistry.NodeOperator memory nodeOperatorOne = s_capabilityRegistry.getNodeOperator(0);
+    CapabilityRegistry.NodeOperator memory nodeOperatorOne = s_capabilityRegistry.getNodeOperator(
+      TEST_NODE_OPERATOR_ONE_ID
+    );
     assertEq(nodeOperatorOne.admin, address(0));
     assertEq(nodeOperatorOne.name, "");
 
-    CapabilityRegistry.NodeOperator memory nodeOperatorTwo = s_capabilityRegistry.getNodeOperator(1);
+    CapabilityRegistry.NodeOperator memory nodeOperatorTwo = s_capabilityRegistry.getNodeOperator(
+      TEST_NODE_OPERATOR_TWO_ID
+    );
     assertEq(nodeOperatorTwo.admin, address(0));
     assertEq(nodeOperatorTwo.name, "");
   }

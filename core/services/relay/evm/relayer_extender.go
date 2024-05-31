@@ -139,7 +139,6 @@ func NewChainRelayerExtenders(ctx context.Context, opts legacyevm.ChainRelayExte
 	var result []*ChainRelayerExt
 	var err error
 	for i := range enabled {
-
 		cid := enabled[i].ChainID.String()
 		privOpts := legacyevm.ChainRelayExtenderConfig{
 			Logger:    opts.Logger.Named(cid),

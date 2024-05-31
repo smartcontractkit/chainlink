@@ -8,10 +8,10 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 )
 
 func TestSimulateTx_Default(t *testing.T) {
@@ -19,10 +19,10 @@ func TestSimulateTx_Default(t *testing.T) {
 
 	fromAddress := testutils.NewAddress()
 	toAddress := testutils.NewAddress()
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	t.Run("returns without error if simulation passes", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -51,7 +51,7 @@ func TestSimulateTx_Default(t *testing.T) {
 	})
 
 	t.Run("returns error if simulation returns zk out-of-counters error", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -82,7 +82,7 @@ func TestSimulateTx_Default(t *testing.T) {
 	})
 
 	t.Run("returns without error if simulation returns non-OOC error", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`

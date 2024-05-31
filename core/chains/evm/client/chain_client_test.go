@@ -6,16 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -37,7 +38,7 @@ func TestChainClient_BatchCallContext(t *testing.T) {
 	t.Parallel()
 
 	t.Run("batch requests return errors", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := tests.Context(t)
 		rpcError := errors.New("something went wrong")
 		blockNumResp := ""
 		blockNum := hexutil.EncodeBig(big.NewInt(42))

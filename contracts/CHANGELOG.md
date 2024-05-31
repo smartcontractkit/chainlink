@@ -1,5 +1,48 @@
 # @chainlink/contracts
 
+## 1.1.1 - 2024-05-23
+
+### Patch Changes
+
+- [#13031](https://github.com/smartcontractkit/chainlink/pull/13031) [`04b42f1dd7`](https://github.com/smartcontractkit/chainlink/commit/04b42f1dd7db449e5267e2491a9ba6971f41b1bf) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#13058](https://github.com/smartcontractkit/chainlink/pull/13058) [`a34a17ae9d`](https://github.com/smartcontractkit/chainlink/commit/a34a17ae9d62679a1ff15a7703f5cbcf6dfd1d0f) Thanks [@shileiwill](https://github.com/shileiwill)! - withdraw in offchain mode #bugfix
+
+- [#13096](https://github.com/smartcontractkit/chainlink/pull/13096) [`2c08c8c1a5`](https://github.com/smartcontractkit/chainlink/commit/2c08c8c1a58ea4b7c09b0d5a5ca3b8a677beb9f4) Thanks [@shileiwill](https://github.com/shileiwill)! - add upkeepCharged event #bugfix
+
+- [#13185](https://github.com/smartcontractkit/chainlink/pull/13185) [`286e6af423`](https://github.com/smartcontractkit/chainlink/commit/286e6af42357dc08acc23659ac6d486dff458478) Thanks [@RensR](https://github.com/RensR)! - fix solhint issues
+
+- [#13129](https://github.com/smartcontractkit/chainlink/pull/13129) [`811fe603ae`](https://github.com/smartcontractkit/chainlink/commit/811fe603ae67ec13b7f6ca1fb034840d33ad5303) Thanks [@RensR](https://github.com/RensR)! - bump versions and fix solhint
+
+- [#13008](https://github.com/smartcontractkit/chainlink/pull/13008) [`841fe61daa`](https://github.com/smartcontractkit/chainlink/commit/841fe61daa90b980f1e1622d2f7bd8f850b55462) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - #internal Keystone - rename type to id
+
+- [#13036](https://github.com/smartcontractkit/chainlink/pull/13036) [`77efb61e56`](https://github.com/smartcontractkit/chainlink/commit/77efb61e562fb456ac5bef3b6a528904cda000ec) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#13088](https://github.com/smartcontractkit/chainlink/pull/13088) [`29b16360fb`](https://github.com/smartcontractkit/chainlink/commit/29b16360fb41e4372f72fe744aaf3ee8234a9b67) Thanks [@shileiwill](https://github.com/shileiwill)! - get available erc20s for payment #bugfix
+
+- [#12962](https://github.com/smartcontractkit/chainlink/pull/12962) [`62d31d0a6e`](https://github.com/smartcontractkit/chainlink/commit/62d31d0a6ea724e7ac00d5860d60cc93d88a3f35) Thanks [@archseer](https://github.com/archseer)! - #internal
+
+- [#13103](https://github.com/smartcontractkit/chainlink/pull/13103) [`54f7c9c8f5`](https://github.com/smartcontractkit/chainlink/commit/54f7c9c8f5508d0d0a063eb435404b4164723300) Thanks [@DeividasK](https://github.com/DeividasK)! - implement add don for capability regsitry
+
+- [#12983](https://github.com/smartcontractkit/chainlink/pull/12983) [`644f5f271d`](https://github.com/smartcontractkit/chainlink/commit/644f5f271d9ed47e999e1d9aa4b99e5de0fd8b89) Thanks [@austinborn](https://github.com/austinborn)! - Update operatorforwarder tests and pull out of dev/
+
+- [#13102](https://github.com/smartcontractkit/chainlink/pull/13102) [`700a827194`](https://github.com/smartcontractkit/chainlink/commit/700a82719451611381ab5dbb94fe00547660440b) Thanks [@cds95](https://github.com/cds95)! - implement remove nodes on capability registry
+
+- [#13080](https://github.com/smartcontractkit/chainlink/pull/13080) [`36cc95f625`](https://github.com/smartcontractkit/chainlink/commit/36cc95f6256b5ba418a916de2c9dc9597508147a) Thanks [@cds95](https://github.com/cds95)! - Add function to update nodes in capability registry
+
+- [#13022](https://github.com/smartcontractkit/chainlink/pull/13022) [`2805fa6c9b`](https://github.com/smartcontractkit/chainlink/commit/2805fa6c9b469d535edcd3d66c08e1d22bbaa2d0) Thanks [@cds95](https://github.com/cds95)! - #internal
+
+
+- [#12812](https://github.com/smartcontractkit/chainlink/pull/12812) [`5b33a3296f`](https://github.com/smartcontractkit/chainlink/commit/5b33a3296f895cec8a23ba2e235989868f398ddb) Thanks [@shileiwill](https://github.com/shileiwill)! - Support decimals #added
+
+- [#12979](https://github.com/smartcontractkit/chainlink/pull/12979) [`0c4c24ad8c`](https://github.com/smartcontractkit/chainlink/commit/0c4c24ad8c95e505cd2a29be711cc40e612658b0) Thanks [@cds95](https://github.com/cds95)! - Add function to remove node operators from capability registry
+
+- [#12991](https://github.com/smartcontractkit/chainlink/pull/12991) [`929312681f`](https://github.com/smartcontractkit/chainlink/commit/929312681fb27529915912e8bd6e4000559ea77f) Thanks [@cds95](https://github.com/cds95)! - Add function to update node operator'
+
+- [#12669](https://github.com/smartcontractkit/chainlink/pull/12669) [`3134ce8868`](https://github.com/smartcontractkit/chainlink/commit/3134ce8868ccc22bd4ae670c8b0bfda5fa78a332) Thanks [@leeyikjiun](https://github.com/leeyikjiun)! - vrfv2plus - account for num words in coordinator gas overhead in v2plus wrapper
+
+- [#12906](https://github.com/smartcontractkit/chainlink/pull/12906) [`365c38be8b`](https://github.com/smartcontractkit/chainlink/commit/365c38be8b589d5ffa0b21755dcb40e2e4205652) Thanks [@cds95](https://github.com/cds95)! - Implement function to add node operators to the capability registry'
+
 ## 1.1.0 - 2024-04-23
 
 ### Minor Changes
@@ -80,7 +123,6 @@
 - [#12477](https://github.com/smartcontractkit/chainlink/pull/12477) [`b2576475fc`](https://github.com/smartcontractkit/chainlink/commit/b2576475fc5c8ac037fc569fddc56e9d515ae7ca) Thanks [@shileiwill](https://github.com/shileiwill)! - support native payment
 
 - [#12531](https://github.com/smartcontractkit/chainlink/pull/12531) [`88e010d604`](https://github.com/smartcontractkit/chainlink/commit/88e010d604682c54c4f99e0a0916f94c0d13ece6) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - increase num optimizations to 500 for v2.5 coordinator
-
 
 ## 1.0.0 - 2024-03-25
 

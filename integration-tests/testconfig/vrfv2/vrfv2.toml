@@ -1,6 +1,52 @@
 # default config
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+LogPoller = true
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 100
+
+[WebServer.TLS]
+HTTPSPort = 0
+"""
+
+[NodeConfig.ChainConfigTOMLByChainID]
+# OPTIMISM SEPOLIA
+11155420 = """
+BlockBackfillDepth = 500
+LogBackfillBatchSize = 1000
+RPCDefaultBatchSize = 25
+
+[GasEstimator]
+LimitDefault = 3500000
+
+[GasEstimator.BlockHistory]
+BatchSize = 100
+"""
+
+
+
 [Common]
-chainlink_node_funding = 0.1
+chainlink_node_funding = 0.5
 
 [VRFv2]
 [VRFv2.General]
@@ -11,6 +57,7 @@ subscription_refunding_amount_link = 5.0
 
 cl_node_max_gas_price_gwei = 10
 link_native_feed_response = 1000000000000000000
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
 minimum_confirmations = 3
 
 number_of_words = 3
@@ -33,7 +80,7 @@ number_of_sending_keys_to_create = 0
 randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
-wait_for_256_blocks_timeout = "10m"
+wait_for_256_blocks_timeout = "280s"
 wrapped_gas_overhead = 50000
 coordinator_gas_overhead = 52000
 wrapper_premium_percentage = 25
@@ -43,8 +90,8 @@ wrapper_consumer_funding_amount_link = 10
 
 # VRF Job config
 vrf_job_forwarding_allowed = false
-vrf_job_estimate_gas_multiplier = 1.0
-vrf_job_batch_fulfillment_enabled = false
+vrf_job_estimate_gas_multiplier = 1.1
+vrf_job_batch_fulfillment_enabled = true
 vrf_job_batch_fulfillment_gas_multiplier = 1.15
 vrf_job_poll_period = "1s"
 vrf_job_request_timeout = "24h"

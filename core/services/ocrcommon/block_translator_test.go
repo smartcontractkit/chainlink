@@ -34,7 +34,6 @@ func Test_BlockTranslator(t *testing.T) {
 		from, to := bt.NumberToQueryRange(ctx, 42)
 		assert.Equal(t, big.NewInt(42), from)
 		assert.Equal(t, big.NewInt(42), to)
-
 	})
 
 	t.Run("for arbitrum, returns the ArbitrumBlockTranslator", func(t *testing.T) {

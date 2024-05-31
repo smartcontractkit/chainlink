@@ -35,7 +35,7 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	if !ok {
 		return nil, fmt.Errorf("expected %s to be a string", abiConfigFieldName)
 	}
-	selector, err := abiutil.ParseSignature("inner(" + selectorStr + ")")
+	selector, err := abiutil.ParseSelector("inner(" + selectorStr + ")")
 	if err != nil {
 		return nil, err
 	}
@@ -69,14 +69,14 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 		return nil, err
 	}
 	// prepend workflowID and workflowExecutionID to the encoded user data
-	workflowIDbytes, executionIDBytes, err := extractIDs(unwrappedMap)
+	workflowIDbytes, donIDBytes, executionIDBytes, workflowOwnerBytes, err := extractIDs(unwrappedMap)
 	if err != nil {
 		return nil, err
 	}
-	return append(append(workflowIDbytes, executionIDBytes...), userPayload...), nil
+	return append(append(append(append(workflowIDbytes, donIDBytes...), executionIDBytes...), workflowOwnerBytes...), userPayload...), nil
 }
 
-func decodeID(input map[string]any, key string) ([]byte, error) {
+func decodeID(input map[string]any, key string, idLen int) ([]byte, error) {
 	id, ok := input[key].(string)
 	if !ok {
 		return nil, fmt.Errorf("expected %s to be a string", key)
@@ -96,16 +96,20 @@ func decodeID(input map[string]any, key string) ([]byte, error) {
 
 // extract workflowID and executionID from the input map, validate and align to 32 bytes
 // NOTE: consider requiring them to be exactly 32 bytes to avoid issues with padding
-func extractIDs(input map[string]any) ([]byte, []byte, error) {
-	workflowID, err := decodeID(input, consensustypes.WorkflowIDFieldName)
+func extractIDs(input map[string]any) ([]byte, []byte, []byte, []byte, error) {
+	workflowID, err := decodeID(input, consensustypes.WorkflowIDFieldName, idLen)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	executionID, err := decodeID(input, consensustypes.ExecutionIDFieldName)
+	// TODO: source donID and workflowOwner from somewhere
+	donID := []byte{0, 1, 2, 3}
+	workflowOwner := make([]byte, 20)
+
+	executionID, err := decodeID(input, consensustypes.ExecutionIDFieldName, idLen)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	return workflowID, executionID, nil
+	return workflowID, donID, executionID, workflowOwner, nil
 }

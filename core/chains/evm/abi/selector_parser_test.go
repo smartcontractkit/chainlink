@@ -25,6 +25,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseSelector(t *testing.T) {
@@ -83,7 +85,7 @@ func TestParseSelector(t *testing.T) {
 	}
 }
 
-func TestParseSignature(t *testing.T) {
+func TestParseSelectorWithNames(t *testing.T) {
 	t.Parallel()
 	mkType := func(name string, typeOrComponents interface{}) abi.ArgumentMarshaling {
 		if typeName, ok := typeOrComponents.(string); ok {
@@ -102,13 +104,14 @@ func TestParseSignature(t *testing.T) {
 		args  []abi.ArgumentMarshaling
 	}{
 		{"noargs()", "noargs", []abi.ArgumentMarshaling{}},
-		{"simple(a uint256, b uint256, c uint256)", "simple", []abi.ArgumentMarshaling{mkType("a", "uint256"), mkType("b", "uint256"), mkType("c", "uint256")}},
-		{"other(foo uint256,    bar address)", "other", []abi.ArgumentMarshaling{mkType("foo", "uint256"), mkType("bar", "address")}},
-		{"withArray(a uint256[], b address[2], c uint8[4][][5])", "withArray", []abi.ArgumentMarshaling{mkType("a", "uint256[]"), mkType("b", "address[2]"), mkType("c", "uint8[4][][5]")}},
-		{"singleNest(d bytes32, e uint8, f (uint256,uint256), g address)", "singleNest", []abi.ArgumentMarshaling{mkType("d", "bytes32"), mkType("e", "uint8"), mkType("f", []abi.ArgumentMarshaling{mkType("name0", "uint256"), mkType("name1", "uint256")}), mkType("g", "address")}},
+		{"simple(uint256 a , uint256 b, uint256 c)", "simple", []abi.ArgumentMarshaling{mkType("a", "uint256"), mkType("b", "uint256"), mkType("c", "uint256")}},
+		{"other(uint256 foo,    address bar )", "other", []abi.ArgumentMarshaling{mkType("foo", "uint256"), mkType("bar", "address")}},
+		{"withArray(uint256[] a, address[2] b, uint8[4][][5] c)", "withArray", []abi.ArgumentMarshaling{mkType("a", "uint256[]"), mkType("b", "address[2]"), mkType("c", "uint8[4][][5]")}},
+		{"singleNest(bytes32 d, uint8 e, (uint256,uint256) f, address g)", "singleNest", []abi.ArgumentMarshaling{mkType("d", "bytes32"), mkType("e", "uint8"), mkType("f", []abi.ArgumentMarshaling{mkType("name0", "uint256"), mkType("name1", "uint256")}), mkType("g", "address")}},
+		{"singleNest(bytes32 d, uint8 e, (uint256 first,   uint256 second ) f, address g)", "singleNest", []abi.ArgumentMarshaling{mkType("d", "bytes32"), mkType("e", "uint8"), mkType("f", []abi.ArgumentMarshaling{mkType("first", "uint256"), mkType("second", "uint256")}), mkType("g", "address")}},
 	}
 	for i, tt := range tests {
-		selector, err := ParseSignature(tt.input)
+		selector, err := ParseSelector(tt.input)
 		if err != nil {
 			t.Errorf("test %d: failed to parse selector '%v': %v", i, tt.input, err)
 		}
@@ -122,5 +125,37 @@ func TestParseSignature(t *testing.T) {
 		if !reflect.DeepEqual(selector.Inputs, tt.args) {
 			t.Errorf("test %d: unexpected args: '%v' != '%v'", i, selector.Inputs, tt.args)
 		}
+	}
+}
+
+func TestParseSelectorErrors(t *testing.T) {
+	type errorTestCases struct {
+		description   string
+		input         string
+		expectedError string
+	}
+
+	for _, scenario := range []errorTestCases{
+		{
+			description:   "invalid name",
+			input:         "123()",
+			expectedError: "failed to parse selector identifier '123()': invalid token start: 1",
+		},
+		{
+			description:   "missing closing parenthesis",
+			input:         "noargs(",
+			expectedError: "failed to parse selector args 'noargs(': expected ')', got ''",
+		},
+		{
+			description:   "missing opening parenthesis",
+			input:         "noargs)",
+			expectedError: "failed to parse selector args 'noargs)': expected '(', got )",
+		},
+	} {
+		t.Run(scenario.description, func(t *testing.T) {
+			_, err := ParseSelector(scenario.input)
+			require.Error(t, err)
+			assert.Equal(t, scenario.expectedError, err.Error())
+		})
 	}
 }

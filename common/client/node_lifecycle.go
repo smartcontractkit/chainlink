@@ -81,6 +81,8 @@ const (
 // Should only be run ONCE per node, after a successful Dial
 func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	defer n.wg.Done()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
 
 	{
 		// sanity check
@@ -101,7 +103,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	lggr := logger.Sugared(n.lfcLog).Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
 	lggr.Tracew("Alive loop starting", "nodeState", n.State())
 
-	headsC, sub, err := n.rpc.SubscribeToHeads(n.nodeCtx)
+	headsC, sub, err := n.rpc.SubscribeToHeads(ctx)
 	if err != nil {
 		lggr.Errorw("Initial subscribe for heads failed", "nodeState", n.State())
 		n.declareUnreachable()
@@ -143,7 +145,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	var finalizedHeadSub types.Subscription
 	if n.chainCfg.FinalityTagEnabled() {
 		lggr.Debugw("Finalized block polling enabled")
-		finalizedHeadCh, finalizedHeadSub, err = n.rpc.SubscribeToFinalizedHeads(n.nodeCtx)
+		finalizedHeadCh, finalizedHeadSub, err = n.rpc.SubscribeToFinalizedHeads(ctx)
 		if err != nil {
 			lggr.Errorw("Failed to subscribe to finalized heads", "err", err)
 			n.declareUnreachable()
@@ -159,12 +161,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 
 	for {
 		select {
-		case <-n.nodeCtx.Done():
+		case <-ctx.Done():
 			return
 		case <-pollCh:
 			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
-			ctx, cancel := context.WithTimeout(n.nodeCtx, pollInterval)
+			ctx, cancel := context.WithTimeout(ctx, pollInterval)
 			err := n.RPC().Ping(ctx)
 			cancel()
 			if err != nil {
@@ -263,7 +265,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				n.stateLatestFinalizedBlockNumber = latestFinalizedBN
 			}
 		}
-
 	}
 }
 
@@ -305,6 +306,8 @@ const (
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
 func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td *big.Int) bool) {
 	defer n.wg.Done()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
 
 	{
 		// sanity check
@@ -324,7 +327,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 	lggr.Debugw("Trying to revive out-of-sync RPC node", "nodeState", n.State())
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
-	state := n.createVerifiedConn(n.nodeCtx, lggr)
+	state := n.createVerifiedConn(ctx, lggr)
 	if state != nodeStateAlive {
 		n.declareState(state)
 		return
@@ -332,7 +335,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "nodeState", n.State())
 
-	ch, sub, err := n.rpc.SubscribeToHeads(n.nodeCtx)
+	ch, sub, err := n.rpc.SubscribeToHeads(ctx)
 	if err != nil {
 		lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "nodeState", n.State(), "err", err)
 		n.declareUnreachable()
@@ -342,7 +345,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 
 	for {
 		select {
-		case <-n.nodeCtx.Done():
+		case <-ctx.Done():
 			return
 		case head, open := <-ch:
 			if !open {
@@ -376,6 +379,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 
 func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 	defer n.wg.Done()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
 
 	{
 		// sanity check
@@ -398,12 +403,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 
 	for {
 		select {
-		case <-n.nodeCtx.Done():
+		case <-ctx.Done():
 			return
 		case <-time.After(dialRetryBackoff.Duration()):
 			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
 
-			err := n.rpc.Dial(n.nodeCtx)
+			err := n.rpc.Dial(ctx)
 			if err != nil {
 				lggr.Errorw(fmt.Sprintf("Failed to redial RPC node; still unreachable: %v", err), "err", err, "nodeState", n.State())
 				continue
@@ -411,7 +416,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 
 			n.setState(nodeStateDialed)
 
-			state := n.verifyConn(n.nodeCtx, lggr)
+			state := n.verifyConn(ctx, lggr)
 			switch state {
 			case nodeStateUnreachable:
 				n.setState(nodeStateUnreachable)
@@ -429,6 +434,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 	defer n.wg.Done()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
 
 	{
 		// sanity check
@@ -447,7 +454,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 	lggr := logger.Named(n.lfcLog, "InvalidChainID")
 
 	// Need to redial since invalid chain ID nodes are automatically disconnected
-	state := n.createVerifiedConn(n.nodeCtx, lggr)
+	state := n.createVerifiedConn(ctx, lggr)
 	if state != nodeStateInvalidChainID {
 		n.declareState(state)
 		return
@@ -459,10 +466,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 
 	for {
 		select {
-		case <-n.nodeCtx.Done():
+		case <-ctx.Done():
 			return
 		case <-time.After(chainIDRecheckBackoff.Duration()):
-			state := n.verifyConn(n.nodeCtx, lggr)
+			state := n.verifyConn(ctx, lggr)
 			switch state {
 			case nodeStateInvalidChainID:
 				continue
@@ -479,6 +486,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 	defer n.wg.Done()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
 
 	{
 		// sanity check
@@ -497,7 +506,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 	lggr := logger.Sugared(logger.Named(n.lfcLog, "Syncing"))
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with syncing status", n.String()), "nodeState", n.State())
 	// Need to redial since syncing nodes are automatically disconnected
-	state := n.createVerifiedConn(n.nodeCtx, lggr)
+	state := n.createVerifiedConn(ctx, lggr)
 	if state != nodeStateSyncing {
 		n.declareState(state)
 		return
@@ -507,11 +516,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 
 	for {
 		select {
-		case <-n.nodeCtx.Done():
+		case <-ctx.Done():
 			return
 		case <-time.After(recheckBackoff.Duration()):
 			lggr.Tracew("Trying to recheck if the node is still syncing", "nodeState", n.State())
-			isSyncing, err := n.rpc.IsSyncing(n.nodeCtx)
+			isSyncing, err := n.rpc.IsSyncing(ctx)
 			if err != nil {
 				lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.State())
 				n.declareUnreachable()
@@ -527,6 +536,5 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 			n.declareAlive()
 			return
 		}
-
 	}
 }

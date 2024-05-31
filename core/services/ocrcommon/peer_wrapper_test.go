@@ -128,7 +128,6 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 		}
 		c.P2P.V2.ListenAddresses = ptr(p2paddresses)
 		c.P2P.V2.AnnounceAddresses = ptr(p2paddresses)
-
 	})
 
 	pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), db, logger.TestLogger(t))

@@ -16,11 +16,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 type arbConfig struct {
@@ -57,7 +58,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		l1Oracle := rollups.NewArbitrumL1GasOracle(logger.Test(t), feeEstimatorClient)
 
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, feeEstimatorClient, l1Oracle)
-		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
+		_, _, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "estimator is not started")
 	})
 
@@ -83,7 +84,7 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin}, feeEstimatorClient, l1Oracle)
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		// Expected price for a standard l2_suggested_estimator would be 42, but we add a fixed gasPriceBufferPercentage.
 		assert.Equal(t, assets.NewWeiI(42).AddPercentage(gasPriceBufferPercentage), gasPrice)
@@ -109,7 +110,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		}).Return(zeros.Bytes(), nil)
 
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, assets.NewWeiI(40))
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, assets.NewWeiI(40))
 		require.Error(t, err)
 		assert.EqualError(t, err, "estimated gas price: 42 wei is greater than the maximum gas price configured: 40 wei")
 		assert.Nil(t, gasPrice)
@@ -135,7 +136,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		}).Return(zeros.Bytes(), nil)
 
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, assets.NewWeiI(110))
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, assets.NewWeiI(110))
 		assert.EqualError(t, err, "estimated gas price: 120 wei is greater than the maximum gas price configured: 110 wei")
 		assert.Nil(t, gasPrice)
 		assert.Equal(t, uint64(0), chainSpecificGasLimit)
@@ -146,7 +147,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		l1Oracle := rollups.NewArbitrumL1GasOracle(logger.Test(t), feeEstimatorClient)
 
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, feeEstimatorClient, l1Oracle)
-		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), gasLimit, assets.NewWeiI(10), nil)
+		_, _, err := o.BumpLegacyGas(tests.Context(t), assets.NewWeiI(42), gasLimit, assets.NewWeiI(10), nil)
 		assert.EqualError(t, err, "estimator is not started")
 	})
 
@@ -167,7 +168,7 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		servicetest.RunHealthy(t, o)
 
-		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
+		_, _, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "failed to estimate gas; gas price not set")
 	})
 
@@ -176,7 +177,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		l1Oracle := rollups.NewArbitrumL1GasOracle(logger.Test(t), feeEstimatorClient)
 
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, feeEstimatorClient, l1Oracle)
-		_, err := o.GetDynamicFee(testutils.Context(t), maxGasPrice)
+		_, err := o.GetDynamicFee(tests.Context(t), maxGasPrice)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 
@@ -189,7 +190,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			FeeCap: assets.NewWeiI(42),
 			TipCap: assets.NewWeiI(5),
 		}
-		_, err := o.BumpDynamicFee(testutils.Context(t), fee, maxGasPrice, nil)
+		_, err := o.BumpDynamicFee(tests.Context(t), fee, maxGasPrice, nil)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 
@@ -221,7 +222,7 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin}, feeEstimatorClient, l1Oracle)
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		require.NotNil(t, gasPrice)
 		// Again, a normal l2_suggested_estimator would return 42, but arbitrum_estimator adds a buffer.
@@ -256,7 +257,7 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin}, feeEstimatorClient, l1Oracle)
 		servicetest.RunHealthy(t, o)
-		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(tests.Context(t), calldata, gasLimit, maxGasPrice)
 		require.Error(t, err, "expected error but got (%s, %d)", gasPrice, chainSpecificGasLimit)
 	})
 }

@@ -376,6 +376,8 @@ func TestChainScopedConfig_HeadTracker(t *testing.T) {
 	assert.Equal(t, uint32(100), ht.HistoryDepth())
 	assert.Equal(t, uint32(3), ht.MaxBufferSize())
 	assert.Equal(t, time.Second, ht.SamplingInterval())
+	assert.Equal(t, true, ht.FinalityTagBypass())
+	assert.Equal(t, uint32(10000), ht.MaxAllowedFinalityDepth())
 }
 
 func Test_chainScopedConfig_Validate(t *testing.T) {
@@ -406,7 +408,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	t.Run("arbitrum-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChains(t, 0, &toml.Chain{
-				ChainType: ptr(string(commonconfig.ChainArbitrum)),
+				ChainType: commonconfig.NewChainTypeConfig(string(commonconfig.ChainArbitrum)),
 				GasEstimator: toml.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
@@ -437,7 +439,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	t.Run("optimism-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChains(t, 0, &toml.Chain{
-				ChainType: ptr(string(commonconfig.ChainOptimismBedrock)),
+				ChainType: commonconfig.NewChainTypeConfig(string(commonconfig.ChainOptimismBedrock)),
 				GasEstimator: toml.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},

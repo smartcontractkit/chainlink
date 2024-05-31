@@ -5,13 +5,9 @@ MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 
-[BalanceMonitor]
-Enabled = true
-
 [GasEstimator]
 Mode = 'SuggestedPrice'
 PriceMin = '0'
-BumpThreshold = 0
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 0

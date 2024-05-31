@@ -1665,6 +1665,104 @@ contract Transmit is SetUp {
       "native reserve amount should have decreased"
     );
   }
+
+  function test_handlesInsufficientBalanceWithUSDToken18() external {
+    // deploy and configure a registry with ON_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 upkeepID = registry.registerUpkeep(
+      address(TARGET1),
+      1000000,
+      UPKEEP_ADMIN,
+      0,
+      address(usdToken18),
+      "",
+      "",
+      ""
+    );
+    _mintERC20_18Decimals(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken18.approve(address(registry), 1e20);
+    registry.addFunds(upkeepID, 1); // smaller than gasCharge
+    uint256 balance = registry.getBalance(upkeepID);
+
+    // manually create a transmit
+    vm.recordLogs();
+    _transmit(upkeepID, registry);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+
+    assertEq(entries.length, 3);
+    Vm.Log memory l1 = entries[1];
+    assertEq(
+      l1.topics[0],
+      keccak256("UpkeepCharged(uint256,(uint96,uint96,uint96,uint96,address,uint96,uint96,uint96))")
+    );
+    (
+      uint96 gasChargeInBillingToken,
+      uint96 premiumInBillingToken,
+      uint96 gasReimbursementInJuels,
+      uint96 premiumInJuels,
+      address billingToken,
+      uint96 linkUSD,
+      uint96 nativeUSD,
+      uint96 billingUSD
+    ) = abi.decode(l1.data, (uint96, uint96, uint96, uint96, address, uint96, uint96, uint96));
+
+    assertEq(gasChargeInBillingToken, balance);
+    assertEq(gasReimbursementInJuels, (balance * billingUSD) / linkUSD);
+    assertEq(premiumInJuels, 0);
+    assertEq(premiumInBillingToken, 0);
+  }
+
+  function test_handlesInsufficientBalanceWithUSDToken6() external {
+    // deploy and configure a registry with ON_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 upkeepID = registry.registerUpkeep(
+      address(TARGET1),
+      1000000,
+      UPKEEP_ADMIN,
+      0,
+      address(usdToken6),
+      "",
+      "",
+      ""
+    );
+    vm.prank(OWNER);
+    usdToken6.mint(UPKEEP_ADMIN, 1e20);
+
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken6.approve(address(registry), 1e20);
+    registry.addFunds(upkeepID, 100); // this is greater than gasCharge but less than (gasCharge + premium)
+    uint256 balance = registry.getBalance(upkeepID);
+
+    // manually create a transmit
+    vm.recordLogs();
+    _transmit(upkeepID, registry);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+
+    assertEq(entries.length, 3);
+    Vm.Log memory l1 = entries[1];
+    assertEq(
+      l1.topics[0],
+      keccak256("UpkeepCharged(uint256,(uint96,uint96,uint96,uint96,address,uint96,uint96,uint96))")
+    );
+    (
+      uint96 gasChargeInBillingToken,
+      uint96 premiumInBillingToken,
+      uint96 gasReimbursementInJuels,
+      uint96 premiumInJuels,
+      address billingToken,
+      uint96 linkUSD,
+      uint96 nativeUSD,
+      uint96 billingUSD
+    ) = abi.decode(l1.data, (uint96, uint96, uint96, uint96, address, uint96, uint96, uint96));
+
+    assertEq(premiumInJuels, (balance * billingUSD * 1e12) / linkUSD - gasReimbursementInJuels); // scale to 18 decimals
+    assertEq(premiumInBillingToken, (premiumInJuels * linkUSD + (billingUSD * 1e12 - 1)) / (billingUSD * 1e12));
+  }
 }
 
 contract MigrateReceive is SetUp {

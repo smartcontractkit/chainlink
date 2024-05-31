@@ -197,7 +197,6 @@ func NewChainClientWithEmptyNode(
 	noNewHeadsThreshold time.Duration,
 	chainID *big.Int,
 ) Client {
-
 	lggr := logger.Test(t)
 
 	c := NewChainClient(lggr, selectionMode, leaseDuration, nil, nil, chainID, nil)
@@ -213,7 +212,6 @@ func NewChainClientWithMockedRpc(
 	chainID *big.Int,
 	rpc EvmRpcClient,
 ) Client {
-
 	lggr := logger.Test(t)
 
 	cfg := TestNodePoolConfig{

@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -76,8 +77,7 @@ ResendAfterThreshold = '1h0m0s'
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				chainConf := evmtoml.EVMConfig{
 					ChainID: &chainID,
 					Enabled: chain.Enabled,
@@ -94,7 +94,6 @@ ResendAfterThreshold = '1h0m0s'
 						Config:  chainConfToml,
 					}},
 				}})
-
 			},
 			query: query,
 			result: fmt.Sprintf(`
@@ -115,9 +114,8 @@ ResendAfterThreshold = '1h0m0s'
 		{
 			name:          "no chains",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{}})
-
 			},
 			query: query,
 			result: `
@@ -195,7 +193,7 @@ ResendAfterThreshold = '1h0m0s'
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.Mocks.evmORM.PutChains(evmtoml.EVMConfig{
 					ChainID: &chainID,
@@ -215,7 +213,7 @@ ResendAfterThreshold = '1h0m0s'
 		{
 			name:          "not found error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query: query,

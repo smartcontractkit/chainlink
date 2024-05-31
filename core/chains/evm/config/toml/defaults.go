@@ -94,10 +94,7 @@ func Defaults(chainID *big.Big, with ...*Chain) Chain {
 func ChainTypeForID(chainID *big.Big) (config.ChainType, bool) {
 	s := chainID.String()
 	if d, ok := defaults[s]; ok {
-		if d.ChainType == nil {
-			return "", true
-		}
-		return config.ChainType(*d.ChainType), true
+		return d.ChainType.ChainType(), true
 	}
 	return "", false
 }

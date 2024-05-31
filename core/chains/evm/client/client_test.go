@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"math/big"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,20 +17,19 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	pkgerrors "github.com/pkg/errors"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 func mustNewClient(t *testing.T, wsURL string, sendonlys ...url.URL) client.Client {
@@ -78,11 +80,12 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 	txHash := "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
 
 	mustReadResult := func(t *testing.T, file string) []byte {
-		response := cltest.MustReadFile(t, file)
+		response, err := os.ReadFile(file)
+		require.NoError(t, err)
 		var resp struct {
 			Result json.RawMessage `json:"result"`
 		}
-		err := json.Unmarshal(response, &resp)
+		err = json.Unmarshal(response, &resp)
 		require.NoError(t, err)
 		return resp.Result
 	}
@@ -90,7 +93,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		result := mustReadResult(t, "../../../testdata/jsonrpc/getTransactionReceipt.json")
 
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -109,11 +112,11 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
 			hash := common.HexToHash(txHash)
-			receipt, err := ethClient.TransactionReceipt(testutils.Context(t), hash)
+			receipt, err := ethClient.TransactionReceipt(tests.Context(t), hash)
 			require.NoError(t, err)
 			assert.Equal(t, hash, receipt.TxHash)
 			assert.Equal(t, big.NewInt(11), receipt.BlockNumber)
@@ -122,7 +125,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 
 	t.Run("no tx hash, returns ethereum.NotFound", func(t *testing.T) {
 		result := mustReadResult(t, "../../../testdata/jsonrpc/getTransactionReceipt_notFound.json")
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -141,11 +144,11 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
 			hash := common.HexToHash(txHash)
-			_, err = ethClient.TransactionReceipt(testutils.Context(t), hash)
+			_, err = ethClient.TransactionReceipt(tests.Context(t), hash)
 			require.Equal(t, ethereum.NotFound, pkgerrors.Cause(err))
 		}
 	})
@@ -156,7 +159,7 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 
 	address := testutils.NewAddress()
 
-	wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+	wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		switch method {
 		case "eth_subscribe":
 			resp.Result = `"0x00"`
@@ -179,10 +182,10 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 
 	clients := mustNewClients(t, wsURL)
 	for _, ethClient := range clients {
-		err := ethClient.Dial(testutils.Context(t))
+		err := ethClient.Dial(tests.Context(t))
 		require.NoError(t, err)
 
-		result, err := ethClient.PendingNonceAt(testutils.Context(t), address)
+		result, err := ethClient.PendingNonceAt(tests.Context(t), address)
 		require.NoError(t, err)
 
 		var expected uint64 = 256
@@ -196,7 +199,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 	largeBalance, _ := big.NewInt(0).SetString("100000000000000000000", 10)
 	address := testutils.NewAddress()
 
-	tests := []struct {
+	cases := []struct {
 		name    string
 		balance *big.Int
 	}{
@@ -204,10 +207,10 @@ func TestEthClient_BalanceAt(t *testing.T) {
 		{"larger than signed 64 bit integer", largeBalance},
 	}
 
-	for _, test := range tests {
+	for _, test := range cases {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
 					resp.Result = `"0x00"`
@@ -226,10 +229,10 @@ func TestEthClient_BalanceAt(t *testing.T) {
 
 			clients := mustNewClients(t, wsURL)
 			for _, ethClient := range clients {
-				err := ethClient.Dial(testutils.Context(t))
+				err := ethClient.Dial(tests.Context(t))
 				require.NoError(t, err)
 
-				result, err := ethClient.BalanceAt(testutils.Context(t), address, nil)
+				result, err := ethClient.BalanceAt(tests.Context(t), address, nil)
 				require.NoError(t, err)
 				assert.Equal(t, test.balance, result)
 			}
@@ -240,7 +243,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 func TestEthClient_LatestBlockHeight(t *testing.T) {
 	t.Parallel()
 
-	wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+	wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		switch method {
 		case "eth_subscribe":
 			resp.Result = `"0x00"`
@@ -259,10 +262,10 @@ func TestEthClient_LatestBlockHeight(t *testing.T) {
 
 	clients := mustNewClients(t, wsURL)
 	for _, ethClient := range clients {
-		err := ethClient.Dial(testutils.Context(t))
+		err := ethClient.Dial(tests.Context(t))
 		require.NoError(t, err)
 
-		result, err := ethClient.LatestBlockHeight(testutils.Context(t))
+		result, err := ethClient.LatestBlockHeight(tests.Context(t))
 		require.NoError(t, err)
 		require.Equal(t, big.NewInt(256), result)
 	}
@@ -270,11 +273,11 @@ func TestEthClient_LatestBlockHeight(t *testing.T) {
 
 func TestEthClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	expectedBig, _ := big.NewInt(0).SetString("100000000000000000000000000000000000000", 10)
 
-	tests := []struct {
+	cases := []struct {
 		name    string
 		balance *big.Int
 	}{
@@ -282,7 +285,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 		{"big", expectedBig},
 	}
 
-	for _, test := range tests {
+	for _, test := range cases {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			contractAddress := testutils.NewAddress()
@@ -290,7 +293,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			functionSelector := evmtypes.HexToFunctionSelector(client.BALANCE_OF_ADDRESS_FUNCTION_SELECTOR) // balanceOf(address)
 			txData := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 
-			wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
 					resp.Result = `"0x00"`
@@ -309,7 +312,6 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 					assert.Equal(t, strings.ToLower(contractAddress.Hex()), callArgs.Get("to").String()) &&
 					assert.Equal(t, hexutil.Encode(txData), callArgs.Get("data").String()) &&
 					assert.Equal(t, "latest", arr[1].String()) {
-
 					resp.Result = `"` + hexutil.EncodeBig(test.balance) + `"`
 				}
 				return
@@ -317,7 +319,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 
 			clients := mustNewClients(t, wsURL)
 			for _, ethClient := range clients {
-				err := ethClient.Dial(testutils.Context(t))
+				err := ethClient.Dial(tests.Context(t))
 				require.NoError(t, err)
 
 				result, err := ethClient.TokenBalance(ctx, userAddress, contractAddress)
@@ -352,7 +354,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 	expectedBlockNum := big.NewInt(1)
 	expectedBlockHash := "0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"
 
-	tests := []struct {
+	cases := []struct {
 		name                  string
 		expectedRequestBlock  *big.Int
 		expectedResponseBlock int64
@@ -363,14 +365,14 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			`{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`},
 		{"happy parity", expectedBlockNum, expectedBlockNum.Int64(), nil,
 			`{"author":"0xd1aeb42885a43b72b518182ef893125814811048","difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sealFields":["0xa00f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","0x880ece08ea8c49dfd9"],"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`},
-		{"missing header", expectedBlockNum, 0, fmt.Errorf("no live nodes available for chain %s", cltest.FixtureChainID.String()),
+		{"missing header", expectedBlockNum, 0, fmt.Errorf("no live nodes available for chain %s", testutils.FixtureChainID.String()),
 			`null`},
 	}
 
-	for _, test := range tests {
+	for _, test := range cases {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
 					resp.Result = `"0x00"`
@@ -396,10 +398,10 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 
 			clients := mustNewClients(t, wsURL)
 			for _, ethClient := range clients {
-				err := ethClient.Dial(testutils.Context(t))
+				err := ethClient.Dial(tests.Context(t))
 				require.NoError(t, err)
 
-				ctx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second)
+				ctx, cancel := context.WithTimeout(tests.Context(t), 5*time.Second)
 				result, err := ethClient.HeadByNumber(ctx, expectedBlockNum)
 				if test.error != nil {
 					require.Error(t, err, test.error)
@@ -407,7 +409,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, expectedBlockHash, result.Hash.Hex())
 					require.Equal(t, test.expectedResponseBlock, result.Number)
-					require.Zero(t, cltest.FixtureChainID.Cmp(result.EVMChainID.ToInt()))
+					require.Zero(t, testutils.FixtureChainID.Cmp(result.EVMChainID.ToInt()))
 				}
 				cancel()
 			}
@@ -420,7 +422,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 
 	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
-	wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+	wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		switch method {
 		case "eth_subscribe":
 			resp.Result = `"0x00"`
@@ -439,10 +441,10 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 
 	clients := mustNewClients(t, wsURL)
 	for _, ethClient := range clients {
-		err := ethClient.Dial(testutils.Context(t))
+		err := ethClient.Dial(tests.Context(t))
 		require.NoError(t, err)
 
-		err = ethClient.SendTransaction(testutils.Context(t), tx)
+		err = ethClient.SendTransaction(tests.Context(t), tx)
 		assert.NoError(t, err)
 	}
 }
@@ -451,9 +453,9 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Parallel()
 
-	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := testutils.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
-	wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+	wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		switch method {
 		case "eth_subscribe":
 			resp.Result = `"0x00"`
@@ -470,26 +472,27 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 
 	rpcSrv := rpc.NewServer()
 	t.Cleanup(rpcSrv.Stop)
-	service := sendTxService{chainID: &cltest.FixtureChainID}
+	service := sendTxService{chainID: testutils.FixtureChainID}
 	err := rpcSrv.RegisterName("eth", &service)
 	require.NoError(t, err)
 	ts := httptest.NewServer(rpcSrv)
 	t.Cleanup(ts.Close)
 
-	sendonlyURL := *cltest.MustParseURL(t, ts.URL)
+	sendonlyURL, err := url.Parse(ts.URL)
+	require.NoError(t, err)
 
-	clients := mustNewClients(t, wsURL, sendonlyURL, sendonlyURL)
+	clients := mustNewClients(t, wsURL, *sendonlyURL, *sendonlyURL)
 	for _, ethClient := range clients {
-		err = ethClient.Dial(testutils.Context(t))
+		err = ethClient.Dial(tests.Context(t))
 		require.NoError(t, err)
 
-		err = ethClient.SendTransaction(testutils.Context(t), tx)
+		err = ethClient.SendTransaction(tests.Context(t), tx)
 		require.NoError(t, err)
 	}
 
 	// Unfortunately it's a bit tricky to test this, since there is no
 	// synchronization. We have to rely on timing instead.
-	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(len(clients)*2) }, testutils.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(len(clients)*2) }, tests.WaitTimeout(t), 500*time.Millisecond)
 }
 */
 
@@ -500,7 +503,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	t.Run("returns Fatal error type when error message is fatal", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -518,17 +521,17 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
-			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 			assert.Error(t, err)
 			assert.Equal(t, errType, commonclient.Fatal)
 		}
 	})
 
 	t.Run("returns TransactionAlreadyKnown error type when error message is nonce too low", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -546,17 +549,17 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
-			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 			assert.Error(t, err)
 			assert.Equal(t, errType, commonclient.TransactionAlreadyKnown)
 		}
 	})
 
 	t.Run("returns Successful error type when there is no error message", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -573,17 +576,17 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
-			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 			assert.NoError(t, err)
 			assert.Equal(t, errType, commonclient.Successful)
 		}
 	})
 
 	t.Run("returns Underpriced error type when transaction is terminally underpriced", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -601,17 +604,17 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
-			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 			assert.Error(t, err)
 			assert.Equal(t, errType, commonclient.Underpriced)
 		}
 	})
 
 	t.Run("returns Unsupported error type when error message is queue full", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -629,17 +632,17 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
-			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 			assert.Error(t, err)
 			assert.Equal(t, errType, commonclient.Unsupported)
 		}
 	})
 
 	t.Run("returns Retryable error type when there is a transaction gap", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -657,17 +660,17 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
-			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 			assert.Error(t, err)
 			assert.Equal(t, errType, commonclient.Retryable)
 		}
 	})
 
 	t.Run("returns InsufficientFunds error type when the sender address doesn't have enough funds", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -685,17 +688,17 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
-			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 			assert.Error(t, err)
 			assert.Equal(t, errType, commonclient.InsufficientFunds)
 		}
 	})
 
 	t.Run("returns ExceedsFeeCap error type when gas price is too high for the node", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -713,17 +716,17 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
-			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 			assert.Error(t, err)
 			assert.Equal(t, errType, commonclient.ExceedsMaxFee)
 		}
 	})
 
 	t.Run("returns Unknown error type when the error can't be categorized", func(t *testing.T) {
-		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`
@@ -741,10 +744,10 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		clients := mustNewClients(t, wsURL)
 		for _, ethClient := range clients {
-			err := ethClient.Dial(testutils.Context(t))
+			err := ethClient.Dial(tests.Context(t))
 			require.NoError(t, err)
 
-			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+			errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 			assert.Error(t, err)
 			assert.Equal(t, errType, commonclient.Unknown)
 		}
@@ -771,7 +774,7 @@ func (x *sendTxService) SendRawTransaction(ctx context.Context, signRawTx hexuti
 func TestEthClient_SubscribeNewHead(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
+	ctx, cancel := context.WithTimeout(tests.Context(t), tests.WaitTimeout(t))
 	defer cancel()
 
 	chainId := big.NewInt(123456)
@@ -791,7 +794,7 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 
 	clients := mustNewClientsWithChainID(t, wsURL, chainId)
 	for _, ethClient := range clients {
-		err := ethClient.Dial(testutils.Context(t))
+		err := ethClient.Dial(tests.Context(t))
 		require.NoError(t, err)
 
 		headCh, sub, err := ethClient.SubscribeNewHead(ctx)
@@ -814,7 +817,7 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 
 func TestEthClient_ErroringClient(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	// Empty node means there are no active nodes to select from, causing client to always return error.
 	erroringClient := client.NewChainClientWithEmptyNode(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID)
@@ -913,7 +916,6 @@ func TestEthClient_ErroringClient(t *testing.T) {
 
 	_, err = erroringClient.TransactionReceipt(ctx, common.Hash{})
 	require.Equal(t, err, commonclient.ErroringNodeError)
-
 }
 
 const headResult = client.HeadResult

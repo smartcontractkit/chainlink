@@ -66,5 +66,4 @@ func TestChainRelayExtenders(t *testing.T) {
 	s, err := relayExt.GetChainStatus(testutils.Context(t))
 	assert.NotEmpty(t, s)
 	assert.NoError(t, err)
-
 }

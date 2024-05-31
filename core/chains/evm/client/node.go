@@ -166,10 +166,8 @@ type node struct {
 	// this node. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as node Close.
 	chStopInFlight chan struct{}
-	// nodeCtx is the node lifetime's context
-	nodeCtx context.Context
-	// cancelNodeCtx cancels nodeCtx when stopping the node
-	cancelNodeCtx context.CancelFunc
+
+	stopCh services.StopChan
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
@@ -196,7 +194,7 @@ func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr lo
 		n.http = &rawclient{uri: *httpuri}
 	}
 	n.chStopInFlight = make(chan struct{})
-	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
+	n.stopCh = make(chan struct{})
 	lggr = logger.Named(lggr, "Node")
 	lggr = logger.With(lggr,
 		"nodeTier", "primary",
@@ -367,7 +365,7 @@ func (n *node) Close() error {
 		n.stateMu.Lock()
 		defer n.stateMu.Unlock()
 
-		n.cancelNodeCtx()
+		close(n.stopCh)
 		n.cancelInflightRequests()
 		n.state = NodeStateClosed
 		return nil
@@ -828,7 +826,6 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 	)
 
 	return
-
 }
 
 func (n *node) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) (val []byte, err error) {
@@ -855,7 +852,6 @@ func (n *node) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) (v
 	)
 
 	return
-
 }
 
 func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
