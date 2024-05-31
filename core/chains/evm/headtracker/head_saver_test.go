@@ -36,6 +36,13 @@ func (h *headTrackerConfig) MaxBufferSize() uint32 {
 	return uint32(0)
 }
 
+func (h *headTrackerConfig) FinalityTagBypass() bool {
+	return false
+}
+func (h *headTrackerConfig) MaxAllowedFinalityDepth() uint32 {
+	return 10000
+}
+
 type config struct {
 	finalityDepth                     uint32
 	blockEmissionIdleWarningThreshold time.Duration
@@ -143,5 +150,4 @@ func TestHeadSaver_Load(t *testing.T) {
 	uncleChain := saver.Chain(h2Uncle.Hash)
 	require.NotNil(t, uncleChain)
 	require.Equal(t, uint32(2), uncleChain.ChainLength()) // h2Uncle -> h1
-
 }

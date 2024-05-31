@@ -10,7 +10,6 @@ import (
 )
 
 func TestDeferableWriteCloser_Close(t *testing.T) {
-
 	d := t.TempDir()
 	f, err := os.Create(filepath.Join(d, "test-file"))
 	require.NoError(t, err)

@@ -93,7 +93,6 @@ func TestDKGEncryptKeysController_Delete_HappyPath(t *testing.T) {
 	afterKeys, err := keyStore.DKGEncrypt().GetAll()
 	assert.NoError(t, err)
 	assert.Equal(t, initialLength-1, len(afterKeys))
-
 }
 
 func setupDKGEncryptKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {

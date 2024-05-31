@@ -36,6 +36,7 @@ type feeConfig struct {
 	tipCapMin          *assets.Wei
 	priceMin           *assets.Wei
 	priceMax           *assets.Wei
+	limitDefault       uint64
 }
 
 func newFeeConfig() *feeConfig {
@@ -50,6 +51,7 @@ func (g *feeConfig) EIP1559DynamicFees() bool                        { return g.
 func (g *feeConfig) TipCapMin() *assets.Wei                          { return g.tipCapMin }
 func (g *feeConfig) PriceMin() *assets.Wei                           { return g.priceMin }
 func (g *feeConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei { return g.priceMax }
+func (g *feeConfig) LimitDefault() uint64                            { return g.limitDefault }
 
 func TestTxm_SignTx(t *testing.T) {
 	t.Parallel()
@@ -221,6 +223,87 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 		_, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmgr.Tx{FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(100)}, 100, 0x0, lggr)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("specified gas price of 100 wei would exceed max configured gas price of 50 wei for key %s", addr.String()))
+	})
+}
+
+func TestTxm_NewPurgeAttempt(t *testing.T) {
+	addr := NewEvmAddress()
+	kst := ksmocks.NewEth(t)
+	tx := types.NewTx(&types.LegacyTx{})
+	kst.On("SignTx", mock.Anything, addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
+	gc := newFeeConfig()
+	gc.priceMin = assets.GWei(10)
+	gc.priceMax = assets.GWei(50)
+	gc.limitDefault = uint64(10)
+	est := gasmocks.NewEvmFeeEstimator(t)
+	bumpedLegacy := assets.GWei(30)
+	bumpedDynamicFee := assets.GWei(15)
+	bumpedDynamicTip := assets.GWei(10)
+	bumpedFee := gas.EvmFee{Legacy: bumpedLegacy, DynamicTipCap: bumpedDynamicTip, DynamicFeeCap: bumpedDynamicFee}
+	est.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(bumpedFee, uint64(10_000), nil)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), gc, kst, est)
+	lggr := logger.Test(t)
+	ctx := testutils.Context(t)
+
+	t.Run("creates legacy purge attempt with fields if previous attempt is legacy", func(t *testing.T) {
+		n := evmtypes.Nonce(0)
+		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1, 2, 3}}
+		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{Legacy: bumpedLegacy.Sub(assets.GWei(1))}, 100, 0x0, lggr)
+		require.NoError(t, err)
+		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
+		a, err := cks.NewPurgeTxAttempt(ctx, etx, lggr)
+		require.NoError(t, err)
+		// The fee limit is overridden with LimitDefault since purge attempts are just empty attempts
+		require.Equal(t, gc.limitDefault, a.ChainSpecificFeeLimit)
+		require.NotNil(t, a.TxFee.Legacy)
+		require.Equal(t, bumpedLegacy.String(), a.TxFee.Legacy.String())
+		require.Nil(t, a.TxFee.DynamicTipCap)
+		require.Nil(t, a.TxFee.DynamicFeeCap)
+		require.Equal(t, true, a.IsPurgeAttempt)
+		require.Equal(t, []byte{}, a.Tx.EncodedPayload)
+		require.Equal(t, *big.NewInt(0), a.Tx.Value)
+	})
+
+	t.Run("creates dynamic purge attempt with fields if previous attempt is dynamic", func(t *testing.T) {
+		n := evmtypes.Nonce(0)
+		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1, 2, 3}}
+		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{DynamicTipCap: bumpedDynamicTip.Sub(assets.GWei(1)), DynamicFeeCap: bumpedDynamicFee.Sub(assets.GWei(1))}, 100, 0x2, lggr)
+		require.NoError(t, err)
+		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
+		a, err := cks.NewPurgeTxAttempt(ctx, etx, lggr)
+		require.NoError(t, err)
+		// The fee limit is overridden with LimitDefault since purge attempts are just empty attempts
+		require.Equal(t, gc.limitDefault, a.ChainSpecificFeeLimit)
+		require.Nil(t, a.TxFee.Legacy)
+		require.NotNil(t, a.TxFee.DynamicTipCap)
+		require.NotNil(t, a.TxFee.DynamicFeeCap)
+		require.Equal(t, bumpedDynamicTip.String(), a.TxFee.DynamicTipCap.String())
+		require.Equal(t, bumpedDynamicFee.String(), a.TxFee.DynamicFeeCap.String())
+		require.Equal(t, true, a.IsPurgeAttempt)
+		require.Equal(t, []byte{}, a.Tx.EncodedPayload)
+		require.Equal(t, *big.NewInt(0), a.Tx.Value)
+	})
+
+	t.Run("creates bump purge attempt with fields", func(t *testing.T) {
+		n := evmtypes.Nonce(0)
+		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1, 2, 3}}
+		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{Legacy: bumpedLegacy.Sub(assets.GWei(1))}, 100, 0x0, lggr)
+		require.NoError(t, err)
+		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
+		purgeAttempt, err := cks.NewPurgeTxAttempt(ctx, etx, lggr)
+		require.NoError(t, err)
+		etx.TxAttempts = append(etx.TxAttempts, purgeAttempt)
+		bumpAttempt, _, _, _, err := cks.NewBumpTxAttempt(ctx, etx, purgeAttempt, etx.TxAttempts, lggr)
+		require.NoError(t, err)
+		// The fee limit is overridden with LimitDefault since purge attempts are just empty attempts
+		require.Equal(t, gc.limitDefault, bumpAttempt.ChainSpecificFeeLimit)
+		require.NotNil(t, bumpAttempt.TxFee.Legacy)
+		require.Equal(t, bumpedLegacy.String(), bumpAttempt.TxFee.Legacy.String())
+		require.Nil(t, bumpAttempt.TxFee.DynamicTipCap)
+		require.Nil(t, bumpAttempt.TxFee.DynamicFeeCap)
+		require.Equal(t, true, bumpAttempt.IsPurgeAttempt)
+		require.Equal(t, []byte{}, bumpAttempt.Tx.EncodedPayload)
+		require.Equal(t, *big.NewInt(0), bumpAttempt.Tx.Value)
 	})
 }
 

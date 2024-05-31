@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-
-import "../UpkeepFormat.sol";
-
 pragma solidity ^0.8.0;
 
+import {UpkeepFormat} from "../UpkeepFormat.sol";
+
+// solhint-disable-next-line interface-starts-with-i
 interface UpkeepTranscoderInterface {
   function transcodeUpkeeps(
     UpkeepFormat fromVersion,

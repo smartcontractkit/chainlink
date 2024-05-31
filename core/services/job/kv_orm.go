@@ -36,7 +36,6 @@ func NewKVStore(jobID int32, ds sqlutil.DataSource, lggr logger.Logger) kVStore 
 
 // Store saves []byte value by key.
 func (kv kVStore) Store(ctx context.Context, key string, val []byte) error {
-
 	sql := `INSERT INTO job_kv_store (job_id, key, val_bytea)
        	 	VALUES ($1, $2, $3)
         	ON CONFLICT (job_id, key) DO UPDATE SET

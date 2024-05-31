@@ -13,12 +13,33 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
+
+type ChainWriterConfig struct {
+	SendStrategy txmgrtypes.TxStrategy
+	Contracts    map[string]ChainWriter
+}
+
+type ChainWriter struct {
+	ContractABI string `json:"contractABI" toml:"contractABI"`
+	// key is genericName from config
+	Configs map[string]*ChainWriterDefinition `json:"configs" toml:"configs"`
+}
+
+type ChainWriterDefinition struct {
+	// chain specific contract method name or event type.
+	ChainSpecificName string         `json:"chainSpecificName"`
+	Checker           string         `json:"checker"`
+	FromAddress       common.Address `json:"fromAddress"`
+	GasLimit          uint64         `json:"gasLimit"` // TODO(archseer): what if this has to be configured per call?
+}
 
 type ChainReaderConfig struct {
 	// Contracts key is contract name
@@ -56,6 +77,15 @@ type chainReaderDefinitionFields struct {
 
 	// EventInputFields allows you to choose which indexed fields are expected from the input
 	EventInputFields []string `json:"eventInputFields,omitempty"`
+	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
+	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
+	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
+	// key is a predefined generic name for evm log event data word
+	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
+	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
+	// ConfidenceConfirmations is a mapping between a ConfidenceLevel and the confirmations associated. Confidence levels
+	// should be valid float values.
+	ConfidenceConfirmations map[string]int `json:"confidenceConfirmations,omitempty"`
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
@@ -120,7 +150,8 @@ type RelayConfig struct {
 	SendingKeys pq.StringArray `json:"sendingKeys"`
 
 	// Mercury-specific
-	FeedID *common.Hash `json:"feedID"`
+	FeedID                  *common.Hash `json:"feedID"`
+	EnableTriggerCapability bool         `json:"enableTriggerCapability"`
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")

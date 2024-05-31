@@ -373,7 +373,6 @@ func TestMultiNode_selectNode(t *testing.T) {
 		newActiveNode, err := mn.selectNode()
 		require.NoError(t, err)
 		require.Equal(t, prevActiveNode.String(), newActiveNode.String())
-
 	})
 	t.Run("Updates node if active is not healthy", func(t *testing.T) {
 		t.Parallel()
@@ -399,7 +398,6 @@ func TestMultiNode_selectNode(t *testing.T) {
 		newActiveNode, err := mn.selectNode()
 		require.NoError(t, err)
 		require.Equal(t, newBest.String(), newActiveNode.String())
-
 	})
 	t.Run("No active nodes - reports critical error", func(t *testing.T) {
 		t.Parallel()
@@ -418,7 +416,6 @@ func TestMultiNode_selectNode(t *testing.T) {
 		require.EqualError(t, err, ErroringNodeError.Error())
 		require.Nil(t, node)
 		tests.RequireLogMessage(t, observedLogs, "No live RPC nodes available")
-
 	})
 }
 

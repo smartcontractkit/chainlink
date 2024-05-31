@@ -116,7 +116,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		var c *v1.VRFCoordinator
 		if c, err = v1.NewVRFCoordinator(
 			jb.BlockhashStoreSpec.CoordinatorV1Address.Address(), chain.Client()); err != nil {
-
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
 
@@ -131,7 +130,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		var c *v2.VRFCoordinatorV2
 		if c, err = v2.NewVRFCoordinatorV2(
 			jb.BlockhashStoreSpec.CoordinatorV2Address.Address(), chain.Client()); err != nil {
-
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
 
@@ -146,7 +144,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		var c v2plus.IVRFCoordinatorV2PlusInternalInterface
 		if c, err = v2plus.NewIVRFCoordinatorV2PlusInternal(
 			jb.BlockhashStoreSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
-
 			return nil, errors.Wrap(err, "building V2Plus coordinator")
 		}
 
@@ -218,29 +215,32 @@ type service struct {
 	pollPeriod time.Duration
 	runTimeout time.Duration
 	logger     logger.Logger
-	parentCtx  context.Context
-	cancel     context.CancelFunc
+	stopCh     services.StopChan
 }
 
 // Start the BHS feeder service, satisfying the job.Service interface.
 func (s *service) Start(context.Context) error {
 	return s.StartOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Starting BHS feeder")
-		ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
-		s.parentCtx, s.cancel = context.WithCancel(context.Background())
+		s.stopCh = make(chan struct{})
 		s.wg.Add(2)
 		go func() {
 			defer s.wg.Done()
-			s.feeder.StartHeartbeats(s.parentCtx, &realTimer{})
+			ctx, cancel := s.stopCh.NewCtx()
+			defer cancel()
+			s.feeder.StartHeartbeats(ctx, &realTimer{})
 		}()
 		go func() {
 			defer s.wg.Done()
+			ctx, cancel := s.stopCh.NewCtx()
+			defer cancel()
+			ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
 			defer ticker.Stop()
 			for {
 				select {
 				case <-ticker.C:
-					s.runFeeder()
-				case <-s.parentCtx.Done():
+					s.runFeeder(ctx)
+				case <-ctx.Done():
 					return
 				}
 			}
@@ -253,15 +253,15 @@ func (s *service) Start(context.Context) error {
 func (s *service) Close() error {
 	return s.StopOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Stopping BHS feeder")
-		s.cancel()
+		close(s.stopCh)
 		s.wg.Wait()
 		return nil
 	})
 }
 
-func (s *service) runFeeder() {
+func (s *service) runFeeder(ctx context.Context) {
 	s.logger.Debugw("Running BHS feeder")
-	ctx, cancel := context.WithTimeout(s.parentCtx, s.runTimeout)
+	ctx, cancel := context.WithTimeout(ctx, s.runTimeout)
 	defer cancel()
 	err := s.feeder.Run(ctx)
 	if err == nil {
