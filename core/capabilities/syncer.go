@@ -126,13 +126,18 @@ func (s *registrySyncer) launch(ctx context.Context) {
 	}
 	// NOTE: temporary hard-coded capabilities
 	capId := "streams-trigger"
-	triggerInfo := capabilities.CapabilityInfo{
-		ID:             capId,
-		CapabilityType: capabilities.CapabilityTypeTrigger,
-		Description:    "Remote Trigger",
-		Version:        "0.0.1",
-		DON:            &triggerCapabilityDonInfo,
+	triggerInfo, err := capabilities.NewRemoteCapabilityInfo(
+		capId,
+		capabilities.CapabilityTypeTrigger,
+		"Remote Trigger",
+		"v0.0.1",
+		&triggerCapabilityDonInfo,
+	)
+	if err != nil {
+		s.lggr.Errorw("failed to create capability info for streams-trigger", "error", err)
+		return
 	}
+
 	myId := s.peerWrapper.GetPeer().ID().String()
 	config := remotetypes.RemoteTriggerConfig{
 		RegistrationRefreshMs:   20000,

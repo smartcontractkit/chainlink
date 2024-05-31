@@ -212,7 +212,6 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 					capabilities.CapabilityTypeTarget,
 					"a write capability targeting ethereum sepolia testnet",
 					"v1.0.0",
-					nil,
 				),
 				func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 					m := req.Inputs.Underlying["report"].(*values.Map)
@@ -296,7 +295,6 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			"v1.0.0",
-			nil,
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
@@ -320,7 +318,6 @@ func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			"v1.0.0",
-			nil,
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
@@ -334,7 +331,6 @@ func mockFailingConsensus() *mockCapability {
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			"v3.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{}, errors.New("fatal consensus error")
@@ -349,7 +345,6 @@ func mockConsensus() *mockCapability {
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			"v3.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			obs := req.Inputs.Underlying["observations"]
@@ -376,7 +371,6 @@ func mockTarget() *mockCapability {
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
 			"v1.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
@@ -472,7 +466,6 @@ func mockAction() (*mockCapability, values.Value) {
 			capabilities.CapabilityTypeAction,
 			"a read chain action",
 			"v1.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{

@@ -34,7 +34,6 @@ func NewWriteTarget(lggr logger.Logger, name string, cr commontypes.ContractRead
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
 		"v1.0.0",
-		nil,
 	)
 
 	logger := lggr.Named("WriteTarget")
