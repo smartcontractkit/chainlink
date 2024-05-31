@@ -5,6 +5,15 @@ import {BaseTest} from "./KeystoneForwarderBaseTest.t.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneForwarder_SetConfigTest is BaseTest {
+  address internal constant STRANGER = address(2);
+
+  function test_RevertWhen_NotOwner() public {
+    vm.stopPrank(); // BaseTest sets ADMIN
+    vm.prank(STRANGER);
+    vm.expectRevert();
+    s_forwarder.setConfig(DON_ID, F, _getSignerAddresses());
+  }
+
   function test_RevertWhen_FaultToleranceIsZero() public {
     vm.expectRevert(KeystoneForwarder.FaultToleranceMustBePositive.selector);
     s_forwarder.setConfig(DON_ID, 0, _getSignerAddresses());
