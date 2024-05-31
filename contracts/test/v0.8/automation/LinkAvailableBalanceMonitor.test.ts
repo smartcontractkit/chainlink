@@ -13,7 +13,7 @@ import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import add from "@changesets/cli/dist/declarations/src/commands/add";
+import add from '@changesets/cli/dist/declarations/src/commands/add'
 
 chai.use(deepEqualInAnyOrder)
 
