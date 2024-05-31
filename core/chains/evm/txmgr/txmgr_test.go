@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -623,7 +624,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		idempotencyKey := uuid.New()
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.Error(t, err, fmt.Sprintf("failed to find transaction with IdempotencyKey: %s", idempotencyKey))
-		require.Equal(t, txmgrcommon.Unknown, state)
+		require.Equal(t, commontypes.Unknown, state)
 	})
 
 	t.Run("returns unknown for unstarted state", func(t *testing.T) {
@@ -641,7 +642,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.Unknown, state)
+		require.Equal(t, commontypes.Unknown, state)
 	})
 
 	t.Run("returns unknown for in-progress state", func(t *testing.T) {
@@ -661,7 +662,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.Unknown, state)
+		require.Equal(t, commontypes.Unknown, state)
 	})
 
 	t.Run("returns unconfirmed for unconfirmed state", func(t *testing.T) {
@@ -684,7 +685,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.Unconfirmed, state)
+		require.Equal(t, commontypes.Unconfirmed, state)
 	})
 
 	t.Run("returns unconfirmed for confirmed state newer than finalized block", func(t *testing.T) {
@@ -714,7 +715,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt.Hash)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.Unconfirmed, state)
+		require.Equal(t, commontypes.Unconfirmed, state)
 	})
 
 	t.Run("returns finalized for confirmed state older than finalized block", func(t *testing.T) {
@@ -744,7 +745,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.Parent.Hash, attempt.Hash)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.Finalized, state)
+		require.Equal(t, commontypes.Finalized, state)
 	})
 
 	t.Run("returns unconfirmed for confirmed missing receipt state", func(t *testing.T) {
@@ -767,7 +768,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.Unconfirmed, state)
+		require.Equal(t, commontypes.Unconfirmed, state)
 	})
 
 	t.Run("returns fatal for fatal error state with terminally stuck error", func(t *testing.T) {
@@ -790,7 +791,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
-		require.Equal(t, txmgrcommon.Fatal, state)
+		require.Equal(t, commontypes.Fatal, state)
 		require.Error(t, err, client.TerminallyStuckMsg)
 	})
 
@@ -810,7 +811,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
-		require.Equal(t, txmgrcommon.Failed, state)
+		require.Equal(t, commontypes.Failed, state)
 		require.Error(t, err, errorMsg)
 	})
 }

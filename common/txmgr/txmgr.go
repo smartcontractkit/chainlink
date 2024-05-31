@@ -14,9 +14,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
@@ -30,7 +30,7 @@ import (
 // ResumeCallback is assumed to be idempotent
 type ResumeCallback func(ctx context.Context, id uuid.UUID, result interface{}, err error) error
 
-type NewTxError func(err error) client.TxError
+type NewTxError func(err error) txmgrtypes.TxError
 
 // TxManager is the main component of the transaction manager.
 // It is also the interface to external callers.
@@ -65,7 +65,7 @@ type TxManager[
 	FindEarliestUnconfirmedBroadcastTime(ctx context.Context) (nullv4.Time, error)
 	FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (nullv4.Int, error)
 	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error)
-	GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (state TransactionStatus, err error)
+	GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (state commontypes.TransactionStatus, err error)
 }
 
 type reset struct {
@@ -640,8 +640,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTrans
 	return b.txStore.CountTransactionsByState(ctx, state, b.chainID)
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (status TransactionStatus, err error) {
-	// Loads attempts and receipts
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (status commontypes.TransactionStatus, err error) {
+	// Loads attempts and receipts in the transaction
 	tx, err := b.txStore.FindTxWithIdempotencyKey(ctx, transactionID.String(), b.chainID)
 	if err != nil {
 		return status, fmt.Errorf("failed to find transaction with IdempotencyKey %s: %w", transactionID.String(), err)
@@ -652,7 +652,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransac
 	}
 	switch tx.State {
 	case TxUnconfirmed, TxConfirmedMissingReceipt:
-		return Unconfirmed, nil
+		// Return unconfirmed for ConfirmedMissingReceipt since a receipt is required to determine if it is finalized
+		return commontypes.Unconfirmed, nil
 	case TxConfirmed:
 		var receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]
 		// Find tx receipt if one exists
@@ -666,18 +667,23 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransac
 		b.finalizedBlockNumMu.RLock()
 		defer b.finalizedBlockNumMu.RUnlock()
 		if receipt != nil && b.latestFinalizedBlockNum != 0 && receipt.GetBlockNumber().Cmp(big.NewInt(b.latestFinalizedBlockNum)) <= 0 {
-			return Finalized, nil
+			// Return finalized if tx receipt's block is equal or older than the latest finalized block
+			return commontypes.Finalized, nil
 		}
-		return Unconfirmed, nil
+		// Return unconfirmed if tx receipt's block is newer than the latest finalized block
+		return commontypes.Unconfirmed, nil
 	case TxFatalError:
+		// Use the TxError builder to classify the error message stored for the tx
 		txErr := b.newTxError(tx.GetError())
 		if txErr != nil && txErr.IsTerminallyStuck() {
-			return Fatal, tx.GetError()
+			// Return fatal for terminally stuck transactions
+			return commontypes.Fatal, tx.GetError()
 		}
-		return Failed, tx.GetError()
+		// Return failed for all other tx's marked as FatalError
+		return commontypes.Failed, tx.GetError()
 	default:
 		// Unstarted and InProgress are classified as unknown since they are not supported by the ChainWriter interface
-		return Unknown, nil
+		return commontypes.Unknown, nil
 	}
 }
 
@@ -764,7 +770,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Cou
 	return count, errors.New(n.ErrMsg)
 }
 
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (status TransactionStatus, err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (status commontypes.TransactionStatus, err error) {
 	return
 }
 

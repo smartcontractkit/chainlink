@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 )
 
@@ -414,7 +415,7 @@ func NewSendError(e error) *SendError {
 	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
 }
 
-func NewTxError(e error) commonclient.TxError {
+func NewTxError(e error) commontypes.TxError {
 	return NewSendError(e)
 }
 

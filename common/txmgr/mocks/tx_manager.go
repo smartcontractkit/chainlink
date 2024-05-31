@@ -11,6 +11,8 @@ import (
 
 	null "gopkg.in/guregu/null.v4"
 
+	pkgtypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	txmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -332,22 +334,22 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetFor
 }
 
 // GetTransactionStatus provides a mock function with given fields: ctx, transactionID
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (txmgr.TransactionStatus, error) {
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (pkgtypes.TransactionStatus, error) {
 	ret := _m.Called(ctx, transactionID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTransactionStatus")
 	}
 
-	var r0 txmgr.TransactionStatus
+	var r0 pkgtypes.TransactionStatus
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (txmgr.TransactionStatus, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (pkgtypes.TransactionStatus, error)); ok {
 		return rf(ctx, transactionID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) txmgr.TransactionStatus); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) pkgtypes.TransactionStatus); ok {
 		r0 = rf(ctx, transactionID)
 	} else {
-		r0 = ret.Get(0).(txmgr.TransactionStatus)
+		r0 = ret.Get(0).(pkgtypes.TransactionStatus)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
