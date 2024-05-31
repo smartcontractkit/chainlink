@@ -334,7 +334,8 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
 		},
 		Config: tc,
 		Inputs: triggerInputs,
@@ -651,6 +652,7 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          msg.state.WorkflowID,
 			WorkflowExecutionID: msg.state.ExecutionID,
+			WorkflowDonID:       e.donInfo.ID,
 		},
 	}
 
@@ -673,7 +675,8 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 	}
 	deregRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
 		},
 		Inputs: triggerInputs,
 		Config: t.config,
