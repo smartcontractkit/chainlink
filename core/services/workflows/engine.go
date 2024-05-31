@@ -653,7 +653,7 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 			WorkflowExecutionID: msg.state.ExecutionID,
 			WorkflowOwner:       e.workflow.owner,
 			WorkflowName:        e.workflow.name,
-			ReportID:            "aabbccdd", // TODO: where to get this from?
+			WorkflowStepRef:     step.Ref,
 		},
 	}
 
