@@ -60,8 +60,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// new set of supported capability IDs
     mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedCapabilityIds;
     /// @notice The list of DON Ids supported by the node.
-    /// @dev This set may be out of date when a DON is updated to no longer include
-    /// this node.
     EnumerableSet.UintSet supportedDONIds;
   }
 
