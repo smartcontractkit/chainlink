@@ -63,12 +63,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @dev This set may be out of date when a DON is updated to no longer include
     /// this node.
     EnumerableSet.UintSet supportedDONIds;
-    /// @notice Mapping between donId to the last config count the node was included in
-    /// @dev A node is considered to still be part of a DON if the configCount in this
-    /// map is equal to the DON's current config
-    /// @dev This mapping is just a helper variable that is used to help determine
-    /// whether or not a node is still part of a DON
-    mapping(uint32 donId => uint32 configCount) supportedDONConfigCounts;
   }
 
   /// @notice CapabilityResponseType indicates whether remote response requires
@@ -251,8 +245,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice This error is thrown when trying to remove a node that is still
   /// part of a DON
   /// @param nodeP2PId The P2P Id of the node being removed
-  /// @param donId The DON Id the node still belongs to
-  error NodePartOfDON(bytes32 nodeP2PId, uint32 donId);
+  error NodePartOfDON(bytes32 nodeP2PId);
 
   /// @notice This error is thrown when trying to add a capability with a
   /// configuration contract that does not implement the required interface.
@@ -450,14 +443,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       bool nodeExists = bytes32(node.signer) != bytes32("");
       if (!nodeExists) revert InvalidNodeP2PId(p2pId);
-
-      for (uint256 j; j < node.supportedDONIds.length(); ++j) {
-        uint32 donId = uint32(node.supportedDONIds.at(j));
-        DON storage don = s_dons[donId];
-        if (node.supportedDONConfigCounts[donId] == don.configCount) {
-          revert NodePartOfDON(p2pId, donId);
-        }
-      }
+      if (node.supportedDONIds.length() > 0) revert NodePartOfDON(p2pId);
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
 
@@ -728,11 +714,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   ) internal {
     DONCapabilityConfig storage donCapabilityConfig = s_dons[donId].config[configCount];
 
+    // Skip removing supported DON Ids from previously configured nodes in DON if
+    // we are adding the DON for the first time
+    if (configCount > 1) {
+      DONCapabilityConfig storage prevDONCapabilityConfig = s_dons[donId].config[configCount - 1];
+
+      // We acknowledge that this may result in an out of gas error if the number of configured
+      // nodes is large.  This is mitigated by ensuring that there will not be a large number
+      // of nodes configured to a DON
+      for (uint256 i; i < prevDONCapabilityConfig.nodes.length(); ++i) {
+        s_nodes[prevDONCapabilityConfig.nodes.at(i)].supportedDONIds.remove(donId);
+      }
+    }
+
     for (uint256 i; i < nodes.length; ++i) {
       if (donCapabilityConfig.nodes.contains(nodes[i])) revert DuplicateDONNode(donId, nodes[i]);
       donCapabilityConfig.nodes.add(nodes[i]);
       s_nodes[nodes[i]].supportedDONIds.add(donId);
-      s_nodes[nodes[i]].supportedDONConfigCounts[donId] = configCount;
     }
 
     for (uint256 i; i < capabilityConfigurations.length; ++i) {
