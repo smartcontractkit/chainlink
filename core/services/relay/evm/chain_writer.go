@@ -71,6 +71,11 @@ type chainWriter struct {
 	encoder commontypes.Encoder
 }
 
+// SubmitTransaction ...
+//
+// Note: The codec that ChainWriter uses to encode the parameters for the contract ABI cannot handle
+// `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
+// `nil` values passed in the request.
 func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method string, args any, transactionID uuid.UUID, toAddress string, meta *commontypes.TxMeta, value big.Int) error {
 	if !common.IsHexAddress(toAddress) {
 		return fmt.Errorf("toAddress is not a valid ethereum address: %v", toAddress)
