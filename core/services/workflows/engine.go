@@ -651,6 +651,9 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          msg.state.WorkflowID,
 			WorkflowExecutionID: msg.state.ExecutionID,
+			WorkflowOwner:       e.workflow.owner,
+			WorkflowName:        e.workflow.name,
+			ReportID:            "aabbccdd", // TODO: where to get this from?
 		},
 	}
 
@@ -744,6 +747,8 @@ func (e *Engine) Close() error {
 type Config struct {
 	Spec                 string
 	WorkflowID           string
+	WorkflowOwner        string
+	WorkflowName         string
 	Lggr                 logger.Logger
 	Registry             core.CapabilitiesRegistry
 	MaxWorkerLimit       int
@@ -820,6 +825,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	workflow.id = cfg.WorkflowID
+	workflow.owner = cfg.WorkflowOwner
+	workflow.name = cfg.WorkflowName
 
 	// Instantiate semaphore to put a limit on the number of workers
 	newWorkerCh := make(chan struct{}, cfg.MaxWorkerLimit)
