@@ -263,7 +263,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice This event is emitted when a new capability is added
   /// @param hashedCapabilityId The hashed ID of the newly added capability
-  event CapabilityAdded(bytes32 indexed hashedCapabilityId);
+  event CapabilityConfigured(bytes32 indexed hashedCapabilityId);
 
   /// @notice This event is emitted when a capability is deprecated
   /// @param hashedCapabilityId The hashed ID of the deprecated capability
@@ -515,35 +515,41 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   /// @notice Adds a new capability to the capability registry
-  /// @param capability The capability being added
-  function addCapability(Capability calldata capability) external onlyOwner {
-    bytes32 hashedId = getHashedCapabilityId(capability.labelledName, capability.version);
-    if (s_hashedCapabilityIds.contains(hashedId)) revert CapabilityAlreadyExists();
-
-    if (capability.configurationContract != address(0)) {
-      if (
-        capability.configurationContract.code.length == 0 ||
-        !IERC165(capability.configurationContract).supportsInterface(
-          ICapabilityConfiguration.getCapabilityConfiguration.selector ^
-            ICapabilityConfiguration.beforeCapabilityConfigSet.selector
-        )
-      ) revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
+  /// @param capabilities The capabilities being added
+  function addCapabilities(Capability[] calldata capabilities) external onlyOwner {
+    for (uint256 i; i < capabilities.length; ++i) {
+      Capability memory capability = capabilities[i];
+      bytes32 hashedCapabilityId = getHashedCapabilityId(capability.labelledName, capability.version);
+      if (s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityAlreadyExists();
+      s_hashedCapabilityIds.add(hashedCapabilityId);
+      _setCapability(hashedCapabilityId, capability);
     }
+  }
 
-    s_hashedCapabilityIds.add(hashedId);
-    s_capabilities[hashedId] = capability;
-
-    emit CapabilityAdded(hashedId);
+  /// @notice Updates capabilities
+  /// @param capabilities The updated capability params
+  function updateCapabilities(Capability[] calldata capabilities) external onlyOwner {
+    for (uint256 i; i < capabilities.length; ++i) {
+      Capability memory capability = capabilities[i];
+      bytes32 hashedCapabilityId = getHashedCapabilityId(capability.labelledName, capability.version);
+      if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
+      _setCapability(hashedCapabilityId, capability);
+    }
   }
 
   /// @notice Deprecates a capability by adding it to the deprecated list
-  /// @param hashedCapabilityId The ID of the capability to deprecate
-  function deprecateCapability(bytes32 hashedCapabilityId) external onlyOwner {
-    if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
-    if (s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityIsDeprecated(hashedCapabilityId);
+  /// @param hashedCapabilityIds[] The IDs of the capabilities to deprecate
+  function deprecateCapabilities(bytes32[] calldata hashedCapabilityIds) external onlyOwner {
+    for (uint256 i; i < hashedCapabilityIds.length; ++i) {
+      bytes32 hashedCapabilityId = hashedCapabilityIds[i];
+      if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
+      if (s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId))
+        revert CapabilityIsDeprecated(hashedCapabilityId);
 
-    s_deprecatedHashedCapabilityIds.add(hashedCapabilityId);
-    emit CapabilityDeprecated(hashedCapabilityId);
+      s_deprecatedHashedCapabilityIds.add(hashedCapabilityId);
+      delete s_capabilities[hashedCapabilityId];
+      emit CapabilityDeprecated(hashedCapabilityId);
+    }
   }
 
   /// @notice This function returns a Capability by its hashed ID. Use `getHashedCapabilityId` to get the hashed ID.
@@ -770,6 +776,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       }),
       s_nodes[p2pId].configCount
     );
+  }
+
+  /// @notice Sets a capability's data
+  /// @param hashedCapabilityId The ID of the capability being set
+  /// @param capability The capability's data
+  function _setCapability(bytes32 hashedCapabilityId, Capability memory capability) internal {
+    if (capability.configurationContract != address(0)) {
+      if (
+        capability.configurationContract.code.length == 0 ||
+        !IERC165(capability.configurationContract).supportsInterface(
+          ICapabilityConfiguration.getCapabilityConfiguration.selector ^
+            ICapabilityConfiguration.beforeCapabilityConfigSet.selector
+        )
+      ) revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
+    }
+    s_capabilities[hashedCapabilityId] = capability;
+    emit CapabilityConfigured(hashedCapabilityId);
   }
 
   /// @notice Gets DON's data
