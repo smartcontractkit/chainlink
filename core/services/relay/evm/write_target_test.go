@@ -83,7 +83,7 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte{0x1, 0x2, 0x3}, payload["rawReport"])
 		require.Equal(t, [][]byte{}, payload["signatures"])
-	}).Twice()
+	}).Once()
 
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -127,7 +127,9 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		inputs, err := values.NewMap(map[string]any{
-			"report": nil,
+			"signed_report": map[string]any{
+				"report": nil,
+			},
 		})
 		require.NoError(t, err)
 
