@@ -141,7 +141,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 
 	var finalizedHeadCh <-chan HEAD
 	var finalizedHeadSub types.Subscription
-	if n.chainCfg.FinalityTagEnabled() && n.nodePoolCfg.FinalizedBlockPollInterval() > 0 {
+	if n.chainCfg.FinalityTagEnabled() {
 		lggr.Debugw("Finalized block polling enabled")
 		finalizedHeadCh, finalizedHeadSub, err = n.rpc.SubscribeToFinalizedHeads(n.nodeCtx)
 		if err != nil {

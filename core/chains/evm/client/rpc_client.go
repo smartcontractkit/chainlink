@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -140,6 +141,9 @@ func (r *RpcClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head
 
 func (r *RpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
 	interval := r.cfg.FinalizedBlockPollInterval()
+	if interval == 0 {
+		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
+	}
 	timeout := interval
 	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
 	if err := poller.Start(); err != nil {
