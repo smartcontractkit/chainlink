@@ -553,11 +553,7 @@ func (b *BlockHistoryEstimator) calculateGasPriceTipCap(lggr logger.SugaredLogge
 		numsForPrice = append(numsForPrice, b.Number)
 	}
 
-	gweiMultiplier := big.NewFloat(1_000_000_000)
-	float := new(big.Float).SetInt(percentileGasPrice.ToInt())
-	gwei, _ := big.NewFloat(0).Quo(float, gweiMultiplier).Float64()
-	gasPriceGwei := fmt.Sprintf("%.2f", gwei)
-
+	gasPriceGwei := percentileGasPrice.Text("gwei")
 	lggrFields := []interface{}{
 		"gasPriceWei", percentileGasPrice,
 		"gasPriceGWei", gasPriceGwei,
@@ -572,9 +568,8 @@ func (b *BlockHistoryEstimator) calculateGasPriceTipCap(lggr logger.SugaredLogge
 		lggr.Debugw(fmt.Sprintf("Setting new default GasPrice: %v Gwei", gasPriceGwei), lggrFields...)
 		return
 	}
-	float = new(big.Float).SetInt(percentileTipCap.ToInt())
-	gwei, _ = big.NewFloat(0).Quo(float, gweiMultiplier).Float64()
-	tipCapGwei := fmt.Sprintf("%.2f", gwei)
+
+	tipCapGwei := percentileTipCap.Text("gwei")
 	lggrFields = append(lggrFields, []interface{}{
 		"tipCapWei", percentileTipCap,
 		"tipCapGwei", tipCapGwei,
@@ -610,11 +605,7 @@ func (b *BlockHistoryEstimator) calculateMaxPercentileGasPriceTipCap(lggr logger
 		numsForMaxPrices = append(numsForMaxPrices, b.Number)
 	}
 
-	gweiMultiplier := big.NewFloat(1_000_000_000)
-	float := new(big.Float).SetInt(maxPercentileGasPrice.ToInt())
-	gwei, _ := big.NewFloat(0).Quo(float, gweiMultiplier).Float64()
-	maxPercentileGasPriceGwei := fmt.Sprintf("%.2f", gwei)
-
+	maxPercentileGasPriceGwei := maxPercentileGasPrice.Text("gwei")
 	lggrFields := []interface{}{
 		"maxPercentileGasPriceWei", maxPercentileGasPrice,
 		"maxPercentileGasPriceGwei", maxPercentileGasPriceGwei,
@@ -628,9 +619,8 @@ func (b *BlockHistoryEstimator) calculateMaxPercentileGasPriceTipCap(lggr logger
 		lggr.Debugw(fmt.Sprintf("Setting new max percentile GasPrice: %v Gwei", maxPercentileGasPriceGwei), lggrFields...)
 		return
 	}
-	float = new(big.Float).SetInt(maxPercentileTipCap.ToInt())
-	gwei, _ = big.NewFloat(0).Quo(float, gweiMultiplier).Float64()
-	maxPercentileTipCapGwei := fmt.Sprintf("%.2f", gwei)
+
+	maxPercentileTipCapGwei := maxPercentileTipCap.Text("gwei")
 	lggrFields = append(lggrFields, []interface{}{
 		"maxPercentileTipCapWei", maxPercentileTipCap,
 		"maxPercentileTipCapGwei", maxPercentileTipCapGwei,
