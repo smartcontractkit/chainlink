@@ -47,7 +47,7 @@ MaxSize = '0b'
 AllowOrigins = '*'
 HTTPPort = 6688
 SecureCookies = false
-HTTPWriteTimeout = '1m'
+HTTPWriteTimeout = '3m'
 SessionTimeout = '999h0m0s'
 
 [WebServer.RateLimit]
@@ -97,6 +97,7 @@ tracing_level = "reverted"
 # were able te decode, we try to save maximum information possible. It can either be:
 # just tx hash, decoded transaction or call trace. Which transactions traces are saved depends
 # on 'tracing_level'.
+
 # number of addresses to be generated and runtime, if set to 0, no addresses will be generated
 # each generated address will receive a proportion of native tokens from root private key's balance
 # with the value equal to (root_balance / ephemeral_addresses_number) - transfer_fee * ephemeral_addresses_number
@@ -106,21 +107,49 @@ ephemeral_addresses_number = 10
 # That's because the one we are about to send would get queued, possibly for a very long time
 pending_nonce_protection_enabled = true
 
-root_key_funds_buffer = 1000
+# Amount to be left on root key/address, when we are using ephemeral addresses. It's the amount that will not
+# be divided into ephemeral keys. Default value is good for simulated networks, but you should change it for
+# something much more reasonable for live networks.
+root_key_funds_buffer = 1000 # 1000 ethers
 
 # when enabled when creating a new Seth client we will send 10k wei from root address to root address
 # to make sure transaction can be submited and mined
 check_rpc_health_on_start = false
 
+# feature-flagged expriments: "slow_funds_return" sets funds return priority to 'slow' (core only!);
+# "eip_1559_fee_equalizer" sets the tip/base fee to the higher value in case there's 3+ orders of magnitude difference between them
+experiments_enabled = []
+
 [Seth.nonce_manager]
+# rate-limiting of key syncs, to prevent spamming the node with nonce calls
 key_sync_rate_limit_per_sec = 10
+# how long to wait for a key sync to complete before giving up
 key_sync_timeout = "100s"
+# how long to wait before retrying a key sync
 key_sync_retry_delay = "1s"
+# how many times to retry a key sync before giving up
 key_sync_retries = 10
+
+# this is a default config that will be used if you haven't specified any network specific settings
+# you can always override that by providing network specific settings like in the examples below
+[[Seth.networks]]
+name = "Default"
+transaction_timeout = "60s"
+# enable EIP-1559 transactions, because Seth will disable them if they are not supported
+eip_1559_dynamic_fees = true
+# enable automated gas estimation, because Seth will auto-disable it if any of the required JSON RPC methods are missing
+gas_price_estimation_enabled = true
+gas_price_estimation_blocks = 100
+gas_price_estimation_tx_priority = "standard"
+
+# fallback values
+transfer_gas_fee = 21_000
+gas_price = 150_000_000_000 #150 gwei
+gas_fee_cap = 150_000_000_000 #150 gwei
+gas_tip_cap = 50_000_000_000 #50 gwei
 
 [[Seth.networks]]
 name = "Geth"
-chain_id = "1337"
 transaction_timeout = "30s"
 
 # gas limits
@@ -138,8 +167,7 @@ gas_fee_cap = 15_000_000_000
 gas_tip_cap = 5_000_000_000
 
 [[Seth.networks]]
-name = "AVALANCHE_FUJI"
-chain_id = "43113"
+name = "Avalanche Fuji"
 transaction_timeout = "3m"
 eip_1559_dynamic_fees = true
 
@@ -159,7 +187,7 @@ eip_1559_dynamic_fees = true
 # gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
 # gas_limit = 8_000_000
 # transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
-# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
+# we use hardcoded value in order to estimate how much funds are available for sending or returning after tx costs have been paid
 transfer_gas_fee = 21_000
 
 # manual settings, used when gas_price_estimation_enabled is false or when it fails
@@ -171,8 +199,7 @@ gas_fee_cap = 30_000_000_000
 gas_tip_cap = 1_800_000_000
 
 [[Seth.networks]]
-name = "Sepolia"
-chain_id = "11155111"
+name = "Sepolia Testnet"
 transaction_timeout = "3m"
 eip_1559_dynamic_fees = false
 
@@ -204,8 +231,7 @@ gas_fee_cap = 45_000_000_000
 gas_tip_cap = 10_000_000_000
 
 [[Seth.networks]]
-name = "POLYGON_MUMBAI"
-chain_id = "80001"
+name = "Polygon Mumbai"
 transaction_timeout = "3m"
 eip_1559_dynamic_fees = true
 
@@ -237,8 +263,7 @@ gas_fee_cap = 3_800_000_000
 gas_tip_cap = 1_800_000_000
 
 [[Seth.networks]]
-name = "POLYGON_AMOY"
-chain_id = "80002"
+name = "Polygon Amoy"
 transaction_timeout = "3m"
 eip_1559_dynamic_fees = true
 
@@ -263,15 +288,14 @@ transfer_gas_fee = 21_000
 
 # manual settings, used when gas_price_estimation_enabled is false or when it fails
 # legacy transactions
-gas_price = 1_800_000_000
+gas_price = 200_000_000_000
 
 # EIP-1559 transactions
-gas_fee_cap = 3_800_000_000
-gas_tip_cap = 1_800_000_000
+gas_fee_cap = 200_000_000_000
+gas_tip_cap = 2_000_000_000
 
 [[Seth.networks]]
-name = "zkEVM"
-chain_id = "1442"
+name = "Polygon zkEVM Goerli"
 transaction_timeout = "3m"
 eip_1559_dynamic_fees = false
 
@@ -302,38 +326,9 @@ gas_price = 50_000_000
 gas_fee_cap = 3_800_000_000
 gas_tip_cap = 1_800_000_000
 
-
 [[Seth.networks]]
-name = "ARBITRUM_SEPOLIA"
-chain_id = "421614"
-transaction_timeout = "1m"
-
-# if set to true we will estimate gas for every transaction
-gas_price_estimation_enabled = true
-
-# transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
-# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
-transfer_gas_fee = 50_000
-# gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
-# gas_limit = 100_000_000
-
-# manual settings, used when gas_price_estimation_enabled is false or when it fails
-# legacy transactions
-gas_price = 50_000_000_000
-# EIP-1559 transactions
-eip_1559_dynamic_fees = true
-gas_fee_cap = 50_000_000_000
-gas_tip_cap = 2_000_000_000
-
-# how many last blocks to use, when estimating gas for a transaction
-gas_price_estimation_blocks = 100
-# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
-gas_price_estimation_tx_priority = "standard"
-
-[[Seth.networks]]
-name = "POLYGON_AMOY"
-chain_id = "80002"
-transaction_timeout = "1m"
+name = "Optimism Sepolia"
+transaction_timeout = "3m"
 
 # if set to true we will estimate gas for every transaction
 gas_price_estimation_enabled = true
@@ -345,70 +340,59 @@ transfer_gas_fee = 21_000
 # gas_limit = 100_000_000
 
 # manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = true
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_000_000_000
+
+# how many last blocks to use, when estimating gas for a transaction
+gas_price_estimation_blocks = 30
+# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
+gas_price_estimation_tx_priority = "standard"
+
+
+[[Seth.networks]]
+name = "Base Sepolia"
+transaction_timeout = "3m"
+
+# if set to true we will estimate gas for every transaction
+gas_price_estimation_enabled = true
+
+# transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
+# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
+transfer_gas_fee = 21_000
+# gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
+# gas_limit = 100_000_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = true
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_000_000_000
+
+# how many last blocks to use, when estimating gas for a transaction
+gas_price_estimation_blocks = 50
+# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
+gas_price_estimation_tx_priority = "standard"
+
+[[Seth.networks]]
+name = "Arbitrum Sepolia"
+transaction_timeout = "10m"
+transfer_gas_fee = 50_000
+# gas_limit = 15_000_000
 # legacy transactions
 gas_price = 200_000_000_000
 # EIP-1559 transactions
 eip_1559_dynamic_fees = true
 gas_fee_cap = 200_000_000_000
-gas_tip_cap = 2_000_000_000
-
+gas_tip_cap = 10_000_000_000
+# if set to true we will estimate gas for every transaction
+gas_price_estimation_enabled = true
 # how many last blocks to use, when estimating gas for a transaction
 gas_price_estimation_blocks = 100
 # priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
 gas_price_estimation_tx_priority = "standard"
-
-[[Seth.networks]]
-name = "OPTIMISM_SEPOLIA"
-chain_id = "11155420"
-transaction_timeout = "3m"
-
-# if set to true we will estimate gas for every transaction
-gas_price_estimation_enabled = true
-
-# transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
-# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
-transfer_gas_fee = 21_000
-# gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
-# gas_limit = 100_000_000
-
-# manual settings, used when gas_price_estimation_enabled is false or when it fails
-# legacy transactions
-gas_price = 30_000_000_000
-# EIP-1559 transactions
-eip_1559_dynamic_fees = true
-gas_fee_cap = 30_000_000_000
-gas_tip_cap = 1_000_000_000
-
-# how many last blocks to use, when estimating gas for a transaction
-gas_price_estimation_blocks = 50
-# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
-gas_price_estimation_tx_priority = "standard"
-
-
-[[Seth.networks]]
-name = "BASE_SEPOLIA"
-chain_id = "84532"
-transaction_timeout = "3m"
-
-# if set to true we will estimate gas for every transaction
-gas_price_estimation_enabled = true
-
-# transfer_gas_fee is gas limit that will be used, when funding CL nodes and returning funds from there and when funding and returning funds from ephemeral keys
-# we use hardcoded value in order to be estimate how much funds are available for sending or returning after tx costs have been paid
-transfer_gas_fee = 21_000
-# gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
-# gas_limit = 100_000_000
-
-# manual settings, used when gas_price_estimation_enabled is false or when it fails
-# legacy transactions
-gas_price = 30_000_000_000
-# EIP-1559 transactions
-eip_1559_dynamic_fees = true
-gas_fee_cap = 30_000_000_000
-gas_tip_cap = 1_000_000_000
-
-# how many last blocks to use, when estimating gas for a transaction
-gas_price_estimation_blocks = 50
-# priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
-gas_price_estimation_tx_priority = "standard"
-

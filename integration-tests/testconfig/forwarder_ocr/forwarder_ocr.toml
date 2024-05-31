@@ -16,7 +16,7 @@ MaxSize = '0b'
 AllowOrigins = '*'
 HTTPPort = 6688
 SecureCookies = false
-HTTPWriteTimeout = '1m'
+HTTPWriteTimeout = '3m'
 SessionTimeout = '999h0m0s'
 
 [WebServer.RateLimit]

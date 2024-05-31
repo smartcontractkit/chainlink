@@ -10,8 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -19,11 +17,10 @@ import (
 )
 
 type Delegate struct {
-	registry        core.CapabilitiesRegistry
-	logger          logger.Logger
-	legacyEVMChains legacyevm.LegacyChainContainer
-	peerID          func() *p2ptypes.PeerID
-	store           store.Store
+	registry core.CapabilitiesRegistry
+	logger   logger.Logger
+	peerID   func() *p2ptypes.PeerID
+	store    store.Store
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -42,12 +39,6 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	// NOTE: we temporarily do registration inside ServicesForSpec, this will be moved out of job specs in the future
-	err := targets.InitializeWrite(d.registry, d.legacyEVMChains, d.logger)
-	if err != nil {
-		d.logger.Errorw("could not initialize writes", err)
-	}
-
 	dinfo, err := initializeDONInfo(d.logger)
 	if err != nil {
 		d.logger.Errorw("could not add initialize don info", err)
@@ -106,8 +97,8 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	}, nil
 }
 
-func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, store store.Store, peerID func() *p2ptypes.PeerID) *Delegate {
-	return &Delegate{logger: logger, registry: registry, legacyEVMChains: legacyEVMChains, store: store, peerID: peerID}
+func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, store store.Store, peerID func() *p2ptypes.PeerID) *Delegate {
+	return &Delegate{logger: logger, registry: registry, store: store, peerID: peerID}
 }
 
 func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {

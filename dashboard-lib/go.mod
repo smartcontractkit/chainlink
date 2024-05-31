@@ -13,10 +13,13 @@ replace github.com/grafana/grafana-foundation-sdk/go => github.com/grafana/grafa
 
 require (
 	github.com/K-Phoen/sdk v0.12.4 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/gosimple/slug v1.13.1 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/common v0.45.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
 )

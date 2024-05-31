@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/wiremock"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 
@@ -47,7 +48,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	aconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
@@ -101,7 +101,7 @@ Password = '%s'`
 			},
 		},
 		"stateful": true,
-		"capacity": "10Gi",
+		"capacity": "20Gi",
 	}
 
 	recNodeSpec = map[string]interface{}{
@@ -318,7 +318,7 @@ Load Config:
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running chainlink DON")
 
-	testNetwork = utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
+	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
 
 	chainClient, err := actions_seth.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
@@ -798,7 +798,7 @@ Test Duration: %s`
 			if err != nil {
 				l.Error().Err(err).Msg("Error increasing TTL of namespace")
 			}
-		} else if chainClient.Cfg.IsSimulatedNetwork() {
+		} else if chainClient.Cfg.IsSimulatedNetwork() && *loadedTestConfig.Automation.General.RemoveNamespace {
 			err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
 			if err != nil {
 				l.Error().Err(err).Msg("Error removing namespace")

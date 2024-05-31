@@ -35,7 +35,7 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	if !ok {
 		return nil, fmt.Errorf("expected %s to be a string", abiConfigFieldName)
 	}
-	selector, err := abiutil.ParseSignature("inner(" + selectorStr + ")")
+	selector, err := abiutil.ParseSelector("inner(" + selectorStr + ")")
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func extractIDs(input map[string]any) ([]byte, []byte, []byte, []byte, error) {
 
 	// TODO: source donID and workflowOwner from somewhere
 	donID := []byte{0, 1, 2, 3}
-	workflowOwner := make([]byte, 32)
+	workflowOwner := make([]byte, 20)
 
 	executionID, err := decodeID(input, consensustypes.ExecutionIDFieldName, idLen)
 	if err != nil {

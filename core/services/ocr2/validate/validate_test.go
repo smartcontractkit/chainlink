@@ -71,7 +71,7 @@ answer1      [type=median index=0];
 				assert.Equal(t, "median", string(r.PluginType))
 				var pc medianconfig.PluginConfig
 				require.NoError(t, json.Unmarshal(r.PluginConfig.Bytes(), &pc))
-				require.NoError(t, medianconfig.ValidatePluginConfig(pc))
+				require.NoError(t, pc.ValidatePluginConfig())
 				var oss validate.OCR2OnchainSigningStrategy
 				require.NoError(t, json.Unmarshal(r.OnchainSigningStrategy.Bytes(), &oss))
 			},
@@ -901,7 +901,7 @@ UpdateInterval="1m"
 				assert.Equal(t, "median", string(r.PluginType))
 				var pc medianconfig.PluginConfig
 				require.NoError(t, json.Unmarshal(r.PluginConfig.Bytes(), &pc))
-				require.NoError(t, medianconfig.ValidatePluginConfig(pc))
+				require.NoError(t, pc.ValidatePluginConfig())
 			},
 		},
 	}
