@@ -11,8 +11,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -83,45 +81,31 @@ func (c *OCR3ContractTransmitterAdapter) FromAccount() (ocrtypes.Account, error)
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 
-type OnchainSigningStrategy interface {
-	ConfigCopy() job.JSONConfig
-	KeyBundleID(name string) (string, error)
-}
-
 type OCR3OnchainKeyringMultiChainAdapter struct {
 	keyBundles map[string]ocr2key.KeyBundle
 	publicKey  ocrtypes.OnchainPublicKey
 	lggr       logger.Logger
 }
 
-func NewOCR3OnchainKeyringMultiChainAdapter(ks keystore.OCR2, st OnchainSigningStrategy, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
-	keyBundles := map[string]ocr2key.KeyBundle{}
-	for name := range st.ConfigCopy() {
-		kbID, err := st.KeyBundleID(name)
-		if err != nil {
-			return nil, err
-		}
-		kb, err := ks.Get(kbID)
-		if err != nil {
-			return nil, err
-		}
-		keyBundles[name] = kb
+func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
+	if len(ost) == 0 {
+		return nil, errors.New("no key bundles provided")
 	}
 	// We don't need to check for the existence of `publicKey` in the keyBundles map because it is required on validation on `validate/validate.go`
-	return &OCR3OnchainKeyringMultiChainAdapter{keyBundles, keyBundles["publicKey"].PublicKey(), lggr}, nil
+	return &OCR3OnchainKeyringMultiChainAdapter{ost, ost["publicKey"].PublicKey(), lggr}, nil
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublicKey {
 	return a.publicKey
 }
 
-func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
-	info := new(structpb.Struct)
-	err = proto.Unmarshal(r.Info, info)
+func (a *OCR3OnchainKeyringMultiChainAdapter) getKeyBundleFromInfo(info []byte) (ocr2key.KeyBundle, error) {
+	unmarshalledInfo := new(structpb.Struct)
+	err := proto.Unmarshal(info, unmarshalledInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal report info: %v", err)
 	}
-	infoMap := info.AsMap()
+	infoMap := unmarshalledInfo.AsMap()
 	keyBundleName, ok := infoMap["keyBundleName"]
 	if !ok {
 		return nil, errors.New("keyBundleName not found in report info")
@@ -134,6 +118,14 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 	if !ok {
 		return nil, fmt.Errorf("keyBundle not found: %s", name)
 	}
+	return kb, nil
+}
+
+func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
+	kb, err := a.getKeyBundleFromInfo(r.Info)
+	if err != nil {
+		return nil, fmt.Errorf("sign: failed to get key bundle from report info: %v", err)
+	}
 	return kb.Sign(ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
@@ -145,26 +137,9 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
-	info := new(structpb.Struct)
-	err := proto.Unmarshal(ri.Info, info)
+	kb, err := a.getKeyBundleFromInfo(ri.Info)
 	if err != nil {
-		a.lggr.Warn("Verify: failed to unmarshal report info", "err", err)
-		return false
-	}
-	infoMap := info.AsMap()
-	keyBundleName, ok := infoMap["keyBundleName"]
-	if !ok {
-		a.lggr.Warn("Verify: keyBundleName not found in report info")
-		return false
-	}
-	name, ok := keyBundleName.(string)
-	if !ok {
-		a.lggr.Warn("Verify: keyBundleName is not a string")
-		return false
-	}
-	kb, ok := a.keyBundles[name]
-	if !ok {
-		a.lggr.Warn("Verify: keyBundle not found", "keyBundleName", name)
+		a.lggr.Warnf("verify: failed to get key bundle from report info: %v", err)
 		return false
 	}
 	return kb.Verify(opk, ocrtypes.ReportContext{

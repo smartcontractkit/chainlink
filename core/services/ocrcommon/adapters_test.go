@@ -153,9 +153,19 @@ publicKey = "pub-key"
 	pk := fakeKey.PublicKey()
 	ks.On("Get", "pub-key").Return(fakeKey, nil)
 	ks.On("Get", "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17").Return(fakeKey, nil)
+	keyBundles := map[string]ocr2key.KeyBundle{}
+	for name := range oss.OnchainSigningStrategy.ConfigCopy() {
+		kbID, ostErr := oss.OnchainSigningStrategy.KeyBundleID(name)
+		require.NoError(t, ostErr)
+		os, ostErr := ks.Get(kbID)
+		require.NoError(t, ostErr)
+		keyBundles[name] = os
+	}
 
-	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(ks, oss.OnchainSigningStrategy, logger.TestLogger(t))
+	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, logger.TestLogger(t))
 	require.NoError(t, err)
+	_, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(map[string]ocr2key.KeyBundle{}, logger.TestLogger(t))
+	require.Error(t, err, "no key bundles provided")
 
 	sig, err := adapter.Sign(configDigest, seqNr, reportInfo)
 	assert.NoError(t, err)

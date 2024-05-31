@@ -720,7 +720,20 @@ func (d *Delegate) newServicesGenericPlugin(
 		}
 		var onchainKeyringAdapter ocr3types.OnchainKeyring[[]byte]
 		if onchainSigningStrategy.IsMultiChain() {
-			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(d.ks, &onchainSigningStrategy, lggr)
+			// We are extracting the config beforehand
+			keyBundles := map[string]ocr2key.KeyBundle{}
+			for name := range onchainSigningStrategy.ConfigCopy() {
+				kbID, ostErr := onchainSigningStrategy.KeyBundleID(name)
+				if ostErr != nil {
+					return nil, ostErr
+				}
+				os, ostErr := d.ks.Get(kbID)
+				if ostErr != nil {
+					return nil, ostErr
+				}
+				keyBundles[name] = os
+			}
+			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
 			if err != nil {
 				return nil, err
 			}
