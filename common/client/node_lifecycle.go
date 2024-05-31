@@ -166,8 +166,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		case <-pollCh:
 			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
-			ctx, cancel := context.WithTimeout(ctx, pollInterval)
-			err := n.RPC().Ping(ctx)
+			pollCtx, cancel := context.WithTimeout(ctx, pollInterval)
+			err := n.RPC().Ping(pollCtx)
 			cancel()
 			if err != nil {
 				// prevent overflow
