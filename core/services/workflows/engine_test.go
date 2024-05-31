@@ -81,10 +81,12 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	initFailed := make(chan struct{})
 	executionFinished := make(chan string, 100)
 	cfg := Config{
-		Lggr:       logger.TestLogger(t),
-		Registry:   reg,
-		Spec:       spec,
-		DONInfo:    nil,
+		Lggr:     logger.TestLogger(t),
+		Registry: reg,
+		Spec:     spec,
+		DONInfo: &capabilities.DON{
+			ID: "00010203",
+		},
 		PeerID:     func() *p2ptypes.PeerID { return &peerID },
 		maxRetries: 1,
 		retryMs:    100,

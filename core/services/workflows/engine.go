@@ -336,6 +336,8 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:    e.workflow.id,
 			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Config: tc,
 		Inputs: triggerInputs,
@@ -679,6 +681,8 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:    e.workflow.id,
 			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Inputs: triggerInputs,
 		Config: t.config,
