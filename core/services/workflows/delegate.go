@@ -92,6 +92,7 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	}
 
 	return &capabilities.DON{
+		ID:      "00010203",
 		Members: p2pIDs,
 		Config: capabilities.DONConfig{
 			SharedSecret: key,

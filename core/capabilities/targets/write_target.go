@@ -2,6 +2,7 @@ package targets
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -101,13 +102,17 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
+	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
+	if err != nil {
+		return nil, err
+	}
 	// Check whether value was already transmitted on chain
 	queryInputs := struct {
 		Receiver            string
 		WorkflowExecutionID []byte
 	}{
 		Receiver:            reqConfig.Address,
-		WorkflowExecutionID: []byte(request.Metadata.WorkflowExecutionID),
+		WorkflowExecutionID: rawExecutionID,
 	}
 	var transmitter common.Address
 	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
