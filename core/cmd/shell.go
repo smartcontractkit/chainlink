@@ -31,6 +31,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	commoncapabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -43,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
@@ -166,7 +168,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
 	})
 
-	capabilitiesRegistry := capabilities.NewRegistry(appLggr)
+	capabilitiesRegistry := capabilities.NewRegistry(appLggr, p2ptypes.PeerID{}, commoncapabilities.DON{})
 
 	// create the relayer-chain interoperators from application configuration
 	relayerFactory := chainlink.RelayerFactory{
