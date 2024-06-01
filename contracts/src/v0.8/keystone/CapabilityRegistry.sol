@@ -730,7 +730,14 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       // We acknowledge that this may result in an out of gas error if the number of configured
       // nodes is large.  This is mitigated by ensuring that there will not be a large number
+<<<<<<< Updated upstream
       // of nodes configured to a DON
+=======
+      // of nodes configured to a DON.
+      // We also do not remove the nodes from the previous DON capability config.  This is not
+      // needed as the previous config will be overwritten by storing the latest config
+      // at configCount
+>>>>>>> Stashed changes
       for (uint256 i; i < prevDONCapabilityConfig.nodes.length(); ++i) {
         s_nodes[prevDONCapabilityConfig.nodes.at(i)].supportedDONIds.remove(donId);
       }
