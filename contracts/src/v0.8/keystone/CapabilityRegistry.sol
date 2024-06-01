@@ -59,6 +59,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// new capabilities by incrementing the configCount and creating a
     /// new set of supported capability IDs
     mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedCapabilityIds;
+    /// @notice The list of DON Ids supported by the node.
+    EnumerableSet.UintSet supportedDONIds;
   }
 
   /// @notice CapabilityResponseType indicates whether remote response requires
@@ -237,6 +239,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// is deprecated.
   /// @param hashedCapabilityId The hashed ID of the capability that is deprecated.
   error CapabilityIsDeprecated(bytes32 hashedCapabilityId);
+
+  /// @notice This error is thrown when trying to remove a node that is still
+  /// part of a DON
+  /// @param nodeP2PId The P2P Id of the node being removed
+  error NodePartOfDON(bytes32 nodeP2PId);
 
   /// @notice This error is thrown when trying to add a capability with a
   /// configuration contract that does not implement the required interface.
@@ -431,14 +438,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < removedNodeP2PIds.length; ++i) {
       bytes32 p2pId = removedNodeP2PIds[i];
 
-      bool nodeExists = bytes32(s_nodes[p2pId].signer) != bytes32("");
-      if (!nodeExists) revert InvalidNodeP2PId(p2pId);
+      Node storage node = s_nodes[p2pId];
 
-      NodeOperator memory nodeOperator = s_nodeOperators[s_nodes[p2pId].nodeOperatorId];
+      bool nodeExists = bytes32(node.signer) != bytes32("");
+      if (!nodeExists) revert InvalidNodeP2PId(p2pId);
+      if (node.supportedDONIds.length() > 0) revert NodePartOfDON(p2pId);
+
+      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
 
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
-      s_nodeSigners.remove(s_nodes[p2pId].signer);
-      s_nodeP2PIds.remove(s_nodes[p2pId].p2pId);
+      s_nodeSigners.remove(node.signer);
+      s_nodeP2PIds.remove(node.p2pId);
       delete s_nodes[p2pId];
       emit NodeRemoved(p2pId);
     }
@@ -645,6 +655,13 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       uint32 donId = donIds[i];
       DON storage don = s_dons[donId];
 
+      uint32 configCount = don.configCount;
+      EnumerableSet.Bytes32Set storage nodeP2PIds = don.config[configCount].nodes;
+
+      for (uint256 j; j < nodeP2PIds.length(); ++j) {
+        s_nodes[nodeP2PIds.at(j)].supportedDONIds.remove(donId);
+      }
+
       // DON config count starts at index 1
       if (don.configCount == 0) revert DONDoesNotExist(donId);
       delete s_dons[donId];
@@ -706,9 +723,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   ) internal {
     DONCapabilityConfig storage donCapabilityConfig = s_dons[donId].config[configCount];
 
+    // Skip removing supported DON Ids from previously configured nodes in DON if
+    // we are adding the DON for the first time
+    if (configCount > 1) {
+      DONCapabilityConfig storage prevDONCapabilityConfig = s_dons[donId].config[configCount - 1];
+
+      // We acknowledge that this may result in an out of gas error if the number of configured
+      // nodes is large.  This is mitigated by ensuring that there will not be a large number
+      // of nodes configured to a DON
+      for (uint256 i; i < prevDONCapabilityConfig.nodes.length(); ++i) {
+        s_nodes[prevDONCapabilityConfig.nodes.at(i)].supportedDONIds.remove(donId);
+      }
+    }
+
     for (uint256 i; i < nodes.length; ++i) {
       if (donCapabilityConfig.nodes.contains(nodes[i])) revert DuplicateDONNode(donId, nodes[i]);
       donCapabilityConfig.nodes.add(nodes[i]);
+      s_nodes[nodes[i]].supportedDONIds.add(donId);
     }
 
     for (uint256 i; i < capabilityConfigurations.length; ++i) {
