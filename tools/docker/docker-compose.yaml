@@ -14,6 +14,8 @@ services:
     restart: always
     environment:
       - CL_DATABASE_URL
+#      - CL_SOLANA_CMD=chainlink-solana
+#      - CL_MEDIAN_CMD=chainlink-median
     env_file:
       - chainlink-variables.env
     ports:
@@ -34,6 +36,8 @@ services:
     restart: always
     environment:
       - CL_DATABASE_URL
+#      - CL_SOLANA_CMD=chainlink-solana
+#      - CL_MEDIAN_CMD=chainlink-median
     env_file:
       - chainlink-variables.env
     ports:
