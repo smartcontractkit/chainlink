@@ -178,28 +178,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param hashedCapabilityIds The IDs of the capabilities that are being added.
   error InvalidNodeCapabilities(bytes32[] hashedCapabilityIds);
 
-  /// @notice This event is emitted when a new node is added
-  /// @param p2pId The P2P ID of the node
-  /// @param nodeOperatorId The ID of the node operator that manages this node
-  /// @param signer The encoded node's signer address
-  event NodeAdded(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
-
-  /// @notice This event is emitted when a node is removed
-  /// @param p2pId The P2P ID of the node that was removed
-  event NodeRemoved(bytes32 p2pId);
-
-  /// @notice This event is emitted when a node is updated
-  /// @param p2pId The P2P ID of the node
-  /// @param nodeOperatorId The ID of the node operator that manages this node
-  /// @param signer The node's signer address
-  event NodeUpdated(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
-
-  /// @notice This event is emitted when a DON's config is set
-  /// @param donId The ID of the DON the config was set for
-  /// @param configCount The number of times the DON has been
-  /// configured
-  event ConfigSet(uint32 donId, uint32 configCount);
-
   /// @notice This error is emitted when a DON does not exist
   /// @param donId The ID of the nonexistent DON
   error DONDoesNotExist(uint32 donId);
@@ -240,6 +218,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param hashedCapabilityId The hashed ID of the capability that is deprecated.
   error CapabilityIsDeprecated(bytes32 hashedCapabilityId);
 
+  /// @notice This error is thrown when a node operator does not exist
+  /// @param nodeOperatorId The ID of the node operator that does not exist
+  error NodeOperatorDoesNotExist(uint32 nodeOperatorId);
+
   /// @notice This error is thrown when trying to remove a node that is still
   /// part of a DON
   /// @param nodeP2PId The P2P Id of the node being removed
@@ -250,6 +232,28 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param proposedConfigurationContract The address of the proposed
   /// configuration contract.
   error InvalidCapabilityConfigurationContractInterface(address proposedConfigurationContract);
+
+  /// @notice This event is emitted when a new node is added
+  /// @param p2pId The P2P ID of the node
+  /// @param nodeOperatorId The ID of the node operator that manages this node
+  /// @param signer The encoded node's signer address
+  event NodeAdded(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
+
+  /// @notice This event is emitted when a node is removed
+  /// @param p2pId The P2P ID of the node that was removed
+  event NodeRemoved(bytes32 p2pId);
+
+  /// @notice This event is emitted when a node is updated
+  /// @param p2pId The P2P ID of the node
+  /// @param nodeOperatorId The ID of the node operator that manages this node
+  /// @param signer The node's signer address
+  event NodeUpdated(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
+
+  /// @notice This event is emitted when a DON's config is set
+  /// @param donId The ID of the DON the config was set for
+  /// @param configCount The number of times the DON has been
+  /// configured
+  event ConfigSet(uint32 donId, uint32 configCount);
 
   /// @notice This event is emitted when a new node operator is added
   /// @param nodeOperatorId The ID of the newly added node operator
@@ -350,6 +354,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     address owner = owner();
     for (uint256 i; i < nodeOperatorIds.length; ++i) {
       uint32 nodeOperatorId = nodeOperatorIds[i];
+      if (s_nodeOperators[nodeOperatorId].admin == address(0)) revert NodeOperatorDoesNotExist(nodeOperatorId);
+
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
       if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden();
@@ -403,6 +409,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bool isOwner = msg.sender == owner();
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
+      if (nodeOperator.admin == address(0)) revert NodeOperatorDoesNotExist(node.nodeOperatorId);
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
       bool nodeExists = s_nodes[node.p2pId].signer != bytes32("");
@@ -730,14 +737,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       // We acknowledge that this may result in an out of gas error if the number of configured
       // nodes is large.  This is mitigated by ensuring that there will not be a large number
-<<<<<<< Updated upstream
-      // of nodes configured to a DON
-=======
       // of nodes configured to a DON.
       // We also do not remove the nodes from the previous DON capability config.  This is not
       // needed as the previous config will be overwritten by storing the latest config
       // at configCount
->>>>>>> Stashed changes
       for (uint256 i; i < prevDONCapabilityConfig.nodes.length(); ++i) {
         s_nodes[prevDONCapabilityConfig.nodes.at(i)].supportedDONIds.remove(donId);
       }
