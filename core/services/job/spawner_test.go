@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
