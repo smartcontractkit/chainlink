@@ -2,6 +2,7 @@ package targets
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -34,7 +35,6 @@ func NewWriteTarget(lggr logger.Logger, name string, cr commontypes.ContractRead
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
 		"v1.0.0",
-		nil,
 	)
 
 	logger := lggr.Named("WriteTarget")
@@ -102,13 +102,17 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
+	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
+	if err != nil {
+		return nil, err
+	}
 	// Check whether value was already transmitted on chain
 	queryInputs := struct {
 		Receiver            string
 		WorkflowExecutionID []byte
 	}{
 		Receiver:            reqConfig.Address,
-		WorkflowExecutionID: []byte(request.Metadata.WorkflowExecutionID),
+		WorkflowExecutionID: rawExecutionID,
 	}
 	var transmitter common.Address
 	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
@@ -123,10 +127,32 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	if err != nil {
 		return nil, err
 	}
-	args := []any{common.HexToAddress(reqConfig.Address), inputs.Report, inputs.Context, inputs.Signatures}
+
+	// Note: The codec that ChainWriter uses to encode the parameters for the contract ABI cannot handle
+	// `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
+	// `nil` values passed in the request.
+	req := struct {
+		ReceiverAddress string
+		RawReport       []byte
+		ReportContext   []byte
+		Signatures      [][]byte
+	}{reqConfig.Address, inputs.Report, inputs.Context, inputs.Signatures}
+
+	if req.RawReport == nil {
+		req.RawReport = make([]byte, 0)
+	}
+
+	if req.ReportContext == nil {
+		req.ReportContext = make([]byte, 0)
+	}
+
+	if req.Signatures == nil {
+		req.Signatures = make([][]byte, 0)
+	}
+
 	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
 	value := big.NewInt(0)
-	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", args, txID, cap.forwarderAddress, &meta, *value); err != nil {
+	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID, cap.forwarderAddress, &meta, *value); err != nil {
 		return nil, err
 	}
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)
