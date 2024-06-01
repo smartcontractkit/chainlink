@@ -336,7 +336,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		err = spawner.DeleteJob(ctx, nil, jobSpecID)
 		require.NoError(t, err)
 
-		lp.AssertNumberOfCalls(t, "UnregisterFilter", 4)
+		lp.AssertNumberOfCalls(t, "UnregisterFilter", 6)
 
 		lp.On("Close").Return(nil).Once()
 		spawner.Close()
