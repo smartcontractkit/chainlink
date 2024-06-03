@@ -75,7 +75,6 @@ func populateDatabase(t testing.TB, o logpoller.ORM, chainID *big.Int) (common.H
 				Data:           logpoller.EvmWord(uint64(i + 1000*j)).Bytes(),
 				CreatedAt:      blockTimestamp,
 			})
-
 		}
 		require.NoError(t, o.InsertLogs(ctx, logs))
 		require.NoError(t, o.InsertBlock(ctx, utils.RandomHash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour), 0))
@@ -545,8 +544,6 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 		BackupPollerBlockDelay:   1,
 	}
 	th := SetupTH(t, lpOpts)
-	//header, err := th.Client.HeaderByNumber(ctx, nil)
-	//require.NoError(t, err)
 
 	// Emit some logs in blocks
 	for i := 1; i <= logsBatch; i++ {
@@ -559,7 +556,7 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	// 1 -> 2 -> ... -> firstBatchBlock
 	firstBatchBlock := th.PollAndSaveLogs(ctx, 1)
 	// Mark current tip of the chain as finalized (after emitting 10 logs)
-	markBlockAsFinalized(t, th, firstBatchBlock)
+	markBlockAsFinalized(t, th, firstBatchBlock-1)
 
 	// Emit 2nd batch of block
 	for i := 1; i <= logsBatch; i++ {
@@ -571,7 +568,7 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	// 1 -> 2 -> ... -> firstBatchBlock (finalized) -> .. -> firstBatchBlock + emitted logs
 	secondBatchBlock := th.PollAndSaveLogs(ctx, firstBatchBlock)
 	// Mark current tip of the block as finalized (after emitting 20 logs)
-	markBlockAsFinalized(t, th, secondBatchBlock)
+	markBlockAsFinalized(t, th, secondBatchBlock-1)
 
 	// Register filter
 	err := th.LogPoller.RegisterFilter(ctx, logpoller.Filter{
@@ -595,8 +592,8 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 		th.EmitterAddress1,
 	)
 	require.NoError(t, err)
-	require.Len(t, logs, logsBatch+1)
-	require.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), logs[0].Data)
+	require.Len(t, logs, logsBatch)
+	require.Equal(t, hexutil.MustDecode(`0x000000000000000000000000000000000000000000000000000000000000000a`), logs[0].Data)
 }
 
 func TestLogPoller_BlockTimestamps(t *testing.T) {
@@ -676,6 +673,7 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	require.NoError(t, err)
 
 	// Logs should have correct timestamps
+	require.NotZero(t, len(lg1))
 	b, _ := th.Client.BlockByHash(ctx, lg1[0].BlockHash)
 	t.Log(len(lg1), lg1[0].BlockTimestamp)
 	assert.Equal(t, int64(b.Time()), lg1[0].BlockTimestamp.UTC().Unix(), time1)
@@ -1181,6 +1179,7 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			// Check that L1_1 has a proper data payload
 			lgs, err := th.ORM.SelectLogsByBlockRange(testutils.Context(t), 2, 2)
 			require.NoError(t, err)
+			require.NotZero(t, len(lgs))
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 
 			// Single block reorg and log poller not working for a while, mine blocks and progress with finalization
@@ -1208,6 +1207,7 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			// Expect L1_2 to be properly updated
 			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 2, 2)
 			require.NoError(t, err)
+			require.NotZero(t, len(lgs))
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
 			th.assertHaveCanonical(t, 1, 1)
 			th.assertDontHave(t, 2, 3) // These blocks are backfilled
@@ -1301,6 +1301,7 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	t.Parallel()
+
 	lpOpts := logpoller.Opts{
 		UseFinalityTag:           false,
 		FinalityDepth:            2,
@@ -1310,7 +1311,15 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	}
 	th := SetupTH(t, lpOpts)
 
-	err := th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
+	_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+	require.NoError(t, err)
+	th.Client.Commit() // Commit block #2 with log in it
+
+	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
+	require.NoError(t, err)
+	th.Client.Commit() // Commit block #3 with a different log
+
+	err = th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
 		Name:      "GetBlocks Test",
 		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
 		Addresses: []common.Address{th.EmitterAddress1, th.EmitterAddress2},
@@ -1330,16 +1339,13 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 1, len(blocks))
 	assert.Equal(t, 1, int(blocks[0].BlockNumber))
 
-	// LP fails to retrieve block 2 because it's neither in DB nor returned by RPC
+	// LP fails to return block 2 because it hasn't been finalized yet
 	blockNums = []uint64{2}
 	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.Error(t, err)
-	assert.Equal(t, "blocks were not found in db or RPC call: [2]", err.Error())
+	assert.Equal(t, "Received unfinalized block 2 while expecting finalized block (latestFinalizedBlockNumber = 1)", err.Error())
 
-	// Emit a log and mine block #2
-	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
-	require.NoError(t, err)
-	th.Client.Commit()
+	th.Client.Commit() // Commit block #4, so that block #2 is finalized
 
 	// Assert block 2 is not yet in DB
 	_, err = th.ORM.SelectBlockByNumber(testutils.Context(t), 2)
@@ -1351,10 +1357,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 1, len(rpcBlocks))
 	assert.Equal(t, 2, int(rpcBlocks[0].BlockNumber))
 
-	// Emit a log and mine block #3
-	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
-	require.NoError(t, err)
-	th.Client.Commit()
+	th.Client.Commit() // commit block #5 so that #3 becomes finalized
 
 	// Assert block 3 is not yet in DB
 	_, err = th.ORM.SelectBlockByNumber(testutils.Context(t), 3)
@@ -1368,12 +1371,9 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 1, int(rpcBlocks2[0].BlockNumber))
 	assert.Equal(t, 3, int(rpcBlocks2[1].BlockNumber))
 
-	// after calling PollAndSaveLogs, block 2 & 3 are persisted in DB
+	// after calling PollAndSaveLogs, block 3 (latest finalized block) is persisted in DB
 	th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
-	block, err := th.ORM.SelectBlockByNumber(testutils.Context(t), 2)
-	require.NoError(t, err)
-	assert.Equal(t, 2, int(block.BlockNumber))
-	block, err = th.ORM.SelectBlockByNumber(testutils.Context(t), 3)
+	block, err := th.ORM.SelectBlockByNumber(testutils.Context(t), 3)
 	require.NoError(t, err)
 	assert.Equal(t, 3, int(block.BlockNumber))
 
@@ -1507,9 +1507,9 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, lp.Start(ctx))
-	require.Eventually(t, func() bool {
+	testutils.AssertEventually(t, func() bool {
 		return observedLogs.Len() >= 1
-	}, 2*time.Second, 20*time.Millisecond)
+	})
 	err = lp.Close()
 	require.NoError(t, err)
 
@@ -1678,7 +1678,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		th.EmitterAddress1,
 		0,
 		common.Hash{},
-		logpoller.Finalized,
+		evmtypes.Finalized,
 	)
 	require.NoError(t, err)
 	require.Len(t, finalizedLogs, firstBatchLen, fmt.Sprintf("len(finalizedLogs) = %d, should have been %d", len(finalizedLogs), firstBatchLen))
@@ -1690,7 +1690,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		th.EmitterAddress1,
 		0,
 		common.Hash{},
-		logpoller.Confirmations(numberOfConfirmations),
+		evmtypes.Confirmations(numberOfConfirmations),
 	)
 	require.NoError(t, err)
 	require.Len(t, logsByConfs, firstBatchLen+secondBatchLen-numberOfConfirmations)
@@ -1919,4 +1919,119 @@ func markBlockAsFinalizedByHash(t *testing.T, th TestHarness, blockHash common.H
 	b, err := th.Client.BlockByHash(testutils.Context(t), blockHash)
 	require.NoError(t, err)
 	th.Client.Blockchain().SetFinalized(b.Header())
+}
+
+func TestFindLCA(t *testing.T) {
+	ctx := testutils.Context(t)
+	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.Test(t)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+
+	orm := logpoller.NewORM(chainID, db, lggr)
+
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        20,
+		RpcBatchSize:             10,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+
+	lp := logpoller.NewLogPoller(orm, ec, lggr, lpOpts)
+	t.Run("Fails, if failed to select oldest block", func(t *testing.T) {
+		_, err := lp.FindLCA(ctx)
+		require.ErrorContains(t, err, "failed to select the latest block")
+	})
+	// oldest
+	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x123"), 10, time.Now(), 0))
+	// latest
+	latestBlockHash := common.HexToHash("0x124")
+	require.NoError(t, orm.InsertBlock(ctx, latestBlockHash, 16, time.Now(), 0))
+	t.Run("Fails, if caller's context canceled", func(t *testing.T) {
+		lCtx, cancel := context.WithCancel(ctx)
+		ec.On("HeadByHash", mock.Anything, latestBlockHash).Return(nil, nil).Run(func(_ mock.Arguments) {
+			cancel()
+		}).Once()
+		_, err := lp.FindLCA(lCtx)
+		require.ErrorContains(t, err, "aborted, FindLCA request cancelled")
+	})
+	t.Run("Fails, if RPC returns an error", func(t *testing.T) {
+		expectedError := fmt.Errorf("failed to call RPC")
+		ec.On("HeadByHash", mock.Anything, latestBlockHash).Return(nil, expectedError).Once()
+		_, err := lp.FindLCA(ctx)
+		require.ErrorContains(t, err, expectedError.Error())
+	})
+	t.Run("Fails, if block numbers do not match", func(t *testing.T) {
+		ec.On("HeadByHash", mock.Anything, latestBlockHash).Return(&evmtypes.Head{
+			Number: 123,
+		}, nil).Once()
+		_, err := lp.FindLCA(ctx)
+		require.ErrorContains(t, err, "expected block numbers to match")
+	})
+	t.Run("Fails, if none of the blocks in db matches on chain", func(t *testing.T) {
+		ec.On("HeadByHash", mock.Anything, mock.Anything).Return(nil, nil).Times(3)
+		_, err := lp.FindLCA(ctx)
+		require.ErrorContains(t, err, "failed to find LCA, this means that whole database LogPoller state was reorged out of chain or RPC/Core node is misconfigured")
+	})
+
+	type block struct {
+		BN     int
+		Exists bool
+	}
+	testCases := []struct {
+		Name                string
+		Blocks              []block
+		ExpectedBlockNumber int
+		ExpectedError       error
+	}{
+		{
+			Name:                "All of the blocks are present on chain - returns the latest",
+			Blocks:              []block{{BN: 1, Exists: true}, {BN: 2, Exists: true}, {BN: 3, Exists: true}, {BN: 4, Exists: true}},
+			ExpectedBlockNumber: 4,
+		},
+		{
+			Name:                "None of the blocks exists on chain - returns an erro",
+			Blocks:              []block{{BN: 1, Exists: false}, {BN: 2, Exists: false}, {BN: 3, Exists: false}, {BN: 4, Exists: false}},
+			ExpectedBlockNumber: 0,
+			ExpectedError:       fmt.Errorf("failed to find LCA, this means that whole database LogPoller state was reorged out of chain or RPC/Core node is misconfigured"),
+		},
+		{
+			Name:                "Only latest block does not exist",
+			Blocks:              []block{{BN: 1, Exists: true}, {BN: 2, Exists: true}, {BN: 3, Exists: true}, {BN: 4, Exists: false}},
+			ExpectedBlockNumber: 3,
+		},
+		{
+			Name:                "Only oldest block exists on chain",
+			Blocks:              []block{{BN: 1, Exists: true}, {BN: 2, Exists: false}, {BN: 3, Exists: false}, {BN: 4, Exists: false}},
+			ExpectedBlockNumber: 1,
+		},
+	}
+
+	blockHashI := int64(0)
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			// reset the database
+			require.NoError(t, orm.DeleteLogsAndBlocksAfter(ctx, 0))
+			for _, b := range tc.Blocks {
+				blockHashI++
+				hash := common.BigToHash(big.NewInt(blockHashI))
+				require.NoError(t, orm.InsertBlock(ctx, hash, int64(b.BN), time.Now(), 0))
+				// Hashes are unique for all test cases
+				var onChainBlock *evmtypes.Head
+				if b.Exists {
+					onChainBlock = &evmtypes.Head{Number: int64(b.BN)}
+				}
+				ec.On("HeadByHash", mock.Anything, hash).Return(onChainBlock, nil).Maybe()
+			}
+
+			result, err := lp.FindLCA(ctx)
+			if tc.ExpectedError != nil {
+				require.ErrorContains(t, err, tc.ExpectedError.Error())
+			} else {
+				require.NotNil(t, result)
+				require.Equal(t, result.BlockNumber, int64(tc.ExpectedBlockNumber), "expected block numbers to match")
+			}
+		})
+	}
 }

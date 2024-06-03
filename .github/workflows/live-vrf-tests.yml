@@ -43,7 +43,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: live-vrf-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -78,7 +78,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: live-vrf-build-test-image
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -97,7 +97,7 @@ jobs:
           NETWORKS="${NETWORKS//,/\",\"}"
           echo "matrix=${NETWORKS}" >> "$GITHUB_OUTPUT"
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -138,6 +138,20 @@ jobs:
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
+          # metrics inputs
+          metrics-job-name: "grafana"
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/setup-create-base64-config-live-testnets
         with:
@@ -149,8 +163,9 @@ jobs:
           lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaUrl: "http://localhost:8080/primary"
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           network: ${{ matrix.network }}
           httpEndpoints: ${{ secrets[env.HTTP_URLS_SECRET_NAME] }}
           wsEndpoints: ${{ secrets[env.URLS_SECRET_NAME] }}
@@ -160,7 +175,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           test_command_to_run: ./tests -test.v -test.timeout 4h -test.count=1 -test.parallel=1 -test.run ${{ env.test_list }}
           binary_name: tests
@@ -178,6 +193,6 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           test_directory: "./"

@@ -217,6 +217,17 @@ func (result *TaskRunResult) IsTerminal() bool {
 // TaskRunResults represents a collection of results for all task runs for one pipeline run
 type TaskRunResults []TaskRunResult
 
+// GetTaskRunResultsFinishedAt returns latest finishedAt time from TaskRunResults.
+func (trrs TaskRunResults) GetTaskRunResultsFinishedAt() time.Time {
+	var finishedTime time.Time
+	for _, trr := range trrs {
+		if trr.FinishedAt.Valid && trr.FinishedAt.Time.After(finishedTime) {
+			finishedTime = trr.FinishedAt.Time
+		}
+	}
+	return finishedTime
+}
+
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
 // It needs to respect the output index of each task
 func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
@@ -404,9 +415,11 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		return nil, pkgerrors.Errorf(`unknown task type: "%v"`, taskType)
 	}
 
+	metadata := mapstructure.Metadata{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:           task,
 		WeaklyTypedInput: true,
+		Metadata:         &metadata,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
 			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
@@ -430,6 +443,23 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 	if err != nil {
 		return nil, err
 	}
+
+	// valid explicit index values are 0-based
+	for _, key := range metadata.Keys {
+		if key == "index" {
+			if task.OutputIndex() < 0 {
+				return nil, errors.New("result sorting indexes should start with 0")
+			}
+		}
+	}
+
+	// the 'unset' value should be -1 to allow explicit indexes to be 0-based
+	for _, key := range metadata.Unset {
+		if key == "index" {
+			task.Base().Index = -1
+		}
+	}
+
 	return task, nil
 }
 

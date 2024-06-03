@@ -11,13 +11,14 @@ import {AutomationForwarder} from "../../AutomationForwarder.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {UpkeepTranscoderInterfaceV2} from "../../interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {MigratableKeeperRegistryInterfaceV2} from "../../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 
 /**
  * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
  */
-contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
+contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IERC677Receiver {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -42,6 +43,23 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     )
     Chainable(address(logicB))
   {}
+
+  /**
+   * @notice uses LINK's transferAndCall to LINK and add funding to an upkeep
+   * @dev safe to cast uint256 to uint96 as total LINK supply is under UINT96MAX
+   * @param sender the account which transferred the funds
+   * @param amount number of LINK transfer
+   */
+  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
+    if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
+    if (data.length != 32) revert InvalidDataLength();
+    uint256 id = abi.decode(data, (uint256));
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidToken();
+    s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
+    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] + amount;
+    emit FundsAdded(id, sender, uint96(amount));
+  }
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -146,7 +164,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
    * @dev migration permissions must be set on *both* sending and receiving registries
    * @dev only an upkeep admin can migrate their upkeeps
    * @dev this function is most gas-efficient if upkeepIDs are sorted by billing token
-   * @dev TODO - this needs better multi-token testing
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
@@ -155,6 +172,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     ) revert MigrationNotPermitted();
     if (s_storage.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
     if (ids.length == 0) revert ArrayHasNoEntries();
+
     IERC20 billingToken;
     uint256 balanceToTransfer;
     uint256 id;
@@ -164,12 +182,13 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     bytes[] memory checkDatas = new bytes[](ids.length);
     bytes[] memory triggerConfigs = new bytes[](ids.length);
     bytes[] memory offchainConfigs = new bytes[](ids.length);
+
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
 
       if (idx == 0) {
-        billingToken = s_upkeep[id].billingToken;
+        billingToken = upkeep.billingToken;
         balanceToTransfer = upkeep.balance;
       }
 
@@ -179,9 +198,13 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
         billingToken.safeTransfer(destination, balanceToTransfer);
         billingToken = upkeep.billingToken;
         balanceToTransfer = upkeep.balance;
+      } else if (idx != 0) {
+        balanceToTransfer += upkeep.balance;
       }
+
       _requireAdminAndNotCancelled(id);
       upkeep.forwarder.updateRegistry(destination);
+
       upkeeps[idx] = upkeep;
       admins[idx] = s_upkeepAdmin[id];
       checkDatas[idx] = s_checkData[id];
@@ -193,15 +216,14 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       delete s_upkeepOffchainConfig[id];
       // nullify existing proposed admin change if an upkeep is being migrated
       delete s_proposedAdmin[id];
+      delete s_upkeepAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
-
-      // always transfer the rolling sum at the end of the array
-      if (idx == ids.length - 1) {
-        s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
-        billingToken.safeTransfer(destination, balanceToTransfer);
-      }
     }
+    // always transfer the rolling sum in the end
+    s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
+    billingToken.safeTransfer(destination, balanceToTransfer);
+
     bytes memory encodedUpkeeps = abi.encode(
       ids,
       upkeeps,

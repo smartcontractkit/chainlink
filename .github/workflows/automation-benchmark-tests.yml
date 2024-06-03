@@ -48,7 +48,7 @@ jobs:
       - name: Parse base64 config
         uses: ./.github/actions/setup-parse-base64-config
         with:
-          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}                 
+          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}
       - name: Send details to Step Summary
         shell: bash
         run: |
@@ -57,7 +57,7 @@ jobs:
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY          
+          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Build Test Image
         uses: ./.github/actions/build-test-image
         with:
@@ -66,7 +66,7 @@ jobs:
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           suites: benchmark chaos reorg load
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark
@@ -75,6 +75,8 @@ jobs:
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           TEST_TYPE: ${{ github.event.inputs.testType }}
           TEST_TEST_TYPE: ${{ github.event.inputs.testType }}
+          RR_MEM: 4Gi
+          TEST_LOG_LEVEL: info
         with:
           test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
@@ -89,7 +91,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: automation-benchmark-build-test-image
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

@@ -34,6 +34,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -253,6 +254,23 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 				},
 			},
 		},
+		{
+			Name:   "remove-blocks",
+			Usage:  "Deletes block range and all associated data",
+			Action: s.RemoveBlocks,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:     "start",
+					Usage:    "Beginning of block range to be deleted",
+					Required: true,
+				},
+				cli.Int64Flag{
+					Name:     "evm-chain-id",
+					Usage:    "Chain ID of the EVM-based blockchain",
+					Required: true,
+				},
+			},
+		},
 	}
 }
 
@@ -268,6 +286,7 @@ func (s *Shell) RunNode(c *cli.Context) error {
 }
 
 func (s *Shell) runNode(c *cli.Context) error {
+	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 
 	var pwd, vrfpwd *string
@@ -363,7 +382,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	// Local shell initialization always uses local auth users table for admin auth
 	authProviderORM := app.BasicAdminUsersORM()
 	keyStore := app.GetKeyStore()
-	err = s.KeyStoreAuthenticator.authenticate(keyStore, s.Config.Password())
+	err = s.KeyStoreAuthenticator.authenticate(rootCtx, keyStore, s.Config.Password())
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
@@ -389,7 +408,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	if s.Config.OCR().Enabled() {
-		err2 := app.GetKeyStore().OCR().EnsureKey()
+		err2 := app.GetKeyStore().OCR().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
@@ -408,37 +427,37 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.StarkNetEnabled() {
 			enabledChains = append(enabledChains, chaintype.StarkNet)
 		}
-		err2 := app.GetKeyStore().OCR2().EnsureKeys(enabledChains...)
+		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
 	if s.Config.P2P().Enabled() {
-		err2 := app.GetKeyStore().P2P().EnsureKey()
+		err2 := app.GetKeyStore().P2P().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
 	}
 	if s.Config.CosmosEnabled() {
-		err2 := app.GetKeyStore().Cosmos().EnsureKey()
+		err2 := app.GetKeyStore().Cosmos().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure cosmos key")
 		}
 	}
 	if s.Config.SolanaEnabled() {
-		err2 := app.GetKeyStore().Solana().EnsureKey()
+		err2 := app.GetKeyStore().Solana().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure solana key")
 		}
 	}
 	if s.Config.StarkNetEnabled() {
-		err2 := app.GetKeyStore().StarkNet().EnsureKey()
+		err2 := app.GetKeyStore().StarkNet().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure starknet key")
 		}
 	}
 
-	err2 := app.GetKeyStore().CSA().EnsureKey()
+	err2 := app.GetKeyStore().CSA().EnsureKey(rootCtx)
 	if err2 != nil {
 		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
@@ -448,11 +467,11 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	var user sessions.User
-	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(authProviderORM, lggr); err != nil {
+	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(ctx, authProviderORM, lggr); err != nil {
 		if !errors.Is(err, ErrNoCredentialFile) {
 			return errors.Wrap(err, "error creating api initializer")
 		}
-		if user, err = s.FallbackAPIInitializer.Initialize(authProviderORM, lggr); err != nil {
+		if user, err = s.FallbackAPIInitializer.Initialize(ctx, authProviderORM, lggr); err != nil {
 			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
 				return errors.WithStack(err)
 			}
@@ -579,6 +598,11 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		}
 	}
 
+	err = s.Config.Validate()
+	if err != nil {
+		return err
+	}
+
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
 	db, err := pg.OpenUnlockedDB(s.Config.AppID(), s.Config.Database())
 	if err != nil {
@@ -620,7 +644,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
 	}
 
-	err = keyStore.Unlock(s.Config.Password().Keystore())
+	err = keyStore.Unlock(ctx, s.Config.Password().Keystore())
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
@@ -631,11 +655,13 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	s.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr)
+	orm := txmgr.NewTxStore(app.GetDB(), lggr)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config().EVM())
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
-	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, feeCfg, chain.Config().EVM().Transactions(), chain.Config().Database(), keyStore.Eth(), txBuilder, chain.Logger())
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, ethClient.ConfiguredChainID(), "", assets.NewWei(assets.NewEth(100).ToInt()), chain.Config().EVM().Transactions().AutoPurge(), nil, orm, ethClient)
+	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
+		cfg, feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector)
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
@@ -921,7 +947,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err := migrate.Rollback(ctx, db.DB, s.Logger, version); err != nil {
+	if err := migrate.Rollback(ctx, db.DB, version); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
@@ -936,7 +962,7 @@ func (s *Shell) VersionDatabase(_ *cli.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	version, err := migrate.Current(ctx, db.DB, s.Logger)
+	version, err := migrate.Current(ctx, db.DB)
 	if err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
@@ -953,7 +979,7 @@ func (s *Shell) StatusDatabase(_ *cli.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Status(ctx, db.DB, s.Logger); err != nil {
+	if err = migrate.Status(ctx, db.DB); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
@@ -1097,7 +1123,7 @@ func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Migrate(ctx, db.DB, lggr); err != nil {
+	if err = migrate.Migrate(ctx, db.DB); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	return db.Close()
@@ -1108,10 +1134,10 @@ func downAndUpDB(ctx context.Context, cfg dbConfig, lggr logger.Logger, baseVers
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	if err = migrate.Rollback(ctx, db.DB, lggr, null.IntFrom(baseVersionID)); err != nil {
+	if err = migrate.Rollback(ctx, db.DB, null.IntFrom(baseVersionID)); err != nil {
 		return fmt.Errorf("test rollback failed: %v", err)
 	}
-	if err = migrate.Migrate(ctx, db.DB, lggr); err != nil {
+	if err = migrate.Migrate(ctx, db.DB); err != nil {
 		return fmt.Errorf("second migrateDB failed: %v", err)
 	}
 	return db.Close()
@@ -1172,4 +1198,65 @@ func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
 	}
 	_, err = db.Exec(string(fixturesSQL))
 	return err
+}
+
+// RemoveBlocks - removes blocks after the specified blocks number
+func (s *Shell) RemoveBlocks(c *cli.Context) error {
+	start := c.Int64("start")
+	if start <= 0 {
+		return s.errorOut(errors.New("Must pass a positive value in '--start' parameter"))
+	}
+
+	chainID := big.NewInt(0)
+	if c.IsSet("evm-chain-id") {
+		err := chainID.UnmarshalText([]byte(c.String("evm-chain-id")))
+		if err != nil {
+			return s.errorOut(err)
+		}
+	}
+
+	cfg := s.Config
+	err := cfg.Validate()
+	if err != nil {
+		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+	}
+
+	lggr := logger.Sugared(s.Logger.Named("RemoveBlocks"))
+	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
+	ctx, cancel := context.WithCancel(context.Background())
+	go shutdown.HandleShutdown(func(sig string) {
+		cancel()
+		lggr.Info("received signal to stop - closing the database and releasing lock")
+
+		if cErr := ldb.Close(); cErr != nil {
+			lggr.Criticalf("Failed to close LockedDB: %v", cErr)
+		}
+
+		if cErr := s.CloseLogger(); cErr != nil {
+			log.Printf("Failed to close Logger: %v", cErr)
+		}
+	})
+
+	if err = ldb.Open(ctx); err != nil {
+		// If not successful, we know neither locks nor connection remains opened
+		return s.errorOut(errors.Wrap(err, "opening db"))
+	}
+	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
+
+	// From now on, DB locks and DB connection will be released on every return.
+	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
+
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, ldb.DB())
+	if err != nil {
+		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+	}
+
+	err = app.DeleteLogPollerDataAfter(ctx, chainID, start)
+	if err != nil {
+		return s.errorOut(err)
+	}
+
+	lggr.Infof("RemoveBlocks: successfully removed blocks")
+
+	return nil
 }

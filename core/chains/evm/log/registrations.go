@@ -62,7 +62,7 @@ type (
 
 	// The Listener responds to log events through HandleLog.
 	Listener interface {
-		HandleLog(b Broadcast)
+		HandleLog(ctx context.Context, b Broadcast)
 		JobID() int32
 	}
 
@@ -225,7 +225,6 @@ func (r *registrations) sendLogs(ctx context.Context, logsToSend []logsOnBlock, 
 
 	for _, logsPerBlock := range logsToSend {
 		for numConfirmations, handlers := range r.handlersByConfs {
-
 			if numConfirmations != 0 && latestBlockNumber < uint64(numConfirmations) {
 				// Skipping send because the block is definitely too young
 				continue
@@ -240,6 +239,9 @@ func (r *registrations) sendLogs(ctx context.Context, logsToSend []logsOnBlock, 
 
 			for _, log := range logsPerBlock.Logs {
 				handlers.sendLog(ctx, log, latestHead, broadcastsExisting, bc, r.logger)
+				if ctx.Err() != nil {
+					return
+				}
 			}
 		}
 	}
@@ -389,7 +391,6 @@ func (r *handler) sendLog(ctx context.Context, log types.Log, latestHead evmtype
 	broadcasts map[LogBroadcastAsKey]bool,
 	bc broadcastCreator,
 	logger logger.Logger) {
-
 	topic := log.Topics[0]
 
 	latestBlockNumber := uint64(latestHead.Number)
@@ -442,7 +443,7 @@ func (r *handler) sendLog(ctx context.Context, log types.Log, latestHead evmtype
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			handleLog(&broadcast{
+			handleLog(ctx, &broadcast{
 				latestBlockNumber,
 				latestHead.Hash,
 				latestHead.ReceiptsRoot,

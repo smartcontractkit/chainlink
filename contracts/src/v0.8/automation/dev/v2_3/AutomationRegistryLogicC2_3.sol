@@ -4,10 +4,9 @@ pragma solidity 0.8.19;
 import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IAutomationV21PlusCommon} from "../../interfaces/IAutomationV21PlusCommon.sol";
 
 contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
@@ -70,7 +69,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice withdraws LINK received as payment for work performed
+   * @notice this is for NOPs to withdraw LINK received as payment for work performed
    */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
@@ -79,7 +78,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
     s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] - balance;
-    i_link.transfer(to, balance);
+    bool transferStatus = i_link.transfer(to, balance);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
@@ -97,7 +99,8 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice sets the payees for the transmitters
+   * @notice this is used by the owner to set the initial payees for newly added transmitters. The owner is not allowed to change payees for existing transmitters.
+   * @dev the IGNORE_ADDRESS is a "helper" that makes it easier to construct a list of payees when you only care about setting the payee for a small number of transmitters.
    */
   function setPayees(address[] calldata payees) external onlyOwner {
     if (s_transmittersList.length != payees.length) revert ParameterLengthError();
@@ -105,9 +108,13 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
       address transmitter = s_transmittersList[i];
       address oldPayee = s_transmitterPayees[transmitter];
       address newPayee = payees[i];
+
       if (
         (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
-      ) revert InvalidPayee();
+      ) {
+        revert InvalidPayee();
+      }
+
       if (newPayee != IGNORE_ADDRESS) {
         s_transmitterPayees[transmitter] = newPayee;
       }
@@ -157,30 +164,41 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     _onlyFinanceAdminAllowed();
     if (s_payoutMode == PayoutMode.ON_CHAIN) revert MustSettleOnchain();
 
+    uint96 totalPremium = s_hotVars.totalPremium;
     uint256 activeTransmittersLength = s_transmittersList.length;
     uint256 deactivatedTransmittersLength = s_deactivatedTransmitters.length();
     uint256 length = activeTransmittersLength + deactivatedTransmittersLength;
     uint256[] memory payments = new uint256[](length);
     address[] memory payees = new address[](length);
+
     for (uint256 i = 0; i < activeTransmittersLength; i++) {
       address transmitterAddr = s_transmittersList[i];
       uint96 balance = _updateTransmitterBalanceFromPool(
         transmitterAddr,
-        s_hotVars.totalPremium,
+        totalPremium,
         uint96(activeTransmittersLength)
       );
+
       payments[i] = balance;
       payees[i] = s_transmitterPayees[transmitterAddr];
       s_transmitters[transmitterAddr].balance = 0;
     }
+
     for (uint256 i = 0; i < deactivatedTransmittersLength; i++) {
       address deactivatedAddr = s_deactivatedTransmitters.at(i);
       Transmitter memory transmitter = s_transmitters[deactivatedAddr];
+
       payees[i + activeTransmittersLength] = s_transmitterPayees[deactivatedAddr];
       payments[i + activeTransmittersLength] = transmitter.balance;
       s_transmitters[deactivatedAddr].balance = 0;
     }
-    delete s_deactivatedTransmitters;
+
+    // reserve amount of LINK is reset to 0 since no user deposits of LINK are expected in offchain mode
+    s_reserveAmounts[IERC20(address(i_link))] = 0;
+
+    for (uint256 idx = s_deactivatedTransmitters.length(); idx > 0; idx--) {
+      s_deactivatedTransmitters.remove(s_deactivatedTransmitters.at(idx - 1));
+    }
 
     emit NOPsSettledOffchain(payees, payments);
   }
@@ -534,7 +552,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice returns the upkeep privilege config
+   * @notice returns the admin's privilege config
    */
   function getAdminPrivilegeConfig(address admin) external view returns (bytes memory) {
     return s_adminPrivilegeConfig[admin];
@@ -548,7 +566,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice returns the upkeep's forwarder contract
+   * @notice returns if the dedupKey exists or not
    */
   function hasDedupKey(bytes32 dedupKey) external view returns (bool) {
     return s_dedupKeys[dedupKey];
@@ -570,9 +588,47 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
+   * @notice returns the amount of a particular token that is withdraw-able by finance admin
+   */
+  function getAvailableERC20ForPayment(IERC20 billingToken) external view returns (uint256) {
+    return billingToken.balanceOf(address(this)) - s_reserveAmounts[IERC20(address(billingToken))];
+  }
+
+  /**
    * @notice returns the size of the LINK liquidity pool
    */
   function linkAvailableForPayment() public view returns (int256) {
     return _linkAvailableForPayment();
+  }
+
+  /**
+   * @notice returns the BillingOverrides config for a given upkeep
+   */
+  function getBillingOverrides(uint256 upkeepID) external view returns (BillingOverrides memory) {
+    return s_billingOverrides[upkeepID];
+  }
+
+  /**
+   * @notice returns the BillingConfig for a given billing token, this includes decimals and price feed etc
+   */
+  function getBillingConfig(IERC20 billingToken) external view returns (BillingConfig memory) {
+    return s_billingConfigs[billingToken];
+  }
+
+  /**
+   * @notice returns all active transmitters with their associated payees
+   */
+  function getTransmittersWithPayees() external view returns (TransmitterPayeeInfo[] memory) {
+    uint256 transmitterCount = s_transmittersList.length;
+    TransmitterPayeeInfo[] memory transmitters = new TransmitterPayeeInfo[](transmitterCount);
+
+    for (uint256 i = 0; i < transmitterCount; i++) {
+      address transmitterAddress = s_transmittersList[i];
+      address payeeAddress = s_transmitterPayees[transmitterAddress];
+
+      transmitters[i] = TransmitterPayeeInfo(transmitterAddress, payeeAddress);
+    }
+
+    return transmitters;
   }
 }

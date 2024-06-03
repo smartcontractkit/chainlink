@@ -9,6 +9,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -60,7 +61,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 		c.String(http.StatusOK, "")
 	})
 
-	sessionORM.On("AuthorizedUserWithSession", sessionID).Return(clsessions.User{Email: cltest.APIEmailAdmin, Role: clsessions.UserRoleAdmin}, nil)
+	sessionORM.On("AuthorizedUserWithSession", mock.Anything, sessionID).Return(clsessions.User{Email: cltest.APIEmailAdmin, Role: clsessions.UserRoleAdmin}, nil)
 
 	w := httptest.NewRecorder()
 	req := mustRequest(t, "GET", "/", nil)
@@ -76,7 +77,7 @@ func Test_GetAndSetGQLAuthenticatedSession(t *testing.T) {
 	ctx := testutils.Context(t)
 	user := clsessions.User{Email: cltest.APIEmailAdmin, Role: clsessions.UserRoleAdmin}
 
-	ctx = auth.SetGQLAuthenticatedSession(ctx, user, "sessionID")
+	ctx = auth.WithGQLAuthenticatedSession(ctx, user, "sessionID")
 
 	actual, ok := auth.GetGQLAuthenticatedSession(ctx)
 	assert.True(t, ok)

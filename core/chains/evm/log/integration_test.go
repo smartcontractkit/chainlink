@@ -241,7 +241,6 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		<-cltest.SimulateIncomingHeads(t, blocks.Slice(12, 13), helper.lb)
 		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 4 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 4 but was %d", len(listener.getUniqueLogs()))
-
 	}()
 
 	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, testutils.WaitTimeout(t), time.Second)
@@ -250,7 +249,6 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	contract1 := newMockContract(t)
 	contract2 := newMockContract(t)
-	ctx := testutils.Context(t)
 
 	blocks := cltest.NewBlocks(t, 10)
 	const (
@@ -263,12 +261,11 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	log2 := blocks.LogOnBlockNum(log2Block, contract2.Address())
 	logs := []types.Log{log1, log2}
 
-	contract1.On("ParseLog", log1).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil)
-	contract2.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
 	t.Run("pool two logs from subscription, then shut down", func(t *testing.T) {
 		helper := newBroadcasterHelper(t, 0, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
+		ctx := testutils.Context(t)
 		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
@@ -294,7 +291,10 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 2, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
+		ctx := testutils.Context(t)
 		orm := log.NewORM(helper.db, cltest.FixtureChainID)
+		contract1.On("ParseLog", log1).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil)
+		contract2.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener.SkipMarkingConsumed(true)
@@ -318,6 +318,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 4, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
+		ctx := testutils.Context(t)
 		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
@@ -342,6 +343,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 7, 1, logs[1:], func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
+		ctx := testutils.Context(t)
 		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 		listener := helper.newLogListenerWithJob("one")
 		listener2 := helper.newLogListenerWithJob("two")
@@ -377,8 +379,9 @@ func (helper *broadcasterHelper) simulateHeads(t *testing.T, listener, listener2
 
 	<-headsDone
 
+	ctx := testutils.Context(t)
 	require.Eventually(t, func() bool {
-		blockNum, err := orm.GetPendingMinBlock(testutils.Context(t))
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		if !assert.NoError(t, err) {
 			return false
 		}

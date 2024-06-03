@@ -79,6 +79,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes memory callData = _checkPayload(id, triggerType, triggerData);
 
     gasUsed = gasleft();
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
@@ -188,6 +189,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
 
     Upkeep memory upkeep = s_upkeep[id];
     gasUsed = gasleft();
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
     gasUsed = gasUsed - gasleft();
     if (!success) {

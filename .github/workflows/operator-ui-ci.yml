@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: operator-ui-ci
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -31,13 +31,14 @@ jobs:
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_CI_OPERATOR_UI_ACCESS_TOKEN_ISSUER_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
           role-duration-seconds: 3600
           role-session-name: operator-ui-ci.check-gql
-          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
 
       - name: Get Github Token
         id: get-gh-token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@5874ff7211cf5a5a2670bb010fbff914eaaae138 # v2.3.12
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 

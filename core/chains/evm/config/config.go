@@ -2,6 +2,7 @@ package config
 
 import (
 	"math/big"
+	"net/url"
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -11,7 +12,6 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 type EVM interface {
@@ -71,10 +71,29 @@ type HeadTracker interface {
 	HistoryDepth() uint32
 	MaxBufferSize() uint32
 	SamplingInterval() time.Duration
+	FinalityTagBypass() bool
+	MaxAllowedFinalityDepth() uint32
 }
 
 type BalanceMonitor interface {
 	Enabled() bool
+}
+
+type ClientErrors interface {
+	NonceTooLow() string
+	NonceTooHigh() string
+	ReplacementTransactionUnderpriced() string
+	LimitReached() string
+	TransactionAlreadyInMempool() string
+	TerminallyUnderpriced() string
+	InsufficientEth() string
+	TxFeeExceedsCap() string
+	L2FeeTooLow() string
+	L2FeeTooHigh() string
+	L2Full() string
+	TransactionAlreadyMined() string
+	Fatal() string
+	ServiceUnavailable() string
 }
 
 type Transactions interface {
@@ -84,6 +103,14 @@ type Transactions interface {
 	ReaperThreshold() time.Duration
 	MaxInFlight() uint32
 	MaxQueued() uint64
+	AutoPurge() AutoPurgeConfig
+}
+
+type AutoPurgeConfig interface {
+	Enabled() bool
+	Threshold() uint32
+	MinAttempts() uint32
+	DetectionApiUrl() *url.URL
 }
 
 //go:generate mockery --quiet --name GasEstimator --output ./mocks/ --case=underscore
@@ -142,14 +169,12 @@ type NodePool interface {
 	LeaseDuration() time.Duration
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
+	Errors() ClientErrors
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?
 //
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	config.AppConfig
-	Validate() error
-
 	EVM() EVM
 }

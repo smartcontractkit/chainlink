@@ -8,11 +8,12 @@ import (
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type db struct {
-	*sql.DB
+	ds           sqlutil.DataSource
 	oracleSpecID int32
 	lggr         logger.Logger
 }
@@ -20,12 +21,12 @@ type db struct {
 var _ ocrtypes.ConfigDatabase = &db{}
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqldb *sql.DB, bootstrapSpecID int32, lggr logger.Logger) *db {
-	return &db{sqldb, bootstrapSpecID, lggr}
+func NewDB(ds sqlutil.DataSource, bootstrapSpecID int32, lggr logger.Logger) *db {
+	return &db{ds, bootstrapSpecID, lggr}
 }
 
 func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err error) {
-	q := d.QueryRowContext(ctx, `
+	q := d.ds.QueryRowxContext(ctx, `
 SELECT
 	config_digest,
 	config_count,
@@ -82,7 +83,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	for _, s := range c.Signers {
 		signers = append(signers, []byte(s))
 	}
-	_, err := d.ExecContext(ctx, `
+	_, err := d.ds.ExecContext(ctx, `
 INSERT INTO bootstrap_contract_configs (
 	bootstrap_spec_id,
 	config_digest,

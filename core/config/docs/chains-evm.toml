@@ -14,7 +14,7 @@ BlockBackfillDepth = 10 # Default
 # BlockBackfillSkip enables skipping of very long backfills.
 BlockBackfillSkip = false # Default
 # ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-# Available types: `arbitrum`, `celo`, `gnosis`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `zksync`
+# Available types: `arbitrum`, `celo`, `gnosis`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
 #
 # `xdai` has been deprecated and will be removed in v2.13.0, use `gnosis` instead.
 ChainType = 'arbitrum' # Example
@@ -111,6 +111,16 @@ ReaperInterval = '1h' # Default
 ReaperThreshold = '168h' # Default
 # ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
 ResendAfterThreshold = '1m' # Default
+
+[EVM.Transactions.AutoPurge]
+# Enabled enables or disables automatically purging transactions that have been idenitified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
+Enabled = false # Default
+# DetectionApiUrl configures the base url of a custom endpoint used to identify terminally stuck transactions.
+DetectionApiUrl = 'https://example.api.io' # Example
+# Threshold configures the number of blocks a transaction has to remain unconfirmed before it is evaluated for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain.
+Threshold = 5 # Example
+# MinAttempts configures the minimum number of broadcasted attempts a transaction has to have before it is evaluated further for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain. Ensure the gas estimator configs take more bump attempts before reaching the configured max gas price.
+MinAttempts = 3 # Example
 
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.
@@ -301,6 +311,14 @@ MaxBufferSize = 3 # Default
 # **ADVANCED**
 # SamplingInterval means that head tracker callbacks will at maximum be made once in every window of this duration. This is a performance optimisation for fast chains. Set to 0 to disable sampling entirely.
 SamplingInterval = '1s' # Default
+# FinalityTagBypass disables FinalityTag support in HeadTracker and makes it track blocks up to FinalityDepth from the most recent head.
+# It should only be used on chains with an extremely large actual finality depth (the number of blocks between the most recent head and the latest finalized block).
+# Has no effect if `FinalityTagsEnabled` = false
+FinalityTagBypass = true # Default
+# MaxAllowedFinalityDepth - defines maximum number of blocks between the most recent head and the latest finalized block.
+# If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
+# Has no effect if `FinalityTagsEnabled` = false
+MaxAllowedFinalityDepth = 10000 # Default
 
 [[EVM.KeySpecific]]
 # Key is the account to apply these settings to
@@ -352,6 +370,39 @@ NodeIsSyncingEnabled = false # Default
 #
 # Set to 0 to disable.
 FinalizedBlockPollInterval = '5s' # Default
+
+# **ADVANCED**
+# Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
+[EVM.NodePool.Errors]
+# NonceTooLow is a regex pattern to match against nonce too low errors.
+NonceTooLow = '(: |^)nonce too low' # Example
+# NonceTooHigh is a regex pattern to match against nonce too high errors.
+NonceTooHigh = '(: |^)nonce too high' # Example
+# ReplacementTransactionUnderpriced is a regex pattern to match against replacement transaction underpriced errors.
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' # Example
+# LimitReached is a regex pattern to match against limit reached errors.
+LimitReached = '(: |^)limit reached' # Example
+# TransactionAlreadyInMempool is a regex pattern to match against transaction already in mempool errors.
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
+# TerminallyUnderpriced is a regex pattern to match against terminally underpriced errors.
+TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
+# InsufficientEth is a regex pattern to match against insufficient eth errors.
+InsufficientEth = '(: |^)insufficeint eth' # Example
+# TxFeeExceedsCap is a regex pattern to match against tx fee exceeds cap errors.
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
+# L2FeeTooLow is a regex pattern to match against l2 fee too low errors.
+L2FeeTooLow = '(: |^)l2 fee too low' # Example
+# L2FeeTooHigh is a regex pattern to match against l2 fee too high errors.
+L2FeeTooHigh = '(: |^)l2 fee too high' # Example
+# L2Full is a regex pattern to match against l2 full errors.
+L2Full = '(: |^)l2 full' # Example
+# TransactionAlreadyMined is a regex pattern to match against transaction already mined errors.
+TransactionAlreadyMined = '(: |^)transaction already mined' # Example
+# Fatal is a regex pattern to match against fatal errors.
+Fatal = '(: |^)fatal' # Example
+# ServiceUnavailable is a regex pattern to match against service unavailable errors.
+ServiceUnavailable = '(: |^)service unavailable' # Example
+
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.
 ContractConfirmations = 4 # Default

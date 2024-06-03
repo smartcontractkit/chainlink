@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -34,7 +35,7 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	if !ok {
 		return nil, fmt.Errorf("expected %s to be a string", abiConfigFieldName)
 	}
-	selector, err := abiutil.ParseSignature("inner(" + selectorStr + ")")
+	selector, err := abiutil.ParseSelector("inner(" + selectorStr + ")")
 	if err != nil {
 		return nil, err
 	}
@@ -67,31 +68,57 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	// prepend workflowID and workflowExecutionID to the encoded user data
-	workflowIDbytes, executionIDBytes, err := extractIDs(unwrappedMap)
+
+	metaMap, ok := input.Underlying[consensustypes.MetadataFieldName]
+	if !ok {
+		return nil, fmt.Errorf("expected metadata field to be present: %s", consensustypes.MetadataFieldName)
+	}
+
+	var meta consensustypes.Metadata
+	err = metaMap.UnwrapTo(&meta)
 	if err != nil {
 		return nil, err
 	}
-	return append(append(workflowIDbytes, executionIDBytes...), userPayload...), nil
+
+	return prependMetadataFields(meta, userPayload)
 }
 
-// extract workflowID and executionID from the input map, validate and align to 32 bytes
-// NOTE: consider requiring them to be exactly 32 bytes to avoid issues with padding
-func extractIDs(input map[string]any) ([]byte, []byte, error) {
-	workflowID, ok := input[consensustypes.WorkflowIDFieldName].(string)
-	if !ok {
-		return nil, nil, fmt.Errorf("expected %s to be a string", consensustypes.WorkflowIDFieldName)
+func prependMetadataFields(meta consensustypes.Metadata, userPayload []byte) ([]byte, error) {
+	// TODO: use all 7 fields from Metadata struct
+	result := []byte{}
+	workflowID, err := decodeID(meta.WorkflowID, idLen)
+	if err != nil {
+		return nil, err
 	}
-	executionID, ok := input[consensustypes.ExecutionIDFieldName].(string)
-	if !ok {
-		return nil, nil, fmt.Errorf("expected %s to be a string", consensustypes.ExecutionIDFieldName)
+	result = append(result, workflowID...)
+
+	donID, err := decodeID(meta.DONID, 4)
+	if err != nil {
+		return nil, err
 	}
-	if len(workflowID) > 32 || len(executionID) > 32 {
-		return nil, nil, fmt.Errorf("IDs too long: %d, %d", len(workflowID), len(executionID))
+	result = append(result, donID...)
+
+	executionID, err := decodeID(meta.ExecutionID, idLen)
+	if err != nil {
+		return nil, err
 	}
-	alignedWorkflowID := make([]byte, idLen)
-	copy(alignedWorkflowID, workflowID)
-	alignedExecutionID := make([]byte, idLen)
-	copy(alignedExecutionID, executionID)
-	return alignedWorkflowID, alignedExecutionID, nil
+	result = append(result, executionID...)
+
+	workflowOwner, err := decodeID(meta.WorkflowOwner, 20)
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, workflowOwner...)
+	return append(result, userPayload...), nil
+}
+
+func decodeID(id string, expectedLen int) ([]byte, error) {
+	b, err := hex.DecodeString(id)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) != expectedLen {
+		return nil, fmt.Errorf("incorrect length for id %s, expected %d bytes, got %d", id, expectedLen, len(b))
+	}
+	return b, nil
 }

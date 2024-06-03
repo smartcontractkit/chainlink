@@ -54,7 +54,7 @@ DefaultLockTimeout = '15s'
 DefaultQueryTimeout = '10s'
 LogQueries = false
 MaxIdleConns = 10
-MaxOpenConns = 20
+MaxOpenConns = 100
 MigrateOnStartup = true
 
 [Database.Backup]
@@ -270,6 +270,10 @@ LatestReportDeadline = '5s'
 
 [Mercury.TLS]
 CertFile = ''
+
+[Mercury.Transmitter]
+TransmitQueueMaxSize = 10000
+TransmitTimeout = '5s'
 
 [Capabilities]
 [Capabilities.Peering]

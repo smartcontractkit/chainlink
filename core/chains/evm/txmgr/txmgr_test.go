@@ -69,10 +69,10 @@ func makeTestEvmTxm(
 
 	return txmgr.NewTxm(
 		db,
-		db,
 		ccfg,
 		fcfg,
 		txConfig,
+		nil,
 		dbConfig,
 		listenerConfig,
 		ethClient,
@@ -92,7 +92,7 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 
-	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
+	keyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore)
@@ -107,9 +107,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
 	txStore := cltest.NewTestTxStore(t, db)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
+	kst := cltest.NewKeyStore(t, db)
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	toAddress := testutils.NewAddress()
@@ -387,9 +386,8 @@ func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
 
 func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
 	txStore := cltest.NewTestTxStore(t, db)
-	etKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	etKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	thisKey, _ := cltest.RandomKey{Nonce: 1}.MustInsert(t, etKeyStore)
 	otherKey, _ := cltest.RandomKey{Nonce: 1}.MustInsert(t, etKeyStore)
@@ -528,7 +526,7 @@ func TestTxm_Reset(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
+	kst := cltest.NewKeyStore(t, db)
 
 	_, addr := cltest.RandomKey{}.MustInsert(t, kst.Eth())
 	_, addr2 := cltest.RandomKey{}.MustInsert(t, kst.Eth())
@@ -549,7 +547,7 @@ func TestTxm_Reset(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(44), nil).Maybe()
 
 	estimator := gas.NewEstimator(logger.Test(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth())
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), kst.Eth())
 	require.NoError(t, err)
 
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, addr2)
@@ -643,7 +641,7 @@ func mustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.T
 		BlockNumber:      big.NewInt(nonce),
 		TransactionIndex: uint(1),
 	}
-	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&receipt}, &chainID)
+	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&receipt}, txmgrcommon.TxConfirmed, nil, &chainID)
 	require.NoError(t, err)
 	return etx
 }

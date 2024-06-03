@@ -25,6 +25,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
           role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: goreleaser-build-publish-chainlink.push-develop
       - name: Build, sign, and publish image
         id: build-sign-publish
         uses: ./.github/actions/goreleaser-build-sign-publish
@@ -39,7 +41,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: goreleaser-build-publish
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

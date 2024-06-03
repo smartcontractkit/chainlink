@@ -31,8 +31,8 @@ var (
 )
 
 var KeystoneForwarderMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ReentrantCall\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"workflowExecutionId\",\"type\":\"bytes32\"}],\"name\":\"getTransmitter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"targetAddress\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"}],\"name\":\"report\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b5033806000816100675760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615610097576100978161009f565b505050610148565b336001600160a01b038216036100f75760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161005e565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b610c12806101576000396000f3fe608060405234801561001057600080fd5b50600436106100725760003560e01c8063c0965dc311610050578063c0965dc314610108578063e6b714581461012b578063f2fde38b1461016157600080fd5b8063181f5a771461007757806379ba5097146100bf5780638da5cb5b146100c9575b600080fd5b604080518082018252601781527f4b657973746f6e65466f7277617264657220312e302e30000000000000000000602082015290516100b69190610827565b60405180910390f35b6100c7610174565b005b60005473ffffffffffffffffffffffffffffffffffffffff165b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020016100b6565b61011b6101163660046108bc565b610276565b60405190151581526020016100b6565b6100e3610139366004610998565b60009081526003602052604090205473ffffffffffffffffffffffffffffffffffffffff1690565b6100c761016f3660046109b1565b61058e565b60015473ffffffffffffffffffffffffffffffffffffffff1633146101fa576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e65720000000000000000000060448201526064015b60405180910390fd5b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b60025460009060ff16156102b6576040517f37ed32e800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600280547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff001660011790556044841161034b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601360248201527f696e76616c69642064617461206c656e6774680000000000000000000000000060448201526064016101f1565b600061035a85600481896109d3565b8101906103679190610a2c565b8051602082012090915060005b848110156104655760008060006103e289898681811061039657610396610afb565b90506020028101906103a89190610b2a565b8080601f0160208091040260200160405190810160405280939291908181526020018383808284376000920191909152506105a292505050565b925092509250600060018683868660405160008152602001604052604051610426949392919093845260ff9290921660208401526040830152606082015260800190565b6020604051602081039080840390855afa158015610448573d6000803e3d6000fd5b5086955061045d9450859350610b9692505050565b915050610374565b5060008061047284610630565b600081815260036020526040902054919350915073ffffffffffffffffffffffffffffffffffffffff16156104ae57600094505050505061055d565b6000808b73ffffffffffffffffffffffffffffffffffffffff168b8b6040516104d8929190610bf5565b6000604051808303816000865af19150503d8060008114610515576040519150601f19603f3d011682016040523d82523d6000602084013e61051a565b606091505b5050506000928352505060036020526040902080547fffffffffffffffffffffffff00000000000000000000000000000000000000001633179055506001925050505b600280547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016905595945050505050565b6105966106af565b61059f81610732565b50565b60008060008351604114610612576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601860248201527f696e76616c6964207369676e6174757265206c656e677468000000000000000060448201526064016101f1565b50505060208101516040820151606090920151909260009190911a90565b600080604083511161069e576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601560248201527f696e76616c6964207265706f7274206c656e677468000000000000000000000060448201526064016101f1565b505060208101516040909101519091565b60005473ffffffffffffffffffffffffffffffffffffffff163314610730576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000060448201526064016101f1565b565b3373ffffffffffffffffffffffffffffffffffffffff8216036107b1576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c6600000000000000000060448201526064016101f1565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b600060208083528351808285015260005b8181101561085457858101830151858201604001528201610838565b5060006040828601015260407fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8301168501019250505092915050565b803573ffffffffffffffffffffffffffffffffffffffff811681146108b757600080fd5b919050565b6000806000806000606086880312156108d457600080fd5b6108dd86610893565b9450602086013567ffffffffffffffff808211156108fa57600080fd5b818801915088601f83011261090e57600080fd5b81358181111561091d57600080fd5b89602082850101111561092f57600080fd5b60208301965080955050604088013591508082111561094d57600080fd5b818801915088601f83011261096157600080fd5b81358181111561097057600080fd5b8960208260051b850101111561098557600080fd5b9699959850939650602001949392505050565b6000602082840312156109aa57600080fd5b5035919050565b6000602082840312156109c357600080fd5b6109cc82610893565b9392505050565b600080858511156109e357600080fd5b838611156109f057600080fd5b5050820193919092039150565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b600060208284031215610a3e57600080fd5b813567ffffffffffffffff80821115610a5657600080fd5b818401915084601f830112610a6a57600080fd5b813581811115610a7c57610a7c6109fd565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f01168101908382118183101715610ac257610ac26109fd565b81604052828152876020848701011115610adb57600080fd5b826020860160208301376000928101602001929092525095945050505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b60008083357fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe1843603018112610b5f57600080fd5b83018035915067ffffffffffffffff821115610b7a57600080fd5b602001915036819003821315610b8f57600080fd5b9250929050565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610bee577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b5060010190565b818382376000910190815291905056fea164736f6c6343000813000a",
+	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"signer\",\"type\":\"address\"}],\"name\":\"DuplicateSigner\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"numSigners\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxSigners\",\"type\":\"uint256\"}],\"name\":\"ExcessSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"FaultToleranceMustBePositive\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"numSigners\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minSigners\",\"type\":\"uint256\"}],\"name\":\"InsufficientSigners\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"donId\",\"type\":\"uint32\"}],\"name\":\"InvalidDonId\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidReport\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"}],\"name\":\"InvalidSignature\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"expected\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"received\",\"type\":\"uint256\"}],\"name\":\"InvalidSignatureCount\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"signer\",\"type\":\"address\"}],\"name\":\"InvalidSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrantCall\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"reportId\",\"type\":\"bytes32\"}],\"name\":\"ReportAlreadyProcessed\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"workflowOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"workflowExecutionId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"result\",\"type\":\"bool\"}],\"name\":\"ReportProcessed\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"workflowExecutionId\",\"type\":\"bytes32\"}],\"name\":\"getTransmitter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"receiverAddress\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"rawReport\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"reportContext\",\"type\":\"bytes\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"}],\"name\":\"report\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"donId\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b5033806000816100675760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615610097576100978161009f565b505050610148565b336001600160a01b038216036100f75760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161005e565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b61152c806101576000396000f3fe608060405234801561001057600080fd5b506004361061007d5760003560e01c8063390d0b151161005b578063390d0b15146100f257806379ba50971461012a5780638da5cb5b14610132578063f2fde38b1461015057600080fd5b80631128956514610082578063134a46f014610097578063181f5a77146100aa575b600080fd5b610095610090366004611128565b610163565b005b6100956100a53660046111d3565b6108b5565b604080518082018252601781527f4b657973746f6e65466f7277617264657220312e302e30000000000000000000602082015290516100e991906112ab565b60405180910390f35b6101056101003660046112c5565b610c16565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020016100e9565b610095610ca7565b60005473ffffffffffffffffffffffffffffffffffffffff16610105565b61009561015e3660046112ef565b610da4565b60015474010000000000000000000000000000000000000000900460ff16156101b8576040517f37ed32e800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600180547fffffffffffffffffffffff00ffffffffffffffffffffffffffffffffffffffff16740100000000000000000000000000000000000000001790556058851015610232576040517fb55ac75400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000806000806102778a8a8080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250610db892505050565b63ffffffff8316600090815260026020526040812054949850929650909450925060ff90911690036102e2576040517fea1b312900000000000000000000000000000000000000000000000000000000815263ffffffff841660048201526024015b60405180910390fd5b604080517fffffffffffffffffffffffffffffffffffffffff00000000000000000000000060608e901b1660208083019190915260348083018690528351808403909101815260549092018352815191810191909120600081815260039092529190205473ffffffffffffffffffffffffffffffffffffffff1615610396576040517f1aac3d29000000000000000000000000000000000000000000000000000000008152600481018290526024016102d9565b63ffffffff841660009081526002602052604090205486906103bc9060ff166001611339565b60ff16146104275763ffffffff84166000908152600260205260409020546103e89060ff166001611339565b6040517fd6022e8e00000000000000000000000000000000000000000000000000000000815260ff9091166004820152602481018790526044016102d9565b60008b8b604051610439929190611352565b604051908190038120610452918c908c90602001611362565b604051602081830303815290604052805190602001209050610472610fb5565b6000805b898110156106e05760008060006104e48e8e868181106104985761049861137c565b90506020028101906104aa91906113ab565b8080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250610ddd92505050565b9194509250905060006001886104fb84601b611339565b6040805160008152602081018083529390935260ff90911690820152606081018690526080810185905260a0016020604051602081039080840390855afa15801561054a573d6000803e3d6000fd5b5050604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0015163ffffffff8f1660009081526002602081815284832073ffffffffffffffffffffffffffffffffffffffff851684529091019052918220549850925060ff881690039050610605576040517fbf18af4300000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff821660048201526024016102d9565b610610600187611410565b955060008760ff8816601f81106106295761062961137c565b602002015173ffffffffffffffffffffffffffffffffffffffff1614610693576040517fe021c4f200000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff821660048201526024016102d9565b80878760ff16601f81106106a9576106a961137c565b73ffffffffffffffffffffffffffffffffffffffff9092166020929092020152506106d992508391506114299050565b9050610476565b5050505060008c73ffffffffffffffffffffffffffffffffffffffff1663ff5a027087858f8f605890809261071793929190611461565b6040518563ffffffff1660e01b8152600401610736949392919061148b565b600060405180830381600087803b15801561075057600080fd5b505af1925050508015610761575060015b1561076a575060015b60405180604001604052803373ffffffffffffffffffffffffffffffffffffffff1681526020018215158152506003600084815260200190815260200160002060008201518160000160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555060208201518160000160146101000a81548160ff021916908315150217905550905050838373ffffffffffffffffffffffffffffffffffffffff168e73ffffffffffffffffffffffffffffffffffffffff167fdae8e752043eb5fc7e4a6eced57ceaf159548b630125ece9ffc41cfc952c208184604051610876911515815260200190565b60405180910390a45050600180547fffffffffffffffffffffff00ffffffffffffffffffffffffffffffffffffffff1690555050505050505050505050565b6108bd610e3d565b8260ff166000036108fa576040517f0743bae600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b601f81111561093f576040517f61750f4000000000000000000000000000000000000000000000000000000000815260048101829052601f60248201526044016102d9565b61094a8360036114fc565b60ff1681116109a8578061095f8460036114fc565b61096a906001611339565b6040517f9dd9e6d8000000000000000000000000000000000000000000000000000000008152600481019290925260ff1660248201526044016102d9565b60005b63ffffffff8516600090815260026020526040902060010154811015610a495763ffffffff851660009081526002602052604081206001018054839081106109f5576109f561137c565b600091825260208083209091015463ffffffff891683526002808352604080852073ffffffffffffffffffffffffffffffffffffffff9093168552910190915281205550610a4281611429565b90506109ab565b5063ffffffff84166000908152600260205260409020610a6d906001018383610fd4565b5060005b81811015610bcb576000838383818110610a8d57610a8d61137c565b9050602002016020810190610aa291906112ef565b63ffffffff8716600090815260026020818152604080842073ffffffffffffffffffffffffffffffffffffffff86168552909201905290205490915015610b2d576040517fe021c4f200000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff821660048201526024016102d9565b610b38826001611339565b63ffffffff8716600090815260026020818152604080842073ffffffffffffffffffffffffffffffffffffffff909616808552868401835290842060ff959095169094559081526001938401805494850181558252902090910180547fffffffffffffffffffffffff0000000000000000000000000000000000000000169091179055610bc481611429565b9050610a71565b50505063ffffffff91909116600090815260026020526040902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff001660ff909216919091179055565b600080610c7884846040517fffffffffffffffffffffffffffffffffffffffff000000000000000000000000606084901b1660208201526034810182905260009060540160405160208183030381529060405280519060200120905092915050565b60009081526003602052604090205473ffffffffffffffffffffffffffffffffffffffff169150505b92915050565b60015473ffffffffffffffffffffffffffffffffffffffff163314610d28576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e65720000000000000000000060448201526064016102d9565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b610dac610e3d565b610db581610ec0565b50565b602081015160408201516044830151606490930151919360e09190911c929160601c90565b60008060006041845114610e1f57836040517f2adfdc300000000000000000000000000000000000000000000000000000000081526004016102d991906112ab565b50505060208101516040820151606090920151909260009190911a90565b60005473ffffffffffffffffffffffffffffffffffffffff163314610ebe576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000060448201526064016102d9565b565b3373ffffffffffffffffffffffffffffffffffffffff821603610f3f576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c6600000000000000000060448201526064016102d9565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b604051806103e00160405280601f906020820280368337509192915050565b82805482825590600052602060002090810192821561104c579160200282015b8281111561104c5781547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff843516178255602090920191600190910190610ff4565b5061105892915061105c565b5090565b5b80821115611058576000815560010161105d565b803573ffffffffffffffffffffffffffffffffffffffff8116811461109557600080fd5b919050565b60008083601f8401126110ac57600080fd5b50813567ffffffffffffffff8111156110c457600080fd5b6020830191508360208285010111156110dc57600080fd5b9250929050565b60008083601f8401126110f557600080fd5b50813567ffffffffffffffff81111561110d57600080fd5b6020830191508360208260051b85010111156110dc57600080fd5b60008060008060008060006080888a03121561114357600080fd5b61114c88611071565b9650602088013567ffffffffffffffff8082111561116957600080fd5b6111758b838c0161109a565b909850965060408a013591508082111561118e57600080fd5b61119a8b838c0161109a565b909650945060608a01359150808211156111b357600080fd5b506111c08a828b016110e3565b989b979a50959850939692959293505050565b600080600080606085870312156111e957600080fd5b843563ffffffff811681146111fd57600080fd5b9350602085013560ff8116811461121357600080fd5b9250604085013567ffffffffffffffff81111561122f57600080fd5b61123b878288016110e3565b95989497509550505050565b6000815180845260005b8181101561126d57602081850181015186830182015201611251565b5060006020828601015260207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f83011685010191505092915050565b6020815260006112be6020830184611247565b9392505050565b600080604083850312156112d857600080fd5b6112e183611071565b946020939093013593505050565b60006020828403121561130157600080fd5b6112be82611071565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60ff8181168382160190811115610ca157610ca161130a565b8183823760009101908152919050565b838152818360208301376000910160200190815292915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b60008083357fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe18436030181126113e057600080fd5b83018035915067ffffffffffffffff8211156113fb57600080fd5b6020019150368190038213156110dc57600080fd5b60ff8281168282160390811115610ca157610ca161130a565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff820361145a5761145a61130a565b5060010190565b6000808585111561147157600080fd5b8386111561147e57600080fd5b5050820193919092039150565b84815273ffffffffffffffffffffffffffffffffffffffff8416602082015260606040820152816060820152818360808301376000818301608090810191909152601f9092017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01601019392505050565b60ff81811683821602908116908181146115185761151861130a565b509291505056fea164736f6c6343000813000a",
 }
 
 var KeystoneForwarderABI = KeystoneForwarderMetaData.ABI
@@ -171,9 +171,9 @@ func (_KeystoneForwarder *KeystoneForwarderTransactorRaw) Transact(opts *bind.Tr
 	return _KeystoneForwarder.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_KeystoneForwarder *KeystoneForwarderCaller) GetTransmitter(opts *bind.CallOpts, workflowExecutionId [32]byte) (common.Address, error) {
+func (_KeystoneForwarder *KeystoneForwarderCaller) GetTransmitter(opts *bind.CallOpts, receiver common.Address, workflowExecutionId [32]byte) (common.Address, error) {
 	var out []interface{}
-	err := _KeystoneForwarder.contract.Call(opts, &out, "getTransmitter", workflowExecutionId)
+	err := _KeystoneForwarder.contract.Call(opts, &out, "getTransmitter", receiver, workflowExecutionId)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -185,12 +185,12 @@ func (_KeystoneForwarder *KeystoneForwarderCaller) GetTransmitter(opts *bind.Cal
 
 }
 
-func (_KeystoneForwarder *KeystoneForwarderSession) GetTransmitter(workflowExecutionId [32]byte) (common.Address, error) {
-	return _KeystoneForwarder.Contract.GetTransmitter(&_KeystoneForwarder.CallOpts, workflowExecutionId)
+func (_KeystoneForwarder *KeystoneForwarderSession) GetTransmitter(receiver common.Address, workflowExecutionId [32]byte) (common.Address, error) {
+	return _KeystoneForwarder.Contract.GetTransmitter(&_KeystoneForwarder.CallOpts, receiver, workflowExecutionId)
 }
 
-func (_KeystoneForwarder *KeystoneForwarderCallerSession) GetTransmitter(workflowExecutionId [32]byte) (common.Address, error) {
-	return _KeystoneForwarder.Contract.GetTransmitter(&_KeystoneForwarder.CallOpts, workflowExecutionId)
+func (_KeystoneForwarder *KeystoneForwarderCallerSession) GetTransmitter(receiver common.Address, workflowExecutionId [32]byte) (common.Address, error) {
+	return _KeystoneForwarder.Contract.GetTransmitter(&_KeystoneForwarder.CallOpts, receiver, workflowExecutionId)
 }
 
 func (_KeystoneForwarder *KeystoneForwarderCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
@@ -249,16 +249,28 @@ func (_KeystoneForwarder *KeystoneForwarderTransactorSession) AcceptOwnership() 
 	return _KeystoneForwarder.Contract.AcceptOwnership(&_KeystoneForwarder.TransactOpts)
 }
 
-func (_KeystoneForwarder *KeystoneForwarderTransactor) Report(opts *bind.TransactOpts, targetAddress common.Address, data []byte, signatures [][]byte) (*types.Transaction, error) {
-	return _KeystoneForwarder.contract.Transact(opts, "report", targetAddress, data, signatures)
+func (_KeystoneForwarder *KeystoneForwarderTransactor) Report(opts *bind.TransactOpts, receiverAddress common.Address, rawReport []byte, reportContext []byte, signatures [][]byte) (*types.Transaction, error) {
+	return _KeystoneForwarder.contract.Transact(opts, "report", receiverAddress, rawReport, reportContext, signatures)
 }
 
-func (_KeystoneForwarder *KeystoneForwarderSession) Report(targetAddress common.Address, data []byte, signatures [][]byte) (*types.Transaction, error) {
-	return _KeystoneForwarder.Contract.Report(&_KeystoneForwarder.TransactOpts, targetAddress, data, signatures)
+func (_KeystoneForwarder *KeystoneForwarderSession) Report(receiverAddress common.Address, rawReport []byte, reportContext []byte, signatures [][]byte) (*types.Transaction, error) {
+	return _KeystoneForwarder.Contract.Report(&_KeystoneForwarder.TransactOpts, receiverAddress, rawReport, reportContext, signatures)
 }
 
-func (_KeystoneForwarder *KeystoneForwarderTransactorSession) Report(targetAddress common.Address, data []byte, signatures [][]byte) (*types.Transaction, error) {
-	return _KeystoneForwarder.Contract.Report(&_KeystoneForwarder.TransactOpts, targetAddress, data, signatures)
+func (_KeystoneForwarder *KeystoneForwarderTransactorSession) Report(receiverAddress common.Address, rawReport []byte, reportContext []byte, signatures [][]byte) (*types.Transaction, error) {
+	return _KeystoneForwarder.Contract.Report(&_KeystoneForwarder.TransactOpts, receiverAddress, rawReport, reportContext, signatures)
+}
+
+func (_KeystoneForwarder *KeystoneForwarderTransactor) SetConfig(opts *bind.TransactOpts, donId uint32, f uint8, signers []common.Address) (*types.Transaction, error) {
+	return _KeystoneForwarder.contract.Transact(opts, "setConfig", donId, f, signers)
+}
+
+func (_KeystoneForwarder *KeystoneForwarderSession) SetConfig(donId uint32, f uint8, signers []common.Address) (*types.Transaction, error) {
+	return _KeystoneForwarder.Contract.SetConfig(&_KeystoneForwarder.TransactOpts, donId, f, signers)
+}
+
+func (_KeystoneForwarder *KeystoneForwarderTransactorSession) SetConfig(donId uint32, f uint8, signers []common.Address) (*types.Transaction, error) {
+	return _KeystoneForwarder.Contract.SetConfig(&_KeystoneForwarder.TransactOpts, donId, f, signers)
 }
 
 func (_KeystoneForwarder *KeystoneForwarderTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
@@ -545,12 +557,160 @@ func (_KeystoneForwarder *KeystoneForwarderFilterer) ParseOwnershipTransferred(l
 	return event, nil
 }
 
+type KeystoneForwarderReportProcessedIterator struct {
+	Event *KeystoneForwarderReportProcessed
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *KeystoneForwarderReportProcessedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(KeystoneForwarderReportProcessed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(KeystoneForwarderReportProcessed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *KeystoneForwarderReportProcessedIterator) Error() error {
+	return it.fail
+}
+
+func (it *KeystoneForwarderReportProcessedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type KeystoneForwarderReportProcessed struct {
+	Receiver            common.Address
+	WorkflowOwner       common.Address
+	WorkflowExecutionId [32]byte
+	Result              bool
+	Raw                 types.Log
+}
+
+func (_KeystoneForwarder *KeystoneForwarderFilterer) FilterReportProcessed(opts *bind.FilterOpts, receiver []common.Address, workflowOwner []common.Address, workflowExecutionId [][32]byte) (*KeystoneForwarderReportProcessedIterator, error) {
+
+	var receiverRule []interface{}
+	for _, receiverItem := range receiver {
+		receiverRule = append(receiverRule, receiverItem)
+	}
+	var workflowOwnerRule []interface{}
+	for _, workflowOwnerItem := range workflowOwner {
+		workflowOwnerRule = append(workflowOwnerRule, workflowOwnerItem)
+	}
+	var workflowExecutionIdRule []interface{}
+	for _, workflowExecutionIdItem := range workflowExecutionId {
+		workflowExecutionIdRule = append(workflowExecutionIdRule, workflowExecutionIdItem)
+	}
+
+	logs, sub, err := _KeystoneForwarder.contract.FilterLogs(opts, "ReportProcessed", receiverRule, workflowOwnerRule, workflowExecutionIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &KeystoneForwarderReportProcessedIterator{contract: _KeystoneForwarder.contract, event: "ReportProcessed", logs: logs, sub: sub}, nil
+}
+
+func (_KeystoneForwarder *KeystoneForwarderFilterer) WatchReportProcessed(opts *bind.WatchOpts, sink chan<- *KeystoneForwarderReportProcessed, receiver []common.Address, workflowOwner []common.Address, workflowExecutionId [][32]byte) (event.Subscription, error) {
+
+	var receiverRule []interface{}
+	for _, receiverItem := range receiver {
+		receiverRule = append(receiverRule, receiverItem)
+	}
+	var workflowOwnerRule []interface{}
+	for _, workflowOwnerItem := range workflowOwner {
+		workflowOwnerRule = append(workflowOwnerRule, workflowOwnerItem)
+	}
+	var workflowExecutionIdRule []interface{}
+	for _, workflowExecutionIdItem := range workflowExecutionId {
+		workflowExecutionIdRule = append(workflowExecutionIdRule, workflowExecutionIdItem)
+	}
+
+	logs, sub, err := _KeystoneForwarder.contract.WatchLogs(opts, "ReportProcessed", receiverRule, workflowOwnerRule, workflowExecutionIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(KeystoneForwarderReportProcessed)
+				if err := _KeystoneForwarder.contract.UnpackLog(event, "ReportProcessed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_KeystoneForwarder *KeystoneForwarderFilterer) ParseReportProcessed(log types.Log) (*KeystoneForwarderReportProcessed, error) {
+	event := new(KeystoneForwarderReportProcessed)
+	if err := _KeystoneForwarder.contract.UnpackLog(event, "ReportProcessed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 func (_KeystoneForwarder *KeystoneForwarder) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
 	case _KeystoneForwarder.abi.Events["OwnershipTransferRequested"].ID:
 		return _KeystoneForwarder.ParseOwnershipTransferRequested(log)
 	case _KeystoneForwarder.abi.Events["OwnershipTransferred"].ID:
 		return _KeystoneForwarder.ParseOwnershipTransferred(log)
+	case _KeystoneForwarder.abi.Events["ReportProcessed"].ID:
+		return _KeystoneForwarder.ParseReportProcessed(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
@@ -565,12 +725,16 @@ func (KeystoneForwarderOwnershipTransferred) Topic() common.Hash {
 	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
 }
 
+func (KeystoneForwarderReportProcessed) Topic() common.Hash {
+	return common.HexToHash("0xdae8e752043eb5fc7e4a6eced57ceaf159548b630125ece9ffc41cfc952c2081")
+}
+
 func (_KeystoneForwarder *KeystoneForwarder) Address() common.Address {
 	return _KeystoneForwarder.address
 }
 
 type KeystoneForwarderInterface interface {
-	GetTransmitter(opts *bind.CallOpts, workflowExecutionId [32]byte) (common.Address, error)
+	GetTransmitter(opts *bind.CallOpts, receiver common.Address, workflowExecutionId [32]byte) (common.Address, error)
 
 	Owner(opts *bind.CallOpts) (common.Address, error)
 
@@ -578,7 +742,9 @@ type KeystoneForwarderInterface interface {
 
 	AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
 
-	Report(opts *bind.TransactOpts, targetAddress common.Address, data []byte, signatures [][]byte) (*types.Transaction, error)
+	Report(opts *bind.TransactOpts, receiverAddress common.Address, rawReport []byte, reportContext []byte, signatures [][]byte) (*types.Transaction, error)
+
+	SetConfig(opts *bind.TransactOpts, donId uint32, f uint8, signers []common.Address) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 
@@ -593,6 +759,12 @@ type KeystoneForwarderInterface interface {
 	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *KeystoneForwarderOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
 
 	ParseOwnershipTransferred(log types.Log) (*KeystoneForwarderOwnershipTransferred, error)
+
+	FilterReportProcessed(opts *bind.FilterOpts, receiver []common.Address, workflowOwner []common.Address, workflowExecutionId [][32]byte) (*KeystoneForwarderReportProcessedIterator, error)
+
+	WatchReportProcessed(opts *bind.WatchOpts, sink chan<- *KeystoneForwarderReportProcessed, receiver []common.Address, workflowOwner []common.Address, workflowExecutionId [][32]byte) (event.Subscription, error)
+
+	ParseReportProcessed(log types.Log) (*KeystoneForwarderReportProcessed, error)
 
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 

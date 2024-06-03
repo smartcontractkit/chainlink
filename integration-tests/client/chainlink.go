@@ -93,6 +93,19 @@ func (c *ChainlinkClient) URL() string {
 	return c.Config.URL
 }
 
+// Health returns all statuses health info
+func (c *ChainlinkClient) Health() (*HealthResponse, *http.Response, error) {
+	respBody := &HealthResponse{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Requesting health data")
+	resp, err := c.APIClient.R().
+		SetResult(&respBody).
+		Get("/health")
+	if err != nil {
+		return nil, nil, err
+	}
+	return respBody, resp.RawResponse, err
+}
+
 // CreateJobRaw creates a Chainlink job based on the provided spec string
 func (c *ChainlinkClient) CreateJobRaw(spec string) (*Job, *http.Response, error) {
 	job := &Job{}

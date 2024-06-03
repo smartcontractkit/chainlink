@@ -9,6 +9,7 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);
   event WrapperRequestMade(uint256 indexed requestId, uint256 paid);
 
+  // solhint-disable-next-line gas-struct-packing
   struct RequestStatus {
     uint256 paid;
     bool fulfilled;
@@ -76,5 +77,11 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
     (bool success, ) = payable(owner()).call{value: amount}("");
     // solhint-disable-next-line gas-custom-errors
     require(success, "withdrawNative failed");
+  }
+
+  event Received(address, uint256);
+
+  receive() external payable {
+    emit Received(msg.sender, msg.value);
   }
 }

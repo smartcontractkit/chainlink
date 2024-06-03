@@ -100,8 +100,8 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 
 		threadCtrl: utils.NewThreadControl(),
 
-		blockTime:      &atomic.Int64{},
-		lookbackBlocks: &atomic.Int64{},
+		blockTime:      new(atomic.Int64),
+		lookbackBlocks: new(atomic.Int64),
 		interval:       opts.ReadInterval * 5,
 
 		pending:           make([]ocr2keepers.UpkeepPayload, 0),

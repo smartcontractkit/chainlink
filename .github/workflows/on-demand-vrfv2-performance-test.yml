@@ -15,6 +15,10 @@ on:
           - "Load"
           - "Stress"
           - "Spike"
+      test_list_regex:
+        description: "Regex for tests to run"
+        required: false
+        default: "(TestVRFV2Performance)"
 jobs:
   vrfv2_performance_test:
     name: VRFV2 Performance Test
@@ -34,11 +38,14 @@ jobs:
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}
+      GRAFANA_URL: "http://localhost:8080/primary"
+      GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+      GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       WASP_LOG_LEVEL: info
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: on-demand-vrfv2-performance-test
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -69,9 +76,9 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY          
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
-          test_command_to_run: cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run TestVRFV2Performance ./vrfv2
+          test_command_to_run: cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}

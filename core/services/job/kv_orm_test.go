@@ -1,14 +1,17 @@
 package job_test
 
 import (
+	"context"
 	"fmt"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,69 +22,56 @@ import (
 )
 
 func TestJobKVStore(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 
 	lggr := logger.TestLogger(t)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
-	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
 
 	jobID := int32(1337)
-	kvStore := job.NewKVStore(jobID, db, config.Database(), lggr)
-	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, cltest.NewKeyStore(t, db, config.Database()), config.Database())
+	kvStore := job.NewKVStore(jobID, db, lggr)
+	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, cltest.NewKeyStore(t, db))
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
 	jb.ID = jobID
-	require.NoError(t, jobORM.CreateJob(&jb))
+	require.NoError(t, jobORM.CreateJob(testutils.Context(t), &jb))
 
-	type testData struct {
-		Test string
+	var values = [][]byte{
+		[]byte("Hello"),
+		[]byte("World"),
+		[]byte("Go"),
 	}
 
-	type nested struct {
-		Contact testData // Nested struct
-	}
-
-	values := []interface{}{
-		42,                             // int
-		"hello",                        // string
-		3.14,                           // float64
-		true,                           // bool
-		[]int{1, 2, 3},                 // slice of ints
-		map[string]int{"a": 1, "b": 2}, // map of string to int
-		testData{Test: "value1"},       // regular struct
-		nested{testData{"value2"}},     // nested struct
-	}
-
-	for i, value := range values {
+	for i, insertBytes := range values {
 		testKey := "test_key_" + fmt.Sprint(i)
-		require.NoError(t, kvStore.Store(testKey, value))
+		require.NoError(t, kvStore.Store(ctx, testKey, insertBytes))
 
-		// Get the type of the current value
-		valueType := reflect.TypeOf(value)
-		// Create a new instance of the value's type
-		temp := reflect.New(valueType).Interface()
+		var readBytes []byte
+		readBytes, err = kvStore.Get(ctx, testKey)
+		assert.NoError(t, err)
 
-		require.NoError(t, kvStore.Get(testKey, &temp))
-
-		tempValue := reflect.ValueOf(temp).Elem().Interface()
-		require.Equal(t, value, tempValue)
+		require.Equal(t, insertBytes, readBytes)
 	}
 
 	key := "test_key_updating"
-	td1 := testData{Test: "value1"}
-	td2 := testData{Test: "value2"}
+	td1 := []byte("value1")
+	td2 := []byte("value2")
 
-	var retData testData
-	require.NoError(t, kvStore.Store(key, td1))
-	require.NoError(t, kvStore.Get(key, &retData))
-	require.Equal(t, td1, retData)
+	require.NoError(t, kvStore.Store(ctx, key, td1))
+	fetchedBytes, err := kvStore.Get(ctx, key)
+	require.NoError(t, err)
+	require.Equal(t, td1, fetchedBytes)
 
-	require.NoError(t, kvStore.Store(key, td2))
-	require.NoError(t, kvStore.Get(key, &retData))
-	require.Equal(t, td2, retData)
+	require.NoError(t, kvStore.Store(ctx, key, td2))
+	fetchedBytes, err = kvStore.Get(ctx, key)
+	require.NoError(t, err)
+	require.Equal(t, td2, fetchedBytes)
 
-	require.NoError(t, jobORM.DeleteJob(jobID))
+	require.NoError(t, jobORM.DeleteJob(ctx, jobID))
 }

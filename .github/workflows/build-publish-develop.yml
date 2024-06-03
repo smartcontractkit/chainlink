@@ -56,52 +56,10 @@ jobs:
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           git-commit-sha: ${{ steps.git-ref.outputs.checked-out || github.sha }}
 
-      - name: Setup GAP
-        # Don't run for plugins.
-        if: matrix.image.name == ''
-        uses: smartcontractkit/.github/actions/setup-gap@1bc7ce34fa81fffcb4a6eb0e4e12e59d94d0fc8f # setup-gap@0.2.0
-        with:
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_SAND }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_SAND }}
-          use-k8s: "true"
-          k8s-cluster-name: ${{ secrets.AWS_EKS_CLUSTER_NAME_SAND }}
-          use-private-ecr-registry: true
-          ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
-          metrics-job-name: push-chainlink-develop ${{ matrix.image.name }}
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-
-      # A mutable image tag is used for these CRIBs and it was just built/published
-      # from this workflow. The deployment has an `imagePullPolicy: Always` set, so
-      # we need to restart the deployments to pick up the new image.
-      - name: Restart K8s Deployments for CRIBs
-        # Don't run for plugins.
-        if: matrix.image.name == ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Removes the "smartcontractkit/" (org name) prefix.
-          REPO_NAME_ONLY="${GITHUB_REPOSITORY##*/}"
-          K8S_NAMESPACE="crib-${REPO_NAME_ONLY}-develop"
-
-          deployment_node_names=$(kubectl --namespace "${K8S_NAMESPACE}" \
-              get deployments \
-              -l "app=${K8S_NAMESPACE}" \
-              -o custom-columns=:metadata.name --no-headers)
-
-          IFS=$'\n' read -r -d '' -a deployment_names_arr <<< "$deployment_node_names" || :
-          for name in "${deployment_names_arr[@]}"; do
-              echo "Restarting deployment: $name"
-              kubectl --namespace "${K8S_NAMESPACE}" \
-                  rollout restart "deployment/${name}"
-          done
-
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: build-chainlink-develop
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

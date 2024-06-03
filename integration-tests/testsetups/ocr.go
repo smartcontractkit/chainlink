@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -44,11 +45,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 const (
@@ -113,6 +112,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
 	}
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
+	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
 		NamespacePrefix:    nsPre,
@@ -166,15 +166,8 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		network = networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0]
 	)
 
-	network = utils.MustReplaceSimulatedNetworkUrlWithK8(o.log, network, *o.testEnvironment)
-	readSethCfg := ocrTestConfig.GetSethConfig()
-	require.NotNil(o.t, readSethCfg, "Seth config shouldn't be nil")
-
-	sethCfg := utils.MergeSethAndEvmNetworkConfigs(o.log, network, *readSethCfg)
-	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-	require.NoError(o.t, err, "Error validating seth network config")
-
-	seth, err := seth.NewClientWithConfig(&sethCfg)
+	network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(o.log, network, *o.testEnvironment)
+	seth, err := actions_seth.GetChainClient(o.Config, network)
 	require.NoError(o.t, err, "Error creating seth client")
 
 	o.seth = seth

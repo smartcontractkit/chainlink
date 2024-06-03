@@ -11,7 +11,6 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 )
 
 func Test_SendEveryStrategy(t *testing.T) {
@@ -28,10 +27,9 @@ func Test_SendEveryStrategy(t *testing.T) {
 
 func Test_DropOldestStrategy_Subject(t *testing.T) {
 	t.Parallel()
-	cfg := configtest.NewGeneralConfig(t, nil)
 
 	subject := uuid.New()
-	s := txmgrcommon.NewDropOldestStrategy(subject, 1, cfg.Database().DefaultQueryTimeout())
+	s := txmgrcommon.NewDropOldestStrategy(subject, 1)
 
 	assert.True(t, s.Subject().Valid)
 	assert.Equal(t, subject, s.Subject().UUID)
@@ -39,14 +37,12 @@ func Test_DropOldestStrategy_Subject(t *testing.T) {
 
 func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Parallel()
-	cfg := configtest.NewGeneralConfig(t, nil)
 	subject := uuid.New()
 	queueSize := uint32(2)
-	queryTimeout := cfg.Database().DefaultQueryTimeout()
 	mockTxStore := mocks.NewEvmTxStore(t)
 
 	t.Run("calls PrineUnstartedTxQueue for the given subject and queueSize, ignoring fromAddress", func(t *testing.T) {
-		strategy1 := txmgrcommon.NewDropOldestStrategy(subject, queueSize, queryTimeout)
+		strategy1 := txmgrcommon.NewDropOldestStrategy(subject, queueSize)
 		mockTxStore.On("PruneUnstartedTxQueue", mock.Anything, queueSize-1, subject, mock.Anything, mock.Anything).Once().Return([]int64{1, 2}, nil)
 		ids, err := strategy1.PruneQueue(testutils.Context(t), mockTxStore)
 		require.NoError(t, err)

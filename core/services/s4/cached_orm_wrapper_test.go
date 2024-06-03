@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -21,11 +22,12 @@ import (
 
 func TestGetSnapshotEmpty(t *testing.T) {
 	t.Run("OK-no_rows", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		psqlORM := setupORM(t, "test")
 		lggr := logger.TestLogger(t)
 		orm := s4.NewCachedORMWrapper(psqlORM, lggr)
 
-		rows, err := orm.GetSnapshot(s4.NewFullAddressRange())
+		rows, err := orm.GetSnapshot(ctx, s4.NewFullAddressRange())
 		assert.NoError(t, err)
 		assert.Empty(t, rows)
 	})
@@ -33,23 +35,24 @@ func TestGetSnapshotEmpty(t *testing.T) {
 
 func TestGetSnapshotCacheFilled(t *testing.T) {
 	t.Run("OK_with_rows_already_cached", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		rows := generateTestSnapshotRows(t, 100)
 
 		fullAddressRange := s4.NewFullAddressRange()
 
 		lggr := logger.TestLogger(t)
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("GetSnapshot", fullAddressRange).Return(rows, nil).Once()
+		underlayingORM.On("GetSnapshot", mock.Anything, fullAddressRange).Return(rows, nil).Once()
 
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
 		// first call will go to the underlaying orm implementation to fill the cache
-		first_snapshot, err := orm.GetSnapshot(fullAddressRange)
+		first_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
 		assert.Equal(t, len(rows), len(first_snapshot))
 
 		// on the second call, the results will come from the cache, if not the mock will return an error because of .Once()
-		cache_snapshot, err := orm.GetSnapshot(fullAddressRange)
+		cache_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
 		assert.Equal(t, len(rows), len(cache_snapshot))
 
@@ -75,23 +78,24 @@ func TestGetSnapshotCacheFilled(t *testing.T) {
 
 func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 	t.Run("OK-GetSnapshot_cache_invalidated_after_update", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		rows := generateTestSnapshotRows(t, 100)
 
 		fullAddressRange := s4.NewFullAddressRange()
 
 		lggr := logger.TestLogger(t)
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("GetSnapshot", fullAddressRange).Return(rows, nil).Once()
+		underlayingORM.On("GetSnapshot", mock.Anything, fullAddressRange).Return(rows, nil).Once()
 
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
 		// first call will go to the underlaying orm implementation to fill the cache
-		first_snapshot, err := orm.GetSnapshot(fullAddressRange)
+		first_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
 		assert.Equal(t, len(rows), len(first_snapshot))
 
 		// on the second call, the results will come from the cache, if not the mock will return an error because of .Once()
-		cache_snapshot, err := orm.GetSnapshot(fullAddressRange)
+		cache_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
 		assert.Equal(t, len(rows), len(cache_snapshot))
 
@@ -105,18 +109,19 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 			Confirmed:  true,
 			Signature:  cltest.MustRandomBytes(t, 32),
 		}
-		underlayingORM.On("Update", row).Return(nil).Once()
-		err = orm.Update(row)
+		underlayingORM.On("Update", mock.Anything, row).Return(nil).Once()
+		err = orm.Update(ctx, row)
 		assert.NoError(t, err)
 
 		// given the cache was invalidated this request will reach the underlaying orm implementation
-		underlayingORM.On("GetSnapshot", fullAddressRange).Return(rows, nil).Once()
-		third_snapshot, err := orm.GetSnapshot(fullAddressRange)
+		underlayingORM.On("GetSnapshot", mock.Anything, fullAddressRange).Return(rows, nil).Once()
+		third_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
 		assert.Equal(t, len(rows), len(third_snapshot))
 	})
 
 	t.Run("OK-GetSnapshot_cache_not_invalidated_after_update", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		rows := generateTestSnapshotRows(t, 5)
 
 		addressRange := &s4.AddressRange{
@@ -126,17 +131,17 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("GetSnapshot", addressRange).Return(rows, nil).Once()
+		underlayingORM.On("GetSnapshot", mock.Anything, addressRange).Return(rows, nil).Once()
 
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
 		// first call will go to the underlaying orm implementation to fill the cache
-		first_snapshot, err := orm.GetSnapshot(addressRange)
+		first_snapshot, err := orm.GetSnapshot(ctx, addressRange)
 		assert.NoError(t, err)
 		assert.Equal(t, len(rows), len(first_snapshot))
 
 		// on the second call, the results will come from the cache, if not the mock will return an error because of .Once()
-		cache_snapshot, err := orm.GetSnapshot(addressRange)
+		cache_snapshot, err := orm.GetSnapshot(ctx, addressRange)
 		assert.NoError(t, err)
 		assert.Equal(t, len(rows), len(cache_snapshot))
 
@@ -151,12 +156,12 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 			Confirmed:  true,
 			Signature:  cltest.MustRandomBytes(t, 32),
 		}
-		underlayingORM.On("Update", row).Return(nil).Once()
-		err = orm.Update(row)
+		underlayingORM.On("Update", mock.Anything, row).Return(nil).Once()
+		err = orm.Update(ctx, row)
 		assert.NoError(t, err)
 
 		// given the cache was not invalidated this request wont reach the underlaying orm implementation
-		third_snapshot, err := orm.GetSnapshot(addressRange)
+		third_snapshot, err := orm.GetSnapshot(ctx, addressRange)
 		assert.NoError(t, err)
 		assert.Equal(t, len(rows), len(third_snapshot))
 	})
@@ -169,24 +174,26 @@ func TestGet(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("OK-Get_underlaying_ORM_returns_a_row", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		underlayingORM := mocks.NewORM(t)
 		expectedRow := &s4.Row{
 			Address: address,
 			SlotId:  slotID,
 		}
-		underlayingORM.On("Get", address, slotID).Return(expectedRow, nil).Once()
+		underlayingORM.On("Get", mock.Anything, address, slotID).Return(expectedRow, nil).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
-		row, err := orm.Get(address, slotID)
+		row, err := orm.Get(ctx, address, slotID)
 		require.NoError(t, err)
 		require.Equal(t, expectedRow, row)
 	})
 	t.Run("NOK-Get_underlaying_ORM_returns_an_error", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("Get", address, slotID).Return(nil, fmt.Errorf("some_error")).Once()
+		underlayingORM.On("Get", mock.Anything, address, slotID).Return(nil, fmt.Errorf("some_error")).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
-		row, err := orm.Get(address, slotID)
+		row, err := orm.Get(ctx, address, slotID)
 		require.Nil(t, row)
 		require.EqualError(t, err, "some_error")
 	})
@@ -199,22 +206,24 @@ func TestDeletedExpired(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("OK-DeletedExpired_underlaying_ORM_returns_a_row", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		var expectedDeleted int64 = 10
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("DeleteExpired", limit, now).Return(expectedDeleted, nil).Once()
+		underlayingORM.On("DeleteExpired", mock.Anything, limit, now).Return(expectedDeleted, nil).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
-		actualDeleted, err := orm.DeleteExpired(limit, now)
+		actualDeleted, err := orm.DeleteExpired(ctx, limit, now)
 		require.NoError(t, err)
 		require.Equal(t, expectedDeleted, actualDeleted)
 	})
 	t.Run("NOK-DeletedExpired_underlaying_ORM_returns_an_error", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		var expectedDeleted int64
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("DeleteExpired", limit, now).Return(expectedDeleted, fmt.Errorf("some_error")).Once()
+		underlayingORM.On("DeleteExpired", mock.Anything, limit, now).Return(expectedDeleted, fmt.Errorf("some_error")).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
-		actualDeleted, err := orm.DeleteExpired(limit, now)
+		actualDeleted, err := orm.DeleteExpired(ctx, limit, now)
 		require.EqualError(t, err, "some_error")
 		require.Equal(t, expectedDeleted, actualDeleted)
 	})
@@ -226,6 +235,7 @@ func TestGetUnconfirmedRows(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("OK-GetUnconfirmedRows_underlaying_ORM_returns_a_row", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		address := big.New(testutils.NewAddress().Big())
 		var slotID uint = 1
 
@@ -234,19 +244,20 @@ func TestGetUnconfirmedRows(t *testing.T) {
 			SlotId:  slotID,
 		}}
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("GetUnconfirmedRows", limit).Return(expectedRow, nil).Once()
+		underlayingORM.On("GetUnconfirmedRows", mock.Anything, limit).Return(expectedRow, nil).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
-		actualRow, err := orm.GetUnconfirmedRows(limit)
+		actualRow, err := orm.GetUnconfirmedRows(ctx, limit)
 		require.NoError(t, err)
 		require.Equal(t, expectedRow, actualRow)
 	})
 	t.Run("NOK-GetUnconfirmedRows_underlaying_ORM_returns_an_error", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("GetUnconfirmedRows", limit).Return(nil, fmt.Errorf("some_error")).Once()
+		underlayingORM.On("GetUnconfirmedRows", mock.Anything, limit).Return(nil, fmt.Errorf("some_error")).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
-		actualRow, err := orm.GetUnconfirmedRows(limit)
+		actualRow, err := orm.GetUnconfirmedRows(ctx, limit)
 		require.Nil(t, actualRow)
 		require.EqualError(t, err, "some_error")
 	})

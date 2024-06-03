@@ -3,6 +3,7 @@ package dashboard_lib
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/K-Phoen/grabana"
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/pkg/errors"
@@ -70,6 +71,36 @@ func (m *Dashboard) Add(opts []dashboard.Option) {
 
 func (m *Dashboard) AddSDKPanel(panel map[string]interface{}) {
 	m.SDKPanels = append(m.SDKPanels, panel)
+}
+
+func (m *Dashboard) Delete() error {
+	ctx := context.Background()
+	var client *grabana.Client
+	if m.DeployOpts.GrafanaBasicAuthUser != "" && m.DeployOpts.GrafanaBasicAuthPassword != "" {
+		L.Info().Msg("Authorizing using BasicAuth")
+		client = grabana.NewClient(
+			&http.Client{},
+			m.DeployOpts.GrafanaURL,
+			grabana.WithBasicAuth(m.DeployOpts.GrafanaBasicAuthUser, m.DeployOpts.GrafanaBasicAuthPassword),
+		)
+	} else {
+		L.Info().Msg("Authorizing using Bearer token")
+		client = grabana.NewClient(
+			&http.Client{},
+			m.DeployOpts.GrafanaURL,
+			grabana.WithAPIToken(m.DeployOpts.GrafanaToken),
+		)
+	}
+	db, err := client.GetDashboardByTitle(ctx, m.Name)
+	if err != nil {
+		return errors.Wrap(err, "failed to get the dashboard")
+	}
+	fmt.Println(db.UID)
+	errDelete := client.DeleteDashboard(ctx, db.UID)
+	if errDelete != nil {
+		return errors.Wrap(errDelete, "failed to delete the dashboard")
+	}
+	return nil
 }
 
 func (m *Dashboard) build() (dashboard.Builder, error) {

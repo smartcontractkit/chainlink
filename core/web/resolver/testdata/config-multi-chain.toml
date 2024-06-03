@@ -40,6 +40,10 @@ ChainID = '1'
 FinalityDepth = 26
 FinalityTagEnabled = false
 
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 10500000
+
 [[EVM.Nodes]]
 Name = 'primary'
 WSURL = 'wss://web.socket/mainnet'

@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -23,7 +23,7 @@ type dispatcher struct {
 	peer        p2ptypes.Peer
 	peerID      p2ptypes.PeerID
 	signer      p2ptypes.Signer
-	registry    commontypes.CapabilitiesRegistry
+	registry    core.CapabilitiesRegistry
 	receivers   map[key]remotetypes.Receiver
 	mu          sync.RWMutex
 	stopCh      services.StopChan
@@ -40,7 +40,7 @@ var _ services.Service = &dispatcher{}
 
 const supportedVersion = 1
 
-func NewDispatcher(peerWrapper p2ptypes.PeerWrapper, signer p2ptypes.Signer, registry commontypes.CapabilitiesRegistry, lggr logger.Logger) *dispatcher {
+func NewDispatcher(peerWrapper p2ptypes.PeerWrapper, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) *dispatcher {
 	return &dispatcher{
 		peerWrapper: peerWrapper,
 		signer:      signer,
@@ -117,7 +117,7 @@ func (d *dispatcher) receive() {
 				d.tryRespondWithError(msg.Sender, body, types.Error_VALIDATION_FAILED)
 				continue
 			}
-			k := key{body.CapabilityId, body.DonId}
+			k := key{body.CapabilityId, body.CapabilityDonId}
 			d.mu.RLock()
 			receiver, ok := d.receivers[k]
 			d.mu.RUnlock()

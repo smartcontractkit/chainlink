@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type nodeBatcher struct {
@@ -20,10 +19,10 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
 	// note backward compatibility -- this only ever supported evm chains
-	evmrelayIDs := make([]relay.ID, 0, len(keys))
+	evmrelayIDs := make([]types.RelayID, 0, len(keys))
 
 	for ix, key := range keys {
-		rid := relay.ID{Network: relay.EVM, ChainID: key.String()}
+		rid := types.RelayID{Network: types.NetworkEVM, ChainID: key.String()}
 		evmrelayIDs = append(evmrelayIDs, rid)
 		keyOrder[key.String()] = ix
 	}

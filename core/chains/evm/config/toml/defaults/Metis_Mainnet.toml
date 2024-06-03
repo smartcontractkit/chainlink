@@ -11,11 +11,6 @@ OCR.ContractConfirmations = 1
 Mode = 'SuggestedPrice'
 # Metis uses the SuggestedPrice estimator; we don't want to place any limits on the minimum gas price
 PriceMin = '0'
-# Never bump gas on metis
-BumpThreshold = 0
-
-[BalanceMonitor]
-Enabled = true
 
 [GasEstimator.BlockHistory]
 # Force an error if someone enables the estimator by accident; we never want to run the block history estimator on metisaa

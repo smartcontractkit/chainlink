@@ -598,7 +598,6 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// trying to send the transaction over again.
 		return fmt.Errorf("retryable error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), etx.ID, err), true
 	}
-
 }
 
 // Finds next transaction in the queue, assigns a sequence, and moves it to "in_progress" state ready for broadcast.
@@ -689,7 +688,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) save
 	// is relatively benign and probably nobody will ever run into it in
 	// practice, but something to be aware of.
 	if etx.PipelineTaskRunID.Valid && eb.resumeCallback != nil && etx.SignalCallback {
-		err := eb.resumeCallback(etx.PipelineTaskRunID.UUID, nil, fmt.Errorf("fatal error while sending transaction: %s", etx.Error.String))
+		err := eb.resumeCallback(ctx, etx.PipelineTaskRunID.UUID, nil, fmt.Errorf("fatal error while sending transaction: %s", etx.Error.String))
 		if errors.Is(err, sql.ErrNoRows) {
 			lgr.Debugw("callback missing or already resumed", "etxID", etx.ID)
 		} else if err != nil {

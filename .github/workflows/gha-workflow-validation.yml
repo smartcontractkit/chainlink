@@ -1,0 +1,31 @@
+name: GHA Workflow Validation
+
+on:
+  pull_request:
+
+jobs:
+
+  validate-worfklow-changes:
+    name: Validate Workflow Changes
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: GHA Workflow Validator
+        uses: smartcontractkit/.github/actions/gha-workflow-validator@7d4c3591affba99d0b073e527569ec6638518d41 # gha-workflow-validator@0.1.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: lint-gh-workflows
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Validate Workflow Changes
+        continue-on-error: true

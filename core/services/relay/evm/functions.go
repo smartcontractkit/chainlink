@@ -81,7 +81,7 @@ func (p *functionsProvider) Name() string {
 	return p.configWatcher.Name()
 }
 
-func (p *functionsProvider) ChainReader() commontypes.ChainReader {
+func (p *functionsProvider) ChainReader() commontypes.ContractReader {
 	return nil
 }
 
@@ -182,11 +182,10 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
 
-	scoped := configWatcher.chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, relayConfig.DefaultTransactionQueueDepth)
 
 	var checker txm.TransmitCheckerSpec
-	if configWatcher.chain.Config().OCR2().SimulateTransactions() {
+	if relayConfig.SimulateTransactions {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 

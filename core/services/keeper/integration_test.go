@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -176,6 +175,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := testutils.Context(t)
 			g := gomega.NewWithT(t)
 
 			// setup node key
@@ -247,16 +247,15 @@ func TestKeeperEthIntegration(t *testing.T) {
 				c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 				c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			})
-			scopedConfig := evmtest.NewChainScopedConfig(t, config)
-			korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+			korm := keeper.NewORM(db, logger.TestLogger(t))
 
 			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
-			require.NoError(t, app.Start(testutils.Context(t)))
+			require.NoError(t, app.Start(ctx))
 
 			// create job
 			regAddrEIP55 := evmtypes.EIP55AddressFromAddress(regAddr)
 			job := cltest.MustInsertKeeperJob(t, db, korm, nodeAddressEIP55, regAddrEIP55)
-			err = app.JobSpawner().StartService(testutils.Context(t), job)
+			err = app.JobSpawner().StartService(ctx, job)
 			require.NoError(t, err)
 
 			// keeper job is triggered and payload is received
@@ -285,7 +284,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			backend.Commit()
 
-			cltest.WaitForCount(t, app.GetSqlxDB(), "upkeep_registrations", 0)
+			cltest.WaitForCount(t, app.GetDB(), "upkeep_registrations", 0)
 
 			// add new upkeep (same target contract)
 			registrationTx, err = registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
@@ -309,11 +308,11 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 
 			var registry keeper.Registry
-			require.NoError(t, app.GetSqlxDB().Get(&registry, `SELECT * FROM keeper_registries`))
-			cltest.AssertRecordEventually(t, app.GetSqlxDB(), &registry, fmt.Sprintf("SELECT * FROM keeper_registries WHERE id = %d", registry.ID), func() bool {
+			require.NoError(t, app.GetDB().GetContext(ctx, &registry, `SELECT * FROM keeper_registries`))
+			cltest.AssertRecordEventually(t, app.GetDB(), &registry, fmt.Sprintf("SELECT * FROM keeper_registries WHERE id = %d", registry.ID), func() bool {
 				return registry.KeeperIndex == -1
 			})
-			runs, err := app.PipelineORM().GetAllRuns()
+			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(t, err)
 			// Since we set grace period to 0, we can have more than 1 pipeline run per perform
 			// This happens in case we start a pipeline run before previous perform tx is committed to chain
@@ -328,6 +327,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 func TestKeeperForwarderEthIntegration(t *testing.T) {
 	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		g := gomega.NewWithT(t)
 
 		// setup node key
@@ -407,18 +407,17 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
 			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})
-		scopedConfig := evmtest.NewChainScopedConfig(t, config)
-		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+		korm := keeper.NewORM(db, logger.TestLogger(t))
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
-		require.NoError(t, app.Start(testutils.Context(t)))
+		require.NoError(t, app.Start(ctx))
 
 		forwarderORM := forwarders.NewORM(db)
 		chainID := ubig.Big(*backend.ConfiguredChainID())
-		_, err = forwarderORM.CreateForwarder(testutils.Context(t), fwdrAddress, chainID)
+		_, err = forwarderORM.CreateForwarder(ctx, fwdrAddress, chainID)
 		require.NoError(t, err)
 
-		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(nodeAddress)
+		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(ctx, nodeAddress)
 		require.NoError(t, err)
 		require.Equal(t, addr, fwdrAddress)
 
@@ -436,7 +435,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			SchemaVersion:     1,
 			ForwardingAllowed: true,
 		}
-		err = app.JobORM().CreateJob(&jb)
+		err = app.JobORM().CreateJob(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
 		registry := keeper.Registry{
@@ -452,7 +451,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 				evmtypes.EIP55AddressFromAddress(nelly.From): 1,
 			},
 		}
-		err = korm.UpsertRegistry(&registry)
+		err = korm.UpsertRegistry(ctx, &registry)
 		require.NoError(t, err)
 
 		callOpts := bind.CallOpts{From: nodeAddress}
@@ -464,7 +463,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		}
 		require.Equal(t, lastKeeper(), common.Address{})
 
-		err = app.JobSpawner().StartService(testutils.Context(t), jb)
+		err = app.JobSpawner().StartService(ctx, jb)
 		require.NoError(t, err)
 
 		// keeper job is triggered and payload is received
@@ -483,6 +482,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 func TestMaxPerformDataSize(t *testing.T) {
 	t.Parallel()
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		maxPerformDataSize := 1000 // Will be set as config override
 		g := gomega.NewWithT(t)
 
@@ -551,16 +551,15 @@ func TestMaxPerformDataSize(t *testing.T) {
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 		})
-		scopedConfig := evmtest.NewChainScopedConfig(t, config)
-		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+		korm := keeper.NewORM(db, logger.TestLogger(t))
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
-		require.NoError(t, app.Start(testutils.Context(t)))
+		require.NoError(t, app.Start(ctx))
 
 		// create job
 		regAddrEIP55 := evmtypes.EIP55AddressFromAddress(regAddr)
 		job := cltest.MustInsertKeeperJob(t, db, korm, nodeAddressEIP55, regAddrEIP55)
-		err = app.JobSpawner().StartService(testutils.Context(t), job)
+		err = app.JobSpawner().StartService(ctx, job)
 		require.NoError(t, err)
 
 		// keeper job is triggered

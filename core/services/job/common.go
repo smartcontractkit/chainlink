@@ -3,8 +3,6 @@ package job
 import (
 	"context"
 	"net/url"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --quiet --name ServiceCtx --output ./mocks/ --case=underscore
@@ -22,7 +20,6 @@ type ServiceCtx interface {
 
 type Config interface {
 	URL() url.URL
-	pg.QConfig
 }
 
 // ServiceAdapter is a helper introduced for transitioning from Service to ServiceCtx.

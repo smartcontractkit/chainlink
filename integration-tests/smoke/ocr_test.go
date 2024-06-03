@@ -102,7 +102,7 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(network).
+		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.5)).

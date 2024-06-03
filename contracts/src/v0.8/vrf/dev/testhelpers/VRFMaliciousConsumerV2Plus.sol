@@ -19,7 +19,7 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   }
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+  function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
     s_gasAvailable = gasleft();
     s_randomWords = randomWords;
     s_requestId = requestId;

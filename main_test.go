@@ -43,6 +43,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestScripts(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testscript")
+	}
 	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {

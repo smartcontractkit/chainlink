@@ -19,8 +19,8 @@ type mockCapability struct {
 	capabilities.CapabilityInfo
 }
 
-func (m *mockCapability) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
-	return nil
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	return nil, nil
 }
 
 func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -140,7 +140,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "trigger",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				odt := triggers.NewOnDemand()
+				odt := triggers.NewOnDemand(logger.TestLogger(t))
 				info, err := odt.Info(ctx)
 				require.NoError(t, err)
 				return info.ID, reg.Add(ctx, odt)

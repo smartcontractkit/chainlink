@@ -24,7 +24,6 @@ import (
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -168,8 +167,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
-			orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
-			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
+			orm := bridges.NewORM(db)
+			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
 
 			task := pipeline.BridgeTask{
 				BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -177,8 +176,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 				RequestData: test.requestData,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -193,7 +192,6 @@ func TestHTTPTask_Variables(t *testing.T) {
 				if test.expectedErrorContains != "" {
 					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
 				}
-
 			} else {
 				require.NoError(t, result.Error)
 				require.NotNil(t, result.Value)

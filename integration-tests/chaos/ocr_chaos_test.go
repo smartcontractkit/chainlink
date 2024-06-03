@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -21,13 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -165,16 +164,11 @@ func TestOCRChaos(t *testing.T) {
 			require.NoError(t, err)
 
 			cfg := config.MustCopy().(tc.TestConfig)
-			readSethCfg := cfg.GetSethConfig()
-			require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
 			network := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())[0]
-			network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
+			network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
 
-			sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, network, *readSethCfg)
-			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-			require.NoError(t, err, "Error validating seth network config")
-			seth, err := seth.NewClientWithConfig(&sethCfg)
+			seth, err := actions_seth.GetChainClient(&cfg, network)
 			require.NoError(t, err, "Error creating seth client")
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
