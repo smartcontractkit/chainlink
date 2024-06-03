@@ -403,17 +403,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// avoid breaking changes when deprecating capabilities.
   /// @param nodes The nodes to add
   function addNodes(NodeInfo[] calldata nodes) external {
+    bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
       NodeInfo memory node = nodes[i];
-
-      bool isOwner = msg.sender == owner();
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (nodeOperator.admin == address(0)) revert NodeOperatorDoesNotExist(node.nodeOperatorId);
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      bool nodeExists = s_nodes[node.p2pId].signer != bytes32("");
-      if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+      if (s_nodes[node.p2pId].signer != bytes32("") || bytes32(node.p2pId) == bytes32(""))
+        revert InvalidNodeP2PId(node.p2pId);
 
       if (bytes32(node.signer) == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
 
@@ -447,13 +446,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       Node storage node = s_nodes[p2pId];
 
-      bool nodeExists = bytes32(node.signer) != bytes32("");
-      if (!nodeExists) revert InvalidNodeP2PId(p2pId);
+      if (bytes32(node.signer) == bytes32("")) revert InvalidNodeP2PId(p2pId);
       if (node.supportedDONIds.length() > 0) revert NodePartOfDON(p2pId);
 
-      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
-
-      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != s_nodeOperators[node.nodeOperatorId].admin) revert AccessForbidden();
       s_nodeSigners.remove(node.signer);
       s_nodeP2PIds.remove(node.p2pId);
       delete s_nodes[p2pId];
@@ -465,16 +461,14 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// and reconfigure its supported capabilities
   /// @param nodes The nodes to update
   function updateNodes(NodeInfo[] calldata nodes) external {
+    bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
       NodeInfo memory node = nodes[i];
-
-      bool isOwner = msg.sender == owner();
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
 
-      bool nodeExists = s_nodes[node.p2pId].signer != bytes32("");
-      if (!nodeExists) revert InvalidNodeP2PId(node.p2pId);
+      if (s_nodes[node.p2pId].signer == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
       if (
         bytes32(node.signer) == bytes32("") ||
@@ -510,8 +504,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node to query for
   /// @return NodeInfo The node data
   /// @return configCount The number of times the node has been configured
-  function getNode(bytes32 p2pId) external view returns (NodeInfo memory, uint32 configCount) {
-    return _getNode(p2pId);
+  function getNode(bytes32 p2pId) public view returns (NodeInfo memory, uint32 configCount) {
+    return (
+      NodeInfo({
+        nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
+        p2pId: s_nodes[p2pId].p2pId,
+        signer: s_nodes[p2pId].signer,
+        hashedCapabilityIds: s_nodes[p2pId].supportedCapabilityIds[s_nodes[p2pId].configCount].values()
+      }),
+      s_nodes[p2pId].configCount
+    );
   }
 
   /// @notice Gets all nodes
@@ -524,7 +526,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
     for (uint256 i; i < p2pIds.length; ++i) {
       bytes32 p2pId = p2pIds[i];
-      (NodeInfo memory node, uint32 configCount) = _getNode(p2pId);
+      (NodeInfo memory node, uint32 configCount) = getNode(p2pId);
       nodeInfo[i] = node;
       configCounts[i] = configCount;
     }
@@ -630,10 +632,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic
   ) external onlyOwner {
-    uint32 id = s_donId;
+    uint32 id = s_donId++;
     s_dons[id].id = id;
     _setDONConfig(id, 1, nodes, capabilityConfigurations, isPublic);
-    ++s_donId;
   }
 
   /// @notice Updates a DON's configuration.  This allows
@@ -801,22 +802,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         donId
       );
     }
-  }
-
-  /// @notice Gets a node's data
-  /// @param p2pId The P2P ID of the node to query for
-  /// @return NodeInfo The node data
-  /// @return configCount The number of times the node has been configured
-  function _getNode(bytes32 p2pId) internal view returns (NodeInfo memory, uint32 configCount) {
-    return (
-      NodeInfo({
-        nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
-        p2pId: s_nodes[p2pId].p2pId,
-        signer: s_nodes[p2pId].signer,
-        hashedCapabilityIds: s_nodes[p2pId].supportedCapabilityIds[s_nodes[p2pId].configCount].values()
-      }),
-      s_nodes[p2pId].configCount
-    );
   }
 
   /// @notice Sets a capability's data
