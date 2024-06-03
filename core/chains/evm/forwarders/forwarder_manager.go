@@ -43,7 +43,7 @@ type FwdMgr struct {
 	logpoller evmlogpoller.LogPoller
 
 	// TODO(samhassan): sendersCache should be an LRU capped cache
-	// https://app.shortcut.com/chainlinklabs/story/37884/forwarder-manager-uses-lru-for-caching-dest-addresses
+	// https://smartcontract-it.atlassian.net/browse/ARCHIVE-22505
 	sendersCache map[common.Address][]common.Address
 	latestBlock  int64
 

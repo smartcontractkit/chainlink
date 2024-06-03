@@ -116,7 +116,7 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 	case types.OCR2Keeper:
 		return validateOCR2KeeperSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.Functions:
-		// TODO validator for DR-OCR spec: https://app.shortcut.com/chainlinklabs/story/54054/ocr-plugin-for-directrequest-ocr
+		// TODO validator for DR-OCR spec: https://smartcontract-it.atlassian.net/browse/FUN-112
 		return nil
 	case types.Mercury:
 		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
