@@ -252,7 +252,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		tests.AssertLogEventually(t, ht.observer, "Got nil initial head")
 	})
 	t.Run("Starts even if fails to get finalizedHead", func(t *testing.T) {
-		ht := newHeadTracker(t, opts{})
+		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
 		head := testutils.Head(1000)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New("failed to load latest finalized")).Once()
