@@ -8,7 +8,6 @@ import (
 	"sort"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
@@ -321,20 +320,9 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 
 	parsableObservations := ccip.GetParsableObservations[ccip.CommitObservation](lggr, observations)
 
-	sortedLaneTokens, _, err := ccipcommon.GetFilteredSortedLaneTokens(ctx, r.offRampReader, r.destPriceRegistryReader, r.priceGetter)
-	if err != nil {
-		return false, nil, fmt.Errorf("get destination tokens: %w", err)
-	}
-
-	// Filters out parsable but faulty observations
-	validObservations, err := validateObservations(ctx, lggr, sortedLaneTokens, r.F, parsableObservations)
+	intervals, gasPriceObs, tokenPriceObs, err := extractObservationData(lggr, r.F, parsableObservations)
 	if err != nil {
 		return false, nil, err
-	}
-
-	var intervals []cciptypes.CommitStoreInterval
-	for _, obs := range validObservations {
-		intervals = append(intervals, obs.Interval)
 	}
 
 	agreedInterval, err := calculateIntervalConsensus(intervals, r.F, merklemulti.MaxNumberTreeLeaves)
@@ -342,12 +330,12 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 		return false, nil, err
 	}
 
-	tokenPrices, gasPrices, err := r.selectPriceUpdates(ctx, now, validObservations)
+	gasPrices, tokenPrices, err := r.selectPriceUpdates(ctx, now, gasPriceObs, tokenPriceObs)
 	if err != nil {
 		return false, nil, err
 	}
 	// If there are no fee updates and the interval is zero there is no report to produce.
-	if len(tokenPrices) == 0 && len(gasPrices) == 0 && agreedInterval.Max == 0 {
+	if agreedInterval.Max == 0 && len(gasPrices) == 0 && len(tokenPrices) == 0 {
 		lggr.Infow("Empty report, skipping")
 		return false, nil, nil
 	}
@@ -366,62 +354,11 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 		"merkleRoot", hex.EncodeToString(report.MerkleRoot[:]),
 		"minSeqNr", report.Interval.Min,
 		"maxSeqNr", report.Interval.Max,
-		"tokenPriceUpdates", report.TokenPrices,
 		"gasPriceUpdates", report.GasPrices,
+		"tokenPriceUpdates", report.TokenPrices,
 		"epochAndRound", epochAndRound,
 	)
 	return true, encodedReport, nil
-}
-
-// validateObservations validates the given observations.
-// An observation is rejected if any of its gas price or token price is nil. With current CommitObservation implementation, prices
-// are checked to ensure no nil values before adding to Observation, hence an observation that contains nil values comes from a faulty node.
-func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []cciptypes.Address, f int, observations []ccip.CommitObservation) (validObs []ccip.CommitObservation, err error) {
-	for _, obs := range observations {
-		// If gas price is reported as nil, the observation is faulty, skip the observation.
-		if obs.SourceGasPriceUSD == nil {
-			lggr.Warnw("Skipping observation due to nil SourceGasPriceUSD")
-			continue
-		}
-
-		// If observed number of token prices does not match number of supported tokens on dest chain, skip the observation.
-		if len(destTokens) != len(obs.TokenPricesUSD) {
-			lggr.Warnw("Skipping observation due to token count mismatch", "expecting", len(destTokens), "got", len(obs.TokenPricesUSD))
-			continue
-		}
-
-		destTokensSet := mapset.NewSet[cciptypes.Address](destTokens...)
-
-		// If any of the observed token prices is reported as nil, or not supported on dest chain, the observation is faulty, skip the observation.
-		// Printing all faulty prices instead of short-circuiting to make log more informative.
-		skipObservation := false
-		for token, price := range obs.TokenPricesUSD {
-			if price == nil {
-				lggr.Warnw("Nil value in observed TokenPricesUSD", "token", token)
-				skipObservation = true
-			}
-
-			if !destTokensSet.Contains(token) {
-				lggr.Warnw("Unsupported token in observed TokenPricesUSD",
-					"token", token,
-					"destTokens", destTokensSet.String())
-				skipObservation = true
-			}
-		}
-		if skipObservation {
-			lggr.Warnw("Skipping observation due to invalid TokenPricesUSD")
-			continue
-		}
-
-		validObs = append(validObs, obs)
-	}
-
-	// We require at least f+1 valid observations. This corresponds to the scenario where f of the 2f+1 are faulty.
-	if len(validObs) <= f {
-		return nil, errors.Errorf("Not enough valid observations to form consensus: #obs=%d, f=%d", len(validObs), f)
-	}
-
-	return validObs, nil
 }
 
 // calculateIntervalConsensus compresses a set of intervals into one interval
@@ -485,8 +422,52 @@ func calculateIntervalConsensus(intervals []cciptypes.CommitStoreInterval, f int
 	}, nil
 }
 
+// extractObservationData extracts observation fields into their own slices
+// and filters out observation data that are invalid
+func extractObservationData(lggr logger.Logger, f int, observations []ccip.CommitObservation) (intervals []cciptypes.CommitStoreInterval, gasPrices []*big.Int, tokenPrices map[cciptypes.Address][]*big.Int, err error) {
+	// We require at least f+1 observations to each consensus. Checking to ensure there are at least f+1 parsed observations.
+	if len(observations) <= f {
+		return nil, nil, nil, fmt.Errorf("not enough observations to form consensus: #obs=%d, f=%d", len(observations), f)
+	}
+
+	tokenPriceObservations := make(map[cciptypes.Address][]*big.Int)
+	for _, obs := range observations {
+		intervals = append(intervals, obs.Interval)
+
+		if obs.SourceGasPriceUSD != nil {
+			gasPrices = append(gasPrices, obs.SourceGasPriceUSD)
+		}
+
+		for token, price := range obs.TokenPricesUSD {
+			if price != nil {
+				tokenPriceObservations[token] = append(tokenPriceObservations[token], price)
+			}
+		}
+	}
+
+	// Observations are invalid if observed gas price is nil, we require at least f+1 valid observations.
+	if len(gasPrices) <= f {
+		return nil, nil, nil, fmt.Errorf("not enough valid observations with non-nil gas prices: #obs=%d, f=%d", len(gasPrices), f)
+	}
+
+	tokenPrices = make(map[cciptypes.Address][]*big.Int)
+	for token, tokenPriceObservations := range tokenPriceObservations {
+		// Token price is dropped if there are not enough valid observations. Depending on rollout status of job specs,
+		// it is possible for different nodes in the DON to observe different tokens. We can conclude a token should indeed
+		// be observed if there are at least f+1 valid observations.
+		if len(tokenPriceObservations) <= f {
+			lggr.Warnf("Skipping token %s due to not enough valid observations: #obs=%d, f=%d", string(token), len(tokenPriceObservations), f)
+			continue
+		}
+
+		tokenPrices[token] = tokenPriceObservations
+	}
+
+	return intervals, gasPrices, tokenPrices, nil
+}
+
 // selectPriceUpdates filters out gas and token price updates that are already inflight
-func (r *CommitReportingPlugin) selectPriceUpdates(ctx context.Context, now time.Time, observations []ccip.CommitObservation) ([]cciptypes.TokenPrice, []cciptypes.GasPrice, error) {
+func (r *CommitReportingPlugin) selectPriceUpdates(ctx context.Context, now time.Time, gasPriceObs []*big.Int, tokenPriceObs map[cciptypes.Address][]*big.Int) ([]cciptypes.GasPrice, []cciptypes.TokenPrice, error) {
 	latestGasPrice, err := r.getLatestGasPriceUpdate(ctx, now)
 	if err != nil {
 		return nil, nil, err
@@ -497,25 +478,14 @@ func (r *CommitReportingPlugin) selectPriceUpdates(ctx context.Context, now time
 		return nil, nil, err
 	}
 
-	return r.calculatePriceUpdates(observations, latestGasPrice, latestTokenPrices)
+	return r.calculatePriceUpdates(gasPriceObs, tokenPriceObs, latestGasPrice, latestTokenPrices)
 }
 
 // Note priceUpdates must be deterministic.
 // The provided latestTokenPrices should not contain nil values.
-func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.CommitObservation, latestGasPrice update, latestTokenPrices map[cciptypes.Address]update) ([]cciptypes.TokenPrice, []cciptypes.GasPrice, error) {
-	priceObservations := make(map[cciptypes.Address][]*big.Int)
-	var sourceGasObservations []*big.Int
-
-	for _, obs := range observations {
-		sourceGasObservations = append(sourceGasObservations, obs.SourceGasPriceUSD)
-		// iterate over any token which price is included in observations
-		for token, price := range obs.TokenPricesUSD {
-			priceObservations[token] = append(priceObservations[token], price)
-		}
-	}
-
+func (r *CommitReportingPlugin) calculatePriceUpdates(gasPriceObs []*big.Int, tokenPriceObs map[cciptypes.Address][]*big.Int, latestGasPrice update, latestTokenPrices map[cciptypes.Address]update) ([]cciptypes.GasPrice, []cciptypes.TokenPrice, error) {
 	var tokenPriceUpdates []cciptypes.TokenPrice
-	for token, tokenPriceObservations := range priceObservations {
+	for token, tokenPriceObservations := range tokenPriceObs {
 		medianPrice := ccipcalc.BigIntSortedMiddle(tokenPriceObservations)
 
 		latestTokenPrice, exists := latestTokenPrices[token]
@@ -540,13 +510,13 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.Commit
 		return tokenPriceUpdates[i].Token < tokenPriceUpdates[j].Token
 	})
 
-	newGasPrice, err := r.gasPriceEstimator.Median(sourceGasObservations) // Compute the median price
+	newGasPrice, err := r.gasPriceEstimator.Median(gasPriceObs) // Compute the median price
 	if err != nil {
 		return nil, nil, err
 	}
 	destChainSelector := r.sourceChainSelector // Assuming plugin lane is A->B, we write to B the gas price of A
 
-	var gasPrices []cciptypes.GasPrice
+	var gasPriceUpdate []cciptypes.GasPrice
 	// Default to updating so that we update if there are no prior updates.
 	shouldUpdate := true
 	if latestGasPrice.value != nil {
@@ -561,10 +531,10 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.Commit
 	}
 	if shouldUpdate {
 		// Although onchain interface accepts multi gas updates, we only do 1 gas price per report for now.
-		gasPrices = append(gasPrices, cciptypes.GasPrice{DestChainSelector: destChainSelector, Value: newGasPrice})
+		gasPriceUpdate = append(gasPriceUpdate, cciptypes.GasPrice{DestChainSelector: destChainSelector, Value: newGasPrice})
 	}
 
-	return tokenPriceUpdates, gasPrices, nil
+	return gasPriceUpdate, tokenPriceUpdates, nil
 }
 
 // buildReport assumes there is at least one message in reqs.
