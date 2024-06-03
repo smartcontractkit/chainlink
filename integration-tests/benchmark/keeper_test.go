@@ -2,6 +2,8 @@ package benchmark
 
 import (
 	"fmt"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"math/big"
 	"strings"
 	"testing"
@@ -322,7 +324,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 	l := logging.GetTestLogger(t)
 	testNetwork := networks.MustGetSelectedNetworkConfig(keeperTestConfig.GetNetworkConfig())[0] // Environment currently being used to run benchmark test on
 	blockTime := "1"
-	networkDetailTOML := `MinIncomingConfirmations = 1`
+	//networkDetailTOML := `MinIncomingConfirmations = 1`
 
 	numberOfNodes := *keeperTestConfig.GetKeeperConfig().Common.NumberOfNodes
 
@@ -355,7 +357,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 
 	// Test can run on simulated, simulated-non-dev, testnets
 	if testNetwork.Name == networks.SimulatedEVMNonDev.Name {
-		networkDetailTOML = simulatedEVMNonDevTOML
+		//networkDetailTOML = simulatedEVMNonDevTOML
 		testEnvironment.
 			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: testNetwork.Name,
@@ -447,8 +449,30 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 			ctf_config.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
 		}
 
+		nodeConfigInToml := keeperTestConfig.GetNodeConfig()
+
+		nodeConfig, _, err := node.BuildChainlinkNodeConfig(
+			[]blockchain.EVMNetwork{testNetwork},
+			nodeConfigInToml.BaseConfigTOML,
+			nodeConfigInToml.CommonChainConfigTOML,
+			nodeConfigInToml.ChainConfigTOMLByChainID,
+		)
+		require.NoError(t, err, "Error building node config")
+
+		if *keeperTestConfig.GetPyroscopeConfig().Enabled {
+			nodeConfig.Pyroscope.Environment = keeperTestConfig.GetPyroscopeConfig().Environment
+			nodeConfig.Pyroscope.ServerAddress = keeperTestConfig.GetPyroscopeConfig().ServerUrl
+		}
+
+		err = nodeConfig.Validate()
+		require.NoError(t, err, "Error validating node config")
+
+		asStr, err := toml.Marshal(nodeConfig)
+		require.NoError(t, err, "Error marshalling node config")
+
 		cd := chainlink.NewWithOverride(i, map[string]any{
-			"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, keeperTestConfig.GetPyroscopeConfig(), networkDetailTOML, testNetwork),
+			//"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, keeperTestConfig.GetPyroscopeConfig(), networkDetailTOML, testNetwork),
+			"toml":      asStr,
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
 		}, keeperTestConfig.GetChainlinkImageConfig(), overrideFn)
