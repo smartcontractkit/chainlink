@@ -1647,13 +1647,6 @@ func TestConfig_warnings(t *testing.T) {
 			},
 			expectedErrors: []string{"Tracing.TLSCertPath: invalid value (/path/to/cert.pem): must be empty when Tracing.Mode is 'unencrypted'"},
 		},
-		{
-			name: "Value warning - ChainType=xdai is deprecated",
-			config: Config{
-				EVM: evmcfg.EVMConfigs{{Chain: evmcfg.Chain{ChainType: commonconfig.NewChainTypeConfig("xdai")}}},
-			},
-			expectedErrors: []string{"EVM.ChainType: invalid value (xdai): deprecated and will be removed in v2.13.0, use 'gnosis' instead"},
-		},
 	}
 
 	for _, tt := range tests {
