@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/smartcontractkit/ccipocr3/internal/model"
 
@@ -18,6 +19,14 @@ var (
 )
 
 type CCIP interface {
+	// CommitReportsGTETimestamp reads the requested chain starting at a given timestamp
+	// and finds all ReportAccepted up to the provided limit.
+	CommitReportsGTETimestamp(ctx context.Context, dest model.ChainSelector, ts time.Time, limit int) ([]model.CommitPluginReportWithMeta, error)
+
+	// ExecutedMessageRanges reads the destination chain and finds which messages are executed.
+	// A slice of sequence number ranges is returned to express which messages are executed.
+	ExecutedMessageRanges(ctx context.Context, source, dest model.ChainSelector, seqNumRange model.SeqNumRange) ([]model.SeqNumRange, error)
+
 	// MsgsBetweenSeqNums reads the provided chains.
 	// Finds and returns ccip messages submitted between the provided sequence numbers.
 	// Messages are sorted ascending based on their timestamp and limited up to the provided limit.
@@ -25,6 +34,7 @@ type CCIP interface {
 
 	// NextSeqNum reads the destination chain.
 	// Returns the next expected sequence number for each one of the provided chains.
+	// TODO: if destination was a parameter, this could be a capability reused across plugin instances.
 	NextSeqNum(ctx context.Context, chains []model.ChainSelector) (seqNum []model.SeqNum, err error)
 
 	// GasPrices reads the provided chains gas prices.
@@ -37,6 +47,20 @@ type CCIP interface {
 type CCIPChainReader struct {
 	chainReaders map[model.ChainSelector]types.ChainReader
 	destChain    model.ChainSelector
+}
+
+func (r *CCIPChainReader) CommitReportsGTETimestamp(ctx context.Context, dest model.ChainSelector, ts time.Time, limit int) ([]model.CommitPluginReportWithMeta, error) {
+	if err := r.validateReaderExistence(dest); err != nil {
+		return nil, err
+	}
+	panic("implement me")
+}
+
+func (r *CCIPChainReader) ExecutedMessageRanges(ctx context.Context, source, dest model.ChainSelector, seqNumRange model.SeqNumRange) ([]model.SeqNumRange, error) {
+	if err := r.validateReaderExistence(source, dest); err != nil {
+		return nil, err
+	}
+	panic("implement me")
 }
 
 func (r *CCIPChainReader) MsgsBetweenSeqNums(ctx context.Context, chain model.ChainSelector, seqNumRange model.SeqNumRange) ([]model.CCIPMsg, error) {

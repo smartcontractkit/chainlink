@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -56,6 +57,17 @@ func (c CommitPluginConfig) Validate() error {
 	}
 
 	return nil
+}
+
+type ExecutePluginConfig struct {
+	// DestChain is the ccip destination chain configured for the execute DON.
+	DestChain ChainSelector
+
+	// ObserverInfo is a map of oracle IDs to ObserverInfo.
+	ObserverInfo map[commontypes.OracleID]ObserverInfo
+
+	// MessageVisibilityInterval is the time interval for which the messages are visible by the plugin.
+	MessageVisibilityInterval time.Duration
 }
 
 type ObserverInfo struct {

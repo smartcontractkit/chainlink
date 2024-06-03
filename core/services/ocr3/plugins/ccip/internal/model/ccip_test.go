@@ -36,6 +36,50 @@ func TestSeqNumRange(t *testing.T) {
 	})
 }
 
+func TestSeqNumRange_Overlap(t *testing.T) {
+	testCases := []struct {
+		name string
+		r1   SeqNumRange
+		r2   SeqNumRange
+		exp  bool
+	}{
+		{"OverlapMiddle", SeqNumRange{5, 10}, SeqNumRange{8, 12}, true},
+		{"OverlapStart", SeqNumRange{5, 10}, SeqNumRange{10, 15}, true},
+		{"OverlapEnd", SeqNumRange{5, 10}, SeqNumRange{0, 5}, true},
+		{"NoOverlapBefore", SeqNumRange{5, 10}, SeqNumRange{0, 4}, false},
+		{"NoOverlapAfter", SeqNumRange{5, 10}, SeqNumRange{11, 15}, false},
+		{"SameRange", SeqNumRange{5, 10}, SeqNumRange{5, 10}, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.exp, tc.r1.Overlaps(tc.r2))
+		})
+	}
+}
+
+func TestSeqNumRange_Contains(t *testing.T) {
+	tests := []struct {
+		name     string
+		r        SeqNumRange
+		seq      SeqNum
+		expected bool
+	}{
+		{"ContainsMiddle", SeqNumRange{5, 10}, SeqNum(7), true},
+		{"ContainsStart", SeqNumRange{5, 10}, SeqNum(5), true},
+		{"ContainsEnd", SeqNumRange{5, 10}, SeqNum(10), true},
+		{"BeforeRange", SeqNumRange{5, 10}, SeqNum(4), false},
+		{"AfterRange", SeqNumRange{5, 10}, SeqNum(11), false},
+		{"EmptyRange", SeqNumRange{5, 5}, SeqNum(5), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.r.Contains(tt.seq))
+		})
+	}
+}
+
 func TestChainSelector_String(t *testing.T) {
 	tests := []struct {
 		name     string
