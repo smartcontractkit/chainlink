@@ -113,7 +113,22 @@ func Test_ProperlyRecognizesPerLaneCurses(t *testing.T) {
 	assert.False(t, isCursed)
 }
 
-func setupOnRampV1_5_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) (common.Address, *mock_arm_contract.MockARMContract, common.Address) {
+// This is written to benchmark before and after the caching of StaticConfig and RMNContract
+func BenchmarkIsSourceCursedWithCache(b *testing.B) {
+	user, bc := ccipdata.NewSimulation(b)
+	ctx := testutils.Context(b)
+	destChainSelector := uint64(100)
+	onRampAddress, _, _ := setupOnRampV1_5_0(b, user, bc)
+
+	onRamp, err := NewOnRamp(logger.TestLogger(b), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(b), bc)
+	require.NoError(b, err)
+
+	for i := 0; i < b.N; i++ {
+		_, _ = onRamp.IsSourceCursed(ctx)
+	}
+}
+
+func setupOnRampV1_5_0(t testing.TB, user *bind.TransactOpts, bc *client.SimulatedBackendClient) (common.Address, *mock_arm_contract.MockARMContract, common.Address) {
 	rmnAddress, transaction, rmnContract, err := mock_arm_contract.DeployMockARMContract(user, bc)
 	bc.Commit()
 	require.NoError(t, err)
