@@ -5,14 +5,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-type chainWriterConfig struct {
-	c toml.ChainWriter
+type workflowConfig struct {
+	c toml.Workflow
 }
 
-func (b *chainWriterConfig) FromAddress() *types.EIP55Address {
+func (b *workflowConfig) FromAddress() *types.EIP55Address {
 	return b.c.FromAddress
 }
 
-func (b *chainWriterConfig) ForwarderAddress() *types.EIP55Address {
+func (b *workflowConfig) ForwarderAddress() *types.EIP55Address {
 	return b.c.ForwarderAddress
 }

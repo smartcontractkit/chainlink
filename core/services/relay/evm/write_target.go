@@ -24,7 +24,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	}
 
 	// EVM-specific init
-	config := chain.Config().EVM().ChainWriter()
+	config := chain.Config().EVM().Workflow()
 
 	// Initialize a reader to check whether a value was already transmitted on chain
 	contractReaderConfigEncoded, err := json.Marshal(relayevmtypes.ChainReaderConfig{

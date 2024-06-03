@@ -146,7 +146,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	}
 
 	// Initialize write target capability if configuration is defined
-	if chain.Config().EVM().ChainWriter().ForwarderAddress() != nil {
+	if chain.Config().EVM().Workflow().ForwarderAddress() != nil {
 		ctx := context.Background()
 		capability, err := NewWriteTarget(ctx, relayer, chain, lggr)
 		if err != nil {
