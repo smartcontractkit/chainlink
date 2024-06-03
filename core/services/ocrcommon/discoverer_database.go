@@ -22,12 +22,15 @@ const (
 	don2donDiscovererTable = "don2don_discoverer_announcements"
 )
 
+// DiscovererDatabase is a key-value store for p2p announcements
+// that are based on the RageP2P library and bootstrap nodes
 type DiscovererDatabase struct {
 	ds        sqlutil.DataSource
 	peerID    string
 	tableName string
 }
 
+// NewOCRDiscovererDatabase creates a new DiscovererDatabase for OCR announcements
 func NewOCRDiscovererDatabase(ds sqlutil.DataSource, peerID string) *DiscovererDatabase {
 	return &DiscovererDatabase{
 		ds:        ds,
@@ -36,6 +39,7 @@ func NewOCRDiscovererDatabase(ds sqlutil.DataSource, peerID string) *DiscovererD
 	}
 }
 
+// NewDON2DONDiscovererDatabase creates a new DiscovererDatabase for DON2DON announcements
 func NewDON2DONDiscovererDatabase(ds sqlutil.DataSource, peerID string) *DiscovererDatabase {
 	return &DiscovererDatabase{
 		ds:        ds,
