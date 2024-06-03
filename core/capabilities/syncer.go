@@ -76,16 +76,13 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 // that reads the configuration from chain (KS-117).
 func (s *registrySyncer) launch(ctx context.Context) {
 	defer s.wg.Done()
-	// NOTE: temporary hard-coded DONs
-
-	// NOTE: temporary hard-coded capabilities
 	capId := "streams-trigger"
 	triggerInfo, err := capabilities.NewRemoteCapabilityInfo(
 		capId,
 		capabilities.CapabilityTypeTrigger,
 		"Remote Trigger",
 		"v0.0.1",
-		s.networkSetup.TriggerCapabilityDonInfo(),
+		&s.networkSetup.TriggerCapabilityDonInfo,
 	)
 	if err != nil {
 		s.lggr.Errorw("failed to create capability info for streams-trigger", "error", err)
@@ -96,21 +93,21 @@ func (s *registrySyncer) launch(ctx context.Context) {
 	config := remotetypes.RemoteTriggerConfig{
 		RegistrationRefreshMs:   20000,
 		RegistrationExpiryMs:    60000,
-		MinResponsesToAggregate: uint32(s.networkSetup.TriggerCapabilityDonInfo().F) + 1,
+		MinResponsesToAggregate: uint32(s.networkSetup.TriggerCapabilityDonInfo.F) + 1,
 	}
 	if s.networkSetup.IsWorkflowDon(myId) {
 		s.lggr.Info("member of a workflow DON - starting remote subscribers")
 		codec := streams.NewCodec(s.lggr)
-		aggregator := triggers.NewMercuryRemoteAggregator(codec, hexStringsToBytes(s.networkSetup.TriggerDonSigners()), int(s.networkSetup.TriggerCapabilityDonInfo().F+1), s.lggr)
-		triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, *s.networkSetup.TriggerCapabilityDonInfo(), *s.networkSetup.WorkflowDonInfo(), s.dispatcher, aggregator, s.lggr)
+		aggregator := triggers.NewMercuryRemoteAggregator(codec, hexStringsToBytes(s.networkSetup.triggerDonSigners), int(s.networkSetup.TriggerCapabilityDonInfo.F+1), s.lggr)
+		triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, s.networkSetup.TriggerCapabilityDonInfo, s.networkSetup.WorkflowsDonInfo, s.dispatcher, aggregator, s.lggr)
 		err = s.registry.Add(ctx, triggerCap)
 		if err != nil {
 			s.lggr.Errorw("failed to add remote target capability to registry", "error", err)
 			return
 		}
-		err = s.dispatcher.SetReceiver(capId, s.networkSetup.TriggerCapabilityDonInfo().ID, triggerCap)
+		err = s.dispatcher.SetReceiver(capId, s.networkSetup.TriggerCapabilityDonInfo.ID, triggerCap)
 		if err != nil {
-			s.lggr.Errorw("workflow DON failed to set receiver", "capabilityId", capId, "donId", s.networkSetup.TriggerCapabilityDonInfo().ID, "error", err)
+			s.lggr.Errorw("workflow DON failed to set receiver", "capabilityId", capId, "donId", s.networkSetup.TriggerCapabilityDonInfo.ID, "error", err)
 			return
 		}
 		s.subServices = append(s.subServices, triggerCap)
@@ -149,12 +146,12 @@ func (s *registrySyncer) launch(ctx context.Context) {
 				continue
 			}
 			workflowDONs := map[string]capabilities.DON{
-				s.networkSetup.WorkflowDonInfo().ID: *s.networkSetup.WorkflowDonInfo(),
+				s.networkSetup.WorkflowsDonInfo.ID: s.networkSetup.WorkflowsDonInfo,
 			}
-			triggerCap := remote.NewTriggerPublisher(config, underlying, triggerInfo, *s.networkSetup.TriggerCapabilityDonInfo(), workflowDONs, s.dispatcher, s.lggr)
-			err = s.dispatcher.SetReceiver(capId, s.networkSetup.TriggerCapabilityDonInfo().ID, triggerCap)
+			triggerCap := remote.NewTriggerPublisher(config, underlying, triggerInfo, s.networkSetup.TriggerCapabilityDonInfo, workflowDONs, s.dispatcher, s.lggr)
+			err = s.dispatcher.SetReceiver(capId, s.networkSetup.TriggerCapabilityDonInfo.ID, triggerCap)
 			if err != nil {
-				s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", s.networkSetup.TriggerCapabilityDonInfo().ID, "error", err)
+				s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", s.networkSetup.TriggerCapabilityDonInfo.ID, "error", err)
 				return
 			}
 			s.subServices = append(s.subServices, triggerCap)
@@ -201,8 +198,8 @@ type HardcodedDonNetworkSetup struct {
 	triggerDonPeers   []string
 	triggerDonSigners []string
 
-	workflowsDonInfo         capabilities.DON
-	triggerCapabilityDonInfo capabilities.DON
+	WorkflowsDonInfo         capabilities.DON
+	TriggerCapabilityDonInfo capabilities.DON
 }
 
 func NewHardcodedDonNetworkSetup(peerWrapper p2ptypes.PeerWrapper) (HardcodedDonNetworkSetup, error) {
@@ -246,12 +243,12 @@ func NewHardcodedDonNetworkSetup(peerWrapper p2ptypes.PeerWrapper) (HardcodedDon
 		}
 		return nil
 	}
-	result.workflowsDonInfo = capabilities.DON{ID: "workflowDon1", F: 1}
-	if err := addPeersToDONInfo(result.workflowDonPeers, &result.workflowsDonInfo); err != nil {
+	result.WorkflowsDonInfo = capabilities.DON{ID: "workflowDon1", F: 1}
+	if err := addPeersToDONInfo(result.workflowDonPeers, &result.WorkflowsDonInfo); err != nil {
 		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to add peers to workflow DON info: %w", err)
 	}
-	result.triggerCapabilityDonInfo = capabilities.DON{ID: "capabilityDon1", F: 1} // NOTE: misconfiguration - should be 2
-	if err := addPeersToDONInfo(result.triggerDonPeers, &result.triggerCapabilityDonInfo); err != nil {
+	result.TriggerCapabilityDonInfo = capabilities.DON{ID: "capabilityDon1", F: 1} // NOTE: misconfiguration - should be 2
+	if err := addPeersToDONInfo(result.triggerDonPeers, &result.TriggerCapabilityDonInfo); err != nil {
 		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to add peers to trigger DON info: %w", err)
 	}
 	err := peerWrapper.GetPeer().UpdateConnections(allPeers)
@@ -268,26 +265,6 @@ func (h HardcodedDonNetworkSetup) IsWorkflowDon(id p2ptypes.PeerID) bool {
 
 func (h HardcodedDonNetworkSetup) IsTriggerDon(id p2ptypes.PeerID) bool {
 	return slices.Contains(h.triggerDonPeers, id.String())
-}
-
-func (h HardcodedDonNetworkSetup) TriggerDonSigners() []string {
-	return h.triggerDonSigners
-}
-
-func (h HardcodedDonNetworkSetup) TriggerDonPeers() []string {
-	return h.triggerDonPeers
-}
-
-func (h HardcodedDonNetworkSetup) WorkflowDonPeers() []string {
-	return h.workflowDonPeers
-}
-
-func (h HardcodedDonNetworkSetup) WorkflowDonInfo() *capabilities.DON {
-	return &h.workflowsDonInfo
-}
-
-func (h HardcodedDonNetworkSetup) TriggerCapabilityDonInfo() *capabilities.DON {
-	return &h.triggerCapabilityDonInfo
 }
 
 type mockMercuryDataProducer struct {

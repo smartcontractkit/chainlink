@@ -6,40 +6,32 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 // LocalTargetCapability handles the transmission protocol required for a target capability that exists in the same don as
 // the caller.
 type LocalTargetCapability struct {
-	peerID     p2ptypes.PeerID
-	don        capabilities.DON
-	underlying capabilities.TargetCapability
+	lggr logger.Logger
+	capabilities.TargetCapability
+	peerID p2ptypes.PeerID
+	don    capabilities.DON
 }
 
-func NewLocalTargetCapability(peerID p2ptypes.PeerID, don capabilities.DON, underlying capabilities.TargetCapability) *LocalTargetCapability {
+func NewLocalTargetCapability(lggr logger.Logger, peerID p2ptypes.PeerID, don capabilities.DON, underlying capabilities.TargetCapability) *LocalTargetCapability {
 	return &LocalTargetCapability{
-		peerID:     peerID,
-		don:        don,
-		underlying: underlying,
+		TargetCapability: underlying,
+		lggr:             lggr,
+		peerID:           peerID,
+		don:              don,
 	}
-}
-
-func (l *LocalTargetCapability) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
-	return l.underlying.Info(ctx)
-}
-
-func (l *LocalTargetCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
-	return l.underlying.RegisterToWorkflow(ctx, request)
-}
-
-func (l *LocalTargetCapability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
-	return l.underlying.UnregisterFromWorkflow(ctx, request)
 }
 
 func (l *LocalTargetCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	if req.Config == nil || req.Config.Underlying["schedule"] == nil {
-		return l.underlying.Execute(ctx, req)
+		l.lggr.Debug("no schedule found, executing immediately")
+		return l.TargetCapability.Execute(ctx, req)
 	}
 
 	tc, err := ExtractTransmissionConfig(req.Config)
@@ -62,6 +54,6 @@ func (l *LocalTargetCapability) Execute(ctx context.Context, req capabilities.Ca
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-time.After(delay):
-		return l.underlying.Execute(ctx, req)
+		return l.TargetCapability.Execute(ctx, req)
 	}
 }

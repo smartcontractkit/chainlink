@@ -217,9 +217,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if opts.CapabilitiesRegistry == nil {
 			peerID := externalPeerWrapper.GetPeer().ID()
 			if networkSetup.IsWorkflowDon(peerID) {
-				opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, peerID, *networkSetup.WorkflowDonInfo())
+				opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, peerID, networkSetup.WorkflowsDonInfo)
 			} else if networkSetup.IsTriggerDon(peerID) {
-				opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, peerID, *networkSetup.TriggerCapabilityDonInfo())
+				opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, peerID, networkSetup.TriggerCapabilityDonInfo)
 			} else {
 				return nil, fmt.Errorf("peer %s is not a member of any known DON", peerID)
 			}
