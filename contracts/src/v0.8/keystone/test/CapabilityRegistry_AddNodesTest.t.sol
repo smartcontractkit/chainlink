@@ -39,6 +39,28 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
     s_capabilityRegistry.addNodes(nodes);
   }
 
+  function test_RevertWhen_AddingNodeWithInvalidNodeOperator() public {
+    changePrank(ADMIN);
+    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](1);
+
+    bytes32[] memory hashedCapabilityIds = new bytes32[](1);
+    hashedCapabilityIds[0] = s_basicHashedCapabilityId;
+
+    uint32 invalidNodeOperatorId = 10000;
+
+    nodes[0] = CapabilityRegistry.NodeInfo({
+      nodeOperatorId: invalidNodeOperatorId, // Invalid NOP
+      p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(CapabilityRegistry.NodeOperatorDoesNotExist.selector, invalidNodeOperatorId)
+    );
+    s_capabilityRegistry.addNodes(nodes);
+  }
+
   function test_RevertWhen_SignerAddressEmpty() public {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
     CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](1);

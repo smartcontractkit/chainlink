@@ -7,7 +7,7 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
   event NodeOperatorUpdated(uint32 nodeOperatorId, address indexed admin, string name);
 
-  uint32 private constant TEST_NODE_OPERATOR_ID = 0;
+  uint32 private constant TEST_NODE_OPERATOR_ID = 1;
   address private constant NEW_NODE_OPERATOR_ADMIN = address(3);
   string private constant NEW_NODE_OPERATOR_NAME = "new-node-operator";
 
@@ -19,24 +19,40 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
 
   function test_RevertWhen_CalledByNonAdminAndNonOwner() public {
     changePrank(STRANGER);
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
 
     CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
     nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: NEW_NODE_OPERATOR_ADMIN, name: NEW_NODE_OPERATOR_NAME});
 
     uint32[] memory nodeOperatorIds = new uint32[](1);
     nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;
+
+    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
   }
 
   function test_RevertWhen_NodeOperatorAdminIsZeroAddress() public {
     changePrank(ADMIN);
-    vm.expectRevert(CapabilityRegistry.InvalidNodeOperatorAdmin.selector);
     CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
     nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: address(0), name: NEW_NODE_OPERATOR_NAME});
 
     uint32[] memory nodeOperatorIds = new uint32[](1);
     nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;
+
+    vm.expectRevert(CapabilityRegistry.InvalidNodeOperatorAdmin.selector);
+    s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
+  }
+
+  function test_RevertWhen_NodeOperatorDoesNotExist() public {
+    changePrank(ADMIN);
+    CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
+    nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: NEW_NODE_OPERATOR_ADMIN, name: NEW_NODE_OPERATOR_NAME});
+
+    uint32 invalidNodeOperatorId = 10000;
+    uint32[] memory nodeOperatorIds = new uint32[](1);
+    nodeOperatorIds[0] = invalidNodeOperatorId;
+    vm.expectRevert(
+      abi.encodeWithSelector(CapabilityRegistry.NodeOperatorDoesNotExist.selector, invalidNodeOperatorId)
+    );
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
   }
 
@@ -53,7 +69,7 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
     emit NodeOperatorUpdated(TEST_NODE_OPERATOR_ID, NEW_NODE_OPERATOR_ADMIN, NEW_NODE_OPERATOR_NAME);
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
 
-    CapabilityRegistry.NodeOperator memory nodeOperator = s_capabilityRegistry.getNodeOperator(0);
+    CapabilityRegistry.NodeOperator memory nodeOperator = s_capabilityRegistry.getNodeOperator(TEST_NODE_OPERATOR_ID);
     assertEq(nodeOperator.admin, NEW_NODE_OPERATOR_ADMIN);
     assertEq(nodeOperator.name, NEW_NODE_OPERATOR_NAME);
   }
