@@ -5,7 +5,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
-  event NodeOperatorUpdated(uint32 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorUpdated(uint32 indexed nodeOperatorId, address indexed admin, string name);
 
   uint32 private constant TEST_NODE_OPERATOR_ID = 1;
   address private constant NEW_NODE_OPERATOR_ADMIN = address(3);

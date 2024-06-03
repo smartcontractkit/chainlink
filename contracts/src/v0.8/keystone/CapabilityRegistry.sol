@@ -237,7 +237,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
   /// @param signer The encoded node's signer address
-  event NodeAdded(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
+  event NodeAdded(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
 
   /// @notice This event is emitted when a node is removed
   /// @param p2pId The P2P ID of the node that was removed
@@ -247,7 +247,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
   /// @param signer The node's signer address
-  event NodeUpdated(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
+  event NodeUpdated(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
 
   /// @notice This event is emitted when a DON's config is set
   /// @param donId The ID of the DON the config was set for
@@ -260,17 +260,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param admin The address of the admin that can manage the node
   /// operator
   /// @param name The human readable name of the node operator
-  event NodeOperatorAdded(uint32 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorAdded(uint32 indexed nodeOperatorId, address indexed admin, string name);
 
   /// @notice This event is emitted when a node operator is removed
   /// @param nodeOperatorId The ID of the node operator that was removed
-  event NodeOperatorRemoved(uint32 nodeOperatorId);
+  event NodeOperatorRemoved(uint32 indexed nodeOperatorId);
 
   /// @notice This event is emitted when a node operator is updated
   /// @param nodeOperatorId The ID of the node operator that was updated
   /// @param admin The address of the node operator's admin
   /// @param name The node operator's human readable name
-  event NodeOperatorUpdated(uint32 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorUpdated(uint32 indexed nodeOperatorId, address indexed admin, string name);
 
   /// @notice This event is emitted when a new capability is added
   /// @param hashedCapabilityId The hashed ID of the newly added capability
