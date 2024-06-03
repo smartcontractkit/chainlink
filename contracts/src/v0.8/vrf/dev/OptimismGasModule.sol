@@ -10,9 +10,9 @@ contract OptimismGasModule is IGasModule, ConfirmedOwner {
   // sets the mode for calculating L1 gas
   uint8 public s_l1_gas_calculation_mode;
 
-  /// @dev L1_FEE_DATA_PADDING includes 55 bytes for L1 data padding for Optimism
+  /// @dev L1_FEE_DATA_PADDING includes 71 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
-    hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   /// @dev OVM_GASPRICEORACLE_ADDR is the address of the OVM_GasPriceOracle precompile on Optimism.
   /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
@@ -21,10 +21,10 @@ contract OptimismGasModule is IGasModule, ConfirmedOwner {
   /// @dev L1BLOCK_ADDR is the address of the L1Block precompile on Optimism.
   address private constant L1BLOCK_ADDR = address(0x4200000000000000000000000000000000000015);
   L1Block private constant L1BLOCK = L1Block(L1BLOCK_ADDR);
-  uint256 private constant OP_L1_UNSIGNED_TX_PADDING = 55;
+  uint256 private constant OP_L1_UNSIGNED_TX_PADDING_BYTES = 71;
   /// @dev sum of OP_L1_UNSIGNED_TX_PADDING and 68 bytes for the transaction signature
   /// @dev reference: https://github.com/ethereum-optimism/optimism/blob/233ede59d16cb01bdd8e7ff662a153a4c3178bdd/packages/contracts-bedrock/contracts/L2/GasPriceOracle.sol#L110
-  uint256 private constant OP_L1_TX_PADDING = OP_L1_UNSIGNED_TX_PADDING + 68;
+  uint256 private constant OP_L1_TX_PADDING_BYTES = OP_L1_UNSIGNED_TX_PADDING_BYTES + 68;
 
   error InvalidMode();
 
@@ -47,7 +47,7 @@ contract OptimismGasModule is IGasModule, ConfirmedOwner {
     } else if (s_l1_gas_calculation_mode == 1) {
       return _calculateOptimismL1DataFee(data.length);
     } else if (s_l1_gas_calculation_mode == 2) {
-      return GET_L1_FEE_UPPER_BOUND_CLIENT.getL1FeeUpperBound(data.length + OP_L1_UNSIGNED_TX_PADDING);
+      return GET_L1_FEE_UPPER_BOUND_CLIENT.getL1FeeUpperBound(data.length + OP_L1_UNSIGNED_TX_PADDING_BYTES);
     }
     revert InvalidMode();
   }
