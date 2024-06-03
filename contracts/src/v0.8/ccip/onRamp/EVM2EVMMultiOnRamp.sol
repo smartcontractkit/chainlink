@@ -63,8 +63,10 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event NopPaid(address indexed nop, uint256 amount);
   event PremiumMultiplierWeiPerEthUpdated(address indexed token, uint64 premiumMultiplierWeiPerEth);
-  event TokenTransferFeeConfigSet(TokenTransferFeeConfigArgs[] transferFeeConfig);
-  event TokenTransferFeeConfigDeleted(address[] tokens);
+  event TokenTransferFeeConfigUpdated(
+    uint64 indexed destChainSelector, address indexed token, TokenTransferFeeConfig tokenTransferFeeConfig
+  );
+  event TokenTransferFeeConfigDeleted(uint256 indexed destChainSelector, address indexed token);
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
   event CCIPSendRequested(Internal.EVM2EVMMessage message);
   event NopsSet(uint256 nopWeightsTotal, NopAndWeight[] nopsAndWeights);
@@ -109,17 +111,26 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     bool isEnabled; // ─────────────────╯ Whether this token has custom transfer fees
   }
 
-  /// @dev Same as TokenTransferFeeConfig
-  /// token included so that an array of these can be passed in to setTokenTransferFeeConfig
+  /// @dev Struct to hold the token transfer fee configurations for a token, same as TokenTransferFeeConfig but with the token address included so
+  /// that an array of these can be passed in the TokenTransferFeeConfigArgs struct to set the mapping
+  struct TokenTransferFeeConfigSingleTokenArgs {
+    address token; // Token address
+    TokenTransferFeeConfig tokenTransferFeeConfig; // struct to hold the transfer fee configuration for token transfers
+  }
+
+  /// @dev Struct to hold the token transfer fee configurations for a destination chain and a set of tokens. Same as TokenTransferFeeConfigSingleTokenArgs
+  /// but with the destChainSelector and an array of TokenTransferFeeConfigSingleTokenArgs included so that an array of these can be passed in the constructor
+  /// and the applyTokenTransferFeeConfigUpdates function
   struct TokenTransferFeeConfigArgs {
-    address token; // ──────────────────╮ Token address
-    uint32 minFeeUSDCents; //           │ Minimum fee to charge per token transfer, multiples of 0.01 USD
-    uint32 maxFeeUSDCents; //           │ Maximum fee to charge per token transfer, multiples of 0.01 USD
-    uint16 deciBps; // ─────────────────╯ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
-    uint32 destGasOverhead; // ─────────╮ Gas charged to execute the token transfer on the destination chain
-    //                                  │ Extra data availability bytes that are returned from the source pool and sent
-    uint32 destBytesOverhead; //        │ to the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
-    bool aggregateRateLimitEnabled; // ─╯ Whether this transfer token is to be included in Aggregate Rate Limiting
+    uint64 destChainSelector; // Destination chain selector
+    TokenTransferFeeConfigSingleTokenArgs[] tokenTransferFeeConfigs; // Array of token transfer fee configurations
+  }
+
+  /// @dev Struct to hold a pair of destination chain selector and token address so that an array of these can be passed in the
+  /// applyTokenTransferFeeConfigUpdates function to remove the token transfer fee configuration for a token
+  struct TokenTransferFeeConfigRemoveArgs {
+    uint64 destChainSelector; // ─╮ Destination chain selector
+    address token; // ────────────╯ Token address
   }
 
   /// @dev Struct to hold the dynamic configs for a destination chain
@@ -196,7 +207,8 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
   /// This should never be 0 once set, so it can be used as an isEnabled flag
   mapping(address token => uint64 premiumMultiplierWeiPerEth) internal s_premiumMultiplierWeiPerEth;
   /// @dev The token transfer fee config that can be set by the owner or fee admin
-  mapping(address token => TokenTransferFeeConfig tranferFeeConfig) internal s_tokenTransferFeeConfig;
+  mapping(uint64 destChainSelector => mapping(address token => TokenTransferFeeConfig tranferFeeConfig)) internal
+    s_tokenTransferFeeConfig;
 
   // STATE
   /// @dev The current nonce per sender.
@@ -230,7 +242,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     _setDynamicConfig(dynamicConfig);
     _applyDestChainConfigUpdates(destChainConfigArgs);
     _applyPremiumMultiplierWeiPerEthUpdates(premiumMultiplierWeiPerEthArgs);
-    _setTokenTransferFeeConfig(tokenTransferFeeConfigArgs, new address[](0));
+    _applyTokenTransferFeeConfigUpdates(tokenTransferFeeConfigArgs, new TokenTransferFeeConfigRemoveArgs[](0));
     _setNops(nopsAndWeights);
   }
 
@@ -296,7 +308,8 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
       // extraData and offchainData, this caps the worst case abuse to the number of bytes reserved for offchainData.
       if (
         poolReturnData.destPoolData.length > Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
-          && poolReturnData.destPoolData.length > s_tokenTransferFeeConfig[tokenAndAmount.token].destBytesOverhead
+          && poolReturnData.destPoolData.length
+            > s_tokenTransferFeeConfig[destChainSelector][tokenAndAmount.token].destBytesOverhead
       ) {
         revert SourceTokenDataTooLarge(tokenAndAmount.token);
       }
@@ -354,7 +367,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
       uint256 value;
       for (uint256 i = 0; i < numberOfTokens; ++i) {
         if (message.tokenAmounts[i].amount == 0) revert CannotSendZeroTokens();
-        if (s_tokenTransferFeeConfig[message.tokenAmounts[i].token].aggregateRateLimitEnabled) {
+        if (s_tokenTransferFeeConfig[destChainSelector][message.tokenAmounts[i].token].aggregateRateLimitEnabled) {
           value += _getTokenValue(message.tokenAmounts[i], IPriceRegistry(s_dynamicConfig.priceRegistry));
         }
       }
@@ -628,7 +641,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
         revert UnsupportedToken(tokenAmount.token);
       }
 
-      TokenTransferFeeConfig memory transferFeeConfig = s_tokenTransferFeeConfig[tokenAmount.token];
+      TokenTransferFeeConfig memory transferFeeConfig = s_tokenTransferFeeConfig[destChainSelector][tokenAmount.token];
 
       // If the token has no specific overrides configured, we use the global defaults.
       if (!transferFeeConfig.isEnabled) {
@@ -761,54 +774,55 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
   }
 
   /// @notice Gets the transfer fee config for a given token.
-  function getTokenTransferFeeConfig(address token)
-    external
-    view
-    returns (TokenTransferFeeConfig memory tokenTransferFeeConfig)
-  {
-    return s_tokenTransferFeeConfig[token];
+  /// @param destChainSelector The destination chain selector.
+  /// @param token The token address.
+  function getTokenTransferFeeConfig(
+    uint64 destChainSelector,
+    address token
+  ) external view returns (TokenTransferFeeConfig memory tokenTransferFeeConfig) {
+    return s_tokenTransferFeeConfig[destChainSelector][token];
   }
 
   /// @notice Sets the transfer fee config.
   /// @dev only callable by the owner or admin.
-  function setTokenTransferFeeConfig(
+  function applyTokenTransferFeeConfigUpdates(
     TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
-    address[] memory tokensToUseDefaultFeeConfigs
+    TokenTransferFeeConfigRemoveArgs[] memory tokensToUseDefaultFeeConfigs
   ) external {
     _onlyOwnerOrAdmin();
-    _setTokenTransferFeeConfig(tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs);
+    _applyTokenTransferFeeConfigUpdates(tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs);
   }
 
   /// @notice internal helper to set the token transfer fee config.
-  function _setTokenTransferFeeConfig(
+  function _applyTokenTransferFeeConfigUpdates(
     TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
-    address[] memory tokensToUseDefaultFeeConfigs
+    TokenTransferFeeConfigRemoveArgs[] memory tokensToUseDefaultFeeConfigs
   ) internal {
     for (uint256 i = 0; i < tokenTransferFeeConfigArgs.length; ++i) {
-      TokenTransferFeeConfigArgs memory configArg = tokenTransferFeeConfigArgs[i];
+      TokenTransferFeeConfigArgs memory tokenTransferFeeConfigArg = tokenTransferFeeConfigArgs[i];
+      uint64 destChainSelector = tokenTransferFeeConfigArg.destChainSelector;
 
-      if (configArg.destBytesOverhead < Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES) {
-        revert InvalidDestBytesOverhead(configArg.token, configArg.destBytesOverhead);
+      for (uint256 j = 0; j < tokenTransferFeeConfigArg.tokenTransferFeeConfigs.length; ++j) {
+        TokenTransferFeeConfig memory tokenTransferFeeConfig =
+          tokenTransferFeeConfigArg.tokenTransferFeeConfigs[j].tokenTransferFeeConfig;
+        address token = tokenTransferFeeConfigArg.tokenTransferFeeConfigs[j].token;
+
+        if (tokenTransferFeeConfig.destBytesOverhead < Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES) {
+          revert InvalidDestBytesOverhead(token, tokenTransferFeeConfig.destBytesOverhead);
+        }
+
+        s_tokenTransferFeeConfig[destChainSelector][token] = tokenTransferFeeConfig;
+
+        emit TokenTransferFeeConfigUpdated(destChainSelector, token, tokenTransferFeeConfig);
       }
-
-      s_tokenTransferFeeConfig[configArg.token] = TokenTransferFeeConfig({
-        minFeeUSDCents: configArg.minFeeUSDCents,
-        maxFeeUSDCents: configArg.maxFeeUSDCents,
-        deciBps: configArg.deciBps,
-        destGasOverhead: configArg.destGasOverhead,
-        destBytesOverhead: configArg.destBytesOverhead,
-        aggregateRateLimitEnabled: configArg.aggregateRateLimitEnabled,
-        isEnabled: true
-      });
     }
-    emit TokenTransferFeeConfigSet(tokenTransferFeeConfigArgs);
 
     // Remove the custom fee configs for the tokens that are in the tokensToUseDefaultFeeConfigs array
     for (uint256 i = 0; i < tokensToUseDefaultFeeConfigs.length; ++i) {
-      delete s_tokenTransferFeeConfig[tokensToUseDefaultFeeConfigs[i]];
-    }
-    if (tokensToUseDefaultFeeConfigs.length > 0) {
-      emit TokenTransferFeeConfigDeleted(tokensToUseDefaultFeeConfigs);
+      uint64 destChainSelector = tokensToUseDefaultFeeConfigs[i].destChainSelector;
+      address token = tokensToUseDefaultFeeConfigs[i].token;
+      delete s_tokenTransferFeeConfig[destChainSelector][token];
+      emit TokenTransferFeeConfigDeleted(destChainSelector, token);
     }
   }
 
