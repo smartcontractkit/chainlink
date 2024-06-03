@@ -15,9 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func TestChainScopedConfig(t *testing.T) {
@@ -335,37 +332,28 @@ func TestClientErrorsConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("EVM().NodePool().Errors()", func(t *testing.T) {
-		clientErrorsOverrides := func(c *chainlink.Config, s *chainlink.Secrets) {
+		cfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 			id := ubig.New(big.NewInt(rand.Int63()))
-			c.EVM[0] = &toml.EVMConfig{
-				ChainID: id,
-				Chain: toml.Defaults(id, &toml.Chain{
-					NodePool: toml.NodePool{
-						Errors: toml.ClientErrors{
-							NonceTooLow:                       ptr[string]("client error nonce too low"),
-							NonceTooHigh:                      ptr[string]("client error nonce too high"),
-							ReplacementTransactionUnderpriced: ptr[string]("client error replacement underpriced"),
-							LimitReached:                      ptr[string]("client error limit reached"),
-							TransactionAlreadyInMempool:       ptr[string]("client error transaction already in mempool"),
-							TerminallyUnderpriced:             ptr[string]("client error terminally underpriced"),
-							InsufficientEth:                   ptr[string]("client error insufficient eth"),
-							TxFeeExceedsCap:                   ptr[string]("client error tx fee exceeds cap"),
-							L2FeeTooLow:                       ptr[string]("client error l2 fee too low"),
-							L2FeeTooHigh:                      ptr[string]("client error l2 fee too high"),
-							L2Full:                            ptr[string]("client error l2 full"),
-							TransactionAlreadyMined:           ptr[string]("client error transaction already mined"),
-							Fatal:                             ptr[string]("client error fatal"),
-							ServiceUnavailable:                ptr[string]("client error service unavailable"),
-						},
-					},
-				}),
+			c.ChainID = id
+			c.NodePool = toml.NodePool{
+				Errors: toml.ClientErrors{
+					NonceTooLow:                       ptr("client error nonce too low"),
+					NonceTooHigh:                      ptr("client error nonce too high"),
+					ReplacementTransactionUnderpriced: ptr("client error replacement underpriced"),
+					LimitReached:                      ptr("client error limit reached"),
+					TransactionAlreadyInMempool:       ptr("client error transaction already in mempool"),
+					TerminallyUnderpriced:             ptr("client error terminally underpriced"),
+					InsufficientEth:                   ptr("client error insufficient eth"),
+					TxFeeExceedsCap:                   ptr("client error tx fee exceeds cap"),
+					L2FeeTooLow:                       ptr("client error l2 fee too low"),
+					L2FeeTooHigh:                      ptr("client error l2 fee too high"),
+					L2Full:                            ptr("client error l2 full"),
+					TransactionAlreadyMined:           ptr("client error transaction already mined"),
+					Fatal:                             ptr("client error fatal"),
+					ServiceUnavailable:                ptr("client error service unavailable"),
+				},
 			}
-		}
-
-		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			clientErrorsOverrides(c, s)
 		})
-		cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
 		errors := cfg.EVM().NodePool().Errors()
 		assert.Equal(t, "client error nonce too low", errors.NonceTooLow())
