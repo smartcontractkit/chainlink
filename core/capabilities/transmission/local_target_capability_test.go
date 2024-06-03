@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -24,6 +25,8 @@ func assertBetween(t *testing.T, got time.Duration, low time.Duration, high time
 func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 	var gotTime time.Time
 	var called bool
+
+	log := logger.TestLogger(t)
 
 	// Our capability has DONInfo == nil, so we'll treat it as a local
 	// capability and use the local DON Info to determine the transmission
@@ -143,7 +146,7 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 				},
 			}
 			peerID := ids[tc.position]
-			localTargetCapability := NewLocalTargetCapability(peerID, don, mt)
+			localTargetCapability := NewLocalTargetCapability(log, peerID, don, mt)
 
 			_, err = localTargetCapability.Execute(tests.Context(t), req)
 
