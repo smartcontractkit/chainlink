@@ -51,7 +51,8 @@ type PluginService[P grpcPlugin, S services.Service] struct {
 	testInterrupt chan func(*PluginService[P, S]) // tests only (via TestHook) to enable access to internals without racing
 }
 
-func (s *PluginService[P, S]) Init(pluginName string, p P, newService func(context.Context, any) (S, error), lggr logger.Logger, cmd func() *exec.Cmd, stopCh chan struct{}) {
+func (s *PluginService[P, S]) Init(pluginName string, p P, newService func(context.Context, any) (S, error),
+	lggr logger.Logger, cmd func() *exec.Cmd, stopCh chan struct{}) {
 	s.pluginName = pluginName
 	s.lggr = lggr
 	s.cmd = cmd

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	sctest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/capability/test"
 	ocr2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/reportingplugin/ocr2/test"
 	ocr3test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/reportingplugin/ocr3/test"
 	cciptest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip/test"
@@ -80,6 +81,19 @@ func main() {
 		})
 		lggr.Info("Done serving relayer")
 		os.Exit(0)
+
+	case loop.PluginStandardCapabilityName:
+		plugin.Serve(&plugin.ServeConfig{
+			HandshakeConfig: loop.StandardCapabilityHandshakeConfig(),
+			Plugins: map[string]plugin.Plugin{
+				loop.PluginStandardCapabilityName: &loop.StandardCapabilityLoop{
+					Logger:       lggr,
+					PluginServer: sctest.StandardCapabilityService{},
+					BrokerConfig: loop.BrokerConfig{Logger: lggr, StopCh: stopCh},
+				},
+			},
+			GRPCServer: grpcServer,
+		})
 
 	case loop.PluginMedianName:
 		plugin.Serve(&plugin.ServeConfig{

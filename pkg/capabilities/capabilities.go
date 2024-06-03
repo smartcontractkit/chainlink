@@ -7,8 +7,9 @@ import (
 	"regexp"
 	"time"
 
-	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"golang.org/x/mod/semver"
+
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )

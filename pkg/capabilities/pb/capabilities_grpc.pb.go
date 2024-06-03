@@ -455,3 +455,93 @@ var CallbackExecutable_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "capabilities/pb/capabilities.proto",
 }
+
+const (
+	StandardCapability_Initialise_FullMethodName = "/loop.StandardCapability/Initialise"
+)
+
+// StandardCapabilityClient is the client API for StandardCapability service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type StandardCapabilityClient interface {
+	Initialise(ctx context.Context, in *InitialiseRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type standardCapabilityClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewStandardCapabilityClient(cc grpc.ClientConnInterface) StandardCapabilityClient {
+	return &standardCapabilityClient{cc}
+}
+
+func (c *standardCapabilityClient) Initialise(ctx context.Context, in *InitialiseRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, StandardCapability_Initialise_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// StandardCapabilityServer is the server API for StandardCapability service.
+// All implementations must embed UnimplementedStandardCapabilityServer
+// for forward compatibility
+type StandardCapabilityServer interface {
+	Initialise(context.Context, *InitialiseRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedStandardCapabilityServer()
+}
+
+// UnimplementedStandardCapabilityServer must be embedded to have forward compatible implementations.
+type UnimplementedStandardCapabilityServer struct {
+}
+
+func (UnimplementedStandardCapabilityServer) Initialise(context.Context, *InitialiseRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Initialise not implemented")
+}
+func (UnimplementedStandardCapabilityServer) mustEmbedUnimplementedStandardCapabilityServer() {}
+
+// UnsafeStandardCapabilityServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to StandardCapabilityServer will
+// result in compilation errors.
+type UnsafeStandardCapabilityServer interface {
+	mustEmbedUnimplementedStandardCapabilityServer()
+}
+
+func RegisterStandardCapabilityServer(s grpc.ServiceRegistrar, srv StandardCapabilityServer) {
+	s.RegisterService(&StandardCapability_ServiceDesc, srv)
+}
+
+func _StandardCapability_Initialise_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InitialiseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StandardCapabilityServer).Initialise(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StandardCapability_Initialise_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StandardCapabilityServer).Initialise(ctx, req.(*InitialiseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// StandardCapability_ServiceDesc is the grpc.ServiceDesc for StandardCapability service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var StandardCapability_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "loop.StandardCapability",
+	HandlerType: (*StandardCapabilityServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Initialise",
+			Handler:    _StandardCapability_Initialise_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "capabilities/pb/capabilities.proto",
+}

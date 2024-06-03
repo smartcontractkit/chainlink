@@ -76,3 +76,17 @@ service CallbackExecutable {
   rpc UnregisterFromWorkflow (UnregisterFromWorkflowRequest) returns (google.protobuf.Empty) {}
   rpc Execute(CapabilityRequest) returns (stream ResponseMessage) {}
 }
+
+service StandardCapability {
+  rpc Initialise(InitialiseRequest) returns (google.protobuf.Empty) {}
+}
+
+message InitialiseRequest {
+  string config = 1;
+  uint32 error_log_id = 2;
+  uint32 pipeline_runner_id = 3;
+  uint32 telemetry_id = 4;
+  uint32 capRegistry_id = 5;
+  uint32 keyValueStore_id = 6;
+  uint32 relayer_set_id = 7;
+}
