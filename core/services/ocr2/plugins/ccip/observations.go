@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
@@ -98,19 +99,21 @@ func GetParsableObservations[O CommitObservation | ExecutionObservation](l logge
 
 		switch any(ob).(type) {
 		case CommitObservation:
-			obsJSON, err = commitObservationJSONBackComp(ao.Observation)
-			if err != nil {
+			commitObservation, err1 := commitObservationJSONBackComp(ao.Observation)
+			if err1 != nil {
 				l.Errorw("commit observation json backwards compatibility format failed", "err", err,
 					"observation", string(ao.Observation), "observer", ao.Observer)
 				continue
 			}
+			ob = any(commitObservation).(O)
+		default:
+			err = json.Unmarshal(obsJSON, &ob)
+			if err != nil {
+				l.Errorw("Received unmarshallable observation", "err", err, "observation", string(ao.Observation), "observer", ao.Observer)
+				continue
+			}
 		}
 
-		err = json.Unmarshal(obsJSON, &ob)
-		if err != nil {
-			l.Errorw("Received unmarshallable observation", "err", err, "observation", string(ao.Observation), "observer", ao.Observer)
-			continue
-		}
 		parseableObservations = append(parseableObservations, ob)
 		observers = append(observers, ao.Observer)
 	}
@@ -129,16 +132,16 @@ func GetParsableObservations[O CommitObservation | ExecutionObservation](l logge
 // Prior to cciptypes.Address we were using go-ethereum common.Address type which is
 // marshalled to lower-case while the string representation we used was eip55.
 // Nodes that run different ccip version should generate the same observations.
-func commitObservationJSONBackComp(obsJson []byte) ([]byte, error) {
+func commitObservationJSONBackComp(obsJson []byte) (CommitObservation, error) {
 	var obs CommitObservation
 	err := json.Unmarshal(obsJson, &obs)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal observation: %w", err)
+		return CommitObservation{}, fmt.Errorf("unmarshal observation: %w", err)
 	}
 	tokenPricesUSD := make(map[cciptypes.Address]*big.Int, len(obs.TokenPricesUSD))
 	for k, v := range obs.TokenPricesUSD {
 		tokenPricesUSD[ccipcalc.HexToAddress(string(k))] = v
 	}
 	obs.TokenPricesUSD = tokenPricesUSD
-	return json.Marshal(obs)
+	return obs, nil
 }
