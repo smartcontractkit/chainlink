@@ -27,8 +27,5 @@ lcov --remove $1 -o $2 \
   'src/v0.8/tests/MockV3Aggregator.sol' \
   'src/v0.8/ccip/applications/CCIPClientExample.sol' \
   'src/v0.8/ccip/pools/BurnWithFromMintTokenPool.sol' \
-  'src/v0.8/ccip/offRamp/EVM2EVMMultiOffRamp.sol' \
   'src/v0.8/ccip/onRamp/EVM2EVMMultiOnRamp.sol' \
-  'src/v0.8/ccip/offRamp/EVM2EVMMultiOffRamp.sol' \
-  'src/v0.8/ccip/MultiAggregateRateLimiter.sol' \
   --rc lcov_branch_coverage=1

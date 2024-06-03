@@ -3,16 +3,14 @@ pragma solidity 0.8.24;
 
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
-import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {EVM2EVMMultiOffRamp} from "../../offRamp/EVM2EVMMultiOffRamp.sol";
 import {IgnoreContractSize} from "./IgnoreContractSize.sol";
 
 contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
   constructor(
     StaticConfig memory staticConfig,
-    SourceChainConfigArgs[] memory sourceChainConfigs,
-    RateLimiter.Config memory rateLimiterConfig
-  ) EVM2EVMMultiOffRamp(staticConfig, sourceChainConfigs, rateLimiterConfig) {}
+    SourceChainConfigArgs[] memory sourceChainConfigs
+  ) EVM2EVMMultiOffRamp(staticConfig, sourceChainConfigs) {}
 
   function setExecutionStateHelper(
     uint64 sourceChainSelector,
