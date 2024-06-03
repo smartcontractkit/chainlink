@@ -697,10 +697,10 @@ func Test_FindTxWithIdempotencyKey(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	t.Run("returns sql no rows error if no results", func(t *testing.T) {
+	t.Run("returns nil error if no results", func(t *testing.T) {
 		idempotencyKey := "777"
 		etx, err := txStore.FindTxWithIdempotencyKey(testutils.Context(t), idempotencyKey, big.NewInt(0))
-		require.Error(t, err, sql.ErrNoRows)
+		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
 
