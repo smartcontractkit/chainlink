@@ -863,6 +863,11 @@ describe('LinkAvailableBalanceMonitor', () => {
       })
 
       it('should fund the appropriate addresses', async () => {
+        const ai1 = await labm.getAccountInfo(proxy1.address)
+        assert.equal(0, ai1.lastTopUpTimestamp.toNumber())
+        const ai4 = await labm.getAccountInfo(directTarget1.address)
+        assert.equal(0, ai4.lastTopUpTimestamp.toNumber())
+
         const tx = await labm.connect(keeperRegistry).topUp(watchListAddresses)
 
         await aggregator1.mock.linkAvailableForPayment.returns(twoLINK)
@@ -878,6 +883,8 @@ describe('LinkAvailableBalanceMonitor', () => {
           (await lt.balanceOf(aggregator1.address)).toBigInt(),
           twoLINK.toBigInt(),
         )
+        const targetInfo1 = await labm.getAccountInfo(proxy1.address)
+        assert.notEqual(0, targetInfo1.lastTopUpTimestamp.toNumber())
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
           .withArgs(aggregator2.address, twoLINK)
@@ -891,6 +898,8 @@ describe('LinkAvailableBalanceMonitor', () => {
           (await lt.balanceOf(directTarget1.address)).toBigInt(),
           twoLINK.toBigInt(),
         )
+        const targetInfo4 = await labm.getAccountInfo(directTarget1.address)
+        assert.notEqual(0, targetInfo4.lastTopUpTimestamp.toNumber())
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
           .withArgs(directTarget2.address, twoLINK)
@@ -936,6 +945,9 @@ describe('LinkAvailableBalanceMonitor', () => {
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
           .withArgs(aggregator1.address, oneLINK)
+        const targetInfo1 = await labm.getAccountInfo(proxy1.address)
+        assert.notEqual(0, targetInfo1.lastTopUpTimestamp.toNumber())
+
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
           .withArgs(directTarget1.address, oneLINK)
@@ -944,6 +956,8 @@ describe('LinkAvailableBalanceMonitor', () => {
         await expect(tx)
           .to.emit(labm, 'TopUpBlocked')
           .withArgs(directTarget2.address)
+        const targetInfo5 = await labm.getAccountInfo(directTarget2.address)
+        assert.equal(0, targetInfo5.lastTopUpTimestamp.toNumber())
       })
 
       it('should skip an address if the proxy is invalid and it is not a direct target', async () => {

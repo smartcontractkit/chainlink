@@ -266,7 +266,6 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
       address targetAddress = targetAddresses[idx];
       contractToFund = s_targets[targetAddress];
-      s_targets[targetAddress].lastTopUpTimestamp = uint56(block.timestamp);
 
       (bool fundingNeeded, address target) = _needsFunding(
         targetAddress,
@@ -278,13 +277,12 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
         bool success = i_linkToken.transfer(target, contractToFund.topUpAmount);
         if (success) {
           localBalance -= contractToFund.topUpAmount;
+          s_targets[targetAddress].lastTopUpTimestamp = uint56(block.timestamp);
           emit TopUpSucceeded(target, contractToFund.topUpAmount);
         } else {
-          s_targets[targetAddress].lastTopUpTimestamp = contractToFund.lastTopUpTimestamp; // should we update this?
           emit TopUpFailed(targetAddress);
         }
       } else {
-        s_targets[targetAddress].lastTopUpTimestamp = contractToFund.lastTopUpTimestamp; // should we update this?
         emit TopUpBlocked(targetAddress);
       }
     }
