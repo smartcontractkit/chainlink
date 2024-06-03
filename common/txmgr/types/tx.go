@@ -345,5 +345,4 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetChecker() (Transm
 type TxError interface {
 	error
 	IsFatal() bool
-	IsTerminallyStuck() bool
 }

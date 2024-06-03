@@ -675,8 +675,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransac
 	case TxFatalError:
 		// Use the TxError builder to classify the error message stored for the tx
 		txErr := b.newTxError(tx.GetError())
-		if txErr != nil && txErr.IsTerminallyStuck() {
-			// Return fatal for terminally stuck transactions
+		if txErr != nil && txErr.IsFatal() {
 			return commontypes.Fatal, tx.GetError()
 		}
 		// Return failed for all other tx's marked as FatalError
