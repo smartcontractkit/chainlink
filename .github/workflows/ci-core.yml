@@ -75,7 +75,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
           channel-id: "#team-core"
-          slack-message: "golangci-lint failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
+          slack-message: "golangci-lint failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
 
   core:
     env:
@@ -209,7 +209,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
           channel-id: "#topic-data-races"
-          slack-message: "Race tests failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
+          slack-message: "Race tests failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
       - name: Collect Path Output
         id: collect-path-output
         env:
